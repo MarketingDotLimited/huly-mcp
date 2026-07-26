@@ -1,5 +1,24 @@
 # @firfi/huly-mcp
 
+## 0.45.0
+
+### Minor Changes
+
+- e8dc993: Clarify upload source locations across file tools and add `read_attachment_content`, which returns supported images as a single MCP image block through native and proxy invocation with metadata-only structured content, bounded storage reads, redacted failures, CLI image descriptors, and a 4 MiB safety limit.
+- d38cf78: Add complete card-comment CRUD with friendly card-space and card locators, compatible Huly-native comment reads, markdown native-reference preservation, pagination, and actionable not-found errors.
+- bb3044d: Expose coherent card version metadata and truthful, deterministic, read-only card version history.
+
+### Patch Changes
+
+- 4170671: Decode deferred JSON-string `invoke_tool` arguments once at the proxy boundary, preserve malformed values for target-schema errors, and keep explicitly legacy HTTP requests on the SDK transport when they include `Mcp-Method`.
+- c2d4241: Expose deterministic label summaries on issue reads and filter issue lists by a case-insensitive human-readable label title.
+- 309223b: Create `schedule_todo` work slots with the authenticated user's native Planner identity, personal calendar, participant, event, visibility, and blocking fields, and return typed actionable failures when those prerequisites are unavailable.
+- 8041905: Load the full Huly client model, resolve workflow statuses and notification definitions from authoritative model space first, schema-parse model payloads, warn on compatible REST metadata fallbacks, and validate notification setting IDs when authoritative definitions are available.
+- e0859e5: Use Huly's native NoParent convention consistently when creating, moving, repairing, and filtering top-level issues while preserving parent sub-issue counts.
+- 4004f48: Express issue and issue-template estimates in Huly-native hours, report issue time in the same unit, attribute new reports to the authenticated employee, and leave issue time aggregates to Huly server triggers.
+- a0d8511: Keep activity reads usable when Huly returns partial or null optional metadata, and report malformed required activity fields as typed actionable errors.
+- 9553bc7: Parse date custom-field inputs into finite Unix-millisecond values before Huly writes, with strict documented ISO calendar-date and epoch-millisecond forms plus actionable typed failures for invalid values.
+
 ## 0.44.7
 
 ### Patch Changes
