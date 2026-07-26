@@ -1783,8 +1783,17 @@ describe("Huly Errors", () => {
           "saved-attachment:att-1"
         )
         expect(matchError(new DrawingNotFoundError({ drawingId: "drawing-1" }))).toBe("drawing:drawing-1")
-        expect(matchError(new CardSpaceNotFoundError({ identifier: "cs-1" }))).toBe("cardspace:cs-1")
-        expect(matchError(new CardNotFoundError({ identifier: "card-1", cardSpace: "cs-1" }))).toBe("card:card-1")
+        expect(
+          matchError(new CardSpaceNotFoundError({ identifier: CardSpaceIdentifier.make("cs-1") }))
+        ).toBe("cardspace:cs-1")
+        expect(
+          matchError(
+            new CardNotFoundError({
+              identifier: CardIdentifier.make("card-1"),
+              cardSpace: CardSpaceIdentifier.make("cs-1")
+            })
+          )
+        ).toBe("card:card-1")
         expect(
           matchError(
             new CardCommentNotFoundError({

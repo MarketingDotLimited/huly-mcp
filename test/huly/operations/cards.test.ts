@@ -8,6 +8,7 @@ import { expect } from "vitest"
 
 import { CardIdentifier, CardSpaceIdentifier, MasterTagIdentifier } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
+import { CardNotFoundError, HulyError } from "../../../src/huly/errors.js"
 import { cardPlugin, core } from "../../../src/huly/huly-plugins.js"
 import {
   createCard,
@@ -587,17 +588,41 @@ describe("createCard", () => {
       ])
     }))
 
-  it.effect("fails when the named parent card is not found", () =>
+  it.effect("reports the resolved card-space name when a parent is missing for a space ID locator", () =>
     Effect.gen(function*() {
       const err = yield* Effect.flip(
         createCard({
-          cardSpace: SPACE,
+          cardSpace: CardSpaceIdentifier.make("space-1"),
           type: MasterTagIdentifier.make("Document"),
           title: "Child",
           parent: CardIdentifier.make("Ghost parent")
         }).pipe(Effect.provide(buildLayer({ spaces: [makeSpace()], masterTags: [makeTag()], cards: [] })))
       )
-      expect(err._tag).toBe("CardNotFoundError")
+      expect(err).toEqual(
+        new CardNotFoundError({
+          identifier: CardIdentifier.make("Ghost parent"),
+          cardSpace: CardSpaceIdentifier.make("Cards")
+        })
+      )
+      expect(err.message).toBe("Card 'Ghost parent' not found in card space 'Cards'")
+    }))
+
+  it.effect("returns a typed boundary error when the resolved card-space name is invalid", () =>
+    Effect.gen(function*() {
+      const err = yield* Effect.flip(
+        createCard({
+          cardSpace: CardSpaceIdentifier.make("space-1"),
+          type: MasterTagIdentifier.make("Document"),
+          title: "Child",
+          parent: CardIdentifier.make("Ghost parent")
+        }).pipe(
+          Effect.provide(
+            buildLayer({ spaces: [makeSpace({ name: "" })], masterTags: [makeTag()], cards: [] })
+          )
+        )
+      )
+      expect(err).toBeInstanceOf(HulyError)
+      expect(err.message).toBe("Resolved card space has an invalid name")
     }))
 })
 

@@ -10,7 +10,7 @@ import { CardIdentifier, CardSpaceIdentifier, CommentId } from "../domain/schema
 export class CardSpaceNotFoundError extends Schema.TaggedError<CardSpaceNotFoundError>()(
   "CardSpaceNotFoundError",
   {
-    identifier: Schema.String
+    identifier: CardSpaceIdentifier
   }
 ) {
   override get message(): string {
@@ -21,8 +21,8 @@ export class CardSpaceNotFoundError extends Schema.TaggedError<CardSpaceNotFound
 export class CardNotFoundError extends Schema.TaggedError<CardNotFoundError>()(
   "CardNotFoundError",
   {
-    identifier: Schema.String,
-    cardSpace: Schema.String
+    identifier: CardIdentifier,
+    cardSpace: CardSpaceIdentifier
   }
 ) {
   override get message(): string {

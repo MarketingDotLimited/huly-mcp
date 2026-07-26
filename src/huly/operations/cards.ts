@@ -8,7 +8,7 @@ import {
   SortingOrder
 } from "@hcengineering/core"
 import { makeRank } from "@hcengineering/rank"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 
 import type {
   CardDetail,
@@ -30,9 +30,9 @@ import type {
   UpdateCardResult
 } from "../../domain/schemas/cards.js"
 import { UPDATE_CARD_FIELDS } from "../../domain/schemas/cards.js"
-import { CardId, CardSpaceId, MasterTagId } from "../../domain/schemas/shared.js"
+import { CardId, CardSpaceId, CardSpaceIdentifier, MasterTagId } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import { CardNotFoundError, CardSpaceNotFoundError } from "../errors.js"
+import { CardNotFoundError, CardSpaceNotFoundError, HulyError } from "../errors.js"
 import type { MasterTagNotFoundError, NoUpdateFieldsError } from "../errors.js"
 import { cardPlugin } from "../huly-plugins.js"
 import { fetchMasterTagsForSpace, findMasterTag, masterTagDisplayName } from "./card-master-tags.js"
@@ -61,6 +61,7 @@ type GetCardError =
 
 type CreateCardError =
   | HulyClientError
+  | HulyError
   | CardSpaceNotFoundError
   | MasterTagNotFoundError
   | CardNotFoundError
@@ -78,8 +79,20 @@ type DeleteCardError =
 
 // --- Helpers ---
 
+const parseResolvedCardSpaceIdentifier = (
+  cardSpace: HulyCardSpace
+): Effect.Effect<CardSpaceIdentifier, HulyError> =>
+  Schema.decodeUnknown(CardSpaceIdentifier)(cardSpace.name).pipe(
+    Effect.mapError((cause) =>
+      new HulyError({
+        message: "Resolved card space has an invalid name",
+        cause
+      })
+    )
+  )
+
 const findCardSpace = (
-  identifier: string
+  identifier: CardSpaceIdentifier
 ): Effect.Effect<
   { cardSpace: HulyCardSpace; client: HulyClient["Type"] },
   CardSpaceNotFoundError | HulyClientError,
@@ -103,7 +116,7 @@ const findCardSpace = (
   })
 
 export const findCardSpaceAndCard = (
-  params: { card: string; cardSpace: string }
+  params: Pick<GetCardParams, "card" | "cardSpace">
 ): Effect.Effect<
   { card: HulyCard; cardSpace: HulyCardSpace; client: HulyClient["Type"] },
   CardSpaceNotFoundError | CardNotFoundError | HulyClientError,
@@ -313,9 +326,10 @@ export const createCard = (
           { space: cardSpace._id, _id: toRef<HulyCard>(parentParam) }
         )
         if (parentCard === undefined) {
+          const resolvedCardSpaceIdentifier = yield* parseResolvedCardSpaceIdentifier(cardSpace)
           return yield* new CardNotFoundError({
             identifier: parentParam,
-            cardSpace: cardSpace.name
+            cardSpace: resolvedCardSpaceIdentifier
           })
         }
         return {

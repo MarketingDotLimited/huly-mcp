@@ -328,10 +328,15 @@ describe("card comment operations", () => {
       })
 
       expect(yield* Effect.exit(listCardComments(missingSpace).pipe(Effect.provide(makeLayer(state))))).toEqual(
-        Exit.fail(new CardSpaceNotFoundError({ identifier: "Missing" }))
+        Exit.fail(new CardSpaceNotFoundError({ identifier: missingSpace.cardSpace }))
       )
       expect(yield* Effect.exit(listCardComments(missingCard).pipe(Effect.provide(makeLayer(state))))).toEqual(
-        Exit.fail(new CardNotFoundError({ identifier: "Missing", cardSpace: "Product Strategy" }))
+        Exit.fail(
+          new CardNotFoundError({
+            identifier: missingCard.card,
+            cardSpace: missingCard.cardSpace
+          })
+        )
       )
       expect(yield* Effect.exit(deleteCardComment(missingComment).pipe(Effect.provide(makeLayer(state))))).toEqual(
         Exit.fail(
