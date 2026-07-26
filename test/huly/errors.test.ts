@@ -17,6 +17,8 @@ import {
 import {
   AssociationId,
   AttachmentId,
+  CardIdentifier,
+  CardSpaceIdentifier,
   CommentId,
   Count,
   DocId,
@@ -1786,9 +1788,9 @@ describe("Huly Errors", () => {
         expect(
           matchError(
             new CardCommentNotFoundError({
-              commentId: "comment-1",
-              card: "card-1",
-              cardSpace: "cs-1"
+              commentId: CommentId.make("comment-1"),
+              card: CardIdentifier.make("card-1"),
+              cardSpace: CardSpaceIdentifier.make("cs-1")
             })
           )
         ).toBe("card-comment:comment-1")

@@ -94,7 +94,7 @@ export type UpdateCardCommentResult = Schema.Schema.Type<typeof UpdateCardCommen
 export const DeleteCardCommentResultSchema = Schema.Struct({
   cardId: CardId,
   commentId: CommentId,
-  deleted: Schema.Boolean
+  deleted: Schema.Literal(true)
 })
 export type DeleteCardCommentResult = Schema.Schema.Type<typeof DeleteCardCommentResultSchema>
 

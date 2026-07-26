@@ -37,8 +37,11 @@ interface CardCommentTarget extends AttachedCommentTarget {
   readonly cardId: CardId
 }
 
+type CardCommentLocator = Pick<ListCardCommentsParams, "card" | "cardSpace">
+type CardCommentIdentity = Pick<DeleteCardCommentParams, "card" | "cardSpace" | "commentId">
+
 const resolveCardCommentTarget = (
-  params: { readonly card: string; readonly cardSpace: string }
+  params: CardCommentLocator
 ): Effect.Effect<CardCommentTarget, CardCommentError, HulyClient> =>
   Effect.gen(function*() {
     const { card, client } = yield* findCardSpaceAndCard(params)
@@ -77,7 +80,7 @@ export const addCardComment = (
   })
 
 const cardCommentNotFound = (
-  params: { readonly card: string; readonly cardSpace: string; readonly commentId: string }
+  params: CardCommentIdentity
 ) =>
 () =>
   new CardCommentNotFoundError({

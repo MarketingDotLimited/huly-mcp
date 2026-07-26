@@ -5,6 +5,8 @@
  */
 import { Schema } from "effect"
 
+import { CardIdentifier, CardSpaceIdentifier, CommentId } from "../domain/schemas/shared.js"
+
 export class CardSpaceNotFoundError extends Schema.TaggedError<CardSpaceNotFoundError>()(
   "CardSpaceNotFoundError",
   {
@@ -43,9 +45,9 @@ export class MasterTagNotFoundError extends Schema.TaggedError<MasterTagNotFound
 export class CardCommentNotFoundError extends Schema.TaggedError<CardCommentNotFoundError>()(
   "CardCommentNotFoundError",
   {
-    commentId: Schema.String,
-    card: Schema.String,
-    cardSpace: Schema.String
+    commentId: CommentId,
+    card: CardIdentifier,
+    cardSpace: CardSpaceIdentifier
   }
 ) {
   override get message(): string {

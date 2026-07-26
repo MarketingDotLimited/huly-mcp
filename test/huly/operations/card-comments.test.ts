@@ -1,11 +1,10 @@
-import { assertAt } from "../../../src/utils/assertions.js"
-/* eslint-disable no-restricted-syntax -- Huly SDK phantom refs are erased at runtime; these tests centralize fixture casts. */
 import { describe, it } from "@effect/vitest"
-import type { Card as HulyCard, CardSpace as HulyCardSpace } from "@hcengineering/card"
+import type { Card as HulyCard, CardSpace as HulyCardSpace, MasterTag } from "@hcengineering/card"
 import type { ChatMessage } from "@hcengineering/chunter"
 import type {
   AttachedData,
   AttachedDoc,
+  Blob,
   Class,
   Doc,
   DocumentQuery,
@@ -17,6 +16,7 @@ import type {
 import type { Layer } from "effect"
 import { Effect, Exit } from "effect"
 import { expect } from "vitest"
+import { assertAt } from "../../../src/utils/assertions.js"
 
 import {
   parseAddCardCommentParams,
@@ -34,81 +34,78 @@ import {
   updateCardComment
 } from "../../../src/huly/operations/card-comments.js"
 import { markdownToMarkupString, testMarkupUrlConfig } from "../../../src/huly/operations/markup.js"
-import { toRef } from "../../../src/huly/operations/sdk-boundary.js"
+import { toClassRef, toRef } from "../../../src/huly/operations/sdk-boundary.js"
 import { testWorkbenchUrlConfig } from "../../../src/huly/url-builders.js"
 import { corePersonId, findResult } from "../../helpers/huly-sdk.js"
 import { capturedMarkupReferenceNodes } from "../../helpers/markup-capture.js"
 
 const SPACE_ID = toRef<HulyCardSpace>("card-space-1")
-const CARD_CLASS = toRef<Class<HulyCard>>("master-tag-1")
+const CARD_CLASS = toRef<MasterTag>("master-tag-1")
 const personId = corePersonId("card-comment-person")
 
 interface CardCommentState {
   readonly cardSpaces: Array<HulyCardSpace>
   readonly cards: Array<HulyCard>
   readonly messages: Array<ChatMessage>
-  readonly updates: Array<{ readonly id: string; readonly operations: DocumentUpdate<ChatMessage> }>
+  readonly updatedIds: Array<Ref<ChatMessage>>
   readonly removals: Array<string>
   nextId: number
 }
 
-const cardSpace = (): HulyCardSpace =>
-  ({
-    _id: SPACE_ID,
-    _class: cardPlugin.class.CardSpace,
-    space: toRef<Space>("workspace"),
-    name: "Product Strategy",
-    description: "Card space",
-    private: false,
-    archived: false,
-    members: [],
-    types: [CARD_CLASS],
-    modifiedBy: personId,
-    modifiedOn: 0,
-    createdBy: personId,
-    createdOn: 0
-  }) as unknown as HulyCardSpace
+const cardSpace = (): HulyCardSpace => ({
+  _id: SPACE_ID,
+  _class: cardPlugin.class.CardSpace,
+  space: toRef<Space>("workspace"),
+  name: "Product Strategy",
+  description: "Card space",
+  private: false,
+  archived: false,
+  members: [],
+  types: [CARD_CLASS],
+  modifiedBy: personId,
+  modifiedOn: 0,
+  createdBy: personId,
+  createdOn: 0
+})
 
-const card = (): HulyCard =>
-  ({
-    _id: toRef<HulyCard>("card-1"),
-    _class: CARD_CLASS,
-    space: SPACE_ID,
-    title: "Decision Record",
-    content: "content-blob",
-    parent: null,
-    parentInfo: [],
-    children: 0,
-    blobs: {},
-    modifiedBy: personId,
-    modifiedOn: 0,
-    createdBy: personId,
-    createdOn: 0
-  }) as unknown as HulyCard
+const card = (): HulyCard => ({
+  _id: toRef<HulyCard>("card-1"),
+  _class: CARD_CLASS,
+  space: SPACE_ID,
+  title: "Decision Record",
+  content: toRef<Blob>("content-blob"),
+  parent: null,
+  parentInfo: [],
+  children: 0,
+  blobs: {},
+  rank: "0|aaa",
+  modifiedBy: personId,
+  modifiedOn: 0,
+  createdBy: personId,
+  createdOn: 0
+})
 
 const chatMessage = (
   id: string,
   body: string,
   overrides?: Partial<ChatMessage>
-): ChatMessage =>
-  ({
-    _id: toRef<ChatMessage>(id),
-    _class: chunter.class.ChatMessage,
-    space: SPACE_ID,
-    attachedTo: toRef<Doc>("card-1"),
-    attachedToClass: CARD_CLASS as unknown as Ref<Class<Doc>>,
-    collection: "comments",
-    message: markdownToMarkupString(body, testMarkupUrlConfig),
-    modifiedBy: personId,
-    modifiedOn: 1,
-    createdBy: personId,
-    createdOn: 1,
-    editedOn: undefined,
-    isPinned: false,
-    replies: 0,
-    reactions: 0,
-    ...overrides
-  }) as unknown as ChatMessage
+): ChatMessage => ({
+  _id: toRef<ChatMessage>(id),
+  _class: chunter.class.ChatMessage,
+  space: SPACE_ID,
+  attachedTo: toRef<Doc>("card-1"),
+  attachedToClass: toClassRef<Doc>(CARD_CLASS),
+  collection: "comments",
+  message: markdownToMarkupString(body, testMarkupUrlConfig),
+  modifiedBy: personId,
+  modifiedOn: 1,
+  createdBy: personId,
+  createdOn: 1,
+  isPinned: false,
+  replies: 0,
+  reactions: 0,
+  ...overrides
+})
 
 const matchesValue = (actual: unknown, expected: unknown): boolean => {
   if (typeof expected === "object" && expected !== null && "$in" in expected) {
@@ -118,17 +115,25 @@ const matchesValue = (actual: unknown, expected: unknown): boolean => {
   return actual === expected
 }
 
-const matchesQuery = (doc: Doc, query: DocumentQuery<Doc>): boolean =>
+const matchesQuery = <T extends Doc>(doc: T, query: DocumentQuery<T>): boolean =>
   Object.entries(query).every(([key, value]) => matchesValue(Reflect.get(doc, key), value))
 
-const docsForClass = (state: CardCommentState, classRef: Ref<Class<Doc>>): ReadonlyArray<Doc> =>
-  classRef === cardPlugin.class.CardSpace
+const docsForClass = <T extends Doc>(
+  state: CardCommentState,
+  classRef: Ref<Class<T>>
+): ReadonlyArray<T> => {
+  const docs: ReadonlyArray<Doc> = classRef === cardPlugin.class.CardSpace
     ? state.cardSpaces
     : classRef === cardPlugin.class.Card
     ? state.cards
     : classRef === chunter.class.ChatMessage
     ? state.messages
     : []
+  // Huly's runtime class ref selects the homogeneous fixture collection, but
+  // TypeScript cannot narrow the SDK's phantom generic from that equality.
+
+  return docs as ReadonlyArray<T>
+}
 
 const makeLayer = (state: CardCommentState): Layer.Layer<HulyClient> => {
   const findAll: HulyClientOperations["findAll"] = <T extends Doc>(
@@ -136,10 +141,10 @@ const makeLayer = (state: CardCommentState): Layer.Layer<HulyClient> => {
     query: DocumentQuery<T>,
     options?: FindOptions<T>
   ) => {
-    const docs = docsForClass(state, classRef as unknown as Ref<Class<Doc>>)
-      .filter((doc) => matchesQuery(doc, query as unknown as DocumentQuery<Doc>))
+    const docs = docsForClass(state, classRef)
+      .filter((doc) => matchesQuery(doc, query))
     const limit = options?.limit ?? docs.length
-    const page = findResult(docs.slice(0, limit) as Array<T>)
+    const page = findResult(docs.slice(0, limit))
     page.total = docs.length
     return Effect.succeed(page)
   }
@@ -160,15 +165,21 @@ const makeLayer = (state: CardCommentState): Layer.Layer<HulyClient> => {
   ) => {
     const next = id ?? toRef<P>(`created-${state.nextId++}`)
     if (classRef === chunter.class.ChatMessage) {
+      // HulyClient.addCollection pairs classRef with AttachedData<P>; this
+      // ChatMessage branch therefore receives ChatMessage attributes. Ref
+      // brands and generics are erased, so equality cannot narrow P, and the
+      // SDK exposes no runtime schema with which to build a type guard.
+      // eslint-disable-next-line no-restricted-syntax -- SDK contract establishes the erased generic relationship
+      const chatAttributes = attributes as unknown as AttachedData<ChatMessage>
       state.messages.push({
         ...chatMessage(String(next), ""),
-        _id: next as unknown as Ref<ChatMessage>,
+        _id: toRef<ChatMessage>(next),
         space,
-        attachedTo: attachedTo as unknown as Ref<Doc>,
-        attachedToClass: attachedToClass as unknown as Ref<Class<Doc>>,
+        attachedTo: toRef<Doc>(attachedTo),
+        attachedToClass: toClassRef<Doc>(attachedToClass),
         collection,
-        ...(attributes as unknown as AttachedData<ChatMessage>)
-      } as unknown as ChatMessage)
+        ...chatAttributes
+      })
     }
     return Effect.succeed(next)
   }
@@ -182,9 +193,8 @@ const makeLayer = (state: CardCommentState): Layer.Layer<HulyClient> => {
     if (classRef === chunter.class.ChatMessage) {
       const index = state.messages.findIndex((message) => String(message._id) === String(objectId))
       const message = assertAt(state.messages, index)
-      const chatOperations = operations as unknown as DocumentUpdate<ChatMessage>
-      state.updates.push({ id: String(objectId), operations: chatOperations })
-      state.messages[index] = { ...message, ...chatOperations }
+      state.updatedIds.push(toRef<ChatMessage>(objectId))
+      state.messages[index] = { ...message, ...operations }
     }
     return Effect.succeed([])
   }
@@ -217,7 +227,7 @@ const baseState = (): CardCommentState => ({
   cardSpaces: [cardSpace()],
   cards: [card()],
   messages: [],
-  updates: [],
+  updatedIds: [],
   removals: [],
   nextId: 1
 })
@@ -301,7 +311,7 @@ describe("card comment operations", () => {
 
       expect((yield* updateCardComment(updateParams).pipe(Effect.provide(makeLayer(state)))).updated).toBe(true)
       expect((yield* deleteCardComment(deleteParams).pipe(Effect.provide(makeLayer(state)))).deleted).toBe(true)
-      expect(state.updates).toHaveLength(1)
+      expect(state.updatedIds).toEqual(["comment-1"])
       expect(state.removals).toEqual(["comment-1"])
       expect(state.messages.map((message) => message._id)).toContain("foreign-comment")
     }))
@@ -326,17 +336,17 @@ describe("card comment operations", () => {
       expect(yield* Effect.exit(deleteCardComment(missingComment).pipe(Effect.provide(makeLayer(state))))).toEqual(
         Exit.fail(
           new CardCommentNotFoundError({
-            commentId: "missing",
-            card: "Decision Record",
-            cardSpace: "Product Strategy"
+            commentId: missingComment.commentId,
+            card: missingComment.card,
+            cardSpace: missingComment.cardSpace
           })
         )
       )
       expect(
         new CardCommentNotFoundError({
-          commentId: "missing",
-          card: "Decision Record",
-          cardSpace: "Product Strategy"
+          commentId: missingComment.commentId,
+          card: missingComment.card,
+          cardSpace: missingComment.cardSpace
         }).message
       ).toBe("Comment 'missing' not found on card 'Decision Record' in card space 'Product Strategy'")
     }))

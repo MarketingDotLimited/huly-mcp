@@ -1,8 +1,9 @@
 import { describe, it } from "@effect/vitest"
-import { Effect, Either } from "effect"
+import { Effect, Either, Schema } from "effect"
 import { expect } from "vitest"
 
 import {
+  DeleteCardCommentResultSchema,
   parseAddCardCommentParams,
   parseDeleteCardCommentParams,
   parseListCardCommentsParams,
@@ -69,4 +70,19 @@ describe("card comment schemas", () => {
         })
       ).toMatchObject({ commentId: "comment-1" })
     }))
+
+  it("accepts only true for a successful delete result", () => {
+    const decode = Schema.decodeUnknownEither(DeleteCardCommentResultSchema)
+
+    expect(Either.isRight(decode({
+      cardId: "card-1",
+      commentId: "comment-1",
+      deleted: true
+    }))).toBe(true)
+    expect(Either.isLeft(decode({
+      cardId: "card-1",
+      commentId: "comment-1",
+      deleted: false
+    }))).toBe(true)
+  })
 })
