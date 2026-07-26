@@ -7,7 +7,8 @@ import {
   Count,
   DEFAULT_LIMIT,
   LimitParam,
-  NonEmptyString
+  NonEmptyString,
+  Timestamp
 } from "./shared.js"
 
 export const CardVersionNumber = Schema.Number.pipe(
@@ -40,8 +41,8 @@ export const CardVersionSummarySchema = Schema.Struct({
   id: CardId,
   title: Schema.String,
   version: Schema.optionalWith(CardVersionMetadataSchema, { exact: true }),
-  modifiedOn: Schema.optionalWith(Schema.Number, { exact: true }),
-  createdOn: Schema.optionalWith(Schema.Number, { exact: true })
+  modifiedOn: Schema.optionalWith(Timestamp, { exact: true }),
+  createdOn: Schema.optionalWith(Timestamp, { exact: true })
 })
 export type CardVersionSummary = Schema.Schema.Type<typeof CardVersionSummarySchema>
 

@@ -293,20 +293,44 @@ cleanup_custom_field_date_artifacts() {
 }
 
 cleanup_card_version_artifacts() {
+  local cleanup_failed=0
   if [ -n "$CARD_UNVERSIONED_CLEANUP_ID" ]; then
+    local card_json cleanup_response cleanup_attempt
     card_json=$(json_string "$CARD_UNVERSIONED_CLEANUP_ID")
-    call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_card\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$card_json}},\"id\":2}" >/dev/null 2>&1 || true
+    for cleanup_attempt in 1 2 3; do
+      cleanup_response=$(call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_card\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$card_json}},\"id\":2}" 2>/dev/null) || continue
+      if printf '%s\n' "$cleanup_response" \
+        | jq -e '(.error == null) and (.result != null) and ((.result.isError // false) == false)' >/dev/null 2>&1; then
+        CARD_UNVERSIONED_CLEANUP_ID=""
+        break
+      fi
+    done
+    if [ -n "$CARD_UNVERSIONED_CLEANUP_ID" ]; then
+      echo "WARNING: unversioned card fixture cleanup failed after 3 attempts; retry marker retained" >&2
+      cleanup_failed=1
+    fi
   fi
   if [ -n "$CARD_VERSION_CLEANUP_BASE_ID" ]; then
-    pnpm exec tsx scripts/integration-card-version-history.ts \
-      --mode cleanup \
-      --cardSpace "Default" \
-      --baseId "$CARD_VERSION_CLEANUP_BASE_ID" >/dev/null 2>&1 || true
+    local version_cleanup_attempt
+    for version_cleanup_attempt in 1 2 3; do
+      if pnpm exec tsx scripts/integration-card-version-history.ts \
+        --mode cleanup \
+        --cardSpace "Default" \
+        --baseId "$CARD_VERSION_CLEANUP_BASE_ID" >/dev/null 2>&1; then
+        CARD_VERSION_CLEANUP_BASE_ID=""
+        break
+      fi
+    done
+    if [ -n "$CARD_VERSION_CLEANUP_BASE_ID" ]; then
+      echo "WARNING: card version fixture cleanup failed after 3 attempts; retry marker retained" >&2
+      cleanup_failed=1
+    fi
   fi
+  return "$cleanup_failed"
 }
 
 cleanup_all() {
-  cleanup_card_version_artifacts
+  cleanup_card_version_artifacts || true
   cleanup_custom_field_date_artifacts || true
   cleanup_board_artifacts || true
   cleanup_recruiting_artifacts || true
@@ -4421,9 +4445,10 @@ if [ -n "$DERIVED_CARD_TYPE_ID" ]; then
     else
       fail_test "seed absent/null-normalized card version metadata" "integration SDK fixture setup failed"
     fi
-    run_test "delete_card(unversioned fixture:$CARD_UNVERSIONED_ID)" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_card\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$CARD_UNVERSIONED_ID_JSON}},\"id\":2}"
-    CARD_UNVERSIONED_CLEANUP_ID=""
+    if run_test "delete_card(unversioned fixture:$CARD_UNVERSIONED_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_card\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$CARD_UNVERSIONED_ID_JSON}},\"id\":2}"; then
+      CARD_UNVERSIONED_CLEANUP_ID=""
+    fi
   else
     fail_test "create_card(unversioned fixture) returns id" "missing id"
   fi
@@ -4476,8 +4501,9 @@ if [ -n "$DERIVED_CARD_TYPE_ID" ]; then
       fail_test "seed card version history beyond default page" "integration SDK fixture setup failed"
     fi
 
-    cleanup_card_version_artifacts
-    CARD_VERSION_CLEANUP_BASE_ID=""
+    if ! cleanup_card_version_artifacts; then
+      fail_test "cleanup card version history fixtures" "cleanup failed after 3 attempts; exit trap will retry"
+    fi
     restart_http_transport_if_needed "after card version fixture cleanup" || exit 1
   else
     fail_test "create_card(version history base) returns id" "missing id"

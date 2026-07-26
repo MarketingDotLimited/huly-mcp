@@ -3,14 +3,15 @@ import type { Doc, Ref, VersionableDoc } from "@hcengineering/core"
 import { Effect, Option, Schema } from "effect"
 
 import type {
+  CardVersionChainId,
   CardVersionMetadata,
   CardVersionSummary,
   ListCardVersionsParams,
   ListCardVersionsResult
 } from "../../domain/schemas/card-versions.js"
 import { CardVersionMetadataSchema } from "../../domain/schemas/card-versions.js"
-import type { CardIdentifier } from "../../domain/schemas/shared.js"
-import { CardId, Count } from "../../domain/schemas/shared.js"
+import type { CardId, CardIdentifier, Timestamp as TimestampType } from "../../domain/schemas/shared.js"
+import { CardId as CardIdSchema, Count, Timestamp } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
 import { CardNotFoundError, CardSpaceNotFoundError, HulyError } from "../errors.js"
 import { cardPlugin } from "../huly-plugins.js"
@@ -20,6 +21,8 @@ import { toClassRef, toRef } from "./sdk-boundary.js"
 type VersionableCardDoc = HulyCard & VersionableDoc
 
 const optionalBoolean = (value: unknown): boolean | undefined => typeof value === "boolean" ? value : undefined
+const optionalTimestamp = (value: unknown): TimestampType | undefined =>
+  Option.getOrUndefined(Schema.decodeUnknownOption(Timestamp)(value))
 
 /**
  * Parse Huly's independently nullable VersionableDoc fields into one coherent
@@ -46,12 +49,14 @@ interface CardVersionEntry {
 
 const toEntry = (card: HulyCard): CardVersionEntry => {
   const metadata = cardVersionMetadata(card)
+  const modifiedOn = optionalTimestamp(card.modifiedOn)
+  const createdOn = optionalTimestamp(card.createdOn)
   const summary: CardVersionSummary = {
-    id: CardId.make(card._id),
+    id: CardIdSchema.make(card._id),
     title: card.title,
     ...(metadata === undefined ? {} : { version: metadata }),
-    modifiedOn: card.modifiedOn,
-    ...(card.createdOn === undefined ? {} : { createdOn: card.createdOn })
+    ...(modifiedOn === undefined ? {} : { modifiedOn }),
+    ...(createdOn === undefined ? {} : { createdOn })
   }
   return { card, metadata, summary }
 }
@@ -65,15 +70,16 @@ const compareOptionalNumber = (left: number | undefined, right: number | undefin
 const compareVersions = (left: CardVersionEntry, right: CardVersionEntry): number => {
   const numberOrder = compareOptionalNumber(left.metadata?.number, right.metadata?.number)
   if (numberOrder !== 0) return numberOrder
-  const createdOrder = compareOptionalNumber(left.card.createdOn, right.card.createdOn)
+  const createdOrder = compareOptionalNumber(left.summary.createdOn, right.summary.createdOn)
   if (createdOrder !== 0) return createdOrder
-  const modifiedOrder = compareOptionalNumber(left.card.modifiedOn, right.card.modifiedOn)
+  const modifiedOrder = compareOptionalNumber(left.summary.modifiedOn, right.summary.modifiedOn)
   return modifiedOrder !== 0
     ? modifiedOrder
     : String(left.card._id).localeCompare(String(right.card._id))
 }
 
-const versionIdentity = (entry: CardVersionEntry): string => entry.metadata?.chainId ?? String(entry.card._id)
+const versionIdentity = (entry: CardVersionEntry): CardVersionChainId | CardId =>
+  entry.metadata?.chainId ?? entry.summary.id
 
 const allVersionStates = { $in: [true, false] }
 
@@ -96,14 +102,17 @@ const resolveHistoryCard = (
       toClassRef<VersionableCardDoc>(cardPlugin.class.Card),
       hulyQuery<VersionableCardDoc>({ space, title: identifier, isLatest: allVersionStates })
     )
-    const titleMatches = versionedTitleMatches.length > 0
-      ? versionedTitleMatches
-      : yield* client.findAll<HulyCard>(
-        cardPlugin.class.Card,
-        // _id exists on every stored card and suppresses VersioningMiddleware's
-        // implicit latest-only predicate, including for null legacy fields.
-        hulyQuery<HulyCard>({ space, title: identifier, _id: { $exists: true } })
-      )
+    const allRuntimeTitleMatches = yield* client.findAll<HulyCard>(
+      cardPlugin.class.Card,
+      // _id exists on every stored card and suppresses VersioningMiddleware's
+      // implicit latest-only predicate, including for null legacy fields.
+      hulyQuery<HulyCard>({ space, title: identifier, _id: { $exists: true } })
+    )
+    const titleMatches = [
+      ...new Map(
+        [...versionedTitleMatches, ...allRuntimeTitleMatches].map((card) => [card._id, card] as const)
+      ).values()
+    ]
     if (titleMatches.length === 0) {
       return yield* new CardNotFoundError({ identifier, cardSpace: cardSpaceIdentifier })
     }

@@ -644,6 +644,40 @@ describe("listCardVersions", () => {
       expect(ambiguousTitle.message).toContain("use a card ID")
     }))
 
+  it.effect("rejects mixed coherent and partial version chains sharing one exact title", () =>
+    Effect.gen(function*() {
+      const captures: Captures = { findAllCalls: [] }
+      const coherent = versionCard("chain-1", 1, { title: "Shared title" })
+      const partial = makeVersionableCard({
+        _id: "partial-card" as Ref<HulyCard>,
+        title: "Shared title",
+        baseId: "chain-2" as Ref<Doc>,
+        version: null
+      })
+      const error = yield* Effect.flip(
+        listCardVersions({
+          cardSpace: SPACE,
+          card: CardIdentifier.make("Shared title")
+        }).pipe(Effect.provide(buildLayer({
+          spaces: [makeSpace()],
+          cards: [coherent, partial],
+          captures,
+          simulateVersionMiddleware: true
+        })))
+      )
+
+      expect(error).toBeInstanceOf(HulyError)
+      expect(error.message).toContain("matches 2 version chains")
+      expect(captures.findAllCalls).toContainEqual({
+        class: cardPlugin.class.Card,
+        query: {
+          space: SPACE_ID,
+          title: "Shared title",
+          _id: { $exists: true }
+        }
+      })
+    }))
+
   it.effect("resolves an older version by ID while bypassing latest-only middleware filtering", () =>
     Effect.gen(function*() {
       const captures: Captures = { findAllCalls: [] }
@@ -729,6 +763,11 @@ describe("listCardVersions", () => {
         ...versionCard("missing-created-b", 4, { version: null, modifiedOn: 2 }),
         createdOn: undefined
       } as unknown as HulyCard
+      const invalidTimestamps = {
+        ...versionCard("invalid-timestamps", 4, { version: null }),
+        createdOn: -1,
+        modifiedOn: 1.5
+      } as unknown as HulyCard
       const result = yield* listCardVersions({
         cardSpace: SPACE,
         card: CardIdentifier.make("chain-1")
@@ -737,6 +776,7 @@ describe("listCardVersions", () => {
         cards: [
           missingCreatedA,
           missingCreatedB,
+          invalidTimestamps,
           malformed,
           versionCard("chain-1", 1),
           versionCard("z", 2, { createdOn: 8, modifiedOn: 3 }),
@@ -756,10 +796,12 @@ describe("listCardVersions", () => {
         "malformed",
         "trailing-malformed",
         "missing-created-b",
-        "missing-created-a"
+        "missing-created-a",
+        "invalid-timestamps"
       ])
       expect(result.versions.at(-1)?.version).toBeUndefined()
       expect(result.versions.at(-1)?.createdOn).toBeUndefined()
+      expect(result.versions.at(-1)?.modifiedOn).toBeUndefined()
     }))
 })
 
