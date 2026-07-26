@@ -110,7 +110,7 @@ export const IssueSummarySchema = Schema.Struct({
   subIssues: Schema.optional(Count),
   labels: Schema.Array(LabelSchema).annotations({
     description:
-      "Attached labels sorted by title. Empty when no usable label attachments exist; duplicate titles are collapsed case-insensitively."
+      "Attached labels sorted by title. Empty when no usable label attachments exist; duplicate titles are collapsed case-insensitively, preferring a reference with a valid color."
   }),
   modifiedOn: Schema.optional(Timestamp)
 }).annotations({
@@ -132,7 +132,7 @@ export const IssueSchema = Schema.Struct({
   assigneeRef: Schema.optional(PersonRefSchema),
   labels: Schema.Array(LabelSchema).annotations({
     description:
-      "Attached labels sorted by title. Empty when no usable label attachments exist; duplicate titles are collapsed case-insensitively."
+      "Attached labels sorted by title. Empty when no usable label attachments exist; duplicate titles are collapsed case-insensitively, preferring a reference with a valid color."
   }),
   project: ProjectIdentifier,
   parentIssue: Schema.optional(IssueIdentifier),

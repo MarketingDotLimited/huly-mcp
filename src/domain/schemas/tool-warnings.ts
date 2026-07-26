@@ -8,7 +8,8 @@ export const ToolWarningCodeSchema = Schema.Literal(
   "space_preference_metadata_degraded",
   "approval_request_person_metadata_degraded",
   "approval_request_count_metadata_degraded",
-  "hosted_huly_shutdown"
+  "hosted_huly_shutdown",
+  "issue_label_metadata_degraded"
 ).annotations({
   identifier: "ToolWarningCode",
   title: "ToolWarningCode",
@@ -23,6 +24,7 @@ export const SpacePreferenceMetadataDegradedWarningCode = ToolWarningCodeSchema.
 export const ApprovalRequestPersonMetadataDegradedWarningCode = ToolWarningCodeSchema.literals[5]
 export const ApprovalRequestCountMetadataDegradedWarningCode = ToolWarningCodeSchema.literals[6]
 export const HostedHulyShutdownWarningCode = ToolWarningCodeSchema.literals[7]
+export const IssueLabelMetadataDegradedWarningCode = ToolWarningCodeSchema.literals[8]
 
 export const ToolWarningSchema = Schema.Struct({
   code: ToolWarningCodeSchema,

@@ -23,6 +23,7 @@ import {
 import { Effect } from "effect"
 import { expect } from "vitest"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
+import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
 import type {
   InvalidStatusError,
   IssueNotFoundError,
@@ -590,7 +591,7 @@ describe("listIssues", () => {
         const project = makeProject()
         const labelledIssue = makeIssue({ _id: docRef<HulyIssue>("issue-labelled"), identifier: "TEST-1" })
         const plainIssue = makeIssue({ _id: docRef<HulyIssue>("issue-plain"), identifier: "TEST-2" })
-        const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
+        const statuses = [makeStatus({ _id: docRef<Status>("status-open"), name: "Open" })]
         const tagReferences = [
           makeTagReference({
             _id: docRef<TagReference>("tag-ref-bug"),
@@ -622,7 +623,7 @@ describe("listIssues", () => {
         const project = makeProject()
         const matchingIssue = makeIssue({ _id: docRef<HulyIssue>("issue-match"), identifier: "TEST-7" })
         const otherIssue = makeIssue({ _id: docRef<HulyIssue>("issue-other"), identifier: "TEST-8" })
-        const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
+        const statuses = [makeStatus({ _id: docRef<Status>("status-open"), name: "Open" })]
         const captureQuery: MockConfig["captureIssueQuery"] = {}
         const testLayer = createTestLayerWithMocks({
           projects: [project],
@@ -660,7 +661,7 @@ describe("listIssues", () => {
       Effect.gen(function*() {
         const project = makeProject()
         const issue = makeIssue()
-        const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
+        const statuses = [makeStatus({ _id: docRef<Status>("status-open"), name: "Open" })]
         const captureQuery: MockConfig["captureIssueQuery"] = {}
         const testLayer = createTestLayerWithMocks({
           projects: [project],
@@ -1104,18 +1105,30 @@ describe("getIssue", () => {
       Effect.gen(function*() {
         const project = makeProject()
         const issue = makeIssue()
-        const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
+        const statuses = [makeStatus({ _id: docRef<Status>("status-open"), name: "Open" })]
         const missingTitle = makeTagReference({
           _id: docRef<TagReference>("tag-ref-missing-title"),
           attachedTo: issue._id
         })
         Reflect.deleteProperty(missingTitle, "title")
-        const invalidColor = makeTagReference({
+        const duplicateWithInvalidColor = makeTagReference({
+          _id: docRef<TagReference>("tag-ref-a-invalid-color"),
+          attachedTo: issue._id,
+          title: "Bug"
+        })
+        Reflect.set(duplicateWithInvalidColor, "color", 99)
+        const partialWithInvalidColor = makeTagReference({
           _id: docRef<TagReference>("tag-ref-invalid-color"),
           attachedTo: issue._id,
           title: "Accessibility"
         })
-        Reflect.set(invalidColor, "color", 99)
+        Reflect.set(partialWithInvalidColor, "color", 99)
+        const absentOptionalColor = makeTagReference({
+          _id: docRef<TagReference>("tag-ref-no-color"),
+          attachedTo: issue._id,
+          title: "No Color"
+        })
+        Reflect.deleteProperty(absentOptionalColor, "color")
         const malformedReference = makeTagReference({
           _id: docRef<TagReference>("tag-ref-malformed"),
           attachedTo: issue._id,
@@ -1129,32 +1142,39 @@ describe("getIssue", () => {
           statuses,
           tagReferences: [
             makeTagReference({
-              _id: docRef<TagReference>("tag-ref-lowercase"),
+              _id: docRef<TagReference>("tag-ref-z-valid-color"),
               attachedTo: issue._id,
               title: "bug",
               color: 8
             }),
-            makeTagReference({
-              _id: docRef<TagReference>("tag-ref-uppercase"),
-              attachedTo: issue._id,
-              title: "Bug",
-              color: 3
-            }),
             missingTitle,
-            invalidColor,
+            duplicateWithInvalidColor,
+            partialWithInvalidColor,
+            absentOptionalColor,
             malformedReference
           ]
         })
+        const diagnostics = yield* makeDiagnosticsScope
 
         const result = yield* getIssue({
           project: projectIdentifier("TEST"),
           identifier: issueIdentifier("TEST-1")
-        }).pipe(Effect.provide(testLayer), withDiagnostics)
+        }).pipe(
+          Effect.provide(testLayer),
+          Effect.provideService(Diagnostics, diagnostics.service)
+        )
+        const warnings = yield* diagnostics.drainWarnings
 
         expect(result.labels).toEqual([
           { title: "Accessibility" },
-          { title: "Bug", color: 3 }
+          { title: "bug", color: 8 },
+          { title: "No Color" }
         ])
+        expect(warnings).toHaveLength(1)
+        expect(assertAt(warnings, 0).code).toBe("issue_label_metadata_degraded")
+        expect(assertAt(warnings, 0).message).toContain("1 malformed attachment")
+        expect(assertAt(warnings, 0).message).toContain("1 missing or malformed title")
+        expect(assertAt(warnings, 0).message).toContain("2 invalid color(s)")
       }))
   })
 
