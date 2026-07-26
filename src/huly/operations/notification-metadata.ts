@@ -7,7 +7,13 @@ import { Array as EffectArray, Effect, Either, Order, Schema } from "effect"
 
 import { DisplayText, NotificationFieldName, NotificationProviderOrder } from "../../domain/schemas/domain-values.js"
 import type { NotificationProvider, NotificationType } from "../../domain/schemas/notification-preferences.js"
-import { DocId, NotificationProviderId, NotificationTypeId, ObjectClassName } from "../../domain/schemas/shared.js"
+import {
+  Count,
+  DocId,
+  NotificationProviderId,
+  NotificationTypeId,
+  ObjectClassName
+} from "../../domain/schemas/shared.js"
 import { NotificationMetadataDegradedWarningCode } from "../../domain/schemas/tool-warnings.js"
 import type { HulyClientError, HulyClientOperations } from "../client.js"
 import { Diagnostics } from "../diagnostics.js"
@@ -105,32 +111,52 @@ const displayText = (value: unknown): DisplayText | undefined => {
   return Either.isRight(parsed) ? parsed.right : undefined
 }
 
-const providerSummary = (provider: ProviderBoundary): NotificationProvider => ({
-  id: provider._id,
-  ...(displayText(provider.label) === undefined ? {} : { label: displayText(provider.label) }),
-  ...(displayText(provider.description) === undefined
-    ? {}
-    : { description: displayText(provider.description) }),
-  defaultEnabled: provider.defaultEnabled,
-  canDisable: provider.canDisable,
-  order: provider.order,
-  ...(provider.depends === undefined ? {} : { depends: provider.depends })
-})
+interface PresentationProjection<A> {
+  readonly summary: A
+  readonly omittedFields: Count
+}
 
-const typeSummary = (type: TypeBoundary): NotificationType => ({
-  id: type._id,
-  ...(displayText(type.label) === undefined ? {} : { label: displayText(type.label) }),
-  generated: type.generated,
-  hidden: type.hidden,
-  defaultEnabled: type.defaultEnabled,
-  ...(type.group === undefined ? {} : { group: type.group }),
-  objectClass: type.objectClass,
-  ...(type.onlyOwn === undefined ? {} : { onlyOwn: type.onlyOwn }),
-  ...(type.attachedToClass === undefined ? {} : { attachedToClass: type.attachedToClass }),
-  ...(type.field === undefined ? {} : { field: type.field }),
-  ...(type.spaceSubscribe === undefined ? {} : { spaceSubscribe: type.spaceSubscribe }),
-  ...(type.allowedForAuthor === undefined ? {} : { allowedForAuthor: type.allowedForAuthor })
-})
+const providerProjection = (provider: ProviderBoundary): PresentationProjection<NotificationProvider> => {
+  const label = displayText(provider.label)
+  const description = displayText(provider.description)
+  return {
+    summary: {
+      id: provider._id,
+      ...(label === undefined ? {} : { label }),
+      ...(description === undefined ? {} : { description }),
+      defaultEnabled: provider.defaultEnabled,
+      canDisable: provider.canDisable,
+      order: provider.order,
+      ...(provider.depends === undefined ? {} : { depends: provider.depends })
+    },
+    omittedFields: Count.make(Number(label === undefined) + Number(description === undefined))
+  }
+}
+
+const typeProjection = (type: TypeBoundary): PresentationProjection<NotificationType> => {
+  const label = displayText(type.label)
+  return {
+    summary: {
+      id: type._id,
+      ...(label === undefined ? {} : { label }),
+      generated: type.generated,
+      hidden: type.hidden,
+      defaultEnabled: type.defaultEnabled,
+      ...(type.group === undefined ? {} : { group: type.group }),
+      objectClass: type.objectClass,
+      ...(type.onlyOwn === undefined ? {} : { onlyOwn: type.onlyOwn }),
+      ...(type.attachedToClass === undefined ? {} : { attachedToClass: type.attachedToClass }),
+      ...(type.field === undefined ? {} : { field: type.field }),
+      ...(type.spaceSubscribe === undefined ? {} : { spaceSubscribe: type.spaceSubscribe }),
+      ...(type.allowedForAuthor === undefined ? {} : { allowedForAuthor: type.allowedForAuthor })
+    },
+    omittedFields: Count.make(Number(label === undefined))
+  }
+}
+
+const totalOmittedFields = <A>(
+  projections: ReadonlyArray<PresentationProjection<A>>
+): Count => Count.make(projections.reduce((total, projection) => total + projection.omittedFields, 0))
 
 type ProviderMetadataLoaderConfig = ProviderMetadataDefinition & {
   readonly query: StrictDocumentQuery<HulyNotificationProvider>
@@ -216,22 +242,17 @@ export const loadNotificationProviders = (
     options: { limit, sort: { order: SortingOrder.Ascending } }
   }).pipe(Effect.flatMap((result) =>
     Effect.gen(function*() {
-      const omittedFields = result.rows.reduce(
-        (count, provider) =>
-          count + Number(displayText(provider.label) === undefined)
-          + Number(displayText(provider.description) === undefined),
-        0
-      )
+      const projections = result.rows.map(providerProjection)
       yield* warnOmittedNotificationPresentationMetadata({
         ...providerMetadataDefinition,
-        omittedFields,
+        omittedFields: totalOmittedFields(projections),
         authoritative: result.authoritative
       })
       return {
         ...result,
         rows: EffectArray.sortBy(
           Order.mapInput(Order.number, (provider: NotificationProvider) => provider.order)
-        )(result.rows.map(providerSummary)).slice(0, limit)
+        )(projections.map((projection) => projection.summary)).slice(0, limit)
       }
     })
   ))
@@ -254,13 +275,16 @@ export const loadNotificationTypes = (
     options: { limit: clampLimit(params.limit) }
   }).pipe(Effect.flatMap((result) =>
     Effect.gen(function*() {
-      const omittedFields = result.rows.filter((type) => displayText(type.label) === undefined).length
+      const projections = result.rows.map(typeProjection)
       yield* warnOmittedNotificationPresentationMetadata({
         ...typeMetadataDefinition,
-        omittedFields,
+        omittedFields: totalOmittedFields(projections),
         authoritative: result.authoritative
       })
-      return { ...result, rows: result.rows.map(typeSummary).slice(0, clampLimit(params.limit)) }
+      return {
+        ...result,
+        rows: projections.map((projection) => projection.summary).slice(0, clampLimit(params.limit))
+      }
     })
   ))
 }

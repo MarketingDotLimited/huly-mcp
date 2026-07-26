@@ -311,7 +311,7 @@ describe("notification model metadata", () => {
       expect(assertAt(warnings, 0).message).toContain("server compatibility fallback")
     }))
 
-  it.effect("omits malformed authoritative rows and presentation fields with actionable warnings", () =>
+  it.effect("projects provider presentation fields once for summaries and omission warnings", () =>
     Effect.gen(function*() {
       const diagnostics = yield* makeDiagnosticsScope
       const partialProvider = {
@@ -337,7 +337,33 @@ describe("notification model metadata", () => {
       }])
       expect(warnings).toHaveLength(2)
       expect(assertAt(warnings, 0).message).toContain("failed Effect Schema parsing")
-      expect(assertAt(warnings, 1).message).toContain("label or description")
+      expect(assertAt(warnings, 1).message).toContain("2 notification-provider label or description")
+    }))
+
+  it.effect("projects type presentation fields once for summaries and omission warnings", () =>
+    Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
+      const result = yield* listNotificationTypes({ includeHidden: true }).pipe(
+        Effect.provide(layerWithMetadata({
+          modelTypes: [{
+            ...notificationType("type:partial", "Partial"),
+            label: { key: "type.label" }
+          }]
+        })),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+      const warnings = yield* diagnostics.drainWarnings
+
+      expect(result).toEqual([{
+        id: "type:partial",
+        generated: false,
+        hidden: false,
+        defaultEnabled: true,
+        group: "notification:group:Common",
+        objectClass: "tracker:class:Issue"
+      }])
+      expect(warnings).toHaveLength(1)
+      expect(assertAt(warnings, 0).message).toContain("1 notification-type label")
     }))
 
   it.effect("projects all optional authoritative notification type metadata", () =>
