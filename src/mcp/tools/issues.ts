@@ -106,7 +106,7 @@ export const issueTools = [
       description:
         `Query Huly issues with optional filters. Returns issues sorted by modification date (newest first). Supports filtering by project, exact workflow status name (status), Huly SDK task.statusCategory key (statusCategory: ${
           enumValuesDescription(StatusCategoryValues)
-        }), assignee, component, parentIssue (to list children of a specific issue), and isTopLevel (to return only native top-level issues). Supports searching by title substring (titleSearch) and description content (descriptionSearch).`,
+        }), assignee, component, a human-readable attached label title (label, exact and case-insensitive), parentIssue (to list children of a specific issue), and isTopLevel (to return only native top-level issues). The label filter is applied before the result limit. Supports searching by title substring (titleSearch) and description content (descriptionSearch). Each result includes deterministic label summaries with title and available color; missing labels are an empty array, duplicate titles collapse case-insensitively, and unusable partial attachments are omitted.`,
       category: CATEGORY,
       inputSchema: listIssuesParamsJsonSchema,
       resultSchema: ListIssuesResultSchema
@@ -118,7 +118,7 @@ export const issueTools = [
     {
       name: "get_issue",
       description:
-        "Retrieve full details for a Huly issue including markdown description. Use this to view issue content, comments, or full metadata.",
+        "Retrieve full details for a Huly issue including markdown description and deterministic attached-label summaries with title and available color. Missing labels are an empty array, duplicate titles collapse case-insensitively, and unusable partial attachments are omitted. Use this to view issue content, comments, classification, or full metadata.",
       category: CATEGORY,
       inputSchema: getIssueParamsJsonSchema,
       resultSchema: GetIssueResultSchema

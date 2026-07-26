@@ -24,6 +24,7 @@ import { HulyConnectionError, IssueNotFoundError } from "../errors.js"
 import { contact, tracker } from "../huly-plugins.js"
 import { findComponentByIdOrLabel } from "./components.js"
 import { findPersonByEmailOrName } from "./contacts-shared.js"
+import { issueIdsMatchingLabel, labelsForIssue, loadIssueLabelIndex } from "./issue-labels-read.js"
 import { topLevelIssueParent } from "./issues-parent.js"
 import {
   findIssueInProject,
@@ -172,11 +173,26 @@ export const listIssues = (
       query.attachedTo = topLevelIssueParent().attachedTo
     }
 
+    const labelFilter = params.label
+    const labelFilterContext = labelFilter === undefined
+      ? undefined
+      : {
+        index: yield* loadIssueLabelIndex(client, project._id),
+        label: labelFilter
+      }
+    const matchingIssueIds = labelFilterContext === undefined
+      ? undefined
+      : issueIdsMatchingLabel(labelFilterContext.index, labelFilterContext.label)
+    if (matchingIssueIds?.length === 0) return []
+    const effectiveQuery: StrictDocumentQuery<IssueWithLookup> = matchingIssueIds === undefined
+      ? query
+      : { ...query, _id: { $in: matchingIssueIds } }
+
     const limit = clampLimit(params.limit)
 
     const issues = yield* client.findAll<IssueWithLookup>(
       tracker.class.Issue,
-      hulyQuery(query),
+      hulyQuery(effectiveQuery),
       withLookup<IssueWithLookup>(
         {
           limit,
@@ -188,6 +204,9 @@ export const listIssues = (
       )
     )
 
+    const labelIndex = labelFilterContext === undefined
+      ? yield* loadIssueLabelIndex(client, project._id, issues.map((issue) => issue._id))
+      : labelFilterContext.index
     const rawSummaries = issues.map((issue) => {
       const statusName = resolveStatusName(statuses, issue.status)
       const assigneeName = issue.$lookup?.assignee?.name
@@ -204,6 +223,7 @@ export const listIssues = (
         assignee: assigneeName,
         parentIssue: directParent?.identifier,
         subIssues: issue.subIssues > 0 ? issue.subIssues : undefined,
+        labels: labelsForIssue(labelIndex, issue._id),
         modifiedOn: issue.modifiedOn
       }
     })
@@ -271,6 +291,7 @@ export const getIssue = (
     const directParent = issue.parents.length > 0
       ? issue.parents[issue.parents.length - 1]
       : undefined
+    const labelIndex = yield* loadIssueLabelIndex(client, project._id, [issue._id])
 
     return yield* parseIssue({
       issueId: IssueId.make(issue._id),
@@ -283,6 +304,7 @@ export const getIssue = (
       assigneeRef: person
         ? { id: person._id, name: person.name }
         : undefined,
+      labels: labelsForIssue(labelIndex, issue._id),
       project: params.project,
       parentIssue: directParent?.identifier,
       subIssues: issue.subIssues > 0 ? issue.subIssues : undefined,

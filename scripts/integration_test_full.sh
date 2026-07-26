@@ -1918,15 +1918,29 @@ if [ $? -eq 0 ]; then
   fi
 
   # Issue labels
+  ISSUE_LABEL_TITLE="inttest-lbl-$RUN_ID"
+  ISSUE_LABEL_TITLE_JSON=$(json_string "$ISSUE_LABEL_TITLE")
+  ISSUE_LABEL_FILTER=$(printf '%s' "$ISSUE_LABEL_TITLE" | tr '[:lower:]' '[:upper:]')
+  ISSUE_LABEL_FILTER_JSON=$(json_string "$ISSUE_LABEL_FILTER")
   run_capture_to_var LBL_TEXT "create_label(for_issue)" \
-    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_label\",\"arguments\":{\"title\":\"inttest-lbl\",\"color\":2}},\"id\":2}"
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_label\",\"arguments\":{\"title\":$ISSUE_LABEL_TITLE_JSON,\"color\":2}},\"id\":2}"
   if [ $? -eq 0 ]; then
     LBL_ID=$(echo "$LBL_TEXT" | jq -r '.id' 2>/dev/null)
     echo "  => label: $LBL_ID"
     run_test "add_issue_label($ISSUE_ID)" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_issue_label\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\",\"label\":\"inttest-lbl\"}},\"id\":2}"
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_issue_label\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\",\"label\":$ISSUE_LABEL_TITLE_JSON}},\"id\":2}"
+    wait_for_json_array_contains_to_var ISSUE_LABEL_GET_TEXT "get_issue projects attached label title" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\"}},\"id\":2}" \
+      ".labels | map(.title)" "$ISSUE_LABEL_TITLE"
+    assert_json_field_equals "get_issue projects attached label color" "$ISSUE_LABEL_GET_TEXT" \
+      ".labels | map(select(.title == \"$ISSUE_LABEL_TITLE\")) | first | .color" "2"
+    wait_for_json_array_contains_to_var ISSUE_LABEL_LIST_TEXT "list_issues filters by case-insensitive label title" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"label\":$ISSUE_LABEL_FILTER_JSON,\"limit\":1}},\"id\":2}" \
+      "map(.identifier)" "$ISSUE_ID"
+    assert_json_array_contains "list_issues projects attached label summary" "$ISSUE_LABEL_LIST_TEXT" \
+      "map(select(.identifier == \"$ISSUE_ID\")) | first | .labels | map(.title)" "$ISSUE_LABEL_TITLE"
     run_test "remove_issue_label($ISSUE_ID)" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"remove_issue_label\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\",\"label\":\"inttest-lbl\"}},\"id\":2}"
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"remove_issue_label\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\",\"label\":$ISSUE_LABEL_TITLE_JSON}},\"id\":2}"
     run_test "delete_label($LBL_ID)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_label\",\"arguments\":{\"label\":\"$LBL_ID\"}},\"id\":2}"
   fi

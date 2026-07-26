@@ -69,11 +69,15 @@ export type IssuePriority = Schema.Schema.Type<typeof IssuePrioritySchema>
 export const DEFAULT_ISSUE_PRIORITY: IssuePriority = "no-priority"
 
 export const LabelSchema = Schema.Struct({
-  title: NonEmptyString,
-  color: Schema.optional(ColorCode)
+  title: NonEmptyString.annotations({
+    description: "Human-readable label title."
+  }),
+  color: Schema.optional(ColorCode.annotations({
+    description: "Huly palette color when the attached label reference contains a valid color."
+  }))
 }).annotations({
   title: "Label",
-  description: "Issue label/tag"
+  description: "Human-readable issue label summary projected from a Huly label attachment."
 })
 
 export type Label = Schema.Schema.Type<typeof LabelSchema>
@@ -104,6 +108,10 @@ export const IssueSummarySchema = Schema.Struct({
   assignee: Schema.optional(PersonName),
   parentIssue: Schema.optional(IssueIdentifier),
   subIssues: Schema.optional(Count),
+  labels: Schema.Array(LabelSchema).annotations({
+    description:
+      "Attached labels sorted by title. Empty when no usable label attachments exist; duplicate titles are collapsed case-insensitively."
+  }),
   modifiedOn: Schema.optional(Timestamp)
 }).annotations({
   title: "IssueSummary",
@@ -122,7 +130,10 @@ export const IssueSchema = Schema.Struct({
   priority: Schema.optional(IssuePrioritySchema),
   assignee: Schema.optional(PersonName),
   assigneeRef: Schema.optional(PersonRefSchema),
-  labels: Schema.optional(Schema.Array(LabelSchema)),
+  labels: Schema.Array(LabelSchema).annotations({
+    description:
+      "Attached labels sorted by title. Empty when no usable label attachments exist; duplicate titles are collapsed case-insensitively."
+  }),
   project: ProjectIdentifier,
   parentIssue: Schema.optional(IssueIdentifier),
   subIssues: Schema.optional(Count),
@@ -167,6 +178,10 @@ const ListIssuesParamsBase = Schema.Struct({
   })),
   component: Schema.optional(ComponentIdentifier.annotations({
     description: "Filter by component ID or label"
+  })),
+  label: Schema.optional(NonEmptyString.annotations({
+    description:
+      "Filter by an attached human-readable label title. Matching is exact after trimming and case-insensitive; duplicate attachments do not duplicate issues."
   })),
   hasAssignee: Schema.optional(Schema.Boolean.annotations({
     description: "Filter by assignee presence. true = only assigned issues, false = only unassigned issues."
