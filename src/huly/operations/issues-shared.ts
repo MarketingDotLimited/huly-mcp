@@ -166,7 +166,7 @@ export const resolveByStatusRef = <T, S extends Pick<StatusMetadata, "_id">>(
   fromDoc: (status: S) => T,
   fromRef: (statusRef: Ref<Status>) => T
 ): Array<T> => {
-  const statusDocsById = new Map<string, S>(statusDocs.map((statusDoc) => [statusDoc._id, statusDoc]))
+  const statusDocsById = new Map<Ref<Status>, S>(statusDocs.map((statusDoc) => [statusDoc._id, statusDoc]))
   return statusRefs.map((statusRef) => {
     const statusDoc = statusDocsById.get(statusRef)
     return statusDoc === undefined ? fromRef(statusRef) : fromDoc(statusDoc)

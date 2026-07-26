@@ -241,16 +241,36 @@ export const loadNotificationTypes = (
   ))
 }
 
+type ProviderMetadataIdConfig = {
+  readonly _tag: "provider"
+  readonly classRef: typeof notification.class.NotificationProvider
+  readonly schema: typeof ProviderBoundarySchema
+  readonly identifier: NotificationProviderId
+  readonly subject: "notification-provider"
+  readonly notFound: NotificationProviderNotFoundError
+}
+
+type TypeMetadataIdConfig = {
+  readonly _tag: "type"
+  readonly classRef: typeof notification.class.NotificationType
+  readonly schema: typeof TypeBoundarySchema
+  readonly identifier: NotificationTypeId
+  readonly subject: "notification-type"
+  readonly notFound: NotificationTypeNotFoundError
+}
+
+type NotificationMetadataIdConfig = ProviderMetadataIdConfig | TypeMetadataIdConfig
+
 const warnTrustedIdentifier = (
-  kind: "provider" | "type",
-  identifier: string
+  config: NotificationMetadataIdConfig
 ): Effect.Effect<void, never, Diagnostics> =>
   Effect.gen(function*() {
     const diagnostics = yield* Diagnostics
     yield* diagnostics.warnAgent({
       code: NotificationMetadataDegradedWarningCode,
-      message: `Authoritative notification ${kind} definitions were unavailable, so this compatible REST operation `
-        + `trusted caller-supplied ${kind} ID '${identifier}'. Confirm the ID with list_notification_${kind}s `
+      message:
+        `Authoritative notification ${config._tag} definitions were unavailable, so this compatible REST operation `
+        + `trusted caller-supplied ${config._tag} ID '${config.identifier}'. Confirm the ID with list_notification_${config._tag}s `
         + "after upgrading Huly or restoring model metadata; an invalid ID may leave the requested setting unchanged."
     })
   })
@@ -275,74 +295,105 @@ const findMetadataId = <Identifier extends string>(
   identifier: Identifier
 ): Identifier | undefined => rows.find((row) => row._id === identifier)?._id
 
-const requireNotificationMetadataId = <
+const requireMetadataId = <
   D extends Doc,
   Identifier extends string,
   A extends { readonly _id: Identifier },
   I,
-  E
+  E,
+  Subject extends NotificationMetadataIdConfig["subject"]
 >(
   client: HulyClientOperations,
-  classRef: Ref<Class<D>>,
-  schema: Schema.Schema<A, I, never>,
-  identifier: Identifier,
-  subject: string,
-  kind: "provider" | "type",
-  notFound: () => E
+  config: {
+    readonly classRef: Ref<Class<D>>
+    readonly schema: Schema.Schema<A, I, never>
+    readonly identifier: Identifier
+    readonly subject: Subject
+    readonly notFound: E
+    readonly trustedWarning: Effect.Effect<void, never, Diagnostics>
+  }
 ): Effect.Effect<Identifier, HulyClientError | E, Diagnostics> =>
   Effect.gen(function*() {
     // Model operations are local/in-memory. Decode the complete authoritative definition set here:
     // list limits are presentation concerns and must never make a valid update identifier disappear.
-    const modelResult = yield* Effect.either(client.findAllInModel<D>(classRef, hulyQuery<D>({})))
-    const modelRows = parsedModelRows(modelResult, schema)
+    const modelResult = yield* Effect.either(client.findAllInModel<D>(config.classRef, hulyQuery<D>({})))
+    const modelRows = parsedModelRows(modelResult, config.schema)
     if (modelRows !== undefined && modelRows.rows.length > 0) {
-      yield* warnInvalidAuthoritativeRows(subject, modelRows.invalidRows)
-      const modelIdentifier = findMetadataId(modelRows.rows, identifier)
+      yield* warnInvalidAuthoritativeRows(config.subject, modelRows.invalidRows)
+      const modelIdentifier = findMetadataId(modelRows.rows, config.identifier)
       if (modelIdentifier !== undefined) return modelIdentifier
-      return yield* Effect.fail(notFound())
+      return yield* Effect.fail(config.notFound)
     }
 
     const exactQuery: StrictDocumentQuery<D> = {}
     // eslint-disable-next-line functional/immutable-data -- SDK generic query typing requires a mutable strict builder.
-    exactQuery._id = toRef<D>(identifier)
+    exactQuery._id = toRef<D>(config.identifier)
     const remoteRows = yield* client.findAll<D>(
-      classRef,
+      config.classRef,
       hulyQuery<D>(exactQuery),
       { limit: 1 }
     )
-    const parsedRemoteRows = parseRows(schema, remoteRows)
+    const parsedRemoteRows = parseRows(config.schema, remoteRows)
     const modelFailure = modelMetadataFailure(modelResult, modelRows)
-    yield* warnFallback(subject, modelFailure, parsedRemoteRows.invalidRows)
-    const remoteIdentifier = findMetadataId(parsedRemoteRows.rows, identifier)
+    yield* warnFallback(config.subject, modelFailure, parsedRemoteRows.invalidRows)
+    const remoteIdentifier = findMetadataId(parsedRemoteRows.rows, config.identifier)
     if (remoteIdentifier !== undefined) return remoteIdentifier
-    yield* warnTrustedIdentifier(kind, identifier)
-    return identifier
+    yield* config.trustedWarning
+    return config.identifier
   })
+
+function requireNotificationMetadataId(
+  client: HulyClientOperations,
+  config: ProviderMetadataIdConfig
+): Effect.Effect<NotificationProviderId, HulyClientError | NotificationProviderNotFoundError, Diagnostics>
+function requireNotificationMetadataId(
+  client: HulyClientOperations,
+  config: TypeMetadataIdConfig
+): Effect.Effect<NotificationTypeId, HulyClientError | NotificationTypeNotFoundError, Diagnostics>
+function requireNotificationMetadataId(
+  client: HulyClientOperations,
+  config: NotificationMetadataIdConfig
+): Effect.Effect<
+  NotificationProviderId | NotificationTypeId,
+  HulyClientError | NotificationProviderNotFoundError | NotificationTypeNotFoundError,
+  Diagnostics
+> {
+  switch (config._tag) {
+    case "provider":
+      return requireMetadataId(client, {
+        ...config,
+        trustedWarning: warnTrustedIdentifier(config)
+      })
+    case "type":
+      return requireMetadataId(client, {
+        ...config,
+        trustedWarning: warnTrustedIdentifier(config)
+      })
+  }
+}
 
 export const requireNotificationProviderId = (
   client: HulyClientOperations,
   providerId: NotificationProviderId
 ): Effect.Effect<NotificationProviderId, HulyClientError | NotificationProviderNotFoundError, Diagnostics> =>
-  requireNotificationMetadataId(
-    client,
-    notification.class.NotificationProvider,
-    ProviderBoundarySchema,
-    providerId,
-    "notification-provider",
-    "provider",
-    () => new NotificationProviderNotFoundError({ providerId })
-  )
+  requireNotificationMetadataId(client, {
+    _tag: "provider",
+    classRef: notification.class.NotificationProvider,
+    schema: ProviderBoundarySchema,
+    identifier: providerId,
+    subject: "notification-provider",
+    notFound: new NotificationProviderNotFoundError({ providerId })
+  })
 
 export const requireNotificationTypeId = (
   client: HulyClientOperations,
   typeId: NotificationTypeId
 ): Effect.Effect<NotificationTypeId, HulyClientError | NotificationTypeNotFoundError, Diagnostics> =>
-  requireNotificationMetadataId(
-    client,
-    notification.class.NotificationType,
-    TypeBoundarySchema,
-    typeId,
-    "notification-type",
-    "type",
-    () => new NotificationTypeNotFoundError({ typeId })
-  )
+  requireNotificationMetadataId(client, {
+    _tag: "type",
+    classRef: notification.class.NotificationType,
+    schema: TypeBoundarySchema,
+    identifier: typeId,
+    subject: "notification-type",
+    notFound: new NotificationTypeNotFoundError({ typeId })
+  })

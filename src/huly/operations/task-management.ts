@@ -48,6 +48,7 @@ import {
   findStatusDocs,
   resolveByStatusRef,
   type StatusMetadata,
+  StatusMetadataSchema,
   uniqueStatusRefs,
   workflowStatusFromRef
 } from "./issues-shared.js"
@@ -184,11 +185,17 @@ const getRecoverableStatusesByName = (
     Effect.catchAll(() => Effect.succeed([]))
   )
 
-const statusMetadataFromStatus = (status: Status): StatusMetadata => ({
-  _id: status._id,
-  name: StatusName.make(status.name),
-  ...(status.category === undefined ? {} : { category: status.category })
-})
+const parseRecoveredStatusMetadata = (
+  status: unknown
+): Effect.Effect<StatusMetadata, HulyConnectionError> =>
+  Schema.decodeUnknown(StatusMetadataSchema)(status).pipe(
+    Effect.mapError((parseError) =>
+      new HulyConnectionError({
+        message: `Recovered workflow status metadata failed schema validation: ${parseError.message}`,
+        cause: parseError
+      })
+    )
+  )
 
 const loadWorkflowData = (
   client: HulyClientOperations,
@@ -568,7 +575,10 @@ export const createIssueStatus = (
       ? workflowData.taskTypes
       : [yield* resolveTaskType(workflowData.taskTypes, params.taskType)]
     const statusClass = yield* resolveStatusClass(targetTaskTypes)
-    const statusesByName = (yield* getRecoverableStatusesByName(client, params.name)).map(statusMetadataFromStatus)
+    const statusesByName = yield* Effect.forEach(
+      yield* getRecoverableStatusesByName(client, params.name),
+      parseRecoveredStatusMetadata
+    )
     const existingStatus = existingStatusByName(
       [...workflowData.statuses, ...statusesByName],
       params.name
