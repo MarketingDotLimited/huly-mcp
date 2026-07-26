@@ -1,4 +1,3 @@
-import { AccessLevel, type Calendar as HulyCalendar } from "@hcengineering/calendar"
 import type { Channel, Employee as HulyEmployee, Person, SocialIdentity } from "@hcengineering/contact"
 import {
   type AttachedData,
@@ -10,7 +9,6 @@ import {
   SortingOrder,
   type WithLookup
 } from "@hcengineering/core"
-import type { ToDo as HulyToDo, WorkSlot as HulyWorkSlot } from "@hcengineering/time"
 import {
   type Issue as HulyIssue,
   type Project as HulyProject,
@@ -31,7 +29,6 @@ import type {
   TimeSpendReport,
   WorkSlot
 } from "../../domain/schemas.js"
-import type { TodoTitle, TodoVisibility } from "../../domain/schemas/planner.js"
 import {
   IssueIdentifier,
   NonNegativeNumber,
@@ -58,12 +55,6 @@ import { toRef, toSocialIdentityRef } from "./sdk-boundary.js"
 
 import { contact, time, tracker } from "../huly-plugins.js"
 
-// SDK: Data<WorkSlot> requires calendar/user but server populates from auth context.
-const serverPopulatedCalendar = toRef<HulyCalendar>("")
-// PersonId = string & { __personId: true }; no SDK factory exists. Empty string is overwritten server-side.
-// eslint-disable-next-line no-restricted-syntax -- see above
-const serverPopulatedPersonId: CorePersonId = "" as CorePersonId
-
 // SDK: WorkSlot.user is typed PersonId, but Huly queries accept Ref<Person> for user lookup.
 // Brands erased at runtime; both are plain strings. The REST API treats them interchangeably in queries.
 // eslint-disable-next-line no-restricted-syntax -- Ref<Doc> and PersonId are incompatible branded types, no single-step cast exists
@@ -76,27 +67,8 @@ type GetTimeReportError = HulyClientError | ProjectNotFoundError | IssueNotFound
 type ListTimeSpendReportsError = HulyClientError | ProjectNotFoundError
 type GetDetailedTimeReportError = HulyClientError | ProjectNotFoundError
 type ListWorkSlotsError = HulyClientError
-type PlannerWorkSlotError = HulyClientError
 type StartTimerError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
 type StopTimerError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
-
-interface WorkSlotCreationResult {
-  readonly slotId: WorkSlotId
-}
-
-interface AddWorkSlotForTodoInput {
-  readonly todoId: TodoId
-  readonly date: Timestamp
-  readonly dueDate: Timestamp
-  readonly title: TodoTitle | ""
-  // Markdown copied from the ToDo at scheduling time; empty string means no description.
-  readonly description: string
-  readonly visibility: TodoVisibility
-}
-
-interface PlannerWorkSlotInput extends AddWorkSlotForTodoInput {
-  readonly title: TodoTitle
-}
 
 export const logTime = (
   params: LogTimeParams
@@ -409,53 +381,6 @@ export const listWorkSlots = (
       dueDate: Timestamp.make(s.dueDate),
       title: s.title
     }))
-  })
-
-const addWorkSlotForTodo = (
-  client: HulyClient["Type"],
-  params: AddWorkSlotForTodoInput
-): Effect.Effect<WorkSlotCreationResult, PlannerWorkSlotError> =>
-  Effect.gen(function*() {
-    const slotId: Ref<HulyWorkSlot> = generateId()
-
-    // Huly API: WorkSlot requires all calendar event fields even for simple slots.
-    // Empty string casts are used because server will populate calendar/user from auth context.
-    // This matches the pattern used in calendar.ts for Event creation.
-    const slotData: AttachedData<HulyWorkSlot> = {
-      date: params.date,
-      dueDate: params.dueDate,
-      title: params.title,
-      description: params.description,
-      allDay: false,
-      participants: [],
-      access: AccessLevel.Owner,
-      reminders: [],
-      visibility: params.visibility,
-      eventId: "",
-      calendar: serverPopulatedCalendar,
-      user: serverPopulatedPersonId,
-      blockTime: false
-    }
-
-    yield* client.addCollection(
-      time.class.WorkSlot,
-      time.space.ToDos,
-      toRef<HulyToDo>(params.todoId),
-      time.class.ToDo,
-      "workslots",
-      slotData,
-      slotId
-    )
-
-    return { slotId: WorkSlotId.make(slotId) }
-  })
-
-export const createPlannerWorkSlot = (
-  params: PlannerWorkSlotInput
-): Effect.Effect<WorkSlotCreationResult, PlannerWorkSlotError, HulyClient> =>
-  Effect.gen(function*() {
-    const client = yield* HulyClient
-    return yield* addWorkSlotForTodo(client, params)
   })
 
 /**

@@ -1,21 +1,16 @@
 import type { SocialIdentity } from "@hcengineering/contact"
 import type { TxOperations } from "@hcengineering/core"
 import type { Issue as HulyIssue, Project as HulyProject, TimeSpendReport } from "@hcengineering/tracker"
-import { Redacted, Schema } from "effect"
-import { createRequire } from "node:module"
+import { Schema } from "effect"
 import { setTimeout } from "node:timers/promises"
 import { parseArgs } from "node:util"
 
-import { HulyConfigSchema } from "../src/config/config.js"
 import { Count, IssueIdentifier, PersonId, ProjectIdentifier, TimeSpendReportId } from "../src/domain/schemas/shared.js"
 import { PositiveTimeHours, TimeHours } from "../src/domain/schemas/time.js"
 import { contact, tracker } from "../src/huly/huly-plugins.js"
 import { hulyQuery } from "../src/huly/operations/query-helpers.js"
 import { toRef, toSocialIdentityRef } from "../src/huly/operations/sdk-boundary.js"
-
-const require = createRequire(import.meta.url)
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports, no-restricted-syntax -- CJS interop boundary: api-client does not expose these helpers as ESM runtime named exports under tsx.
-const apiClient = require("@hcengineering/api-client") as typeof import("@hcengineering/api-client")
+import { connectIntegrationHuly } from "./integration-huly-client.js"
 
 const CliArgsSchema = Schema.Struct({
   project: ProjectIdentifier,
@@ -48,38 +43,6 @@ const MAX_POLL_ATTEMPTS = 30
 const NODE_ARGV_OFFSET = 2
 const POLL_INTERVAL_MS = 250
 
-const loadConfig = () => {
-  const token = process.env["HULY_TOKEN"]
-  const auth = token === undefined || token.trim() === ""
-    ? {
-      _tag: "password" as const,
-      email: process.env["HULY_EMAIL"],
-      password: process.env["HULY_PASSWORD"]
-    }
-    : { _tag: "token" as const, token }
-
-  return Schema.decodeUnknownSync(HulyConfigSchema)({
-    url: process.env["HULY_URL"],
-    workspace: process.env["HULY_WORKSPACE"],
-    connectionTimeout: 30_000,
-    auth
-  })
-}
-
-const connect = async (): Promise<TxOperations> => {
-  const config = loadConfig()
-  const serverConfig = await apiClient.loadServerConfig(config.url)
-  const auth = config.auth._tag === "token"
-    ? { token: Redacted.value(config.auth.token), workspace: config.workspace }
-    : {
-      email: config.auth.email,
-      password: Redacted.value(config.auth.password),
-      workspace: config.workspace
-    }
-  const { endpoint, token, workspaceId } = await apiClient.getWorkspaceToken(config.url, auth, serverConfig)
-  return await apiClient.createRestTxOperations(endpoint, workspaceId, token)
-}
-
 const parseCliArgs = (): CliArgs =>
   Schema.decodeUnknownSync(CliArgsSchema)(
     parseArgs({
@@ -110,7 +73,7 @@ const findIssue = async (client: TxOperations, args: CliArgs): Promise<HulyIssue
 }
 
 const readState = async (args: CliArgs): Promise<TimeReportState> => {
-  const client = await connect()
+  const { client } = await connectIntegrationHuly()
   try {
     const issue = await findIssue(client, args)
     const report = await client.findOne<TimeSpendReport>(
@@ -150,7 +113,7 @@ const waitForState = async (
 }
 
 const removeReport = async (args: CliArgs): Promise<void> => {
-  const client = await connect()
+  const { client } = await connectIntegrationHuly()
   try {
     const issue = await findIssue(client, args)
     const socialIdentity = await client.findOne<SocialIdentity>(

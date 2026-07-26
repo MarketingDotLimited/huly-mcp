@@ -3036,6 +3036,15 @@ if [ $? -eq 0 ]; then
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"schedule_todo\",\"arguments\":{\"locator\":{\"todoId\":\"$TODO_ID\"},\"date\":1777020000000,\"dueDate\":1777023600000}},\"id\":2}"
     SCHEDULE_SLOT_ID=$(echo "$SCHEDULE_TEXT" | jq -r '.workSlotId // empty' 2>/dev/null)
     if [ -n "$SCHEDULE_SLOT_ID" ]; then
+      if PLANNER_SLOT_RESULT=$(pnpm exec tsx scripts/integration-planner-work-slot.ts \
+        --slot "$SCHEDULE_SLOT_ID" --todo "$TODO_ID" --calendar "$CALENDAR_ID" \
+        --date "1777020000000" --dueDate "1777023600000"); then
+        echo "PASS: schedule_todo creates a Planner-visible authenticated calendar slot"
+        PASSED=$((PASSED + 1))
+        echo "  => $PLANNER_SLOT_RESULT"
+      else
+        fail_test "schedule_todo Planner-native slot shape" "Planner visibility verification helper failed"
+      fi
       run_capture_to_var UNSCHEDULE_SLOT_TEXT "unschedule_todo(workSlotId:$SCHEDULE_SLOT_ID)" \
         "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"unschedule_todo\",\"arguments\":{\"workSlotId\":\"$SCHEDULE_SLOT_ID\"}},\"id\":2}"
       if [ $? -eq 0 ]; then

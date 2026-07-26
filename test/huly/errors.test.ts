@@ -163,6 +163,7 @@ import {
   PersonIdentifierAmbiguousError,
   PersonNotAnEmployeeError,
   PersonNotFoundError,
+  PlannerSchedulingPrerequisiteError,
   ProjectNotFoundError,
   ReactionNotFoundError,
   RecruitingApplicantIdentifierAmbiguousError,
@@ -1285,6 +1286,8 @@ describe("Huly Errors", () => {
               return `todo-ambiguous:${error.locator}:${error.matches}`
             case "TodoWorkSlotNotFoundError":
               return `todo-workslot:${error.workSlotId}`
+            case "PlannerSchedulingPrerequisiteError":
+              return `planner-prerequisite:${error.prerequisite}`
             case "DriveNotFoundError":
               return `drive:${error.drive}`
             case "DriveIdentifierAmbiguousError":
@@ -1620,6 +1623,9 @@ describe("Huly Errors", () => {
           "Planner ToDo locator is ambiguous: title:Fix bug matched 2 ToDos"
         )
         expect(matchError(new TodoWorkSlotNotFoundError({ workSlotId: "slot-1" }))).toBe("todo-workslot:slot-1")
+        expect(
+          matchError(new PlannerSchedulingPrerequisiteError({ prerequisite: "personal calendar" }))
+        ).toBe("planner-prerequisite:personal calendar")
         expect(matchError(new InventoryCategoryNotFoundError({ identifier: "Cat" }))).toBe("inventory-category:Cat")
         expect(new InventoryCategoryNotFoundError({ identifier: "Cat" }).message).toBe(
           "Inventory category 'Cat' not found"

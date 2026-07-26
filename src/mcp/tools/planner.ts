@@ -136,7 +136,7 @@ export const plannerTools = [
     {
       name: "schedule_todo",
       description:
-        "Schedule a Planner ToDo by raw todoId or human locator, creating a work slot with ToDo title, description, and visibility metadata.",
+        "Schedule a Planner ToDo by raw todoId or human locator. Creates a Planner-visible blocking work slot on the authenticated user's personal calendar, owned by their primary social identity and including them as a participant. Fails actionably when the identity, employee, or writable calendar prerequisite is unavailable.",
       category: CATEGORY,
       inputSchema: scheduleTodoParamsJsonSchema,
       resultSchema: ScheduleTodoResultSchema

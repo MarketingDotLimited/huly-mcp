@@ -766,7 +766,7 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `complete_todo` | Complete a Planner ToDo by setting doneOn. Huly may trim future work slots and run issue automation when the ToDo is attached to an issue. |
 | `reopen_todo` | Reopen a completed Planner ToDo by clearing doneOn. Human locators search completed ToDos by default; raw todoId locators target that exact ToDo. |
 | `delete_todo` | Delete a Planner ToDo. This is destructive; deleting the last open issue ToDo can cause Huly classic issue status automation. |
-| `schedule_todo` | Schedule a Planner ToDo by raw todoId or human locator, creating a work slot with ToDo title, description, and visibility metadata. |
+| `schedule_todo` | Schedule a Planner ToDo by raw todoId or human locator. Creates a Planner-visible blocking work slot on the authenticated user's personal calendar, owned by their primary social identity and including them as a participant. Fails actionably when the identity, employee, or writable calendar prerequisite is unavailable. |
 | `unschedule_todo` | Remove ToDo work slots. Pass either workSlotId to remove one slot, locator with scope=all, or locator with scope=future and optional from. |
 
 ### Preferences

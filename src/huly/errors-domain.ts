@@ -137,7 +137,12 @@ import {
   NotificationProviderNotConfigurableError,
   NotificationTypeNotFoundError
 } from "./errors-notifications.js"
-import { TodoIdentifierAmbiguousError, TodoNotFoundError, TodoWorkSlotNotFoundError } from "./errors-planner.js"
+import {
+  PlannerSchedulingPrerequisiteError,
+  TodoIdentifierAmbiguousError,
+  TodoNotFoundError,
+  TodoWorkSlotNotFoundError
+} from "./errors-planner.js"
 import {
   ProcessCardIdentifierAmbiguousError,
   ProcessCardNotFoundError,
@@ -392,6 +397,7 @@ export const HulyDomainError = Schema.Union(
   TodoNotFoundError,
   TodoIdentifierAmbiguousError,
   TodoWorkSlotNotFoundError,
+  PlannerSchedulingPrerequisiteError,
   DriveNotFoundError,
   DriveIdentifierAmbiguousError,
   DrivePathNotFoundError,
