@@ -2,6 +2,7 @@ import { describe, it } from "@effect/vitest"
 import type { ParseResult } from "effect"
 import { Cause, Effect, Schema } from "effect"
 import { expect } from "vitest"
+import { Base64FileData } from "../../src/domain/schemas/domain-values.js"
 import { AssociationName } from "../../src/domain/schemas/generic-associations.js"
 import { ProcessId } from "../../src/domain/schemas/processes.js"
 import {
@@ -945,7 +946,7 @@ describe("Error Mapping to MCP", () => {
   describe("toMcpResponse", () => {
     it.effect("emits exactly one image block without base64 in structured metadata", () =>
       Effect.gen(function*() {
-        const base64 = "aW1hZ2UtYnl0ZXM="
+        const base64 = Base64FileData.make("aW1hZ2UtYnl0ZXM=")
         const wire = toMcpResponse(createImageSuccessResponse(
           { attachmentId: "att-1", name: "shot.png", type: "image/png", size: 11 },
           { type: "image", data: base64, mimeType: "image/png" }
@@ -965,7 +966,7 @@ describe("Error Mapping to MCP", () => {
         }
         const wire = toMcpResponse(createImageSuccessResponse(
           { attachmentId: "att-1" },
-          { type: "image", data: "aW1hZ2U=", mimeType: "image/png" },
+          { type: "image", data: Base64FileData.make("aW1hZ2U="), mimeType: "image/png" },
           [warning]
         ))
 

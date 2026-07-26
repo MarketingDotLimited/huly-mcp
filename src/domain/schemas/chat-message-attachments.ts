@@ -18,6 +18,12 @@ import {
   UrlString,
   withAtLeastOneRequired
 } from "./shared.js"
+import {
+  UPLOAD_BASE64_DATA_DESCRIPTION,
+  UPLOAD_FILE_PATH_DESCRIPTION,
+  UPLOAD_FILE_URL_DESCRIPTION,
+  UPLOAD_SOURCE_FIELD_DESCRIPTIONS
+} from "./upload-source.js"
 
 export * from "./chat-message-attachment-results.js"
 
@@ -69,13 +75,13 @@ const ChatMessageAttachmentFileFields = {
     description: "MIME type of the file, such as image/png or application/pdf."
   }),
   filePath: Schema.optional(LocalFilePath.annotations({
-    description: "Local file path to upload. Mutually exclusive with fileUrl and data."
+    description: UPLOAD_FILE_PATH_DESCRIPTION
   })),
   fileUrl: Schema.optional(UrlString.annotations({
-    description: "Remote URL to fetch and upload. Mutually exclusive with filePath and data."
+    description: UPLOAD_FILE_URL_DESCRIPTION
   })),
   data: Schema.optional(Base64FileData.annotations({
-    description: "Base64-encoded file data. Mutually exclusive with filePath and fileUrl."
+    description: UPLOAD_BASE64_DATA_DESCRIPTION
   })),
   description: Schema.optional(AttachmentDescription.annotations({
     description: "Optional attachment description."
@@ -191,9 +197,7 @@ const CHAT_MESSAGE_ATTACHMENT_FIELD_DESCRIPTIONS = {
   attachmentId: "Attachment ID. Must belong directly to the resolved chat message target.",
   filename: "Name of the file to attach to the chat message or thread reply.",
   contentType: "MIME type of the file, such as image/png or application/pdf.",
-  filePath: "Local file path to upload. Mutually exclusive with fileUrl and data.",
-  fileUrl: "Remote URL to fetch and upload. Mutually exclusive with filePath and data.",
-  data: "Base64-encoded file data. Mutually exclusive with filePath and fileUrl.",
+  ...UPLOAD_SOURCE_FIELD_DESCRIPTIONS,
   description: "Optional attachment description. Use null on update to clear it.",
   pinned: "Whether the attachment should be pinned."
 } satisfies Readonly<Record<ChatMessageAttachmentDescriptionField, string>>

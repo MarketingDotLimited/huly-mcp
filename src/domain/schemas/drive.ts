@@ -1,5 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
+import { withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 import {
   BlobId,
   Count,
@@ -17,6 +18,12 @@ import {
   withAtLeastOneRequired,
   withMutuallyExclusiveFields
 } from "./shared.js"
+import {
+  UPLOAD_BASE64_DATA_DESCRIPTION,
+  UPLOAD_FILE_PATH_DESCRIPTION,
+  UPLOAD_FILE_URL_DESCRIPTION,
+  UPLOAD_SOURCE_FIELD_DESCRIPTIONS
+} from "./upload-source.js"
 
 const limitDescription = (subject: string): string => `Maximum ${subject} to return (default: ${DEFAULT_LIMIT}).`
 export const DEFAULT_DRIVE_PATH = "/"
@@ -241,13 +248,13 @@ export type CreateDriveFolderParams = Schema.Schema.Type<typeof CreateDriveFolde
 
 const UploadSourceFields = {
   filePath: Schema.optional(Schema.String.annotations({
-    description: "Local filesystem path to upload. Preferred for large files."
+    description: UPLOAD_FILE_PATH_DESCRIPTION
   })),
   fileUrl: Schema.optional(Schema.String.annotations({
-    description: "Remote URL to fetch server-side."
+    description: UPLOAD_FILE_URL_DESCRIPTION
   })),
   data: Schema.optional(Schema.String.annotations({
-    description: "Base64-encoded file content. Use only for small files."
+    description: UPLOAD_BASE64_DATA_DESCRIPTION
   }))
 } as const
 
@@ -347,11 +354,17 @@ export const getDriveItemParamsJsonSchema = withAtLeastOneRequired(
 )
 export const createDriveFolderParamsJsonSchema = JSONSchema.make(CreateDriveFolderParamsSchema)
 export const uploadDriveFileParamsJsonSchema = {
-  ...JSONSchema.make(UploadDriveFileParamsSchema),
+  ...withJsonSchemaPropertyDescriptions(
+    JSONSchema.make(UploadDriveFileParamsSchema),
+    UPLOAD_SOURCE_FIELD_DESCRIPTIONS
+  ),
   oneOf: [{ required: ["filePath"] }, { required: ["fileUrl"] }, { required: ["data"] }]
 }
 export const uploadDriveFileVersionParamsJsonSchema = {
-  ...JSONSchema.make(UploadDriveFileVersionParamsSchema),
+  ...withJsonSchemaPropertyDescriptions(
+    JSONSchema.make(UploadDriveFileVersionParamsSchema),
+    UPLOAD_SOURCE_FIELD_DESCRIPTIONS
+  ),
   oneOf: [{ required: ["filePath"] }, { required: ["fileUrl"] }, { required: ["data"] }]
 }
 export const listDriveFileVersionsParamsJsonSchema = JSONSchema.make(ListDriveFileVersionsParamsSchema)

@@ -11,7 +11,7 @@ import * as path from "node:path"
 import { expect } from "vitest"
 import { READ_ATTACHMENT_CONTENT_MAX_BYTES } from "../../../src/domain/schemas/attachments.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
-import type { AttachmentNotFoundError } from "../../../src/huly/errors.js"
+import { type AttachmentNotFoundError, FileFetchError } from "../../../src/huly/errors.js"
 import { attachment, documentPlugin, tracker } from "../../../src/huly/huly-plugins.js"
 import {
   addAttachment,
@@ -845,6 +845,28 @@ describe("readAttachmentContent", () => {
       )
 
       expect(error._tag).toBe("AttachmentContentUnavailableError")
+    }))
+
+  it.effect("redacts storage adapter failure details from the typed attachment error", () =>
+    Effect.gen(function*() {
+      const testLayer = createTestLayer({
+        attachments: [makeImageAttachment()],
+        downloadFile: () =>
+          Effect.fail(
+            new FileFetchError({
+              fileUrl: "blob-image",
+              reason: "S3 credential secret-value rejected"
+            })
+          )
+      })
+
+      const error = yield* Effect.flip(
+        readAttachmentContent({ attachmentId: attachmentBrandId("att-image") }).pipe(Effect.provide(testLayer))
+      )
+
+      expect(error._tag).toBe("AttachmentContentUnavailableError")
+      expect(error.message).toContain("authenticated storage download failed")
+      expect(error.message).not.toContain("secret-value")
     }))
 })
 

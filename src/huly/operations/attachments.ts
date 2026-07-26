@@ -42,7 +42,6 @@ import {
   type NoUpdateFieldsError
 } from "../errors.js"
 import { HulyStorageClient } from "../storage.js"
-import type { StorageClientError } from "../storage.js"
 import {
   findAttachmentForScope,
   getAttachmentForScope,
@@ -85,7 +84,6 @@ type ReadAttachmentContentError =
   | AttachmentContentTooLargeError
   | AttachmentContentTypeUnsupportedError
   | AttachmentContentUnavailableError
-  | StorageClientError
 
 const StoredAttachmentContentSchema = Schema.Struct({
   _id: AttachmentId,
@@ -261,14 +259,33 @@ export const readAttachmentContent = (
       })
     }
 
-    const downloadFile = storageClient.downloadFile
-    if (downloadFile === undefined) {
+    const downloadFileBounded = storageClient.downloadFileBounded
+    if (downloadFileBounded === undefined) {
       return yield* new AttachmentContentUnavailableError({
         attachmentId: params.attachmentId,
-        reason: "authenticated storage download is unavailable"
+        reason: "bounded authenticated storage download is unavailable"
       })
     }
-    const bytes = yield* downloadFile(stored.file)
+    const download = yield* Effect.either(
+      downloadFileBounded(stored.file, AttachmentByteSize.make(READ_ATTACHMENT_CONTENT_MAX_BYTES))
+    )
+    if (Either.isLeft(download)) {
+      yield* Effect.logWarning("Attachment inline image storage download failed").pipe(
+        Effect.annotateLogs("attachmentId", params.attachmentId),
+        Effect.annotateLogs("storageErrorTag", download.left._tag)
+      )
+      return yield* download.left._tag === "FileTooLargeError"
+        ? new AttachmentContentTooLargeError({
+          attachmentId: params.attachmentId,
+          size: download.left.size,
+          maxSize: READ_ATTACHMENT_CONTENT_MAX_BYTES
+        })
+        : new AttachmentContentUnavailableError({
+          attachmentId: params.attachmentId,
+          reason: "authenticated storage download failed"
+        })
+    }
+    const bytes = download.right
 
     if (bytes.length > READ_ATTACHMENT_CONTENT_MAX_BYTES) {
       return yield* new AttachmentContentTooLargeError({

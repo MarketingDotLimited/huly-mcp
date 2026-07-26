@@ -1,7 +1,9 @@
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { renderOperationResult, renderOperationSuccess } from "../../packages/huly-cli/src/render.js"
+import { SupportedAttachmentImageTypeSchema } from "../../src/domain/schemas/attachments.js"
+import { Base64FileData } from "../../src/domain/schemas/domain-values.js"
 
 const globals = {
   json: false,
@@ -80,6 +82,29 @@ describe("CLI rendering", () => {
     )
 
     expect(output).toBe("{\n  \"ok\": true\n}")
+  })
+
+  it("renders a safe image descriptor without dumping base64 payload bytes", () => {
+    const success = {
+      result: { attachmentId: "att-image" },
+      warnings: [],
+      image: {
+        type: "image" as const,
+        data: Base64FileData.make("cG5nZGF0YQ=="),
+        mimeType: Schema.decodeUnknownSync(SupportedAttachmentImageTypeSchema)("image/png")
+      }
+    }
+
+    const human = renderOperationResult(success, globals)
+    const json = JSON.parse(renderOperationResult(success, { json: true, yes: false }))
+
+    expect(human).toContain("Image: image/png (12 base64 characters)")
+    expect(human).not.toContain("cG5nZGF0YQ==")
+    expect(json).toMatchObject({
+      result: { attachmentId: "att-image" },
+      image: { mimeType: "image/png", encoding: "base64", base64Length: 12 }
+    })
+    expect(JSON.stringify(json)).not.toContain("cG5nZGF0YQ==")
   })
 
   it("renders warnings in human and JSON output", () => {

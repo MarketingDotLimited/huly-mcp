@@ -23,6 +23,11 @@ import {
   NonEmptyString,
   UrlString
 } from "./shared.js"
+import {
+  UPLOAD_BASE64_DATA_DESCRIPTION,
+  UPLOAD_FILE_PATH_DESCRIPTION,
+  UPLOAD_FILE_URL_DESCRIPTION
+} from "./upload-source.js"
 
 const ProductLocatorFields = {
   product: InventoryProductIdentifier.annotations({
@@ -41,13 +46,13 @@ const MediaFileFields = {
     description: "MIME type of the file, such as image/png or application/pdf."
   }),
   filePath: Schema.optional(LocalFilePath.annotations({
-    description: "Local file path to upload. Mutually exclusive with fileUrl and data."
+    description: UPLOAD_FILE_PATH_DESCRIPTION
   })),
   fileUrl: Schema.optional(UrlString.annotations({
-    description: "Remote URL to fetch and upload. Mutually exclusive with filePath and data."
+    description: UPLOAD_FILE_URL_DESCRIPTION
   })),
   data: Schema.optional(Base64FileData.annotations({
-    description: "Base64-encoded file data for small files. Mutually exclusive with filePath and fileUrl."
+    description: UPLOAD_BASE64_DATA_DESCRIPTION
   })),
   description: Schema.optional(AttachmentDescription.annotations({
     description: "Optional media description."

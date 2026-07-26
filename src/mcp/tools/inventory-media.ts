@@ -48,6 +48,7 @@ import {
   updateInventoryProductCommentParamsJsonSchema,
   updateInventoryProductPhotoParamsJsonSchema
 } from "../../domain/schemas/inventory-media.js"
+import { UPLOAD_SOURCE_SEMANTICS } from "../../domain/schemas/upload-source.js"
 import {
   addInventoryProductAttachment,
   addInventoryProductComment,
@@ -96,7 +97,7 @@ export const inventoryMediaTools = [
     {
       name: "add_inventory_product_attachment",
       description:
-        "Add a file to an inventory product resolved by product ID or exact name. Provide exactly one of filePath, fileUrl, or data.",
+        `Add a file to an inventory product resolved by product ID or exact name. Provide exactly one source: ${UPLOAD_SOURCE_SEMANTICS}`,
       category: CATEGORY,
       inputSchema: addInventoryProductAttachmentParamsJsonSchema,
       resultSchema: AddInventoryProductAttachmentResultSchema
@@ -156,7 +157,7 @@ export const inventoryMediaTools = [
     {
       name: "add_inventory_product_photo",
       description:
-        "Add a photo to an inventory product using Huly's product photos collection. Provide exactly one of filePath, fileUrl, or data.",
+        `Add a photo to an inventory product using Huly's product photos collection. Provide exactly one source: ${UPLOAD_SOURCE_SEMANTICS}`,
       category: CATEGORY,
       inputSchema: addInventoryProductPhotoParamsJsonSchema,
       resultSchema: AddInventoryProductPhotoResultSchema

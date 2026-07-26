@@ -55,6 +55,7 @@ import {
   updateAttachmentParamsJsonSchema,
   UpdateAttachmentResultSchema
 } from "../../domain/schemas/attachments.js"
+import { UPLOAD_SOURCE_SEMANTICS } from "../../domain/schemas/upload-source.js"
 import {
   createDrawing,
   deleteDrawing,
@@ -105,7 +106,7 @@ export const attachmentTools = [
     {
       name: "add_attachment",
       description:
-        "Add an attachment to a Huly object. Provide ONE source: filePath is a path on the MCP server host, data is base64 content for a file local to the MCP client, or fileUrl is fetched by the MCP server. Returns the attachment ID and download URL.",
+        `Add an attachment to a Huly object. Provide one source: ${UPLOAD_SOURCE_SEMANTICS} Returns the attachment ID and download URL.`,
       category: CATEGORY,
       inputSchema: addAttachmentParamsJsonSchema,
       resultSchema: AddAttachmentResultSchema
@@ -181,7 +182,7 @@ export const attachmentTools = [
     {
       name: "add_issue_attachment",
       description:
-        "Add an attachment to a Huly issue resolved by project and identifier. Provide ONE source: server-host filePath, client-local base64 data, or a fileUrl fetched by the server.",
+        `Add an attachment to a Huly issue resolved by project and identifier. Provide one source: ${UPLOAD_SOURCE_SEMANTICS}`,
       category: CATEGORY,
       inputSchema: addIssueAttachmentParamsJsonSchema,
       resultSchema: AddAttachmentResultSchema
@@ -193,7 +194,7 @@ export const attachmentTools = [
     {
       name: "add_document_attachment",
       description:
-        "Add an attachment to a Huly document resolved by teamspace and title/ID. Provide ONE source: server-host filePath, client-local base64 data, or a fileUrl fetched by the server.",
+        `Add an attachment to a Huly document resolved by teamspace and title/ID. Provide one source: ${UPLOAD_SOURCE_SEMANTICS}`,
       category: CATEGORY,
       inputSchema: addDocumentAttachmentParamsJsonSchema,
       resultSchema: AddAttachmentResultSchema

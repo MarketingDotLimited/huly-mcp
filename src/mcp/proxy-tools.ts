@@ -5,6 +5,7 @@ import { Count } from "../domain/schemas/index.js"
 import type { HulyStorageClient } from "../huly/storage.js"
 import type { WorkspaceClientOperations } from "../huly/workspace-client.js"
 import {
+  createImageSuccessResponse,
   createInvalidParamsError,
   createSuccessResponse,
   createUnknownToolError,
@@ -307,14 +308,14 @@ const invokeTool = async (
   if (response.isError === true) return response
 
   const warnings = response.structuredContent?.warnings ?? []
-  return createSuccessResponse(
-    {
-      toolName: params.toolName,
-      result: response.structuredContent?.result ?? response.content,
-      ...(warnings.length === 0 ? {} : { warnings })
-    },
-    warnings
-  )
+  const result = {
+    toolName: params.toolName,
+    result: response.structuredContent?.result ?? response.content,
+    ...(warnings.length === 0 ? {} : { warnings })
+  }
+  return response.imageContent === undefined
+    ? createSuccessResponse(result, warnings)
+    : createImageSuccessResponse(result, response.imageContent, warnings)
 }
 
 interface ProxyToolCallInput {

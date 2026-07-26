@@ -4,6 +4,8 @@ import { toFindResult } from "@hcengineering/core"
 import { Cause, Effect, Schema } from "effect"
 import { expect } from "vitest"
 
+import { SupportedAttachmentImageTypeSchema } from "../../src/domain/schemas/attachments.js"
+import { Base64FileData } from "../../src/domain/schemas/domain-values.js"
 import type { HulyClientOperations } from "../../src/huly/client.js"
 import { HulyClient } from "../../src/huly/client.js"
 import { Diagnostics } from "../../src/huly/diagnostics.js"
@@ -38,7 +40,7 @@ const MembersResult = Schema.Struct({ members: Schema.Number })
 const PositiveResult = Schema.Struct({ count: Schema.Number.pipe(Schema.positive()) })
 const ImageMetadataResult = Schema.Struct({
   name: Schema.String,
-  type: Schema.String,
+  type: SupportedAttachmentImageTypeSchema,
   size: Schema.Number
 })
 
@@ -103,7 +105,8 @@ const noopWorkspaceClient: WorkspaceClientOperations = {
 describe("combined image tool presentation", () => {
   it.effect("keeps base64 out of structured and text metadata while exposing one image", () =>
     Effect.gen(function*() {
-      const base64 = "dW5pcXVlLWltYWdlLWJ5dGVz"
+      const base64 = Base64FileData.make("dW5pcXVlLWltYWdlLWJ5dGVz")
+      const imageType = Schema.decodeUnknownSync(SupportedAttachmentImageTypeSchema)("image/png")
       const tool = defineCombinedImageTool(
         {
           name: "test_image",
@@ -115,7 +118,7 @@ describe("combined image tool presentation", () => {
         parse,
         () =>
           Effect.succeed({
-            metadata: { name: "shot.png", type: "image/png", size: 18 },
+            metadata: { name: "shot.png", type: imageType, size: 18 },
             data: base64
           }),
         (result) => ({

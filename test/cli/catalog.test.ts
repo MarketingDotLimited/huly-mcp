@@ -68,6 +68,19 @@ describe("CLI catalog", () => {
     expect(cliCommandCatalog.list_tag_categories.path).toEqual(["tags", "categories", "list"])
   })
 
+  it("explains upload source locations in attachment commands", () => {
+    for (
+      const description of [
+        cliCommandCatalog.add_issue_attachment.description,
+        cliCommandCatalog.add_document_attachment.description
+      ]
+    ) {
+      expect(description).toContain("MCP server host")
+      expect(description).toContain("client-local base64")
+      expect(description).toContain("fetched by the MCP server")
+    }
+  })
+
   it("narrows CLI tool names at runtime", () => {
     expect(isCliToolName("list_projects")).toBe(true)
     expect(isCliToolName("not_a_tool")).toBe(false)

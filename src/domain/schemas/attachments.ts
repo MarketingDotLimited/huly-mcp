@@ -31,6 +31,12 @@ import {
   UrlString,
   withAtLeastOneRequired
 } from "./shared.js"
+import {
+  UPLOAD_BASE64_DATA_DESCRIPTION,
+  UPLOAD_FILE_PATH_DESCRIPTION,
+  UPLOAD_FILE_URL_DESCRIPTION,
+  UPLOAD_SOURCE_FIELD_DESCRIPTIONS
+} from "./upload-source.js"
 
 const DEFAULT_ATTACHMENT_PINNED = false
 
@@ -84,15 +90,13 @@ const FileSourceFields = {
     description: "MIME type of the file (e.g., 'image/png', 'application/pdf')"
   }),
   filePath: Schema.optional(LocalFilePath.annotations({
-    description:
-      "Filesystem path resolved on the MCP server host (inside its container when Dockerized), not on the MCP client. For a client-local file, send base64 data instead."
+    description: UPLOAD_FILE_PATH_DESCRIPTION
   })),
   fileUrl: Schema.optional(UrlString.annotations({
-    description: "URL fetched by the MCP server; it must be reachable from the server's network."
+    description: UPLOAD_FILE_URL_DESCRIPTION
   })),
   data: Schema.optional(Base64FileData.annotations({
-    description:
-      `Base64-encoded file content sent by the MCP client. Use this for client-local files up to the ${MAX_FILE_SIZE_MB} MiB upload limit.`
+    description: `${UPLOAD_BASE64_DATA_DESCRIPTION} Upload limit: ${MAX_FILE_SIZE_MB} MiB.`
   })),
   description: Schema.optional(AttachmentDescription.annotations({
     description: "Attachment description"
@@ -106,11 +110,8 @@ const FileSourceFields = {
 }
 
 const ATTACHMENT_UPLOAD_FIELD_DESCRIPTIONS = {
-  filePath:
-    "Filesystem path resolved on the MCP server host (inside its container when Dockerized), not on the MCP client. For a client-local file, send base64 data instead.",
-  fileUrl: "URL fetched by the MCP server; it must be reachable from the server's network.",
-  data:
-    `Base64-encoded file content sent by the MCP client. Use this for client-local files up to the ${MAX_FILE_SIZE_MB} MiB upload limit.`
+  ...UPLOAD_SOURCE_FIELD_DESCRIPTIONS,
+  data: `${UPLOAD_BASE64_DATA_DESCRIPTION} Upload limit: ${MAX_FILE_SIZE_MB} MiB.`
 }
 
 const hasFileSource = (params: {
@@ -292,6 +293,16 @@ export const SupportedAttachmentImageTypeSchema = Schema.Literal(
   description: "Image MIME type supported for inline MCP image content."
 })
 export type SupportedAttachmentImageType = Schema.Schema.Type<typeof SupportedAttachmentImageTypeSchema>
+
+export const McpImageContentSchema = Schema.Struct({
+  type: Schema.Literal("image"),
+  data: Base64FileData,
+  mimeType: SupportedAttachmentImageTypeSchema
+}).annotations({
+  title: "McpImageContent",
+  description: "Schema-owned MCP image content block encoded at the protocol boundary."
+})
+export type McpImageContent = Schema.Schema.Type<typeof McpImageContentSchema>
 
 export const ReadAttachmentContentParamsSchema = Schema.Struct({
   attachmentId: AttachmentId.annotations({

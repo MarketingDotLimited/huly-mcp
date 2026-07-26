@@ -388,7 +388,7 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 
 | Tool | Description |
 |------|-------------|
-| `upload_file` | Upload a file to Huly storage. Provide ONE of: filePath (local file - preferred), fileUrl (fetch from URL), or data (base64 - for small files only). Returns blob ID and URL for referencing the file. |
+| `upload_file` | Upload a file to Huly storage. Provide one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. Returns the blob ID and URL. |
 
 ### Attachments
 
@@ -396,14 +396,14 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 |------|-------------|
 | `list_attachments` | List attachments on a Huly object (issue, document, etc.). Returns attachments sorted by modification date (newest first). |
 | `get_attachment` | Retrieve full details for a Huly attachment including download URL. |
-| `add_attachment` | Add an attachment to a Huly object. Provide ONE source: filePath is a path on the MCP server host, data is base64 content for a file local to the MCP client, or fileUrl is fetched by the MCP server. Returns the attachment ID and download URL. |
+| `add_attachment` | Add an attachment to a Huly object. Provide one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. Returns the attachment ID and download URL. |
 | `update_attachment` | Update attachment metadata (description, pinned status). |
 | `delete_attachment` | Permanently delete an attachment. This action cannot be undone. |
 | `pin_attachment` | Pin or unpin an attachment. |
 | `download_attachment` | Get download URL for an attachment along with file metadata (name, type, size). |
 | `read_attachment_content` | Return a supported image attachment (JPEG, PNG, GIF, or WebP; maximum 4 MiB) as one MCP image content block plus metadata-only structured content. Use this to inspect screenshots or pictures directly. For non-image, unsupported, or oversized files, call download_attachment to get a URL instead. |
-| `add_issue_attachment` | Add an attachment to a Huly issue resolved by project and identifier. Provide ONE source: server-host filePath, client-local base64 data, or a fileUrl fetched by the server. |
-| `add_document_attachment` | Add an attachment to a Huly document resolved by teamspace and title/ID. Provide ONE source: server-host filePath, client-local base64 data, or a fileUrl fetched by the server. |
+| `add_issue_attachment` | Add an attachment to a Huly issue resolved by project and identifier. Provide one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. |
+| `add_document_attachment` | Add an attachment to a Huly document resolved by teamspace and title/ID. Provide one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. |
 | `save_attachment` | Save/bookmark an attachment for later reference. Idempotent when already saved. |
 | `unsave_attachment` | Remove an attachment from saved/bookmarks. |
 | `list_saved_attachments` | List saved/bookmarked attachments for the current user. |
@@ -479,7 +479,7 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `delete_thread_reply` | Permanently delete a thread reply. This action cannot be undone. |
 | `list_chat_message_attachments` | List files attached directly to a Huly chat message target. target.kind supports channel_message, dm_message, and thread_reply; the tool resolves channel names and one-to-one DM participant display names for you. |
 | `get_chat_message_attachment` | Get one file attached directly to a Huly channel message, direct-message message, or thread reply. The attachmentId must belong to the resolved target. |
-| `add_chat_message_attachment` | Attach a file directly to a Huly channel message, direct-message message, or thread reply. Provide filename, contentType, and exactly one of filePath, fileUrl, or data. |
+| `add_chat_message_attachment` | Attach a file directly to a Huly channel message, direct-message message, or thread reply. Provide filename, contentType, and exactly one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. |
 | `update_chat_message_attachment` | Update description and/or pinned state for a file attached directly to a Huly channel message, direct-message message, or thread reply. The attachmentId must belong to the resolved target. |
 | `delete_chat_message_attachment` | Delete one file attached directly to a Huly channel message, direct-message message, or thread reply. The attachmentId must belong to the resolved target. |
 
@@ -690,8 +690,8 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `delete_drive_file_comment` | Permanently delete a comment from a Drive file resolved by filePath or fileId. Provide only one locator. This deletes the comment, not the file. |
 | `list_drive_file_activity` | List activity messages for a Drive file resolved by filePath or fileId. Provide only one locator. Returns activity sorted by date, newest first. |
 | `create_drive_folder` | Idempotently create a Drive folder path, creating missing parents like mkdir -p. Returns created=false when the full folder path already exists. |
-| `upload_drive_file` | Upload a file into Drive at a full path including filename. Provide exactly one source: filePath, fileUrl, or base64 data. By default createParents=true creates missing parent folders and reports them. |
-| `upload_drive_file_version` | Upload a new version for an existing Drive file resolved by file id or file path. Provide exactly one source: filePath, fileUrl, or base64 data. This increments the file version counter and makes the uploaded version current. |
+| `upload_drive_file` | Upload a file into Drive at a full path including filename. Provide exactly one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. By default createParents=true creates missing parent folders and reports them. |
+| `upload_drive_file_version` | Upload a new version for an existing Drive file resolved by file id or file path. Provide exactly one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. This increments the file version counter and makes the uploaded version current. |
 | `move_drive_item` | Move a Drive item, meaning a file or folder, to another existing folder path in the same Drive without renaming it. Idempotent when the item is already in that folder. Rejects sibling title collisions and rejects moving a folder into itself or a descendant. |
 | `rename_drive_item` | Rename a Drive item, meaning a file or folder, in its current folder. Idempotent when the title is unchanged. Rejects sibling title collisions; use move_drive_item to change folders. |
 | `delete_drive_item` | Permanently delete a Drive item, meaning a file or folder. Files are deleted with their version records. Folders must be empty; non-empty folders fail with child count and child summaries. This is permanent deletion, not archive or trash. |
@@ -704,12 +704,12 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 |------|-------------|
 | `list_inventory_product_attachments` | List files attached directly to an inventory product resolved by product ID or exact name. Pass category to disambiguate duplicate product names. |
 | `get_inventory_product_attachment` | Get one file attached directly to an inventory product. The attachmentId must belong to the resolved product. |
-| `add_inventory_product_attachment` | Add a file to an inventory product resolved by product ID or exact name. Provide exactly one of filePath, fileUrl, or data. |
+| `add_inventory_product_attachment` | Add a file to an inventory product resolved by product ID or exact name. Provide exactly one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. |
 | `update_inventory_product_attachment` | Update description and/or pinned state for a file attached directly to an inventory product. The attachmentId must belong to the resolved product. |
 | `delete_inventory_product_attachment` | Permanently delete a file attached directly to an inventory product. The attachmentId must belong to the resolved product. |
 | `list_inventory_product_photos` | List photos attached directly to an inventory product resolved by product ID or exact name. Pass category to disambiguate duplicate product names. |
 | `get_inventory_product_photo` | Get one photo attached directly to an inventory product. The photoId must belong to the resolved product. |
-| `add_inventory_product_photo` | Add a photo to an inventory product using Huly's product photos collection. Provide exactly one of filePath, fileUrl, or data. |
+| `add_inventory_product_photo` | Add a photo to an inventory product using Huly's product photos collection. Provide exactly one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. |
 | `update_inventory_product_photo` | Update description and/or pinned state for a photo attached directly to an inventory product. The photoId must belong to the resolved product. |
 | `delete_inventory_product_photo` | Permanently delete a photo attached directly to an inventory product. The photoId must belong to the resolved product. |
 | `list_inventory_product_comments` | List comments attached directly to an inventory product resolved by product ID or exact name. Returns comments oldest first. |
@@ -813,7 +813,7 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `delete_recruiting_comment` | Delete one comment attached directly to a Recruiting vacancy, candidate, applicant, review, or opinion. The commentId must belong to the resolved target. |
 | `list_recruiting_attachments` | List files attached directly to a Recruiting vacancy, candidate, applicant, or opinion target. Review attachments are intentionally unsupported unless the model exposes that collection. |
 | `get_recruiting_attachment` | Get one file attached directly to a Recruiting vacancy, candidate, applicant, or opinion. The attachmentId must belong to the resolved target. |
-| `add_recruiting_attachment` | Attach a file to a Recruiting vacancy, candidate, applicant, or opinion target. Provide exactly one of filePath, fileUrl, or data, plus filename and contentType. |
+| `add_recruiting_attachment` | Attach a file to a Recruiting vacancy, candidate, applicant, or opinion target. Provide filename, contentType, and exactly one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. |
 | `update_recruiting_attachment` | Update description and/or pinned state for a file attached directly to a Recruiting vacancy, candidate, applicant, or opinion. The attachmentId must belong to the resolved target. |
 | `delete_recruiting_attachment` | Delete one file attached directly to a Recruiting vacancy, candidate, applicant, or opinion. The attachmentId must belong to the resolved target. |
 | `list_recruiting_activity` | List read-only activity messages for a Recruiting vacancy, candidate, applicant, or review target resolved by friendly Recruiting identifiers. Opinions are intentionally unsupported. |

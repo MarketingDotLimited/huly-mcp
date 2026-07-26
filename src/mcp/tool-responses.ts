@@ -1,3 +1,6 @@
+import { Schema } from "effect"
+
+import { type McpImageContent, McpImageContentSchema } from "../domain/schemas/attachments.js"
 import type { ToolWarning } from "../domain/schemas/tool-warnings.js"
 
 export const McpErrorCode = {
@@ -13,11 +16,7 @@ interface ErrorMetadata {
 }
 
 type McpTextContent = { readonly type: "text"; readonly text: string }
-export type McpImageContent = {
-  readonly type: "image"
-  readonly data: string
-  readonly mimeType: string
-}
+export type { McpImageContent } from "../domain/schemas/attachments.js"
 type McpTextContentList = [McpTextContent, ...Array<McpTextContent>]
 
 interface McpToolResponseBase {
@@ -41,8 +40,9 @@ interface McpToolErrorResponse extends McpToolResponseBase {
 
 export type McpToolResponse = McpToolSuccessResponse | McpToolErrorResponse
 
+type McpWireImageContent = Schema.Schema.Encoded<typeof McpImageContentSchema>
 type McpWireSuccessResponse = {
-  readonly content: [McpTextContent, ...Array<McpTextContent | McpImageContent>]
+  readonly content: [McpTextContent, ...Array<McpTextContent | McpWireImageContent>]
   readonly structuredContent?: {
     readonly result: unknown
     readonly warnings?: ReadonlyArray<ToolWarning>
@@ -152,7 +152,7 @@ export function toMcpResponse(response: McpToolResponse): McpWireResponse {
     : {
       content: response.imageContent === undefined
         ? response.content
-        : [...response.content, response.imageContent],
+        : [...response.content, Schema.encodeSync(McpImageContentSchema)(response.imageContent)],
       ...(response.structuredContent === undefined ? {} : { structuredContent: response.structuredContent }),
       ...(response.isError === undefined ? {} : { isError: response.isError })
     }

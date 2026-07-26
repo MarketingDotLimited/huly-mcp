@@ -19,6 +19,7 @@ import { Context, Effect, Layer, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { ConfigValidationError, sanitizeHulyRuntimeConfigFromEnv } from "../../src/config/config.js"
+import { Base64FileData } from "../../src/domain/schemas/domain-values.js"
 import { type GetHulyContextResult, GetHulyContextResultSchema } from "../../src/domain/schemas/index.js"
 import { HulyClient, type HulyClientOperations } from "../../src/huly/client.js"
 import { Diagnostics } from "../../src/huly/diagnostics.js"
@@ -604,6 +605,19 @@ const contentOnlyProxyRegistry: ToolRegistry = {
   ...diagnosticProbeRegistry,
   handleToolCall: async () => ({
     content: [{ type: "text", text: "plain target output" }]
+  })
+}
+
+const imageProxyRegistry: ToolRegistry = {
+  ...diagnosticProbeRegistry,
+  handleToolCall: async () => ({
+    content: [{ type: "text", text: "{\"attachmentId\":\"att-image\"}" }],
+    structuredContent: { result: { attachmentId: "att-image" } },
+    imageContent: {
+      type: "image",
+      data: Base64FileData.make("cG5n"),
+      mimeType: "image/png"
+    }
   })
 }
 
@@ -1582,6 +1596,26 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
       toolName: "diagnostic_probe",
       result: [{ type: "text", text: "plain target output" }]
     })
+  })
+
+  it("preserves exactly one target image through invoke_tool without structured base64 duplication", async () => {
+    const handlers = createMcpProtocolHandlers(
+      buildStubClients(),
+      createTelemetryProbe().telemetry,
+      protocolRegistries(imageProxyRegistry),
+      makeValidContext,
+      liveNowClock,
+      () => Promise.resolve("0.0.0"),
+      proxyExposureOptions()
+    )
+
+    const response = await handlers.callTool({
+      params: { name: "invoke_tool", arguments: { toolName: "diagnostic_probe", arguments: {} } }
+    })
+
+    const images = response.content.filter((content) => content.type === "image")
+    expect(images).toEqual([{ type: "image", data: "cG5n", mimeType: "image/png" }])
+    expect(JSON.stringify(response.structuredContent)).not.toContain("cG5n")
   })
 
   it("returns target proxy errors and null dispatches without wrapping them as successes", async () => {
