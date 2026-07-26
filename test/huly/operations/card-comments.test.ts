@@ -24,8 +24,14 @@ import {
   parseListCardCommentsParams,
   parseUpdateCardCommentParams
 } from "../../../src/domain/schemas/card-comments.js"
+import { CardIdentifier, CardSpaceIdentifier } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
-import { CardCommentNotFoundError, CardNotFoundError, CardSpaceNotFoundError } from "../../../src/huly/errors.js"
+import {
+  CardCommentNotFoundError,
+  CardNotFoundError,
+  CardSpaceNotFoundError,
+  HulyError
+} from "../../../src/huly/errors.js"
 import { cardPlugin, chunter } from "../../../src/huly/huly-plugins.js"
 import {
   addCardComment,
@@ -52,7 +58,7 @@ interface CardCommentState {
   nextId: number
 }
 
-const cardSpace = (): HulyCardSpace => ({
+const cardSpace = (overrides?: Partial<HulyCardSpace>): HulyCardSpace => ({
   _id: SPACE_ID,
   _class: cardPlugin.class.CardSpace,
   space: toRef<Space>("workspace"),
@@ -65,10 +71,11 @@ const cardSpace = (): HulyCardSpace => ({
   modifiedBy: personId,
   modifiedOn: 0,
   createdBy: personId,
-  createdOn: 0
+  createdOn: 0,
+  ...overrides
 })
 
-const card = (): HulyCard => ({
+const card = (overrides?: Partial<HulyCard>): HulyCard => ({
   _id: toRef<HulyCard>("card-1"),
   _class: CARD_CLASS,
   space: SPACE_ID,
@@ -82,7 +89,8 @@ const card = (): HulyCard => ({
   modifiedBy: personId,
   modifiedOn: 0,
   createdBy: personId,
-  createdOn: 0
+  createdOn: 0,
+  ...overrides
 })
 
 const chatMessage = (
@@ -354,5 +362,84 @@ describe("card comment operations", () => {
           cardSpace: missingComment.cardSpace
         }).message
       ).toBe("Comment 'missing' not found on card 'Decision Record' in card space 'Product Strategy'")
+    }))
+
+  it.effect("reports the resolved card-space name when an ID-located card is missing", () =>
+    Effect.gen(function*() {
+      const state = { ...baseState(), cards: [] }
+      const params = yield* parseListCardCommentsParams({
+        cardSpace: "card-space-1",
+        card: "Missing"
+      })
+
+      const error = yield* Effect.flip(
+        listCardComments(params).pipe(Effect.provide(makeLayer(state)))
+      )
+
+      expect(error).toEqual(
+        new CardNotFoundError({
+          identifier: params.card,
+          cardSpace: CardSpaceIdentifier.make("Product Strategy")
+        })
+      )
+      expect(error.message).toBe("Card 'Missing' not found in card space 'Product Strategy'")
+    }))
+
+  it.effect("propagates malformed resolved card-space names as typed boundary failures", () =>
+    Effect.gen(function*() {
+      const state = { ...baseState(), cardSpaces: [cardSpace({ name: "" })], cards: [] }
+      const params = yield* parseListCardCommentsParams({
+        cardSpace: "card-space-1",
+        card: "Missing"
+      })
+
+      const error = yield* Effect.flip(
+        listCardComments(params).pipe(Effect.provide(makeLayer(state)))
+      )
+
+      expect(error).toBeInstanceOf(HulyError)
+      expect(error.message).toBe("Resolved card space has an invalid name")
+    }))
+
+  it.effect("reports resolved names when an ID-located card comment is missing", () =>
+    Effect.gen(function*() {
+      const state = baseState()
+      const params = yield* parseDeleteCardCommentParams({
+        cardSpace: "card-space-1",
+        card: "card-1",
+        commentId: "missing"
+      })
+
+      const error = yield* Effect.flip(
+        deleteCardComment(params).pipe(Effect.provide(makeLayer(state)))
+      )
+
+      expect(error).toEqual(
+        new CardCommentNotFoundError({
+          commentId: params.commentId,
+          card: CardIdentifier.make("Decision Record"),
+          cardSpace: CardSpaceIdentifier.make("Product Strategy")
+        })
+      )
+      expect(error.message).toBe(
+        "Comment 'missing' not found on card 'Decision Record' in card space 'Product Strategy'"
+      )
+    }))
+
+  it.effect("propagates malformed resolved card titles as typed boundary failures", () =>
+    Effect.gen(function*() {
+      const state = { ...baseState(), cards: [card({ title: "" })] }
+      const params = yield* parseDeleteCardCommentParams({
+        cardSpace: "card-space-1",
+        card: "card-1",
+        commentId: "missing"
+      })
+
+      const error = yield* Effect.flip(
+        deleteCardComment(params).pipe(Effect.provide(makeLayer(state)))
+      )
+
+      expect(error).toBeInstanceOf(HulyError)
+      expect(error.message).toBe("Resolved card has an invalid title")
     }))
 })

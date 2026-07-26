@@ -30,7 +30,7 @@ import type {
   UpdateCardResult
 } from "../../domain/schemas/cards.js"
 import { UPDATE_CARD_FIELDS } from "../../domain/schemas/cards.js"
-import { CardId, CardSpaceId, CardSpaceIdentifier, MasterTagId } from "../../domain/schemas/shared.js"
+import { CardId, CardIdentifier, CardSpaceId, CardSpaceIdentifier, MasterTagId } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import { CardNotFoundError, CardSpaceNotFoundError, HulyError } from "../errors.js"
 import type { MasterTagNotFoundError, NoUpdateFieldsError } from "../errors.js"
@@ -56,6 +56,7 @@ type ListCardsError =
 
 type GetCardError =
   | HulyClientError
+  | HulyError
   | CardSpaceNotFoundError
   | CardNotFoundError
 
@@ -68,12 +69,14 @@ type CreateCardError =
 
 type UpdateCardError =
   | HulyClientError
+  | HulyError
   | NoUpdateFieldsError
   | CardSpaceNotFoundError
   | CardNotFoundError
 
 type DeleteCardError =
   | HulyClientError
+  | HulyError
   | CardSpaceNotFoundError
   | CardNotFoundError
 
@@ -86,6 +89,18 @@ const parseResolvedCardSpaceIdentifier = (
     Effect.mapError((cause) =>
       new HulyError({
         message: "Resolved card space has an invalid name",
+        cause
+      })
+    )
+  )
+
+const parseResolvedCardIdentifier = (
+  card: HulyCard
+): Effect.Effect<CardIdentifier, HulyError> =>
+  Schema.decodeUnknown(CardIdentifier)(card.title).pipe(
+    Effect.mapError((cause) =>
+      new HulyError({
+        message: "Resolved card has an invalid title",
         cause
       })
     )
@@ -118,12 +133,19 @@ const findCardSpace = (
 export const findCardSpaceAndCard = (
   params: Pick<GetCardParams, "card" | "cardSpace">
 ): Effect.Effect<
-  { card: HulyCard; cardSpace: HulyCardSpace; client: HulyClient["Type"] },
-  CardSpaceNotFoundError | CardNotFoundError | HulyClientError,
+  {
+    card: HulyCard
+    cardIdentifier: CardIdentifier
+    cardSpace: HulyCardSpace
+    cardSpaceIdentifier: CardSpaceIdentifier
+    client: HulyClient["Type"]
+  },
+  CardSpaceNotFoundError | CardNotFoundError | HulyClientError | HulyError,
   HulyClient
 > =>
   Effect.gen(function*() {
     const { cardSpace, client } = yield* findCardSpace(params.cardSpace)
+    const cardSpaceIdentifier = yield* parseResolvedCardSpaceIdentifier(cardSpace)
 
     const card = yield* findByNameOrId(
       client,
@@ -135,11 +157,12 @@ export const findCardSpaceAndCard = (
     if (card === undefined) {
       return yield* new CardNotFoundError({
         identifier: params.card,
-        cardSpace: params.cardSpace
+        cardSpace: cardSpaceIdentifier
       })
     }
 
-    return { card, cardSpace, client }
+    const cardIdentifier = yield* parseResolvedCardIdentifier(card)
+    return { card, cardIdentifier, cardSpace, cardSpaceIdentifier, client }
   })
 
 // --- Operations ---
@@ -257,7 +280,7 @@ export const getCard = (
   params: GetCardParams
 ): Effect.Effect<CardDetail, GetCardError, HulyClient> =>
   Effect.gen(function*() {
-    const { card, cardSpace, client } = yield* findCardSpaceAndCard({
+    const { card, cardIdentifier, cardSpaceIdentifier, client } = yield* findCardSpaceAndCard({
       card: params.card,
       cardSpace: params.cardSpace
     })
@@ -274,12 +297,12 @@ export const getCard = (
 
     return {
       id: CardId.make(card._id),
-      title: card.title,
+      title: cardIdentifier,
       content,
       type: String(card._class),
       parent: card.parent ? String(card.parent) : undefined,
       children: optionalCount(card.children),
-      cardSpace: cardSpace.name,
+      cardSpace: cardSpaceIdentifier,
       modifiedOn: card.modifiedOn,
       createdOn: card.createdOn
     }

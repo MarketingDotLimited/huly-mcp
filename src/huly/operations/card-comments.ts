@@ -10,13 +10,14 @@ import type {
   UpdateCardCommentParams,
   UpdateCardCommentResult
 } from "../../domain/schemas/card-comments.js"
-import { CardId } from "../../domain/schemas/shared.js"
+import { CardId, type CardIdentifier, type CardSpaceIdentifier } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import {
   CardCommentNotFoundError,
   type CardNotFoundError,
   type CardSpaceNotFoundError,
-  type HulyConnectionError
+  type HulyConnectionError,
+  type HulyError
 } from "../errors.js"
 import { cardPlugin } from "../huly-plugins.js"
 import {
@@ -30,21 +31,24 @@ import { findCardSpaceAndCard } from "./cards.js"
 
 type CardCommentError =
   | HulyClientError
+  | HulyError
   | CardSpaceNotFoundError
   | CardNotFoundError
 
 interface CardCommentTarget extends AttachedCommentTarget {
+  readonly cardIdentifier: CardIdentifier
   readonly cardId: CardId
+  readonly cardSpaceIdentifier: CardSpaceIdentifier
 }
 
 type CardCommentLocator = Pick<ListCardCommentsParams, "card" | "cardSpace">
-type CardCommentIdentity = Pick<DeleteCardCommentParams, "card" | "cardSpace" | "commentId">
+type CardCommentIdentity = Pick<DeleteCardCommentParams, "commentId">
 
 const resolveCardCommentTarget = (
   params: CardCommentLocator
 ): Effect.Effect<CardCommentTarget, CardCommentError, HulyClient> =>
   Effect.gen(function*() {
-    const { card, client } = yield* findCardSpaceAndCard(params)
+    const { card, cardIdentifier, cardSpaceIdentifier, client } = yield* findCardSpaceAndCard(params)
     return {
       client,
       space: card.space,
@@ -53,7 +57,9 @@ const resolveCardCommentTarget = (
       compatibleAttachedToClasses: [card._class, cardPlugin.class.Card],
       collection: "comments",
       includeSpaceInQuery: true,
-      cardId: CardId.make(card._id)
+      cardIdentifier,
+      cardId: CardId.make(card._id),
+      cardSpaceIdentifier
     }
   })
 
@@ -80,13 +86,14 @@ export const addCardComment = (
   })
 
 const cardCommentNotFound = (
+  target: CardCommentTarget,
   params: CardCommentIdentity
 ) =>
 () =>
   new CardCommentNotFoundError({
     commentId: params.commentId,
-    card: params.card,
-    cardSpace: params.cardSpace
+    card: target.cardIdentifier,
+    cardSpace: target.cardSpaceIdentifier
   })
 
 export const updateCardComment = (
@@ -98,7 +105,7 @@ export const updateCardComment = (
       target,
       params.commentId,
       params.body,
-      cardCommentNotFound(params)
+      cardCommentNotFound(target, params)
     )
     return { cardId: target.cardId, commentId: params.commentId, updated }
   })
@@ -108,6 +115,6 @@ export const deleteCardComment = (
 ): Effect.Effect<DeleteCardCommentResult, CardCommentError | CardCommentNotFoundError, HulyClient> =>
   Effect.gen(function*() {
     const target = yield* resolveCardCommentTarget(params)
-    yield* deleteAttachedComment(target, params.commentId, cardCommentNotFound(params))
+    yield* deleteAttachedComment(target, params.commentId, cardCommentNotFound(target, params))
     return { cardId: target.cardId, commentId: params.commentId, deleted: true }
   })
