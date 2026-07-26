@@ -9,7 +9,7 @@ import { expect } from "vitest"
 import { CardIdentifier, CardSpaceIdentifier, MasterTagIdentifier } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
-import { CardNotFoundError, HulyConnectionError, HulyError } from "../../../src/huly/errors.js"
+import { CardNotFoundError, HulyError } from "../../../src/huly/errors.js"
 import { cardPlugin, core } from "../../../src/huly/huly-plugins.js"
 import {
   createCard,
@@ -71,6 +71,9 @@ const makeCard = (overrides?: Partial<HulyCard>): HulyCard =>
     createdOn: 150,
     ...overrides
   }) as unknown as HulyCard
+
+// Intentionally bypass the SDK's static Card contract to exercise malformed data returned by the external Huly boundary.
+const malformedCardBoundaryFixture = (value: unknown): HulyCard => value as HulyCard
 
 interface RuntimeCardVersionFields {
   readonly baseId?: Ref<Doc> | null
@@ -623,10 +626,10 @@ describe("listCardVersions", () => {
 
   it.effect("fails with a typed integration error when a required card title is malformed", () =>
     Effect.gen(function*() {
-      const malformed = {
+      const malformed = malformedCardBoundaryFixture({
         ...makeCard(),
         title: 42
-      } as unknown as HulyCard
+      })
       const error = yield* Effect.flip(
         listCardVersions({
           cardSpace: SPACE,
@@ -634,7 +637,9 @@ describe("listCardVersions", () => {
         }).pipe(Effect.provide(buildLayer({ spaces: [makeSpace()], cards: [malformed] })), withDiagnostics)
       )
 
-      expect(error).toBeInstanceOf(HulyConnectionError)
+      if (error._tag !== "HulyConnectionError") {
+        return yield* Effect.dieMessage(`Expected HulyConnectionError, received ${error._tag}`)
+      }
       expect(error.message).toContain("card version history")
       expect(error.message).toContain("schema")
     }))

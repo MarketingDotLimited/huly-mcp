@@ -15,7 +15,7 @@ import { expect } from "vitest"
 import { NonEmptyString, Timestamp } from "../../../src/domain/schemas/shared.js"
 import { PositiveTimeHours } from "../../../src/domain/schemas/time.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
-import type { HulyConnectionError, IssueNotFoundError, ProjectNotFoundError } from "../../../src/huly/errors.js"
+import type { IssueNotFoundError, ProjectNotFoundError } from "../../../src/huly/errors.js"
 import { toRef, toSocialIdentityRef } from "../../../src/huly/operations/sdk-boundary.js"
 import {
   getDetailedTimeReport,
@@ -38,6 +38,7 @@ const asIssue = (v: unknown) => v as HulyIssue
 const asTimeSpendReport = (v: unknown) => v as HulyTimeSpendReport
 const asPerson = (v: unknown) => v as Person
 const asChannel = (v: unknown) => v as Channel
+// Intentionally bypass the SDK's static SocialIdentity contract to exercise malformed data returned by the external Huly boundary.
 const asSocialIdentity = (v: unknown) => v as SocialIdentity
 
 const makeProject = (overrides?: Partial<HulyProject>): HulyProject =>
@@ -417,8 +418,10 @@ describe("logTime", () => {
           })))
         )
 
-        expect((error as HulyConnectionError)._tag).toBe("HulyConnectionError")
-        expect((error as HulyConnectionError).message).toContain("social identity")
+        if (error._tag !== "HulyConnectionError") {
+          return yield* Effect.dieMessage(`Expected HulyConnectionError, received ${error._tag}`)
+        }
+        expect(error.message).toContain("social identity")
         expect(captureAddCollection.attributes).toBeUndefined()
       }))
 
