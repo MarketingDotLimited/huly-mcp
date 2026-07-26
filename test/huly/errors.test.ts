@@ -35,6 +35,7 @@ import {
 } from "../../src/domain/schemas/shared.js"
 import {
   ActivityMessageNotFoundError,
+  ActivityRecordInvalidError,
   ApprovalRequestApproverNotRequestedError,
   ApprovalRequestCancelUnauthorizedError,
   ApprovalRequestInvalidApprovalThresholdError,
@@ -1038,6 +1039,8 @@ describe("Huly Errors", () => {
               return `meeting-minutes:${error.meetingMinutesId}`
             case "ActivityMessageNotFoundError":
               return `activity:${error.messageId}`
+            case "ActivityRecordInvalidError":
+              return `activity-invalid:${error.operation}:${error.recordIndex}`
             case "ReactionNotFoundError":
               return `reaction:${error.emoji}`
             case "SavedMessageNotFoundError":
@@ -1759,6 +1762,15 @@ describe("Huly Errors", () => {
         expect(matchError(new EventNotFoundError({ eventId: EventId.make("e-1") }))).toBe("event:e-1")
         expect(matchError(new RecurringEventNotFoundError({ eventId: EventId.make("re-1") }))).toBe("recurring:re-1")
         expect(matchError(new ActivityMessageNotFoundError({ messageId: "am-1" }))).toBe("activity:am-1")
+        expect(
+          matchError(
+            new ActivityRecordInvalidError({
+              operation: "list_activity",
+              recordIndex: Count.make(0),
+              details: "_id is required"
+            })
+          )
+        ).toBe("activity-invalid:list_activity:0")
         expect(matchError(new ReactionNotFoundError({ messageId: "msg-1", emoji: "heart" }))).toBe("reaction:heart")
         expect(matchError(new SavedMessageNotFoundError({ messageId: "sm-1" }))).toBe("saved:sm-1")
         expect(matchError(new AttachmentNotFoundError({ attachmentId: "att-1" }))).toBe("attachment:att-1")

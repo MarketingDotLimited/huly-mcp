@@ -443,10 +443,185 @@ describe("listActivity", () => {
       })
     }))
 
+  it.effect("projects complete reference and update activity metadata", () =>
+    Effect.gen(function*() {
+      const reference = makeActivityMessage()
+      const update = makeActivityMessage()
+      const markup = JSON.stringify({
+        type: "doc",
+        content: [{ type: "paragraph", content: [{ type: "text", text: "Linked issue" }] }]
+      })
+      for (
+        const [field, value] of Object.entries({
+          _id: "msg-reference",
+          _class: activity.class.ActivityReference,
+          message: markup,
+          srcDocId: "source-1",
+          srcDocClass: "tracker:class:Issue",
+          attachedDocId: "attached-1",
+          attachedDocClass: "document:class:Document"
+        })
+      ) {
+        Reflect.set(reference, field, value)
+      }
+      Reflect.set(update, "_id", "msg-update")
+      Reflect.set(update, "_class", activity.class.DocUpdateMessage)
+      Reflect.set(update, "action", "update")
+
+      const result = yield* listActivity({
+        objectId: docId("obj-1"),
+        objectClass: objectClassName("tracker:class:Issue")
+      }).pipe(Effect.provide(createTestLayerWithMocks({ activityMessages: [reference, update] })))
+
+      expect(assertAt(result, 0)).toMatchObject({
+        id: "msg-reference",
+        messageClass: String(activity.class.ActivityReference),
+        message: markup,
+        body: "Linked issue",
+        srcDocId: "source-1",
+        srcDocClass: "tracker:class:Issue",
+        attachedDocId: "attached-1",
+        attachedDocClass: "document:class:Document"
+      })
+      expect(assertAt(result, 1)).toMatchObject({
+        id: "msg-update",
+        messageClass: String(activity.class.DocUpdateMessage),
+        action: "update"
+      })
+    }))
+
+  it.effect("omits absent and null reference metadata independently", () =>
+    Effect.gen(function*() {
+      const reference = makeActivityMessage()
+      Reflect.set(reference, "_class", activity.class.ActivityReference)
+      Reflect.set(reference, "srcDocId", "source-1")
+      Reflect.set(reference, "srcDocClass", null)
+      Reflect.set(reference, "attachedDocClass", "document:class:Document")
+
+      const result = yield* listActivity({
+        objectId: docId("obj-1"),
+        objectClass: objectClassName("tracker:class:Issue")
+      }).pipe(Effect.provide(createTestLayerWithMocks({ activityMessages: [reference] })))
+
+      expect(assertAt(result, 0)).toMatchObject({
+        srcDocId: "source-1",
+        attachedDocClass: "document:class:Document"
+      })
+      expect(assertAt(result, 0).srcDocClass).toBeUndefined()
+      expect(assertAt(result, 0).attachedDocId).toBeUndefined()
+    }))
+
+  it.effect("keeps required activity fields when optional SDK fields are absent", () =>
+    Effect.gen(function*() {
+      const partial = makeActivityMessage()
+      Reflect.set(partial, "_id", "msg-partial")
+      for (const field of ["_class", "modifiedBy", "modifiedOn", "isPinned", "replies", "reactions"]) {
+        Reflect.deleteProperty(partial, field)
+      }
+      const testLayer = createTestLayerWithMocks({
+        activityMessages: [partial]
+      })
+
+      const result = yield* listActivity({
+        objectId: docId("obj-1"),
+        objectClass: objectClassName("tracker:class:Issue")
+      }).pipe(Effect.provide(testLayer))
+
+      expect(result).toEqual([{
+        id: "msg-partial",
+        objectId: "obj-1",
+        objectClass: "tracker:class:Issue"
+      }])
+    }))
+
+  it.effect("omits null optional activity fields while preserving explicit nullable editedOn", () =>
+    Effect.gen(function*() {
+      const nullBearing = makeActivityMessage()
+      Reflect.set(nullBearing, "_id", "msg-null")
+      for (
+        const field of [
+          "_class",
+          "modifiedBy",
+          "modifiedOn",
+          "isPinned",
+          "replies",
+          "reactions",
+          "editedOn",
+          "action",
+          "message",
+          "srcDocId",
+          "srcDocClass",
+          "attachedDocId",
+          "attachedDocClass"
+        ]
+      ) {
+        Reflect.set(nullBearing, field, null)
+      }
+      const testLayer = createTestLayerWithMocks({
+        activityMessages: [nullBearing]
+      })
+
+      const result = yield* listActivity({
+        objectId: docId("obj-1"),
+        objectClass: objectClassName("tracker:class:Issue")
+      }).pipe(Effect.provide(testLayer))
+
+      expect(result).toEqual([{
+        id: "msg-null",
+        objectId: "obj-1",
+        objectClass: "tracker:class:Issue",
+        editedOn: null
+      }])
+    }))
+
+  it.effect("fails with an actionable typed error when a required activity field is invalid", () =>
+    Effect.gen(function*() {
+      const invalid = makeActivityMessage()
+      Reflect.set(invalid, "_id", "")
+      const testLayer = createTestLayerWithMocks({
+        activityMessages: [invalid]
+      })
+
+      const error = yield* listActivity({
+        objectId: docId("obj-1"),
+        objectClass: objectClassName("tracker:class:Issue")
+      }).pipe(Effect.provide(testLayer), Effect.flip)
+
+      expect(error._tag).toBe("ActivityRecordInvalidError")
+      expect(error.message).toContain("list_activity")
+      expect(error.message).toContain("_id")
+      expect(error.message).toContain("index 0")
+    }))
+
+  it.effect("fails through the typed channel when activity markup uses an unsupported node", () =>
+    Effect.gen(function*() {
+      const unsupportedMarkup = makeActivityMessage()
+      Reflect.set(
+        unsupportedMarkup,
+        "message",
+        JSON.stringify({
+          type: "doc",
+          content: [{ type: "bogus" }]
+        })
+      )
+      const testLayer = createTestLayerWithMocks({
+        activityMessages: [unsupportedMarkup]
+      })
+
+      const error = yield* listActivity({
+        objectId: docId("obj-1"),
+        objectClass: objectClassName("tracker:class:Issue")
+      }).pipe(Effect.provide(testLayer), Effect.flip)
+
+      expect(error._tag).toBe("ActivityRecordInvalidError")
+      expect(error.message).toContain("list_activity")
+      expect(error.message).toContain("index 0")
+      expect(error.message).toContain("Token type `bogus` not supported")
+    }))
+
   it.effect("omits reply and reaction counts when absent on the message", () =>
     Effect.gen(function*() {
-      // A bare message (no replies/reactions/editedOn) exercises the undefined
-      // arm of optionalActivityCount.
+      // A bare message confirms absent optional metadata stays omitted.
       const msg: HulyActivityMessage = {
         _id: "msg-bare" as Ref<HulyActivityMessage>,
         _class: activity.class.ActivityMessage,

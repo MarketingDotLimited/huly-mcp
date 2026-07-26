@@ -56,6 +56,7 @@ import {
   TeamspaceNotFoundError
 } from "./errors-documents.js"
 import { HulyDomainBaseError } from "./errors-domain-base.js"
+import { HulyMessagingDomainError } from "./errors-domain-messaging.js"
 import {
   DriveFileCommentNotFoundError,
   DriveFileNotFoundError,
@@ -113,23 +114,6 @@ import {
 import { TagCategoryNotFoundError, TagNotFoundError } from "./errors-labels.js"
 import { FunnelNotFoundError, LeadNotFoundError } from "./errors-leads.js"
 import { FloorNotFoundError, MeetingMinutesNotFoundError, RoomNotFoundError } from "./errors-love.js"
-import {
-  ActivityMessageNotFoundError,
-  CannotDirectMessageSelfError,
-  ChannelArchivedError,
-  ChannelLastMemberRemovalError,
-  ChannelLastOwnerRemovalError,
-  ChannelNotFoundError,
-  ChatMessageAttachmentNotFoundError,
-  DirectMessageIdentifierAmbiguousError,
-  DirectMessageNotFoundError,
-  DirectMessageParticipantCountError,
-  MessageNotFoundError,
-  PersonNotAnEmployeeError,
-  ReactionNotFoundError,
-  SavedMessageNotFoundError,
-  ThreadReplyNotFoundError
-} from "./errors-messaging.js"
 import {
   NotificationContextNotFoundError,
   NotificationNotFoundError,
@@ -282,25 +266,11 @@ export const HulyDomainError = Schema.Union(
   DocumentReferenceError,
   CommentNotFoundError,
   MilestoneNotFoundError,
-  ChannelNotFoundError,
-  ChannelArchivedError,
-  ChannelLastMemberRemovalError,
-  ChannelLastOwnerRemovalError,
-  CannotDirectMessageSelfError,
-  DirectMessageIdentifierAmbiguousError,
-  DirectMessageNotFoundError,
-  DirectMessageParticipantCountError,
-  MessageNotFoundError,
-  ChatMessageAttachmentNotFoundError,
-  PersonNotAnEmployeeError,
-  ThreadReplyNotFoundError,
+  HulyMessagingDomainError,
   CalendarNotAccessibleError,
   EventNotFoundError,
   RecurringEventNotFoundError,
   ScheduleNotFoundError,
-  ActivityMessageNotFoundError,
-  ReactionNotFoundError,
-  SavedMessageNotFoundError,
   AttachmentNotFoundError,
   SavedAttachmentNotFoundError,
   DrawingNotFoundError,

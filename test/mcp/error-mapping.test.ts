@@ -24,6 +24,7 @@ import {
   SpaceTypeId
 } from "../../src/domain/schemas/shared.js"
 import {
+  ActivityRecordInvalidError,
   AssociationIdentifierAmbiguousError,
   AssociationNotFoundError,
   CalendarNotAccessibleError,
@@ -470,6 +471,21 @@ describe("Error Mapping to MCP", () => {
     })
 
     describe("InternalError errors (-32603)", () => {
+      it.effect("preserves actionable invalid activity record details", () =>
+        Effect.gen(function*() {
+          const error = new ActivityRecordInvalidError({
+            operation: "list_activity",
+            recordIndex: Count.make(2),
+            details: NonEmptyString.make("_id must be a non-empty string")
+          })
+          const response = mapDomainErrorToMcp(error)
+
+          expect(response.isError).toBe(true)
+          expect(response._meta.errorCode).toBe(McpErrorCode.InternalError)
+          expect(response._meta.errorTag).toBe("ActivityRecordInvalidError")
+          expect(assertAt(response.content, 0).text).toBe(error.message)
+        }))
+
       it.effect("maps HulyConnectionError with errorTag", () =>
         Effect.gen(function*() {
           const error = new HulyConnectionError({ message: "Network timeout" })

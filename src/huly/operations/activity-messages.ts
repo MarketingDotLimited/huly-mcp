@@ -30,25 +30,26 @@ import {
   ActivityFilterId,
   ActivityMessageId,
   ActivityReferenceId,
+  Count,
   DocId,
   ObjectClassName,
   Timestamp
 } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import type { HulyError } from "../errors.js"
+import type { ActivityRecordInvalidError, HulyError } from "../errors.js"
 import { ActivityMessageNotFoundError } from "../errors.js"
 import { activity, chunter } from "../huly-plugins.js"
-import { findActivityMessage, toActivityMessage } from "./activity-shared.js"
+import { findActivityMessage, toActivityMessage, toActivityMessages } from "./activity-shared.js"
 import { markdownToMarkupString } from "./markup.js"
 import { clampLimit, findOneOrFail, hulyQuery, type StrictDocumentQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 import { removeThreadReply } from "./thread-replies-shared.js"
 
-type GetActivityMessageError = HulyClientError | ActivityMessageNotFoundError
+type GetActivityMessageError = HulyClientError | ActivityMessageNotFoundError | ActivityRecordInvalidError
 type PinActivityMessageError = HulyClientError | ActivityMessageNotFoundError
 type ListActivityFiltersError = HulyClientError
 type ListActivityReferencesError = HulyClientError
-type ListActivityRepliesError = HulyClientError | ActivityMessageNotFoundError
+type ListActivityRepliesError = HulyClientError | ActivityMessageNotFoundError | ActivityRecordInvalidError
 type AddActivityReplyError = HulyClientError | ActivityMessageNotFoundError
 type UpdateActivityReplyError = HulyClientError | ActivityMessageNotFoundError
 type DeleteActivityReplyError = HulyClientError | HulyError | ActivityMessageNotFoundError
@@ -59,7 +60,7 @@ export const getActivityMessage = (
   Effect.gen(function*() {
     const client = yield* HulyClient
     const message = yield* findActivityMessage(client, params.messageId)
-    return toActivityMessage(message, client.markupUrlConfig)
+    return yield* toActivityMessage(message, client.markupUrlConfig, "get_activity_message", Count.make(0))
   })
 
 export const pinActivityMessage = (
@@ -152,7 +153,7 @@ export const listActivityReplies = (
       { limit, sort: { createdOn: SortingOrder.Ascending } }
     )
 
-    return replies.map(reply => toActivityMessage(reply, client.markupUrlConfig))
+    return yield* toActivityMessages(replies, client.markupUrlConfig, "list_activity_replies")
   })
 
 export const addActivityReply = (

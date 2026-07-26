@@ -39,6 +39,7 @@ import {
 } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type {
+  ActivityRecordInvalidError,
   ChannelNotFoundError,
   DocumentNotFoundError,
   IssueNotFoundError,
@@ -46,7 +47,7 @@ import type {
   TeamspaceNotFoundError
 } from "../errors.js"
 import { ActivityMessageNotFoundError, ReactionNotFoundError, SavedMessageNotFoundError } from "../errors.js"
-import { toActivityMessage } from "./activity-shared.js"
+import { toActivityMessages } from "./activity-shared.js"
 import { findChannel } from "./channels.js"
 import { findTeamspaceAndDocument } from "./documents.js"
 import { findProjectAndIssue } from "./issues-shared.js"
@@ -57,6 +58,7 @@ import { activity, chunter, core, documentPlugin, tracker } from "../huly-plugin
 
 type ListActivityError =
   | HulyClientError
+  | ActivityRecordInvalidError
   | ProjectNotFoundError
   | IssueNotFoundError
   | TeamspaceNotFoundError
@@ -162,9 +164,7 @@ export const listActivity = (
       }
     )
 
-    const result: Array<ActivityMessage> = messages.map((msg) => toActivityMessage(msg, target.client.markupUrlConfig))
-
-    return result
+    return yield* toActivityMessages(messages, target.client.markupUrlConfig, "list_activity")
   })
 
 /**

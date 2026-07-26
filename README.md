@@ -534,7 +534,7 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 
 | Tool | Description |
 |------|-------------|
-| `list_activity` | List activity messages for a Huly issue, document, channel, or raw Huly object. Prefer friendly targets: project+issueIdentifier for issues, teamspace+document for documents, or channel for channels. Advanced callers may pass objectId+objectClass directly. Returns activity sorted by date (newest first). |
+| `list_activity` | List activity messages for a Huly issue, document, channel, or raw Huly object. Prefer friendly targets: project+issueIdentifier for issues, teamspace+document for documents, or channel for channels. Advanced callers may pass objectId+objectClass directly. Returns activity sorted by date (newest first). Legitimately absent or null optional actor, message, class, and metadata fields are omitted from each item. |
 | `get_activity_message` | Get a single activity message by ID, including subclass metadata when available. |
 | `pin_activity_message` | Pin or unpin an activity message. Idempotent when the pin state already matches. |
 | `list_activity_filters` | List configured activity filters in display order. |

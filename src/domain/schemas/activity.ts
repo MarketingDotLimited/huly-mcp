@@ -30,8 +30,7 @@ export const ActivityCount = Count.pipe(Schema.brand("ActivityCount")).annotatio
 })
 export type ActivityCount = Schema.Schema.Type<typeof ActivityCount>
 
-const ActivityAction = Schema.Literal("create", "update", "remove")
-type ActivityAction = Schema.Schema.Type<typeof ActivityAction>
+export const ActivityActionSchema = Schema.Literal("create", "update", "remove")
 export const ActivityMessageSchema = Schema.Struct({
   id: ActivityMessageId,
   messageClass: Schema.optional(ObjectClassName),
@@ -43,13 +42,17 @@ export const ActivityMessageSchema = Schema.Struct({
   replies: Schema.optional(ActivityCount),
   reactions: Schema.optional(ActivityCount),
   editedOn: Schema.optional(Schema.Union(Timestamp, Schema.Null)),
-  action: Schema.optional(ActivityAction),
+  action: Schema.optional(ActivityActionSchema),
   message: Schema.optional(ActivityMarkup),
   body: Schema.optional(ActivityMarkdown),
   srcDocId: Schema.optional(DocId),
   srcDocClass: Schema.optional(ObjectClassName),
   attachedDocId: Schema.optional(DocId),
   attachedDocClass: Schema.optional(ObjectClassName)
+}).annotations({
+  title: "ActivityMessage",
+  description:
+    "Stable activity projection. id, objectId, and objectClass are required; optional actor, message, class, and metadata fields are omitted when Huly leaves them absent or null. editedOn may explicitly be null."
 })
 export type ActivityMessage = Schema.Schema.Type<typeof ActivityMessageSchema>
 export const ReactionSchema = Schema.Struct({
@@ -302,25 +305,7 @@ export const parseUnsaveMessageParams = Schema.decodeUnknown(UnsaveMessageParams
 export const parseListSavedMessagesParams = Schema.decodeUnknown(ListSavedMessagesParamsSchema)
 export const parseListMentionsParams = Schema.decodeUnknown(ListMentionsParamsSchema)
 
-export const ActivityMessageWireSchema = Schema.Struct({
-  id: ActivityMessageId,
-  messageClass: Schema.optional(ObjectClassName),
-  objectId: DocId,
-  objectClass: ObjectClassName,
-  modifiedBy: Schema.optional(PersonId),
-  modifiedOn: Schema.optional(Timestamp),
-  isPinned: Schema.optional(Schema.Boolean),
-  replies: Schema.optional(ActivityCount),
-  reactions: Schema.optional(ActivityCount),
-  editedOn: Schema.optional(Schema.NullOr(Timestamp)),
-  action: Schema.optional(ActivityAction),
-  message: Schema.optional(ActivityMarkup),
-  body: Schema.optional(ActivityMarkdown),
-  srcDocId: Schema.optional(DocId),
-  srcDocClass: Schema.optional(ObjectClassName),
-  attachedDocId: Schema.optional(DocId),
-  attachedDocClass: Schema.optional(ObjectClassName)
-})
+export const ActivityMessageWireSchema = ActivityMessageSchema
 
 export const ReactionWireSchema = Schema.Struct({
   id: ReactionId,
