@@ -274,12 +274,20 @@ cleanup_custom_field_date_artifacts() {
   if [ -n "$CUSTOM_FIELD_DATE_CLEANUP_ISSUE_ID" ] \
     && [ -n "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID" ] \
     && [ -n "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME" ]; then
-    pnpm exec tsx scripts/integration-custom-field-date.ts \
-      --mode cleanup \
-      --issueId "$CUSTOM_FIELD_DATE_CLEANUP_ISSUE_ID" \
-      --fieldId "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID" \
-      --fieldName "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME" >/dev/null 2>&1 || true
+    local cleanup_attempt
+    for cleanup_attempt in 1 2 3; do
+      if pnpm exec tsx scripts/integration-custom-field-date.ts \
+        --mode cleanup \
+        --issueId "$CUSTOM_FIELD_DATE_CLEANUP_ISSUE_ID" \
+        --fieldId "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID" \
+        --fieldName "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME" >/dev/null 2>&1; then
+        return 0
+      fi
+    done
+    echo "WARNING: date custom-field fixture cleanup failed after 3 attempts; retry markers retained" >&2
+    return 1
   fi
+  return 0
 }
 
 cleanup_all() {
@@ -1843,13 +1851,20 @@ if [ $? -eq 0 ]; then
     CUSTOM_FIELD_DATE_FIELD_ID_JSON=$(json_string "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID")
     sleep 1
 
+    CUSTOM_FIELD_DATE_INITIAL_RESULT=$(pnpm exec tsx scripts/integration-custom-field-date.ts \
+      --mode read \
+      --issueId "$ISSUE_OBJ_ID" \
+      --fieldName "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME")
+    assert_json_field_equals "date custom field is initially absent" \
+      "$CUSTOM_FIELD_DATE_INITIAL_RESULT" ".value" "null"
+
     run_capture_to_var CUSTOM_FIELD_DATE_SET_TEXT "set_custom_field(strict ISO date)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_custom_field\",\"arguments\":{\"objectId\":\"$ISSUE_OBJ_ID\",\"objectClass\":\"tracker:class:Issue\",\"fieldId\":$CUSTOM_FIELD_DATE_FIELD_ID_JSON,\"value\":\"2026-07-24\"}},\"id\":2}"
     assert_json_field_equals "set_custom_field persists strict ISO date as Unix milliseconds" \
       "$CUSTOM_FIELD_DATE_SET_TEXT" ".value" "1784851200000"
 
     run_expect_error_contains "set_custom_field rejects timezone-adjacent date before write" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_custom_field\",\"arguments\":{\"objectId\":\"$ISSUE_OBJ_ID\",\"objectClass\":\"tracker:class:Issue\",\"fieldId\":$CUSTOM_FIELD_DATE_FIELD_ID_JSON,\"value\":\"2026-07-24T00:00:00Z\"}},\"id\":2}" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_custom_field\",\"arguments\":{\"objectId\":\"$ISSUE_OBJ_ID\",\"objectClass\":\"tracker:class:Issue\",\"fieldId\":$CUSTOM_FIELD_DATE_FIELD_ID_JSON,\"value\":\"2026-07-25T00:00:00Z\"}},\"id\":2}" \
       "Invalid date custom-field value"
 
     CUSTOM_FIELD_DATE_READ_RESULT=$(pnpm exec tsx scripts/integration-custom-field-date.ts \
@@ -1859,12 +1874,17 @@ if [ $? -eq 0 ]; then
     assert_json_field_equals "rejected date custom field leaves persisted value unchanged" \
       "$CUSTOM_FIELD_DATE_READ_RESULT" ".value" "1784851200000"
 
-    cleanup_custom_field_date_artifacts
-    CUSTOM_FIELD_DATE_CLEANUP_ISSUE_ID=""
-    CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID=""
-    CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME=""
+    if cleanup_custom_field_date_artifacts; then
+      CUSTOM_FIELD_DATE_CLEANUP_ISSUE_ID=""
+      CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID=""
+      CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME=""
+    else
+      fail_test "date custom-field fixture cleanup" "cleanup failed; exit trap will retry retained markers"
+    fi
   elif [ "$INTEGRATION_TRANSPORT" != "stdio" ]; then
     skip_test "set_custom_field persists strict ISO date as Unix milliseconds" \
+      "dynamic model fixture requires a fresh stdio connection"
+    skip_test "date custom field is initially absent" \
       "dynamic model fixture requires a fresh stdio connection"
     skip_test "set_custom_field rejects timezone-adjacent date before write" \
       "dynamic model fixture requires a fresh stdio connection"

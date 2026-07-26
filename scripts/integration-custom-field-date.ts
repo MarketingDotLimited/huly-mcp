@@ -35,7 +35,7 @@ const SetupResultSchema = Schema.Struct({
   fieldName: Schema.String
 })
 const ReadResultSchema = Schema.Struct({
-  value: CustomFieldDateTimestamp
+  value: Schema.NullOr(CustomFieldDateTimestamp)
 })
 const CleanupResultSchema = Schema.Struct({
   cleaned: Schema.Literal(true)
@@ -71,7 +71,8 @@ const requireIssue = async (client: TxOperations, issueId: DocId): Promise<Doc> 
 const setup = async (
   client: TxOperations
 ): Promise<Schema.Schema.Type<typeof SetupResultSchema>> => {
-  const fieldRef = toRef<Attribute<number>>(randomUUID())
+  const fieldId = CustomFieldId.make(randomUUID())
+  const fieldRef = toRef<Attribute<number>>(fieldId)
   const fieldName = `issue172Date${fieldRef}`
   await client.createDoc<Attribute<number>>(
     core.class.Attribute,
@@ -89,7 +90,7 @@ const setup = async (
     },
     fieldRef
   )
-  return { fieldId: CustomFieldId.make(fieldRef), fieldName }
+  return { fieldId, fieldName }
 }
 
 const read = async (
@@ -99,8 +100,9 @@ const read = async (
 ): Promise<Schema.Schema.Type<typeof ReadResultSchema>> => {
   const issue = await requireIssue(client, issueId)
   const values = Schema.decodeUnknownSync(DynamicDocumentSchema)(issue)
+  const value = values[fieldName]
   return {
-    value: Schema.decodeUnknownSync(CustomFieldDateTimestamp)(values[fieldName])
+    value: value === undefined ? null : Schema.decodeUnknownSync(CustomFieldDateTimestamp)(value)
   }
 }
 

@@ -298,7 +298,7 @@ describe("custom-fields operations", () => {
       })
       const baseConfig = {
         attributes: [attr],
-        doc: makeDoc({ _id: "issue-1", space: "space-1" as Ref<Space> }),
+        doc: makeDoc({ _id: "issue-1" }),
         classDocs: [ownerClass]
       }
       const isoCapture: { attributes?: Record<string, unknown> } = {}
@@ -339,7 +339,7 @@ describe("custom-fields operations", () => {
         "",
         " ",
         "2026-02-29",
-        "2026-07-24T00:00:00Z",
+        "2026-07-25T00:00:00Z",
         "2026-07-24+01:00",
         "NaN",
         "Infinity",
@@ -361,7 +361,7 @@ describe("custom-fields operations", () => {
             Effect.provide(
               createTestLayer({
                 attributes: [attr],
-                doc: makeDoc({ _id: "issue-1", space: "space-1" as Ref<Space> }),
+                doc: makeDoc({ _id: "issue-1" }),
                 classDocs: [ownerClass],
                 captureUpdateMixin
               })
