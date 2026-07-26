@@ -5,10 +5,15 @@ import type { NotificationProvider, NotificationType } from "@hcengineering/noti
 import { Effect } from "effect"
 import { expect } from "vitest"
 
+import type { NotificationProviderId, NotificationTypeId } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
 import { HulyConnectionError } from "../../../src/huly/errors.js"
 import { notification } from "../../../src/huly/huly-plugins.js"
+import {
+  requireNotificationProviderId,
+  requireNotificationTypeId
+} from "../../../src/huly/operations/notification-metadata.js"
 import {
   listNotificationProviders,
   listNotificationTypes,
@@ -199,8 +204,16 @@ describe("notification model metadata", () => {
         Effect.provide(layerWithMetadata({ modelProviders })),
         Effect.provideService(Diagnostics, diagnostics.service)
       )
+      const validatedId: NotificationProviderId = yield* Effect.gen(function*() {
+        const client = yield* HulyClient
+        return yield* requireNotificationProviderId(client, notificationProviderId("provider:200"))
+      }).pipe(
+        Effect.provide(layerWithMetadata({ modelProviders })),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
 
       expect(result.providerId).toBe("provider:200")
+      expect(validatedId).toBe("provider:200")
       expect(yield* diagnostics.drainWarnings).toEqual([])
     }))
 
@@ -245,8 +258,16 @@ describe("notification model metadata", () => {
           Effect.provideService(Diagnostics, diagnostics.service)
         )
       )
+      const validatedId: NotificationTypeId = yield* Effect.gen(function*() {
+        const client = yield* HulyClient
+        return yield* requireNotificationTypeId(client, notificationTypeId("type:200"))
+      }).pipe(
+        Effect.provide(layerWithMetadata({ modelTypes })),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
 
       expect(error._tag).toBe("NotificationProviderNotConfigurableError")
+      expect(validatedId).toBe("type:200")
       expect(yield* diagnostics.drainWarnings).toEqual([])
     }))
 

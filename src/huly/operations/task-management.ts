@@ -36,6 +36,7 @@ import {
   TaskTypeId,
   UnknownStatusCategoryValue
 } from "../../domain/schemas.js"
+import { StatusName } from "../../domain/schemas/shared.js"
 import { isSingle } from "../../utils/assertions.js"
 import { normalizeForComparison } from "../../utils/normalize.js"
 import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
@@ -182,6 +183,12 @@ const getRecoverableStatusesByName = (
     // cross-project duplicate recovery is preferable to failing status creation.
     Effect.catchAll(() => Effect.succeed([]))
   )
+
+const statusMetadataFromStatus = (status: Status): StatusMetadata => ({
+  _id: status._id,
+  name: StatusName.make(status.name),
+  ...(status.category === undefined ? {} : { category: status.category })
+})
 
 const loadWorkflowData = (
   client: HulyClientOperations,
@@ -561,7 +568,7 @@ export const createIssueStatus = (
       ? workflowData.taskTypes
       : [yield* resolveTaskType(workflowData.taskTypes, params.taskType)]
     const statusClass = yield* resolveStatusClass(targetTaskTypes)
-    const statusesByName = yield* getRecoverableStatusesByName(client, params.name)
+    const statusesByName = (yield* getRecoverableStatusesByName(client, params.name)).map(statusMetadataFromStatus)
     const existingStatus = existingStatusByName(
       [...workflowData.statuses, ...statusesByName],
       params.name
@@ -618,16 +625,11 @@ export const createIssueStatus = (
       )
     }
 
-    const statusDoc = existingStatus ?? {
+    const statusDoc: StatusMetadata = existingStatus ?? {
       _id: statusId,
-      _class: statusClass,
-      space: core.space.Model,
-      modifiedOn: 0,
-      modifiedBy: core.account.System,
-      ofAttribute: tracker.attribute.IssueStatus,
-      name: params.name,
+      name: StatusName.make(params.name),
       category: CATEGORY_TO_REF[params.category]
-    } satisfies Status
+    }
     const result = {
       created: existingStatus === undefined || taskTypesNeedingStatusUpdate.length > 0 || projectTypeChanged,
       projectType: projectTypeSummary({

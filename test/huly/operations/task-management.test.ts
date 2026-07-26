@@ -552,6 +552,31 @@ describe("task management operations", () => {
       expect(captures.updates).toEqual([])
     }))
 
+  it.effect("brands a recovered status name while omitting an absent category", () =>
+    Effect.gen(function*() {
+      const captures: Captures = { createDocs: [], updates: [], mixins: [] }
+      const result = yield* Effect.either(
+        createIssueStatus({ name: "QA", category: "Active" }).pipe(
+          Effect.provide(createLayer({
+            statuses: [
+              makeStatus(),
+              makeStatus({ _id: doneStatusId, name: "Done", category: task.statusCategory.Won }),
+              asStatus({ ...makeStatus(), _id: statusRef("status-qa"), name: "QA", category: undefined })
+            ],
+            captures
+          })),
+          withDiagnostics
+        )
+      )
+
+      expect(result._tag).toBe("Left")
+      if (result._tag === "Left") {
+        expect(result.left.message).toContain("already exists with category 'unknown'")
+      }
+      expect(captures.createDocs).toEqual([])
+      expect(captures.updates).toEqual([])
+    }))
+
   it.effect("recovers an existing status missing from project type links", () =>
     Effect.gen(function*() {
       const captures: Captures = { createDocs: [], updates: [], mixins: [] }

@@ -270,20 +270,26 @@ const modelMetadataFailure = <A>(
   return rows?.invalidRows === 0 ? "empty" : "invalid"
 }
 
+const findMetadataId = <Identifier extends string>(
+  rows: ReadonlyArray<{ readonly _id: Identifier }>,
+  identifier: Identifier
+): Identifier | undefined => rows.find((row) => row._id === identifier)?._id
+
 const requireNotificationMetadataId = <
   D extends Doc,
-  A extends { readonly _id: string },
+  Identifier extends string,
+  A extends { readonly _id: Identifier },
   I,
   E
 >(
   client: HulyClientOperations,
   classRef: Ref<Class<D>>,
   schema: Schema.Schema<A, I, never>,
-  identifier: string,
+  identifier: Identifier,
   subject: string,
   kind: "provider" | "type",
   notFound: () => E
-): Effect.Effect<void, HulyClientError | E, Diagnostics> =>
+): Effect.Effect<Identifier, HulyClientError | E, Diagnostics> =>
   Effect.gen(function*() {
     // Model operations are local/in-memory. Decode the complete authoritative definition set here:
     // list limits are presentation concerns and must never make a valid update identifier disappear.
@@ -291,7 +297,8 @@ const requireNotificationMetadataId = <
     const modelRows = parsedModelRows(modelResult, schema)
     if (modelRows !== undefined && modelRows.rows.length > 0) {
       yield* warnInvalidAuthoritativeRows(subject, modelRows.invalidRows)
-      if (modelRows.rows.some((row) => row._id === identifier)) return
+      const modelIdentifier = findMetadataId(modelRows.rows, identifier)
+      if (modelIdentifier !== undefined) return modelIdentifier
       return yield* Effect.fail(notFound())
     }
 
@@ -306,14 +313,16 @@ const requireNotificationMetadataId = <
     const parsedRemoteRows = parseRows(schema, remoteRows)
     const modelFailure = modelMetadataFailure(modelResult, modelRows)
     yield* warnFallback(subject, modelFailure, parsedRemoteRows.invalidRows)
-    if (parsedRemoteRows.rows.some((row) => row._id === identifier)) return
+    const remoteIdentifier = findMetadataId(parsedRemoteRows.rows, identifier)
+    if (remoteIdentifier !== undefined) return remoteIdentifier
     yield* warnTrustedIdentifier(kind, identifier)
+    return identifier
   })
 
 export const requireNotificationProviderId = (
   client: HulyClientOperations,
   providerId: NotificationProviderId
-): Effect.Effect<void, HulyClientError | NotificationProviderNotFoundError, Diagnostics> =>
+): Effect.Effect<NotificationProviderId, HulyClientError | NotificationProviderNotFoundError, Diagnostics> =>
   requireNotificationMetadataId(
     client,
     notification.class.NotificationProvider,
@@ -327,7 +336,7 @@ export const requireNotificationProviderId = (
 export const requireNotificationTypeId = (
   client: HulyClientOperations,
   typeId: NotificationTypeId
-): Effect.Effect<void, HulyClientError | NotificationTypeNotFoundError, Diagnostics> =>
+): Effect.Effect<NotificationTypeId, HulyClientError | NotificationTypeNotFoundError, Diagnostics> =>
   requireNotificationMetadataId(
     client,
     notification.class.NotificationType,

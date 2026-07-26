@@ -6,7 +6,7 @@ import { Effect, Either, ParseResult, Schema } from "effect"
 
 import type { IssuePriority as IssuePriorityStr } from "../../domain/schemas/issues.js"
 import type { NonNegativeNumber } from "../../domain/schemas/shared.js"
-import { IssueStatusId, NonEmptyString, PositiveNumber } from "../../domain/schemas/shared.js"
+import { IssueStatusId, PositiveNumber, StatusName } from "../../domain/schemas/shared.js"
 import {
   StatusCategoryEntries,
   type StatusCategoryValue,
@@ -53,7 +53,7 @@ export const findProject = (
 
 export type WorkflowStatus = {
   _id: Ref<Status>
-  name: string
+  name: StatusName
   category: StatusCategoryValue
 }
 
@@ -79,7 +79,7 @@ const StatusCategoryRefSchema = Schema.transformOrFail(
 
 export const StatusMetadataSchema = Schema.Struct({
   _id: StatusRefSchema,
-  name: NonEmptyString,
+  name: StatusName,
   category: Schema.optional(StatusCategoryRefSchema)
 }).annotations({
   title: "StatusMetadata",
@@ -135,7 +135,7 @@ export const workflowStatusFromRef = (statusRef: Ref<Status>): WorkflowStatus =>
   const name = statusRef.includes(":") ? statusRef.slice(statusRef.lastIndexOf(":") + 1) : statusRef
   return {
     _id: statusRef,
-    name,
+    name: StatusName.make(name),
     category: UnknownStatusCategoryValue
   }
 }
@@ -188,12 +188,22 @@ type StatusLookupResult =
     readonly error: HulyClientError
   }
 
+const statusLookupFailure = (error: HulyClientError): StatusLookupResult => ({
+  _tag: "Failure",
+  error
+})
+
+const statusLookupSuccess = (rows: ReadonlyArray<Status>): StatusLookupResult => ({
+  _tag: "Success",
+  parsed: parseStatusRows(rows)
+})
+
 const statusLookupResult = (
   lookup: Effect.Effect<ReadonlyArray<Status>, HulyClientError>
 ): Effect.Effect<StatusLookupResult> =>
   lookup.pipe(Effect.match({
-    onFailure: (error) => ({ _tag: "Failure" as const, error }),
-    onSuccess: (rows) => ({ _tag: "Success" as const, parsed: parseStatusRows(rows) })
+    onFailure: statusLookupFailure,
+    onSuccess: statusLookupSuccess
   }))
 
 const statusDocsFromLookup = (result: StatusLookupResult): ReadonlyArray<StatusMetadata> =>

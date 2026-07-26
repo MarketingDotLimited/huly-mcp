@@ -22,6 +22,7 @@ import type {
 import { IssuePriority, TimeReportDayType } from "@hcengineering/tracker"
 import { Effect, Schema } from "effect"
 import { expect } from "vitest"
+import type { StatusName } from "../../../src/domain/schemas/shared.js"
 import { Timestamp } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
@@ -385,12 +386,14 @@ describe("Issues Coverage - resolveStatusName", () => {
       })
       const withCategory = yield* Schema.encode(StatusMetadataSchema)(parsedWithCategory)
       const withoutCategory = yield* Schema.encode(StatusMetadataSchema)(parsedWithoutCategory)
+      const brandedName: StatusName = parsedWithCategory.name
 
       expect(withCategory).toEqual({
         _id: "status-active",
         name: "Active",
         category: task.statusCategory.Active
       })
+      expect(brandedName).toBe("Active")
       expect(withoutCategory).toEqual({ _id: "status-todo", name: "Todo" })
     }))
 
