@@ -30,9 +30,7 @@ export interface AttachedCommentTarget {
   readonly space: Ref<Space>
   readonly attachedTo: Ref<Doc>
   readonly attachedToClass: Ref<Class<Doc>>
-  readonly compatibleAttachedToClasses?:
-    | readonly [Ref<Class<Doc>>, ...Array<Ref<Class<Doc>>>]
-    | undefined
+  readonly additionalAttachedToClasses?: ReadonlyArray<Ref<Class<Doc>>> | undefined
   readonly collection: string
   readonly includeSpaceInQuery?: true | undefined
 }
@@ -45,8 +43,9 @@ interface AttachedCommentsPage {
 const attachedToClassQuery = (
   target: AttachedCommentTarget
 ): Ref<Class<Doc>> | { readonly $in: Array<Ref<Class<Doc>>> } => {
-  const classes = target.compatibleAttachedToClasses
-  return classes === undefined
+  const additionalClasses = target.additionalAttachedToClasses ?? []
+  const classes = [...new Set([target.attachedToClass, ...additionalClasses])]
+  return classes.length === 1
     ? target.attachedToClass
     : { $in: [...classes] }
 }

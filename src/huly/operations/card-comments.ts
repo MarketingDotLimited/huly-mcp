@@ -54,7 +54,7 @@ const resolveCardCommentTarget = (
       space: card.space,
       attachedTo: card._id,
       attachedToClass: card._class,
-      compatibleAttachedToClasses: [card._class, cardPlugin.class.Card],
+      additionalAttachedToClasses: [cardPlugin.class.Card],
       collection: "comments",
       includeSpaceInQuery: true,
       cardIdentifier,
