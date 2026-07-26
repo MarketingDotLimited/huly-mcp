@@ -13,7 +13,6 @@ import { generateId, SortingOrder } from "@hcengineering/core"
 import type {
   Component as HulyComponent,
   Issue as HulyIssue,
-  IssueParentInfo,
   IssueTemplate as HulyIssueTemplate,
   IssueTemplateChild as HulyIssueTemplateChild,
   Project as HulyProject
@@ -79,6 +78,7 @@ import {
 import { clearTextAsEmptyString } from "./clear-field-updates.js"
 import { findComponentByIdOrLabel } from "./components.js"
 import { findPersonByEmailOrName } from "./contacts-shared.js"
+import { attachIssueChild } from "./issues-parent.js"
 import { findProject, priorityToString, stringToPriority, zeroAsUnset } from "./issues-shared.js"
 import { createIssue } from "./issues.js"
 import { clampLimit } from "./query-helpers.js"
@@ -420,13 +420,8 @@ export const createIssueTemplate = (
 /**
  * Create an issue from a template, optionally including sub-issues from template children.
  *
- * Children are created as top-level issues via {@link createIssue} (which is battle-tested),
- * then reparented via updateDoc.
- *
- * HULY EVENTUAL CONSISTENCY: We cannot use addCollection or findOne to reference a
- * just-created parent issue — the client's live query won't see it yet, causing hangs.
- * Instead we create children as top-level issues and reparent them with updateDoc,
- * which works on just-created documents because it's a direct write (no ref resolution).
+ * Children are created as native top-level issues, then attached by direct ID.
+ * Direct updates avoid read-after-write lookup of the just-created parent.
  */
 export const createIssueFromTemplate = (
   params: CreateIssueFromTemplateParams
@@ -486,10 +481,13 @@ export const createIssueFromTemplate = (
     // Create sub-issues from template children if includeChildren is not false
     const includeChildren = params.includeChildren ?? DEFAULT_INCLUDE_TEMPLATE_CHILDREN
     if (includeChildren && template.children.length > 0) {
+      const parentIssue = {
+        _id: toRef<HulyIssue>(result.issueId),
+        identifier: result.identifier,
+        title,
+        parents: []
+      }
       for (const child of template.children) {
-        // Create child as top-level issue via createIssue (no parentIssue).
-        // We can't pass parentIssue because createIssue uses findIssueInProject
-        // which does findOne on the just-created parent — that hangs.
         const childDescription = optionalMarkupToMarkdown(child.description, markupUrlConfig, undefined)
         const childResult = yield* createIssue({
           project: params.project,
@@ -498,31 +496,17 @@ export const createIssueFromTemplate = (
           ...(childDescription !== undefined && { description: childDescription })
         })
 
-        // Reparent to the parent issue and set additional fields from template child.
-        // updateDoc works on just-created documents (proven by the component update above).
-        const parentRef = toRef<HulyIssue>(result.issueId)
-        const parents: Array<IssueParentInfo> = [{
-          parentId: parentRef,
-          identifier: result.identifier,
-          parentTitle: title,
-          space: project._id
-        }]
-
-        const reparentUpdate: DocumentUpdate<HulyIssue> = {
-          attachedTo: parentRef,
-          attachedToClass: tracker.class.Issue,
-          collection: "subIssues",
-          parents,
+        const childUpdate: DocumentUpdate<HulyIssue> = {
           ...(child.assignee !== null && { assignee: child.assignee }),
           ...(child.component !== null && { component: child.component }),
           ...(child.estimation > 0 && { estimation: child.estimation })
         }
-
-        yield* client.updateDoc(
-          tracker.class.Issue,
+        yield* attachIssueChild(
+          client,
           project._id,
           toRef<HulyIssue>(childResult.issueId),
-          reparentUpdate
+          parentIssue,
+          childUpdate
         )
       }
 

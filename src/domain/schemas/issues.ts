@@ -252,7 +252,8 @@ export const CreateIssueParamsSchema = Schema.Struct({
       "Issue/task type ID or display name. Resolved within the target project's project type; use list_task_types or get_project_type to discover valid values. If omitted, creates the default Issue type."
   })),
   parentIssue: Schema.optional(IssueIdentifier.annotations({
-    description: "Parent issue identifier (e.g., 'HULY-42') to create as sub-issue"
+    description:
+      "Parent issue identifier (e.g., 'HULY-42') to create as a sub-issue. Omit to create a native top-level issue."
   })),
   dueDate: Schema.optional(
     Schema.NullOr(Timestamp).annotations({
@@ -394,7 +395,7 @@ export const MoveIssueParamsSchema = Schema.Struct({
     description: "Issue to move (e.g., 'HULY-123')"
   }),
   newParent: Schema.NullOr(IssueIdentifier).annotations({
-    description: "New parent issue identifier, or null to make top-level"
+    description: "New parent issue identifier, or null to restore the native top-level issue shape"
   })
 }).annotations({
   title: "MoveIssueParams",

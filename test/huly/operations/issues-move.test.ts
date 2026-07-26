@@ -31,7 +31,7 @@ const makeIssue = (id: string, identifier: string, overrides?: Partial<HulyIssue
     identifier,
     number: Number(identifier.split("-")[1] ?? 0),
     title: `Issue ${identifier}`,
-    attachedTo: "no-parent" as Ref<HulyIssue>,
+    attachedTo: tracker.ids.NoParent,
     attachedToClass: tracker.class.Issue,
     collection: "subIssues",
     subIssues: 0,
@@ -92,6 +92,27 @@ const buildLayer = (
 const PROJECT = projectIdentifier("TEST")
 
 describe("moveIssue — to a new parent", () => {
+  it.effect("attaches a native top-level issue without decrementing the NoParent sentinel", () =>
+    Effect.gen(function*() {
+      const updates: Array<UpdateCall> = []
+      const issue = makeIssue("issue-1", "TEST-1")
+      const parent = makeIssue("issue-9", "TEST-9")
+
+      yield* moveIssue({
+        project: PROJECT,
+        identifier: issueIdentifier("TEST-1"),
+        newParent: issueIdentifier("TEST-9")
+      }).pipe(Effect.provide(buildLayer({ issues: [issue, parent], updates })))
+
+      expect(updates).toHaveLength(2)
+      expect(assertAt(updates, 0).ops).toMatchObject({
+        attachedTo: "issue-9",
+        attachedToClass: tracker.class.Issue,
+        collection: "subIssues"
+      })
+      expect(assertAt(updates, 1)).toEqual({ id: "issue-9", ops: { $inc: { subIssues: 1 } } })
+    }))
+
   it.effect("re-parents, adjusts both parents' counts, and re-threads one descendant", () =>
     Effect.gen(function*() {
       const updates: Array<UpdateCall> = []
@@ -119,9 +140,9 @@ describe("moveIssue — to a new parent", () => {
         collection: "subIssues",
         parents: [{ parentId: "issue-9", identifier: "TEST-9", parentTitle: "Issue TEST-9", space: PROJECT_ID }]
       })
-      // decrement old parent, increment new parent
-      expect(assertAt(updates, 1)).toEqual({ id: "old-parent", ops: { $inc: { subIssues: -1 } } })
-      expect(assertAt(updates, 2)).toEqual({ id: "issue-9", ops: { $inc: { subIssues: 1 } } })
+      // increment new parent, decrement old parent
+      expect(assertAt(updates, 1)).toEqual({ id: "issue-9", ops: { $inc: { subIssues: 1 } } })
+      expect(assertAt(updates, 2)).toEqual({ id: "old-parent", ops: { $inc: { subIssues: -1 } } })
       // descendant re-thread (no recursion since the child has no sub-issues)
       expect(assertAt(updates, 3).id).toBe("issue-2")
       expect(assertAt(updates, 3).ops).toEqual({
@@ -161,7 +182,7 @@ describe("moveIssue — to a new parent", () => {
 })
 
 describe("moveIssue — to top-level", () => {
-  it.effect("detaches a sub-issue to the project and decrements the old parent", () =>
+  it.effect("detaches a sub-issue to NoParent and decrements the old parent", () =>
     Effect.gen(function*() {
       const updates: Array<UpdateCall> = []
       const issue = makeIssue("issue-1", "TEST-1", {
@@ -182,9 +203,9 @@ describe("moveIssue — to top-level", () => {
       expect(result).toEqual({ identifier: "TEST-1", moved: true })
       expect(result).not.toHaveProperty("newParent")
       expect(assertAt(updates, 0).ops).toEqual({
-        attachedTo: PROJECT_ID,
-        attachedToClass: tracker.class.Project,
-        collection: "issues",
+        attachedTo: tracker.ids.NoParent,
+        attachedToClass: tracker.class.Issue,
+        collection: "subIssues",
         parents: []
       })
       // decrement the old issue parent; no increment because it is now top-level
@@ -192,7 +213,7 @@ describe("moveIssue — to top-level", () => {
       expect(updates).toHaveLength(2)
     }))
 
-  it.effect("is a single update when the issue was already top-level", () =>
+  it.effect("repairs a legacy project-attached top-level issue without changing child counts", () =>
     Effect.gen(function*() {
       const updates: Array<UpdateCall> = []
       const issue = makeIssue("issue-1", "TEST-1", {
@@ -207,8 +228,32 @@ describe("moveIssue — to top-level", () => {
         newParent: null
       }).pipe(Effect.provide(buildLayer({ issues: [issue], updates })))
 
-      // old parent is the project (not an issue) -> no decrement; top-level -> no increment; no descendants
       expect(updates).toHaveLength(1)
+      expect(assertAt(updates, 0).ops).toEqual({
+        attachedTo: tracker.ids.NoParent,
+        attachedToClass: tracker.class.Issue,
+        collection: "subIssues",
+        parents: []
+      })
+    }))
+
+  it.effect("keeps an already-native top-level issue detached without changing child counts", () =>
+    Effect.gen(function*() {
+      const updates: Array<UpdateCall> = []
+      const issue = makeIssue("issue-1", "TEST-1")
+
+      yield* moveIssue({
+        project: PROJECT,
+        identifier: issueIdentifier("TEST-1"),
+        newParent: null
+      }).pipe(Effect.provide(buildLayer({ issues: [issue], updates })))
+
+      expect(updates).toHaveLength(1)
+      expect(assertAt(updates, 0).ops).toMatchObject({
+        attachedTo: tracker.ids.NoParent,
+        attachedToClass: tracker.class.Issue,
+        collection: "subIssues"
+      })
     }))
 })
 

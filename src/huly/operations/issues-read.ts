@@ -24,6 +24,7 @@ import { HulyConnectionError, IssueNotFoundError } from "../errors.js"
 import { contact, tracker } from "../huly-plugins.js"
 import { findComponentByIdOrLabel } from "./components.js"
 import { findPersonByEmailOrName } from "./contacts-shared.js"
+import { topLevelIssueParent } from "./issues-parent.js"
 import {
   findIssueInProject,
   findProjectWithStatuses,
@@ -168,7 +169,7 @@ export const listIssues = (
     }
 
     if (params.isTopLevel === true) {
-      query.attachedToClass = tracker.class.Project
+      query.attachedTo = topLevelIssueParent().attachedTo
     }
 
     const limit = clampLimit(params.limit)

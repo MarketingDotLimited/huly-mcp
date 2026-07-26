@@ -1672,9 +1672,9 @@ describe("createIssue", () => {
           title: "Top Level Issue"
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
-        expect(captureAddCollection.attachedTo).toBe("project-1")
-        expect(captureAddCollection.attachedToClass).toBe(tracker.class.Project)
-        expect(captureAddCollection.collection).toBe("issues")
+        expect(captureAddCollection.attachedTo).toBe(tracker.ids.NoParent)
+        expect(captureAddCollection.attachedToClass).toBe(tracker.class.Issue)
+        expect(captureAddCollection.collection).toBe("subIssues")
         expect(captureAddCollection.attributes?.parents).toEqual([])
       }))
 

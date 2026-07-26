@@ -106,7 +106,7 @@ export const issueTools = [
       description:
         `Query Huly issues with optional filters. Returns issues sorted by modification date (newest first). Supports filtering by project, exact workflow status name (status), Huly SDK task.statusCategory key (statusCategory: ${
           enumValuesDescription(StatusCategoryValues)
-        }), assignee, component, and parentIssue (to list children of a specific issue). Supports searching by title substring (titleSearch) and description content (descriptionSearch).`,
+        }), assignee, component, parentIssue (to list children of a specific issue), and isTopLevel (to return only native top-level issues). Supports searching by title substring (titleSearch) and description content (descriptionSearch).`,
       category: CATEGORY,
       inputSchema: listIssuesParamsJsonSchema,
       resultSchema: ListIssuesResultSchema
@@ -130,7 +130,7 @@ export const issueTools = [
     {
       name: "create_issue",
       description:
-        "Create a new issue in a Huly project. Optionally set taskType by ID or display name; it is resolved within the target project's project type, and status is validated against that task type's workflow. Use list_task_types or get_project_type to discover valid task types and statuses. Optionally create as a sub-issue by specifying parentIssue. Description supports markdown formatting; markdown links to current-workspace Huly browse URLs with _class, _id, and label become native references, while external URLs stay normal links. Returns the created issue identifier.",
+        "Create a new issue in a Huly project. Omit parentIssue for a native top-level issue, or specify parentIssue to create a sub-issue. Optionally set taskType by ID or display name; it is resolved within the target project's project type, and status is validated against that task type's workflow. Use list_task_types or get_project_type to discover valid task types and statuses. Description supports markdown formatting; markdown links to current-workspace Huly browse URLs with _class, _id, and label become native references, while external URLs stay normal links. Returns the created issue identifier.",
       category: CATEGORY,
       inputSchema: createIssueParamsJsonSchema,
       resultSchema: CreateIssueResultSchema
@@ -188,7 +188,7 @@ export const issueTools = [
     {
       name: "move_issue",
       description:
-        "Move an issue to a new parent (making it a sub-issue) or to top-level (null). Updates parent/child relationships and sub-issue counts.",
+        "Move an issue to a new parent (making it a sub-issue), or pass null to restore its native top-level shape. Updates parent/child relationships and sub-issue counts.",
       category: CATEGORY,
       inputSchema: moveIssueParamsJsonSchema,
       resultSchema: MoveIssueResultSchema

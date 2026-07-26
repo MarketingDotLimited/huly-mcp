@@ -277,7 +277,7 @@ describe("listIssues filters", () => {
   })
 
   describe("isTopLevel", () => {
-    it.effect("true sets attachedToClass to Project", () =>
+    it.effect("true filters by the Huly NoParent sentinel", () =>
       Effect.gen(function*() {
         const captureQuery: MockConfig["captureIssueQuery"] = {}
         const testLayer = createTestLayer({
@@ -292,10 +292,11 @@ describe("listIssues filters", () => {
           withDiagnostics
         )
 
-        expect(captureQuery.query?.attachedToClass).toBe(tracker.class.Project)
+        expect(captureQuery.query?.attachedTo).toBe(tracker.ids.NoParent)
+        expect(captureQuery.query?.attachedToClass).toBeUndefined()
       }))
 
-    it.effect("false does not set attachedToClass", () =>
+    it.effect("false does not set a parent filter", () =>
       Effect.gen(function*() {
         const captureQuery: MockConfig["captureIssueQuery"] = {}
         const testLayer = createTestLayer({

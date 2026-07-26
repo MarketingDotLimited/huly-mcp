@@ -6,8 +6,6 @@
 import type { Person } from "@hcengineering/contact"
 import {
   type AttachedData,
-  type Class,
-  type Doc,
   type DocumentUpdate,
   generateId,
   type MarkupBlobRef,
@@ -17,7 +15,7 @@ import {
   type Status
 } from "@hcengineering/core"
 import { makeRank } from "@hcengineering/rank"
-import { type Issue as HulyIssue, type IssueParentInfo, type Project as HulyProject } from "@hcengineering/tracker"
+import { type Issue as HulyIssue, type Project as HulyProject } from "@hcengineering/tracker"
 import { Effect, Schema } from "effect"
 
 import type { CreateIssueParams, DeleteIssueParams } from "../../domain/schemas.js"
@@ -30,6 +28,7 @@ import type { IssueNotFoundError, IssueReferenceError, PersonNotFoundError, Proj
 import { HulyError, InvalidStatusError } from "../errors.js"
 import { tracker } from "../huly-plugins.js"
 import { renderIssueDescriptionForWrite } from "./issue-native-references.js"
+import { childIssueParent, topLevelIssueParent } from "./issues-parent.js"
 import {
   findIssueInProject,
   findProjectAndIssue,
@@ -123,37 +122,13 @@ export const createIssue = (
       ? yield* renderIssueDescriptionForWrite(params.description)
       : undefined
 
-    type ParentData = {
-      attachedTo: Ref<Doc>
-      attachedToClass: Ref<Class<Doc>>
-      collection: string
-      parents: Array<IssueParentInfo>
-    }
     const parentIssueParam = params.parentIssue
-    const { attachedTo, attachedToClass, collection, parents }: ParentData = parentIssueParam !== undefined
+    const { attachedTo, attachedToClass, collection, parents } = parentIssueParam !== undefined
       ? yield* Effect.gen(function*() {
         const parentIssue = yield* findIssueInProject(client, project, parentIssueParam)
-        return {
-          attachedTo: parentIssue._id,
-          attachedToClass: tracker.class.Issue,
-          collection: "subIssues",
-          parents: [
-            ...parentIssue.parents,
-            {
-              parentId: parentIssue._id,
-              identifier: parentIssue.identifier,
-              parentTitle: parentIssue.title,
-              space: project._id
-            }
-          ]
-        }
+        return childIssueParent(parentIssue, project._id)
       })
-      : {
-        attachedTo: project._id,
-        attachedToClass: tracker.class.Project,
-        collection: "issues",
-        parents: []
-      }
+      : topLevelIssueParent()
 
     const incOps: DocumentUpdate<HulyProject> = { $inc: { sequence: 1 } }
     const incResult = yield* client.updateDoc(

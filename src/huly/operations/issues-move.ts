@@ -3,7 +3,7 @@
  *
  * @module
  */
-import { type Class, type Doc, type DocumentUpdate, type Ref } from "@hcengineering/core"
+import { type Ref } from "@hcengineering/core"
 import { type Issue as HulyIssue, type IssueParentInfo, type Project as HulyProject } from "@hcengineering/tracker"
 import { Effect } from "effect"
 
@@ -14,7 +14,9 @@ import { TagTargetClass } from "../../domain/schemas/tags.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import type { IssueNotFoundError, ProjectNotFoundError, TagCategoryNotFoundError } from "../errors.js"
 import { tracker } from "../huly-plugins.js"
+import { attachIssueChild, childIssueParent, hasConcreteIssueParent, topLevelIssueParent } from "./issues-parent.js"
 import { findIssueInProject, findProjectAndIssue } from "./issues-shared.js"
+import { hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 import { attachTagReference, ensureTagElement } from "./tags-shared.js"
 
@@ -70,59 +72,50 @@ export const moveIssue = (
   Effect.gen(function*() {
     const { client, issue, project } = yield* findProjectAndIssue(params)
 
-    const oldParentIsIssue = issue.attachedToClass === tracker.class.Issue
+    const oldParentIsIssue = hasConcreteIssueParent(issue)
 
-    type MoveParentData = {
-      newAttachedTo: Ref<Doc>
-      newAttachedToClass: Ref<Class<Doc>>
-      newCollection: string
-      newParents: Array<IssueParentInfo>
-      newParentIdentifier: string | undefined
-    }
+    type MoveTarget =
+      | {
+        readonly _tag: "TopLevel"
+        readonly parent: ReturnType<typeof topLevelIssueParent>
+      }
+      | {
+        readonly _tag: "Child"
+        readonly identifier: IssueIdentifier
+        readonly issue: HulyIssue
+        readonly parent: ReturnType<typeof topLevelIssueParent>
+      }
     const newParentParam = params.newParent
-    const { newAttachedTo, newAttachedToClass, newCollection, newParentIdentifier, newParents }: MoveParentData =
-      newParentParam !== null
-        ? yield* Effect.gen(function*() {
-          const parentIssue = yield* findIssueInProject(client, project, newParentParam)
-          return {
-            newAttachedTo: parentIssue._id,
-            newAttachedToClass: tracker.class.Issue,
-            newCollection: "subIssues",
-            newParents: [
-              ...parentIssue.parents,
-              {
-                parentId: parentIssue._id,
-                identifier: parentIssue.identifier,
-                parentTitle: parentIssue.title,
-                space: project._id
-              }
-            ],
-            newParentIdentifier: parentIssue.identifier
-          }
-        })
-        : {
-          newAttachedTo: project._id,
-          newAttachedToClass: tracker.class.Project,
-          newCollection: "issues",
-          newParents: [],
-          newParentIdentifier: undefined
+    const target: MoveTarget = newParentParam !== null
+      ? yield* Effect.gen(function*() {
+        const parentIssue = yield* findIssueInProject(client, project, newParentParam)
+        return {
+          _tag: "Child" as const,
+          identifier: IssueIdentifier.make(parentIssue.identifier),
+          issue: parentIssue,
+          parent: childIssueParent(parentIssue, project._id)
         }
+      })
+      : {
+        _tag: "TopLevel",
+        parent: topLevelIssueParent()
+      }
 
-    // attachedTo is typed as Ref<Issue> in DocumentUpdate<HulyIssue>, but for top-level issues
-    // it points to the project (Ref<Project>). Both are branded strings at runtime.
-    const updateOps: DocumentUpdate<HulyIssue> = {
-      attachedTo: toRef<HulyIssue>(newAttachedTo),
-      attachedToClass: newAttachedToClass,
-      collection: newCollection,
-      parents: newParents
+    if (target._tag === "Child") {
+      yield* attachIssueChild(client, project._id, issue._id, target.issue, {})
+    } else {
+      yield* client.updateDoc(
+        tracker.class.Issue,
+        project._id,
+        issue._id,
+        {
+          attachedTo: toRef<HulyIssue>(target.parent.attachedTo),
+          attachedToClass: target.parent.attachedToClass,
+          collection: target.parent.collection,
+          parents: target.parent.parents
+        }
+      )
     }
-
-    yield* client.updateDoc(
-      tracker.class.Issue,
-      project._id,
-      issue._id,
-      updateOps
-    )
 
     // Update subIssues count on old parent (decrement) if it was an issue
     if (oldParentIsIssue) {
@@ -136,27 +129,17 @@ export const moveIssue = (
       )
     }
 
-    // Update subIssues count on new parent (increment) if it's an issue
-    if (params.newParent !== null) {
-      yield* client.updateDoc(
-        tracker.class.Issue,
-        project._id,
-        toRef<HulyIssue>(newAttachedTo),
-        { $inc: { subIssues: 1 } }
-      )
-    }
-
     // Update parents arrays on all descendant issues
     if (issue.subIssues > 0) {
-      yield* updateDescendantParents(client, project._id, issue, newParents)
+      yield* updateDescendantParents(client, project._id, issue, target.parent.parents)
     }
 
     const result: MoveIssueResult = {
       identifier: IssueIdentifier.make(issue.identifier),
       moved: true
     }
-    if (newParentIdentifier !== undefined) {
-      return { ...result, newParent: IssueIdentifier.make(newParentIdentifier) }
+    if (target._tag === "Child") {
+      return { ...result, newParent: target.identifier }
     }
     return result
   })
@@ -176,7 +159,7 @@ const updateDescendantParents = (
     }
     const children = yield* client.findAll<HulyIssue>(
       tracker.class.Issue,
-      { attachedTo: parentIssue._id, space: spaceId }
+      hulyQuery<HulyIssue>({ attachedTo: parentIssue._id, space: spaceId })
     )
     for (const child of children) {
       const childNewParents = [...parentNewParents, thisParentInfo]

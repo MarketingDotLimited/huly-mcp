@@ -1779,6 +1779,19 @@ if [ $? -eq 0 ]; then
     assert_json_field_equals "get_issue returns issueId" "$GET_ISSUE_TEXT" ".issueId" "$ISSUE_OBJ_ID"
   fi
 
+  if ISSUE_PARENT_STATE=$(pnpm exec tsx scripts/integration-issue-parent-semantics.ts \
+    --project "$PROJECT" --issue "$ISSUE_ID" --mode top-level --expectedIssueChildren 0); then
+    echo "PASS: create_issue uses native NoParent top-level shape"
+    PASSED=$((PASSED + 1))
+    echo "  => $ISSUE_PARENT_STATE"
+  else
+    fail_test "create_issue native NoParent shape" "parent semantics helper failed"
+  fi
+
+  wait_for_json_array_contains_to_var TOP_LEVEL_ISSUES_TEXT "list_issues(isTopLevel) includes created top-level issue" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"isTopLevel\":true,\"limit\":200}},\"id\":2}" \
+    "map(.identifier)" "$ISSUE_ID"
+
   run_test "resources/read issue($ISSUE_ID)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"resources/read\",\"params\":{\"uri\":\"huly://issues/$ISSUE_ID\"},\"id\":2}"
 
@@ -1829,10 +1842,56 @@ if [ $? -eq 0 ]; then
   if [ $? -eq 0 ]; then
     SUB_ID=$(echo "$SUB_TEXT" | jq -r '.identifier' 2>/dev/null)
     echo "  => sub: $SUB_ID"
-    run_test "list_sub_issues" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"parentIssue\":\"$ISSUE_ID\"}},\"id\":2}"
+    if CHILD_PARENT_STATE=$(pnpm exec tsx scripts/integration-issue-parent-semantics.ts \
+      --project "$PROJECT" --issue "$SUB_ID" --mode child --parent "$ISSUE_ID" \
+      --expectedIssueChildren 0 --expectedParentChildren 1); then
+      echo "PASS: create_issue(sub) attaches natively and increments parent count once"
+      PASSED=$((PASSED + 1))
+      echo "  => $CHILD_PARENT_STATE"
+    else
+      fail_test "create_issue(sub) native parent/count" "parent semantics helper failed"
+    fi
+    wait_for_json_array_contains_to_var SUB_ISSUES_TEXT "list_issues(parentIssue) includes direct child" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"parentIssue\":\"$ISSUE_ID\",\"limit\":200}},\"id\":2}" \
+      "map(.identifier)" "$SUB_ID"
+    run_capture_to_var TOP_LEVEL_BEFORE_DETACH_TEXT "list_issues(isTopLevel before detach)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"isTopLevel\":true,\"limit\":200}},\"id\":2}"
+    assert_json_array_not_contains "list_issues(isTopLevel) excludes attached child" \
+      "$TOP_LEVEL_BEFORE_DETACH_TEXT" "map(.identifier)" "$SUB_ID"
     run_test "move_issue($SUB_ID)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"move_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$SUB_ID\",\"newParent\":null}},\"id\":2}"
+    if DETACHED_PARENT_STATE=$(pnpm exec tsx scripts/integration-issue-parent-semantics.ts \
+      --project "$PROJECT" --issue "$SUB_ID" --mode top-level --parent "$ISSUE_ID" \
+      --expectedIssueChildren 0 --expectedParentChildren 0); then
+      echo "PASS: move_issue(null) restores NoParent and decrements parent count once"
+      PASSED=$((PASSED + 1))
+      echo "  => $DETACHED_PARENT_STATE"
+    else
+      fail_test "move_issue(null) native detach/count" "parent semantics helper failed"
+    fi
+    wait_for_json_array_contains_to_var TOP_LEVEL_AFTER_DETACH_TEXT "list_issues(isTopLevel) includes detached child" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"isTopLevel\":true,\"limit\":200}},\"id\":2}" \
+      "map(.identifier)" "$SUB_ID"
+    if LEGACY_PARENT_STATE=$(pnpm exec tsx scripts/integration-issue-parent-semantics.ts \
+      --project "$PROJECT" --issue "$SUB_ID" --mode make-legacy --parent "$ISSUE_ID" \
+      --expectedIssueChildren 0 --expectedParentChildren 0); then
+      echo "PASS: integration fixture creates legacy project-attached issue without changing parent count"
+      PASSED=$((PASSED + 1))
+      echo "  => $LEGACY_PARENT_STATE"
+    else
+      fail_test "create legacy project-attached issue fixture" "parent semantics helper failed"
+    fi
+    run_test "move_issue($SUB_ID repair legacy top-level)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"move_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$SUB_ID\",\"newParent\":null}},\"id\":2}"
+    if REPAIRED_PARENT_STATE=$(pnpm exec tsx scripts/integration-issue-parent-semantics.ts \
+      --project "$PROJECT" --issue "$SUB_ID" --mode top-level --parent "$ISSUE_ID" \
+      --expectedIssueChildren 0 --expectedParentChildren 0); then
+      echo "PASS: move_issue(null) repairs legacy attachment without changing parent count"
+      PASSED=$((PASSED + 1))
+      echo "  => $REPAIRED_PARENT_STATE"
+    else
+      fail_test "move_issue(null) legacy repair/count" "parent semantics helper failed"
+    fi
     run_test "delete_issue(sub:$SUB_ID)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$SUB_ID\"}},\"id\":2}"
   fi
@@ -2008,22 +2067,48 @@ if [ $? -eq 0 ]; then
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_issue_template\",\"arguments\":{\"project\":\"$PROJECT\",\"template\":\"$TMPL_ID\",\"title\":\"Updated Tmpl\"}},\"id\":2}"
 
   # Template children
+  CHILD_ID=""
   run_capture_to_var CHILD_TEXT "add_template_child($TMPL_ID)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_template_child\",\"arguments\":{\"project\":\"$PROJECT\",\"template\":\"$TMPL_ID\",\"title\":\"Child Task\"}},\"id\":2}"
   if [ $? -eq 0 ]; then
     CHILD_ID=$(echo "$CHILD_TEXT" | jq -r '.id' 2>/dev/null)
     echo "  => child: $CHILD_ID"
-    run_test "remove_template_child($CHILD_ID)" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"remove_template_child\",\"arguments\":{\"project\":\"$PROJECT\",\"template\":\"$TMPL_ID\",\"childId\":\"$CHILD_ID\"}},\"id\":2}"
   fi
 
-  # Create from template (NOTE: may hang due to eventual consistency if template was just modified)
+  # Create immediately after modifying the template to exercise eventual consistency.
   run_capture_to_var TMPL_ISSUE_TEXT "create_issue_from_template" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_issue_from_template\",\"arguments\":{\"project\":\"$PROJECT\",\"template\":\"$TMPL_ID\",\"title\":\"From Template\"}},\"id\":2}"
   if [ $? -eq 0 ]; then
     TMPL_ISSUE_ID=$(echo "$TMPL_ISSUE_TEXT" | jq -r '.identifier' 2>/dev/null)
+    if [ -n "$CHILD_ID" ]; then
+      wait_for_json_array_contains_to_var TMPL_CHILD_ISSUES_TEXT \
+        "list_issues(parentIssue) includes template-created child" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"parentIssue\":\"$TMPL_ISSUE_ID\",\"limit\":10}},\"id\":2}" \
+        "map(.title)" "Child Task"
+      TMPL_CHILD_ISSUE_ID=$(echo "$TMPL_CHILD_ISSUES_TEXT" | jq -r '.[] | select(.title == "Child Task") | .identifier' 2>/dev/null | head -1)
+      if [ -n "$TMPL_CHILD_ISSUE_ID" ]; then
+        if TMPL_PARENT_STATE=$(pnpm exec tsx scripts/integration-issue-parent-semantics.ts \
+          --project "$PROJECT" --issue "$TMPL_CHILD_ISSUE_ID" --mode child --parent "$TMPL_ISSUE_ID" \
+          --expectedIssueChildren 0 --expectedParentChildren 1); then
+          echo "PASS: create_issue_from_template attaches child and increments parent count once"
+          PASSED=$((PASSED + 1))
+          echo "  => $TMPL_PARENT_STATE"
+        else
+          fail_test "create_issue_from_template child parent/count" "parent semantics helper failed"
+        fi
+        run_test "delete_issue(template_child:$TMPL_CHILD_ISSUE_ID)" \
+          "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$TMPL_CHILD_ISSUE_ID\"}},\"id\":2}"
+      else
+        fail_test "resolve template-created child identifier" "list_issues did not return the child identifier"
+      fi
+    fi
     run_test "delete_issue(from_tmpl:$TMPL_ISSUE_ID)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$TMPL_ISSUE_ID\"}},\"id\":2}"
+  fi
+
+  if [ -n "$CHILD_ID" ]; then
+    run_test "remove_template_child($CHILD_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"remove_template_child\",\"arguments\":{\"project\":\"$PROJECT\",\"template\":\"$TMPL_ID\",\"childId\":\"$CHILD_ID\"}},\"id\":2}"
   fi
 
   run_test "delete_issue_template($TMPL_ID)" \
