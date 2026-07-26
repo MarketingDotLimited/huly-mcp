@@ -19,13 +19,10 @@ import {
 } from "../errors.js"
 import { calendar, contact, time } from "../huly-plugins.js"
 import { getDefaultCalendarRef } from "./calendar-shared.js"
+import { parsePrimarySocialIdentityProjection } from "./primary-social-identity.js"
 import { hulyQuery } from "./query-helpers.js"
 import { toRef, toSocialIdentityRef } from "./sdk-boundary.js"
 
-const PrimarySocialIdentityProjectionSchema = Schema.Struct({
-  _id: PersonId,
-  attachedTo: PersonId
-})
 const EmployeeProjectionSchema = Schema.Struct({
   _id: PersonId,
   active: Schema.Literal(true)
@@ -83,16 +80,6 @@ const missingPrerequisite = (
 ): Effect.Effect<never, PlannerSchedulingPrerequisiteFailure> =>
   Effect.fail(new PlannerSchedulingPrerequisiteError({ prerequisite }))
 
-const parsePrimarySocialIdentity = (
-  value: unknown
-): Effect.Effect<
-  Schema.Schema.Type<typeof PrimarySocialIdentityProjectionSchema>,
-  PlannerSchedulingPrerequisiteFailure
-> =>
-  Schema.decodeUnknown(PrimarySocialIdentityProjectionSchema)(value).pipe(
-    Effect.mapError(() => new PlannerSchedulingPrerequisiteError({ prerequisite: "primary social identity" }))
-  )
-
 const parseEmployee = (
   value: unknown
 ): Effect.Effect<Schema.Schema.Type<typeof EmployeeProjectionSchema>, PlannerSchedulingPrerequisiteFailure> =>
@@ -116,7 +103,9 @@ const resolvePlannerSchedulingContext = Effect.fn("PlannerScheduling.resolveCont
     if (rawPrimarySocialIdentity === undefined) {
       return yield* missingPrerequisite("primary social identity")
     }
-    const primarySocialIdentity = yield* parsePrimarySocialIdentity(rawPrimarySocialIdentity)
+    const primarySocialIdentity = yield* parsePrimarySocialIdentityProjection(rawPrimarySocialIdentity).pipe(
+      Effect.mapError(() => new PlannerSchedulingPrerequisiteError({ prerequisite: "primary social identity" }))
+    )
 
     const rawEmployee = yield* client.findOne<Employee>(
       contact.mixin.Employee,

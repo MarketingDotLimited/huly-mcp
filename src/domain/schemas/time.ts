@@ -16,7 +16,7 @@ import {
 } from "./shared.js"
 
 export const TIME_HOURS_EXAMPLES = "0.25 = 15 minutes; 8 = one work day"
-const timeHoursDescription = (subject: string) =>
+export const timeHoursDescription = (subject: string) =>
   `${subject} in hours (Huly native unit). Examples: ${TIME_HOURS_EXAMPLES}.`
 
 export const TimeHours = NonNegativeNumber.pipe(Schema.brand("TimeHours")).annotations({

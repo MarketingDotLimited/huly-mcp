@@ -12,6 +12,7 @@ import {
 } from "@hcengineering/tracker"
 import { Effect } from "effect"
 import { expect } from "vitest"
+import { PositiveTimeHours } from "../../../src/domain/schemas/time.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import type {
   ComponentNotFoundError,
@@ -41,7 +42,6 @@ import {
   componentIdentifier,
   email,
   issueTemplateChildId,
-  positiveNumber,
   projectIdentifier,
   templateIdentifier
 } from "../../helpers/brands.js"
@@ -735,7 +735,7 @@ describe("createIssueTemplate", () => {
         priority: "high",
         assignee: email("john@example.com"),
         component: componentIdentifier("Frontend"),
-        estimation: positiveNumber(120)
+        estimation: PositiveTimeHours.make(120)
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(result.title).toBe("Full Template")
@@ -1298,7 +1298,7 @@ describe("updateIssueTemplate", () => {
       const result = yield* updateIssueTemplate({
         project: projectIdentifier("TEST"),
         template: templateIdentifier("Bug Report Template"),
-        estimation: positiveNumber(90)
+        estimation: PositiveTimeHours.make(90)
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(result.updated).toBe(true)

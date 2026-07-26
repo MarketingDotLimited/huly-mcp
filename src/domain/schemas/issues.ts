@@ -21,7 +21,6 @@ import {
   PersonId,
   PersonName,
   PersonRefInput,
-  PositiveNumber,
   ProjectIdentifier,
   StatusName,
   Timestamp,
@@ -33,6 +32,7 @@ import {
   StatusCategoryValues,
   TaskTypeRefSchema
 } from "./task-management.js"
+import { PositiveTimeHours, timeHoursDescription } from "./time.js"
 
 export type IssueStatusCategoryFilter = KnownStatusCategoryValue
 
@@ -140,7 +140,9 @@ export const IssueSchema = Schema.Struct({
   modifiedOn: Schema.optional(Timestamp),
   createdOn: Schema.optional(Timestamp),
   dueDate: Schema.optional(Schema.NullOr(Timestamp)),
-  estimation: Schema.optional(PositiveNumber)
+  estimation: Schema.optional(PositiveTimeHours.annotations({
+    description: timeHoursDescription("Issue estimation")
+  }))
 }).annotations({
   title: "Issue",
   description: "Full issue with all fields"
@@ -275,8 +277,8 @@ export const CreateIssueParamsSchema = Schema.Struct({
       description: "Due date as Unix timestamp in milliseconds (e.g., 1719792000000 for 2024-07-01), or null to clear"
     })
   ),
-  estimation: Schema.optional(PositiveNumber.annotations({
-    description: "Time estimation in minutes"
+  estimation: Schema.optional(PositiveTimeHours.annotations({
+    description: timeHoursDescription("Time estimation")
   }))
 }).annotations({
   title: "CreateIssueParams",
@@ -332,8 +334,8 @@ export const UpdateIssueParamsSchema = Schema.Struct({
     })
   ),
   estimation: Schema.optional(
-    Schema.NullOr(PositiveNumber).annotations({
-      description: "Time estimation in minutes, or null to clear"
+    Schema.NullOr(PositiveTimeHours).annotations({
+      description: `${timeHoursDescription("Time estimation")} Use null to clear.`
     })
   )
 }).pipe(

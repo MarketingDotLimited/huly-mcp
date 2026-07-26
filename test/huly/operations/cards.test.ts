@@ -9,7 +9,7 @@ import { expect } from "vitest"
 import { CardIdentifier, CardSpaceIdentifier, MasterTagIdentifier } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
-import { CardNotFoundError, HulyError } from "../../../src/huly/errors.js"
+import { CardNotFoundError, HulyConnectionError, HulyError } from "../../../src/huly/errors.js"
 import { cardPlugin, core } from "../../../src/huly/huly-plugins.js"
 import {
   createCard,
@@ -619,6 +619,24 @@ describe("listCardVersions", () => {
         hasMore: false
       })
       expect(warnings).toEqual([])
+    }))
+
+  it.effect("fails with a typed integration error when a required card title is malformed", () =>
+    Effect.gen(function*() {
+      const malformed = {
+        ...makeCard(),
+        title: 42
+      } as unknown as HulyCard
+      const error = yield* Effect.flip(
+        listCardVersions({
+          cardSpace: SPACE,
+          card: CardIdentifier.make("card-1")
+        }).pipe(Effect.provide(buildLayer({ spaces: [makeSpace()], cards: [malformed] })), withDiagnostics)
+      )
+
+      expect(error).toBeInstanceOf(HulyConnectionError)
+      expect(error.message).toContain("card version history")
+      expect(error.message).toContain("schema")
     }))
 
   it.effect("distinguishes missing card spaces and ambiguous exact titles", () =>

@@ -15,7 +15,7 @@ import { expect } from "vitest"
 import { NonEmptyString, Timestamp } from "../../../src/domain/schemas/shared.js"
 import { PositiveTimeHours } from "../../../src/domain/schemas/time.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
-import type { IssueNotFoundError, ProjectNotFoundError } from "../../../src/huly/errors.js"
+import type { HulyConnectionError, IssueNotFoundError, ProjectNotFoundError } from "../../../src/huly/errors.js"
 import { toRef, toSocialIdentityRef } from "../../../src/huly/operations/sdk-boundary.js"
 import {
   getDetailedTimeReport,
@@ -38,6 +38,7 @@ const asIssue = (v: unknown) => v as HulyIssue
 const asTimeSpendReport = (v: unknown) => v as HulyTimeSpendReport
 const asPerson = (v: unknown) => v as Person
 const asChannel = (v: unknown) => v as Channel
+const asSocialIdentity = (v: unknown) => v as SocialIdentity
 
 const makeProject = (overrides?: Partial<HulyProject>): HulyProject =>
   asProject({
@@ -391,6 +392,34 @@ describe("logTime", () => {
         }).pipe(Effect.provide(testLayer))
 
         expect(captureAddCollection.attributes?.employee).toBeNull()
+      }))
+
+    it.effect("rejects a malformed authenticated identity without writing a report", () =>
+      Effect.gen(function*() {
+        const project = makeProject({ identifier: "TEST" })
+        const issue = makeIssue({ identifier: "TEST-1" })
+        const malformedIdentity = asSocialIdentity({
+          ...makeSocialIdentity(),
+          attachedTo: 42
+        })
+        const captureAddCollection: MockConfig["captureAddCollection"] = {}
+
+        const error = yield* Effect.flip(
+          logTime({
+            project: projectIdentifier("TEST"),
+            identifier: issueIdentifier("TEST-1"),
+            value: PositiveTimeHours.make(0.25)
+          }).pipe(Effect.provide(createTestLayerWithMocks({
+            projects: [project],
+            issues: [issue],
+            socialIdentities: [malformedIdentity],
+            captureAddCollection
+          })))
+        )
+
+        expect((error as HulyConnectionError)._tag).toBe("HulyConnectionError")
+        expect((error as HulyConnectionError).message).toContain("social identity")
+        expect(captureAddCollection.attributes).toBeUndefined()
       }))
 
     it.effect("leaves issue time aggregates to Huly server triggers", () =>

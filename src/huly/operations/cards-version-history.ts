@@ -15,7 +15,7 @@ import { CardId as CardIdSchema, Count, Timestamp } from "../../domain/schemas/s
 import { CardVersionMetadataDegradedWarningCode } from "../../domain/schemas/tool-warnings.js"
 import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
 import { Diagnostics } from "../diagnostics.js"
-import { CardNotFoundError, CardSpaceNotFoundError, HulyError } from "../errors.js"
+import { CardNotFoundError, CardSpaceNotFoundError, HulyConnectionError, HulyError } from "../errors.js"
 import { cardPlugin } from "../huly-plugins.js"
 import { clampLimit, hulyQuery } from "./query-helpers.js"
 import { toClassRef, toRef } from "./sdk-boundary.js"
@@ -42,38 +42,64 @@ const parseOptionalTimestamp = (value: unknown): ParsedTimestamp => {
  * domain state. A partial or malformed state is intentionally represented as
  * absent so callers never observe an impossible version metadata combination.
  */
-export const cardVersionMetadata = (card: HulyCard): CardVersionMetadata | undefined => {
-  const isLatest = optionalBoolean(Reflect.get(card, "isLatest"))
-  const readonly = optionalBoolean(Reflect.get(card, "readonly"))
+interface CardVersionMetadataFields {
+  readonly version?: unknown
+  readonly baseId?: unknown
+  readonly isLatest?: unknown
+  readonly readonly?: unknown
+}
+
+const parseCardVersionMetadataFields = (fields: CardVersionMetadataFields): CardVersionMetadata | undefined => {
+  const isLatest = optionalBoolean(fields.isLatest)
+  const readonly = optionalBoolean(fields.readonly)
   const candidate = {
-    number: Reflect.get(card, "version"),
-    chainId: Reflect.get(card, "baseId"),
+    number: fields.version,
+    chainId: fields.baseId,
     ...(isLatest === undefined ? {} : { isLatest }),
     ...(readonly === undefined ? {} : { readonly })
   }
   return Option.getOrUndefined(Schema.decodeUnknownOption(CardVersionMetadataSchema)(candidate))
 }
 
+export const cardVersionMetadata = (card: HulyCard): CardVersionMetadata | undefined =>
+  parseCardVersionMetadataFields({
+    version: Reflect.get(card, "version"),
+    baseId: Reflect.get(card, "baseId"),
+    isLatest: Reflect.get(card, "isLatest"),
+    readonly: Reflect.get(card, "readonly")
+  })
+
 interface CardVersionEntry {
-  readonly card: HulyCard
   readonly metadata: CardVersionMetadata | undefined
   readonly summary: CardVersionSummary
   readonly malformedTimestampFields: ReadonlyArray<"createdOn" | "modifiedOn">
 }
 
-const toEntry = (card: HulyCard): CardVersionEntry => {
-  const metadata = cardVersionMetadata(card)
+const CardHistoryProjectionSchema = Schema.Struct({
+  _id: CardIdSchema,
+  title: Schema.String,
+  version: Schema.optionalWith(Schema.Unknown, { exact: true }),
+  baseId: Schema.optionalWith(Schema.Unknown, { exact: true }),
+  isLatest: Schema.optionalWith(Schema.Unknown, { exact: true }),
+  readonly: Schema.optionalWith(Schema.Unknown, { exact: true }),
+  modifiedOn: Schema.optionalWith(Schema.Unknown, { exact: true }),
+  createdOn: Schema.optionalWith(Schema.Unknown, { exact: true })
+})
+
+type CardHistoryProjection = Schema.Schema.Type<typeof CardHistoryProjectionSchema>
+
+const entryFromProjection = (card: CardHistoryProjection): CardVersionEntry => {
+  const metadata = parseCardVersionMetadataFields(card)
   const modifiedOn = parseOptionalTimestamp(card.modifiedOn)
   const createdOn = parseOptionalTimestamp(card.createdOn)
   const summary: CardVersionSummary = {
-    id: CardIdSchema.make(card._id),
+    id: card._id,
     title: card.title,
     ...(metadata === undefined ? {} : { version: metadata }),
     ...(modifiedOn._tag === "valid" ? { modifiedOn: modifiedOn.value } : {}),
     ...(createdOn._tag === "valid" ? { createdOn: createdOn.value } : {})
   }
   return {
-    card,
     metadata,
     summary,
     malformedTimestampFields: [
@@ -82,6 +108,17 @@ const toEntry = (card: HulyCard): CardVersionEntry => {
     ]
   }
 }
+
+const toEntry = (card: unknown): Effect.Effect<CardVersionEntry, HulyConnectionError> =>
+  Schema.decodeUnknown(CardHistoryProjectionSchema)(card).pipe(
+    Effect.map(entryFromProjection),
+    Effect.mapError((parseError) =>
+      new HulyConnectionError({
+        message: `Huly card version history row failed schema validation: ${parseError.message}`,
+        cause: parseError
+      })
+    )
+  )
 
 const compareOptionalNumber = (left: number | undefined, right: number | undefined): number => {
   if (left === undefined) return right === undefined ? 0 : 1
@@ -97,7 +134,7 @@ const compareVersions = (left: CardVersionEntry, right: CardVersionEntry): numbe
   const modifiedOrder = compareOptionalNumber(left.summary.modifiedOn, right.summary.modifiedOn)
   return modifiedOrder !== 0
     ? modifiedOrder
-    : String(left.card._id).localeCompare(String(right.card._id))
+    : left.summary.id.localeCompare(right.summary.id)
 }
 
 const versionIdentity = (entry: CardVersionEntry): CardVersionChainId | CardId =>
@@ -110,13 +147,13 @@ const resolveHistoryCard = (
   space: Ref<HulyCardSpace>,
   identifier: CardIdentifier,
   cardSpaceIdentifier: ListCardVersionsParams["cardSpace"]
-): Effect.Effect<HulyCard, HulyClientError | CardNotFoundError | HulyError> =>
+): Effect.Effect<CardVersionEntry, HulyClientError | CardNotFoundError | HulyError> =>
   Effect.gen(function*() {
     const idMatches = yield* client.findAll<HulyCard>(
       cardPlugin.class.Card,
       hulyQuery<HulyCard>({ space, _id: toRef<HulyCard>(identifier) })
     )
-    if (idMatches[0] !== undefined) return idMatches[0]
+    if (idMatches[0] !== undefined) return yield* toEntry(idMatches[0])
 
     // An explicit isLatest predicate prevents VersioningMiddleware from
     // silently hiding exact-title matches on superseded versions.
@@ -130,16 +167,15 @@ const resolveHistoryCard = (
       // implicit latest-only predicate, including for null legacy fields.
       hulyQuery<HulyCard>({ space, title: identifier, _id: { $exists: true } })
     )
-    const titleMatches = [
-      ...new Map(
-        [...versionedTitleMatches, ...allRuntimeTitleMatches].map((card) => [card._id, card] as const)
-      ).values()
-    ]
-    if (titleMatches.length === 0) {
+    const titleEntries = yield* Effect.forEach(
+      [...versionedTitleMatches, ...allRuntimeTitleMatches],
+      toEntry
+    )
+    const entries = [...new Map(titleEntries.map((entry) => [entry.summary.id, entry] as const)).values()]
+    if (entries.length === 0) {
       return yield* new CardNotFoundError({ identifier, cardSpace: cardSpaceIdentifier })
     }
 
-    const entries = titleMatches.map(toEntry)
     const identities = new Set(entries.map(versionIdentity))
     if (identities.size > 1) {
       return yield* new HulyError({
@@ -148,7 +184,7 @@ const resolveHistoryCard = (
         cause: "ambiguous card version history title"
       })
     }
-    const firstMatch = entries.sort(compareVersions)[0]?.card
+    const firstMatch = entries.sort(compareVersions)[0]
     return firstMatch === undefined
       ? yield* new CardNotFoundError({ identifier, cardSpace: cardSpaceIdentifier })
       : firstMatch
@@ -157,13 +193,12 @@ const resolveHistoryCard = (
 const fetchHistory = (
   client: HulyClientOperations,
   space: Ref<HulyCardSpace>,
-  resolved: HulyCard
+  resolved: CardVersionEntry
 ): Effect.Effect<ReadonlyArray<CardVersionEntry>, HulyClientError> => {
-  const resolvedEntry = toEntry(resolved)
-  const metadata = resolvedEntry.metadata
-  if (metadata === undefined) return Effect.succeed([resolvedEntry])
+  const metadata = resolved.metadata
+  if (metadata === undefined) return Effect.succeed([resolved])
 
-  return Effect.map(
+  return Effect.flatMap(
     client.findAll<VersionableCardDoc>(
       toClassRef<VersionableCardDoc>(cardPlugin.class.Card),
       hulyQuery<VersionableCardDoc>({
@@ -172,9 +207,12 @@ const fetchHistory = (
       })
     ),
     (matches) =>
-      [...new Map([...matches, resolved].map((card) => [String(card._id), card] as const)).values()]
-        .map(toEntry)
-        .sort(compareVersions)
+      Effect.map(
+        Effect.forEach(matches, toEntry),
+        (entries) =>
+          [...new Map([...entries, resolved].map((entry) => [entry.summary.id, entry] as const)).values()]
+            .sort(compareVersions)
+      )
   )
 }
 

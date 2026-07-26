@@ -57,6 +57,7 @@ import {
   PersonName,
   Timestamp
 } from "../../domain/schemas/shared.js"
+import { PositiveTimeHours } from "../../domain/schemas/time.js"
 import { assertAt } from "../../utils/assertions.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import type { Diagnostics } from "../diagnostics.js"
@@ -221,7 +222,8 @@ const resolveChild = (
     const withComponent = componentLabel !== undefined
       ? { ...withAssignee, component: ComponentLabel.make(componentLabel) }
       : withAssignee
-    const estimation = zeroAsUnset(NonNegativeNumber.make(child.estimation))
+    const rawEstimation = zeroAsUnset(NonNegativeNumber.make(child.estimation))
+    const estimation = rawEstimation === undefined ? undefined : PositiveTimeHours.make(rawEstimation)
     const result = estimation !== undefined
       ? { ...withComponent, estimation }
       : withComponent
@@ -339,7 +341,7 @@ export const getIssueTemplate = (
       priority: priorityToString(template.priority),
       assignee: assigneeName !== undefined ? PersonName.make(assigneeName) : undefined,
       component: componentLabel !== undefined ? ComponentLabel.make(componentLabel) : undefined,
-      estimation: zeroAsUnset(NonNegativeNumber.make(template.estimation)),
+      estimation: template.estimation > 0 ? PositiveTimeHours.make(template.estimation) : undefined,
       project: params.project,
       modifiedOn: Timestamp.make(template.modifiedOn),
       createdOn: template.createdOn === undefined ? undefined : Timestamp.make(template.createdOn)

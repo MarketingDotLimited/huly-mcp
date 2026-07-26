@@ -48,8 +48,9 @@ import {
 import { isExistent, isNonEmpty } from "../../utils/assertions.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type { IssueNotFoundError } from "../errors.js"
-import { ProjectNotFoundError } from "../errors.js"
+import { HulyConnectionError, ProjectNotFoundError } from "../errors.js"
 import { findProject, findProjectAndIssue, zeroAsUnset } from "./issues-shared.js"
+import { parsePrimarySocialIdentityProjection } from "./primary-social-identity.js"
 import { clampLimit, hulyQuery, withLookup } from "./query-helpers.js"
 import { toRef, toSocialIdentityRef } from "./sdk-boundary.js"
 
@@ -84,7 +85,18 @@ export const logTime = (
       contact.class.SocialIdentity,
       hulyQuery<SocialIdentity>({ _id: toSocialIdentityRef(client.getPrimarySocialId()) })
     )
-    const employee = socialIdentity === undefined ? null : toRef<HulyEmployee>(socialIdentity.attachedTo)
+    const employee = socialIdentity === undefined
+      ? null
+      : toRef<HulyEmployee>(
+        (yield* parsePrimarySocialIdentityProjection(socialIdentity).pipe(
+          Effect.mapError((parseError) =>
+            new HulyConnectionError({
+              message: `Authenticated social identity failed schema validation: ${parseError.message}`,
+              cause: parseError
+            })
+          )
+        )).attachedTo
+      )
 
     const now = yield* Clock.currentTimeMillis
     const reportData: AttachedData<HulyTimeSpendReport> = {
