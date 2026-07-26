@@ -322,7 +322,7 @@ describe("notification model metadata", () => {
       }
       const result = yield* listNotificationProviders({}).pipe(
         Effect.provide(layerWithMetadata({
-          modelProviders: [partialProvider, { _id: "provider:malformed" }]
+          modelProviders: [partialProvider, provider("provider:fractional-order", "Fractional order", 1.5)]
         })),
         Effect.provideService(Diagnostics, diagnostics.service)
       )
