@@ -4250,6 +4250,69 @@ if [ -n "$DERIVED_CARD_TYPE_ID" ]; then
     fail_test "create_card(derived id:$DERIVED_CARD_TYPE_ID) returns id" "missing id"
   fi
 
+  if [ -n "$DERIVED_CARD_LABEL_ID" ] && [ -n "$DERIVED_CARD_ID_ID" ]; then
+    CARD_COMMENT_BODY="MCP card comment $RUN_ID"
+    CARD_NATIVE_COMMENT_BODY="Huly-native card comment $RUN_ID"
+    CARD_COMMENT_BODY_JSON=$(json_string "$CARD_COMMENT_BODY")
+    CARD_UPDATED_COMMENT_BODY_JSON=$(json_string "Updated MCP card comment $RUN_ID")
+
+    run_capture_to_var CARD_COMMENT_ADD_TEXT "add_card_comment(friendly locators)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_card_comment\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$DERIVED_CARD_LABEL_TITLE_JSON,\"body\":$CARD_COMMENT_BODY_JSON}},\"id\":2}"
+    CARD_COMMENT_ID=$(printf '%s\n' "$CARD_COMMENT_ADD_TEXT" | jq -r '.commentId // empty' 2>/dev/null)
+    CARD_COMMENT_ID_JSON=$(json_string "$CARD_COMMENT_ID")
+
+    CARD_NATIVE_COMMENT_TEXT=$(pnpm exec tsx scripts/integration-card-native-comment.ts \
+      --cardSpace "Default" \
+      --card "$DERIVED_CARD_LABEL_ID" \
+      --body "$CARD_NATIVE_COMMENT_BODY" 2>/dev/null)
+    if [ $? -eq 0 ]; then
+      CARD_NATIVE_COMMENT_ID=$(printf '%s\n' "$CARD_NATIVE_COMMENT_TEXT" | jq -r '.commentId // empty' 2>/dev/null)
+    else
+      CARD_NATIVE_COMMENT_ID=""
+    fi
+    if [ -n "$CARD_NATIVE_COMMENT_ID" ]; then
+      echo "PASS: create Huly-native card comment"
+      PASSED=$((PASSED + 1))
+    else
+      fail_test "create Huly-native card comment" "direct Huly addCollection failed"
+    fi
+    CARD_NATIVE_COMMENT_ID_JSON=$(json_string "$CARD_NATIVE_COMMENT_ID")
+
+    restart_http_transport_if_needed "after card comment writes" || exit 1
+    run_capture_to_var CARD_COMMENT_PAGE_TEXT "list_card_comments(pagination)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_card_comments\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$DERIVED_CARD_LABEL_TITLE_JSON,\"limit\":1}},\"id\":2}"
+    if [ $? -eq 0 ]; then
+      assert_json_field_equals "list_card_comments page length" "$CARD_COMMENT_PAGE_TEXT" ".comments | length" "1"
+      assert_json_field_equals "list_card_comments total includes MCP and Huly-native comments" "$CARD_COMMENT_PAGE_TEXT" ".total" "2"
+    fi
+    run_capture_to_var CARD_COMMENT_LIST_TEXT "list_card_comments(all compatible comments)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_card_comments\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$DERIVED_CARD_LABEL_ID_JSON,\"limit\":10}},\"id\":2}"
+    if [ $? -eq 0 ]; then
+      assert_json_array_contains "list_card_comments includes MCP comment" "$CARD_COMMENT_LIST_TEXT" ".comments | map(.id)" "$CARD_COMMENT_ID"
+      assert_json_array_contains "list_card_comments includes Huly-native comment" "$CARD_COMMENT_LIST_TEXT" ".comments | map(.id)" "$CARD_NATIVE_COMMENT_ID"
+    fi
+
+    run_capture_to_var CARD_COMMENT_UPDATE_TEXT "update_card_comment" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_card_comment\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$DERIVED_CARD_LABEL_ID_JSON,\"commentId\":$CARD_COMMENT_ID_JSON,\"body\":$CARD_UPDATED_COMMENT_BODY_JSON}},\"id\":2}"
+    if [ $? -eq 0 ]; then
+      assert_json_field_equals "update_card_comment reports updated" "$CARD_COMMENT_UPDATE_TEXT" ".updated" "true"
+    fi
+    run_expect_error_contains "update_card_comment rejects comment from another card" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_card_comment\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$DERIVED_CARD_ID_ID_JSON,\"commentId\":$CARD_COMMENT_ID_JSON,\"body\":\"Unauthorized cross-card update\"}},\"id\":2}" \
+      "not found on card"
+
+    run_test "delete_card_comment(MCP-created)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_card_comment\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$DERIVED_CARD_LABEL_ID_JSON,\"commentId\":$CARD_COMMENT_ID_JSON}},\"id\":2}"
+    run_test "delete_card_comment(Huly-native)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_card_comment\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$DERIVED_CARD_LABEL_ID_JSON,\"commentId\":$CARD_NATIVE_COMMENT_ID_JSON}},\"id\":2}"
+    restart_http_transport_if_needed "after card comment deletes" || exit 1
+    run_expect_error_contains "delete_card_comment(missing)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_card_comment\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$DERIVED_CARD_LABEL_ID_JSON,\"commentId\":$CARD_COMMENT_ID_JSON}},\"id\":2}" \
+      "not found on card"
+  else
+    skip_test "card comment CRUD" "requires two disposable cards"
+  fi
+
   if [ -n "$DERIVED_CARD_LABEL_ID" ]; then
     run_test "delete_card(derived label:$DERIVED_CARD_LABEL_ID)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_card\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":\"$DERIVED_CARD_LABEL_ID\"}},\"id\":2}"

@@ -641,6 +641,10 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 
 | Tool | Description |
 |------|-------------|
+| `list_card_comments` | List comments genuinely attached to one Huly card, oldest first. Resolves cardSpace by exact name or ID and card by exact title or ID. Includes comments created by this MCP server and compatible Huly UI card-comment conventions. |
+| `add_card_comment` | Add a markdown comment to one Huly card, resolving the card space by exact name or ID and the card by exact title or ID. Markdown links to current-workspace Huly browse URLs with _class, _id, and label become native Huly references; external URLs and other-workspace browse URLs stay normal links. |
+| `update_card_comment` | Update one comment that belongs to the resolved Huly card. Resolves the card space by exact name or ID and the card by exact title or ID. Markdown links to current-workspace Huly browse URLs with _class, _id, and label become native Huly references; external URLs and other-workspace browse URLs stay normal links. |
+| `delete_card_comment` | Permanently delete one comment that belongs to the resolved Huly card. Resolves the card space by exact name or ID and the card by exact title or ID. This action cannot be undone. |
 | `list_card_spaces` | List all Huly card spaces. Returns card spaces sorted by name. Card spaces are containers for cards. |
 | `list_master_tags` | List master tags (card types) available in a Huly card space. Master tags define the type/schema of cards that can be created in a space. |
 | `list_cards` | List cards in a Huly card space. Returns cards sorted by modification date (newest first). Supports filtering by type (master tag), title substring, and content search. |

@@ -73,6 +73,7 @@ import {
   BYTES_PER_MB,
   CalendarNotAccessibleError,
   CannotDirectMessageSelfError,
+  CardCommentNotFoundError,
   CardNotFoundError,
   CardSpaceNotFoundError,
   ChannelArchivedError,
@@ -1055,6 +1056,8 @@ describe("Huly Errors", () => {
               return `cardspace:${error.identifier}`
             case "CardNotFoundError":
               return `card:${error.identifier}`
+            case "CardCommentNotFoundError":
+              return `card-comment:${error.commentId}`
             case "MasterTagNotFoundError":
               return `mastertag:${error.identifier}`
             case "TagNotFoundError":
@@ -1780,6 +1783,15 @@ describe("Huly Errors", () => {
         expect(matchError(new DrawingNotFoundError({ drawingId: "drawing-1" }))).toBe("drawing:drawing-1")
         expect(matchError(new CardSpaceNotFoundError({ identifier: "cs-1" }))).toBe("cardspace:cs-1")
         expect(matchError(new CardNotFoundError({ identifier: "card-1", cardSpace: "cs-1" }))).toBe("card:card-1")
+        expect(
+          matchError(
+            new CardCommentNotFoundError({
+              commentId: "comment-1",
+              card: "card-1",
+              cardSpace: "cs-1"
+            })
+          )
+        ).toBe("card-comment:comment-1")
         expect(
           matchError(new MasterTagNotFoundError({ identifier: "mt-1", cardSpace: "cs-1" }))
         ).toBe("mastertag:mt-1")

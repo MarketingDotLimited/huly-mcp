@@ -163,6 +163,7 @@ const INVALID_PARAMS_TAGS: ReadonlySet<HulyDomainError["_tag"]> = new Set<HulyDo
   "DocumentEditModeError",
   "DocumentReferenceError",
   "CommentNotFoundError",
+  "CardCommentNotFoundError",
   "MilestoneNotFoundError",
   "ChannelNotFoundError",
   "ChannelArchivedError",

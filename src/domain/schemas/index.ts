@@ -745,6 +745,33 @@ export {
 } from "./cards.js"
 
 export {
+  type AddCardCommentParams,
+  addCardCommentParamsJsonSchema,
+  AddCardCommentParamsSchema,
+  type AddCardCommentResult,
+  AddCardCommentResultSchema,
+  type DeleteCardCommentParams,
+  deleteCardCommentParamsJsonSchema,
+  DeleteCardCommentParamsSchema,
+  type DeleteCardCommentResult,
+  DeleteCardCommentResultSchema,
+  type ListCardCommentsParams,
+  listCardCommentsParamsJsonSchema,
+  ListCardCommentsParamsSchema,
+  type ListCardCommentsResult,
+  ListCardCommentsResultSchema,
+  parseAddCardCommentParams,
+  parseDeleteCardCommentParams,
+  parseListCardCommentsParams,
+  parseUpdateCardCommentParams,
+  type UpdateCardCommentParams,
+  updateCardCommentParamsJsonSchema,
+  UpdateCardCommentParamsSchema,
+  type UpdateCardCommentResult,
+  UpdateCardCommentResultSchema
+} from "./card-comments.js"
+
+export {
   type ListUserStatusesParams,
   listUserStatusesParamsJsonSchema,
   ListUserStatusesParamsSchema,
