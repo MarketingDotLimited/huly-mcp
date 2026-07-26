@@ -170,21 +170,6 @@ const getTaskTypesByProjectType = (
     Effect.map((result) => [...result])
   )
 
-const getRecoverableStatusesByName = (
-  client: HulyClientOperations,
-  name: string
-): Effect.Effect<ReadonlyArray<Status>, never> =>
-  client.findAll<Status>(core.class.Status, hulyQuery<Status>({ ofAttribute: tracker.attribute.IssueStatus })).pipe(
-    Effect.map((result) =>
-      [...result].filter((status) => normalizeForComparison(status.name) === normalizeForComparison(name))
-    ),
-    // Compatibility fallback for https://github.com/dearlordylord/huly-mcp/issues/34:
-    // this broad recovery query was reported to null-deref on an older self-hosted
-    // Huly. The primary project-type status data is already loaded, so losing only
-    // cross-project duplicate recovery is preferable to failing status creation.
-    Effect.catchAll(() => Effect.succeed([]))
-  )
-
 const parseRecoveredStatusMetadata = (
   status: unknown
 ): Effect.Effect<StatusMetadata, HulyConnectionError> =>
@@ -196,6 +181,25 @@ const parseRecoveredStatusMetadata = (
       })
     )
   )
+
+const getRecoverableStatusesByName = (
+  client: HulyClientOperations,
+  name: string
+): Effect.Effect<ReadonlyArray<StatusMetadata>, HulyConnectionError> =>
+  Effect.gen(function*() {
+    const rows = yield* client.findAll<Status>(
+      core.class.Status,
+      hulyQuery<Status>({ ofAttribute: tracker.attribute.IssueStatus })
+    ).pipe(
+      // Compatibility fallback for https://github.com/dearlordylord/huly-mcp/issues/34:
+      // this broad recovery query was reported to null-deref on an older self-hosted
+      // Huly. The primary project-type status data is already loaded, so losing only
+      // cross-project duplicate recovery is preferable to failing status creation.
+      Effect.catchAll(() => Effect.succeed([]))
+    )
+    const statuses = yield* Effect.forEach(rows, parseRecoveredStatusMetadata)
+    return statuses.filter((status) => normalizeForComparison(status.name) === normalizeForComparison(name))
+  })
 
 const loadWorkflowData = (
   client: HulyClientOperations,
@@ -575,10 +579,7 @@ export const createIssueStatus = (
       ? workflowData.taskTypes
       : [yield* resolveTaskType(workflowData.taskTypes, params.taskType)]
     const statusClass = yield* resolveStatusClass(targetTaskTypes)
-    const statusesByName = yield* Effect.forEach(
-      yield* getRecoverableStatusesByName(client, params.name),
-      parseRecoveredStatusMetadata
-    )
+    const statusesByName = yield* getRecoverableStatusesByName(client, params.name)
     const existingStatus = existingStatusByName(
       [...workflowData.statuses, ...statusesByName],
       params.name
