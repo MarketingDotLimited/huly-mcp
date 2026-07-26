@@ -5,11 +5,15 @@ import { Effect, Option, Schema } from "effect"
 import type {
   CardVersionChainId,
   CardVersionMetadata,
+  CardVersionNumber,
   CardVersionSummary,
   ListCardVersionsParams,
   ListCardVersionsResult
 } from "../../domain/schemas/card-versions.js"
-import { CardVersionMetadataSchema } from "../../domain/schemas/card-versions.js"
+import {
+  CardVersionChainId as CardVersionChainIdSchema,
+  CardVersionNumber as CardVersionNumberSchema
+} from "../../domain/schemas/card-versions.js"
 import type { CardId, CardIdentifier, Timestamp as TimestampType } from "../../domain/schemas/shared.js"
 import { CardId as CardIdSchema, Count, Timestamp } from "../../domain/schemas/shared.js"
 import { CardVersionMetadataDegradedWarningCode } from "../../domain/schemas/tool-warnings.js"
@@ -17,12 +21,18 @@ import { HulyClient, type HulyClientError, type HulyClientOperations } from "../
 import { Diagnostics } from "../diagnostics.js"
 import { CardNotFoundError, CardSpaceNotFoundError, HulyConnectionError, HulyError } from "../errors.js"
 import { cardPlugin } from "../huly-plugins.js"
+import type {
+  CardVersionMetadataField,
+  CardVersionMetadataFields,
+  CoherentCardVersionMetadata,
+  OptionalDegradedFields,
+  ParsedCardVersionMetadata,
+  RecoveredCardVersionMetadata
+} from "./card-version-metadata-state.js"
 import { clampLimit, hulyQuery } from "./query-helpers.js"
 import { toClassRef, toRef } from "./sdk-boundary.js"
 
 type VersionableCardDoc = HulyCard & VersionableDoc
-
-const optionalBoolean = (value: unknown): boolean | undefined => typeof value === "boolean" ? value : undefined
 
 type ParsedTimestamp =
   | { readonly _tag: "absent" }
@@ -37,31 +47,180 @@ const parseOptionalTimestamp = (value: unknown): ParsedTimestamp => {
   })
 }
 
-/**
- * Parse Huly's independently nullable VersionableDoc fields into one coherent
- * domain state. A partial or malformed state is intentionally represented as
- * absent so callers never observe an impossible version metadata combination.
- */
-interface CardVersionMetadataFields {
-  readonly version?: unknown
-  readonly baseId?: unknown
-  readonly isLatest?: unknown
-  readonly readonly?: unknown
+type ParsedOptionalBoolean =
+  | { readonly _tag: "Absent" }
+  | { readonly _tag: "Valid"; readonly value: boolean }
+  | { readonly _tag: "Malformed" }
+
+interface ParsedCardVersionFields {
+  readonly version: Option.Option<CardVersionNumber>
+  readonly chainId: Option.Option<CardVersionChainId>
+  readonly isLatest: ParsedOptionalBoolean
+  readonly readonly: ParsedOptionalBoolean
 }
 
-const parseCardVersionMetadataFields = (fields: CardVersionMetadataFields): CardVersionMetadata | undefined => {
-  const isLatest = optionalBoolean(fields.isLatest)
-  const readonly = optionalBoolean(fields.readonly)
-  const candidate = {
-    number: fields.version,
-    chainId: fields.baseId,
-    ...(isLatest === undefined ? {} : { isLatest }),
-    ...(readonly === undefined ? {} : { readonly })
+const isAbsentMetadataValue = (value: unknown): boolean => value === undefined || value === null
+
+const parseOptionalBoolean = (value: unknown): ParsedOptionalBoolean => {
+  if (isAbsentMetadataValue(value)) return { _tag: "Absent" }
+  return Option.match(Schema.decodeUnknownOption(Schema.Boolean)(value), {
+    onNone: () => ({ _tag: "Malformed" }),
+    onSome: (parsed) => ({ _tag: "Valid", value: parsed })
+  })
+}
+
+const parseCardVersionFields = (fields: CardVersionMetadataFields): ParsedCardVersionFields => ({
+  version: Schema.decodeUnknownOption(CardVersionNumberSchema)(fields.version),
+  chainId: Schema.decodeUnknownOption(CardVersionChainIdSchema)(fields.baseId),
+  isLatest: parseOptionalBoolean(fields.isLatest),
+  readonly: parseOptionalBoolean(fields.readonly)
+})
+
+const optionalDegradedFields = (
+  fields: ParsedCardVersionFields
+): OptionalDegradedFields => {
+  if (fields.isLatest._tag === "Malformed") {
+    return fields.readonly._tag === "Malformed"
+      ? ["isLatest", "readonly"]
+      : ["isLatest"]
   }
-  return Option.getOrUndefined(Schema.decodeUnknownOption(CardVersionMetadataSchema)(candidate))
+  return fields.readonly._tag === "Malformed" ? ["readonly"] : []
 }
 
-export const cardVersionMetadata = (card: HulyCard): CardVersionMetadata | undefined =>
+const metadataFromParsedFields = (
+  fields: ParsedCardVersionFields & {
+    readonly version: Option.Some<CardVersionNumber>
+    readonly chainId: Option.Some<CardVersionChainId>
+  }
+): CardVersionMetadata => ({
+  number: fields.version.value,
+  chainId: fields.chainId.value,
+  ...(fields.isLatest._tag === "Valid" ? { isLatest: fields.isLatest.value } : {}),
+  ...(fields.readonly._tag === "Valid" ? { readonly: fields.readonly.value } : {})
+})
+
+const coreMetadataFromParsedFields = (
+  fields: ParsedCardVersionFields & {
+    readonly version: Option.Some<CardVersionNumber>
+    readonly chainId: Option.Some<CardVersionChainId>
+  }
+): Pick<CardVersionMetadata, "number" | "chainId"> => ({
+  number: fields.version.value,
+  chainId: fields.chainId.value
+})
+
+const metadataStateFromRequiredFields = (
+  fields: ParsedCardVersionFields & {
+    readonly version: Option.Some<CardVersionNumber>
+    readonly chainId: Option.Some<CardVersionChainId>
+  }
+): CoherentCardVersionMetadata | RecoveredCardVersionMetadata => {
+  const coreMetadata = coreMetadataFromParsedFields(fields)
+  if (fields.isLatest._tag === "Malformed") {
+    if (fields.readonly._tag === "Malformed") {
+      return {
+        _tag: "Degraded",
+        resolution: { _tag: "RecoveredMetadata", metadata: coreMetadata },
+        degradedFields: ["isLatest", "readonly"]
+      }
+    }
+    return {
+      _tag: "Degraded",
+      resolution: {
+        _tag: "RecoveredMetadata",
+        metadata: {
+          ...coreMetadata,
+          ...(fields.readonly._tag === "Valid" ? { readonly: fields.readonly.value } : {})
+        }
+      },
+      degradedFields: ["isLatest"]
+    }
+  }
+  if (fields.readonly._tag === "Malformed") {
+    return {
+      _tag: "Degraded",
+      resolution: {
+        _tag: "RecoveredMetadata",
+        metadata: {
+          ...coreMetadata,
+          ...(fields.isLatest._tag === "Valid" ? { isLatest: fields.isLatest.value } : {})
+        }
+      },
+      degradedFields: ["readonly"]
+    }
+  }
+  return { _tag: "Coherent", metadata: metadataFromParsedFields(fields) }
+}
+
+export const parseCardVersionMetadataFields = (
+  fields: CardVersionMetadataFields
+): ParsedCardVersionMetadata => {
+  if (
+    [fields.version, fields.baseId, fields.isLatest, fields.readonly]
+      .every(isAbsentMetadataValue)
+  ) return { _tag: "Absent" }
+
+  const parsed = parseCardVersionFields(fields)
+  const optionalFields = optionalDegradedFields(parsed)
+  if (Option.isNone(parsed.version)) {
+    if (Option.isNone(parsed.chainId)) {
+      return {
+        _tag: "Degraded",
+        resolution: { _tag: "Unresolved" },
+        degradedFields: ["version", "baseId", ...optionalFields]
+      }
+    }
+    return {
+      _tag: "Degraded",
+      resolution: { _tag: "RecoveredChain", chainId: parsed.chainId.value },
+      degradedFields: ["version", ...optionalFields]
+    }
+  }
+  if (Option.isNone(parsed.chainId)) {
+    return {
+      _tag: "Degraded",
+      resolution: { _tag: "Unresolved" },
+      degradedFields: ["baseId", ...optionalFields]
+    }
+  }
+
+  const requiredFields = {
+    ...parsed,
+    version: parsed.version,
+    chainId: parsed.chainId
+  }
+  return metadataStateFromRequiredFields(requiredFields)
+}
+
+export const cardVersionMetadataFromState = (
+  state: ParsedCardVersionMetadata
+): CardVersionMetadata | undefined => {
+  if (state._tag === "Coherent") return state.metadata
+  return state._tag === "Degraded" && state.resolution._tag === "RecoveredMetadata"
+    ? state.resolution.metadata
+    : undefined
+}
+
+export const cardVersionDegradedFields = (
+  state: ParsedCardVersionMetadata
+): ReadonlyArray<CardVersionMetadataField> => state._tag === "Degraded" ? state.degradedFields : []
+
+const cardVersionChainIdFromState = (
+  state: ParsedCardVersionMetadata
+): CardVersionChainId | undefined => {
+  if (state._tag === "Coherent") return state.metadata.chainId
+  if (state._tag !== "Degraded") return undefined
+  switch (state.resolution._tag) {
+    case "RecoveredMetadata":
+      return state.resolution.metadata.chainId
+    case "RecoveredChain":
+      return state.resolution.chainId
+    case "Unresolved":
+      return undefined
+  }
+}
+
+export const parseCardVersionMetadata = (card: HulyCard): ParsedCardVersionMetadata =>
   parseCardVersionMetadataFields({
     version: Reflect.get(card, "version"),
     baseId: Reflect.get(card, "baseId"),
@@ -70,7 +229,7 @@ export const cardVersionMetadata = (card: HulyCard): CardVersionMetadata | undef
   })
 
 interface CardVersionEntry {
-  readonly metadata: CardVersionMetadata | undefined
+  readonly versionState: ParsedCardVersionMetadata
   readonly summary: CardVersionSummary
   readonly malformedTimestampFields: ReadonlyArray<"createdOn" | "modifiedOn">
 }
@@ -89,7 +248,8 @@ const CardHistoryProjectionSchema = Schema.Struct({
 type CardHistoryProjection = Schema.Schema.Type<typeof CardHistoryProjectionSchema>
 
 const entryFromProjection = (card: CardHistoryProjection): CardVersionEntry => {
-  const metadata = parseCardVersionMetadataFields(card)
+  const versionState = parseCardVersionMetadataFields(card)
+  const metadata = cardVersionMetadataFromState(versionState)
   const modifiedOn = parseOptionalTimestamp(card.modifiedOn)
   const createdOn = parseOptionalTimestamp(card.createdOn)
   const summary: CardVersionSummary = {
@@ -100,7 +260,7 @@ const entryFromProjection = (card: CardHistoryProjection): CardVersionEntry => {
     ...(createdOn._tag === "valid" ? { createdOn: createdOn.value } : {})
   }
   return {
-    metadata,
+    versionState,
     summary,
     malformedTimestampFields: [
       ...(modifiedOn._tag === "malformed" ? ["modifiedOn" as const] : []),
@@ -127,7 +287,10 @@ const compareOptionalNumber = (left: number | undefined, right: number | undefin
 }
 
 const compareVersions = (left: CardVersionEntry, right: CardVersionEntry): number => {
-  const numberOrder = compareOptionalNumber(left.metadata?.number, right.metadata?.number)
+  const numberOrder = compareOptionalNumber(
+    cardVersionMetadataFromState(left.versionState)?.number,
+    cardVersionMetadataFromState(right.versionState)?.number
+  )
   if (numberOrder !== 0) return numberOrder
   const createdOrder = compareOptionalNumber(left.summary.createdOn, right.summary.createdOn)
   if (createdOrder !== 0) return createdOrder
@@ -138,7 +301,7 @@ const compareVersions = (left: CardVersionEntry, right: CardVersionEntry): numbe
 }
 
 const versionIdentity = (entry: CardVersionEntry): CardVersionChainId | CardId =>
-  entry.metadata?.chainId ?? entry.summary.id
+  cardVersionChainIdFromState(entry.versionState) ?? entry.summary.id
 
 const allVersionStates = { $in: [true, false] }
 
@@ -194,16 +357,28 @@ const fetchHistory = (
   client: HulyClientOperations,
   space: Ref<HulyCardSpace>,
   resolved: CardVersionEntry
-): Effect.Effect<ReadonlyArray<CardVersionEntry>, HulyClientError> => {
-  const metadata = resolved.metadata
-  if (metadata === undefined) return Effect.succeed([resolved])
+): Effect.Effect<ReadonlyArray<CardVersionEntry>, HulyClientError | HulyError> => {
+  const chainId = cardVersionChainIdFromState(resolved.versionState)
+  if (chainId === undefined) {
+    return resolved.versionState._tag === "Degraded"
+      ? Effect.fail(
+        new HulyError({
+          message:
+            `Card '${resolved.summary.id}' has no valid version-chain identity; cannot return authoritative history. `
+            + `Malformed or absent fields: ${resolved.versionState.degradedFields.join(", ")}. Inspect or repair the `
+            + "Huly card data.",
+          cause: "unresolved degraded card version metadata"
+        })
+      )
+      : Effect.succeed([resolved])
+  }
 
   return Effect.flatMap(
     client.findAll<VersionableCardDoc>(
       toClassRef<VersionableCardDoc>(cardPlugin.class.Card),
       hulyQuery<VersionableCardDoc>({
         space,
-        baseId: toRef<Doc>(metadata.chainId)
+        baseId: toRef<Doc>(chainId)
       })
     ),
     (matches) =>
@@ -240,17 +415,16 @@ export const listCardVersions = (
 
     const resolved = yield* resolveHistoryCard(client, cardSpace._id, params.card, params.cardSpace)
     const history = yield* fetchHistory(client, cardSpace._id, resolved)
-    const malformedTimestamps = history.flatMap((entry) =>
-      entry.malformedTimestampFields.map((field) => `${entry.summary.id}.${field}`)
-    )
-    if (malformedTimestamps.length > 0) {
+    const degradedFields = history.flatMap((entry) => [
+      ...cardVersionDegradedFields(entry.versionState).map((field) => `${entry.summary.id}.${field}`),
+      ...entry.malformedTimestampFields.map((field) => `${entry.summary.id}.${field}`)
+    ])
+    if (degradedFields.length > 0) {
       yield* diagnostics.warnAgent({
         code: CardVersionMetadataDegradedWarningCode,
-        message:
-          `${malformedTimestamps.length} card version timestamp field(s) failed Effect Schema parsing and were omitted: `
-          + `${
-            malformedTimestamps.join(", ")
-          }. Treat the affected history ordering as degraded and inspect or repair the Huly card data.`
+        message: `${degradedFields.length} card version metadata field(s) were absent or malformed and omitted: `
+          + `${degradedFields.join(", ")}. Treat the affected version metadata and history ordering as degraded and `
+          + "inspect or repair the Huly card data."
       })
     }
     const page = history.slice(0, clampLimit(params.limit))

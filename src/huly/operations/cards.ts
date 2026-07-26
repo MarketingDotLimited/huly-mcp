@@ -31,12 +31,18 @@ import type {
 } from "../../domain/schemas/cards.js"
 import { UPDATE_CARD_FIELDS } from "../../domain/schemas/cards.js"
 import { CardId, CardIdentifier, CardSpaceId, CardSpaceIdentifier, MasterTagId } from "../../domain/schemas/shared.js"
+import { CardVersionMetadataDegradedWarningCode } from "../../domain/schemas/tool-warnings.js"
 import { HulyClient, type HulyClientError } from "../client.js"
+import { Diagnostics } from "../diagnostics.js"
 import { CardNotFoundError, CardSpaceNotFoundError, HulyError } from "../errors.js"
 import type { MasterTagNotFoundError, NoUpdateFieldsError } from "../errors.js"
 import { cardPlugin } from "../huly-plugins.js"
 import { fetchMasterTagsForSpace, findMasterTag, masterTagDisplayName } from "./card-master-tags.js"
-import { cardVersionMetadata } from "./cards-version-history.js"
+import {
+  cardVersionDegradedFields,
+  cardVersionMetadataFromState,
+  parseCardVersionMetadata
+} from "./cards-version-history.js"
 import { clearTextAsEmptyString } from "./clear-field-updates.js"
 import { listTotal, optionalCount } from "./counts.js"
 import { renderMarkdownPreservingNativeReferences } from "./native-reference-markup.js"
@@ -281,8 +287,9 @@ export const listCards = (
 
 export const getCard = (
   params: GetCardParams
-): Effect.Effect<CardDetail, GetCardError, HulyClient> =>
+): Effect.Effect<CardDetail, GetCardError, HulyClient | Diagnostics> =>
   Effect.gen(function*() {
+    const diagnostics = yield* Diagnostics
     const { card, cardIdentifier, cardSpaceIdentifier, client } = yield* findCardSpaceAndCard({
       card: params.card,
       cardSpace: params.cardSpace
@@ -297,7 +304,17 @@ export const getCard = (
         "markdown"
       )
       : undefined
-    const version = cardVersionMetadata(card)
+    const parsedVersion = parseCardVersionMetadata(card)
+    const degradedVersionFields = cardVersionDegradedFields(parsedVersion)
+    if (degradedVersionFields.length > 0) {
+      yield* diagnostics.warnAgent({
+        code: CardVersionMetadataDegradedWarningCode,
+        message: `Card '${card._id}' has degraded version metadata because these fields are absent or malformed: `
+          + `${degradedVersionFields.join(", ")}. Treat omitted version data as incomplete and inspect or `
+          + "repair the Huly card data."
+      })
+    }
+    const version = cardVersionMetadataFromState(parsedVersion)
 
     return {
       id: CardId.make(card._id),

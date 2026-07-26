@@ -495,7 +495,8 @@ describe("getCard", () => {
           spaces: [makeSpace()],
           cards: [makeCard({ parent: "parent-1" as Ref<HulyCard>, children: 2 })],
           fetchMarkupResult: "# Roadmap"
-        }))
+        })),
+        withDiagnostics
       )
       expect(result.id).toBe("card-1")
       expect(result.title).toBe("Roadmap")
@@ -508,7 +509,10 @@ describe("getCard", () => {
   it.effect("omits content when the card has no content blob", () =>
     Effect.gen(function*() {
       const result = yield* getCard({ cardSpace: SPACE, card: CardIdentifier.make("Roadmap") }).pipe(
-        Effect.provide(buildLayer({ spaces: [makeSpace()], cards: [makeCard({ content: "" as never, parent: null })] }))
+        Effect.provide(
+          buildLayer({ spaces: [makeSpace()], cards: [makeCard({ content: "" as never, parent: null })] })
+        ),
+        withDiagnostics
       )
       expect(result.content).toBeUndefined()
       expect(result.parent).toBeUndefined()
@@ -525,7 +529,8 @@ describe("getCard", () => {
             isLatest: true,
             readonly: false
           })]
-        }))
+        })),
+        withDiagnostics
       )
       const partial = yield* getCard({ cardSpace: SPACE, card: CardIdentifier.make("Partial") }).pipe(
         Effect.provide(buildLayer({
@@ -540,7 +545,8 @@ describe("getCard", () => {
               readonly: null as never
             })
           ]
-        }))
+        })),
+        withDiagnostics
       )
       const optionalFlags = yield* getCard({ cardSpace: SPACE, card: CardIdentifier.make("Optional") }).pipe(
         Effect.provide(buildLayer({
@@ -553,7 +559,8 @@ describe("getCard", () => {
               version: 1
             })
           ]
-        }))
+        })),
+        withDiagnostics
       )
 
       expect(coherent.version).toEqual({
@@ -566,11 +573,68 @@ describe("getCard", () => {
       expect(optionalFlags.version).toEqual({ number: 1, chainId: "chain-2" })
     }))
 
+  it.effect("warns when incoherent version metadata is omitted", () =>
+    Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
+      const result = yield* getCard({ cardSpace: SPACE, card: CardIdentifier.make("Partial") }).pipe(
+        Effect.provide(buildLayer({
+          spaces: [makeSpace()],
+          cards: [
+            makeVersionableCard({
+              _id: "partial" as Ref<HulyCard>,
+              title: "Partial",
+              baseId: "chain-1" as Ref<Doc>,
+              version: null
+            })
+          ]
+        })),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+      const warnings = yield* diagnostics.drainWarnings
+
+      expect(result.version).toBeUndefined()
+      expect(warnings).toEqual([{
+        code: "card_version_metadata_degraded",
+        message: "Card 'partial' has degraded version metadata because these fields are absent or malformed: version. "
+          + "Treat omitted version data as incomplete and inspect or repair the Huly card data."
+      }])
+    }))
+
+  it.effect("warns when malformed optional version fields are omitted from coherent core metadata", () =>
+    Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
+      const result = yield* getCard({ cardSpace: SPACE, card: CardIdentifier.make("Malformed flag") }).pipe(
+        Effect.provide(buildLayer({
+          spaces: [makeSpace()],
+          cards: [
+            makeVersionableCard({
+              _id: "malformed-flag" as Ref<HulyCard>,
+              title: "Malformed flag",
+              baseId: "chain-1" as Ref<Doc>,
+              version: 2,
+              isLatest: "yes" as never
+            })
+          ]
+        })),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+      const warnings = yield* diagnostics.drainWarnings
+
+      expect(result.version).toEqual({ number: 2, chainId: "chain-1" })
+      expect(warnings).toEqual([{
+        code: "card_version_metadata_degraded",
+        message: "Card 'malformed-flag' has degraded version metadata because these fields are absent or malformed: "
+          + "isLatest. Treat omitted version data as incomplete and inspect or repair the Huly card data."
+      }])
+      expect(assertAt(warnings, 0).message).not.toContain("yes")
+    }))
+
   it.effect("fails when the card is not found", () =>
     Effect.gen(function*() {
       const err = yield* Effect.flip(
         getCard({ cardSpace: SPACE, card: CardIdentifier.make("Ghost") }).pipe(
-          Effect.provide(buildLayer({ spaces: [makeSpace()], cards: [] }))
+          Effect.provide(buildLayer({ spaces: [makeSpace()], cards: [] })),
+          withDiagnostics
         )
       )
       expect(err._tag).toBe("CardNotFoundError")
@@ -622,6 +686,86 @@ describe("listCardVersions", () => {
         hasMore: false
       })
       expect(warnings).toEqual([])
+    }))
+
+  it.effect("uses a recovered chain identity when the requested card has partial metadata", () =>
+    Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
+      const partial = versionCard("partial", 2, { version: null })
+      const result = yield* listCardVersions({
+        cardSpace: SPACE,
+        card: CardIdentifier.make("partial")
+      }).pipe(
+        Effect.provide(buildLayer({
+          spaces: [makeSpace()],
+          cards: [
+            versionCard("chain-1", 1),
+            partial,
+            versionCard("latest", 3)
+          ]
+        })),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+      const warnings = yield* diagnostics.drainWarnings
+
+      expect(result.versions.map((version) => version.id)).toEqual(["chain-1", "latest", "partial"])
+      expect(result.total).toBe(3)
+      expect(result.hasMore).toBe(false)
+      expect(warnings).toEqual([{
+        code: "card_version_metadata_degraded",
+        message: "1 card version metadata field(s) were absent or malformed and omitted: partial.version. "
+          + "Treat the affected version metadata and history ordering as degraded and inspect or repair the Huly card "
+          + "data."
+      }])
+    }))
+
+  it.effect("uses recovered coherent metadata when an optional history field is malformed", () =>
+    Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
+      const malformedFlag = versionCard("malformed-flag", 2, { isLatest: "yes" as never })
+      const result = yield* listCardVersions({
+        cardSpace: SPACE,
+        card: CardIdentifier.make("malformed-flag")
+      }).pipe(
+        Effect.provide(buildLayer({
+          spaces: [makeSpace()],
+          cards: [
+            versionCard("chain-1", 1),
+            malformedFlag,
+            versionCard("latest", 3)
+          ]
+        })),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+      const warnings = yield* diagnostics.drainWarnings
+
+      expect(result.versions.map((version) => version.id)).toEqual(["chain-1", "malformed-flag", "latest"])
+      expect(result.total).toBe(3)
+      expect(warnings).toHaveLength(1)
+      expect(assertAt(warnings, 0).message).toContain("malformed-flag.isLatest")
+      expect(assertAt(warnings, 0).message).not.toContain("yes")
+    }))
+
+  it.effect("fails actionably when degraded metadata has no valid chain identity", () =>
+    Effect.gen(function*() {
+      const malformedChain = versionCard("malformed-chain", 2, { baseId: 42 as never })
+      const error = yield* Effect.flip(
+        listCardVersions({
+          cardSpace: SPACE,
+          card: CardIdentifier.make("malformed-chain")
+        }).pipe(
+          Effect.provide(buildLayer({
+            spaces: [makeSpace()],
+            cards: [malformedChain]
+          })),
+          withDiagnostics
+        )
+      )
+
+      expect(error).toBeInstanceOf(HulyError)
+      expect(error.message).toContain("no valid version-chain identity")
+      expect(error.message).toContain("baseId")
+      expect(error.message).not.toContain("42")
     }))
 
   it.effect("fails with a typed integration error when a required card title is malformed", () =>
@@ -856,9 +1000,11 @@ describe("listCardVersions", () => {
       expect(warnings).toHaveLength(1)
       expect(assertAt(warnings, 0)).toEqual({
         code: "card_version_metadata_degraded",
-        message: "2 card version timestamp field(s) failed Effect Schema parsing and were omitted: "
-          + "invalid-timestamps.modifiedOn, invalid-timestamps.createdOn. "
-          + "Treat the affected history ordering as degraded and inspect or repair the Huly card data."
+        message: "7 card version metadata field(s) were absent or malformed and omitted: malformed.version, "
+          + "trailing-malformed.version, missing-created-b.version, missing-created-a.version, "
+          + "invalid-timestamps.version, invalid-timestamps.modifiedOn, invalid-timestamps.createdOn. "
+          + "Treat the affected version metadata and history ordering as degraded and inspect or repair the Huly card "
+          + "data."
       })
     }))
 })
