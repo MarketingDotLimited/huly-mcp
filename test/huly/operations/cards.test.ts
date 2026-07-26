@@ -8,6 +8,7 @@ import { expect } from "vitest"
 
 import { CardIdentifier, CardSpaceIdentifier, MasterTagIdentifier } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
+import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
 import { CardNotFoundError, HulyError } from "../../../src/huly/errors.js"
 import { cardPlugin, core } from "../../../src/huly/huly-plugins.js"
 import {
@@ -20,6 +21,7 @@ import {
   listMasterTags,
   updateCard
 } from "../../../src/huly/operations/cards.js"
+import { withDiagnostics } from "../../helpers/diagnostics.js"
 import { capturedMarkupChildNodes, capturedMarkupReferenceNodes } from "../../helpers/markup-capture.js"
 
 const SPACE_ID = "space-1" as Ref<HulyCardSpace>
@@ -592,22 +594,31 @@ describe("listCardVersions", () => {
 
   it.effect("returns an unversioned card as a truthful singleton history", () =>
     Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
+      const cardWithAbsentCreatedOn = {
+        ...makeCard(),
+        createdOn: undefined
+      } as unknown as HulyCard
       const result = yield* listCardVersions({
         cardSpace: SPACE,
         card: CardIdentifier.make("Roadmap"),
         limit: 1
-      }).pipe(Effect.provide(buildLayer({ spaces: [makeSpace()], cards: [makeCard()] })))
+      }).pipe(
+        Effect.provide(buildLayer({ spaces: [makeSpace()], cards: [cardWithAbsentCreatedOn] })),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+      const warnings = yield* diagnostics.drainWarnings
 
       expect(result).toEqual({
         versions: [{
           id: "card-1",
           title: "Roadmap",
-          modifiedOn: 200,
-          createdOn: 150
+          modifiedOn: 200
         }],
         total: 1,
         hasMore: false
       })
+      expect(warnings).toEqual([])
     }))
 
   it.effect("distinguishes missing card spaces and ambiguous exact titles", () =>
@@ -616,25 +627,28 @@ describe("listCardVersions", () => {
         listCardVersions({
           cardSpace: SPACE,
           card: CardIdentifier.make("Roadmap")
-        }).pipe(Effect.provide(buildLayer({ spaces: [] })))
+        }).pipe(Effect.provide(buildLayer({ spaces: [] })), withDiagnostics)
       )
       const ambiguousTitle = yield* Effect.flip(
         listCardVersions({
           cardSpace: SPACE,
           card: CardIdentifier.make("Roadmap")
-        }).pipe(Effect.provide(buildLayer({
-          spaces: [makeSpace()],
-          cards: [
-            makeCard(),
-            makeCard({ _id: "card-2" as Ref<HulyCard> })
-          ]
-        })))
+        }).pipe(
+          Effect.provide(buildLayer({
+            spaces: [makeSpace()],
+            cards: [
+              makeCard(),
+              makeCard({ _id: "card-2" as Ref<HulyCard> })
+            ]
+          })),
+          withDiagnostics
+        )
       )
       const missingCard = yield* Effect.flip(
         listCardVersions({
           cardSpace: SPACE,
           card: CardIdentifier.make("Ghost")
-        }).pipe(Effect.provide(buildLayer({ spaces: [makeSpace()], cards: [] })))
+        }).pipe(Effect.provide(buildLayer({ spaces: [makeSpace()], cards: [] })), withDiagnostics)
       )
 
       expect(missingSpace._tag).toBe("CardSpaceNotFoundError")
@@ -658,12 +672,15 @@ describe("listCardVersions", () => {
         listCardVersions({
           cardSpace: SPACE,
           card: CardIdentifier.make("Shared title")
-        }).pipe(Effect.provide(buildLayer({
-          spaces: [makeSpace()],
-          cards: [coherent, partial],
-          captures,
-          simulateVersionMiddleware: true
-        })))
+        }).pipe(
+          Effect.provide(buildLayer({
+            spaces: [makeSpace()],
+            cards: [coherent, partial],
+            captures,
+            simulateVersionMiddleware: true
+          })),
+          withDiagnostics
+        )
       )
 
       expect(error).toBeInstanceOf(HulyError)
@@ -685,12 +702,15 @@ describe("listCardVersions", () => {
       const result = yield* listCardVersions({
         cardSpace: SPACE,
         card: CardIdentifier.make("old-version")
-      }).pipe(Effect.provide(buildLayer({
-        spaces: [makeSpace()],
-        cards: versions,
-        captures,
-        simulateVersionMiddleware: true
-      })))
+      }).pipe(
+        Effect.provide(buildLayer({
+          spaces: [makeSpace()],
+          cards: versions,
+          captures,
+          simulateVersionMiddleware: true
+        })),
+        withDiagnostics
+      )
 
       expect(result.versions.map((version) => version.id)).toEqual(["chain-1", "old-version", "latest"])
       expect(result.total).toBe(3)
@@ -710,12 +730,15 @@ describe("listCardVersions", () => {
       const result = yield* listCardVersions({
         cardSpace: SPACE,
         card: CardIdentifier.make("Roadmap v2")
-      }).pipe(Effect.provide(buildLayer({
-        spaces: [makeSpace()],
-        cards: [versionCard("chain-1", 1), versionCard("old-version", 2), versionCard("latest", 3)],
-        captures,
-        simulateVersionMiddleware: true
-      })))
+      }).pipe(
+        Effect.provide(buildLayer({
+          spaces: [makeSpace()],
+          cards: [versionCard("chain-1", 1), versionCard("old-version", 2), versionCard("latest", 3)],
+          captures,
+          simulateVersionMiddleware: true
+        })),
+        withDiagnostics
+      )
 
       expect(result.total).toBe(3)
       expect(captures.findAllCalls).toContainEqual({
@@ -739,7 +762,7 @@ describe("listCardVersions", () => {
         cardSpace: SPACE,
         card: CardIdentifier.make("chain-1"),
         limit: 2
-      }).pipe(Effect.provide(buildLayer({ spaces: [makeSpace()], cards })))
+      }).pipe(Effect.provide(buildLayer({ spaces: [makeSpace()], cards })), withDiagnostics)
 
       expect(result.versions.map((version) =>
         version.version?.number
@@ -750,6 +773,7 @@ describe("listCardVersions", () => {
 
   it.effect("breaks equal-version ties by timestamps and then ID, with malformed metadata last", () =>
     Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
       const malformed = versionCard("malformed", 4, {
         version: null,
         createdOn: 1,
@@ -771,21 +795,25 @@ describe("listCardVersions", () => {
       const result = yield* listCardVersions({
         cardSpace: SPACE,
         card: CardIdentifier.make("chain-1")
-      }).pipe(Effect.provide(buildLayer({
-        spaces: [makeSpace()],
-        cards: [
-          missingCreatedA,
-          missingCreatedB,
-          invalidTimestamps,
-          malformed,
-          versionCard("chain-1", 1),
-          versionCard("z", 2, { createdOn: 8, modifiedOn: 3 }),
-          versionCard("b", 2, { createdOn: 7, modifiedOn: 5 }),
-          versionCard("a", 2, { createdOn: 7, modifiedOn: 5 }),
-          versionCard("c", 2, { createdOn: 7, modifiedOn: 4 }),
-          versionCard("trailing-malformed", 4, { version: null, createdOn: 2, modifiedOn: 2 })
-        ]
-      })))
+      }).pipe(
+        Effect.provide(buildLayer({
+          spaces: [makeSpace()],
+          cards: [
+            missingCreatedA,
+            missingCreatedB,
+            invalidTimestamps,
+            malformed,
+            versionCard("chain-1", 1),
+            versionCard("z", 2, { createdOn: 8, modifiedOn: 3 }),
+            versionCard("b", 2, { createdOn: 7, modifiedOn: 5 }),
+            versionCard("a", 2, { createdOn: 7, modifiedOn: 5 }),
+            versionCard("c", 2, { createdOn: 7, modifiedOn: 4 }),
+            versionCard("trailing-malformed", 4, { version: null, createdOn: 2, modifiedOn: 2 })
+          ]
+        })),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+      const warnings = yield* diagnostics.drainWarnings
 
       expect(result.versions.map((version) => version.id)).toEqual([
         "chain-1",
@@ -802,6 +830,13 @@ describe("listCardVersions", () => {
       expect(result.versions.at(-1)?.version).toBeUndefined()
       expect(result.versions.at(-1)?.createdOn).toBeUndefined()
       expect(result.versions.at(-1)?.modifiedOn).toBeUndefined()
+      expect(warnings).toHaveLength(1)
+      expect(assertAt(warnings, 0)).toEqual({
+        code: "card_version_metadata_degraded",
+        message: "2 card version timestamp field(s) failed Effect Schema parsing and were omitted: "
+          + "invalid-timestamps.modifiedOn, invalid-timestamps.createdOn. "
+          + "Treat the affected history ordering as degraded and inspect or repair the Huly card data."
+      })
     }))
 })
 

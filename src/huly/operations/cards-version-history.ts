@@ -12,7 +12,9 @@ import type {
 import { CardVersionMetadataSchema } from "../../domain/schemas/card-versions.js"
 import type { CardId, CardIdentifier, Timestamp as TimestampType } from "../../domain/schemas/shared.js"
 import { CardId as CardIdSchema, Count, Timestamp } from "../../domain/schemas/shared.js"
+import { CardVersionMetadataDegradedWarningCode } from "../../domain/schemas/tool-warnings.js"
 import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
+import { Diagnostics } from "../diagnostics.js"
 import { CardNotFoundError, CardSpaceNotFoundError, HulyError } from "../errors.js"
 import { cardPlugin } from "../huly-plugins.js"
 import { clampLimit, hulyQuery } from "./query-helpers.js"
@@ -21,8 +23,19 @@ import { toClassRef, toRef } from "./sdk-boundary.js"
 type VersionableCardDoc = HulyCard & VersionableDoc
 
 const optionalBoolean = (value: unknown): boolean | undefined => typeof value === "boolean" ? value : undefined
-const optionalTimestamp = (value: unknown): TimestampType | undefined =>
-  Option.getOrUndefined(Schema.decodeUnknownOption(Timestamp)(value))
+
+type ParsedTimestamp =
+  | { readonly _tag: "absent" }
+  | { readonly _tag: "valid"; readonly value: TimestampType }
+  | { readonly _tag: "malformed" }
+
+const parseOptionalTimestamp = (value: unknown): ParsedTimestamp => {
+  if (value === undefined) return { _tag: "absent" }
+  return Option.match(Schema.decodeUnknownOption(Timestamp)(value), {
+    onNone: () => ({ _tag: "malformed" }),
+    onSome: (timestamp) => ({ _tag: "valid", value: timestamp })
+  })
+}
 
 /**
  * Parse Huly's independently nullable VersionableDoc fields into one coherent
@@ -45,20 +58,29 @@ interface CardVersionEntry {
   readonly card: HulyCard
   readonly metadata: CardVersionMetadata | undefined
   readonly summary: CardVersionSummary
+  readonly malformedTimestampFields: ReadonlyArray<"createdOn" | "modifiedOn">
 }
 
 const toEntry = (card: HulyCard): CardVersionEntry => {
   const metadata = cardVersionMetadata(card)
-  const modifiedOn = optionalTimestamp(card.modifiedOn)
-  const createdOn = optionalTimestamp(card.createdOn)
+  const modifiedOn = parseOptionalTimestamp(card.modifiedOn)
+  const createdOn = parseOptionalTimestamp(card.createdOn)
   const summary: CardVersionSummary = {
     id: CardIdSchema.make(card._id),
     title: card.title,
     ...(metadata === undefined ? {} : { version: metadata }),
-    ...(modifiedOn === undefined ? {} : { modifiedOn }),
-    ...(createdOn === undefined ? {} : { createdOn })
+    ...(modifiedOn._tag === "valid" ? { modifiedOn: modifiedOn.value } : {}),
+    ...(createdOn._tag === "valid" ? { createdOn: createdOn.value } : {})
   }
-  return { card, metadata, summary }
+  return {
+    card,
+    metadata,
+    summary,
+    malformedTimestampFields: [
+      ...(modifiedOn._tag === "malformed" ? ["modifiedOn" as const] : []),
+      ...(createdOn._tag === "malformed" ? ["createdOn" as const] : [])
+    ]
+  }
 }
 
 const compareOptionalNumber = (left: number | undefined, right: number | undefined): number => {
@@ -161,10 +183,11 @@ export const listCardVersions = (
 ): Effect.Effect<
   ListCardVersionsResult,
   HulyClientError | CardNotFoundError | CardSpaceNotFoundError | HulyError,
-  HulyClient
+  HulyClient | Diagnostics
 > =>
   Effect.gen(function*() {
     const client = yield* HulyClient
+    const diagnostics = yield* Diagnostics
     const cardSpaces = yield* client.findAll<HulyCardSpace>(
       cardPlugin.class.CardSpace,
       hulyQuery<HulyCardSpace>({ name: params.cardSpace, archived: false })
@@ -179,6 +202,19 @@ export const listCardVersions = (
 
     const resolved = yield* resolveHistoryCard(client, cardSpace._id, params.card, params.cardSpace)
     const history = yield* fetchHistory(client, cardSpace._id, resolved)
+    const malformedTimestamps = history.flatMap((entry) =>
+      entry.malformedTimestampFields.map((field) => `${entry.summary.id}.${field}`)
+    )
+    if (malformedTimestamps.length > 0) {
+      yield* diagnostics.warnAgent({
+        code: CardVersionMetadataDegradedWarningCode,
+        message:
+          `${malformedTimestamps.length} card version timestamp field(s) failed Effect Schema parsing and were omitted: `
+          + `${
+            malformedTimestamps.join(", ")
+          }. Treat the affected history ordering as degraded and inspect or repair the Huly card data.`
+      })
+    }
     const page = history.slice(0, clampLimit(params.limit))
     return {
       versions: page.map((entry) => entry.summary),
