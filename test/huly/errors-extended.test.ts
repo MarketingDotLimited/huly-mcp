@@ -32,6 +32,7 @@ import {
   GenericObjectNotFoundError,
   type HulyDomainError,
   HulyDomainError as HulyDomainErrorSchema,
+  InvalidCustomFieldDateValueError,
   MasterTagNotFoundError,
   NoUpdateFieldsError,
   ProcessExecutionNotCancellableError,
@@ -138,6 +139,12 @@ describe("Extended Huly error message getters", () => {
         }),
         tag: "CustomFieldObjectNotFoundError",
         message: "Object 'obj-1' of class 'tracker:class:Issue' not found"
+      },
+      {
+        error: new InvalidCustomFieldDateValueError({ value: "2026-07-24Z" }),
+        tag: "InvalidCustomFieldDateValueError",
+        message:
+          "Invalid date custom-field value '2026-07-24Z'. Use a real calendar date in YYYY-MM-DD form or a canonical non-negative epoch-millisecond string between 0 and 8640000000000000. Time-zone suffixes, date-times, signs, decimals, exponents, whitespace, and non-finite values are not accepted."
       }
     ]))
 
@@ -388,6 +395,7 @@ describe("Extended Huly error message getters", () => {
           objectId: DocId.make("obj-1"),
           objectClass: ObjectClassName.make("tracker:class:Issue")
         }),
+        new InvalidCustomFieldDateValueError({ value: "" }),
         new TestResultNotFoundError({ identifier: "RES" }),
         new DocumentEditModeError({ reason: "mixed modes" }),
         new AssociationInUseError({

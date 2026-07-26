@@ -46,6 +46,9 @@ RECRUITING_CLEANUP_SKILL=""
 BOARD_CLEANUP_BOARD_ID=""
 BOARD_CLEANUP_LABEL_ID=""
 BOARD_CLEANUP_CARD_LABEL_ID=""
+CUSTOM_FIELD_DATE_CLEANUP_ISSUE_ID=""
+CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID=""
+CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME=""
 TM_TASK_TYPE_NAME=""
 TM_STATUS_NAME=""
 WORKFLOW_CLEANED=false
@@ -267,7 +270,20 @@ cleanup_board_artifacts() {
   fi
 }
 
+cleanup_custom_field_date_artifacts() {
+  if [ -n "$CUSTOM_FIELD_DATE_CLEANUP_ISSUE_ID" ] \
+    && [ -n "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID" ] \
+    && [ -n "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME" ]; then
+    pnpm exec tsx scripts/integration-custom-field-date.ts \
+      --mode cleanup \
+      --issueId "$CUSTOM_FIELD_DATE_CLEANUP_ISSUE_ID" \
+      --fieldId "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID" \
+      --fieldName "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME" >/dev/null 2>&1 || true
+  fi
+}
+
 cleanup_all() {
+  cleanup_custom_field_date_artifacts || true
   cleanup_board_artifacts || true
   cleanup_recruiting_artifacts || true
   cleanup_generic_associations
@@ -1816,6 +1832,46 @@ if [ $? -eq 0 ]; then
     echo "  => $ISSUE_PARENT_STATE"
   else
     fail_test "create_issue native NoParent shape" "parent semantics helper failed"
+  fi
+
+  if [ "$INTEGRATION_TRANSPORT" = "stdio" ] \
+    && CUSTOM_FIELD_DATE_FIXTURE=$(pnpm exec tsx scripts/integration-custom-field-date.ts \
+      --mode setup --issueId "$ISSUE_OBJ_ID"); then
+    CUSTOM_FIELD_DATE_CLEANUP_ISSUE_ID="$ISSUE_OBJ_ID"
+    CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID=$(printf '%s\n' "$CUSTOM_FIELD_DATE_FIXTURE" | jq -r '.fieldId')
+    CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME=$(printf '%s\n' "$CUSTOM_FIELD_DATE_FIXTURE" | jq -r '.fieldName')
+    CUSTOM_FIELD_DATE_FIELD_ID_JSON=$(json_string "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID")
+    sleep 1
+
+    run_capture_to_var CUSTOM_FIELD_DATE_SET_TEXT "set_custom_field(strict ISO date)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_custom_field\",\"arguments\":{\"objectId\":\"$ISSUE_OBJ_ID\",\"objectClass\":\"tracker:class:Issue\",\"fieldId\":$CUSTOM_FIELD_DATE_FIELD_ID_JSON,\"value\":\"2026-07-24\"}},\"id\":2}"
+    assert_json_field_equals "set_custom_field persists strict ISO date as Unix milliseconds" \
+      "$CUSTOM_FIELD_DATE_SET_TEXT" ".value" "1784851200000"
+
+    run_expect_error_contains "set_custom_field rejects timezone-adjacent date before write" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_custom_field\",\"arguments\":{\"objectId\":\"$ISSUE_OBJ_ID\",\"objectClass\":\"tracker:class:Issue\",\"fieldId\":$CUSTOM_FIELD_DATE_FIELD_ID_JSON,\"value\":\"2026-07-24T00:00:00Z\"}},\"id\":2}" \
+      "Invalid date custom-field value"
+
+    CUSTOM_FIELD_DATE_READ_RESULT=$(pnpm exec tsx scripts/integration-custom-field-date.ts \
+      --mode read \
+      --issueId "$ISSUE_OBJ_ID" \
+      --fieldName "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME")
+    assert_json_field_equals "rejected date custom field leaves persisted value unchanged" \
+      "$CUSTOM_FIELD_DATE_READ_RESULT" ".value" "1784851200000"
+
+    cleanup_custom_field_date_artifacts
+    CUSTOM_FIELD_DATE_CLEANUP_ISSUE_ID=""
+    CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID=""
+    CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME=""
+  elif [ "$INTEGRATION_TRANSPORT" != "stdio" ]; then
+    skip_test "set_custom_field persists strict ISO date as Unix milliseconds" \
+      "dynamic model fixture requires a fresh stdio connection"
+    skip_test "set_custom_field rejects timezone-adjacent date before write" \
+      "dynamic model fixture requires a fresh stdio connection"
+    skip_test "rejected date custom field leaves persisted value unchanged" \
+      "dynamic model fixture requires a fresh stdio connection"
+  else
+    fail_test "date custom-field strict persistence/no-write lifecycle" "custom-field date helper failed"
   fi
 
   wait_for_json_array_contains_to_var TOP_LEVEL_ISSUES_TEXT "list_issues(isTopLevel) includes created top-level issue" \

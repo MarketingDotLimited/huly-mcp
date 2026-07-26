@@ -49,7 +49,11 @@ import {
   PersonIdentifierAmbiguousError,
   PersonNotFoundError
 } from "./errors-contacts.js"
-import { CustomFieldNotFoundError, CustomFieldObjectNotFoundError } from "./errors-custom-fields.js"
+import {
+  CustomFieldNotFoundError,
+  CustomFieldObjectNotFoundError,
+  InvalidCustomFieldDateValueError
+} from "./errors-custom-fields.js"
 import {
   DocumentContentCorruptedError,
   DocumentEditModeError,
@@ -312,6 +316,7 @@ export const HulyDomainError = Schema.Union(
   ComponentNotFoundError,
   CustomFieldNotFoundError,
   CustomFieldObjectNotFoundError,
+  InvalidCustomFieldDateValueError,
   IssueTemplateNotFoundError,
   TemplateChildNotFoundError,
   NotificationNotFoundError,

@@ -282,6 +282,97 @@ describe("custom-fields operations", () => {
       expect(captureUpdateMixin.mixin).toBe("tracker:mixin:IssueTypeData")
       expect(captureUpdateMixin.attributes).toEqual({ qaApproved: true })
     }))
+
+  it.effect("parses strict ISO calendar and epoch-millisecond date values before updating Huly", () =>
+    Effect.gen(function*() {
+      const attr = makeAttribute({
+        _id: "attr-date",
+        name: "targetDate",
+        label: "tracker:field:Target Date",
+        type: { _class: "core:class:TypeDate" }
+      })
+      const ownerClass = makeDoc({
+        _id: "tracker:mixin:IssueTypeData",
+        label: "tracker:class:Issue Type Data",
+        kind: ClassifierKind.MIXIN
+      })
+      const baseConfig = {
+        attributes: [attr],
+        doc: makeDoc({ _id: "issue-1", space: "space-1" as Ref<Space> }),
+        classDocs: [ownerClass]
+      }
+      const isoCapture: { attributes?: Record<string, unknown> } = {}
+      const isoResult = yield* setCustomField({
+        objectId: docId("issue-1"),
+        objectClass: objectClassName("tracker:class:Issue"),
+        fieldId: customFieldId("attr-date"),
+        value: "2026-07-24"
+      }).pipe(Effect.provide(createTestLayer({ ...baseConfig, captureUpdateMixin: isoCapture })))
+
+      expect(isoResult.value).toBe(1_784_851_200_000)
+      expect(isoCapture.attributes).toEqual({ targetDate: 1_784_851_200_000 })
+
+      const epochCapture: { attributes?: Record<string, unknown> } = {}
+      const epochResult = yield* setCustomField({
+        objectId: docId("issue-1"),
+        objectClass: objectClassName("tracker:class:Issue"),
+        fieldId: customFieldId("attr-date"),
+        value: "1719792000000"
+      }).pipe(Effect.provide(createTestLayer({ ...baseConfig, captureUpdateMixin: epochCapture })))
+
+      expect(epochResult.value).toBe(1_719_792_000_000)
+      expect(epochCapture.attributes).toEqual({ targetDate: 1_719_792_000_000 })
+    }))
+
+  it.effect("rejects invalid and timezone-adjacent date values before any Huly update", () =>
+    Effect.gen(function*() {
+      const attr = makeAttribute({
+        _id: "attr-date",
+        name: "targetDate",
+        type: { _class: "core:class:TypeDate" }
+      })
+      const ownerClass = makeDoc({
+        _id: "tracker:mixin:IssueTypeData",
+        kind: ClassifierKind.MIXIN
+      })
+      const invalidValues = [
+        "",
+        " ",
+        "2026-02-29",
+        "2026-07-24T00:00:00Z",
+        "2026-07-24+01:00",
+        "NaN",
+        "Infinity",
+        "1e3",
+        "1719792000000.5",
+        "-1",
+        "8640000000000001"
+      ]
+
+      for (const value of invalidValues) {
+        const captureUpdateMixin: { attributes?: Record<string, unknown> } = {}
+        const error = yield* Effect.flip(
+          setCustomField({
+            objectId: docId("issue-1"),
+            objectClass: objectClassName("tracker:class:Issue"),
+            fieldId: customFieldId("attr-date"),
+            value
+          }).pipe(
+            Effect.provide(
+              createTestLayer({
+                attributes: [attr],
+                doc: makeDoc({ _id: "issue-1", space: "space-1" as Ref<Space> }),
+                classDocs: [ownerClass],
+                captureUpdateMixin
+              })
+            )
+          )
+        )
+
+        expect(error._tag).toBe("InvalidCustomFieldDateValueError")
+        expect(captureUpdateMixin.attributes).toBeUndefined()
+      }
+    }))
 })
 
 describe("custom-fields branch coverage", () => {

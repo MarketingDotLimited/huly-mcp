@@ -810,6 +810,12 @@ export {
 } from "./processes.js"
 
 export {
+  CUSTOM_FIELD_DATE_MAX_TIMESTAMP,
+  CustomFieldDateTimestamp,
+  CustomFieldDateValueSchema
+} from "./custom-field-date.js"
+
+export {
   type CustomFieldInfo,
   CustomFieldInfoWireSchema,
   type CustomFieldTypeName,

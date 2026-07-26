@@ -134,6 +134,7 @@ const INVALID_PARAMS_TAGS: ReadonlySet<HulyDomainError["_tag"]> = new Set<HulyDo
   "ComponentNotFoundError",
   "CustomFieldNotFoundError",
   "CustomFieldObjectNotFoundError",
+  "InvalidCustomFieldDateValueError",
   "IssueTemplateNotFoundError",
   "TemplateChildNotFoundError",
   "NotificationNotFoundError",

@@ -668,7 +668,7 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 |------|-------------|
 | `list_custom_fields` | List custom field definitions in the workspace. Returns fields with their labels, types, and owner class info. Custom fields are created in the Huly UI on Card types, Issue types, or other classes. Use targetClass to filter fields for a specific class. |
 | `get_custom_field_values` | Read custom field values from a document. Pass the document's ID and class (from list_cards, list_issues, etc.). Returns all custom field values found on the document with their labels and types. |
-| `set_custom_field` | Set a custom field value on a document. Requires the document ID, class, field ID (from list_custom_fields), and value. Values are auto-parsed: numbers from numeric strings, booleans from 'true'/'false', strings as-is. |
+| `set_custom_field` | Set a custom field value on a document. Requires the document ID, class, field ID (from list_custom_fields), and value. Values are parsed before Huly writes: numbers from numeric strings, booleans from 'true'/'false', and strings as-is. Date fields accept only a real YYYY-MM-DD calendar date (UTC midnight) or a canonical non-negative epoch-millisecond string from 0 through 8640000000000000. If a date is rejected, remove any time, time-zone suffix, sign, whitespace, decimal, or exponent and retry with one of those exact forms. |
 
 ### Drive
 

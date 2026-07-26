@@ -20,16 +20,22 @@ import type {
 import { CUSTOM_FIELDS_DEFAULT_LIMIT } from "../../domain/schemas/custom-fields.js"
 import { CustomFieldId, ObjectClassName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
+import type { InvalidCustomFieldDateValueError } from "../errors-custom-fields.js"
 import { CustomFieldNotFoundError, CustomFieldObjectNotFoundError } from "../errors-custom-fields.js"
 import { hulyCustomFieldTypeNameFromClass } from "../huly-attribute-types.js"
 import { decodeHulyModelLabelTail } from "../huly-labels.js"
 import { core } from "../huly-plugins.js"
+import { parseCustomFieldDateValue } from "./custom-field-date.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
 type ListCustomFieldsError = HulyClientError
 type GetCustomFieldValuesError = HulyClientError | CustomFieldObjectNotFoundError
-type SetCustomFieldError = HulyClientError | CustomFieldNotFoundError | CustomFieldObjectNotFoundError
+type SetCustomFieldError =
+  | HulyClientError
+  | CustomFieldNotFoundError
+  | CustomFieldObjectNotFoundError
+  | InvalidCustomFieldDateValueError
 
 type JsonMap = Record<string, unknown>
 
@@ -155,16 +161,21 @@ const batchResolveClassLabels = (
     return labels
   })
 
-const parseValueForType = (value: string, typeName: CustomFieldTypeName): unknown => {
+const parseValueForType = (
+  value: string,
+  typeName: CustomFieldTypeName
+): Effect.Effect<unknown, InvalidCustomFieldDateValueError> => {
   switch (typeName) {
     case "number": {
       const num = Number(value)
-      return Number.isNaN(num) ? value : num
+      return Effect.succeed(Number.isNaN(num) ? value : num)
     }
+    case "date":
+      return parseCustomFieldDateValue(value)
     case "boolean":
-      return value.toLowerCase() === "true"
+      return Effect.succeed(value.toLowerCase() === "true")
     default:
-      return value
+      return Effect.succeed(value)
   }
 }
 
@@ -314,7 +325,7 @@ export const setCustomField = (
     }
 
     const decodedAttr = decodeCustomFieldAttribute(attr)
-    const parsedValue = parseValueForType(params.value, decodedAttr.typeDescriptor.typeName)
+    const parsedValue = yield* parseValueForType(params.value, decodedAttr.typeDescriptor.typeName)
     const decodedDoc = decodeCustomFieldDocument(doc)
     const ownerInfo = yield* resolveClassInfo(client, decodedAttr.ownerClassId)
 

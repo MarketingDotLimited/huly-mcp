@@ -1086,6 +1086,8 @@ describe("Huly Errors", () => {
               return `customfield:${error.identifier}`
             case "CustomFieldObjectNotFoundError":
               return `customfieldobj:${error.objectId}`
+            case "InvalidCustomFieldDateValueError":
+              return `customfielddate:${error.value}`
             case "IssueTemplateNotFoundError":
               return `template:${error.identifier}`
             case "TemplateChildNotFoundError":
