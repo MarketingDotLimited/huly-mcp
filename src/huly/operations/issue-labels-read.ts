@@ -38,7 +38,7 @@ interface IssueLabelCandidate {
   readonly issueId: IssueId
   readonly title: NonEmptyString
   readonly normalizedTitle: NormalizedLabelTitle
-  readonly color?: ColorCode | undefined
+  readonly color?: ColorCode
 }
 
 interface IssueLabelIndex {
@@ -46,10 +46,20 @@ interface IssueLabelIndex {
   readonly degradationReasons: ReadonlyArray<IssueLabelDegradationReason>
 }
 
-interface IssueLabelCandidateProjection {
-  readonly candidate?: IssueLabelCandidate
-  readonly degradationReason?: IssueLabelDegradationReason
-}
+type IssueLabelCandidateProjection =
+  | {
+    readonly _tag: "Success"
+    readonly candidate: IssueLabelCandidate
+  }
+  | {
+    readonly _tag: "DegradedSuccess"
+    readonly candidate: IssueLabelCandidate
+    readonly degradationReason: "invalid_color"
+  }
+  | {
+    readonly _tag: "Rejected"
+    readonly degradationReason: "malformed_attachment" | "missing_or_malformed_title"
+  }
 
 const decodeAttachment = Schema.decodeUnknownEither(IssueLabelAttachmentBoundarySchema)
 const decodeTitle = Schema.decodeUnknownEither(NonEmptyString)
@@ -77,22 +87,41 @@ const compareCandidates = (left: IssueLabelCandidate, right: IssueLabelCandidate
 
 const toCandidate = (input: unknown): IssueLabelCandidateProjection => {
   const attachment = decodeAttachment(input)
-  if (Either.isLeft(attachment)) return { degradationReason: "malformed_attachment" }
+  if (Either.isLeft(attachment)) {
+    return { _tag: "Rejected", degradationReason: "malformed_attachment" }
+  }
 
   const title = decodeTitle(attachment.right.title)
-  if (Either.isLeft(title)) return { degradationReason: "missing_or_malformed_title" }
+  if (Either.isLeft(title)) {
+    return { _tag: "Rejected", degradationReason: "missing_or_malformed_title" }
+  }
 
   const colorInput = attachment.right.color
   const color = colorInput === undefined ? undefined : decodeColor(colorInput)
-  return {
-    candidate: {
-      referenceId: attachment.right._id,
-      issueId: attachment.right.attachedTo,
-      title: title.right,
-      normalizedTitle: normalizeLabelTitle(title.right),
-      ...(color !== undefined && Either.isRight(color) ? { color: color.right } : {})
-    },
-    ...(color !== undefined && Either.isLeft(color) ? { degradationReason: "invalid_color" } : {})
+  const candidate: IssueLabelCandidate = {
+    referenceId: attachment.right._id,
+    issueId: attachment.right.attachedTo,
+    title: title.right,
+    normalizedTitle: normalizeLabelTitle(title.right),
+    ...(color !== undefined && Either.isRight(color) ? { color: color.right } : {})
+  }
+  return color !== undefined && Either.isLeft(color)
+    ? { _tag: "DegradedSuccess", candidate, degradationReason: "invalid_color" }
+    : { _tag: "Success", candidate }
+}
+
+const projectionCandidate = (projection: IssueLabelCandidateProjection): ReadonlyArray<IssueLabelCandidate> =>
+  projection._tag === "Rejected" ? [] : [projection.candidate]
+
+const projectionDegradationReason = (
+  projection: IssueLabelCandidateProjection
+): ReadonlyArray<IssueLabelDegradationReason> => {
+  switch (projection._tag) {
+    case "Success":
+      return []
+    case "DegradedSuccess":
+    case "Rejected":
+      return [projection.degradationReason]
   }
 }
 
@@ -112,9 +141,7 @@ const buildIssueLabelIndex = (
   attachments: ReadonlyArray<IssueLabelAttachmentBoundary | TagReference>
 ): IssueLabelIndex => {
   const projections = attachments.map(toCandidate)
-  const candidates = projections.flatMap((projection) =>
-    projection.candidate === undefined ? [] : [projection.candidate]
-  )
+  const candidates = projections.flatMap(projectionCandidate)
   const issueIds = [...new Set(candidates.map((candidate) => candidate.issueId))]
   return {
     byIssueId: new Map(
@@ -123,9 +150,7 @@ const buildIssueLabelIndex = (
         projectCandidateGroup(candidates.filter((candidate) => candidate.issueId === issueId))
       ])
     ),
-    degradationReasons: projections.flatMap((projection) =>
-      projection.degradationReason === undefined ? [] : [projection.degradationReason]
-    )
+    degradationReasons: projections.flatMap(projectionDegradationReason)
   }
 }
 
