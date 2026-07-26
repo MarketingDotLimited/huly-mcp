@@ -294,9 +294,33 @@ export const SupportedAttachmentImageTypeSchema = Schema.Literal(
 })
 export type SupportedAttachmentImageType = Schema.Schema.Type<typeof SupportedAttachmentImageTypeSchema>
 
+const CANONICAL_BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
+const MIN_NON_EMPTY_BASE64_LENGTH = 4
+const canonicalBase64RoundTrips = (value: Base64FileData): boolean | string =>
+  Buffer.from(value, "base64").toString("base64") === value
+    ? true
+    : "Image data must use the canonical RFC 4648 representation with zero-valued padding bits."
+
+export const CanonicalBase64ImageData = Base64FileData.pipe(
+  Schema.minLength(MIN_NON_EMPTY_BASE64_LENGTH, {
+    message: () => "Image data must not be empty."
+  }),
+  Schema.pattern(CANONICAL_BASE64_PATTERN, {
+    message: () => "Image data must use the RFC 4648 alphabet and trailing padding where required."
+  }),
+  Schema.filter(canonicalBase64RoundTrips),
+  Schema.brand("CanonicalBase64ImageData")
+).annotations({
+  identifier: "CanonicalBase64ImageData",
+  title: "CanonicalBase64ImageData",
+  description:
+    "Non-empty canonical RFC 4648 base64 image data with trailing padding where required and zero-valued padding bits."
+})
+export type CanonicalBase64ImageData = Schema.Schema.Type<typeof CanonicalBase64ImageData>
+
 export const McpImageContentSchema = Schema.Struct({
   type: Schema.Literal("image"),
-  data: Base64FileData,
+  data: CanonicalBase64ImageData,
   mimeType: SupportedAttachmentImageTypeSchema
 }).annotations({
   title: "McpImageContent",
@@ -325,7 +349,7 @@ export type ReadAttachmentContentMetadata = Schema.Schema.Type<typeof ReadAttach
 export const ReadAttachmentContentResultSchema = Schema.Struct({
   _tag: Schema.Literal("ImageAttachmentContent"),
   metadata: ReadAttachmentContentMetadataSchema,
-  data: Base64FileData
+  data: CanonicalBase64ImageData
 })
 export type ReadAttachmentContentResult = Schema.Schema.Type<typeof ReadAttachmentContentResultSchema>
 

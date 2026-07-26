@@ -14,7 +14,8 @@ import {
   uploadDriveFileVersionParamsJsonSchema,
   uploadFileParamsJsonSchema
 } from "../../../src/domain/schemas.js"
-import { McpImageContentSchema } from "../../../src/domain/schemas/attachments.js"
+import { CanonicalBase64ImageData, McpImageContentSchema } from "../../../src/domain/schemas/attachments.js"
+import { Base64FileData } from "../../../src/domain/schemas/domain-values.js"
 import {
   addInventoryProductAttachmentParamsJsonSchema,
   addInventoryProductPhotoParamsJsonSchema
@@ -69,6 +70,46 @@ describe("attachment media schemas", () => {
 
     expect(Either.isRight(valid)).toBe(true)
     expect(Either.isLeft(invalid)).toBe(true)
+  })
+
+  it("accepts canonical base64 and rejects malformed, empty, or noncanonical image data", () => {
+    for (const value of ["Zg==", "Zm8=", "Zm9v", "AP+A/w=="]) {
+      expect(Either.isRight(Schema.decodeUnknownEither(CanonicalBase64ImageData)(value))).toBe(true)
+    }
+
+    for (const value of ["", "Zg", "Zg=", "Zg===", "Z g==", "-_==", "Zh==", "Zm9="]) {
+      expect(Either.isLeft(Schema.decodeUnknownEither(CanonicalBase64ImageData)(value))).toBe(true)
+    }
+  })
+
+  it("keeps upload transport data permissive for downstream normalization", () => {
+    for (const value of ["", " Zg== ", "data:image/png;base64,Zg=="]) {
+      expect(Either.isRight(Schema.decodeUnknownEither(Base64FileData)(value))).toBe(true)
+    }
+  })
+
+  it("rejects malformed image data when encoding the outbound MCP presentation schema", () => {
+    for (const data of ["Zg==", "Zm8=", "Zm9v", "AP+A/w=="]) {
+      const encoded = Schema.encodeUnknownEither(McpImageContentSchema)({
+        type: "image",
+        data,
+        mimeType: "image/png"
+      })
+
+      expect(Either.isRight(encoded)).toBe(true)
+    }
+
+    for (const data of ["not-base64", "Zh=="]) {
+      const encoded = Schema.encodeUnknownEither(McpImageContentSchema)({
+        type: "image",
+        data,
+        mimeType: "image/png"
+      })
+
+      expect(Either.isLeft(encoded)).toBe(true)
+    }
+
+    expect(() => CanonicalBase64ImageData.make("not-base64")).toThrow()
   })
 
   it.effect("accepts attachment media kinds and rejects unknown kinds", () =>

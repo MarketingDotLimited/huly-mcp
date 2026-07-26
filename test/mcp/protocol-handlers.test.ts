@@ -19,7 +19,7 @@ import { Context, Effect, Layer, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { ConfigValidationError, sanitizeHulyRuntimeConfigFromEnv } from "../../src/config/config.js"
-import { Base64FileData } from "../../src/domain/schemas/domain-values.js"
+import { CanonicalBase64ImageData } from "../../src/domain/schemas/attachments.js"
 import { type GetHulyContextResult, GetHulyContextResultSchema } from "../../src/domain/schemas/index.js"
 import { HulyClient, type HulyClientOperations } from "../../src/huly/client.js"
 import { Diagnostics } from "../../src/huly/diagnostics.js"
@@ -615,7 +615,7 @@ const imageProxyRegistry: ToolRegistry = {
     structuredContent: { result: { attachmentId: "att-image" } },
     imageContent: {
       type: "image",
-      data: Base64FileData.make("cG5n"),
+      data: CanonicalBase64ImageData.make("cG5n"),
       mimeType: "image/png"
     }
   })

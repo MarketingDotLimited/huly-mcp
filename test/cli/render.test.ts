@@ -2,8 +2,7 @@ import { Effect, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { renderOperationResult, renderOperationSuccess } from "../../packages/huly-cli/src/render.js"
-import { SupportedAttachmentImageTypeSchema } from "../../src/domain/schemas/attachments.js"
-import { Base64FileData } from "../../src/domain/schemas/domain-values.js"
+import { CanonicalBase64ImageData, SupportedAttachmentImageTypeSchema } from "../../src/domain/schemas/attachments.js"
 
 const globals = {
   json: false,
@@ -90,7 +89,7 @@ describe("CLI rendering", () => {
       warnings: [],
       image: {
         type: "image" as const,
-        data: Base64FileData.make("cG5nZGF0YQ=="),
+        data: CanonicalBase64ImageData.make("cG5nZGF0YQ=="),
         mimeType: Schema.decodeUnknownSync(SupportedAttachmentImageTypeSchema)("image/png")
       }
     }

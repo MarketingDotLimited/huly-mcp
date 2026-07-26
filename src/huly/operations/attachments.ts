@@ -27,11 +27,12 @@ import type {
   UpdateAttachmentResult
 } from "../../domain/schemas/attachments.js"
 import {
+  CanonicalBase64ImageData,
   READ_ATTACHMENT_CONTENT_MAX_BYTES,
   SupportedAttachmentImageTypeSchema,
   UPDATE_ATTACHMENT_FIELDS
 } from "../../domain/schemas/attachments.js"
-import { AttachmentByteSize, AttachmentFileName, Base64FileData } from "../../domain/schemas/domain-values.js"
+import { AttachmentByteSize, AttachmentFileName } from "../../domain/schemas/domain-values.js"
 import { AttachmentId, BlobId, MimeType, UrlString } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import {
@@ -294,6 +295,12 @@ export const readAttachmentContent = (
         maxSize: READ_ATTACHMENT_CONTENT_MAX_BYTES
       })
     }
+    if (bytes.length === 0) {
+      return yield* new AttachmentContentUnavailableError({
+        attachmentId: params.attachmentId,
+        reason: "downloaded image data is empty"
+      })
+    }
 
     return {
       _tag: "ImageAttachmentContent",
@@ -303,6 +310,6 @@ export const readAttachmentContent = (
         type: imageType,
         size: AttachmentByteSize.make(bytes.length)
       },
-      data: Base64FileData.make(bytes.toString("base64"))
+      data: CanonicalBase64ImageData.make(bytes.toString("base64"))
     }
   })

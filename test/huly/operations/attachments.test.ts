@@ -758,6 +758,21 @@ describe("readAttachmentContent", () => {
       })
     }))
 
+  it.effect("reports an empty image download as unavailable instead of throwing", () =>
+    Effect.gen(function*() {
+      const testLayer = createTestLayer({
+        attachments: [makeImageAttachment({ size: 0 })],
+        downloadFile: () => Effect.succeed(Buffer.alloc(0))
+      })
+
+      const error = yield* Effect.flip(
+        readAttachmentContent({ attachmentId: attachmentBrandId("att-image") }).pipe(Effect.provide(testLayer))
+      )
+
+      expect(error._tag).toBe("AttachmentContentUnavailableError")
+      expect(error.message).toContain("downloaded image data is empty")
+    }))
+
   it.effect("rejects unsupported image MIME types before download", () =>
     Effect.gen(function*() {
       const requested: Array<string> = []
