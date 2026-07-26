@@ -1818,6 +1818,80 @@ describe("2026 dispatcher null-id and routing branches", () => {
     expect(shouldDispatchMcp2026Request(req)).toBe(false)
   })
 
+  it.each(["2024-11-05", "2025-11-25"])(
+    "keeps Mcp-Method requests declaring legacy version %s on the SDK transport",
+    (protocolVersion) => {
+      const req = createMockRequest(
+        { jsonrpc: "2.0", method: "tools/list", id: 1 },
+        {
+          accept: "application/json, text/event-stream",
+          "mcp-method": "tools/list",
+          "mcp-protocol-version": protocolVersion
+        }
+      )
+
+      expect(shouldDispatchMcp2026Request(req)).toBe(false)
+    }
+  )
+
+  it("keeps legacy routing even when Mcp-Method disagrees with the request body", () => {
+    const req = createMockRequest(
+      { jsonrpc: "2.0", method: "tools/call", id: 1 },
+      {
+        accept: "application/json, text/event-stream",
+        "mcp-method": "tools/list",
+        "mcp-protocol-version": "2025-11-25"
+      }
+    )
+
+    expect(shouldDispatchMcp2026Request(req)).toBe(false)
+  })
+
+  it("routes explicit 2026 metadata to strict validation despite a legacy version header", async () => {
+    const headers = {
+      ...modernHeaders("tools/list"),
+      "mcp-protocol-version": "2025-11-25"
+    }
+    const { json } = await postRaw(
+      { jsonrpc: "2.0", method: "tools/list", id: 1, params: { _meta: modernMeta } },
+      headers
+    )
+
+    expect(json?.error).toMatchObject({
+      code: -32004,
+      message: "Unsupported protocol version",
+      data: { requested: "2025-11-25" }
+    })
+  })
+
+  it("keeps future-only discovery on strict validation despite a legacy version header", async () => {
+    const { json } = await postRaw(
+      { jsonrpc: "2.0", method: "server/discover", id: 1, params: { _meta: modernMeta } },
+      {
+        ...modernHeaders("server/discover"),
+        "mcp-protocol-version": "2025-11-25"
+      }
+    )
+
+    expect(json?.error).toMatchObject({
+      code: -32004,
+      message: "Unsupported protocol version",
+      data: { requested: "2025-11-25" }
+    })
+  })
+
+  it("strictly rejects Mcp-Method/body mismatch for explicit future requests", async () => {
+    const { json } = await postRaw(
+      { jsonrpc: "2.0", method: "tools/list", id: 1, params: { _meta: modernMeta } },
+      modernHeaders("tools/call")
+    )
+
+    expect(json?.error).toMatchObject({
+      code: -32001,
+      message: expect.stringContaining("does not match")
+    })
+  })
+
   it("does not dispatch a non-object request body", () => {
     const req = createMockRequest("not-a-record", {})
     expect(shouldDispatchMcp2026Request(req)).toBe(false)

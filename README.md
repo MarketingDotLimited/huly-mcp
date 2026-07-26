@@ -196,8 +196,8 @@ MCP_TRANSPORT=http MCP_HTTP_PORT=8080 MCP_HTTP_HOST=0.0.0.0 npx -y @firfi/huly-m
 
 The HTTP server supports both the existing SDK initialize-compatible Streamable HTTP flow and the 2026 stateless HTTP flow at the same `/mcp` endpoint. Dispatch is per request:
 
-- Requests with `MCP-Protocol-Version: 2026-07-28`, matching `_meta.io.modelcontextprotocol/protocolVersion`, or `server/discover` use the 2026 stateless dispatcher.
-- Requests without 2026 protocol signals continue through the SDK transport for compatibility with existing clients.
+- Requests with matching `_meta.io.modelcontextprotocol/protocolVersion`, `server/discover`, or an `Mcp-Method` header that does not also declare a legacy protocol version use the 2026 stateless dispatcher.
+- Requests that explicitly declare a non-2026 `MCP-Protocol-Version` continue through the SDK transport even when newer legacy clients send `Mcp-Method`.
 
 The 2026 path requires one JSON-RPC message per POST, `Accept: application/json, text/event-stream`, `Mcp-Method`, method-specific `Mcp-Name`, and per-request `_meta.io.modelcontextprotocol/*` client metadata. Huly credentials are still configured separately through env vars or supported `x-huly-*` headers.
 

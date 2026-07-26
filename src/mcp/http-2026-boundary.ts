@@ -187,15 +187,20 @@ const bodyMethod = (body: unknown): string | undefined => {
   return typeof requestMethod === "string" ? requestMethod : undefined
 }
 
-// A request is handled by the 2026 stateless dispatcher when it carries a signal the
-// legacy SDK Streamable HTTP transport never emits: the Mcp-Method routing header
-// (mandatory in the 2026 transport), a 2026 protocol version inside params._meta, or
-// the server/discover bootstrap call. We deliberately do NOT trigger on
-// MCP-Protocol-Version alone because the SDK client sends that header with its own
-// negotiated version, so routing on it would hijack legacy clients once the SDK
-// advertises 2026-07-28. The header is still required once dispatched.
+const declaresLegacyProtocolVersion = (req: Request): boolean => {
+  const protocolHeader = firstHeader(req.headers["mcp-protocol-version"])
+  return protocolHeader !== undefined && protocolHeader !== MCP_2026_PROTOCOL_VERSION
+}
+
+// A request is handled by the 2026 stateless dispatcher when it carries explicit
+// 2026 metadata, calls the future-only server/discover bootstrap, or supplies the
+// future routing header without also declaring a legacy protocol version. Newer SDK
+// Streamable HTTP clients can send Mcp-Method for legacy requests, so that header is
+// not independently authoritative when MCP-Protocol-Version explicitly says legacy.
+// Explicit 2026 metadata and future-only discovery still enter strict validation,
+// where a conflicting protocol header is rejected.
 export const shouldDispatchMcp2026Request = (req: Request): boolean =>
-  firstHeader(req.headers["mcp-method"]) !== undefined
+  (firstHeader(req.headers["mcp-method"]) !== undefined && !declaresLegacyProtocolVersion(req))
   || metaProtocolVersion(req.body) === MCP_2026_PROTOCOL_VERSION
   || bodyMethod(req.body) === "server/discover"
 

@@ -103,6 +103,7 @@ if [ "$INTEGRATION_TRANSPORT" = "http" ] && [ "$INTEGRATION_HTTP_CONFIG" = "head
 fi
 
 INIT='{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}'
+MCP_LEGACY_PROTOCOL_VERSION="2025-11-25"
 MCP_2026_META='{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"hulymcp-integration","version":"1.0"},"io.modelcontextprotocol/clientCapabilities":{}}'
 PROJECT="HULY"
 RUN_ID="$(date +%s)-$$"
@@ -380,12 +381,12 @@ call_tool_http() {
   local payload="$1"
   local response
   local request_payload="$payload"
+  local method
   local curl_args=(-sS --max-time "$TOOL_TIMEOUT" --config "$HTTP_CURL_CONFIG" --request POST)
+  method=$(printf '%s\n' "$request_payload" | jq -r '.method')
   if [ "$INTEGRATION_MCP_PROTOCOL" = "2026" ]; then
-    local method
     local name
     request_payload=$(printf '%s\n' "$payload" | jq -c --argjson meta "$MCP_2026_META" '.params = ((.params // {}) + {"_meta": $meta})')
-    method=$(printf '%s\n' "$request_payload" | jq -r '.method')
     name=$(printf '%s\n' "$request_payload" | jq -r 'if .method == "tools/call" then .params.name elif .method == "resources/read" then .params.uri else empty end')
     curl_args+=(
       --header "MCP-Protocol-Version: 2026-07-28"
@@ -394,6 +395,11 @@ call_tool_http() {
     if [ -n "$name" ]; then
       curl_args+=(--header "Mcp-Name: $name")
     fi
+  else
+    curl_args+=(
+      --header "MCP-Protocol-Version: $MCP_LEGACY_PROTOCOL_VERSION"
+      --header "Mcp-Method: $method"
+    )
   fi
   response=$(curl "${curl_args[@]}" --data "$request_payload" "$HTTP_ENDPOINT" 2>/dev/null)
   extract_http_json_response "$response" | grep '"id":2'
@@ -557,6 +563,28 @@ fail_test() {
   echo "FAIL: $name ($reason)"
   FAILED=$((FAILED + 1))
   ERRORS="${ERRORS}\n  - ${name}: ${reason}"
+}
+
+verify_legacy_http_tool_discovery() {
+  if [ "$INTEGRATION_TRANSPORT" != "http" ] || [ "$INTEGRATION_MCP_PROTOCOL" != "legacy" ]; then
+    return 0
+  fi
+
+  local response
+  local json
+  response=$(curl -sS --max-time "$TOOL_TIMEOUT" --config "$HTTP_CURL_CONFIG" --request POST \
+    --header "MCP-Protocol-Version: $MCP_LEGACY_PROTOCOL_VERSION" \
+    --header "Mcp-Method: tools/list" \
+    --data '{"jsonrpc":"2.0","method":"tools/list","id":1}' \
+    "$HTTP_ENDPOINT" 2>/dev/null)
+  json=$(extract_http_json_response "$response")
+  if printf '%s\n' "$json" | jq -e '.result.tools | length > 0' >/dev/null 2>&1; then
+    echo "PASS: legacy HTTP tools/list with Mcp-Method"
+    PASSED=$((PASSED + 1))
+    return 0
+  fi
+
+  fail_test "legacy HTTP tools/list with Mcp-Method" "no tool catalog returned"
 }
 
 # Like run_capture but does NOT count toward PASS/FAIL — used only for extracting data
@@ -956,6 +984,8 @@ echo "  Full Integration Test Suite"
 echo "  Project: $PROJECT | URL: $HULY_URL"
 echo "========================================="
 echo ""
+
+verify_legacy_http_tool_discovery
 
 ##############################
 # 1. PROJECTS

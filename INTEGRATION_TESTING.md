@@ -175,9 +175,9 @@ HULY_URL="${HULY_URL/localhost/host.docker.internal}" \
 
 By default, this starts `node dist/index.cjs` with `MCP_TRANSPORT=http` and lets the server resolve Huly credentials from process environment variables. This tests HTTP transport parity with local stdio configuration.
 
-The HTTP server supports both the existing SDK initialize-compatible request flow and the 2026 stateless request flow at the same `/mcp` endpoint. Dispatch is per request: 2026 requests use `MCP-Protocol-Version: 2026-07-28` and per-request `_meta`; requests without those 2026 signals continue through the SDK transport.
+The HTTP server supports both the existing SDK initialize-compatible request flow and the 2026 stateless request flow at the same `/mcp` endpoint. Dispatch is per request: explicit 2026 `_meta` and future-only `server/discover` use the strict stateless boundary. An `Mcp-Method` header also selects that boundary unless the request explicitly declares a non-2026 `MCP-Protocol-Version`; this preserves newer legacy SDK clients that send routing headers.
 
-`INTEGRATION_MCP_PROTOCOL=legacy|2026` is only a test harness switch for choosing which request shape the suite sends. It does not configure the server to support only one protocol mode. The HTTP suite defaults to `legacy` initialize-compatible MCP requests. To exercise the 2026 stateless HTTP path, add `INTEGRATION_MCP_PROTOCOL=2026`; the harness injects per-request `_meta`, `MCP-Protocol-Version`, `Mcp-Method`, and `Mcp-Name` headers:
+`INTEGRATION_MCP_PROTOCOL=legacy|2026` is only a test harness switch for choosing which request shape the suite sends. It does not configure the server to support only one protocol mode. The HTTP suite defaults to `legacy` MCP requests carrying `MCP-Protocol-Version: 2025-11-25` and `Mcp-Method`; it verifies tool discovery before exercising tool invocation. To exercise the 2026 stateless HTTP path, add `INTEGRATION_MCP_PROTOCOL=2026`; the harness injects per-request `_meta`, `MCP-Protocol-Version`, `Mcp-Method`, and `Mcp-Name` headers:
 
 ```bash
 pnpm build

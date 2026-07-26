@@ -286,6 +286,19 @@ interface InvokeToolClients {
   readonly workspaceClient?: WorkspaceClientOperations
 }
 
+const DeferredToolArgumentsJsonSchema = Schema.parseJson()
+
+/**
+ * Some deferred-tool clients serialize invoke_tool's schema-less arguments value.
+ * Decode that transport shape once here, immediately before target dispatch. Invalid
+ * JSON remains unchanged so the target schema reports the actual value it received.
+ */
+const normalizeDeferredToolArguments = (value: unknown): unknown => {
+  if (typeof value !== "string") return value
+  const decoded = Schema.decodeUnknownEither(DeferredToolArgumentsJsonSchema)(value)
+  return Either.isRight(decoded) ? decoded.right : value
+}
+
 const invokeTool = async (
   registry: ToolRegistry,
   args: unknown,
@@ -299,7 +312,7 @@ const invokeTool = async (
 
   const response = await registry.handleToolCall(
     params.toolName,
-    params.arguments,
+    normalizeDeferredToolArguments(params.arguments),
     clients.hulyClient,
     clients.storageClient,
     clients.workspaceClient

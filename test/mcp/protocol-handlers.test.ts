@@ -1501,6 +1501,68 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     })
   })
 
+  it("normalizes JSON-string invoke_tool arguments once at the proxy boundary", async () => {
+    const receivedArguments: Array<unknown> = []
+    const captureRegistry: ToolRegistry = {
+      ...diagnosticProbeRegistry,
+      handleToolCall: async (_toolName, args) => {
+        receivedArguments.push(args)
+        return createInvalidParamsError("captured target arguments", "CapturedArguments")
+      }
+    }
+    const clients = await buildStubClients()()
+    const structuredArguments = { subject: "structured invoke" }
+
+    await handleProxyToolCall({
+      toolName: makeToolName("invoke_tool"),
+      args: { toolName: "diagnostic_probe", arguments: structuredArguments },
+      proxyCandidateRegistry: captureRegistry,
+      clients
+    })
+    await handleProxyToolCall({
+      toolName: makeToolName("invoke_tool"),
+      args: { toolName: "diagnostic_probe", arguments: "{\"subject\":\"stringified invoke\"}" },
+      proxyCandidateRegistry: captureRegistry,
+      clients
+    })
+    await handleProxyToolCall({
+      toolName: makeToolName("invoke_tool"),
+      args: { toolName: "diagnostic_probe", arguments: "\"{\\\"subject\\\":\\\"nested string\\\"}\"" },
+      proxyCandidateRegistry: captureRegistry,
+      clients
+    })
+
+    expect(assertAt(receivedArguments, 0)).toBe(structuredArguments)
+    expect(assertAt(receivedArguments, 1)).toEqual({ subject: "stringified invoke" })
+    expect(assertAt(receivedArguments, 2)).toBe("{\"subject\":\"nested string\"}")
+  })
+
+  it("lets malformed deferred invoke_tool arguments fail against the target schema", async () => {
+    const handlers = createMcpProtocolHandlers(
+      buildStubClients(),
+      createTelemetryProbe().telemetry,
+      protocolRegistries(diagnosticProbeRegistry),
+      makeValidContext,
+      liveNowClock,
+      () => Promise.resolve("0.0.0"),
+      proxyExposureOptions()
+    )
+
+    const response = await handlers.callTool({
+      params: {
+        name: "invoke_tool",
+        arguments: {
+          toolName: "diagnostic_probe",
+          arguments: "{\"subject\":"
+        }
+      }
+    })
+
+    expect(response.isError).toBe(true)
+    expect(firstText(response.content)).toContain("diagnostic_probe")
+    expect(firstText(response.content)).toContain("Expected")
+  })
+
   it("passes workspace clients into proxy invocation when available", async () => {
     const handlers = createMcpProtocolHandlers(
       buildStubClientsWithWorkspace(),
