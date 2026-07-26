@@ -1098,6 +1098,8 @@ describe("Huly Errors", () => {
               return `notif-person-space:${error.user}`
             case "NotificationTypeNotFoundError":
               return `notiftype:${error.typeId}`
+            case "NotificationProviderNotFoundError":
+              return `notif-provider:${error.providerId}`
             case "NotificationProviderNotConfigurableError":
               return `notif-provider-not-configurable:${error.providerId}:${error.typeId}`
             case "InvalidPersonUuidError":

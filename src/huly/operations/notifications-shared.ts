@@ -8,7 +8,11 @@ import { Effect } from "effect"
 import type { DocNotifyContextSummary } from "../../domain/schemas.js"
 import { DocId, NotificationContextId, ObjectClassName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
-import { NotificationContextNotFoundError, NotificationNotFoundError } from "../errors.js"
+import {
+  NotificationContextNotFoundError,
+  NotificationNotFoundError,
+  type NotificationProviderNotFoundError
+} from "../errors.js"
 import { notification } from "../huly-plugins.js"
 import { findOneOrFail, hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
@@ -55,7 +59,9 @@ export type HideNotificationContextError =
 
 export type ListNotificationSettingsError = HulyClientError
 
-export type UpdateNotificationProviderSettingError = HulyClientError
+export type UpdateNotificationProviderSettingError =
+  | HulyClientError
+  | NotificationProviderNotFoundError
 
 export type MarkAllNotificationsReadError = HulyClientError
 

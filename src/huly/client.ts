@@ -712,7 +712,7 @@ const connectRest = async (
   const restClient = sdk.createRestClient(endpoint, workspaceId, token)
   const account = await restClient.getAccount()
 
-  const client = await sdk.createRestTxOperations(endpoint, workspaceId, token)
+  const client = await sdk.createRestTxOperations(endpoint, workspaceId, token, true)
   const { imageUrl, ops: markupOps, refUrl } = createMarkupOps(
     config.url,
     workspaceId,

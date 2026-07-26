@@ -60,6 +60,17 @@ export class NotificationTypeNotFoundError extends Schema.TaggedError<Notificati
   }
 }
 
+export class NotificationProviderNotFoundError extends Schema.TaggedError<NotificationProviderNotFoundError>()(
+  "NotificationProviderNotFoundError",
+  {
+    providerId: RawErrorIdentifier
+  }
+) {
+  override get message(): string {
+    return `Notification provider '${this.providerId}' not found`
+  }
+}
+
 export class NotificationProviderNotConfigurableError
   extends Schema.TaggedError<NotificationProviderNotConfigurableError>()(
     "NotificationProviderNotConfigurableError",

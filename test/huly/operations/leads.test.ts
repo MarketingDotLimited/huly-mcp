@@ -464,7 +464,7 @@ describe("Lead Operations", () => {
         expect(warnings).toEqual([])
       }))
 
-    it.effect("uses ref-derived lead status names when both status lookups miss", () =>
+    it.effect("propagates a server connection failure when model status metadata is unavailable", () =>
       Effect.gen(function*() {
         const lead = makeLead({ status: statusRef("plainstatus") })
         const diagnostics = yield* makeDiagnosticsScope
@@ -474,15 +474,16 @@ describe("Lead Operations", () => {
           statusQueryError: new HulyConnectionError({ message: "status lookup failed" })
         })
 
-        const result = yield* listLeads({ funnel: funnelReference("funnel-1") }).pipe(
-          Effect.provide(testLayer),
-          Effect.provideService(Diagnostics, diagnostics.service)
+        const error = yield* Effect.flip(
+          listLeads({ funnel: funnelReference("funnel-1") }).pipe(
+            Effect.provide(testLayer),
+            Effect.provideService(Diagnostics, diagnostics.service)
+          )
         )
         const warnings = yield* diagnostics.drainWarnings
 
-        expect(assertAt(result, 0).status).toBe("plainstatus")
-        expect(warnings).toHaveLength(1)
-        expect(assertAt(warnings, 0).code).toBe("status_metadata_unresolved")
+        expect(error._tag).toBe("HulyConnectionError")
+        expect(warnings).toEqual([])
       }))
 
     it.effect("fails with FunnelNotFoundError when funnel does not exist", () =>

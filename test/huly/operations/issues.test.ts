@@ -1170,11 +1170,11 @@ describe("getIssue", () => {
           { title: "bug", color: 8 },
           { title: "No Color" }
         ])
-        expect(warnings).toHaveLength(1)
-        expect(assertAt(warnings, 0).code).toBe("issue_label_metadata_degraded")
-        expect(assertAt(warnings, 0).message).toContain("1 malformed attachment")
-        expect(assertAt(warnings, 0).message).toContain("1 missing or malformed title")
-        expect(assertAt(warnings, 0).message).toContain("2 invalid color(s)")
+        const labelWarning = warnings.find((warning) => warning.code === "issue_label_metadata_degraded")
+        expect(labelWarning).toBeDefined()
+        expect(labelWarning?.message).toContain("1 malformed attachment")
+        expect(labelWarning?.message).toContain("1 missing or malformed title")
+        expect(labelWarning?.message).toContain("2 invalid color(s)")
       }))
   })
 

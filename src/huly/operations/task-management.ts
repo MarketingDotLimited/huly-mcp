@@ -129,7 +129,7 @@ const uniqueProjectStatuses = (statuses: ReadonlyArray<ProjectStatus>): Array<Pr
 const getStatusDocs = (
   client: HulyClientOperations,
   statusIds: ReadonlyArray<Ref<Status>>
-): Effect.Effect<ReadonlyArray<Status>, never, Diagnostics> =>
+): Effect.Effect<ReadonlyArray<Status>, HulyClientError, Diagnostics> =>
   statusIds.length === 0
     ? Effect.succeed([])
     : findStatusDocs(client, statusIds)

@@ -2,11 +2,11 @@ import type { Ref, Status, StatusCategory, WithLookup } from "@hcengineering/cor
 import type { ProjectType } from "@hcengineering/task"
 import type { Issue as HulyIssue, Project as HulyProject } from "@hcengineering/tracker"
 import { IssuePriority } from "@hcengineering/tracker"
-import { Effect } from "effect"
+import { Effect, Either, Schema } from "effect"
 
 import type { IssuePriority as IssuePriorityStr } from "../../domain/schemas/issues.js"
 import type { NonNegativeNumber } from "../../domain/schemas/shared.js"
-import { PositiveNumber } from "../../domain/schemas/shared.js"
+import { IssueStatusId, NonEmptyString, PositiveNumber } from "../../domain/schemas/shared.js"
 import {
   StatusCategoryEntries,
   type StatusCategoryValue,
@@ -19,6 +19,7 @@ import { Diagnostics } from "../diagnostics.js"
 import { InvalidStatusError, IssueNotFoundError, ProjectNotFoundError } from "../errors.js"
 import { core, task, tracker } from "../huly-plugins.js"
 import { findOneOrFail, hulyQuery } from "./query-helpers.js"
+import { toRef } from "./sdk-boundary.js"
 
 // Huly API uses 0 as sentinel for "not set" on numeric fields like estimation and remainingTime.
 // Confirmed: creating an issue without estimation stores 0, not null/undefined.
@@ -54,6 +55,41 @@ export type WorkflowStatus = {
   _id: Ref<Status>
   name: string
   category: StatusCategoryValue
+}
+
+const WorkflowStatusBoundarySchema = Schema.Struct({
+  _id: IssueStatusId,
+  name: NonEmptyString,
+  category: Schema.optional(Schema.String)
+}).annotations({
+  title: "WorkflowStatusBoundary",
+  description: "Huly model-space workflow status fields consumed by tracker operations."
+})
+type WorkflowStatusBoundary = Schema.Schema.Type<typeof WorkflowStatusBoundarySchema>
+
+interface ParsedStatusRows {
+  readonly statuses: ReadonlyArray<Status>
+  readonly invalidRows: number
+}
+
+const statusFromBoundary = (status: WorkflowStatusBoundary): Status => ({
+  _id: toRef(status._id),
+  _class: core.class.Status,
+  space: core.space.Model,
+  modifiedOn: 0,
+  modifiedBy: core.account.System,
+  ofAttribute: tracker.attribute.IssueStatus,
+  name: status.name,
+  ...(status.category === undefined || status.category.length === 0 ? {} : { category: toRef(status.category) })
+})
+
+const parseStatusRows = (rows: ReadonlyArray<unknown>): ParsedStatusRows => {
+  const decode = Schema.decodeUnknownEither(WorkflowStatusBoundarySchema)
+  const parsed = rows.map((row) => decode(row))
+  return {
+    statuses: parsed.flatMap((row) => Either.isRight(row) ? [statusFromBoundary(row.right)] : []),
+    invalidRows: parsed.filter(Either.isLeft).length
+  }
 }
 
 const statusCategoryValueFromRef = (
@@ -118,53 +154,104 @@ const workflowStatusesFromDocsOrRefs = (
   statusDocs: ReadonlyArray<Status>
 ): Array<WorkflowStatus> => resolveByStatusRef(statusRefs, statusDocs, workflowStatusFromDoc, workflowStatusFromRef)
 
+type StatusLookupResult =
+  | {
+    readonly _tag: "Success"
+    readonly parsed: ParsedStatusRows
+  }
+  | {
+    readonly _tag: "Failure"
+    readonly error: HulyClientError
+  }
+
+const statusLookupResult = (
+  lookup: Effect.Effect<ReadonlyArray<Status>, HulyClientError>
+): Effect.Effect<StatusLookupResult> =>
+  lookup.pipe(Effect.match({
+    onFailure: (error) => ({ _tag: "Failure" as const, error }),
+    onSuccess: (rows) => ({ _tag: "Success" as const, parsed: parseStatusRows(rows) })
+  }))
+
+const statusDocsFromLookup = (result: StatusLookupResult): ReadonlyArray<Status> =>
+  result._tag === "Success" ? uniqueStatusDocs(result.parsed.statuses) : []
+
+const modelStatusState = (result: StatusLookupResult, docs: ReadonlyArray<Status>): string => {
+  if (result._tag === "Failure") return `model connection failure (${result.error.message})`
+  return docs.length === 0 ? "model metadata unavailable" : "partial model metadata"
+}
+
+const warnInvalidAuthoritativeStatuses = (
+  diagnostics: Diagnostics["Type"],
+  invalidRows: number
+): Effect.Effect<void> =>
+  invalidRows === 0
+    ? Effect.void
+    : diagnostics.warnAgent({
+      code: StatusMetadataUnresolvedWarningCode,
+      message: `${invalidRows} authoritative workflow status row(s) failed Effect Schema parsing `
+        + "and were omitted. Returned statuses are authoritative for requested refs, but the model data needs repair."
+    })
+
+const warnStatusCompatibilityResult = (
+  diagnostics: Diagnostics["Type"],
+  modelResult: StatusLookupResult,
+  modelDocs: ReadonlyArray<Status>,
+  remoteDocs: ReadonlyArray<Status>,
+  unresolvedRefs: ReadonlyArray<Ref<Status>>
+): Effect.Effect<void> => {
+  if (unresolvedRefs.length === 0) {
+    return diagnostics.warnAgent({
+      code: StatusMetadataUnresolvedWarningCode,
+      message: `Authoritative model-space workflow status metadata was incomplete; ${remoteDocs.length} status ref(s) `
+        + "were resolved through the server compatibility fallback. Use the returned IDs, names, and categories, "
+        + "and upgrade Huly or inspect its loaded model if this warning persists."
+    })
+  }
+  const remoteState = remoteDocs.length === 0 ? "server metadata unavailable" : "partial server metadata"
+  return diagnostics.warnAgent({
+    code: StatusMetadataUnresolvedWarningCode,
+    message: `Huly did not return metadata for ${unresolvedRefs.length} workflow status ref(s). `
+      + `The tool result uses ref-derived status names and category "${UnknownStatusCategoryValue}" for those statuses; `
+      + `do not infer completion or cancellation semantics from those fallback names. `
+      + `Authoritative source: ${modelStatusState(modelResult, modelDocs)}; compatibility source: ${remoteState}.`
+  })
+}
+
 export const findStatusDocs = (
   client: HulyClient["Type"],
   statusRefs: ReadonlyArray<Ref<Status>>
-): Effect.Effect<ReadonlyArray<Status>, never, Diagnostics> =>
+): Effect.Effect<ReadonlyArray<Status>, HulyClientError, Diagnostics> =>
   Effect.gen(function*() {
     const diagnostics = yield* Diagnostics
-
-    const remoteResult = yield* Effect.either(
-      client.findAll<Status>(
+    const modelResult = yield* statusLookupResult(
+      client.findAllInModel<Status>(
         core.class.Status,
         hulyQuery<Status>({ _id: { $in: [...statusRefs] } })
       )
     )
-
-    const remoteDocs = remoteResult._tag === "Right" ? uniqueStatusDocs(remoteResult.right) : []
-    const unresolvedRefs = missingStatusRefs(statusRefs, remoteDocs)
-    if (unresolvedRefs.length === 0) {
-      return remoteDocs
+    const modelDocs = statusDocsFromLookup(modelResult)
+    const unresolvedAfterModel = missingStatusRefs(statusRefs, modelDocs)
+    if (unresolvedAfterModel.length === 0) {
+      if (modelResult._tag === "Success") {
+        yield* warnInvalidAuthoritativeStatuses(diagnostics, modelResult.parsed.invalidRows)
+      }
+      return modelDocs
     }
 
-    const modelResult = yield* Effect.either(
-      client.findAllInModel<Status>(
+    const remoteResult = yield* statusLookupResult(
+      client.findAll<Status>(
         core.class.Status,
-        hulyQuery<Status>({ _id: { $in: unresolvedRefs } })
+        hulyQuery<Status>({ _id: { $in: unresolvedAfterModel } })
       )
     )
-
-    const modelDocs = modelResult._tag === "Right" ? uniqueStatusDocs(modelResult.right) : []
-    const combinedDocs = uniqueStatusDocs([...remoteDocs, ...modelDocs])
+    if (remoteResult._tag === "Failure") {
+      return yield* Effect.fail(remoteResult.error)
+    }
+    const remoteDocs = statusDocsFromLookup(remoteResult)
+    const combinedDocs = uniqueStatusDocs([...modelDocs, ...remoteDocs])
     const stillUnresolvedRefs = missingStatusRefs(statusRefs, combinedDocs)
 
-    if (stillUnresolvedRefs.length > 0) {
-      const remoteError = remoteResult._tag === "Left" ? ` Remote error: ${remoteResult.left.message}` : ""
-      const modelError = modelResult._tag === "Left" ? ` Model error: ${modelResult.left.message}` : ""
-      yield* diagnostics.warnAgent({
-        code: StatusMetadataUnresolvedWarningCode,
-        message: `Huly did not return metadata for ${stillUnresolvedRefs.length} workflow status ref(s). `
-          + `The tool result uses ref-derived status names and category "${UnknownStatusCategoryValue}" for those statuses; `
-          + `do not infer completion or cancellation semantics from those fallback names.${remoteError}${modelError}`
-      })
-    } else if (remoteResult._tag === "Left") {
-      yield* diagnostics.trail(
-        `Server status metadata lookup failed, but the local Huly model resolved all requested workflow statuses. `
-          + `Remote error: ${remoteResult.left.message}`
-      )
-    }
-
+    yield* warnStatusCompatibilityResult(diagnostics, modelResult, modelDocs, remoteDocs, stillUnresolvedRefs)
     return combinedDocs
   })
 

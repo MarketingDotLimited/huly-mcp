@@ -11,6 +11,7 @@ import type {
 import { Effect } from "effect"
 import { expect } from "vitest"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
+import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
 import type { NotificationContextNotFoundError, NotificationNotFoundError } from "../../../src/huly/errors.js"
 import { notification } from "../../../src/huly/huly-plugins.js"
 import {
@@ -970,6 +971,7 @@ describe("listNotificationSettings", () => {
 describe("updateNotificationProviderSetting", () => {
   it.effect("updates existing setting when value changes", () =>
     Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
       const setting = makeNotificationSetting({
         _id: "setting-1" as Ref<HulyNotificationProviderSetting>,
         attachedTo: "provider-inbox" as Ref<NotificationProvider>,
@@ -982,7 +984,7 @@ describe("updateNotificationProviderSetting", () => {
       const result = yield* updateNotificationProviderSetting({
         providerId: notificationProviderId("provider-inbox"),
         enabled: false
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(testLayer), Effect.provideService(Diagnostics, diagnostics.service))
 
       expect(result.providerId).toBe("provider-inbox")
       expect(result.enabled).toBe(false)
@@ -992,6 +994,7 @@ describe("updateNotificationProviderSetting", () => {
 
   it.effect("returns updated=false when existing setting value matches", () =>
     Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
       const setting = makeNotificationSetting({
         _id: "setting-1" as Ref<HulyNotificationProviderSetting>,
         attachedTo: "provider-inbox" as Ref<NotificationProvider>,
@@ -1004,7 +1007,7 @@ describe("updateNotificationProviderSetting", () => {
       const result = yield* updateNotificationProviderSetting({
         providerId: notificationProviderId("provider-inbox"),
         enabled: true
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(testLayer), Effect.provideService(Diagnostics, diagnostics.service))
 
       expect(result.providerId).toBe("provider-inbox")
       expect(result.enabled).toBe(true)
@@ -1014,12 +1017,13 @@ describe("updateNotificationProviderSetting", () => {
 
   it.effect("returns updated=false when setting does not exist", () =>
     Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
       const testLayer = createTestLayerWithMocks({ settings: [] })
 
       const result = yield* updateNotificationProviderSetting({
         providerId: notificationProviderId("nonexistent-provider"),
         enabled: true
-      }).pipe(Effect.provide(testLayer))
+      }).pipe(Effect.provide(testLayer), Effect.provideService(Diagnostics, diagnostics.service))
 
       expect(result.providerId).toBe("nonexistent-provider")
       expect(result.enabled).toBe(true)

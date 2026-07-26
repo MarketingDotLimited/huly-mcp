@@ -17,6 +17,7 @@ import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.
 import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
 import { HulyConnectionError } from "../../../src/huly/errors.js"
 import { core, task, tracker } from "../../../src/huly/huly-plugins.js"
+import { chooseStatusForTaskType, resolveTaskTypeWorkflow } from "../../../src/huly/operations/issues-write-shared.js"
 import { createIssue, updateIssue } from "../../../src/huly/operations/issues.js"
 import { email, issueIdentifier, projectIdentifier, statusName } from "../../helpers/brands.js"
 import { withDiagnostics } from "../../helpers/diagnostics.js"
@@ -30,6 +31,7 @@ const issueOpenStatusId = ref<Status>("status-issue-open")
 const issueReviewStatusId = ref<Status>("status-issue-review")
 const bugOpenStatusId = ref<Status>("status-bug-open")
 const bugReviewStatusId = ref<Status>("status-bug-review")
+const orphanStatusId = ref<Status>("status-orphan")
 
 // Huly SDK refs and fixture documents are branded at compile time only. Tests use
 // stable string IDs, and brands are erased at runtime.
@@ -375,6 +377,25 @@ describe("issue write task type support", () => {
       expect(assertAt(captures.addCollections, 0).attributes.status).toBe(bugOpenStatusId)
     }))
 
+  it.effect("preserves the project default when it belongs to the selected task type", () =>
+    Effect.gen(function*() {
+      const captures: Captures = { addCollections: [], updates: [] }
+
+      yield* createIssue({
+        project: projectIdentifier("TEST"),
+        title: "Bug with project default",
+        taskType: TaskTypeRefSchema.make("Bug")
+      }).pipe(
+        Effect.provide(createLayer({
+          captures,
+          project: makeProject({ defaultIssueStatus: bugReviewStatusId })
+        })),
+        withDiagnostics
+      )
+
+      expect(assertAt(captures.addCollections, 0).attributes.status).toBe(bugReviewStatusId)
+    }))
+
   it.effect("rejects a status that exists in the project but not on the selected task type", () =>
     Effect.gen(function*() {
       const captures: Captures = { addCollections: [], updates: [] }
@@ -492,7 +513,8 @@ describe("issue write task type support", () => {
         createIssue({
           project: projectIdentifier("TEST"),
           title: "No task type status",
-          taskType: TaskTypeRefSchema.make("No Status")
+          taskType: TaskTypeRefSchema.make("No Status"),
+          status: statusName("Missing")
         }).pipe(
           Effect.provide(
             createLayer({
@@ -513,11 +535,34 @@ describe("issue write task type support", () => {
 
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") {
-        expect(result.left.message).toContain("has no valid status")
+        expect(result.left.message).toContain("Valid statuses for this task type")
       }
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
     }))
+
+  it.effect("reports raw configured status IDs when parsed task type status metadata is unavailable", () =>
+    Effect.gen(function*() {
+      const client = yield* HulyClient
+      const project = makeProject()
+      const projectType = makeProjectType({ tasks: [noStatusTaskTypeId] })
+      const workflow = yield* resolveTaskTypeWorkflow(
+        client,
+        project,
+        projectType,
+        [],
+        TaskTypeRefSchema.make("No Status"),
+        projectIdentifier("TEST")
+      )
+      const error = yield* Effect.flip(
+        chooseStatusForTaskType(workflow, statusName("Missing"), undefined, projectIdentifier("TEST"))
+      )
+
+      expect(error.message).toContain(`Valid statuses for this task type: ${orphanStatusId}`)
+    }).pipe(Effect.provide(createLayer({
+      projectType: makeProjectType({ tasks: [noStatusTaskTypeId] }),
+      taskTypes: [makeTaskType({ _id: noStatusTaskTypeId, name: "No Status", statuses: [orphanStatusId] })]
+    }))))
 
   it.effect("rejects a project status before incrementing the project sequence", () =>
     Effect.gen(function*() {

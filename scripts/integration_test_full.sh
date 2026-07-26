@@ -3282,6 +3282,24 @@ run_test "list_notification_contexts(includeHidden)" \
   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_notification_contexts","arguments":{"limit":3,"includeHidden":true}},"id":2}'
 run_test "list_notification_settings" \
   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_notification_settings","arguments":{}},"id":2}'
+for METADATA_TOOL in list_notification_providers list_notification_types; do
+  METADATA_RESULT=""
+  if run_result_to_var METADATA_RESULT "$METADATA_TOOL(model-backed)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"$METADATA_TOOL\",\"arguments\":{}},\"id\":2}"; then
+    if printf '%s\n' "$METADATA_RESULT" | jq -e '
+      ((.structuredContent.warnings? // []) | length == 0)
+      and ([.content[]? | select((.text | fromjson? | has("warnings")) == true)] | length == 0)
+      and ((.content[0].text | fromjson | length) > 0)
+    ' >/dev/null 2>&1; then
+      echo "PASS: $METADATA_TOOL resolves authoritative model metadata without warnings"
+      PASSED=$((PASSED + 1))
+    else
+      echo "FAIL: $METADATA_TOOL returned empty or degraded model metadata"
+      FAILED=$((FAILED + 1))
+      ERRORS="${ERRORS}\n  - $METADATA_TOOL: empty or degraded model metadata"
+    fi
+  fi
+done
 # mark_all_notifications_read, archive_all_notifications, delete_notification,
 # update_notification_provider_setting — all require existing notifications, skipped if none
 NOTIF_TEXT=$(run_capture_only \

@@ -231,7 +231,8 @@ describe("task management operations", () => {
           failStatusLookup: true,
           modelStatuses: [
             makeStatus({ _id: openStatusId, name: "Todo", category: task.statusCategory.ToDo }),
-            makeStatus({ _id: doneStatusId, name: "Done", category: task.statusCategory.Won })
+            makeStatus({ _id: doneStatusId, name: "Done", category: task.statusCategory.Won }),
+            makeStatus({ _id: doneStatusId, name: "" })
           ]
         })),
         Effect.provideService(Diagnostics, diagnostics.service)
@@ -242,7 +243,8 @@ describe("task management operations", () => {
         ["Todo", "ToDo"],
         ["Done", "Won"]
       ])
-      expect(warnings).toEqual([])
+      expect(warnings).toHaveLength(1)
+      expect(assertAt(warnings, 0).message).toContain("failed Effect Schema parsing")
     }))
 
   it.effect("synthesizes unresolved project type statuses without dangling task type status ids", () =>
@@ -260,7 +262,6 @@ describe("task management operations", () => {
       const result = yield* getProjectType({ projectType: ProjectTypeRefSchema.make("classic") }).pipe(
         Effect.provide(
           createLayer({
-            failStatusLookup: true,
             projectTypes: [projectType],
             statuses: [],
             taskTypes: [taskType]

@@ -24,8 +24,9 @@ import { Effect } from "effect"
 import { expect } from "vitest"
 import { Timestamp } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
-import type { InvalidStatusError, PersonNotFoundError } from "../../../src/huly/errors.js"
+import { HulyConnectionError, type InvalidStatusError, type PersonNotFoundError } from "../../../src/huly/errors.js"
 import { contact, core, task, tracker } from "../../../src/huly/huly-plugins.js"
+import { findStatusDocs } from "../../../src/huly/operations/issues-shared.js"
 import { createIssue, getIssue, listIssues, updateIssue } from "../../../src/huly/operations/issues.js"
 import { assertAt, assertExists } from "../../../src/utils/assertions.js"
 import { componentIdentifier, email, issueIdentifier, projectIdentifier, statusName } from "../../helpers/brands.js"
@@ -370,6 +371,21 @@ const createTestLayerWithMocks = (config: MockConfig) => {
 }
 
 describe("Issues Coverage - resolveStatusName", () => {
+  it.effect("reports model connection failure when neither metadata source resolves a status", () =>
+    Effect.gen(function*() {
+      const testLayer = HulyClient.testLayer({
+        findAllInModel: () => Effect.fail(new HulyConnectionError({ message: "model offline" })),
+        findAll: () => Effect.succeed(toFindResult([]))
+      })
+
+      const result = yield* Effect.gen(function*() {
+        const client = yield* HulyClient
+        return yield* findStatusDocs(client, ["status-missing" as Ref<Status>])
+      }).pipe(Effect.provide(testLayer), withDiagnostics)
+
+      expect(result).toEqual([])
+    }))
+
   it.effect("returns Unknown for unresolvable status ID", () =>
     Effect.gen(function*() {
       const project = makeProject({ identifier: "TEST" })
@@ -824,7 +840,7 @@ describe("Issues Coverage - listIssues parent and summary branches", () => {
       expect(assertAt(result, 0).subIssues).toBe(3)
     }))
 
-  it.effect("maps invalid listed issue data to HulyConnectionError", () =>
+  it.effect("omits malformed status metadata and uses a stable ref-derived status name", () =>
     Effect.gen(function*() {
       const project = makeProject({ identifier: "TEST" })
       const issue = makeIssue()
@@ -836,12 +852,12 @@ describe("Issues Coverage - listIssues parent and summary branches", () => {
         statuses
       })
 
-      const error = yield* Effect.flip(
-        listIssues({ project: projectIdentifier("TEST") }).pipe(Effect.provide(testLayer), withDiagnostics)
+      const result = yield* listIssues({ project: projectIdentifier("TEST") }).pipe(
+        Effect.provide(testLayer),
+        withDiagnostics
       )
 
-      expect(error._tag).toBe("HulyConnectionError")
-      expect(error.message).toContain("listIssues response failed schema validation")
+      expect(assertAt(result, 0).status).toBe("status-open")
     }))
 })
 
@@ -1626,7 +1642,7 @@ describe("Issues Coverage - getIssue detail branches", () => {
       expect(error._tag).toBe("IssueNotFoundError")
     }))
 
-  it.effect("maps invalid issue details to HulyConnectionError", () =>
+  it.effect("uses a stable ref-derived status name when issue status metadata is malformed", () =>
     Effect.gen(function*() {
       const project = makeProject({ identifier: "TEST" })
       const issue = makeIssue({
@@ -1641,14 +1657,11 @@ describe("Issues Coverage - getIssue detail branches", () => {
         statuses
       })
 
-      const error = yield* Effect.flip(
-        getIssue({
-          project: projectIdentifier("TEST"),
-          identifier: issueIdentifier("TEST-1")
-        }).pipe(Effect.provide(testLayer), withDiagnostics)
-      )
+      const result = yield* getIssue({
+        project: projectIdentifier("TEST"),
+        identifier: issueIdentifier("TEST-1")
+      }).pipe(Effect.provide(testLayer), withDiagnostics)
 
-      expect(error._tag).toBe("HulyConnectionError")
-      expect(error.message).toContain("getIssue response failed schema validation")
+      expect(result.status).toBe("status-open")
     }))
 })

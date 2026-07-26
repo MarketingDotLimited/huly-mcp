@@ -233,11 +233,13 @@ const orderedStatusIdsForTaskType = (
   return uniqueStatusRefs(scoped.length > 0 ? scoped : projectType.statuses.map((status) => status._id))
 }
 
+// Workflow metadata transport failures remain typed connection failures; callers must not
+// reinterpret them as an invalid board status identifier.
 const getBoardWorkflowStatuses = (
   client: HulyClient["Type"],
   projectType: ProjectType,
   taskType: TaskType
-): Effect.Effect<ReadonlyArray<BoardWorkflowStatus>, never, Diagnostics> =>
+): Effect.Effect<ReadonlyArray<BoardWorkflowStatus>, HulyClientError, Diagnostics> =>
   Effect.gen(function*() {
     const statusIds = orderedStatusIdsForTaskType(projectType, taskType)
     const statusDocs = statusIds.length === 0 ? [] : yield* findStatusDocs(client, statusIds)
@@ -255,7 +257,11 @@ export const resolveBoardStatus = (
   projectType: ProjectType,
   taskType: TaskType,
   statusRef: string | undefined
-): Effect.Effect<BoardWorkflowStatus, BoardStatusNotFoundError | BoardStatusIdentifierAmbiguousError, Diagnostics> =>
+): Effect.Effect<
+  BoardWorkflowStatus,
+  HulyClientError | BoardStatusNotFoundError | BoardStatusIdentifierAmbiguousError,
+  Diagnostics
+> =>
   Effect.gen(function*() {
     const statuses = yield* getBoardWorkflowStatuses(client, projectType, taskType)
     const matches = statusRef === undefined

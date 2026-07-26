@@ -139,6 +139,8 @@ const INVALID_PARAMS_TAGS: ReadonlySet<HulyDomainError["_tag"]> = new Set<HulyDo
   "NotificationNotFoundError",
   "NotificationContextNotFoundError",
   "NotificationPersonSpaceNotFoundError",
+  "NotificationProviderNotFoundError",
+  "NotificationTypeNotFoundError",
   "InvalidPersonUuidError",
   "FunnelNotFoundError",
   "LeadNotFoundError",

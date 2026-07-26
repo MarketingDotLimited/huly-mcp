@@ -1,5 +1,5 @@
 import type { Class, Collaborator as HulyCollaborator, Doc, Ref, Space } from "@hcengineering/core"
-import { generateId, SortingOrder } from "@hcengineering/core"
+import { generateId } from "@hcengineering/core"
 import type {
   InboxNotification as HulyInboxNotification,
   NotificationProvider,
@@ -9,7 +9,6 @@ import type {
 } from "@hcengineering/notification"
 import { Effect } from "effect"
 
-import { DisplayText, NotificationFieldName, NotificationProviderOrder } from "../../domain/schemas/domain-values.js"
 import type {
   ArchiveNotificationContextParams,
   ArchiveNotificationContextResult,
@@ -33,104 +32,68 @@ import {
   ObjectClassName
 } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import type { NotificationContextNotFoundError } from "../errors.js"
-import { HulyError, NotificationProviderNotConfigurableError, NotificationTypeNotFoundError } from "../errors.js"
+import type { Diagnostics } from "../diagnostics.js"
+import { HulyError, NotificationProviderNotConfigurableError } from "../errors.js"
+import type {
+  NotificationContextNotFoundError,
+  NotificationProviderNotFoundError,
+  NotificationTypeNotFoundError
+} from "../errors.js"
 import { core, notification } from "../huly-plugins.js"
+import {
+  loadNotificationProviders,
+  loadNotificationTypes,
+  requireNotificationProviderId,
+  requireNotificationTypeId
+} from "./notification-metadata.js"
 import { findNotificationContext } from "./notifications-shared.js"
-import { clampLimit, hulyQuery, type StrictDocumentQuery } from "./query-helpers.js"
+import { clampLimit, hulyQuery } from "./query-helpers.js"
 import { toClassRef, toRef } from "./sdk-boundary.js"
 
 type UpdateNotificationTypeSettingError =
   | HulyClientError
   | NotificationTypeNotFoundError
+  | NotificationProviderNotFoundError
   | NotificationProviderNotConfigurableError
 
 type ArchiveNotificationContextError = HulyClientError | NotificationContextNotFoundError
 
 type ObjectNotificationSubscriptionError = HulyClientError | HulyError
 
-const intlStringToDisplayText = (value: unknown): DisplayText | undefined =>
-  typeof value === "string" && value.length > 0 ? DisplayText.make(value) : undefined
-
-const toNotificationProviderSummary = (provider: NotificationProvider): NotificationProviderSummary => ({
-  id: NotificationProviderId.make(provider._id),
-  label: intlStringToDisplayText(provider.label),
-  description: intlStringToDisplayText(provider.description),
-  defaultEnabled: provider.defaultEnabled,
-  canDisable: provider.canDisable,
-  order: NotificationProviderOrder.make(provider.order),
-  depends: provider.depends === undefined ? undefined : NotificationProviderId.make(provider.depends)
-})
-
-const toNotificationTypeSummary = (type: HulyNotificationType): NotificationType => ({
-  id: NotificationTypeId.make(type._id),
-  label: intlStringToDisplayText(type.label),
-  generated: type.generated,
-  hidden: type.hidden,
-  defaultEnabled: type.defaultEnabled,
-  group: DocId.make(type.group),
-  objectClass: ObjectClassName.make(type.objectClass),
-  onlyOwn: type.onlyOwn,
-  attachedToClass: type.attachedToClass === undefined ? undefined : ObjectClassName.make(type.attachedToClass),
-  field: type.field === undefined ? undefined : NotificationFieldName.make(type.field),
-  spaceSubscribe: type.spaceSubscribe,
-  allowedForAuthor: type.allowedForAuthor
-})
-
 export const listNotificationProviders = (
   params: ListNotificationProvidersParams
-): Effect.Effect<Array<NotificationProviderSummary>, HulyClientError, HulyClient> =>
+): Effect.Effect<ReadonlyArray<NotificationProviderSummary>, HulyClientError, HulyClient | Diagnostics> =>
   Effect.gen(function*() {
     const client = yield* HulyClient
-    const limit = clampLimit(params.limit)
-
-    const providers = yield* client.findAll<NotificationProvider>(
-      notification.class.NotificationProvider,
-      hulyQuery<NotificationProvider>({}),
-      { limit, sort: { order: SortingOrder.Ascending } }
-    )
-
-    return providers.map(toNotificationProviderSummary)
+    return (yield* loadNotificationProviders(client, clampLimit(params.limit))).rows
   })
 
 export const listNotificationTypes = (
   params: ListNotificationTypesParams
-): Effect.Effect<Array<NotificationType>, HulyClientError, HulyClient> =>
+): Effect.Effect<ReadonlyArray<NotificationType>, HulyClientError, HulyClient | Diagnostics> =>
   Effect.gen(function*() {
     const client = yield* HulyClient
-    const limit = clampLimit(params.limit)
-    const query: StrictDocumentQuery<HulyNotificationType> = {
-      ...(params.includeHidden ? {} : { hidden: false }),
-      ...(params.objectClass === undefined ? {} : { objectClass: toRef<Class<Doc>>(params.objectClass) })
-    }
-
-    const types = yield* client.findAll<HulyNotificationType>(
-      notification.class.NotificationType,
-      hulyQuery<HulyNotificationType>(query),
-      { limit }
-    )
-
-    return types.map(toNotificationTypeSummary)
+    return (yield* loadNotificationTypes(client, {
+      ...(params.limit === undefined ? {} : { limit: params.limit }),
+      ...(params.includeHidden === undefined ? {} : { includeHidden: params.includeHidden }),
+      ...(params.objectClass === undefined ? {} : { objectClass: params.objectClass })
+    })).rows
   })
 
 export const updateNotificationTypeSetting = (
   params: UpdateNotificationTypeSettingParams
-): Effect.Effect<UpdateNotificationTypeSettingResult, UpdateNotificationTypeSettingError, HulyClient> =>
+): Effect.Effect<UpdateNotificationTypeSettingResult, UpdateNotificationTypeSettingError, HulyClient | Diagnostics> =>
   Effect.gen(function*() {
     const client = yield* HulyClient
-    const type = yield* client.findOne<HulyNotificationType>(
-      notification.class.NotificationType,
-      hulyQuery<HulyNotificationType>({ _id: toRef<HulyNotificationType>(params.typeId) })
-    )
-    if (type === undefined) {
-      return yield* new NotificationTypeNotFoundError({ typeId: params.typeId })
-    }
+    yield* requireNotificationProviderId(client, params.providerId)
+    yield* requireNotificationTypeId(client, params.typeId)
+    const typeId = toRef<HulyNotificationType>(params.typeId)
 
     const existingSetting = yield* client.findOne<HulyNotificationTypeSetting>(
       notification.class.NotificationTypeSetting,
       hulyQuery<HulyNotificationTypeSetting>({
         attachedTo: toRef<NotificationProvider>(params.providerId),
-        type: type._id
+        type: typeId
       })
     )
 
@@ -180,7 +143,7 @@ export const updateNotificationTypeSetting = (
       providerSetting.space,
       {
         attachedTo: toRef<NotificationProvider>(params.providerId),
-        type: type._id,
+        type: typeId,
         enabled: params.enabled
       }
     )

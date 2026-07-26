@@ -127,6 +127,7 @@ import {
   NotificationNotFoundError,
   NotificationPersonSpaceNotFoundError,
   NotificationProviderNotConfigurableError,
+  NotificationProviderNotFoundError,
   NotificationTypeNotFoundError
 } from "./errors-notifications.js"
 import {
@@ -316,6 +317,7 @@ export const HulyDomainError = Schema.Union(
   NotificationNotFoundError,
   NotificationContextNotFoundError,
   NotificationPersonSpaceNotFoundError,
+  NotificationProviderNotFoundError,
   NotificationTypeNotFoundError,
   NotificationProviderNotConfigurableError,
   InvalidPersonUuidError,

@@ -556,8 +556,8 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 
 | Tool | Description |
 |------|-------------|
-| `list_notification_providers` | List notification providers such as inbox, push, and sound. Use provider IDs from this tool when updating provider or type settings. |
-| `list_notification_types` | List notification types. Use type IDs from this tool when updating provider-specific notification type settings. |
+| `list_notification_providers` | List model-declared notification providers such as inbox, push, and sound. Use returned provider IDs for setting updates. Older REST servers may return compatibility metadata with an explicit tool warning. |
+| `list_notification_types` | List model-declared notification types. Use returned type IDs for provider-specific setting updates. Older REST servers may return compatibility metadata with an explicit tool warning. |
 | `list_notifications` | List inbox notifications. Returns notifications sorted by modification date (newest first). Supports filtering by read/archived status. |
 | `get_notification` | Retrieve full details for a notification. Use this to view notification content and metadata. |
 | `mark_notification_read` | Mark a notification as read. Idempotent: returns success when the notification is already read. |
@@ -576,8 +576,8 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `subscribe_to_object_notifications` | Subscribe the authenticated account to notifications for a raw Huly object by adding a core collaborator row. Idempotent when already subscribed. |
 | `unsubscribe_from_object_notifications` | Unsubscribe the authenticated account from notifications for a raw Huly object by removing its collaborator row. Idempotent when already absent. |
 | `list_notification_settings` | List notification provider settings. Returns current notification preferences. |
-| `update_notification_provider_setting` | Update notification provider setting. Enable or disable notifications for a specific provider. |
-| `update_notification_type_setting` | Enable or disable one notification type for one provider. Creates the type setting only when the provider has a configurable setting in this workspace. |
+| `update_notification_provider_setting` | Enable or disable a notification provider setting. Validates providerId against authoritative model definitions when available; compatible REST fallback is preserved and explicitly warned. |
+| `update_notification_type_setting` | Enable or disable one notification type for one provider. Validates both IDs against authoritative model definitions when available, and creates a type setting only when the provider is configurable. Compatible REST fallback is preserved and explicitly warned. |
 | `get_unread_notification_count` | Get the count of unread notifications. |
 
 ### Workspace
