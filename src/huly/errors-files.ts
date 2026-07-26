@@ -86,6 +86,43 @@ export class AttachmentNotFoundError extends Schema.TaggedError<AttachmentNotFou
   }
 }
 
+export class AttachmentContentTypeUnsupportedError extends Schema.TaggedError<AttachmentContentTypeUnsupportedError>()(
+  "AttachmentContentTypeUnsupportedError",
+  {
+    attachmentId: RawAttachmentIdentifier,
+    contentType: RawMimeType
+  }
+) {
+  override get message(): string {
+    return `Attachment '${this.attachmentId}' has unsupported image content type '${this.contentType}'. Use download_attachment to get its URL instead.`
+  }
+}
+
+export class AttachmentContentTooLargeError extends Schema.TaggedError<AttachmentContentTooLargeError>()(
+  "AttachmentContentTooLargeError",
+  {
+    attachmentId: RawAttachmentIdentifier,
+    size: RawByteCount,
+    maxSize: RawByteCount
+  }
+) {
+  override get message(): string {
+    return `Attachment '${this.attachmentId}' is ${this.size} bytes, exceeding the ${this.maxSize}-byte inline image limit. Use download_attachment to get its URL instead.`
+  }
+}
+
+export class AttachmentContentUnavailableError extends Schema.TaggedError<AttachmentContentUnavailableError>()(
+  "AttachmentContentUnavailableError",
+  {
+    attachmentId: RawAttachmentIdentifier,
+    reason: RawFileFetchReason
+  }
+) {
+  override get message(): string {
+    return `Attachment '${this.attachmentId}' cannot be returned as inline image content: ${this.reason}. Use download_attachment to get its URL instead.`
+  }
+}
+
 export class SavedAttachmentNotFoundError extends Schema.TaggedError<SavedAttachmentNotFoundError>()(
   "SavedAttachmentNotFoundError",
   {

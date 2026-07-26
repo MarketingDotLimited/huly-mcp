@@ -4681,6 +4681,26 @@ if [ $? -eq 0 ]; then
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_attachment\",\"arguments\":{\"attachmentId\":\"$ATT_ID\",\"description\":\"updated\"}},\"id\":2}"
     run_test "download_attachment($ATT_ID)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"download_attachment\",\"arguments\":{\"attachmentId\":\"$ATT_ID\",\"outputPath\":\"$TEST_TMPDIR/inttest_download.txt\"}},\"id\":2}"
+
+    ATT_IMAGE_DATA="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    run_capture_to_var ATT_IMAGE_TEXT "add_issue_attachment(image:$ATT_ISSUE_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_issue_attachment\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ATT_ISSUE_ID\",\"data\":\"$ATT_IMAGE_DATA\",\"filename\":\"pixel.png\",\"contentType\":\"image/png\"}},\"id\":2}"
+    ATT_IMAGE_ID=$(echo "$ATT_IMAGE_TEXT" | jq -r '.attachmentId // empty' 2>/dev/null)
+    if [ -n "$ATT_IMAGE_ID" ]; then
+      run_result_to_var ATT_IMAGE_RESULT "read_attachment_content($ATT_IMAGE_ID)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"read_attachment_content\",\"arguments\":{\"attachmentId\":\"$ATT_IMAGE_ID\"}},\"id\":2}"
+      assert_json_field_count "read_attachment_content returns exactly one image block" "$ATT_IMAGE_RESULT" \
+        '[.content[] | select(.type == "image")] | length' "1"
+      assert_json_field_equals "read_attachment_content returns image MIME" "$ATT_IMAGE_RESULT" \
+        '.content[] | select(.type == "image") | .mimeType' "image/png"
+      assert_json_field_equals "read_attachment_content structured content omits base64" "$ATT_IMAGE_RESULT" \
+        '.structuredContent.result.data // ""' ""
+      run_test "delete_attachment(image:$ATT_IMAGE_ID)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_attachment\",\"arguments\":{\"attachmentId\":\"$ATT_IMAGE_ID\"}},\"id\":2}"
+    else
+      skip_test "read_attachment_content" "image attachment upload did not return an attachment id"
+    fi
+
     run_test "delete_attachment($ATT_ID)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_attachment\",\"arguments\":{\"attachmentId\":\"$ATT_ID\"}},\"id\":2}"
   fi

@@ -277,6 +277,7 @@ pin_activity_message
 pin_attachment
 pin_notification_context
 preview_deletion
+read_attachment_content
 remove_board_card_label
 remove_channel_members
 remove_issue_label

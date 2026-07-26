@@ -24,86 +24,19 @@ import {
   HOSTED_HULY_SUNSET,
   isDefaultHulyCloudOrigin
 } from "../huly/unavailable-diagnostics.js"
+import { createErrorResponse, McpErrorCode, type McpErrorResponseWithMeta } from "./tool-responses.js"
 
-/**
- * MCP standard error codes.
- *
- * Single source of truth for MCP JSON-RPC error codes shared across modules — e.g.
- * resources.ts produces ResourceNotFound and the 2026 HTTP dispatcher remaps it.
- */
-export const McpErrorCode = {
-  InvalidParams: -32602,
-  InternalError: -32603,
-  ResourceNotFound: -32002
-} as const
-
-export type McpErrorCode = (typeof McpErrorCode)[keyof typeof McpErrorCode]
-
-// --- MCP Error Response Types ---
-
-/**
- * Internal metadata for error tracking (stripped before sending to MCP).
- */
-interface ErrorMetadata {
-  errorCode: McpErrorCode
-  errorTag?: string | undefined
-}
-
-/**
- * MCP protocol tool response structure.
- * Compatible with MCP SDK CallToolResult.
- * _meta carries internal error metadata, stripped by toMcpResponse before wire.
- */
-type McpTextContent = { readonly type: "text"; readonly text: string }
-type McpTextContentList = [McpTextContent, ...Array<McpTextContent>]
-
-interface McpToolResponseBase {
-  readonly content: McpTextContentList
-  readonly _meta?: ErrorMetadata
-}
-
-interface McpToolSuccessResponse extends McpToolResponseBase {
-  structuredContent?: {
-    readonly result: unknown
-    readonly warnings?: ReadonlyArray<ToolWarning>
-  }
-  readonly isError?: false
-}
-
-interface McpToolErrorResponse extends McpToolResponseBase {
-  readonly structuredContent?: never
-  readonly isError: true
-}
-
-export type McpToolResponse = McpToolSuccessResponse | McpToolErrorResponse
-
-type WithoutMeta<T> = T extends unknown ? Omit<T, "_meta"> : never
-
-type McpWireResponse = WithoutMeta<McpToolResponse>
-
-/**
- * Error response with required metadata for error tracking/testing.
- */
-interface McpErrorResponseWithMeta extends McpToolErrorResponse {
-  isError: true
-  _meta: ErrorMetadata
-}
-
-const createErrorResponse = (
-  text: string,
-  errorCode: McpErrorCode,
-  errorTag?: string,
-  warnings: ReadonlyArray<ToolWarning> = []
-): McpErrorResponseWithMeta => {
-  const warningContent = warnings.length > 0
-    ? [{ type: "text" as const, text: encodeJsonText({ warnings }) }]
-    : []
-  return {
-    content: [{ type: "text" as const, text }, ...warningContent],
-    isError: true,
-    _meta: { errorCode, errorTag }
-  }
-}
+export {
+  appendToolWarnings,
+  createImageSuccessResponse,
+  createInvalidParamsError,
+  createSuccessResponse,
+  createUnknownToolError,
+  McpErrorCode,
+  type McpImageContent,
+  type McpToolResponse,
+  toMcpResponse
+} from "./tool-responses.js"
 
 // --- Domain Error Mapping ---
 
@@ -188,6 +121,9 @@ const INVALID_PARAMS_TAGS: ReadonlySet<HulyDomainError["_tag"]> = new Set<HulyDo
   "ReactionNotFoundError",
   "SavedMessageNotFoundError",
   "AttachmentNotFoundError",
+  "AttachmentContentTooLargeError",
+  "AttachmentContentTypeUnsupportedError",
+  "AttachmentContentUnavailableError",
   "TestProjectNotFoundError",
   "TestSuiteNotFoundError",
   "TestCaseNotFoundError",
@@ -401,83 +337,3 @@ export const mapDomainCauseToMcp = (
 
   return createErrorResponse("An unexpected error occurred", McpErrorCode.InternalError, undefined, warnings)
 }
-
-const encodeJsonText = (value: unknown): string => {
-  const text = JSON.stringify(value)
-  return typeof text === "string" ? text : "null"
-}
-
-export const createSuccessResponse = <T>(
-  result: T,
-  warnings: ReadonlyArray<ToolWarning> = []
-): McpToolResponse => ({
-  content: [
-    { type: "text" as const, text: encodeJsonText(result) },
-    ...(warnings.length > 0 ? [{ type: "text" as const, text: encodeJsonText({ warnings }) }] : [])
-  ],
-  structuredContent: warnings.length > 0
-    ? {
-      result,
-      warnings
-    }
-    : {
-      result
-    }
-})
-
-const appendWarningContent = (
-  content: McpTextContentList,
-  warnings: ReadonlyArray<ToolWarning>,
-  replaceExistingWarningBlock: boolean
-): McpTextContentList => {
-  const [first, ...remaining] = content
-  const preserved = replaceExistingWarningBlock ? remaining.slice(0, remaining.length - 1) : remaining
-  return [first, ...preserved, { type: "text", text: encodeJsonText({ warnings }) }]
-}
-
-export const appendToolWarnings = (
-  response: McpToolResponse,
-  warnings: ReadonlyArray<ToolWarning>
-): McpToolResponse => {
-  if (warnings.length === 0) return response
-  if (response.isError === true) {
-    return {
-      ...response,
-      content: appendWarningContent(response.content, warnings, false)
-    }
-  }
-  if (response.structuredContent === undefined) {
-    return {
-      ...response,
-      content: appendWarningContent(response.content, warnings, false)
-    }
-  }
-  const existingWarnings = response.structuredContent.warnings ?? []
-  const combinedWarnings = [...existingWarnings, ...warnings]
-  return {
-    ...response,
-    content: appendWarningContent(response.content, combinedWarnings, existingWarnings.length > 0),
-    structuredContent: {
-      result: response.structuredContent.result,
-      warnings: combinedWarnings
-    }
-  }
-}
-
-export const createUnknownToolError = (toolName: string): McpErrorResponseWithMeta =>
-  createErrorResponse(`Unknown tool: ${toolName}`, McpErrorCode.InvalidParams, "UnknownTool")
-
-export const createInvalidParamsError = (message: string, errorTag?: string): McpErrorResponseWithMeta =>
-  createErrorResponse(message, McpErrorCode.InvalidParams, errorTag)
-
-export const toMcpResponse = (response: McpToolResponse): McpWireResponse =>
-  response.isError === true
-    ? {
-      content: response.content,
-      isError: true
-    }
-    : {
-      content: response.content,
-      ...(response.structuredContent === undefined ? {} : { structuredContent: response.structuredContent }),
-      ...(response.isError === undefined ? {} : { isError: response.isError })
-    }

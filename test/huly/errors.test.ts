@@ -1322,6 +1322,12 @@ describe("Huly Errors", () => {
               return `drive-folder-not-empty:${error.drive}:${error.path}:${error.childCount}:${error.children.length}`
             case "DriveNotEmptyError":
               return `drive-not-empty:${error.drive}:${error.childCount}:${error.children.length}`
+            case "AttachmentContentTypeUnsupportedError":
+              return `attachment-content-type:${error.attachmentId}:${error.contentType}`
+            case "AttachmentContentTooLargeError":
+              return `attachment-content-size:${error.attachmentId}:${error.size}`
+            case "AttachmentContentUnavailableError":
+              return `attachment-content-unavailable:${error.attachmentId}:${error.reason}`
             case "MessageTemplateCategoryNotFoundError":
               return `message-template-category:${error.identifier}`
             case "MessageTemplateCategoryIdentifierAmbiguousError":

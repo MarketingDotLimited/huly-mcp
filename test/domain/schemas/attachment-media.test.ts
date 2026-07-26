@@ -2,9 +2,30 @@ import { describe, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { expect } from "vitest"
 
-import { parseAddAttachmentParams, parseCreateDrawingParams } from "../../../src/domain/schemas.js"
+import {
+  addAttachmentParamsJsonSchema,
+  addDocumentAttachmentParamsJsonSchema,
+  addIssueAttachmentParamsJsonSchema,
+  parseAddAttachmentParams,
+  parseCreateDrawingParams
+} from "../../../src/domain/schemas.js"
 
 describe("attachment media schemas", () => {
+  it("explains where each upload source is resolved", () => {
+    for (
+      const schema of [
+        addAttachmentParamsJsonSchema,
+        addIssueAttachmentParamsJsonSchema,
+        addDocumentAttachmentParamsJsonSchema
+      ]
+    ) {
+      const description = JSON.stringify(schema)
+      expect(description).toContain("MCP server host")
+      expect(description).toContain("MCP client")
+      expect(description).toContain("fetched by the MCP server")
+    }
+  })
+
   it.effect("accepts attachment media kinds and rejects unknown kinds", () =>
     Effect.gen(function*() {
       const defaultKind = yield* parseAddAttachmentParams({

@@ -78,6 +78,9 @@ import {
   DrivePathNotFoundError
 } from "./errors-drive.js"
 import {
+  AttachmentContentTooLargeError,
+  AttachmentContentTypeUnsupportedError,
+  AttachmentContentUnavailableError,
   AttachmentNotFoundError,
   DrawingNotFoundError,
   FileFetchError,
@@ -277,6 +280,9 @@ export const HulyDomainError = Schema.Union(
   RecurringEventNotFoundError,
   ScheduleNotFoundError,
   AttachmentNotFoundError,
+  AttachmentContentTooLargeError,
+  AttachmentContentTypeUnsupportedError,
+  AttachmentContentUnavailableError,
   SavedAttachmentNotFoundError,
   DrawingNotFoundError,
   CardSpaceNotFoundError,

@@ -396,13 +396,14 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 |------|-------------|
 | `list_attachments` | List attachments on a Huly object (issue, document, etc.). Returns attachments sorted by modification date (newest first). |
 | `get_attachment` | Retrieve full details for a Huly attachment including download URL. |
-| `add_attachment` | Add an attachment to a Huly object. Provide ONE of: filePath (local file - preferred), fileUrl (fetch from URL), or data (base64). Returns the attachment ID and download URL. |
+| `add_attachment` | Add an attachment to a Huly object. Provide ONE source: filePath is a path on the MCP server host, data is base64 content for a file local to the MCP client, or fileUrl is fetched by the MCP server. Returns the attachment ID and download URL. |
 | `update_attachment` | Update attachment metadata (description, pinned status). |
 | `delete_attachment` | Permanently delete an attachment. This action cannot be undone. |
 | `pin_attachment` | Pin or unpin an attachment. |
 | `download_attachment` | Get download URL for an attachment along with file metadata (name, type, size). |
-| `add_issue_attachment` | Add an attachment to a Huly issue. Convenience method that finds the issue by project and identifier. Provide ONE of: filePath, fileUrl, or data. |
-| `add_document_attachment` | Add an attachment to a Huly document. Convenience method that finds the document by teamspace and title/ID. Provide ONE of: filePath, fileUrl, or data. |
+| `read_attachment_content` | Return a supported image attachment (JPEG, PNG, GIF, or WebP; maximum 4 MiB) as one MCP image content block plus metadata-only structured content. Use this to inspect screenshots or pictures directly. For non-image, unsupported, or oversized files, call download_attachment to get a URL instead. |
+| `add_issue_attachment` | Add an attachment to a Huly issue resolved by project and identifier. Provide ONE source: server-host filePath, client-local base64 data, or a fileUrl fetched by the server. |
+| `add_document_attachment` | Add an attachment to a Huly document resolved by teamspace and title/ID. Provide ONE source: server-host filePath, client-local base64 data, or a fileUrl fetched by the server. |
 | `save_attachment` | Save/bookmark an attachment for later reference. Idempotent when already saved. |
 | `unsave_attachment` | Remove an attachment from saved/bookmarks. |
 | `list_saved_attachments` | List saved/bookmarked attachments for the current user. |

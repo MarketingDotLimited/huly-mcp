@@ -16,6 +16,7 @@ import type { WorkspaceClientOperations } from "../../src/huly/workspace-client.
 import { WorkspaceClient } from "../../src/huly/workspace-client.js"
 import { McpErrorCode } from "../../src/mcp/error-mapping.js"
 import {
+  defineCombinedImageTool,
   defineCombinedTool,
   defineNoParamsWorkspaceTool,
   defineStorageTool,
@@ -35,6 +36,11 @@ const CombinedResult = Schema.Struct({ combined: Schema.String })
 const WorkspaceResult = Schema.Struct({ ws: Schema.String })
 const MembersResult = Schema.Struct({ members: Schema.Number })
 const PositiveResult = Schema.Struct({ count: Schema.Number.pipe(Schema.positive()) })
+const ImageMetadataResult = Schema.Struct({
+  name: Schema.String,
+  type: Schema.String,
+  size: Schema.Number
+})
 
 const parse = (input: unknown) => Schema.decodeUnknown(Params)(input)
 
@@ -93,6 +99,48 @@ const noopWorkspaceClient: WorkspaceClientOperations = {
   updateAllowGuestSignUp: () => Effect.die(new Error("not implemented")),
   getRegionInfo: () => Effect.succeed([])
 }
+
+describe("combined image tool presentation", () => {
+  it.effect("keeps base64 out of structured and text metadata while exposing one image", () =>
+    Effect.gen(function*() {
+      const base64 = "dW5pcXVlLWltYWdlLWJ5dGVz"
+      const tool = defineCombinedImageTool(
+        {
+          name: "test_image",
+          description: "Return a test image.",
+          inputSchema: toolInputSchema,
+          resultSchema: ImageMetadataResult,
+          category: "test"
+        },
+        parse,
+        () =>
+          Effect.succeed({
+            metadata: { name: "shot.png", type: "image/png", size: 18 },
+            data: base64
+          }),
+        (result) => ({
+          result: result.metadata,
+          image: { type: "image", data: result.data, mimeType: result.metadata.type }
+        })
+      )
+
+      const response = yield* Effect.promise(() => tool.handler({ name: "image" }, noopHulyClient, noopStorageClient))
+
+      expect(response.structuredContent?.result).toEqual({
+        name: "shot.png",
+        type: "image/png",
+        size: 18
+      })
+      expect(JSON.stringify(response.structuredContent)).not.toContain(base64)
+      expect(response.content).toHaveLength(1)
+      expect(response.content[0].text).not.toContain(base64)
+      expect(response.isError !== true && response.imageContent).toEqual({
+        type: "image",
+        data: base64,
+        mimeType: "image/png"
+      })
+    }))
+})
 
 describe("formatOperationFailure", () => {
   it.effect("formats parse, domain, output, and provision failures", () =>

@@ -152,6 +152,11 @@ export const cliCommandCatalog = {
       }
     }
   },
+  read_attachment_content: {
+    path: ["attachments", "read-image"],
+    positional: ["attachmentId"],
+    description: "Read a supported image attachment as multimodal content"
+  },
   add_issue_attachment: {
     path: ["attachments", "add-to-issue"],
     positional: [],

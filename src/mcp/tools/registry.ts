@@ -10,15 +10,18 @@ import { type HulyDomainError, HulyError } from "../../huly/errors.js"
 import { HulyStorageClient } from "../../huly/storage.js"
 import { WorkspaceClient, type WorkspaceClientOperations } from "../../huly/workspace-client.js"
 import {
+  createImageSuccessResponse,
   createInvalidParamsError,
   createSuccessResponse,
   formatParseError,
   mapDomainCauseToMcp,
   mapDomainErrorToMcp,
   mapParseCauseToMcp,
+  type McpImageContent,
   type McpToolResponse
 } from "../error-mapping.js"
 import { createToolOutputSchema, type McpOutputSchema } from "../tool-output-schema.js"
+export { resolveAnnotations } from "./tool-annotations.js"
 
 export const ToolName = Schema.NonEmptyTrimmedString.pipe(Schema.brand("ToolName")).annotations({
   identifier: "ToolName",
@@ -79,57 +82,6 @@ export const createToolDefinition = (spec: ToolDefinitionSpec): ToolDefinition =
   ...(spec.annotations === undefined ? {} : { annotations: spec.annotations })
 })
 
-const deriveTitle = (name: string): string =>
-  name.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
-
-const READ_PREFIXES = ["list_", "get_", "describe_", "search_", "fulltext_", "download_", "preview_"]
-const CREATE_PREFIXES = ["create_", "add_", "upload_", "send_", "log_"]
-const UPDATE_PREFIXES = [
-  "update_",
-  "edit_",
-  "set_",
-  "approve_",
-  "reject_",
-  "cancel_",
-  "pin_",
-  "unpin_",
-  "mark_",
-  "archive_",
-  "start_",
-  "stop_",
-  "save_",
-  "unsave_",
-  "remove_",
-  "move_"
-]
-const DELETE_PREFIXES = ["delete_"]
-
-const matchesPrefix = (name: string, prefixes: ReadonlyArray<string>): boolean =>
-  prefixes.some((p) => name.startsWith(p))
-
-const deriveAnnotations = (name: string): ToolAnnotations => {
-  const title = deriveTitle(name)
-
-  if (matchesPrefix(name, READ_PREFIXES)) {
-    return { title, readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
-  }
-  if (matchesPrefix(name, CREATE_PREFIXES)) {
-    return { title, readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
-  }
-  if (matchesPrefix(name, UPDATE_PREFIXES)) {
-    return { title, readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
-  }
-  if (matchesPrefix(name, DELETE_PREFIXES)) {
-    return { title, readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false }
-  }
-  return { title, readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false }
-}
-
-export const resolveAnnotations = (tool: ToolDefinition): ToolAnnotations => ({
-  ...deriveAnnotations(tool.name),
-  ...tool.annotations
-})
-
 export type RegisteredTool<Name extends string = string> = ToolDefinition<Name> & {
   readonly operation: RegisteredOperation<Name>
   readonly handler: (
@@ -140,10 +92,16 @@ export type RegisteredTool<Name extends string = string> = ToolDefinition<Name> 
   ) => Promise<McpToolResponse>
 }
 
-export interface ToolOperationSuccess {
+interface ToolOperationSuccessBase {
   readonly result: unknown
   readonly warnings: ReadonlyArray<ToolWarning>
 }
+export type ToolOperationSuccess =
+  & ToolOperationSuccessBase
+  & (
+    | { readonly image?: never }
+    | { readonly image: McpImageContent }
+  )
 
 class ToolParseFailure extends Data.TaggedError("ToolParseFailure")<{
   readonly cause: Cause.Cause<ParseResult.ParseError>
@@ -325,7 +283,8 @@ const createOperationExecutor = <P, Svc, R>(
   provide: ProvideServices<Svc>,
   parse: (input: unknown) => Effect.Effect<P, ParseResult.ParseError>,
   operation: (params: P) => Effect.Effect<R, HulyDomainError, Svc | Diagnostics>,
-  encode: (result: R) => unknown
+  encode: (result: unknown) => unknown,
+  presentImage?: ((result: R) => { readonly result: unknown; readonly image: McpImageContent }) | undefined
 ): RegisteredOperation["execute"] =>
 (args, hulyClient, storageClient, workspaceClient) =>
   Effect.gen(function*() {
@@ -355,12 +314,15 @@ const createOperationExecutor = <P, Svc, R>(
       return yield* new ToolDomainFailure({ cause: operationResult.cause, warnings })
     }
 
+    const presentation = presentImage?.(operationResult.value)
     const output = yield* Effect.try({
-      try: () => encode(operationResult.value),
+      try: () => encode(presentation === undefined ? operationResult.value : presentation.result),
       catch: () => new ToolOutputFailure({ toolName, warnings })
     })
 
-    return { result: output, warnings }
+    return presentation === undefined
+      ? { result: output, warnings }
+      : { result: output, warnings, image: presentation.image }
   })
 
 const operationFailureToMcp = (failure: ToolOperationFailure): McpToolResponse => {
@@ -380,7 +342,9 @@ const operationFailureToMcp = (failure: ToolOperationFailure): McpToolResponse =
 }
 
 const operationSuccessToMcp = (success: ToolOperationSuccess): McpToolResponse =>
-  createSuccessResponse(success.result, success.warnings)
+  success.image === undefined
+    ? createSuccessResponse(success.result, success.warnings)
+    : createImageSuccessResponse(success.result, success.image, success.warnings)
 
 const firstFailureMessage = <E extends { readonly message: string }>(
   cause: Cause.Cause<E>
@@ -448,6 +412,38 @@ const defineProvidedTool = <const Name extends string, P, Svc, S extends ResultS
   }
 }
 
+interface ImageToolPresentation<Output> {
+  readonly result: Output
+  readonly image: McpImageContent
+}
+
+const defineProvidedImageTool = <const Name extends string, P, Svc, S extends ResultSchema, R>(
+  spec: ToolSpec<Name, S>,
+  provide: ProvideServices<Svc>,
+  parse: (input: unknown) => Effect.Effect<P, ParseResult.ParseError>,
+  operation: (params: P) => Effect.Effect<R, HulyDomainError, Svc | Diagnostics>,
+  present: (result: R) => ImageToolPresentation<SchemaResult<S>>
+): RegisteredTool<Name> => {
+  const definition = stripResultSchema(spec)
+  const registeredOperation: RegisteredOperation<Name> = {
+    ...definition,
+    execute: createOperationExecutor(
+      spec.name,
+      provide,
+      parse,
+      operation,
+      (result) => encodeOutput(spec.resultSchema, result),
+      present
+    )
+  }
+
+  return {
+    ...definition,
+    operation: registeredOperation,
+    handler: createHandler(registeredOperation)
+  }
+}
+
 export const defineTool = <const Name extends string, P, S extends ResultSchema>(
   spec: ToolSpec<Name, S>,
   parse: (input: unknown) => Effect.Effect<P, ParseResult.ParseError>,
@@ -467,6 +463,15 @@ export const defineCombinedTool = <const Name extends string, P, S extends Resul
     params: P
   ) => Effect.Effect<SchemaResult<S>, HulyDomainError, HulyClient | HulyStorageClient | Diagnostics>
 ): RegisteredTool<Name> => defineProvidedTool(spec, provideCombinedClient, parse, operation)
+
+export const defineCombinedImageTool = <const Name extends string, P, S extends ResultSchema, R>(
+  spec: ToolSpec<Name, S>,
+  parse: (input: unknown) => Effect.Effect<P, ParseResult.ParseError>,
+  operation: (
+    params: P
+  ) => Effect.Effect<R, HulyDomainError, HulyClient | HulyStorageClient | Diagnostics>,
+  present: (result: R) => ImageToolPresentation<SchemaResult<S>>
+): RegisteredTool<Name> => defineProvidedImageTool(spec, provideCombinedClient, parse, operation, present)
 
 export const defineWorkspaceTool = <const Name extends string, P, S extends ResultSchema>(
   spec: ToolSpec<Name, S>,
