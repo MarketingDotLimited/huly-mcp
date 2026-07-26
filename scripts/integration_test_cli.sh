@@ -148,6 +148,13 @@ cover_cli_json "list_message_templates" "templates list" templates list
 cover_cli_json "list_events" "calendar events list" calendar events list
 cover_cli_json "list_calendars" "calendar calendars list" calendar calendars list
 cover_cli_json "list_card_spaces" "cards spaces list" cards spaces list
+capture_cli_json "list_cards" "cards list" CARDS_JSON cards list Default --limit 1
+CARD_ID="$(json_value "$CARDS_JSON" '.cards[0].id // empty')"
+if [[ -z "$CARD_ID" ]]; then
+  echo "No Default-space card found for CLI version-history read." >&2
+  exit 1
+fi
+cover_cli_json "list_card_versions" "cards versions list" cards versions list Default "$CARD_ID" --limit 1
 cover_cli_json "list_drives" "drive list" drive list
 cover_cli_json "list_inventory_categories" "inventory categories list" inventory categories list
 cover_cli_json "list_funnels" "leads funnels list" leads funnels list

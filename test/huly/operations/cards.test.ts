@@ -16,6 +16,7 @@ import {
   getCard,
   listCards,
   listCardSpaces,
+  listCardVersions,
   listMasterTags,
   updateCard
 } from "../../../src/huly/operations/cards.js"
@@ -69,10 +70,26 @@ const makeCard = (overrides?: Partial<HulyCard>): HulyCard =>
     ...overrides
   }) as unknown as HulyCard
 
+interface RuntimeCardVersionFields {
+  readonly baseId?: Ref<Doc> | null
+  readonly version?: number | null
+  readonly isLatest?: boolean | null
+  readonly readonly?: boolean | null
+}
+
+const makeVersionableCard: (
+  overrides?: Partial<HulyCard> & RuntimeCardVersionFields
+) => HulyCard = makeCard
+
 const idMatches = (actual: unknown, query: unknown): boolean => {
   if (query === undefined) return true
-  if (typeof query === "object" && query !== null && "$in" in query) {
-    return Array.isArray(query.$in) && query.$in.includes(actual)
+  if (typeof query === "object" && query !== null) {
+    if ("$in" in query) {
+      return Array.isArray(query.$in) && query.$in.includes(actual)
+    }
+    if ("$exists" in query) {
+      return query.$exists === (actual !== undefined)
+    }
   }
   return actual === query
 }
@@ -87,6 +104,7 @@ interface CapturedFindOptions {
 
 interface Captures {
   findAll?: { class?: unknown; query?: Record<string, unknown>; options?: CapturedFindOptions | undefined }
+  findAllCalls?: Array<{ readonly class: unknown; readonly query: Record<string, unknown> }>
   createDoc?: { class?: unknown; space?: unknown; attributes?: Record<string, unknown>; id?: unknown }
   updateDoc?: { called?: boolean; operations?: Record<string, unknown> }
   removeDoc?: { called?: boolean; id?: unknown }
@@ -100,6 +118,7 @@ interface CardsMock {
   masterTags?: ReadonlyArray<HulyMasterTag>
   fetchMarkupResult?: string
   captures?: Captures
+  simulateVersionMiddleware?: boolean
 }
 
 const captureFindOptions = (options: unknown): CapturedFindOptions | undefined => {
@@ -129,6 +148,7 @@ const buildLayer = (m: CardsMock) => {
       cap.findAll.query = q
       cap.findAll.options = captureFindOptions(options)
     }
+    cap?.findAllCalls?.push({ class: _class, query: q })
     if (_class === cardPlugin.class.CardSpace) {
       return Effect.succeed(toFindResult(spaces.filter((space) => docMatches(space, q))))
     }
@@ -136,7 +156,13 @@ const buildLayer = (m: CardsMock) => {
       return Effect.succeed(toFindResult(masterTags.filter((tag) => docMatches(tag, q))))
     }
     if (_class === cardPlugin.class.Card) {
-      return Effect.succeed(toFindResult(cards.filter((card) => docMatches(card, q))))
+      const middlewareFiltered = m.simulateVersionMiddleware
+          && q._id === undefined
+          && q.baseId === undefined
+          && q.isLatest === undefined
+        ? cards.filter((card) => Reflect.get(card, "isLatest") === true)
+        : cards
+      return Effect.succeed(toFindResult(middlewareFiltered.filter((card) => docMatches(card, q))))
     }
     return Effect.succeed(toFindResult([]))
   }) as HulyClientOperations["findAll"]
@@ -483,6 +509,58 @@ describe("getCard", () => {
       expect(result.parent).toBeUndefined()
     }))
 
+  it.effect("exposes version metadata only when the runtime version state is coherent", () =>
+    Effect.gen(function*() {
+      const coherent = yield* getCard({ cardSpace: SPACE, card: CardIdentifier.make("Roadmap") }).pipe(
+        Effect.provide(buildLayer({
+          spaces: [makeSpace()],
+          cards: [makeVersionableCard({
+            baseId: "chain-1" as Ref<Doc>,
+            version: 2,
+            isLatest: true,
+            readonly: false
+          })]
+        }))
+      )
+      const partial = yield* getCard({ cardSpace: SPACE, card: CardIdentifier.make("Partial") }).pipe(
+        Effect.provide(buildLayer({
+          spaces: [makeSpace()],
+          cards: [
+            makeVersionableCard({
+              _id: "partial" as Ref<HulyCard>,
+              title: "Partial",
+              baseId: "chain-1" as Ref<Doc>,
+              version: null,
+              isLatest: null as never,
+              readonly: null as never
+            })
+          ]
+        }))
+      )
+      const optionalFlags = yield* getCard({ cardSpace: SPACE, card: CardIdentifier.make("Optional") }).pipe(
+        Effect.provide(buildLayer({
+          spaces: [makeSpace()],
+          cards: [
+            makeVersionableCard({
+              _id: "optional" as Ref<HulyCard>,
+              title: "Optional",
+              baseId: "chain-2" as Ref<Doc>,
+              version: 1
+            })
+          ]
+        }))
+      )
+
+      expect(coherent.version).toEqual({
+        number: 2,
+        chainId: "chain-1",
+        isLatest: true,
+        readonly: false
+      })
+      expect(partial.version).toBeUndefined()
+      expect(optionalFlags.version).toEqual({ number: 1, chainId: "chain-2" })
+    }))
+
   it.effect("fails when the card is not found", () =>
     Effect.gen(function*() {
       const err = yield* Effect.flip(
@@ -491,6 +569,197 @@ describe("getCard", () => {
         )
       )
       expect(err._tag).toBe("CardNotFoundError")
+    }))
+})
+
+describe("listCardVersions", () => {
+  const versionCard = (
+    id: string,
+    number: number,
+    overrides?: Partial<HulyCard> & RuntimeCardVersionFields
+  ): HulyCard =>
+    makeVersionableCard({
+      _id: id as Ref<HulyCard>,
+      title: `Roadmap v${number}`,
+      baseId: "chain-1" as Ref<Doc>,
+      version: number,
+      isLatest: number === 3,
+      readonly: number !== 3,
+      createdOn: 100 + number,
+      modifiedOn: 200 + number,
+      ...overrides
+    })
+
+  it.effect("returns an unversioned card as a truthful singleton history", () =>
+    Effect.gen(function*() {
+      const result = yield* listCardVersions({
+        cardSpace: SPACE,
+        card: CardIdentifier.make("Roadmap"),
+        limit: 1
+      }).pipe(Effect.provide(buildLayer({ spaces: [makeSpace()], cards: [makeCard()] })))
+
+      expect(result).toEqual({
+        versions: [{
+          id: "card-1",
+          title: "Roadmap",
+          modifiedOn: 200,
+          createdOn: 150
+        }],
+        total: 1,
+        hasMore: false
+      })
+    }))
+
+  it.effect("distinguishes missing card spaces and ambiguous exact titles", () =>
+    Effect.gen(function*() {
+      const missingSpace = yield* Effect.flip(
+        listCardVersions({
+          cardSpace: SPACE,
+          card: CardIdentifier.make("Roadmap")
+        }).pipe(Effect.provide(buildLayer({ spaces: [] })))
+      )
+      const ambiguousTitle = yield* Effect.flip(
+        listCardVersions({
+          cardSpace: SPACE,
+          card: CardIdentifier.make("Roadmap")
+        }).pipe(Effect.provide(buildLayer({
+          spaces: [makeSpace()],
+          cards: [
+            makeCard(),
+            makeCard({ _id: "card-2" as Ref<HulyCard> })
+          ]
+        })))
+      )
+      const missingCard = yield* Effect.flip(
+        listCardVersions({
+          cardSpace: SPACE,
+          card: CardIdentifier.make("Ghost")
+        }).pipe(Effect.provide(buildLayer({ spaces: [makeSpace()], cards: [] })))
+      )
+
+      expect(missingSpace._tag).toBe("CardSpaceNotFoundError")
+      expect(missingCard._tag).toBe("CardNotFoundError")
+      expect(ambiguousTitle).toBeInstanceOf(HulyError)
+      expect(ambiguousTitle.message).toContain("matches 2 version chains")
+      expect(ambiguousTitle.message).toContain("use a card ID")
+    }))
+
+  it.effect("resolves an older version by ID while bypassing latest-only middleware filtering", () =>
+    Effect.gen(function*() {
+      const captures: Captures = { findAllCalls: [] }
+      const versions = [versionCard("chain-1", 1), versionCard("old-version", 2), versionCard("latest", 3)]
+      const result = yield* listCardVersions({
+        cardSpace: SPACE,
+        card: CardIdentifier.make("old-version")
+      }).pipe(Effect.provide(buildLayer({
+        spaces: [makeSpace()],
+        cards: versions,
+        captures,
+        simulateVersionMiddleware: true
+      })))
+
+      expect(result.versions.map((version) => version.id)).toEqual(["chain-1", "old-version", "latest"])
+      expect(result.total).toBe(3)
+      expect(captures.findAllCalls).toContainEqual({
+        class: cardPlugin.class.Card,
+        query: { space: SPACE_ID, _id: "old-version" }
+      })
+      expect(captures.findAllCalls).toContainEqual({
+        class: cardPlugin.class.Card,
+        query: { space: SPACE_ID, baseId: "chain-1" }
+      })
+    }))
+
+  it.effect("resolves an older version by exact title with an explicit all-version query", () =>
+    Effect.gen(function*() {
+      const captures: Captures = { findAllCalls: [] }
+      const result = yield* listCardVersions({
+        cardSpace: SPACE,
+        card: CardIdentifier.make("Roadmap v2")
+      }).pipe(Effect.provide(buildLayer({
+        spaces: [makeSpace()],
+        cards: [versionCard("chain-1", 1), versionCard("old-version", 2), versionCard("latest", 3)],
+        captures,
+        simulateVersionMiddleware: true
+      })))
+
+      expect(result.total).toBe(3)
+      expect(captures.findAllCalls).toContainEqual({
+        class: cardPlugin.class.Card,
+        query: {
+          space: SPACE_ID,
+          title: "Roadmap v2",
+          isLatest: { $in: [true, false] }
+        }
+      })
+    }))
+
+  it.effect("computes an authoritative total before applying the page limit", () =>
+    Effect.gen(function*() {
+      const cards = Array.from({ length: 51 }, (_, index) =>
+        versionCard(index === 0 ? "chain-1" : `version-${index + 1}`, index + 1, {
+          isLatest: index === 50,
+          readonly: index !== 50
+        }))
+      const result = yield* listCardVersions({
+        cardSpace: SPACE,
+        card: CardIdentifier.make("chain-1"),
+        limit: 2
+      }).pipe(Effect.provide(buildLayer({ spaces: [makeSpace()], cards })))
+
+      expect(result.versions.map((version) =>
+        version.version?.number
+      )).toEqual([1, 2])
+      expect(result.total).toBe(51)
+      expect(result.hasMore).toBe(true)
+    }))
+
+  it.effect("breaks equal-version ties by timestamps and then ID, with malformed metadata last", () =>
+    Effect.gen(function*() {
+      const malformed = versionCard("malformed", 4, {
+        version: null,
+        createdOn: 1,
+        modifiedOn: 1
+      })
+      const missingCreatedA = {
+        ...versionCard("missing-created-a", 4, { version: null, modifiedOn: 3 }),
+        createdOn: undefined
+      } as unknown as HulyCard
+      const missingCreatedB = {
+        ...versionCard("missing-created-b", 4, { version: null, modifiedOn: 2 }),
+        createdOn: undefined
+      } as unknown as HulyCard
+      const result = yield* listCardVersions({
+        cardSpace: SPACE,
+        card: CardIdentifier.make("chain-1")
+      }).pipe(Effect.provide(buildLayer({
+        spaces: [makeSpace()],
+        cards: [
+          missingCreatedA,
+          missingCreatedB,
+          malformed,
+          versionCard("chain-1", 1),
+          versionCard("z", 2, { createdOn: 8, modifiedOn: 3 }),
+          versionCard("b", 2, { createdOn: 7, modifiedOn: 5 }),
+          versionCard("a", 2, { createdOn: 7, modifiedOn: 5 }),
+          versionCard("c", 2, { createdOn: 7, modifiedOn: 4 }),
+          versionCard("trailing-malformed", 4, { version: null, createdOn: 2, modifiedOn: 2 })
+        ]
+      })))
+
+      expect(result.versions.map((version) => version.id)).toEqual([
+        "chain-1",
+        "c",
+        "a",
+        "b",
+        "z",
+        "malformed",
+        "trailing-malformed",
+        "missing-created-b",
+        "missing-created-a"
+      ])
+      expect(result.versions.at(-1)?.version).toBeUndefined()
+      expect(result.versions.at(-1)?.createdOn).toBeUndefined()
     }))
 })
 

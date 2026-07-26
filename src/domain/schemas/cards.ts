@@ -1,5 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
+import { CardVersionMetadataSchema } from "./card-versions.js"
 import { clearableText } from "./clearable.js"
 import { HULY_NATIVE_REFERENCE_MARKDOWN_INPUT } from "./document-native-references.js"
 import {
@@ -127,6 +128,7 @@ export const CardDetailSchema = Schema.Struct({
   parent: Schema.optional(Schema.String),
   children: Schema.optional(Count),
   cardSpace: Schema.String,
+  version: Schema.optionalWith(CardVersionMetadataSchema, { exact: true }),
   modifiedOn: Schema.optional(Schema.Number),
   createdOn: Schema.optional(Schema.Number)
 })

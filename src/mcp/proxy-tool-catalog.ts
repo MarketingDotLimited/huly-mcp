@@ -198,7 +198,10 @@ const CATEGORY_DESCRIPTIONS: ReadonlyMap<ToolCategory, ToolDescription> = new Ma
     "Board administration, board labels, board cards, board views, menus, and archive workflows."
   ),
   categoryDescriptionEntry("views", "Saved and filtered views across boards and other view-capable Huly modules."),
-  categoryDescriptionEntry("cards", "Generic cards, card spaces, card relations, master tags, and card metadata."),
+  categoryDescriptionEntry(
+    "cards",
+    "Generic cards, card spaces, card relations, master tags, comments, and read-only version history."
+  ),
   categoryDescriptionEntry("leads", "CRM funnels and leads discovery."),
   categoryDescriptionEntry(
     "recruiting",

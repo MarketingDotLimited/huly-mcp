@@ -181,7 +181,6 @@ list_board_menu_pages
 list_board_saved_views
 list_board_viewlets
 list_card_comments
-list_cards
 list_channel_members
 list_channel_messages
 list_chat_message_attachments

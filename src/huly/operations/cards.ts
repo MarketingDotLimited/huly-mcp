@@ -36,12 +36,15 @@ import { CardNotFoundError, CardSpaceNotFoundError, HulyError } from "../errors.
 import type { MasterTagNotFoundError, NoUpdateFieldsError } from "../errors.js"
 import { cardPlugin } from "../huly-plugins.js"
 import { fetchMasterTagsForSpace, findMasterTag, masterTagDisplayName } from "./card-master-tags.js"
+import { cardVersionMetadata } from "./cards-version-history.js"
 import { clearTextAsEmptyString } from "./clear-field-updates.js"
 import { listTotal, optionalCount } from "./counts.js"
 import { renderMarkdownPreservingNativeReferences } from "./native-reference-markup.js"
 import { clampLimit, escapeLikeWildcards, findByNameOrId } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
+
+export { listCardVersions } from "./cards-version-history.js"
 
 type ListCardSpacesError = HulyClientError
 
@@ -294,6 +297,7 @@ export const getCard = (
         "markdown"
       )
       : undefined
+    const version = cardVersionMetadata(card)
 
     return {
       id: CardId.make(card._id),
@@ -303,6 +307,7 @@ export const getCard = (
       parent: card.parent ? String(card.parent) : undefined,
       children: optionalCount(card.children),
       cardSpace: cardSpaceIdentifier,
+      ...(version === undefined ? {} : { version }),
       modifiedOn: card.modifiedOn,
       createdOn: card.createdOn
     }

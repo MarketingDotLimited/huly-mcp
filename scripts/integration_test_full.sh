@@ -49,6 +49,8 @@ BOARD_CLEANUP_CARD_LABEL_ID=""
 CUSTOM_FIELD_DATE_CLEANUP_ISSUE_ID=""
 CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID=""
 CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME=""
+CARD_VERSION_CLEANUP_BASE_ID=""
+CARD_UNVERSIONED_CLEANUP_ID=""
 TM_TASK_TYPE_NAME=""
 TM_STATUS_NAME=""
 WORKFLOW_CLEANED=false
@@ -290,7 +292,21 @@ cleanup_custom_field_date_artifacts() {
   return 0
 }
 
+cleanup_card_version_artifacts() {
+  if [ -n "$CARD_UNVERSIONED_CLEANUP_ID" ]; then
+    card_json=$(json_string "$CARD_UNVERSIONED_CLEANUP_ID")
+    call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_card\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$card_json}},\"id\":2}" >/dev/null 2>&1 || true
+  fi
+  if [ -n "$CARD_VERSION_CLEANUP_BASE_ID" ]; then
+    pnpm exec tsx scripts/integration-card-version-history.ts \
+      --mode cleanup \
+      --cardSpace "Default" \
+      --baseId "$CARD_VERSION_CLEANUP_BASE_ID" >/dev/null 2>&1 || true
+  fi
+}
+
 cleanup_all() {
+  cleanup_card_version_artifacts
   cleanup_custom_field_date_artifacts || true
   cleanup_board_artifacts || true
   cleanup_recruiting_artifacts || true
@@ -4372,6 +4388,99 @@ if [ -n "$DERIVED_CARD_TYPE_ID" ]; then
     fi
   else
     fail_test "create_card(derived id:$DERIVED_CARD_TYPE_ID) returns id" "missing id"
+  fi
+
+  CARD_UNVERSIONED_TITLE="IntTest Unversioned Card $RUN_ID"
+  CARD_UNVERSIONED_TITLE_JSON=$(json_string "$CARD_UNVERSIONED_TITLE")
+  run_capture_to_var CARD_UNVERSIONED_CREATE_TEXT "create_card(unversioned fixture)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_card\",\"arguments\":{\"cardSpace\":\"Default\",\"type\":$DERIVED_CARD_TYPE_ID_JSON,\"title\":$CARD_UNVERSIONED_TITLE_JSON,\"content\":\"Disposable unversioned fixture.\"}},\"id\":2}"
+  CARD_UNVERSIONED_ID=$(printf '%s\n' "$CARD_UNVERSIONED_CREATE_TEXT" | jq -r '.id // empty' 2>/dev/null)
+  CARD_UNVERSIONED_CLEANUP_ID="$CARD_UNVERSIONED_ID"
+  if [ -n "$CARD_UNVERSIONED_ID" ]; then
+    CARD_UNVERSIONED_ID_JSON=$(json_string "$CARD_UNVERSIONED_ID")
+    if pnpm exec tsx scripts/integration-card-version-history.ts \
+      --mode strip \
+      --cardSpace "Default" \
+      --card "$CARD_UNVERSIONED_ID" >/dev/null 2>&1; then
+      echo "PASS: seed absent/null-normalized card version metadata"
+      PASSED=$((PASSED + 1))
+      restart_http_transport_if_needed "after unversioned card fixture write" || exit 1
+      run_capture_to_var CARD_UNVERSIONED_GET_TEXT "get_card(omits incoherent version metadata)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_card\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$CARD_UNVERSIONED_ID_JSON}},\"id\":2}"
+      if [ $? -eq 0 ]; then
+        assert_json_field_equals "get_card omits absent version metadata" "$CARD_UNVERSIONED_GET_TEXT" ".version" "null"
+      fi
+      run_capture_to_var CARD_UNVERSIONED_HISTORY_TEXT "list_card_versions(unversioned singleton)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_card_versions\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$CARD_UNVERSIONED_ID_JSON}},\"id\":2}"
+      if [ $? -eq 0 ]; then
+        assert_json_field_equals "unversioned history length" "$CARD_UNVERSIONED_HISTORY_TEXT" ".versions | length" "1"
+        assert_json_field_equals "unversioned history total" "$CARD_UNVERSIONED_HISTORY_TEXT" ".total" "1"
+        assert_json_field_equals "unversioned history is complete" "$CARD_UNVERSIONED_HISTORY_TEXT" ".hasMore" "false"
+        assert_json_field_equals "unversioned history omits metadata" "$CARD_UNVERSIONED_HISTORY_TEXT" ".versions[0].version" "null"
+      fi
+    else
+      fail_test "seed absent/null-normalized card version metadata" "integration SDK fixture setup failed"
+    fi
+    run_test "delete_card(unversioned fixture:$CARD_UNVERSIONED_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_card\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$CARD_UNVERSIONED_ID_JSON}},\"id\":2}"
+    CARD_UNVERSIONED_CLEANUP_ID=""
+  else
+    fail_test "create_card(unversioned fixture) returns id" "missing id"
+  fi
+
+  CARD_VERSION_TITLE="IntTest Card Version History $RUN_ID"
+  CARD_VERSION_TITLE_JSON=$(json_string "$CARD_VERSION_TITLE")
+  run_capture_to_var CARD_VERSION_BASE_TEXT "create_card(version history base)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_card\",\"arguments\":{\"cardSpace\":\"Default\",\"type\":$DERIVED_CARD_TYPE_ID_JSON,\"title\":$CARD_VERSION_TITLE_JSON,\"content\":\"Disposable read-only version history fixture.\"}},\"id\":2}"
+  CARD_VERSION_BASE_ID=$(printf '%s\n' "$CARD_VERSION_BASE_TEXT" | jq -r '.id // empty' 2>/dev/null)
+  CARD_VERSION_CLEANUP_BASE_ID="$CARD_VERSION_BASE_ID"
+  if [ -n "$CARD_VERSION_BASE_ID" ]; then
+    CARD_VERSION_BASE_ID_JSON=$(json_string "$CARD_VERSION_BASE_ID")
+    CARD_VERSION_SETUP_TEXT=$(pnpm exec tsx scripts/integration-card-version-history.ts \
+      --mode setup \
+      --cardSpace "Default" \
+      --card "$CARD_VERSION_BASE_ID" \
+      --additionalVersions 50 2>/dev/null)
+    if [ $? -eq 0 ]; then
+      CARD_VERSION_OLD_ID=$(printf '%s\n' "$CARD_VERSION_SETUP_TEXT" | jq -r '.versionIds[0] // empty' 2>/dev/null)
+      CARD_VERSION_OLD_ID_JSON=$(json_string "$CARD_VERSION_OLD_ID")
+      echo "PASS: seed card version history beyond default page"
+      PASSED=$((PASSED + 1))
+      restart_http_transport_if_needed "after card version fixture writes" || exit 1
+
+      run_capture_to_var CARD_VERSION_GET_TEXT "get_card(coherent version metadata)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_card\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$CARD_VERSION_BASE_ID_JSON}},\"id\":2}"
+      if [ $? -eq 0 ]; then
+        assert_json_field_equals "get_card version chain identity" "$CARD_VERSION_GET_TEXT" ".version.chainId" "$CARD_VERSION_BASE_ID"
+        assert_json_field_equals "get_card version number" "$CARD_VERSION_GET_TEXT" ".version.number" "1"
+      fi
+
+      run_capture_to_var CARD_VERSION_DEFAULT_PAGE_TEXT "list_card_versions(default page by old version id)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_card_versions\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$CARD_VERSION_OLD_ID_JSON}},\"id\":2}"
+      if [ $? -eq 0 ]; then
+        assert_json_field_equals "list_card_versions default page length" "$CARD_VERSION_DEFAULT_PAGE_TEXT" ".versions | length" "50"
+        assert_json_field_equals "list_card_versions authoritative total" "$CARD_VERSION_DEFAULT_PAGE_TEXT" ".total" "51"
+        assert_json_field_equals "list_card_versions default page has more" "$CARD_VERSION_DEFAULT_PAGE_TEXT" ".hasMore" "true"
+        assert_json_field_equals "list_card_versions oldest first" "$CARD_VERSION_DEFAULT_PAGE_TEXT" ".versions[0].version.number" "1"
+      fi
+
+      run_capture_to_var CARD_VERSION_TITLE_PAGE_TEXT "list_card_versions(exact title limited page)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_card_versions\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$CARD_VERSION_TITLE_JSON,\"limit\":2}},\"id\":2}"
+      if [ $? -eq 0 ]; then
+        assert_json_field_equals "list_card_versions title page length" "$CARD_VERSION_TITLE_PAGE_TEXT" ".versions | length" "2"
+        assert_json_field_equals "list_card_versions title total" "$CARD_VERSION_TITLE_PAGE_TEXT" ".total" "51"
+        assert_json_field_equals "list_card_versions title page has more" "$CARD_VERSION_TITLE_PAGE_TEXT" ".hasMore" "true"
+        assert_json_field_equals "list_card_versions deterministic second version" "$CARD_VERSION_TITLE_PAGE_TEXT" ".versions[1].version.number" "2"
+      fi
+    else
+      fail_test "seed card version history beyond default page" "integration SDK fixture setup failed"
+    fi
+
+    cleanup_card_version_artifacts
+    CARD_VERSION_CLEANUP_BASE_ID=""
+    restart_http_transport_if_needed "after card version fixture cleanup" || exit 1
+  else
+    fail_test "create_card(version history base) returns id" "missing id"
   fi
 
   if [ -n "$DERIVED_CARD_LABEL_ID" ] && [ -n "$DERIVED_CARD_ID_ID" ]; then

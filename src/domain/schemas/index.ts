@@ -745,6 +745,21 @@ export {
 } from "./cards.js"
 
 export {
+  CardVersionChainId,
+  type CardVersionMetadata,
+  CardVersionMetadataSchema,
+  CardVersionNumber,
+  type CardVersionSummary,
+  CardVersionSummarySchema,
+  type ListCardVersionsParams,
+  listCardVersionsParamsJsonSchema,
+  ListCardVersionsParamsSchema,
+  type ListCardVersionsResult,
+  ListCardVersionsResultSchema,
+  parseListCardVersionsParams
+} from "./card-versions.js"
+
+export {
   type ListUserStatusesParams,
   listUserStatusesParamsJsonSchema,
   ListUserStatusesParamsSchema,
