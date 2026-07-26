@@ -17,6 +17,8 @@ import {
 import {
   AssociationId,
   AttachmentId,
+  CardIdentifier,
+  CardSpaceIdentifier,
   CommentId,
   Count,
   DocId,
@@ -35,6 +37,7 @@ import {
 } from "../../src/domain/schemas/shared.js"
 import {
   ActivityMessageNotFoundError,
+  ActivityRecordInvalidError,
   ApprovalRequestApproverNotRequestedError,
   ApprovalRequestCancelUnauthorizedError,
   ApprovalRequestInvalidApprovalThresholdError,
@@ -72,6 +75,7 @@ import {
   BYTES_PER_MB,
   CalendarNotAccessibleError,
   CannotDirectMessageSelfError,
+  CardCommentNotFoundError,
   CardNotFoundError,
   CardSpaceNotFoundError,
   ChannelArchivedError,
@@ -163,6 +167,7 @@ import {
   PersonIdentifierAmbiguousError,
   PersonNotAnEmployeeError,
   PersonNotFoundError,
+  PlannerSchedulingPrerequisiteError,
   ProjectNotFoundError,
   ReactionNotFoundError,
   RecruitingApplicantIdentifierAmbiguousError,
@@ -1037,6 +1042,8 @@ describe("Huly Errors", () => {
               return `meeting-minutes:${error.meetingMinutesId}`
             case "ActivityMessageNotFoundError":
               return `activity:${error.messageId}`
+            case "ActivityRecordInvalidError":
+              return `activity-invalid:${error.operation}:${error.recordIndex}`
             case "ReactionNotFoundError":
               return `reaction:${error.emoji}`
             case "SavedMessageNotFoundError":
@@ -1051,6 +1058,8 @@ describe("Huly Errors", () => {
               return `cardspace:${error.identifier}`
             case "CardNotFoundError":
               return `card:${error.identifier}`
+            case "CardCommentNotFoundError":
+              return `card-comment:${error.commentId}`
             case "MasterTagNotFoundError":
               return `mastertag:${error.identifier}`
             case "TagNotFoundError":
@@ -1077,6 +1086,8 @@ describe("Huly Errors", () => {
               return `customfield:${error.identifier}`
             case "CustomFieldObjectNotFoundError":
               return `customfieldobj:${error.objectId}`
+            case "InvalidCustomFieldDateValueError":
+              return `customfielddate:${error.value}`
             case "IssueTemplateNotFoundError":
               return `template:${error.identifier}`
             case "TemplateChildNotFoundError":
@@ -1089,6 +1100,8 @@ describe("Huly Errors", () => {
               return `notif-person-space:${error.user}`
             case "NotificationTypeNotFoundError":
               return `notiftype:${error.typeId}`
+            case "NotificationProviderNotFoundError":
+              return `notif-provider:${error.providerId}`
             case "NotificationProviderNotConfigurableError":
               return `notif-provider-not-configurable:${error.providerId}:${error.typeId}`
             case "InvalidPersonUuidError":
@@ -1285,6 +1298,8 @@ describe("Huly Errors", () => {
               return `todo-ambiguous:${error.locator}:${error.matches}`
             case "TodoWorkSlotNotFoundError":
               return `todo-workslot:${error.workSlotId}`
+            case "PlannerSchedulingPrerequisiteError":
+              return `planner-prerequisite:${error.prerequisite}`
             case "DriveNotFoundError":
               return `drive:${error.drive}`
             case "DriveIdentifierAmbiguousError":
@@ -1311,6 +1326,12 @@ describe("Huly Errors", () => {
               return `drive-folder-not-empty:${error.drive}:${error.path}:${error.childCount}:${error.children.length}`
             case "DriveNotEmptyError":
               return `drive-not-empty:${error.drive}:${error.childCount}:${error.children.length}`
+            case "AttachmentContentTypeUnsupportedError":
+              return `attachment-content-type:${error.attachmentId}:${error.contentType}`
+            case "AttachmentContentTooLargeError":
+              return `attachment-content-size:${error.attachmentId}:${error.size}`
+            case "AttachmentContentUnavailableError":
+              return `attachment-content-unavailable:${error.attachmentId}:${error.reason}`
             case "MessageTemplateCategoryNotFoundError":
               return `message-template-category:${error.identifier}`
             case "MessageTemplateCategoryIdentifierAmbiguousError":
@@ -1620,6 +1641,9 @@ describe("Huly Errors", () => {
           "Planner ToDo locator is ambiguous: title:Fix bug matched 2 ToDos"
         )
         expect(matchError(new TodoWorkSlotNotFoundError({ workSlotId: "slot-1" }))).toBe("todo-workslot:slot-1")
+        expect(
+          matchError(new PlannerSchedulingPrerequisiteError({ prerequisite: "personal calendar" }))
+        ).toBe("planner-prerequisite:personal calendar")
         expect(matchError(new InventoryCategoryNotFoundError({ identifier: "Cat" }))).toBe("inventory-category:Cat")
         expect(new InventoryCategoryNotFoundError({ identifier: "Cat" }).message).toBe(
           "Inventory category 'Cat' not found"
@@ -1753,6 +1777,15 @@ describe("Huly Errors", () => {
         expect(matchError(new EventNotFoundError({ eventId: EventId.make("e-1") }))).toBe("event:e-1")
         expect(matchError(new RecurringEventNotFoundError({ eventId: EventId.make("re-1") }))).toBe("recurring:re-1")
         expect(matchError(new ActivityMessageNotFoundError({ messageId: "am-1" }))).toBe("activity:am-1")
+        expect(
+          matchError(
+            new ActivityRecordInvalidError({
+              operation: "list_activity",
+              recordIndex: Count.make(0),
+              details: "_id is required"
+            })
+          )
+        ).toBe("activity-invalid:list_activity:0")
         expect(matchError(new ReactionNotFoundError({ messageId: "msg-1", emoji: "heart" }))).toBe("reaction:heart")
         expect(matchError(new SavedMessageNotFoundError({ messageId: "sm-1" }))).toBe("saved:sm-1")
         expect(matchError(new AttachmentNotFoundError({ attachmentId: "att-1" }))).toBe("attachment:att-1")
@@ -1760,8 +1793,26 @@ describe("Huly Errors", () => {
           "saved-attachment:att-1"
         )
         expect(matchError(new DrawingNotFoundError({ drawingId: "drawing-1" }))).toBe("drawing:drawing-1")
-        expect(matchError(new CardSpaceNotFoundError({ identifier: "cs-1" }))).toBe("cardspace:cs-1")
-        expect(matchError(new CardNotFoundError({ identifier: "card-1", cardSpace: "cs-1" }))).toBe("card:card-1")
+        expect(
+          matchError(new CardSpaceNotFoundError({ identifier: CardSpaceIdentifier.make("cs-1") }))
+        ).toBe("cardspace:cs-1")
+        expect(
+          matchError(
+            new CardNotFoundError({
+              identifier: CardIdentifier.make("card-1"),
+              cardSpace: CardSpaceIdentifier.make("cs-1")
+            })
+          )
+        ).toBe("card:card-1")
+        expect(
+          matchError(
+            new CardCommentNotFoundError({
+              commentId: CommentId.make("comment-1"),
+              card: CardIdentifier.make("card-1"),
+              cardSpace: CardSpaceIdentifier.make("cs-1")
+            })
+          )
+        ).toBe("card-comment:comment-1")
         expect(
           matchError(new MasterTagNotFoundError({ identifier: "mt-1", cardSpace: "cs-1" }))
         ).toBe("mastertag:mt-1")

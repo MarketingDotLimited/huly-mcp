@@ -106,7 +106,7 @@ export const notificationTools = [
     {
       name: "list_notification_providers",
       description:
-        "List notification providers such as inbox, push, and sound. Use provider IDs from this tool when updating provider or type settings.",
+        "List model-declared notification providers such as inbox, push, and sound. Use returned provider IDs for setting updates. Older REST servers may return compatibility metadata with an explicit tool warning.",
       category: CATEGORY,
       inputSchema: listNotificationProvidersParamsJsonSchema,
       resultSchema: ListNotificationProvidersResultSchema
@@ -118,7 +118,7 @@ export const notificationTools = [
     {
       name: "list_notification_types",
       description:
-        "List notification types. Use type IDs from this tool when updating provider-specific notification type settings.",
+        "List model-declared notification types. Use returned type IDs for provider-specific setting updates. Older REST servers may return compatibility metadata with an explicit tool warning.",
       category: CATEGORY,
       inputSchema: listNotificationTypesParamsJsonSchema,
       resultSchema: ListNotificationTypesResultSchema
@@ -338,7 +338,8 @@ export const notificationTools = [
   defineTool(
     {
       name: "update_notification_provider_setting",
-      description: "Update notification provider setting. Enable or disable notifications for a specific provider.",
+      description:
+        "Enable or disable a notification provider setting. Validates providerId against authoritative model definitions when available; compatible REST fallback is preserved and explicitly warned.",
       category: CATEGORY,
       inputSchema: updateNotificationProviderSettingParamsJsonSchema,
       resultSchema: UpdateNotificationProviderSettingResultSchema
@@ -350,7 +351,7 @@ export const notificationTools = [
     {
       name: "update_notification_type_setting",
       description:
-        "Enable or disable one notification type for one provider. Creates the type setting only when the provider has a configurable setting in this workspace.",
+        "Enable or disable one notification type for one provider. Validates both IDs against authoritative model definitions when available, and creates a type setting only when the provider is configurable. Compatible REST fallback is preserved and explicitly warned.",
       category: CATEGORY,
       inputSchema: updateNotificationTypeSettingParamsJsonSchema,
       resultSchema: UpdateNotificationTypeSettingResultSchema

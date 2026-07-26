@@ -12,6 +12,7 @@ import {
 } from "@hcengineering/tracker"
 import { Effect } from "effect"
 import { expect } from "vitest"
+import { PositiveTimeHours } from "../../../src/domain/schemas/time.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import type {
   ComponentNotFoundError,
@@ -41,7 +42,6 @@ import {
   componentIdentifier,
   email,
   issueTemplateChildId,
-  positiveNumber,
   projectIdentifier,
   templateIdentifier
 } from "../../helpers/brands.js"
@@ -735,7 +735,7 @@ describe("createIssueTemplate", () => {
         priority: "high",
         assignee: email("john@example.com"),
         component: componentIdentifier("Frontend"),
-        estimation: positiveNumber(120)
+        estimation: PositiveTimeHours.make(120)
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(result.title).toBe("Full Template")
@@ -1298,7 +1298,7 @@ describe("updateIssueTemplate", () => {
       const result = yield* updateIssueTemplate({
         project: projectIdentifier("TEST"),
         template: templateIdentifier("Bug Report Template"),
-        estimation: positiveNumber(90)
+        estimation: PositiveTimeHours.make(90)
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(result.updated).toBe(true)
@@ -1909,22 +1909,22 @@ describe("createIssueFromTemplate with children", () => {
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(result.identifier).toBeDefined()
-      // Parent + 2 children all created via addCollection (children as top-level first)
       expect(captureAll).toHaveLength(3)
 
-      // Parent issue
       expect(assertAt(captureAll, 0).attributes.title).toBe("Parent Template")
-      expect(assertAt(captureAll, 0).collection).toBe("issues")
+      expect(assertAt(captureAll, 0).attachedTo).toBe(tracker.ids.NoParent)
+      expect(assertAt(captureAll, 0).collection).toBe("subIssues")
 
-      // Child issues initially created as top-level (attached to project)
       expect(assertAt(captureAll, 1).attributes.title).toBe("Sub-task A")
-      expect(assertAt(captureAll, 1).collection).toBe("issues")
+      expect(assertAt(captureAll, 1).attachedTo).toBe(tracker.ids.NoParent)
+      expect(assertAt(captureAll, 1).collection).toBe("subIssues")
       expect((assertAt(captureAll, 1).attributes as { priority: number }).priority).toBe(IssuePriority.High)
 
       expect(assertAt(captureAll, 2).attributes.title).toBe("Sub-task B")
-      expect(assertAt(captureAll, 2).collection).toBe("issues")
+      expect(assertAt(captureAll, 2).attachedTo).toBe(tracker.ids.NoParent)
+      expect(assertAt(captureAll, 2).collection).toBe("subIssues")
 
-      // Then reparented via updateDoc
+      // Then attached by direct update because the parent is not readable yet.
       const reparentUpdates = captureUpdateAll.filter(
         u => u.operations.attachedTo !== undefined
       )
@@ -1935,7 +1935,17 @@ describe("createIssueFromTemplate with children", () => {
         estimation: 30
       })
 
-      // Result should include childrenCreated count
+      const parentId = assertAt(captureAll, 0).id
+      const parentCountUpdates = captureUpdateAll.filter(
+        ({ objectId, operations }) =>
+          objectId === parentId
+          && operations.$inc !== undefined
+      )
+      expect(parentCountUpdates).toHaveLength(2)
+      for (const update of parentCountUpdates) {
+        expect(update.operations).toEqual({ $inc: { subIssues: 1 } })
+      }
+
       expect(result.childrenCreated).toBe(2)
     }))
 

@@ -1,3 +1,4 @@
+import { UPLOAD_SOURCE_SEMANTICS } from "../../../src/domain/schemas/upload-source.js"
 import type { McpToolName } from "../../../src/mcp/tools/index.js"
 import { mutationCliCommandCatalog } from "./catalog-mutations.js"
 import { readOnlyCliCommandCatalog } from "./catalog-read-only.js"
@@ -152,10 +153,15 @@ export const cliCommandCatalog = {
       }
     }
   },
+  read_attachment_content: {
+    path: ["attachments", "read-image"],
+    positional: ["attachmentId"],
+    description: "Read a supported image attachment as multimodal content"
+  },
   add_issue_attachment: {
     path: ["attachments", "add-to-issue"],
     positional: [],
-    description: "Add an attachment to an issue",
+    description: `Add an attachment to an issue. ${UPLOAD_SOURCE_SEMANTICS}`,
     behavior: {
       fileInput: { fields: ["description"] }
     }
@@ -163,7 +169,7 @@ export const cliCommandCatalog = {
   add_document_attachment: {
     path: ["attachments", "add-to-document"],
     positional: [],
-    description: "Add an attachment to a document",
+    description: `Add an attachment to a document. ${UPLOAD_SOURCE_SEMANTICS}`,
     behavior: {
       fileInput: { fields: ["description"] }
     }

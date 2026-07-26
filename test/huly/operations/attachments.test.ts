@@ -9,8 +9,9 @@ import * as fs from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
 import { expect } from "vitest"
+import { READ_ATTACHMENT_CONTENT_MAX_BYTES } from "../../../src/domain/schemas/attachments.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
-import type { AttachmentNotFoundError } from "../../../src/huly/errors.js"
+import { type AttachmentNotFoundError, FileFetchError } from "../../../src/huly/errors.js"
 import { attachment, documentPlugin, tracker } from "../../../src/huly/huly-plugins.js"
 import {
   addAttachment,
@@ -21,6 +22,7 @@ import {
   getAttachment,
   listAttachments,
   pinAttachment,
+  readAttachmentContent,
   updateAttachment
 } from "../../../src/huly/operations/attachments.js"
 import { HulyStorageClient, type HulyStorageOperations } from "../../../src/huly/storage.js"
@@ -150,6 +152,8 @@ interface MockConfig {
   captureRemoveDoc?: { id?: string }
   captureAddCollection?: { attributes?: Record<string, unknown> }
   getFileUrl?: HulyStorageOperations["getFileUrl"]
+  downloadFile?: HulyStorageOperations["downloadFile"]
+  downloadUnavailable?: boolean
 }
 
 const createTestLayer = (config: MockConfig) => {
@@ -259,9 +263,15 @@ const createTestLayer = (config: MockConfig) => {
     addCollection: addCollectionImpl
   })
 
-  const storageLayer = HulyStorageClient.testLayer({
-    ...(config.getFileUrl === undefined ? {} : { getFileUrl: config.getFileUrl })
-  })
+  const storageLayer = config.downloadUnavailable === true
+    ? Layer.succeed(HulyStorageClient, {
+      uploadFile: () => Effect.die(new Error("upload not used by this read test")),
+      getFileUrl: config.getFileUrl ?? ((blobId) => `https://test.huly.io/files?file=${blobId}`)
+    })
+    : HulyStorageClient.testLayer({
+      ...(config.getFileUrl === undefined ? {} : { getFileUrl: config.getFileUrl }),
+      ...(config.downloadFile === undefined ? {} : { downloadFile: config.downloadFile })
+    })
 
   return Layer.merge(clientLayer, storageLayer)
 }
@@ -705,6 +715,173 @@ describe("downloadAttachment", () => {
       )
 
       expect(error._tag).toBe("AttachmentNotFoundError")
+    }))
+})
+
+describe("readAttachmentContent", () => {
+  const imageBytes = Buffer.from("inline-image")
+  const makeImageAttachment = (overrides?: Partial<HulyAttachment>) =>
+    makeAttachment({
+      _id: "att-image" as Ref<HulyAttachment>,
+      name: "screenshot.png",
+      file: "blob-image" as Ref<Blob>,
+      type: "image/png",
+      size: imageBytes.length,
+      ...overrides
+    })
+
+  it.effect("returns supported image content with actual byte metadata", () =>
+    Effect.gen(function*() {
+      const requested: Array<string> = []
+      const testLayer = createTestLayer({
+        attachments: [makeImageAttachment({ size: 1 })],
+        downloadFile: (blobId) => {
+          requested.push(blobId)
+          return Effect.succeed(imageBytes)
+        }
+      })
+
+      const result = yield* readAttachmentContent({
+        attachmentId: attachmentBrandId("att-image")
+      }).pipe(Effect.provide(testLayer))
+
+      expect(requested).toEqual(["blob-image"])
+      expect(result).toEqual({
+        _tag: "ImageAttachmentContent",
+        metadata: {
+          attachmentId: "att-image",
+          name: "screenshot.png",
+          type: "image/png",
+          size: imageBytes.length
+        },
+        data: imageBytes.toString("base64")
+      })
+    }))
+
+  it.effect("reports an empty image download as unavailable instead of throwing", () =>
+    Effect.gen(function*() {
+      const testLayer = createTestLayer({
+        attachments: [makeImageAttachment({ size: 0 })],
+        downloadFile: () => Effect.succeed(Buffer.alloc(0))
+      })
+
+      const error = yield* Effect.flip(
+        readAttachmentContent({ attachmentId: attachmentBrandId("att-image") }).pipe(Effect.provide(testLayer))
+      )
+
+      expect(error._tag).toBe("AttachmentContentUnavailableError")
+      expect(error.message).toContain("downloaded image data is empty")
+    }))
+
+  it.effect("rejects unsupported image MIME types before download", () =>
+    Effect.gen(function*() {
+      const requested: Array<string> = []
+      const testLayer = createTestLayer({
+        attachments: [makeImageAttachment({ type: "image/svg+xml" })],
+        downloadFile: (blobId) => {
+          requested.push(blobId)
+          return Effect.succeed(imageBytes)
+        }
+      })
+
+      const error = yield* Effect.flip(
+        readAttachmentContent({ attachmentId: attachmentBrandId("att-image") }).pipe(Effect.provide(testLayer))
+      )
+
+      expect(error._tag).toBe("AttachmentContentTypeUnsupportedError")
+      expect(error.message).toContain("download_attachment")
+      expect(requested).toEqual([])
+    }))
+
+  it.effect("reports invalid stored attachment metadata before download", () =>
+    Effect.gen(function*() {
+      const requested: Array<string> = []
+      const testLayer = createTestLayer({
+        attachments: [makeImageAttachment({ size: -1 })],
+        downloadFile: (blobId) => {
+          requested.push(blobId)
+          return Effect.succeed(imageBytes)
+        }
+      })
+
+      const error = yield* Effect.flip(
+        readAttachmentContent({ attachmentId: attachmentBrandId("att-image") }).pipe(Effect.provide(testLayer))
+      )
+
+      expect(error._tag).toBe("AttachmentContentUnavailableError")
+      expect(error.message).toContain("stored attachment metadata is invalid")
+      expect(requested).toEqual([])
+    }))
+
+  it.effect("rejects oversized declared content before download", () =>
+    Effect.gen(function*() {
+      const requested: Array<string> = []
+      const testLayer = createTestLayer({
+        attachments: [makeImageAttachment({ size: READ_ATTACHMENT_CONTENT_MAX_BYTES + 1 })],
+        downloadFile: (blobId) => {
+          requested.push(blobId)
+          return Effect.succeed(imageBytes)
+        }
+      })
+
+      const error = yield* Effect.flip(
+        readAttachmentContent({ attachmentId: attachmentBrandId("att-image") }).pipe(Effect.provide(testLayer))
+      )
+
+      expect(error._tag).toBe("AttachmentContentTooLargeError")
+      expect(error.message).toContain("download_attachment")
+      expect(requested).toEqual([])
+    }))
+
+  it.effect("rejects oversized downloaded content", () =>
+    Effect.gen(function*() {
+      const testLayer = createTestLayer({
+        attachments: [makeImageAttachment()],
+        downloadFile: () => Effect.succeed(Buffer.alloc(READ_ATTACHMENT_CONTENT_MAX_BYTES + 1))
+      })
+
+      const error = yield* Effect.flip(
+        readAttachmentContent({ attachmentId: attachmentBrandId("att-image") }).pipe(Effect.provide(testLayer))
+      )
+
+      expect(error._tag).toBe("AttachmentContentTooLargeError")
+      expect(error.message).toContain("download_attachment")
+    }))
+
+  it.effect("reports unavailable authenticated storage downloads as a typed failure", () =>
+    Effect.gen(function*() {
+      const testLayer = createTestLayer({
+        attachments: [makeImageAttachment()],
+        downloadUnavailable: true
+      })
+
+      const error = yield* Effect.flip(
+        readAttachmentContent({ attachmentId: attachmentBrandId("att-image") }).pipe(Effect.provide(testLayer))
+      )
+
+      expect(error._tag).toBe("AttachmentContentUnavailableError")
+    }))
+
+  it.effect("redacts storage adapter failure details from the typed attachment error", () =>
+    Effect.gen(function*() {
+      const testLayer = createTestLayer({
+        attachments: [makeImageAttachment()],
+        downloadFile: () =>
+          Effect.fail(
+            new FileFetchError({
+              fileUrl: "blob-image",
+              reason: "S3 credential secret-value rejected"
+            })
+          )
+      })
+
+      const error = yield* Effect.flip(
+        readAttachmentContent({ attachmentId: attachmentBrandId("att-image") }).pipe(Effect.provide(testLayer))
+      )
+
+      expect(error._tag).toBe("AttachmentContentUnavailableError")
+      expect(error.message).toContain("authenticated storage download failed")
+      expect(error.message).not.toContain("secret-value")
     }))
 })
 

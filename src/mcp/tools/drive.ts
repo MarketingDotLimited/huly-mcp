@@ -74,6 +74,7 @@ import {
   UploadDriveFileVersionResultSchema
 } from "../../domain/schemas/drive.js"
 import { DEFAULT_INCLUDE_ARCHIVED } from "../../domain/schemas/shared.js"
+import { UPLOAD_SOURCE_SEMANTICS } from "../../domain/schemas/upload-source.js"
 import {
   addDriveFileComment,
   addDriveMembers,
@@ -310,7 +311,7 @@ export const driveTools = [
     {
       name: "upload_drive_file",
       description:
-        "Upload a file into Drive at a full path including filename. Provide exactly one source: filePath, fileUrl, or base64 data. By default createParents=true creates missing parent folders and reports them.",
+        `Upload a file into Drive at a full path including filename. Provide exactly one source: ${UPLOAD_SOURCE_SEMANTICS} By default createParents=true creates missing parent folders and reports them.`,
       category: CATEGORY,
       inputSchema: uploadDriveFileParamsJsonSchema,
       annotations: { idempotentHint: false, destructiveHint: false },
@@ -323,7 +324,7 @@ export const driveTools = [
     {
       name: "upload_drive_file_version",
       description:
-        "Upload a new version for an existing Drive file resolved by file id or file path. Provide exactly one source: filePath, fileUrl, or base64 data. This increments the file version counter and makes the uploaded version current.",
+        `Upload a new version for an existing Drive file resolved by file id or file path. Provide exactly one source: ${UPLOAD_SOURCE_SEMANTICS} This increments the file version counter and makes the uploaded version current.`,
       category: CATEGORY,
       inputSchema: uploadDriveFileVersionParamsJsonSchema,
       annotations: { idempotentHint: false, destructiveHint: false },

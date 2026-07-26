@@ -19,13 +19,13 @@ import {
   NonEmptyString,
   PersonName,
   PersonRefInput,
-  PositiveNumber,
   ProjectIdentifier,
   StatusName,
   TemplateIdentifier,
   Timestamp,
   withAtLeastOneRequired
 } from "./shared.js"
+import { PositiveTimeHours, timeHoursDescription } from "./time.js"
 
 export const DEFAULT_INCLUDE_TEMPLATE_CHILDREN = true
 
@@ -38,7 +38,9 @@ export const IssueTemplateChildSchema = Schema.Struct({
   priority: Schema.optional(IssuePrioritySchema),
   assignee: Schema.optional(PersonName),
   component: Schema.optional(ComponentLabel),
-  estimation: Schema.optional(PositiveNumber)
+  estimation: Schema.optional(PositiveTimeHours.annotations({
+    description: timeHoursDescription("Child default estimation")
+  }))
 }).annotations({
   title: "IssueTemplateChild",
   description: "A child (sub-task) template within an issue template"
@@ -63,8 +65,8 @@ const ChildTemplateFieldsSchema = Schema.Struct({
   component: Schema.optional(ComponentIdentifier.annotations({
     description: "Child default component ID or label"
   })),
-  estimation: Schema.optional(PositiveNumber.annotations({
-    description: "Child default estimation in minutes"
+  estimation: Schema.optional(PositiveTimeHours.annotations({
+    description: timeHoursDescription("Child default estimation")
   }))
 })
 
@@ -97,7 +99,9 @@ export const IssueTemplateSchema = Schema.Struct({
   priority: Schema.optional(IssuePrioritySchema),
   assignee: Schema.optional(PersonName),
   component: Schema.optional(ComponentLabel),
-  estimation: Schema.optional(PositiveNumber),
+  estimation: Schema.optional(PositiveTimeHours.annotations({
+    description: timeHoursDescription("Default estimation")
+  })),
   children: Schema.optional(Schema.Array(IssueTemplateChildSchema)),
   project: ProjectIdentifier,
   modifiedOn: Schema.optional(Timestamp),
@@ -160,8 +164,8 @@ export const CreateIssueTemplateParamsSchema = Schema.Struct({
   component: Schema.optional(ComponentIdentifier.annotations({
     description: "Default component ID or label"
   })),
-  estimation: Schema.optional(PositiveNumber.annotations({
-    description: "Default estimation in minutes"
+  estimation: Schema.optional(PositiveTimeHours.annotations({
+    description: timeHoursDescription("Default estimation")
   })),
   children: Schema.optional(
     Schema.Array(ChildTemplateInputSchema).annotations({
@@ -246,8 +250,8 @@ export const UpdateIssueTemplateParamsSchema = Schema.Struct({
     })
   ),
   estimation: Schema.optional(
-    Schema.NullOr(PositiveNumber).annotations({
-      description: "New default estimation in minutes, or null to clear"
+    Schema.NullOr(PositiveTimeHours).annotations({
+      description: `${timeHoursDescription("New default estimation")} Use null to clear.`
     })
   )
 }).pipe(

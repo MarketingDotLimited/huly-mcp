@@ -42,7 +42,13 @@ import { contact, task } from "../huly-plugins.js"
 import { leadClassIds } from "../lead-plugin.js"
 import { findPersonByEmailOrName } from "./contacts-shared.js"
 import { listTotal } from "./counts.js"
-import { findStatusDocs, resolveByStatusRef, uniqueStatusRefs, workflowStatusFromRef } from "./issues-shared.js"
+import {
+  findStatusDocs,
+  resolveByStatusRef,
+  type StatusMetadata,
+  uniqueStatusRefs,
+  workflowStatusFromRef
+} from "./issues-shared.js"
 import { clampLimit, escapeLikeWildcards } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
@@ -77,7 +83,7 @@ const funnelAsSpace = (funnel: HulyFunnel): Ref<Space> => toRef<Space>(funnel._i
 
 const statusInfosWithFallbacks = (
   statusRefs: ReadonlyArray<Ref<Status>>,
-  statusDocs: ReadonlyArray<Status>
+  statusDocs: ReadonlyArray<StatusMetadata>
 ): ReadonlyArray<StatusInfo> =>
   resolveByStatusRef(
     statusRefs,

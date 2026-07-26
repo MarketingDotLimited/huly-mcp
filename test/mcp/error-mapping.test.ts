@@ -2,6 +2,7 @@ import { describe, it } from "@effect/vitest"
 import type { ParseResult } from "effect"
 import { Cause, Effect, Schema } from "effect"
 import { expect } from "vitest"
+import { CanonicalBase64ImageData } from "../../src/domain/schemas/attachments.js"
 import { AssociationName } from "../../src/domain/schemas/generic-associations.js"
 import { ProcessId } from "../../src/domain/schemas/processes.js"
 import {
@@ -24,6 +25,7 @@ import {
   SpaceTypeId
 } from "../../src/domain/schemas/shared.js"
 import {
+  ActivityRecordInvalidError,
   AssociationIdentifierAmbiguousError,
   AssociationNotFoundError,
   CalendarNotAccessibleError,
@@ -78,6 +80,7 @@ import {
 import { normalizeHulyOrigin } from "../../src/huly/unavailable-diagnostics.js"
 import {
   appendToolWarnings,
+  createImageSuccessResponse,
   createSuccessResponse,
   createUnknownToolError,
   mapClientResolutionErrorToMcp,
@@ -470,6 +473,21 @@ describe("Error Mapping to MCP", () => {
     })
 
     describe("InternalError errors (-32603)", () => {
+      it.effect("preserves actionable invalid activity record details", () =>
+        Effect.gen(function*() {
+          const error = new ActivityRecordInvalidError({
+            operation: "list_activity",
+            recordIndex: Count.make(2),
+            details: NonEmptyString.make("_id must be a non-empty string")
+          })
+          const response = mapDomainErrorToMcp(error)
+
+          expect(response.isError).toBe(true)
+          expect(response._meta.errorCode).toBe(McpErrorCode.InternalError)
+          expect(response._meta.errorTag).toBe("ActivityRecordInvalidError")
+          expect(assertAt(response.content, 0).text).toBe(error.message)
+        }))
+
       it.effect("maps HulyConnectionError with errorTag", () =>
         Effect.gen(function*() {
           const error = new HulyConnectionError({ message: "Network timeout" })
@@ -926,6 +944,36 @@ describe("Error Mapping to MCP", () => {
   })
 
   describe("toMcpResponse", () => {
+    it.effect("emits exactly one image block without base64 in structured metadata", () =>
+      Effect.gen(function*() {
+        const base64 = CanonicalBase64ImageData.make("aW1hZ2UtYnl0ZXM=")
+        const wire = toMcpResponse(createImageSuccessResponse(
+          { attachmentId: "att-1", name: "shot.png", type: "image/png", size: 11 },
+          { type: "image", data: base64, mimeType: "image/png" }
+        ))
+
+        expect(wire.content.filter((content) => content.type === "image")).toEqual([
+          { type: "image", data: base64, mimeType: "image/png" }
+        ])
+        expect(JSON.stringify(wire.structuredContent)).not.toContain(base64)
+      }))
+
+    it.effect("preserves warnings beside one image block", () =>
+      Effect.gen(function*() {
+        const warning = {
+          code: "status_metadata_unresolved" as const,
+          message: "Metadata warning."
+        }
+        const wire = toMcpResponse(createImageSuccessResponse(
+          { attachmentId: "att-1" },
+          { type: "image", data: CanonicalBase64ImageData.make("aW1hZ2U="), mimeType: "image/png" },
+          [warning]
+        ))
+
+        expect(wire.content.filter((content) => content.type === "image")).toHaveLength(1)
+        expect(wire.structuredContent?.warnings).toEqual([warning])
+      }))
+
     it.effect("strips _meta from error response", () =>
       Effect.gen(function*() {
         const response = createUnknownToolError("bogus_tool")

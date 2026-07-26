@@ -291,7 +291,8 @@ export const ScheduleTodoParamsSchema = Schema.Struct({
   })
 }).annotations({
   title: "ScheduleTodoParams",
-  description: "Schedule a ToDo by raw ToDo ID or human locator."
+  description:
+    "Schedule a ToDo by raw ToDo ID or human locator as a blocking work slot on the authenticated user's personal calendar."
 })
 export type ScheduleTodoParams = Schema.Schema.Type<typeof ScheduleTodoParamsSchema>
 

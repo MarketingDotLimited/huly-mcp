@@ -1,6 +1,8 @@
 import type { Effect } from "effect"
 import { Console, Schema } from "effect"
 
+import { SupportedAttachmentImageTypeSchema } from "../../../src/domain/schemas/attachments.js"
+import { Count } from "../../../src/domain/schemas/shared.js"
 import type { ToolOperationSuccess } from "../../../src/mcp/tools/registry.js"
 import type { CliGlobalOptions } from "./cli-options.js"
 
@@ -96,19 +98,43 @@ const renderHuman = (result: unknown): string => {
 const renderWarnings = (warnings: ToolOperationSuccess["warnings"]): string =>
   warnings.map((warning) => `- ${warning.code}: ${warning.message}`).join("\n")
 
+const CliImageDescriptorSchema = Schema.Struct({
+  mimeType: SupportedAttachmentImageTypeSchema,
+  encoding: Schema.Literal("base64"),
+  base64Length: Count
+})
+
+const imageDescriptor = (image: NonNullable<ToolOperationSuccess["image"]>) =>
+  Schema.encodeSync(CliImageDescriptorSchema)({
+    mimeType: image.mimeType,
+    encoding: "base64",
+    base64Length: Count.make(image.data.length)
+  })
+
 export const renderOperationResult = (
   success: ToolOperationSuccess,
   globals: CliGlobalOptions
 ): string => {
   if (globals.json) {
     return JSON.stringify(
-      success.warnings.length === 0 ? success.result : { result: success.result, warnings: success.warnings },
+      success.warnings.length === 0 && success.image === undefined
+        ? success.result
+        : {
+          result: success.result,
+          ...(success.image === undefined ? {} : { image: imageDescriptor(success.image) }),
+          ...(success.warnings.length === 0 ? {} : { warnings: success.warnings })
+        },
       null,
       2
     )
   }
   const output = renderHuman(success.result)
-  return success.warnings.length === 0 ? output : `${output}\n\nWarnings:\n${renderWarnings(success.warnings)}`
+  const withImage = success.image === undefined
+    ? output
+    : `${output}\n\nImage: ${success.image.mimeType} (${success.image.data.length} base64 characters)`
+  return success.warnings.length === 0
+    ? withImage
+    : `${withImage}\n\nWarnings:\n${renderWarnings(success.warnings)}`
 }
 
 export const renderOperationSuccess = (

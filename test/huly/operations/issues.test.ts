@@ -23,6 +23,7 @@ import {
 import { Effect } from "effect"
 import { expect } from "vitest"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
+import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
 import type {
   InvalidStatusError,
   IssueNotFoundError,
@@ -44,6 +45,15 @@ const toFindResult = <T extends Doc>(docs: Array<T>): FindResult<T> => {
   const result = docs as FindResult<T>
   result.total = docs.length
   return result
+}
+
+const queryField = (query: unknown, field: string): unknown =>
+  typeof query === "object" && query !== null ? Reflect.get(query, field) : undefined
+
+const matchesQueryValue = (value: unknown, filter: unknown): boolean => {
+  if (typeof filter !== "object" || filter === null) return value === filter
+  const values = Reflect.get(filter, "$in")
+  return !Array.isArray(values) || values.includes(value)
 }
 
 // --- Mock Data Builders ---
@@ -236,7 +246,10 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       }
       // Apply sorting if specified in options
       const opts = options as { sort?: Record<string, number>; lookup?: Record<string, unknown> } | undefined
-      let result = [...issues]
+      const idFilter = queryField(query, "_id")
+      let result = idFilter === undefined
+        ? [...issues]
+        : issues.filter((issue) => matchesQueryValue(issue._id, idFilter))
       if (opts?.sort?.modifiedOn !== undefined) {
         // SortingOrder.Descending = -1, Ascending = 1
         const direction = opts.sort.modifiedOn
@@ -285,11 +298,11 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       return Effect.succeed(toFindResult(persons))
     }
     if (_class === tags.class.TagReference) {
-      const q = query as Record<string, unknown>
-      // Filter by attachedTo (issue id)
+      const attachedToFilter = queryField(query, "attachedTo")
+      const attachedToClassFilter = queryField(query, "attachedToClass")
       const filtered = tagReferences.filter(tr =>
-        tr.attachedTo === q.attachedTo
-        && tr.attachedToClass === q.attachedToClass
+        (attachedToFilter === undefined || matchesQueryValue(tr.attachedTo, attachedToFilter))
+        && tr.attachedToClass === attachedToClassFilter
       )
       return Effect.succeed(toFindResult(filtered))
     }
@@ -571,6 +584,106 @@ describe("listIssues", () => {
         )
 
         expect(assertAt(result, 0).assignee).toBe("Jane Doe")
+      }))
+
+    it.effect("projects attached labels for every issue and uses an empty array when none are attached", () =>
+      Effect.gen(function*() {
+        const project = makeProject()
+        const labelledIssue = makeIssue({ _id: docRef<HulyIssue>("issue-labelled"), identifier: "TEST-1" })
+        const plainIssue = makeIssue({ _id: docRef<HulyIssue>("issue-plain"), identifier: "TEST-2" })
+        const statuses = [makeStatus({ _id: docRef<Status>("status-open"), name: "Open" })]
+        const tagReferences = [
+          makeTagReference({
+            _id: docRef<TagReference>("tag-ref-bug"),
+            attachedTo: labelledIssue._id,
+            title: "Bug",
+            color: 4
+          })
+        ]
+        const testLayer = createTestLayerWithMocks({
+          projects: [project],
+          issues: [labelledIssue, plainIssue],
+          statuses,
+          tagReferences
+        })
+
+        const result = yield* listIssues({ project: projectIdentifier("TEST") }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
+
+        expect(result.find((issue) => issue.identifier === "TEST-1")?.labels).toEqual([
+          { title: "Bug", color: 4 }
+        ])
+        expect(result.find((issue) => issue.identifier === "TEST-2")?.labels).toEqual([])
+      }))
+
+    it.effect("filters by attached label title case-insensitively before applying the issue query limit", () =>
+      Effect.gen(function*() {
+        const project = makeProject()
+        const matchingIssue = makeIssue({ _id: docRef<HulyIssue>("issue-match"), identifier: "TEST-7" })
+        const otherIssue = makeIssue({ _id: docRef<HulyIssue>("issue-other"), identifier: "TEST-8" })
+        const statuses = [makeStatus({ _id: docRef<Status>("status-open"), name: "Open" })]
+        const captureQuery: MockConfig["captureIssueQuery"] = {}
+        const testLayer = createTestLayerWithMocks({
+          projects: [project],
+          issues: [otherIssue, matchingIssue],
+          statuses,
+          tagReferences: [
+            makeTagReference({
+              attachedTo: matchingIssue._id,
+              title: "Needs Review",
+              color: 6
+            }),
+            makeTagReference({
+              _id: docRef<TagReference>("tag-ref-other"),
+              attachedTo: otherIssue._id,
+              title: "Backend",
+              color: 2
+            })
+          ],
+          captureIssueQuery: captureQuery
+        })
+
+        const result = yield* listIssues({
+          project: projectIdentifier("TEST"),
+          label: "needs review",
+          limit: 1
+        }).pipe(Effect.provide(testLayer), withDiagnostics)
+
+        expect(result.map((issue) => issue.identifier)).toEqual(["TEST-7"])
+        expect(result[0]?.labels).toEqual([{ title: "Needs Review", color: 6 }])
+        expect(captureQuery.query?._id).toEqual({ $in: [matchingIssue._id] })
+        expect(captureQuery.options?.limit).toBe(1)
+      }))
+
+    it.effect("returns no issues when no usable attachment has the requested label title", () =>
+      Effect.gen(function*() {
+        const project = makeProject()
+        const issue = makeIssue()
+        const statuses = [makeStatus({ _id: docRef<Status>("status-open"), name: "Open" })]
+        const captureQuery: MockConfig["captureIssueQuery"] = {}
+        const testLayer = createTestLayerWithMocks({
+          projects: [project],
+          issues: [issue],
+          statuses,
+          tagReferences: [
+            makeTagReference({
+              attachedTo: issue._id,
+              title: "Backend",
+              color: 2
+            })
+          ],
+          captureIssueQuery: captureQuery
+        })
+
+        const result = yield* listIssues({
+          project: projectIdentifier("TEST"),
+          label: "Frontend"
+        }).pipe(Effect.provide(testLayer), withDiagnostics)
+
+        expect(result).toEqual([])
+        expect(captureQuery.query).toBeUndefined()
       }))
   })
 
@@ -986,6 +1099,82 @@ describe("getIssue", () => {
           .pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(result.description).toBeUndefined()
+      }))
+
+    it.effect("returns deterministic labels for duplicate and partially populated backend references", () =>
+      Effect.gen(function*() {
+        const project = makeProject()
+        const issue = makeIssue()
+        const statuses = [makeStatus({ _id: docRef<Status>("status-open"), name: "Open" })]
+        const missingTitle = makeTagReference({
+          _id: docRef<TagReference>("tag-ref-missing-title"),
+          attachedTo: issue._id
+        })
+        Reflect.deleteProperty(missingTitle, "title")
+        const duplicateWithInvalidColor = makeTagReference({
+          _id: docRef<TagReference>("tag-ref-a-invalid-color"),
+          attachedTo: issue._id,
+          title: "Bug"
+        })
+        Reflect.set(duplicateWithInvalidColor, "color", 99)
+        const partialWithInvalidColor = makeTagReference({
+          _id: docRef<TagReference>("tag-ref-invalid-color"),
+          attachedTo: issue._id,
+          title: "Accessibility"
+        })
+        Reflect.set(partialWithInvalidColor, "color", 99)
+        const absentOptionalColor = makeTagReference({
+          _id: docRef<TagReference>("tag-ref-no-color"),
+          attachedTo: issue._id,
+          title: "No Color"
+        })
+        Reflect.deleteProperty(absentOptionalColor, "color")
+        const malformedReference = makeTagReference({
+          _id: docRef<TagReference>("tag-ref-malformed"),
+          attachedTo: issue._id,
+          title: "Should not appear",
+          color: 1
+        })
+        Reflect.deleteProperty(malformedReference, "_id")
+        const testLayer = createTestLayerWithMocks({
+          projects: [project],
+          issues: [issue],
+          statuses,
+          tagReferences: [
+            makeTagReference({
+              _id: docRef<TagReference>("tag-ref-z-valid-color"),
+              attachedTo: issue._id,
+              title: "bug",
+              color: 8
+            }),
+            missingTitle,
+            duplicateWithInvalidColor,
+            partialWithInvalidColor,
+            absentOptionalColor,
+            malformedReference
+          ]
+        })
+        const diagnostics = yield* makeDiagnosticsScope
+
+        const result = yield* getIssue({
+          project: projectIdentifier("TEST"),
+          identifier: issueIdentifier("TEST-1")
+        }).pipe(
+          Effect.provide(testLayer),
+          Effect.provideService(Diagnostics, diagnostics.service)
+        )
+        const warnings = yield* diagnostics.drainWarnings
+
+        expect(result.labels).toEqual([
+          { title: "Accessibility" },
+          { title: "bug", color: 8 },
+          { title: "No Color" }
+        ])
+        const labelWarning = warnings.find((warning) => warning.code === "issue_label_metadata_degraded")
+        expect(labelWarning).toBeDefined()
+        expect(labelWarning?.message).toContain("1 malformed attachment")
+        expect(labelWarning?.message).toContain("1 missing or malformed title")
+        expect(labelWarning?.message).toContain("2 invalid color(s)")
       }))
   })
 
@@ -1672,9 +1861,9 @@ describe("createIssue", () => {
           title: "Top Level Issue"
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
-        expect(captureAddCollection.attachedTo).toBe("project-1")
-        expect(captureAddCollection.attachedToClass).toBe(tracker.class.Project)
-        expect(captureAddCollection.collection).toBe("issues")
+        expect(captureAddCollection.attachedTo).toBe(tracker.ids.NoParent)
+        expect(captureAddCollection.attachedToClass).toBe(tracker.class.Issue)
+        expect(captureAddCollection.collection).toBe("subIssues")
         expect(captureAddCollection.attributes?.parents).toEqual([])
       }))
 

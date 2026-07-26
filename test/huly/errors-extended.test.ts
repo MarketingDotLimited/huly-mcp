@@ -1,10 +1,12 @@
 import { describe, it } from "@effect/vitest"
-import { Effect, Schema } from "effect"
+import { Effect, Either, Schema } from "effect"
 import { expect } from "vitest"
 import { AssociationName } from "../../src/domain/schemas/generic-associations.js"
 import { ProcessExecutionId, ProcessId } from "../../src/domain/schemas/processes.js"
 import {
   AssociationId,
+  CardIdentifier,
+  CardSpaceIdentifier,
   Count,
   DocId,
   MasterTagId,
@@ -30,6 +32,7 @@ import {
   GenericObjectNotFoundError,
   type HulyDomainError,
   HulyDomainError as HulyDomainErrorSchema,
+  InvalidCustomFieldDateValueError,
   MasterTagNotFoundError,
   NoUpdateFieldsError,
   ProcessExecutionNotCancellableError,
@@ -72,6 +75,25 @@ const assertMessages = (cases: ReadonlyArray<MessageCase>) =>
   })
 
 describe("Extended Huly error message getters", () => {
+  it("rejects empty card locators when decoding domain errors", () => {
+    const decode = Schema.decodeUnknownEither(HulyDomainErrorSchema)
+
+    expect(Either.isLeft(decode({
+      _tag: "CardSpaceNotFoundError",
+      identifier: ""
+    }))).toBe(true)
+    expect(Either.isLeft(decode({
+      _tag: "CardNotFoundError",
+      identifier: "",
+      cardSpace: "my-space"
+    }))).toBe(true)
+    expect(Either.isLeft(decode({
+      _tag: "CardNotFoundError",
+      identifier: "CARD-1",
+      cardSpace: ""
+    }))).toBe(true)
+  })
+
   it.effect("errors-base: NoUpdateFieldsError", () =>
     assertMessages([
       {
@@ -84,12 +106,15 @@ describe("Extended Huly error message getters", () => {
   it.effect("errors-cards", () =>
     assertMessages([
       {
-        error: new CardSpaceNotFoundError({ identifier: "my-space" }),
+        error: new CardSpaceNotFoundError({ identifier: CardSpaceIdentifier.make("my-space") }),
         tag: "CardSpaceNotFoundError",
         message: "Card space 'my-space' not found"
       },
       {
-        error: new CardNotFoundError({ identifier: "CARD-1", cardSpace: "my-space" }),
+        error: new CardNotFoundError({
+          identifier: CardIdentifier.make("CARD-1"),
+          cardSpace: CardSpaceIdentifier.make("my-space")
+        }),
         tag: "CardNotFoundError",
         message: "Card 'CARD-1' not found in card space 'my-space'"
       },
@@ -114,6 +139,12 @@ describe("Extended Huly error message getters", () => {
         }),
         tag: "CustomFieldObjectNotFoundError",
         message: "Object 'obj-1' of class 'tracker:class:Issue' not found"
+      },
+      {
+        error: new InvalidCustomFieldDateValueError({ value: "2026-07-24Z" }),
+        tag: "InvalidCustomFieldDateValueError",
+        message:
+          "Invalid date custom-field value '2026-07-24Z'. Use a real calendar date in YYYY-MM-DD form or a canonical non-negative epoch-millisecond string between 0 and 8640000000000000. Time-zone suffixes, date-times, signs, decimals, exponents, whitespace, and non-finite values are not accepted."
       }
     ]))
 
@@ -356,11 +387,15 @@ describe("Extended Huly error message getters", () => {
     Effect.gen(function*() {
       const samples: ReadonlyArray<HulyDomainError> = [
         new NoUpdateFieldsError({ operation: "update_card", fields: ["title"] }),
-        new CardNotFoundError({ identifier: "CARD-1", cardSpace: "my-space" }),
+        new CardNotFoundError({
+          identifier: CardIdentifier.make("CARD-1"),
+          cardSpace: CardSpaceIdentifier.make("my-space")
+        }),
         new CustomFieldObjectNotFoundError({
           objectId: DocId.make("obj-1"),
           objectClass: ObjectClassName.make("tracker:class:Issue")
         }),
+        new InvalidCustomFieldDateValueError({ value: "" }),
         new TestResultNotFoundError({ identifier: "RES" }),
         new DocumentEditModeError({ reason: "mixed modes" }),
         new AssociationInUseError({

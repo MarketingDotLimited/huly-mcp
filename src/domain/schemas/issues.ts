@@ -21,7 +21,6 @@ import {
   PersonId,
   PersonName,
   PersonRefInput,
-  PositiveNumber,
   ProjectIdentifier,
   StatusName,
   Timestamp,
@@ -33,6 +32,7 @@ import {
   StatusCategoryValues,
   TaskTypeRefSchema
 } from "./task-management.js"
+import { PositiveTimeHours, timeHoursDescription } from "./time.js"
 
 export type IssueStatusCategoryFilter = KnownStatusCategoryValue
 
@@ -69,11 +69,15 @@ export type IssuePriority = Schema.Schema.Type<typeof IssuePrioritySchema>
 export const DEFAULT_ISSUE_PRIORITY: IssuePriority = "no-priority"
 
 export const LabelSchema = Schema.Struct({
-  title: NonEmptyString,
-  color: Schema.optional(ColorCode)
+  title: NonEmptyString.annotations({
+    description: "Human-readable label title."
+  }),
+  color: Schema.optional(ColorCode.annotations({
+    description: "Huly palette color when the attached label reference contains a valid color."
+  }))
 }).annotations({
   title: "Label",
-  description: "Issue label/tag"
+  description: "Human-readable issue label summary projected from a Huly label attachment."
 })
 
 export type Label = Schema.Schema.Type<typeof LabelSchema>
@@ -104,6 +108,10 @@ export const IssueSummarySchema = Schema.Struct({
   assignee: Schema.optional(PersonName),
   parentIssue: Schema.optional(IssueIdentifier),
   subIssues: Schema.optional(Count),
+  labels: Schema.Array(LabelSchema).annotations({
+    description:
+      "Attached labels sorted by title. Empty when no usable label attachments exist; duplicate titles are collapsed case-insensitively, preferring a reference with a valid color."
+  }),
   modifiedOn: Schema.optional(Timestamp)
 }).annotations({
   title: "IssueSummary",
@@ -122,14 +130,19 @@ export const IssueSchema = Schema.Struct({
   priority: Schema.optional(IssuePrioritySchema),
   assignee: Schema.optional(PersonName),
   assigneeRef: Schema.optional(PersonRefSchema),
-  labels: Schema.optional(Schema.Array(LabelSchema)),
+  labels: Schema.Array(LabelSchema).annotations({
+    description:
+      "Attached labels sorted by title. Empty when no usable label attachments exist; duplicate titles are collapsed case-insensitively, preferring a reference with a valid color."
+  }),
   project: ProjectIdentifier,
   parentIssue: Schema.optional(IssueIdentifier),
   subIssues: Schema.optional(Count),
   modifiedOn: Schema.optional(Timestamp),
   createdOn: Schema.optional(Timestamp),
   dueDate: Schema.optional(Schema.NullOr(Timestamp)),
-  estimation: Schema.optional(PositiveNumber)
+  estimation: Schema.optional(PositiveTimeHours.annotations({
+    description: timeHoursDescription("Issue estimation")
+  }))
 }).annotations({
   title: "Issue",
   description: "Full issue with all fields"
@@ -167,6 +180,10 @@ const ListIssuesParamsBase = Schema.Struct({
   })),
   component: Schema.optional(ComponentIdentifier.annotations({
     description: "Filter by component ID or label"
+  })),
+  label: Schema.optional(NonEmptyString.annotations({
+    description:
+      "Filter by an attached human-readable label title. Matching is exact after trimming and case-insensitive; duplicate attachments do not duplicate issues."
   })),
   hasAssignee: Schema.optional(Schema.Boolean.annotations({
     description: "Filter by assignee presence. true = only assigned issues, false = only unassigned issues."
@@ -252,15 +269,16 @@ export const CreateIssueParamsSchema = Schema.Struct({
       "Issue/task type ID or display name. Resolved within the target project's project type; use list_task_types or get_project_type to discover valid values. If omitted, creates the default Issue type."
   })),
   parentIssue: Schema.optional(IssueIdentifier.annotations({
-    description: "Parent issue identifier (e.g., 'HULY-42') to create as sub-issue"
+    description:
+      "Parent issue identifier (e.g., 'HULY-42') to create as a sub-issue. Omit to create a native top-level issue."
   })),
   dueDate: Schema.optional(
     Schema.NullOr(Timestamp).annotations({
       description: "Due date as Unix timestamp in milliseconds (e.g., 1719792000000 for 2024-07-01), or null to clear"
     })
   ),
-  estimation: Schema.optional(PositiveNumber.annotations({
-    description: "Time estimation in minutes"
+  estimation: Schema.optional(PositiveTimeHours.annotations({
+    description: timeHoursDescription("Time estimation")
   }))
 }).annotations({
   title: "CreateIssueParams",
@@ -316,8 +334,8 @@ export const UpdateIssueParamsSchema = Schema.Struct({
     })
   ),
   estimation: Schema.optional(
-    Schema.NullOr(PositiveNumber).annotations({
-      description: "Time estimation in minutes, or null to clear"
+    Schema.NullOr(PositiveTimeHours).annotations({
+      description: `${timeHoursDescription("Time estimation")} Use null to clear.`
     })
   )
 }).pipe(
@@ -394,7 +412,7 @@ export const MoveIssueParamsSchema = Schema.Struct({
     description: "Issue to move (e.g., 'HULY-123')"
   }),
   newParent: Schema.NullOr(IssueIdentifier).annotations({
-    description: "New parent issue identifier, or null to make top-level"
+    description: "New parent issue identifier, or null to restore the native top-level issue shape"
   })
 }).annotations({
   title: "MoveIssueParams",

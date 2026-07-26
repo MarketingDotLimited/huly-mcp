@@ -33,7 +33,7 @@ import {
   findOneOrFail
 } from "../../../src/huly/operations/query-helpers.js"
 import { toRef, validatePersonUuid } from "../../../src/huly/operations/sdk-boundary.js"
-import { assertAt, assertExists } from "../../../src/utils/assertions.js"
+import { assertExists } from "../../../src/utils/assertions.js"
 import { withDiagnostics } from "../../helpers/diagnostics.js"
 
 const toFindResult = <T extends Doc>(docs: Array<T>): FindResult<T> => {
@@ -656,39 +656,29 @@ describe("operations helpers", () => {
         expect(canceled?.category).toBe("Lost")
       }))
 
-    it.effect("uses fallback when status query fails", () =>
+    it.effect("propagates the server connection failure when model status metadata is unavailable", () =>
       Effect.gen(function*() {
         const project = makeProject({ identifier: "TEST" })
-        const statuses = [
-          makeStatus({ _id: "tracker:status:done-task" as Ref<Status>, name: "Done" }),
-          makeStatus({ _id: "tracker:status:canceled-item" as Ref<Status>, name: "Cancel" })
-        ]
-
         const testLayer = createTestLayerWithMocks({
           projects: [project],
-          statuses,
+          statuses: [
+            makeStatus({ _id: "tracker:status:done-task" as Ref<Status>, name: "Done" }),
+            makeStatus({ _id: "tracker:status:canceled-item" as Ref<Status>, name: "Cancel" })
+          ],
           statusQueryFails: true
         })
 
         const diagnostics = yield* makeDiagnosticsScope
-        const result = yield* findProjectWithStatuses("TEST").pipe(
-          Effect.provide(testLayer),
-          Effect.provideService(Diagnostics, diagnostics.service)
+        const error = yield* Effect.flip(
+          findProjectWithStatuses("TEST").pipe(
+            Effect.provide(testLayer),
+            Effect.provideService(Diagnostics, diagnostics.service)
+          )
         )
         const warnings = yield* diagnostics.drainWarnings
 
-        expect(result.project.identifier).toBe("TEST")
-        expect(result.statuses).toHaveLength(2)
-
-        const doneStatus = result.statuses.find(s => s.name === "done-task")
-        expect(doneStatus).toBeDefined()
-        expect(doneStatus!.category).toBe("unknown")
-
-        const canceledStatus = result.statuses.find(s => s.name === "canceled-item")
-        expect(canceledStatus).toBeDefined()
-        expect(canceledStatus!.category).toBe("unknown")
-        expect(warnings).toHaveLength(1)
-        expect(assertAt(warnings, 0).code).toBe("status_metadata_unresolved")
+        expect(error._tag).toBe("HulyConnectionError")
+        expect(warnings).toEqual([])
       }))
 
     it.effect("uses model status metadata when the server status query fails", () =>

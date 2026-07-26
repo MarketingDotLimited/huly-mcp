@@ -44,6 +44,7 @@ import { AttachmentId, Count, InventoryCategoryId, InventoryProductId } from "..
 import type { InventoryCategoryIdentifier, InventoryProductIdentifier } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type {
+  ActivityRecordInvalidError,
   AttachmentNotFoundError,
   FileFetchError,
   FileNotFoundError,
@@ -55,7 +56,7 @@ import type {
 import { InventoryMutationUnsupportedError, InventoryProductCommentNotFoundError } from "../errors.js"
 import { activity, attachment, inventory } from "../huly-plugins.js"
 import { HulyStorageClient, type StorageClientError } from "../storage.js"
-import { toActivityMessage } from "./activity-shared.js"
+import { toActivityMessages } from "./activity-shared.js"
 import {
   addAttachedComment,
   type AttachedCommentTarget,
@@ -363,7 +364,7 @@ export const deleteInventoryProductComment = (
 
 export const listInventoryProductActivity = (
   params: ListInventoryProductActivityParams
-): Effect.Effect<ListInventoryProductActivityResult, InventoryError, HulyClient> =>
+): Effect.Effect<ListInventoryProductActivityResult, InventoryError | ActivityRecordInvalidError, HulyClient> =>
   Effect.gen(function*() {
     const target = yield* resolveProductTarget(params)
     const messages = yield* target.client.findAll<HulyActivityMessage>(
@@ -378,6 +379,10 @@ export const listInventoryProductActivity = (
         total: true
       }
     )
-    const activityMessages = messages.map((message) => toActivityMessage(message, target.client.markupUrlConfig))
+    const activityMessages = yield* toActivityMessages(
+      messages,
+      target.client.markupUrlConfig,
+      "list_inventory_product_activity"
+    )
     return { product: target.reference, activity: activityMessages, total: Count.make(findResultTotal(messages)) }
   })

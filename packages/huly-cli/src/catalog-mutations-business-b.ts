@@ -143,6 +143,14 @@ export const businessMutationCliCommandCatalogB = {
       fileInput: { fields: ["content"] }
     }
   },
+  update_card_comment: {
+    path: ["cards", "comments", "update"],
+    positional: ["cardSpace", "card", "commentId", "body"],
+    description: "Update Card Comment",
+    behavior: {
+      fileInput: { fields: ["body"] }
+    }
+  },
   update_drive: {
     path: ["drive", "update"],
     positional: ["drive"],

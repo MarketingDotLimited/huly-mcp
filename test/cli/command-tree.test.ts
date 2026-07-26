@@ -50,6 +50,7 @@ describe("CLI command tree", () => {
 
   it.each([
     [["boards", "cards", "labels", "list", "board-1", "card-1", "--output", "out.json"], "boards cards labels list"],
+    [["cards", "versions", "list", "Default", "card-1", "--output", "out.json"], "cards versions list"],
     [
       [
         "channels",

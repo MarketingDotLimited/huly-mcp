@@ -2,11 +2,11 @@ import type { Ref, Status, StatusCategory, WithLookup } from "@hcengineering/cor
 import type { ProjectType } from "@hcengineering/task"
 import type { Issue as HulyIssue, Project as HulyProject } from "@hcengineering/tracker"
 import { IssuePriority } from "@hcengineering/tracker"
-import { Effect } from "effect"
+import { Effect, Either, ParseResult, Schema } from "effect"
 
 import type { IssuePriority as IssuePriorityStr } from "../../domain/schemas/issues.js"
 import type { NonNegativeNumber } from "../../domain/schemas/shared.js"
-import { PositiveNumber } from "../../domain/schemas/shared.js"
+import { Count, IssueStatusId, PositiveNumber, StatusName } from "../../domain/schemas/shared.js"
 import {
   StatusCategoryEntries,
   type StatusCategoryValue,
@@ -19,6 +19,7 @@ import { Diagnostics } from "../diagnostics.js"
 import { InvalidStatusError, IssueNotFoundError, ProjectNotFoundError } from "../errors.js"
 import { core, task, tracker } from "../huly-plugins.js"
 import { findOneOrFail, hulyQuery } from "./query-helpers.js"
+import { toRef } from "./sdk-boundary.js"
 
 // Huly API uses 0 as sentinel for "not set" on numeric fields like estimation and remainingTime.
 // Confirmed: creating an issue without estimation stores 0, not null/undefined.
@@ -52,8 +53,69 @@ export const findProject = (
 
 export type WorkflowStatus = {
   _id: Ref<Status>
-  name: string
+  name: StatusName
   category: StatusCategoryValue
+}
+
+const StatusRefSchema = Schema.transformOrFail(
+  IssueStatusId,
+  Schema.declare((input): input is Ref<Status> => typeof input === "string"),
+  {
+    strict: true,
+    decode: (input) => ParseResult.succeed(toRef<Status>(input)),
+    encode: (input) => ParseResult.succeed(IssueStatusId.make(input))
+  }
+)
+
+const StatusCategoryRefSchema = Schema.transformOrFail(
+  Schema.String,
+  Schema.declare((input): input is Ref<StatusCategory> => typeof input === "string"),
+  {
+    strict: true,
+    decode: (input) => ParseResult.succeed(toRef<StatusCategory>(input)),
+    encode: (input) => ParseResult.succeed(input)
+  }
+)
+
+export const StatusMetadataSchema = Schema.Struct({
+  _id: StatusRefSchema,
+  name: StatusName,
+  category: Schema.optional(StatusCategoryRefSchema)
+}).annotations({
+  title: "StatusMetadata",
+  description: "Huly model-space workflow status fields consumed by tracker operations."
+})
+export type StatusMetadata = Schema.Schema.Type<typeof StatusMetadataSchema>
+
+interface ParsedStatusRows {
+  readonly statuses: ReadonlyArray<StatusMetadata>
+  readonly invalidRows: Count
+  readonly categoryFidelityLoss: {
+    readonly missing: Count
+    readonly empty: Count
+    readonly unrecognized: Count
+  }
+}
+
+const parseStatusRows = (rows: ReadonlyArray<unknown>): ParsedStatusRows => {
+  const decode = Schema.decodeUnknownEither(StatusMetadataSchema)
+  const parsed = rows.map((row) => decode(row))
+  const valid = parsed.flatMap((row) => Either.isRight(row) ? [row.right] : [])
+  return {
+    statuses: valid,
+    invalidRows: Count.make(parsed.filter(Either.isLeft).length),
+    categoryFidelityLoss: {
+      missing: Count.make(valid.filter((status) => status.category === undefined).length),
+      empty: Count.make(valid.filter((status) => status.category === "").length),
+      unrecognized: Count.make(
+        valid.filter((status) =>
+          status.category !== undefined
+          && status.category !== ""
+          && !StatusCategoryEntries.some((entry) => entry.ref === status.category)
+        ).length
+      )
+    }
+  }
 }
 
 const statusCategoryValueFromRef = (
@@ -63,7 +125,7 @@ const statusCategoryValueFromRef = (
     ? UnknownStatusCategoryValue
     : StatusCategoryEntries.find((entry) => entry.ref === category)?.key ?? UnknownStatusCategoryValue
 
-const workflowStatusFromDoc = (doc: Status): WorkflowStatus => {
+const workflowStatusFromDoc = (doc: StatusMetadata): WorkflowStatus => {
   return {
     _id: doc._id,
     name: doc.name,
@@ -75,7 +137,7 @@ export const workflowStatusFromRef = (statusRef: Ref<Status>): WorkflowStatus =>
   const name = statusRef.includes(":") ? statusRef.slice(statusRef.lastIndexOf(":") + 1) : statusRef
   return {
     _id: statusRef,
-    name,
+    name: StatusName.make(name),
     category: UnknownStatusCategoryValue
   }
 }
@@ -86,7 +148,7 @@ export const uniqueStatusRefs = (refs: ReadonlyArray<Ref<Status>>): Array<Ref<St
     []
   )
 
-export const uniqueStatusDocs = <T extends Pick<Status, "_id">>(statuses: Iterable<T>): Array<T> =>
+export const uniqueStatusDocs = <T extends Pick<StatusMetadata, "_id">>(statuses: Iterable<T>): Array<T> =>
   Array.from(statuses).reduce<Array<T>>(
     (unique, status) => unique.some((existing) => existing._id === status._id) ? unique : [...unique, status],
     []
@@ -97,16 +159,16 @@ const uniqueProjectTypeStatusRefs = (statuses: ReadonlyArray<{ readonly _id: Ref
 
 const missingStatusRefs = (
   statusRefs: ReadonlyArray<Ref<Status>>,
-  statusDocs: ReadonlyArray<Status>
+  statusDocs: ReadonlyArray<Pick<StatusMetadata, "_id">>
 ): Array<Ref<Status>> => statusRefs.filter((statusRef) => !statusDocs.some((statusDoc) => statusDoc._id === statusRef))
 
-export const resolveByStatusRef = <T>(
+export const resolveByStatusRef = <T, S extends Pick<StatusMetadata, "_id">>(
   statusRefs: ReadonlyArray<Ref<Status>>,
-  statusDocs: ReadonlyArray<Status>,
-  fromDoc: (status: Status) => T,
+  statusDocs: ReadonlyArray<S>,
+  fromDoc: (status: S) => T,
   fromRef: (statusRef: Ref<Status>) => T
 ): Array<T> => {
-  const statusDocsById = new Map(statusDocs.map((statusDoc) => [statusDoc._id, statusDoc]))
+  const statusDocsById = new Map<Ref<Status>, S>(statusDocs.map((statusDoc) => [statusDoc._id, statusDoc]))
   return statusRefs.map((statusRef) => {
     const statusDoc = statusDocsById.get(statusRef)
     return statusDoc === undefined ? fromRef(statusRef) : fromDoc(statusDoc)
@@ -115,56 +177,135 @@ export const resolveByStatusRef = <T>(
 
 const workflowStatusesFromDocsOrRefs = (
   statusRefs: ReadonlyArray<Ref<Status>>,
-  statusDocs: ReadonlyArray<Status>
+  statusDocs: ReadonlyArray<StatusMetadata>
 ): Array<WorkflowStatus> => resolveByStatusRef(statusRefs, statusDocs, workflowStatusFromDoc, workflowStatusFromRef)
+
+type StatusLookupResult =
+  | {
+    readonly _tag: "Success"
+    readonly parsed: ParsedStatusRows
+  }
+  | {
+    readonly _tag: "Failure"
+    readonly error: HulyClientError
+  }
+
+const statusLookupFailure = (error: HulyClientError): StatusLookupResult => ({
+  _tag: "Failure",
+  error
+})
+
+const statusLookupSuccess = (rows: ReadonlyArray<Status>): StatusLookupResult => ({
+  _tag: "Success",
+  parsed: parseStatusRows(rows)
+})
+
+const statusLookupResult = (
+  lookup: Effect.Effect<ReadonlyArray<Status>, HulyClientError>
+): Effect.Effect<StatusLookupResult> =>
+  lookup.pipe(Effect.match({
+    onFailure: statusLookupFailure,
+    onSuccess: statusLookupSuccess
+  }))
+
+const statusDocsFromLookup = (result: StatusLookupResult): ReadonlyArray<StatusMetadata> =>
+  result._tag === "Success" ? uniqueStatusDocs(result.parsed.statuses) : []
+
+const modelStatusState = (result: StatusLookupResult, docs: ReadonlyArray<StatusMetadata>): string => {
+  if (result._tag === "Failure") return `model connection failure (${result.error.message})`
+  return docs.length === 0 ? "model metadata unavailable" : "partial model metadata"
+}
+
+const warnInvalidAuthoritativeStatuses = (
+  diagnostics: Diagnostics["Type"],
+  invalidRows: Count
+): Effect.Effect<void> =>
+  invalidRows === 0
+    ? Effect.void
+    : diagnostics.warnAgent({
+      code: StatusMetadataUnresolvedWarningCode,
+      message: `${invalidRows} authoritative workflow status row(s) failed Effect Schema parsing `
+        + "and were omitted. Returned statuses are authoritative for requested refs, but the model data needs repair."
+    })
+
+const warnAuthoritativeCategoryFidelityLoss = (
+  diagnostics: Diagnostics["Type"],
+  parsed: ParsedStatusRows
+): Effect.Effect<void> => {
+  const { empty, missing, unrecognized } = parsed.categoryFidelityLoss
+  const total = Count.make(empty + missing + unrecognized)
+  return total === 0
+    ? Effect.void
+    : diagnostics.warnAgent({
+      code: StatusMetadataUnresolvedWarningCode,
+      message: `${total} authoritative workflow status row(s) had category metadata that cannot be projected `
+        + `without semantic loss (missing: ${missing}, empty: ${empty}, unrecognized: ${unrecognized}). `
+        + `Those categories are reported as "${UnknownStatusCategoryValue}"; do not infer workflow completion semantics `
+        + "for them. Inspect the Huly model status-category definitions or upgrade Huly if this persists."
+    })
+}
+
+const warnStatusCompatibilityResult = (
+  diagnostics: Diagnostics["Type"],
+  modelResult: StatusLookupResult,
+  modelDocs: ReadonlyArray<StatusMetadata>,
+  remoteDocs: ReadonlyArray<StatusMetadata>,
+  unresolvedRefs: ReadonlyArray<Ref<Status>>
+): Effect.Effect<void> => {
+  if (unresolvedRefs.length === 0) {
+    return diagnostics.warnAgent({
+      code: StatusMetadataUnresolvedWarningCode,
+      message: `Authoritative model-space workflow status metadata was incomplete; ${remoteDocs.length} status ref(s) `
+        + "were resolved through the server compatibility fallback. Use the returned IDs, names, and categories, "
+        + "and upgrade Huly or inspect its loaded model if this warning persists."
+    })
+  }
+  const remoteState = remoteDocs.length === 0 ? "server metadata unavailable" : "partial server metadata"
+  return diagnostics.warnAgent({
+    code: StatusMetadataUnresolvedWarningCode,
+    message: `Huly did not return metadata for ${unresolvedRefs.length} workflow status ref(s). `
+      + `The tool result uses ref-derived status names and category "${UnknownStatusCategoryValue}" for those statuses; `
+      + `do not infer completion or cancellation semantics from those fallback names. `
+      + `Authoritative source: ${modelStatusState(modelResult, modelDocs)}; compatibility source: ${remoteState}.`
+  })
+}
 
 export const findStatusDocs = (
   client: HulyClient["Type"],
   statusRefs: ReadonlyArray<Ref<Status>>
-): Effect.Effect<ReadonlyArray<Status>, never, Diagnostics> =>
+): Effect.Effect<ReadonlyArray<StatusMetadata>, HulyClientError, Diagnostics> =>
   Effect.gen(function*() {
     const diagnostics = yield* Diagnostics
-
-    const remoteResult = yield* Effect.either(
-      client.findAll<Status>(
+    const modelResult = yield* statusLookupResult(
+      client.findAllInModel<Status>(
         core.class.Status,
         hulyQuery<Status>({ _id: { $in: [...statusRefs] } })
       )
     )
-
-    const remoteDocs = remoteResult._tag === "Right" ? uniqueStatusDocs(remoteResult.right) : []
-    const unresolvedRefs = missingStatusRefs(statusRefs, remoteDocs)
-    if (unresolvedRefs.length === 0) {
-      return remoteDocs
+    const modelDocs = statusDocsFromLookup(modelResult)
+    if (modelResult._tag === "Success") {
+      yield* warnInvalidAuthoritativeStatuses(diagnostics, modelResult.parsed.invalidRows)
+      yield* warnAuthoritativeCategoryFidelityLoss(diagnostics, modelResult.parsed)
+    }
+    const unresolvedAfterModel = missingStatusRefs(statusRefs, modelDocs)
+    if (unresolvedAfterModel.length === 0) {
+      return modelDocs
     }
 
-    const modelResult = yield* Effect.either(
-      client.findAllInModel<Status>(
+    const remoteResult = yield* statusLookupResult(
+      client.findAll<Status>(
         core.class.Status,
-        hulyQuery<Status>({ _id: { $in: unresolvedRefs } })
+        hulyQuery<Status>({ _id: { $in: unresolvedAfterModel } })
       )
     )
-
-    const modelDocs = modelResult._tag === "Right" ? uniqueStatusDocs(modelResult.right) : []
-    const combinedDocs = uniqueStatusDocs([...remoteDocs, ...modelDocs])
+    if (remoteResult._tag === "Failure") {
+      return yield* Effect.fail(remoteResult.error)
+    }
+    const remoteDocs = statusDocsFromLookup(remoteResult)
+    const combinedDocs = uniqueStatusDocs([...modelDocs, ...remoteDocs])
     const stillUnresolvedRefs = missingStatusRefs(statusRefs, combinedDocs)
 
-    if (stillUnresolvedRefs.length > 0) {
-      const remoteError = remoteResult._tag === "Left" ? ` Remote error: ${remoteResult.left.message}` : ""
-      const modelError = modelResult._tag === "Left" ? ` Model error: ${modelResult.left.message}` : ""
-      yield* diagnostics.warnAgent({
-        code: StatusMetadataUnresolvedWarningCode,
-        message: `Huly did not return metadata for ${stillUnresolvedRefs.length} workflow status ref(s). `
-          + `The tool result uses ref-derived status names and category "${UnknownStatusCategoryValue}" for those statuses; `
-          + `do not infer completion or cancellation semantics from those fallback names.${remoteError}${modelError}`
-      })
-    } else if (remoteResult._tag === "Left") {
-      yield* diagnostics.trail(
-        `Server status metadata lookup failed, but the local Huly model resolved all requested workflow statuses. `
-          + `Remote error: ${remoteResult.left.message}`
-      )
-    }
-
+    yield* warnStatusCompatibilityResult(diagnostics, modelResult, modelDocs, remoteDocs, stillUnresolvedRefs)
     return combinedDocs
   })
 

@@ -10,6 +10,8 @@ import { expect } from "vitest"
 import { assertAt } from "../../src/utils/assertions.js"
 
 import { HulyConfigService } from "../../src/config/config.js"
+import { AttachmentByteSize } from "../../src/domain/schemas/domain-values.js"
+import { BlobId } from "../../src/domain/schemas/shared.js"
 import { FileUploadError, HulyConnectionError, InvalidFileDataError } from "../../src/huly/errors.js"
 import type { FileNotFoundError } from "../../src/huly/errors.js"
 import { HulySdk, type HulySdkDependencies } from "../../src/huly/sdk-deps.js"
@@ -90,6 +92,31 @@ describe("HulyStorageClient Service", () => {
         }
         const bytes = yield* client.downloadFile("some-blob")
         expect(bytes).toEqual(Buffer.from("test file some-blob"))
+
+        if (client.downloadFileBounded === undefined) {
+          throw new Error("Expected default bounded download operation")
+        }
+        expect(
+          yield* client.downloadFileBounded(
+            BlobId.make("some-blob"),
+            AttachmentByteSize.make(bytes.length)
+          )
+        ).toEqual(bytes)
+      }))
+
+    it.effect("default bounded download reports max plus one for oversized content", () =>
+      Effect.gen(function*() {
+        const client = yield* HulyStorageClient.pipe(Effect.provide(HulyStorageClient.testLayer({})))
+        const downloadFileBounded = client.downloadFileBounded
+        if (downloadFileBounded === undefined) {
+          throw new Error("Expected default bounded download operation")
+        }
+
+        const error = yield* Effect.flip(
+          downloadFileBounded(BlobId.make("some-blob"), AttachmentByteSize.make(1))
+        )
+
+        expect(error).toMatchObject({ _tag: "FileTooLargeError", size: 2, maxSize: 1 })
       }))
 
     it.effect("default uploadFile returns test blob", () =>
@@ -156,6 +183,27 @@ describe("HulyStorageClient Service", () => {
         const url = client.getFileUrl("blob-456")
 
         expect(url).toBe("https://custom.cdn/blob-456")
+      }))
+
+    it.effect("derives bounded downloads from an injected download operation", () =>
+      Effect.gen(function*() {
+        const expected = Buffer.from("injected download")
+        const client = yield* HulyStorageClient.pipe(
+          Effect.provide(HulyStorageClient.testLayer({
+            downloadFile: () => Effect.succeed(expected)
+          }))
+        )
+        const downloadFileBounded = client.downloadFileBounded
+        if (downloadFileBounded === undefined) {
+          throw new Error("Expected bounded download operation")
+        }
+
+        expect(
+          yield* downloadFileBounded(
+            BlobId.make("injected-blob"),
+            AttachmentByteSize.make(expected.length)
+          )
+        ).toEqual(expected)
       }))
   })
 
@@ -819,6 +867,66 @@ describe("HulyStorageClient.layer (real layer with mocked api-client)", () => {
       const url = client.getFileUrl("some-blob-id")
 
       expect(url).toBe("https://huly.example.com/files?workspace=ws-uuid-123&file=some-blob-id")
+    }))
+
+  it.effect("bounded downloads retain at most max plus one byte and abort an oversized stream", () =>
+    Effect.gen(function*() {
+      setupMocksForSuccess()
+      const stream = Readable.from([Buffer.from("1234"), Buffer.from("5678"), Buffer.from("ignored")])
+      mockGet.mockImplementation(() => Promise.resolve(stream))
+
+      const layer = Layer.fresh(HulyStorageClient.layerWithDependencies).pipe(
+        Layer.provide(Layer.merge(configLayer, testSdkLayer))
+      )
+      const client = yield* HulyStorageClient.pipe(Effect.provide(layer))
+      const downloadFileBounded = client.downloadFileBounded
+      if (downloadFileBounded === undefined) {
+        throw new Error("Expected bounded download operation")
+      }
+
+      const error = yield* Effect.flip(
+        downloadFileBounded(BlobId.make("blob-too-large"), AttachmentByteSize.make(5))
+      )
+
+      expect(error._tag).toBe("FileTooLargeError")
+      expect(error).toMatchObject({ size: 6, maxSize: 5 })
+      expect(stream.destroyed).toBe(true)
+    }))
+
+  it.effect("bounded downloads accept non-buffer chunks and redact adapter rejection as FileFetchError", () =>
+    Effect.gen(function*() {
+      setupMocksForSuccess()
+      mockGet.mockImplementation(() => Promise.resolve(Readable.from(["abc"])))
+
+      const layer = Layer.fresh(HulyStorageClient.layerWithDependencies).pipe(
+        Layer.provide(Layer.merge(configLayer, testSdkLayer))
+      )
+      const client = yield* HulyStorageClient.pipe(Effect.provide(layer))
+      const downloadFileBounded = client.downloadFileBounded
+      if (downloadFileBounded === undefined) {
+        throw new Error("Expected bounded download operation")
+      }
+
+      expect(
+        yield* downloadFileBounded(BlobId.make("blob-small"), AttachmentByteSize.make(3))
+      ).toEqual(Buffer.from("abc"))
+
+      mockGet.mockImplementation(() => Promise.reject(new Error("adapter unavailable")))
+      const boundedError = yield* Effect.flip(
+        downloadFileBounded(BlobId.make("blob-rejected"), AttachmentByteSize.make(3))
+      )
+      if (client.downloadFile === undefined) {
+        throw new Error("Expected download operation")
+      }
+      const unboundedError = yield* Effect.flip(client.downloadFile("blob-rejected"))
+
+      expect(boundedError._tag).toBe("FileFetchError")
+      if (boundedError._tag !== "FileFetchError") {
+        throw new Error("Expected FileFetchError")
+      }
+      expect(boundedError.reason).toBe("storage adapter download failed")
+      expect(boundedError.reason).not.toContain("adapter unavailable")
+      expect(unboundedError._tag).toBe("FileFetchError")
     }))
 
   it.effect("wraps upload errors in FileUploadError", () =>

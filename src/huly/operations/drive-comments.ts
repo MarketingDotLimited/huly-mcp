@@ -28,10 +28,10 @@ import { CommentId, Count } from "../../domain/schemas/shared.js"
 import { HulyClient } from "../client.js"
 import { drive, type DriveSpace, type File } from "../drive-sdk.js"
 import { DriveFileCommentNotFoundError } from "../errors-drive.js"
-import { HulyConnectionError } from "../errors.js"
+import { type ActivityRecordInvalidError, HulyConnectionError } from "../errors.js"
 import { activity, chunter } from "../huly-plugins.js"
 import type { HulyStorageClient } from "../storage.js"
-import { toActivityMessage } from "./activity-shared.js"
+import { toActivityMessages } from "./activity-shared.js"
 import { pathForItem, toDriveItemSummary } from "./drive-mappers.js"
 import { resolveDrive, resolveFile } from "./drive-resolvers.js"
 import type { DriveOperationError } from "./drive-shared.js"
@@ -213,7 +213,11 @@ export const deleteDriveFileComment = (
 
 export const listDriveFileActivity = (
   params: ListDriveFileActivityParams
-): Effect.Effect<ListDriveFileActivityResult, DriveOperationError, HulyClient | HulyStorageClient> =>
+): Effect.Effect<
+  ListDriveFileActivityResult,
+  DriveOperationError | ActivityRecordInvalidError,
+  HulyClient | HulyStorageClient
+> =>
   Effect.gen(function*() {
     const target = yield* resolveDriveFileTarget(params)
     const messages = yield* target.client.findAll<HulyActivityMessage>(
@@ -227,7 +231,7 @@ export const listDriveFileActivity = (
         sort: { modifiedOn: SortingOrder.Descending }
       }
     )
-    const mapped = messages.map((message) => toActivityMessage(message, target.client.markupUrlConfig))
+    const mapped = yield* toActivityMessages(messages, target.client.markupUrlConfig, "list_drive_file_activity")
 
     return {
       file: yield* toDriveItemSummary(target.file, target.driveSpace, pathForItem(target.file), target.client),

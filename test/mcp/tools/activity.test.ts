@@ -4,6 +4,13 @@ import { expect } from "vitest"
 import { activityTools } from "../../../src/mcp/tools/activity.js"
 
 describe("activity tools", () => {
+  it("documents stable omission of null optional activity fields", () => {
+    const listActivity = activityTools.find(tool => tool.name === "list_activity")
+
+    expect(listActivity?.description).toContain("absent or null optional")
+    expect(listActivity?.description).toContain("omitted")
+  })
+
   it("registers activity message tools", () => {
     const names = new Set(activityTools.map(tool => tool.name))
     const expected = [

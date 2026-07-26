@@ -30,12 +30,24 @@ export interface AttachedCommentTarget {
   readonly space: Ref<Space>
   readonly attachedTo: Ref<Doc>
   readonly attachedToClass: Ref<Class<Doc>>
+  readonly additionalAttachedToClasses?: ReadonlyArray<Ref<Class<Doc>>> | undefined
   readonly collection: string
+  readonly includeSpaceInQuery?: true | undefined
 }
 
 interface AttachedCommentsPage {
   readonly comments: Array<Comment>
   readonly total: CountType
+}
+
+const attachedToClassQuery = (
+  target: AttachedCommentTarget
+): Ref<Class<Doc>> | { readonly $in: Array<Ref<Class<Doc>>> } => {
+  const additionalClasses = target.additionalAttachedToClasses ?? []
+  const classes = [...new Set([target.attachedToClass, ...additionalClasses])]
+  return classes.length === 1
+    ? target.attachedToClass
+    : { $in: [...classes] }
 }
 
 const toComment = (
@@ -72,8 +84,9 @@ export const listAttachedCommentsPage = (
     const messages = yield* target.client.findAll<ChatMessage>(
       chunter.class.ChatMessage,
       hulyQuery<ChatMessage>({
+        ...(target.includeSpaceInQuery === true ? { space: target.space } : {}),
         attachedTo: target.attachedTo,
-        attachedToClass: target.attachedToClass,
+        attachedToClass: attachedToClassQuery(target),
         collection: target.collection
       }),
       {
@@ -122,8 +135,9 @@ const findAttachedComment = <E>(
       chunter.class.ChatMessage,
       hulyQuery<ChatMessage>({
         _id: toRef<ChatMessage>(commentId),
+        ...(target.includeSpaceInQuery === true ? { space: target.space } : {}),
         attachedTo: target.attachedTo,
-        attachedToClass: target.attachedToClass,
+        attachedToClass: attachedToClassQuery(target),
         collection: target.collection
       })
     )

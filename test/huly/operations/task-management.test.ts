@@ -231,7 +231,8 @@ describe("task management operations", () => {
           failStatusLookup: true,
           modelStatuses: [
             makeStatus({ _id: openStatusId, name: "Todo", category: task.statusCategory.ToDo }),
-            makeStatus({ _id: doneStatusId, name: "Done", category: task.statusCategory.Won })
+            makeStatus({ _id: doneStatusId, name: "Done", category: task.statusCategory.Won }),
+            makeStatus({ _id: doneStatusId, name: "" })
           ]
         })),
         Effect.provideService(Diagnostics, diagnostics.service)
@@ -242,7 +243,8 @@ describe("task management operations", () => {
         ["Todo", "ToDo"],
         ["Done", "Won"]
       ])
-      expect(warnings).toEqual([])
+      expect(warnings).toHaveLength(1)
+      expect(assertAt(warnings, 0).message).toContain("failed Effect Schema parsing")
     }))
 
   it.effect("synthesizes unresolved project type statuses without dangling task type status ids", () =>
@@ -260,7 +262,6 @@ describe("task management operations", () => {
       const result = yield* getProjectType({ projectType: ProjectTypeRefSchema.make("classic") }).pipe(
         Effect.provide(
           createLayer({
-            failStatusLookup: true,
             projectTypes: [projectType],
             statuses: [],
             taskTypes: [taskType]
@@ -546,6 +547,83 @@ describe("task management operations", () => {
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") {
         expect(result.left.message).toContain("already exists with category 'ToDo'")
+      }
+      expect(captures.createDocs).toEqual([])
+      expect(captures.updates).toEqual([])
+    }))
+
+  it.effect("brands a recovered status name while omitting an absent category", () =>
+    Effect.gen(function*() {
+      const captures: Captures = { createDocs: [], updates: [], mixins: [] }
+      const result = yield* Effect.either(
+        createIssueStatus({ name: "QA", category: "Active" }).pipe(
+          Effect.provide(createLayer({
+            statuses: [
+              makeStatus(),
+              makeStatus({ _id: doneStatusId, name: "Done", category: task.statusCategory.Won }),
+              asStatus({ ...makeStatus(), _id: statusRef("status-qa"), name: "QA", category: undefined })
+            ],
+            captures
+          })),
+          withDiagnostics
+        )
+      )
+
+      expect(result._tag).toBe("Left")
+      if (result._tag === "Left") {
+        expect(result.left.message).toContain("already exists with category 'unknown'")
+      }
+      expect(captures.createDocs).toEqual([])
+      expect(captures.updates).toEqual([])
+    }))
+
+  it.effect("fails with a typed error when recovered status metadata is malformed", () =>
+    Effect.gen(function*() {
+      const captures: Captures = { createDocs: [], updates: [], mixins: [] }
+      const result = yield* Effect.either(
+        createIssueStatus({ name: "QA", category: "Active" }).pipe(
+          Effect.provide(createLayer({
+            statuses: [
+              makeStatus(),
+              makeStatus({ _id: doneStatusId, name: "Done", category: task.statusCategory.Won }),
+              asStatus({ ...makeStatus(), _id: statusRef("status-qa"), name: "QA", category: 42 })
+            ],
+            captures
+          })),
+          withDiagnostics
+        )
+      )
+
+      expect(result._tag).toBe("Left")
+      if (result._tag === "Left") {
+        expect(result.left).toBeInstanceOf(HulyConnectionError)
+        expect(result.left.message).toContain("Recovered workflow status metadata failed schema validation")
+      }
+      expect(captures.createDocs).toEqual([])
+      expect(captures.updates).toEqual([])
+    }))
+
+  it.effect("fails with a typed error when a recovered status name is not a string", () =>
+    Effect.gen(function*() {
+      const captures: Captures = { createDocs: [], updates: [], mixins: [] }
+      const result = yield* Effect.either(
+        createIssueStatus({ name: "QA", category: "Active" }).pipe(
+          Effect.provide(createLayer({
+            statuses: [
+              makeStatus(),
+              makeStatus({ _id: doneStatusId, name: "Done", category: task.statusCategory.Won }),
+              asStatus({ ...makeStatus(), _id: statusRef("status-qa"), name: 42 })
+            ],
+            captures
+          })),
+          withDiagnostics
+        )
+      )
+
+      expect(result._tag).toBe("Left")
+      if (result._tag === "Left") {
+        expect(result.left).toBeInstanceOf(HulyConnectionError)
+        expect(result.left.message).toContain("Recovered workflow status metadata failed schema validation")
       }
       expect(captures.createDocs).toEqual([])
       expect(captures.updates).toEqual([])

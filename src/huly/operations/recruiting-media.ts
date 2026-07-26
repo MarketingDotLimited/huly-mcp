@@ -38,7 +38,7 @@ import {
 } from "../errors.js"
 import { activity, attachment } from "../huly-plugins.js"
 import { HulyStorageClient } from "../storage.js"
-import { toActivityMessage } from "./activity-shared.js"
+import { toActivityMessages } from "./activity-shared.js"
 import {
   addAttachedComment,
   deleteAttachedComment,
@@ -258,7 +258,7 @@ export const listRecruitingActivity = (
     )
     return {
       target: target.target,
-      activity: messages.map((message) => toActivityMessage(message, target.client.markupUrlConfig)),
+      activity: yield* toActivityMessages(messages, target.client.markupUrlConfig, "list_recruiting_activity"),
       total: Count.make(findResultTotal(messages))
     }
   })

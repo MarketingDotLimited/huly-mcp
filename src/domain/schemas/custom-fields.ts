@@ -59,7 +59,7 @@ export const SetCustomFieldParamsSchema = Schema.Struct({
   }),
   value: Schema.String.annotations({
     description:
-      "Value to set. Strings are passed as-is. For numbers, pass a numeric string (e.g. '42'). For booleans, pass 'true' or 'false'. For enums, pass the enum value string."
+      "Value to set. Strings are passed as-is. For numbers, pass a numeric string (e.g. '42'). For dates, pass a real ISO calendar date in YYYY-MM-DD form (stored as UTC midnight) or a canonical non-negative epoch-millisecond string from 0 through 8640000000000000. Date-times, time-zone suffixes, signs, whitespace, decimals, and exponents are rejected. For booleans, pass 'true' or 'false'. For enums, pass the enum value string."
   })
 }).annotations({
   title: "SetCustomFieldParams",

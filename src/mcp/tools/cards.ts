@@ -5,16 +5,19 @@ import {
   HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
   listCardSpacesParamsJsonSchema,
   listCardsParamsJsonSchema,
+  listCardVersionsParamsJsonSchema,
   listMasterTagsParamsJsonSchema,
   parseCreateCardParams,
   parseDeleteCardParams,
   parseGetCardParams,
   parseListCardSpacesParams,
   parseListCardsParams,
+  parseListCardVersionsParams,
   parseListMasterTagsParams,
   parseUpdateCardParams,
   updateCardParamsJsonSchema
 } from "../../domain/schemas.js"
+import { ListCardVersionsResultSchema } from "../../domain/schemas/card-versions.js"
 import {
   CreateCardResultSchema,
   DeleteCardResultSchema,
@@ -30,6 +33,7 @@ import {
   getCard,
   listCards,
   listCardSpaces,
+  listCardVersions,
   listMasterTags,
   updateCard
 } from "../../huly/operations/cards.js"
@@ -78,13 +82,31 @@ export const cardTools = [
     {
       name: "get_card",
       description:
-        "Retrieve full details for a Huly card including markdown content. Use this to view card content and metadata.",
+        "Retrieve full details for a Huly card including markdown content. When Huly supplies a coherent version number and chain identity, returns them together in one version object; partial or null version fields are omitted.",
       category: CATEGORY,
       inputSchema: getCardParamsJsonSchema,
       resultSchema: GetCardResultSchema
     },
     parseGetCardParams,
     getCard
+  ),
+  defineTool(
+    {
+      name: "list_card_versions",
+      description:
+        "Read one page of a Huly card's version history using any version card ID or exact title. Returns deterministic oldest-version-first entries, an authoritative total for the full history, and hasMore when the limit truncates the page. Unversioned cards return one entry without version metadata. This tool never creates or restores versions.",
+      category: CATEGORY,
+      inputSchema: listCardVersionsParamsJsonSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      },
+      resultSchema: ListCardVersionsResultSchema
+    },
+    parseListCardVersionsParams,
+    listCardVersions
   ),
   defineTool(
     {

@@ -42,6 +42,7 @@ import {
   updateRecruitingAttachmentParamsJsonSchema,
   updateRecruitingCommentParamsJsonSchema
 } from "../../domain/schemas/recruiting-media.js"
+import { UPLOAD_SOURCE_SEMANTICS } from "../../domain/schemas/upload-source.js"
 import {
   addRecruitingAttachment,
   addRecruitingComment,
@@ -140,7 +141,7 @@ export const recruitingMediaTools = [
     {
       name: "add_recruiting_attachment",
       description:
-        "Attach a file to a Recruiting vacancy, candidate, applicant, or opinion target. Provide exactly one of filePath, fileUrl, or data, plus filename and contentType.",
+        `Attach a file to a Recruiting vacancy, candidate, applicant, or opinion target. Provide filename, contentType, and exactly one source: ${UPLOAD_SOURCE_SEMANTICS}`,
       category: CATEGORY,
       inputSchema: addRecruitingAttachmentParamsJsonSchema,
       resultSchema: AddRecruitingAttachmentResultSchema

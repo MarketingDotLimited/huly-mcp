@@ -7,7 +7,7 @@
  * @module
  */
 import { type Class, type Doc, type Space } from "@hcengineering/core"
-import { Effect } from "effect"
+import { Effect, Either, Schema } from "effect"
 
 import type {
   Attachment,
@@ -20,14 +20,28 @@ import type {
   ListAttachmentsParams,
   PinAttachmentParams,
   PinAttachmentResult,
+  ReadAttachmentContentParams,
+  ReadAttachmentContentResult,
+  SupportedAttachmentImageType,
   UpdateAttachmentParams,
   UpdateAttachmentResult
 } from "../../domain/schemas/attachments.js"
-import { UPDATE_ATTACHMENT_FIELDS } from "../../domain/schemas/attachments.js"
+import {
+  CanonicalBase64ImageData,
+  READ_ATTACHMENT_CONTENT_MAX_BYTES,
+  SupportedAttachmentImageTypeSchema,
+  UPDATE_ATTACHMENT_FIELDS
+} from "../../domain/schemas/attachments.js"
 import { AttachmentByteSize, AttachmentFileName } from "../../domain/schemas/domain-values.js"
-import { AttachmentId, MimeType, UrlString } from "../../domain/schemas/shared.js"
+import { AttachmentId, BlobId, MimeType, UrlString } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import type { AttachmentNotFoundError, NoUpdateFieldsError } from "../errors.js"
+import {
+  AttachmentContentTooLargeError,
+  AttachmentContentTypeUnsupportedError,
+  AttachmentContentUnavailableError,
+  type AttachmentNotFoundError,
+  type NoUpdateFieldsError
+} from "../errors.js"
 import { HulyStorageClient } from "../storage.js"
 import {
   findAttachmentForScope,
@@ -64,6 +78,44 @@ type PinAttachmentError =
 type DownloadAttachmentError =
   | HulyClientError
   | AttachmentNotFoundError
+
+type ReadAttachmentContentError =
+  | HulyClientError
+  | AttachmentNotFoundError
+  | AttachmentContentTooLargeError
+  | AttachmentContentTypeUnsupportedError
+  | AttachmentContentUnavailableError
+
+const StoredAttachmentContentSchema = Schema.Struct({
+  _id: AttachmentId,
+  file: BlobId,
+  name: AttachmentFileName,
+  type: MimeType,
+  size: AttachmentByteSize
+})
+
+const parseStoredAttachmentContent = (
+  attachmentId: ReadAttachmentContentParams["attachmentId"],
+  input: unknown
+) =>
+  Schema.decodeUnknown(StoredAttachmentContentSchema)(input).pipe(
+    Effect.mapError(() =>
+      new AttachmentContentUnavailableError({
+        attachmentId,
+        reason: "stored attachment metadata is invalid"
+      })
+    )
+  )
+
+const parseSupportedImageType = (
+  attachmentId: ReadAttachmentContentParams["attachmentId"],
+  input: MimeType
+): Effect.Effect<SupportedAttachmentImageType, AttachmentContentTypeUnsupportedError> => {
+  const decoded = Schema.decodeUnknownEither(SupportedAttachmentImageTypeSchema)(input)
+  return Either.isRight(decoded)
+    ? Effect.succeed(decoded.right)
+    : Effect.fail(new AttachmentContentTypeUnsupportedError({ attachmentId, contentType: input }))
+}
 
 // --- Operations ---
 
@@ -185,5 +237,79 @@ export const downloadAttachment = (
       name: AttachmentFileName.make(att.name),
       type: MimeType.make(att.type),
       size: AttachmentByteSize.make(att.size)
+    }
+  })
+
+export const readAttachmentContent = (
+  params: ReadAttachmentContentParams
+): Effect.Effect<ReadAttachmentContentResult, ReadAttachmentContentError, HulyClient | HulyStorageClient> =>
+  Effect.gen(function*() {
+    const client = yield* HulyClient
+    const storageClient = yield* HulyStorageClient
+    const attachmentDoc = yield* findAttachmentForScope(client, params.attachmentId, {
+      classRef: attachment.class.Attachment
+    })
+    const stored = yield* parseStoredAttachmentContent(params.attachmentId, attachmentDoc)
+    const imageType = yield* parseSupportedImageType(params.attachmentId, stored.type)
+
+    if (stored.size > READ_ATTACHMENT_CONTENT_MAX_BYTES) {
+      return yield* new AttachmentContentTooLargeError({
+        attachmentId: params.attachmentId,
+        size: stored.size,
+        maxSize: READ_ATTACHMENT_CONTENT_MAX_BYTES
+      })
+    }
+
+    const downloadFileBounded = storageClient.downloadFileBounded
+    if (downloadFileBounded === undefined) {
+      return yield* new AttachmentContentUnavailableError({
+        attachmentId: params.attachmentId,
+        reason: "bounded authenticated storage download is unavailable"
+      })
+    }
+    const download = yield* Effect.either(
+      downloadFileBounded(stored.file, AttachmentByteSize.make(READ_ATTACHMENT_CONTENT_MAX_BYTES))
+    )
+    if (Either.isLeft(download)) {
+      yield* Effect.logWarning("Attachment inline image storage download failed").pipe(
+        Effect.annotateLogs("attachmentId", params.attachmentId),
+        Effect.annotateLogs("storageErrorTag", download.left._tag)
+      )
+      return yield* download.left._tag === "FileTooLargeError"
+        ? new AttachmentContentTooLargeError({
+          attachmentId: params.attachmentId,
+          size: download.left.size,
+          maxSize: READ_ATTACHMENT_CONTENT_MAX_BYTES
+        })
+        : new AttachmentContentUnavailableError({
+          attachmentId: params.attachmentId,
+          reason: "authenticated storage download failed"
+        })
+    }
+    const bytes = download.right
+
+    if (bytes.length > READ_ATTACHMENT_CONTENT_MAX_BYTES) {
+      return yield* new AttachmentContentTooLargeError({
+        attachmentId: params.attachmentId,
+        size: bytes.length,
+        maxSize: READ_ATTACHMENT_CONTENT_MAX_BYTES
+      })
+    }
+    if (bytes.length === 0) {
+      return yield* new AttachmentContentUnavailableError({
+        attachmentId: params.attachmentId,
+        reason: "downloaded image data is empty"
+      })
+    }
+
+    return {
+      _tag: "ImageAttachmentContent",
+      metadata: {
+        attachmentId: stored._id,
+        name: stored.name,
+        type: imageType,
+        size: AttachmentByteSize.make(bytes.length)
+      },
+      data: CanonicalBase64ImageData.make(bytes.toString("base64"))
     }
   })

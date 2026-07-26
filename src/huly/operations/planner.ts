@@ -47,6 +47,7 @@ import { TodoWorkSlotNotFoundError as WorkSlotMissing } from "../errors.js"
 import { time, tracker } from "../huly-plugins.js"
 import { batchGetEmailsForPersons } from "./contacts-shared.js"
 import { renderMarkdownPreservingNativeReferences } from "./native-reference-markup.js"
+import { createPlannerWorkSlot } from "./planner-scheduling.js"
 import {
   findTodo,
   type HulyTodoWithLookup,
@@ -66,7 +67,6 @@ import {
 } from "./planner-shared.js"
 import { clampLimit, hulyQuery, withLookup } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
-import { createPlannerWorkSlot } from "./time.js"
 import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
 type PlannerMutationError = PlannerLookupError | HulyClientError | NoUpdateFieldsError | TodoWorkSlotNotFoundError
@@ -344,6 +344,7 @@ export const scheduleTodo = (
     const description = yield* descriptionForTodo(client, todo)
     const result = yield* createPlannerWorkSlot({
       todoId: TodoId.make(todo._id),
+      todoClass: todo._class,
       date: params.date,
       dueDate: params.dueDate,
       title: todoTitleOrFallback(todo.title),

@@ -5,6 +5,7 @@ import { Count } from "../domain/schemas/index.js"
 import type { HulyStorageClient } from "../huly/storage.js"
 import type { WorkspaceClientOperations } from "../huly/workspace-client.js"
 import {
+  createImageSuccessResponse,
   createInvalidParamsError,
   createSuccessResponse,
   createUnknownToolError,
@@ -285,6 +286,19 @@ interface InvokeToolClients {
   readonly workspaceClient?: WorkspaceClientOperations
 }
 
+const DeferredToolArgumentsJsonSchema = Schema.parseJson()
+
+/**
+ * Some deferred-tool clients serialize invoke_tool's schema-less arguments value.
+ * Decode that transport shape once here, immediately before target dispatch. Invalid
+ * JSON remains unchanged so the target schema reports the actual value it received.
+ */
+const normalizeDeferredToolArguments = (value: unknown): unknown => {
+  if (typeof value !== "string") return value
+  const decoded = Schema.decodeUnknownEither(DeferredToolArgumentsJsonSchema)(value)
+  return Either.isRight(decoded) ? decoded.right : value
+}
+
 const invokeTool = async (
   registry: ToolRegistry,
   args: unknown,
@@ -298,7 +312,7 @@ const invokeTool = async (
 
   const response = await registry.handleToolCall(
     params.toolName,
-    params.arguments,
+    normalizeDeferredToolArguments(params.arguments),
     clients.hulyClient,
     clients.storageClient,
     clients.workspaceClient
@@ -307,14 +321,14 @@ const invokeTool = async (
   if (response.isError === true) return response
 
   const warnings = response.structuredContent?.warnings ?? []
-  return createSuccessResponse(
-    {
-      toolName: params.toolName,
-      result: response.structuredContent?.result ?? response.content,
-      ...(warnings.length === 0 ? {} : { warnings })
-    },
-    warnings
-  )
+  const result = {
+    toolName: params.toolName,
+    result: response.structuredContent?.result ?? response.content,
+    ...(warnings.length === 0 ? {} : { warnings })
+  }
+  return response.imageContent === undefined
+    ? createSuccessResponse(result, warnings)
+    : createImageSuccessResponse(result, response.imageContent, warnings)
 }
 
 interface ProxyToolCallInput {

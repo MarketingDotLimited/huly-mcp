@@ -1,17 +1,14 @@
-import { AccessLevel, type Calendar as HulyCalendar } from "@hcengineering/calendar"
-import type { Channel, Person } from "@hcengineering/contact"
+import type { Channel, Employee as HulyEmployee, Person, SocialIdentity } from "@hcengineering/contact"
 import {
   type AttachedData,
   type Doc,
   type DocumentQuery,
-  type DocumentUpdate,
   generateId,
   type PersonId as CorePersonId,
   type Ref,
   SortingOrder,
   type WithLookup
 } from "@hcengineering/core"
-import type { ToDo as HulyToDo, WorkSlot as HulyWorkSlot } from "@hcengineering/time"
 import {
   type Issue as HulyIssue,
   type Project as HulyProject,
@@ -32,7 +29,6 @@ import type {
   TimeSpendReport,
   WorkSlot
 } from "../../domain/schemas.js"
-import type { TodoTitle, TodoVisibility } from "../../domain/schemas/planner.js"
 import {
   IssueIdentifier,
   NonNegativeNumber,
@@ -42,22 +38,23 @@ import {
   TodoId,
   WorkSlotId
 } from "../../domain/schemas/shared.js"
-import type { LogTimeResult, StartTimerResult, StopTimerResult } from "../../domain/schemas/time.js"
+import {
+  type LogTimeResult,
+  PositiveTimeHours,
+  type StartTimerResult,
+  type StopTimerResult,
+  TimeHours
+} from "../../domain/schemas/time.js"
 import { isExistent, isNonEmpty } from "../../utils/assertions.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type { IssueNotFoundError } from "../errors.js"
-import { ProjectNotFoundError } from "../errors.js"
+import { HulyConnectionError, ProjectNotFoundError } from "../errors.js"
 import { findProject, findProjectAndIssue, zeroAsUnset } from "./issues-shared.js"
-import { clampLimit, withLookup } from "./query-helpers.js"
-import { toRef } from "./sdk-boundary.js"
+import { parsePrimarySocialIdentityProjection } from "./primary-social-identity.js"
+import { clampLimit, hulyQuery, withLookup } from "./query-helpers.js"
+import { toRef, toSocialIdentityRef } from "./sdk-boundary.js"
 
 import { contact, time, tracker } from "../huly-plugins.js"
-
-// SDK: Data<WorkSlot> requires calendar/user but server populates from auth context.
-const serverPopulatedCalendar = toRef<HulyCalendar>("")
-// PersonId = string & { __personId: true }; no SDK factory exists. Empty string is overwritten server-side.
-// eslint-disable-next-line no-restricted-syntax -- see above
-const serverPopulatedPersonId: CorePersonId = "" as CorePersonId
 
 // SDK: WorkSlot.user is typed PersonId, but Huly queries accept Ref<Person> for user lookup.
 // Brands erased at runtime; both are plain strings. The REST API treats them interchangeably in queries.
@@ -71,27 +68,8 @@ type GetTimeReportError = HulyClientError | ProjectNotFoundError | IssueNotFound
 type ListTimeSpendReportsError = HulyClientError | ProjectNotFoundError
 type GetDetailedTimeReportError = HulyClientError | ProjectNotFoundError
 type ListWorkSlotsError = HulyClientError
-type PlannerWorkSlotError = HulyClientError
 type StartTimerError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
 type StopTimerError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
-
-interface WorkSlotCreationResult {
-  readonly slotId: WorkSlotId
-}
-
-interface AddWorkSlotForTodoInput {
-  readonly todoId: TodoId
-  readonly date: Timestamp
-  readonly dueDate: Timestamp
-  readonly title: TodoTitle | ""
-  // Markdown copied from the ToDo at scheduling time; empty string means no description.
-  readonly description: string
-  readonly visibility: TodoVisibility
-}
-
-interface PlannerWorkSlotInput extends AddWorkSlotForTodoInput {
-  readonly title: TodoTitle
-}
 
 export const logTime = (
   params: LogTimeParams
@@ -103,11 +81,26 @@ export const logTime = (
     })
 
     const reportId: Ref<HulyTimeSpendReport> = generateId()
+    const socialIdentity = yield* client.findOne<SocialIdentity>(
+      contact.class.SocialIdentity,
+      hulyQuery<SocialIdentity>({ _id: toSocialIdentityRef(client.getPrimarySocialId()) })
+    )
+    const employee = socialIdentity === undefined
+      ? null
+      : toRef<HulyEmployee>(
+        (yield* parsePrimarySocialIdentityProjection(socialIdentity).pipe(
+          Effect.mapError((parseError) =>
+            new HulyConnectionError({
+              message: `Authenticated social identity failed schema validation: ${parseError.message}`,
+              cause: parseError
+            })
+          )
+        )).attachedTo
+      )
 
-    // Huly API expects employee as null for anonymous reports (will be set to current user by server)
     const now = yield* Clock.currentTimeMillis
     const reportData: AttachedData<HulyTimeSpendReport> = {
-      employee: null,
+      employee,
       date: now,
       value: params.value,
       description: params.description ?? ""
@@ -121,21 +114,6 @@ export const logTime = (
       "reports",
       reportData,
       reportId
-    )
-
-    // Huly API: must manually update issue aggregates when adding time reports
-    const updateOps: DocumentUpdate<HulyIssue> = {
-      $inc: { reportedTime: params.value, reports: 1 }
-    }
-    if (issue.remainingTime > 0) {
-      const newRemaining = Math.max(0, issue.remainingTime - params.value)
-      updateOps.remainingTime = newRemaining
-    }
-    yield* client.updateDoc(
-      tracker.class.Issue,
-      project._id,
-      issue._id,
-      updateOps
     )
 
     return { reportId: TimeSpendReportId.make(reportId), identifier: IssueIdentifier.make(issue.identifier) }
@@ -180,17 +158,19 @@ export const getTimeReport = (
         identifier: IssueIdentifier.make(issue.identifier),
         ...(employee === undefined ? {} : { employee }),
         date,
-        value: r.value,
+        value: TimeHours.make(r.value),
         description: r.description
       }
     })
 
-    const estimation = zeroAsUnset(NonNegativeNumber.make(issue.estimation))
-    const remainingTime = zeroAsUnset(NonNegativeNumber.make(issue.remainingTime))
+    const rawEstimation = zeroAsUnset(NonNegativeNumber.make(issue.estimation))
+    const rawRemainingTime = zeroAsUnset(NonNegativeNumber.make(issue.remainingTime))
+    const estimation = rawEstimation === undefined ? undefined : PositiveTimeHours.make(rawEstimation)
+    const remainingTime = rawRemainingTime === undefined ? undefined : PositiveTimeHours.make(rawRemainingTime)
 
     return {
       identifier: IssueIdentifier.make(issue.identifier),
-      totalTime: issue.reportedTime,
+      totalTime: TimeHours.make(issue.reportedTime),
       ...(estimation === undefined ? {} : { estimation }),
       ...(remainingTime === undefined ? {} : { remainingTime }),
       reports: timeReports
@@ -256,7 +236,7 @@ export const listTimeSpendReports = (
         ...(identifier === undefined ? {} : { identifier }),
         ...(employee === undefined ? {} : { employee }),
         date,
-        value: r.value,
+        value: TimeHours.make(r.value),
         description: r.description
       }
     })
@@ -296,19 +276,24 @@ export const getDetailedTimeReport = (
       )
     )
 
-    const byIssueMap = new Map<string, {
+    interface IssueTimeAccumulator {
       identifier?: IssueIdentifier
       issueTitle: string
-      totalTime: number
+      totalTime: TimeHours
       reports: Array<TimeSpendReport>
-    }>()
+    }
+    interface EmployeeTimeAccumulator {
+      employeeName?: PersonName
+      totalTime: TimeHours
+    }
+    const byIssueMap = new Map<HulyTimeSpendReport["attachedTo"], IssueTimeAccumulator>()
+    const byEmployeeMap = new Map<HulyTimeSpendReport["employee"], EmployeeTimeAccumulator>()
 
-    const byEmployeeMap = new Map<string, { employeeName?: PersonName; totalTime: number }>()
-
-    let totalTime = 0
+    let totalTime = TimeHours.make(0)
 
     for (const r of reports) {
-      totalTime += r.value
+      const reportHours = TimeHours.make(r.value)
+      totalTime = TimeHours.make(totalTime + reportHours)
 
       const issueKey = r.attachedTo
       const issue = r.$lookup?.attachedTo
@@ -316,10 +301,10 @@ export const getDetailedTimeReport = (
       const existing = byIssueMap.get(issueKey) ?? {
         ...(identifier === undefined ? {} : { identifier }),
         issueTitle: issue?.title ?? "Unknown",
-        totalTime: 0,
+        totalTime: TimeHours.make(0),
         reports: []
       }
-      existing.totalTime += r.value
+      existing.totalTime = TimeHours.make(existing.totalTime + reportHours)
       const employee = r.$lookup?.employee?.name === undefined ? undefined : PersonName.make(r.$lookup.employee.name)
       const date = toTimeReportDate(r.date)
       existing.reports.push({
@@ -327,20 +312,20 @@ export const getDetailedTimeReport = (
         ...(identifier === undefined ? {} : { identifier }),
         ...(employee === undefined ? {} : { employee }),
         date,
-        value: r.value,
+        value: reportHours,
         description: r.description
       })
       byIssueMap.set(issueKey, existing)
 
-      const empKey = r.employee ? r.employee : "__unassigned__"
+      const empKey = r.employee
       const employeeName = r.$lookup?.employee?.name === undefined
         ? undefined
         : PersonName.make(r.$lookup.employee.name)
       const empExisting = byEmployeeMap.get(empKey) ?? {
         ...(employeeName === undefined ? {} : { employeeName }),
-        totalTime: 0
+        totalTime: TimeHours.make(0)
       }
-      empExisting.totalTime += r.value
+      empExisting.totalTime = TimeHours.make(empExisting.totalTime + reportHours)
       byEmployeeMap.set(empKey, empExisting)
     }
 
@@ -408,53 +393,6 @@ export const listWorkSlots = (
       dueDate: Timestamp.make(s.dueDate),
       title: s.title
     }))
-  })
-
-const addWorkSlotForTodo = (
-  client: HulyClient["Type"],
-  params: AddWorkSlotForTodoInput
-): Effect.Effect<WorkSlotCreationResult, PlannerWorkSlotError> =>
-  Effect.gen(function*() {
-    const slotId: Ref<HulyWorkSlot> = generateId()
-
-    // Huly API: WorkSlot requires all calendar event fields even for simple slots.
-    // Empty string casts are used because server will populate calendar/user from auth context.
-    // This matches the pattern used in calendar.ts for Event creation.
-    const slotData: AttachedData<HulyWorkSlot> = {
-      date: params.date,
-      dueDate: params.dueDate,
-      title: params.title,
-      description: params.description,
-      allDay: false,
-      participants: [],
-      access: AccessLevel.Owner,
-      reminders: [],
-      visibility: params.visibility,
-      eventId: "",
-      calendar: serverPopulatedCalendar,
-      user: serverPopulatedPersonId,
-      blockTime: false
-    }
-
-    yield* client.addCollection(
-      time.class.WorkSlot,
-      time.space.ToDos,
-      toRef<HulyToDo>(params.todoId),
-      time.class.ToDo,
-      "workslots",
-      slotData,
-      slotId
-    )
-
-    return { slotId: WorkSlotId.make(slotId) }
-  })
-
-export const createPlannerWorkSlot = (
-  params: PlannerWorkSlotInput
-): Effect.Effect<WorkSlotCreationResult, PlannerWorkSlotError, HulyClient> =>
-  Effect.gen(function*() {
-    const client = yield* HulyClient
-    return yield* addWorkSlotForTodo(client, params)
   })
 
 /**

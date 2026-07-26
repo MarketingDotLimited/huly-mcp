@@ -40,6 +40,7 @@ import { Effect, Layer } from "effect"
 import { expect } from "vitest"
 
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
+import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
 import {
   activity,
   attachment,
@@ -570,6 +571,7 @@ const testLayer = (config: FixtureConfig = {}) => {
   const baseClientOps: Partial<HulyClientOperations> = {
     getAccountUuid: () => ACCOUNT_UUID,
     findAll,
+    findAllInModel: findAll,
     findOne,
     addCollection,
     createDoc,
@@ -991,6 +993,7 @@ describe("object collaborator operations", () => {
 describe("notification preference operations", () => {
   it.effect("lists providers/types, updates type settings, archives contexts, and manages subscriptions", () =>
     Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
       const capture = makeCapture()
       const layer = testLayer({
         capture,
@@ -1006,19 +1009,22 @@ describe("notification preference operations", () => {
         collaborators: [makeCollaborator()]
       })
 
-      const providers = yield* listNotificationProviders({}).pipe(Effect.provide(layer))
+      const providers = yield* listNotificationProviders({}).pipe(
+        Effect.provide(layer),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
       expect(assertAt(providers, 0).label).toBe("Inbox")
 
       const types = yield* listNotificationTypes({
         objectClass: objectClassName("tracker:class:Issue")
-      }).pipe(Effect.provide(layer))
+      }).pipe(Effect.provide(layer), Effect.provideService(Diagnostics, diagnostics.service))
       expect(assertAt(types, 0).group).toBe("group-1")
 
       const typeSetting = yield* updateNotificationTypeSetting({
         providerId: notificationProviderId("provider-1"),
         typeId: notificationTypeId("type-1"),
         enabled: false
-      }).pipe(Effect.provide(layer))
+      }).pipe(Effect.provide(layer), Effect.provideService(Diagnostics, diagnostics.service))
       expect(typeSetting.updated).toBe(true)
       expect(typeSetting.created).toBe(false)
 
@@ -1054,6 +1060,7 @@ describe("notification preference operations", () => {
 
   it.effect("creates type settings, returns idempotent subscriptions, and reports non-configurable providers", () =>
     Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
       const capture = makeCapture()
       const createLayer = testLayer({
         capture,
@@ -1065,7 +1072,7 @@ describe("notification preference operations", () => {
         providerId: notificationProviderId("provider-1"),
         typeId: notificationTypeId("type-1"),
         enabled: false
-      }).pipe(Effect.provide(createLayer))
+      }).pipe(Effect.provide(createLayer), Effect.provideService(Diagnostics, diagnostics.service))
       expect(created.created).toBe(true)
       expect(assertAt(capture.createDocs, 0)._class).toBe(notification.class.NotificationTypeSetting)
 
@@ -1074,7 +1081,10 @@ describe("notification preference operations", () => {
           providerId: notificationProviderId("provider-1"),
           typeId: notificationTypeId("type-1"),
           enabled: true
-        }).pipe(Effect.provide(testLayer({ notificationTypes: [makeType()] })))
+        }).pipe(
+          Effect.provide(testLayer({ notificationTypes: [makeType()] })),
+          Effect.provideService(Diagnostics, diagnostics.service)
+        )
       )
       expect(missingProvider._tag).toBe("NotificationProviderNotConfigurableError")
       expect(missingProvider.message).toContain("provider-1")
@@ -1084,7 +1094,10 @@ describe("notification preference operations", () => {
           providerId: notificationProviderId("provider-1"),
           typeId: notificationTypeId("missing-type"),
           enabled: true
-        }).pipe(Effect.provide(testLayer()))
+        }).pipe(
+          Effect.provide(testLayer({ providers: [makeProvider()], notificationTypes: [makeType()] })),
+          Effect.provideService(Diagnostics, diagnostics.service)
+        )
       )
       expect(missingType._tag).toBe("NotificationTypeNotFoundError")
       expect(missingType.message).toContain("missing-type")
@@ -1116,19 +1129,26 @@ describe("notification preference operations", () => {
 
   it.effect("covers notification type no-op and target resolution branches", () =>
     Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
       const noOp = yield* updateNotificationTypeSetting({
         providerId: notificationProviderId("provider-1"),
         typeId: notificationTypeId("type-1"),
         enabled: true
-      }).pipe(Effect.provide(testLayer({
-        notificationTypes: [makeType()],
-        typeSettings: [makeTypeSetting()]
-      })))
+      }).pipe(
+        Effect.provide(testLayer({
+          notificationTypes: [makeType()],
+          typeSettings: [makeTypeSetting()]
+        })),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
       expect(noOp.updated).toBe(false)
 
-      const allTypes = yield* listNotificationTypes({ includeHidden: true }).pipe(Effect.provide(testLayer({
-        notificationTypes: [makeType({ hidden: true })]
-      })))
+      const allTypes = yield* listNotificationTypes({ includeHidden: true }).pipe(
+        Effect.provide(testLayer({
+          notificationTypes: [makeType({ hidden: true })]
+        })),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
       expect(assertAt(allTypes, 0).hidden).toBe(true)
 
       const resolvedTarget = yield* subscribeToObjectNotifications({
@@ -1148,6 +1168,7 @@ describe("notification preference operations", () => {
 
   it.effect("maps optional notification provider and type fields", () =>
     Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
       const layer = testLayer({
         providers: [
           makeProvider({
@@ -1169,12 +1190,18 @@ describe("notification preference operations", () => {
         ]
       })
 
-      const providers = yield* listNotificationProviders({ limit: 1 }).pipe(Effect.provide(layer))
+      const providers = yield* listNotificationProviders({ limit: 1 }).pipe(
+        Effect.provide(layer),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
       expect(assertAt(providers, 0).label).toBeUndefined()
       expect(assertAt(providers, 0).description).toBeUndefined()
       expect(assertAt(providers, 0).depends).toBe("provider-1")
 
-      const types = yield* listNotificationTypes({ limit: 1 }).pipe(Effect.provide(layer))
+      const types = yield* listNotificationTypes({ limit: 1 }).pipe(
+        Effect.provide(layer),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
       expect(assertAt(types, 0).label).toBeUndefined()
       expect(assertAt(types, 0).attachedToClass).toBe("document:class:Document")
       expect(assertAt(types, 0).onlyOwn).toBe(true)

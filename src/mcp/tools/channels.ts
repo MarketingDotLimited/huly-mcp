@@ -82,6 +82,7 @@ import {
   UpdateDmMessageResultSchema
 } from "../../domain/schemas/direct-messages.js"
 import { ListExternalChannelMessagesResultSchema } from "../../domain/schemas/external-channel-messages.js"
+import { UPLOAD_SOURCE_SEMANTICS } from "../../domain/schemas/upload-source.js"
 import {
   createChannel,
   deleteChannel,
@@ -382,7 +383,7 @@ export const channelTools = [
     {
       name: "add_chat_message_attachment",
       description:
-        "Attach a file directly to a Huly channel message, direct-message message, or thread reply. Provide filename, contentType, and exactly one of filePath, fileUrl, or data.",
+        `Attach a file directly to a Huly channel message, direct-message message, or thread reply. Provide filename, contentType, and exactly one source: ${UPLOAD_SOURCE_SEMANTICS}`,
       category: CATEGORY,
       inputSchema: addChatMessageAttachmentParamsJsonSchema,
       resultSchema: AddChatMessageAttachmentResultSchema

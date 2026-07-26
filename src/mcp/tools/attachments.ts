@@ -45,12 +45,17 @@ import {
   parseGetAttachmentParams,
   parseListAttachmentsParams,
   parsePinAttachmentParams,
+  parseReadAttachmentContentParams,
   parseUpdateAttachmentParams,
   pinAttachmentParamsJsonSchema,
   PinAttachmentResultSchema,
+  READ_ATTACHMENT_CONTENT_MAX_MIB,
+  ReadAttachmentContentMetadataSchema,
+  readAttachmentContentParamsJsonSchema,
   updateAttachmentParamsJsonSchema,
   UpdateAttachmentResultSchema
 } from "../../domain/schemas/attachments.js"
+import { UPLOAD_SOURCE_SEMANTICS } from "../../domain/schemas/upload-source.js"
 import {
   createDrawing,
   deleteDrawing,
@@ -68,9 +73,10 @@ import {
   getAttachment,
   listAttachments,
   pinAttachment,
+  readAttachmentContent,
   updateAttachment
 } from "../../huly/operations/attachments.js"
-import { defineCombinedTool, defineTool, type RegisteredTool } from "./registry.js"
+import { defineCombinedImageTool, defineCombinedTool, defineTool, type RegisteredTool } from "./registry.js"
 const CATEGORY = "attachments" as const
 export const attachmentTools = [
   defineTool(
@@ -100,7 +106,7 @@ export const attachmentTools = [
     {
       name: "add_attachment",
       description:
-        "Add an attachment to a Huly object. Provide ONE of: filePath (local file - preferred), fileUrl (fetch from URL), or data (base64). Returns the attachment ID and download URL.",
+        `Add an attachment to a Huly object. Provide one source: ${UPLOAD_SOURCE_SEMANTICS} Returns the attachment ID and download URL.`,
       category: CATEGORY,
       inputSchema: addAttachmentParamsJsonSchema,
       resultSchema: AddAttachmentResultSchema
@@ -152,11 +158,31 @@ export const attachmentTools = [
     parseDownloadAttachmentParams,
     downloadAttachment
   ),
+  defineCombinedImageTool(
+    {
+      name: "read_attachment_content",
+      description:
+        `Return a supported image attachment (JPEG, PNG, GIF, or WebP; maximum ${READ_ATTACHMENT_CONTENT_MAX_MIB} MiB) as one MCP image content block plus metadata-only structured content. Use this to inspect screenshots or pictures directly. For non-image, unsupported, or oversized files, call download_attachment to get a URL instead.`,
+      category: CATEGORY,
+      inputSchema: readAttachmentContentParamsJsonSchema,
+      resultSchema: ReadAttachmentContentMetadataSchema
+    },
+    parseReadAttachmentContentParams,
+    readAttachmentContent,
+    (result) => ({
+      result: result.metadata,
+      image: {
+        type: "image",
+        data: result.data,
+        mimeType: result.metadata.type
+      }
+    })
+  ),
   defineCombinedTool(
     {
       name: "add_issue_attachment",
       description:
-        "Add an attachment to a Huly issue. Convenience method that finds the issue by project and identifier. Provide ONE of: filePath, fileUrl, or data.",
+        `Add an attachment to a Huly issue resolved by project and identifier. Provide one source: ${UPLOAD_SOURCE_SEMANTICS}`,
       category: CATEGORY,
       inputSchema: addIssueAttachmentParamsJsonSchema,
       resultSchema: AddAttachmentResultSchema
@@ -168,7 +194,7 @@ export const attachmentTools = [
     {
       name: "add_document_attachment",
       description:
-        "Add an attachment to a Huly document. Convenience method that finds the document by teamspace and title/ID. Provide ONE of: filePath, fileUrl, or data.",
+        `Add an attachment to a Huly document resolved by teamspace and title/ID. Provide one source: ${UPLOAD_SOURCE_SEMANTICS}`,
       category: CATEGORY,
       inputSchema: addDocumentAttachmentParamsJsonSchema,
       resultSchema: AddAttachmentResultSchema

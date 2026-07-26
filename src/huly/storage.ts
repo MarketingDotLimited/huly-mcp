@@ -14,6 +14,8 @@ import type { Blob, Ref, WorkspaceUuid } from "@hcengineering/core"
 import { Context, Effect, Layer } from "effect"
 
 import { HulyConfigService } from "../config/config.js"
+import { AttachmentByteSize } from "../domain/schemas/domain-values.js"
+import type { BlobId } from "../domain/schemas/shared.js"
 import { concatLink } from "../utils/url.js"
 import { authToOptions, connectWithRetry } from "./client.js"
 import {
@@ -158,6 +160,15 @@ export interface HulyStorageOperations {
   readonly downloadFile?: (blobId: string) => Effect.Effect<Buffer, StorageClientError>
 
   /**
+   * Download at most maxBytes from a stored blob, aborting the source stream
+   * as soon as one byte beyond the limit is observed.
+   */
+  readonly downloadFileBounded?: (
+    blobId: BlobId,
+    maxBytes: AttachmentByteSize
+  ) => Effect.Effect<Buffer, StorageClientError | FileTooLargeError>
+
+  /**
    * Construct the URL for accessing a blob.
    *
    * @param blobId - The blob ID
@@ -216,6 +227,28 @@ export class HulyStorageClient extends Context.Tag("@hulymcp/HulyStorageClient")
               })
           }),
 
+        downloadFileBounded: (blobId, maxBytes) =>
+          Effect.tryPromise({
+            try: async () => streamToBoundedBuffer(await storageClient.get(blobId), maxBytes),
+            catch: () =>
+              new FileFetchError({
+                fileUrl: blobId,
+                reason: "storage adapter download failed"
+              })
+          }).pipe(
+            Effect.flatMap((result) =>
+              result._tag === "WithinLimit"
+                ? Effect.succeed(result.bytes)
+                : Effect.fail(
+                  new FileTooLargeError({
+                    filename: blobId,
+                    size: result.observedSize,
+                    maxSize: maxBytes
+                  })
+                )
+            )
+          ),
+
         getFileUrl: (blobId) => buildFileUrl(baseUrl, workspaceId, blobId)
       }
 
@@ -249,14 +282,22 @@ export class HulyStorageClient extends Context.Tag("@hulymcp/HulyStorageClient")
     const noopGetFileUrl = (blobId: string): string => `https://test.huly.io/files?workspace=test&file=${blobId}`
     const noopDownloadFile = (blobId: string): Effect.Effect<Buffer, StorageClientError> =>
       Effect.succeed(Buffer.from(`test file ${blobId}`))
+    const downloadFile = mockOperations.downloadFile ?? noopDownloadFile
+    const downloadFileBounded = mockOperations.downloadFileBounded ?? makeBufferedBoundedDownload(downloadFile)
 
     const defaultOps: HulyStorageOperations = {
-      downloadFile: noopDownloadFile,
+      downloadFile,
+      downloadFileBounded,
       uploadFile: noopUploadFile,
       getFileUrl: noopGetFileUrl
     }
 
-    return Layer.succeed(HulyStorageClient, { ...defaultOps, ...mockOperations })
+    return Layer.succeed(HulyStorageClient, {
+      ...defaultOps,
+      ...mockOperations,
+      downloadFile,
+      downloadFileBounded
+    })
   }
 }
 
@@ -290,6 +331,61 @@ const streamToBuffer = async (stream: Readable): Promise<Buffer> => {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
   }
   return Buffer.concat(chunks)
+}
+
+type BoundedStreamRead =
+  | {
+    readonly _tag: "WithinLimit"
+    readonly bytes: Buffer
+  }
+  | {
+    readonly _tag: "LimitExceeded"
+    readonly observedSize: AttachmentByteSize
+  }
+
+const makeBufferedBoundedDownload = (
+  downloadFile: NonNullable<HulyStorageOperations["downloadFile"]>
+): NonNullable<HulyStorageOperations["downloadFileBounded"]> =>
+(blobId, maxBytes) =>
+  downloadFile(blobId).pipe(
+    Effect.flatMap((bytes) =>
+      bytes.length <= maxBytes
+        ? Effect.succeed(bytes)
+        : Effect.fail(
+          new FileTooLargeError({
+            filename: blobId,
+            size: AttachmentByteSize.make(maxBytes + 1),
+            maxSize: maxBytes
+          })
+        )
+    )
+  )
+
+const streamToBoundedBuffer = async (
+  stream: Readable,
+  maxBytes: AttachmentByteSize
+): Promise<BoundedStreamRead> => {
+  const chunks: Array<Buffer> = []
+  const retainedLimit = maxBytes + 1
+  let retainedBytes = 0
+  for await (const chunk of stream) {
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+    const remaining = retainedLimit - retainedBytes
+    const retained = bytes.subarray(0, remaining)
+    chunks.push(retained)
+    retainedBytes += retained.length
+    if (retainedBytes > maxBytes) {
+      stream.destroy()
+      return {
+        _tag: "LimitExceeded",
+        observedSize: AttachmentByteSize.make(retainedBytes)
+      }
+    }
+  }
+  return {
+    _tag: "WithinLimit",
+    bytes: Buffer.concat(chunks, retainedBytes)
+  }
 }
 
 const connectStorageClient = async (

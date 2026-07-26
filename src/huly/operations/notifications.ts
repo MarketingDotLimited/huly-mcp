@@ -30,8 +30,10 @@ import {
   ObjectClassName
 } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
+import type { Diagnostics } from "../diagnostics.js"
 import { notification } from "../huly-plugins.js"
 import { listTotal } from "./counts.js"
+import { requireNotificationProviderId } from "./notification-metadata.js"
 import {
   findNotification,
   findUnreadActiveNotifications,
@@ -187,9 +189,14 @@ export const listNotificationSettings = (
  */
 export const updateNotificationProviderSetting = (
   params: UpdateNotificationProviderSettingParams
-): Effect.Effect<UpdateNotificationProviderSettingResult, UpdateNotificationProviderSettingError, HulyClient> =>
+): Effect.Effect<
+  UpdateNotificationProviderSettingResult,
+  UpdateNotificationProviderSettingError,
+  HulyClient | Diagnostics
+> =>
   Effect.gen(function*() {
     const client = yield* HulyClient
+    yield* requireNotificationProviderId(client, params.providerId)
     const existingSetting = yield* client.findOne<HulyNotificationProviderSetting>(
       notification.class.NotificationProviderSetting,
       hulyQuery<HulyNotificationProviderSetting>({ attachedTo: toRef<NotificationProvider>(params.providerId) })

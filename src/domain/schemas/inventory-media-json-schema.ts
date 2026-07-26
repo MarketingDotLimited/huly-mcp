@@ -4,6 +4,7 @@ import { JSONSchema } from "effect"
 import { HULY_NATIVE_REFERENCE_MARKDOWN_INPUT } from "./document-native-references.js"
 import { withExactlyOneRequired, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 import { DEFAULT_LIMIT } from "./shared.js"
+import { UPLOAD_SOURCE_FIELD_DESCRIPTIONS } from "./upload-source.js"
 
 export const INVENTORY_MEDIA_FILE_SOURCE_FIELDS = ["filePath", "fileUrl", "data"] as const
 
@@ -19,9 +20,7 @@ const INVENTORY_MEDIA_FIELD_DESCRIPTIONS: Readonly<Partial<Record<string, string
   photoId: "Product photo ID. Must belong directly to the resolved inventory product.",
   filename: "Name of the file to attach to the inventory product.",
   contentType: "MIME type of the file, such as image/png or application/pdf.",
-  filePath: "Local file path to upload. Mutually exclusive with fileUrl and data.",
-  fileUrl: "Remote URL to fetch and upload. Mutually exclusive with filePath and data.",
-  data: "Base64-encoded file data for small files. Mutually exclusive with filePath and fileUrl.",
+  ...UPLOAD_SOURCE_FIELD_DESCRIPTIONS,
   description: "Optional media description. Use null on update to clear it.",
   pinned: "Whether the media item should be pinned.",
   commentId: "Product comment ID. Must belong directly to the resolved inventory product.",

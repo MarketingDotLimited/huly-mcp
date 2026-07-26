@@ -255,13 +255,15 @@ describe("Domain Schemas", () => {
           issueId: "issue-123",
           identifier: "HULY-123",
           title: "Fix bug",
-          status: "Open"
+          status: "Open",
+          labels: []
         })
         expect(result).toEqual({
           issueId: "issue-123",
           identifier: "HULY-123",
           title: "Fix bug",
-          status: "Open"
+          status: "Open",
+          labels: []
         })
       }))
 
@@ -274,10 +276,12 @@ describe("Domain Schemas", () => {
           status: "Open",
           priority: "high",
           assignee: "john@example.com",
+          labels: [{ title: "Bug", color: 2 }],
           modifiedOn: 1706500000000
         })
         expect(result.priority).toBe("high")
         expect(result.assignee).toBe("john@example.com")
+        expect(result.labels).toEqual([{ title: "Bug", color: 2 }])
         expect(result.modifiedOn).toBe(1706500000000)
       }))
   })
@@ -290,11 +294,13 @@ describe("Domain Schemas", () => {
           identifier: "HULY-123",
           title: "Fix bug",
           status: "Open",
+          labels: [],
           project: "HULY"
         })
         expect(result.identifier).toBe("HULY-123")
         expect(result.title).toBe("Fix bug")
         expect(result.status).toBe("Open")
+        expect(result.labels).toEqual([])
         expect(result.project).toBe("HULY")
       }))
 
@@ -338,6 +344,7 @@ describe("Domain Schemas", () => {
           identifier: "HULY-123",
           title: "Fix bug",
           status: "Open",
+          labels: [],
           project: "HULY",
           dueDate: null
         })
@@ -356,12 +363,14 @@ describe("Domain Schemas", () => {
       Effect.gen(function*() {
         const result = yield* parseListIssuesParams({
           project: "HULY",
+          label: "  Needs Review  ",
           status: "Open",
           statusCategory: undefined,
           assignee: "john@example.com",
           limit: 50
         })
         expect(result.project).toBe("HULY")
+        expect(result.label).toBe("Needs Review")
         expect(result.status).toBe("Open")
         expect(result.statusCategory).toBeUndefined()
         expect(result.assignee).toBe("john@example.com")

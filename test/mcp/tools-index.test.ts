@@ -83,6 +83,21 @@ describe("CATEGORY_NAMES", () => {
       expect(names.has(toolName("list_office_defaults"))).toBe(true)
     }))
 
+  it.effect("registers truthful read-only card version history metadata", () =>
+    Effect.gen(function*() {
+      const definition = toolDefinition("list_card_versions")
+
+      expect(definition.category).toBe("cards")
+      expect(definition.description).toContain("authoritative total")
+      expect(definition.description).toContain("never creates or restores versions")
+      expect(definition.annotations).toEqual({
+        readOnlyHint: true,
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false
+      })
+    }))
+
   it.effect("registers issue #102 closeout tools in their owning categories", () =>
     Effect.gen(function*() {
       expect(toolDefinition("list_document_snapshots").category).toBe("documents")

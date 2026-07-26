@@ -46,6 +46,11 @@ RECRUITING_CLEANUP_SKILL=""
 BOARD_CLEANUP_BOARD_ID=""
 BOARD_CLEANUP_LABEL_ID=""
 BOARD_CLEANUP_CARD_LABEL_ID=""
+CUSTOM_FIELD_DATE_CLEANUP_ISSUE_ID=""
+CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID=""
+CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME=""
+CARD_VERSION_CLEANUP_BASE_ID=""
+CARD_UNVERSIONED_CLEANUP_ID=""
 TM_TASK_TYPE_NAME=""
 TM_STATUS_NAME=""
 WORKFLOW_CLEANED=false
@@ -103,6 +108,7 @@ if [ "$INTEGRATION_TRANSPORT" = "http" ] && [ "$INTEGRATION_HTTP_CONFIG" = "head
 fi
 
 INIT='{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}'
+MCP_LEGACY_PROTOCOL_VERSION="2025-11-25"
 MCP_2026_META='{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"hulymcp-integration","version":"1.0"},"io.modelcontextprotocol/clientCapabilities":{}}'
 PROJECT="HULY"
 RUN_ID="$(date +%s)-$$"
@@ -266,7 +272,66 @@ cleanup_board_artifacts() {
   fi
 }
 
+cleanup_custom_field_date_artifacts() {
+  if [ -n "$CUSTOM_FIELD_DATE_CLEANUP_ISSUE_ID" ] \
+    && [ -n "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID" ] \
+    && [ -n "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME" ]; then
+    local cleanup_attempt
+    for cleanup_attempt in 1 2 3; do
+      if pnpm exec tsx scripts/integration-custom-field-date.ts \
+        --mode cleanup \
+        --issueId "$CUSTOM_FIELD_DATE_CLEANUP_ISSUE_ID" \
+        --fieldId "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID" \
+        --fieldName "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME" >/dev/null 2>&1; then
+        return 0
+      fi
+    done
+    echo "WARNING: date custom-field fixture cleanup failed after 3 attempts; retry markers retained" >&2
+    return 1
+  fi
+  return 0
+}
+
+cleanup_card_version_artifacts() {
+  local cleanup_failed=0
+  if [ -n "$CARD_UNVERSIONED_CLEANUP_ID" ]; then
+    local card_json cleanup_response cleanup_attempt
+    card_json=$(json_string "$CARD_UNVERSIONED_CLEANUP_ID")
+    for cleanup_attempt in 1 2 3; do
+      cleanup_response=$(call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_card\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$card_json}},\"id\":2}" 2>/dev/null) || continue
+      if printf '%s\n' "$cleanup_response" \
+        | jq -e '(.error == null) and (.result != null) and ((.result.isError // false) == false)' >/dev/null 2>&1; then
+        CARD_UNVERSIONED_CLEANUP_ID=""
+        break
+      fi
+    done
+    if [ -n "$CARD_UNVERSIONED_CLEANUP_ID" ]; then
+      echo "WARNING: unversioned card fixture cleanup failed after 3 attempts; retry marker retained" >&2
+      cleanup_failed=1
+    fi
+  fi
+  if [ -n "$CARD_VERSION_CLEANUP_BASE_ID" ]; then
+    local version_cleanup_attempt
+    for version_cleanup_attempt in 1 2 3; do
+      if pnpm exec tsx scripts/integration-card-version-history.ts \
+        --mode cleanup \
+        --cardSpace "Default" \
+        --baseId "$CARD_VERSION_CLEANUP_BASE_ID" >/dev/null 2>&1; then
+        CARD_VERSION_CLEANUP_BASE_ID=""
+        break
+      fi
+    done
+    if [ -n "$CARD_VERSION_CLEANUP_BASE_ID" ]; then
+      echo "WARNING: card version fixture cleanup failed after 3 attempts; retry marker retained" >&2
+      cleanup_failed=1
+    fi
+  fi
+  return "$cleanup_failed"
+}
+
 cleanup_all() {
+  cleanup_card_version_artifacts || true
+  cleanup_custom_field_date_artifacts || true
   cleanup_board_artifacts || true
   cleanup_recruiting_artifacts || true
   cleanup_generic_associations
@@ -380,12 +445,12 @@ call_tool_http() {
   local payload="$1"
   local response
   local request_payload="$payload"
+  local method
   local curl_args=(-sS --max-time "$TOOL_TIMEOUT" --config "$HTTP_CURL_CONFIG" --request POST)
+  method=$(printf '%s\n' "$request_payload" | jq -r '.method')
   if [ "$INTEGRATION_MCP_PROTOCOL" = "2026" ]; then
-    local method
     local name
     request_payload=$(printf '%s\n' "$payload" | jq -c --argjson meta "$MCP_2026_META" '.params = ((.params // {}) + {"_meta": $meta})')
-    method=$(printf '%s\n' "$request_payload" | jq -r '.method')
     name=$(printf '%s\n' "$request_payload" | jq -r 'if .method == "tools/call" then .params.name elif .method == "resources/read" then .params.uri else empty end')
     curl_args+=(
       --header "MCP-Protocol-Version: 2026-07-28"
@@ -394,6 +459,11 @@ call_tool_http() {
     if [ -n "$name" ]; then
       curl_args+=(--header "Mcp-Name: $name")
     fi
+  else
+    curl_args+=(
+      --header "MCP-Protocol-Version: $MCP_LEGACY_PROTOCOL_VERSION"
+      --header "Mcp-Method: $method"
+    )
   fi
   response=$(curl "${curl_args[@]}" --data "$request_payload" "$HTTP_ENDPOINT" 2>/dev/null)
   extract_http_json_response "$response" | grep '"id":2'
@@ -557,6 +627,28 @@ fail_test() {
   echo "FAIL: $name ($reason)"
   FAILED=$((FAILED + 1))
   ERRORS="${ERRORS}\n  - ${name}: ${reason}"
+}
+
+verify_legacy_http_tool_discovery() {
+  if [ "$INTEGRATION_TRANSPORT" != "http" ] || [ "$INTEGRATION_MCP_PROTOCOL" != "legacy" ]; then
+    return 0
+  fi
+
+  local response
+  local json
+  response=$(curl -sS --max-time "$TOOL_TIMEOUT" --config "$HTTP_CURL_CONFIG" --request POST \
+    --header "MCP-Protocol-Version: $MCP_LEGACY_PROTOCOL_VERSION" \
+    --header "Mcp-Method: tools/list" \
+    --data '{"jsonrpc":"2.0","method":"tools/list","id":1}' \
+    "$HTTP_ENDPOINT" 2>/dev/null)
+  json=$(extract_http_json_response "$response")
+  if printf '%s\n' "$json" | jq -e '.result.tools | length > 0' >/dev/null 2>&1; then
+    echo "PASS: legacy HTTP tools/list with Mcp-Method"
+    PASSED=$((PASSED + 1))
+    return 0
+  fi
+
+  fail_test "legacy HTTP tools/list with Mcp-Method" "no tool catalog returned"
 }
 
 # Like run_capture but does NOT count toward PASS/FAIL — used only for extracting data
@@ -956,6 +1048,8 @@ echo "  Full Integration Test Suite"
 echo "  Project: $PROJECT | URL: $HULY_URL"
 echo "========================================="
 echo ""
+
+verify_legacy_http_tool_discovery
 
 ##############################
 # 1. PROJECTS
@@ -1764,8 +1858,10 @@ ISSUE_TITLE="IntTest Issue $RUN_ID"
 ISSUE_TITLE_JSON=$(json_string "$ISSUE_TITLE")
 ISSUE_TITLE_REGEX_JSON=$(json_string "%$ISSUE_TITLE%")
 ISSUE_TITLE_CASE_REGEX_JSON=$(json_string "%inttest issue $RUN_ID%")
+TIME_ESTIMATE_HOURS=8
+TIME_REPORT_HOURS=0.25
 run_capture_to_var ISSUE_TEXT "create_issue" \
-  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"title\":$ISSUE_TITLE_JSON,\"description\":\"Integration test\",\"priority\":\"low\"}},\"id\":2}"
+  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"title\":$ISSUE_TITLE_JSON,\"description\":\"Integration test\",\"priority\":\"low\",\"estimation\":$TIME_ESTIMATE_HOURS}},\"id\":2}"
 if [ $? -eq 0 ]; then
   ISSUE_ID=$(echo "$ISSUE_TEXT" | jq -r '.identifier' 2>/dev/null)
   ISSUE_OBJ_ID=$(echo "$ISSUE_TEXT" | jq -r '.issueId' 2>/dev/null)
@@ -1776,6 +1872,71 @@ if [ $? -eq 0 ]; then
   if [ $? -eq 0 ] && [ -n "$ISSUE_OBJ_ID" ]; then
     assert_json_field_equals "get_issue returns issueId" "$GET_ISSUE_TEXT" ".issueId" "$ISSUE_OBJ_ID"
   fi
+
+  if ISSUE_PARENT_STATE=$(pnpm exec tsx scripts/integration-issue-parent-semantics.ts \
+    --project "$PROJECT" --issue "$ISSUE_ID" --mode top-level --expectedIssueChildren 0); then
+    echo "PASS: create_issue uses native NoParent top-level shape"
+    PASSED=$((PASSED + 1))
+    echo "  => $ISSUE_PARENT_STATE"
+  else
+    fail_test "create_issue native NoParent shape" "parent semantics helper failed"
+  fi
+
+  if [ "$INTEGRATION_TRANSPORT" = "stdio" ] \
+    && CUSTOM_FIELD_DATE_FIXTURE=$(pnpm exec tsx scripts/integration-custom-field-date.ts \
+      --mode setup --issueId "$ISSUE_OBJ_ID"); then
+    CUSTOM_FIELD_DATE_CLEANUP_ISSUE_ID="$ISSUE_OBJ_ID"
+    CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID=$(printf '%s\n' "$CUSTOM_FIELD_DATE_FIXTURE" | jq -r '.fieldId')
+    CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME=$(printf '%s\n' "$CUSTOM_FIELD_DATE_FIXTURE" | jq -r '.fieldName')
+    CUSTOM_FIELD_DATE_FIELD_ID_JSON=$(json_string "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID")
+    sleep 1
+
+    CUSTOM_FIELD_DATE_INITIAL_RESULT=$(pnpm exec tsx scripts/integration-custom-field-date.ts \
+      --mode read \
+      --issueId "$ISSUE_OBJ_ID" \
+      --fieldName "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME")
+    assert_json_field_equals "date custom field is initially absent" \
+      "$CUSTOM_FIELD_DATE_INITIAL_RESULT" ".value" "null"
+
+    run_capture_to_var CUSTOM_FIELD_DATE_SET_TEXT "set_custom_field(strict ISO date)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_custom_field\",\"arguments\":{\"objectId\":\"$ISSUE_OBJ_ID\",\"objectClass\":\"tracker:class:Issue\",\"fieldId\":$CUSTOM_FIELD_DATE_FIELD_ID_JSON,\"value\":\"2026-07-24\"}},\"id\":2}"
+    assert_json_field_equals "set_custom_field persists strict ISO date as Unix milliseconds" \
+      "$CUSTOM_FIELD_DATE_SET_TEXT" ".value" "1784851200000"
+
+    run_expect_error_contains "set_custom_field rejects timezone-adjacent date before write" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_custom_field\",\"arguments\":{\"objectId\":\"$ISSUE_OBJ_ID\",\"objectClass\":\"tracker:class:Issue\",\"fieldId\":$CUSTOM_FIELD_DATE_FIELD_ID_JSON,\"value\":\"2026-07-25T00:00:00Z\"}},\"id\":2}" \
+      "Invalid date custom-field value"
+
+    CUSTOM_FIELD_DATE_READ_RESULT=$(pnpm exec tsx scripts/integration-custom-field-date.ts \
+      --mode read \
+      --issueId "$ISSUE_OBJ_ID" \
+      --fieldName "$CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME")
+    assert_json_field_equals "rejected date custom field leaves persisted value unchanged" \
+      "$CUSTOM_FIELD_DATE_READ_RESULT" ".value" "1784851200000"
+
+    if cleanup_custom_field_date_artifacts; then
+      CUSTOM_FIELD_DATE_CLEANUP_ISSUE_ID=""
+      CUSTOM_FIELD_DATE_CLEANUP_FIELD_ID=""
+      CUSTOM_FIELD_DATE_CLEANUP_FIELD_NAME=""
+    else
+      fail_test "date custom-field fixture cleanup" "cleanup failed; exit trap will retry retained markers"
+    fi
+  elif [ "$INTEGRATION_TRANSPORT" != "stdio" ]; then
+    skip_test "set_custom_field persists strict ISO date as Unix milliseconds" \
+      "dynamic model fixture requires a fresh stdio connection"
+    skip_test "date custom field is initially absent" \
+      "dynamic model fixture requires a fresh stdio connection"
+    skip_test "set_custom_field rejects timezone-adjacent date before write" \
+      "dynamic model fixture requires a fresh stdio connection"
+    skip_test "rejected date custom field leaves persisted value unchanged" \
+      "dynamic model fixture requires a fresh stdio connection"
+  else
+    fail_test "date custom-field strict persistence/no-write lifecycle" "custom-field date helper failed"
+  fi
+
+  wait_for_json_array_contains_to_var TOP_LEVEL_ISSUES_TEXT "list_issues(isTopLevel) includes created top-level issue" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"isTopLevel\":true,\"limit\":200}},\"id\":2}" \
+    "map(.identifier)" "$ISSUE_ID"
 
   run_test "resources/read issue($ISSUE_ID)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"resources/read\",\"params\":{\"uri\":\"huly://issues/$ISSUE_ID\"},\"id\":2}"
@@ -1827,10 +1988,56 @@ if [ $? -eq 0 ]; then
   if [ $? -eq 0 ]; then
     SUB_ID=$(echo "$SUB_TEXT" | jq -r '.identifier' 2>/dev/null)
     echo "  => sub: $SUB_ID"
-    run_test "list_sub_issues" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"parentIssue\":\"$ISSUE_ID\"}},\"id\":2}"
+    if CHILD_PARENT_STATE=$(pnpm exec tsx scripts/integration-issue-parent-semantics.ts \
+      --project "$PROJECT" --issue "$SUB_ID" --mode child --parent "$ISSUE_ID" \
+      --expectedIssueChildren 0 --expectedParentChildren 1); then
+      echo "PASS: create_issue(sub) attaches natively and increments parent count once"
+      PASSED=$((PASSED + 1))
+      echo "  => $CHILD_PARENT_STATE"
+    else
+      fail_test "create_issue(sub) native parent/count" "parent semantics helper failed"
+    fi
+    wait_for_json_array_contains_to_var SUB_ISSUES_TEXT "list_issues(parentIssue) includes direct child" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"parentIssue\":\"$ISSUE_ID\",\"limit\":200}},\"id\":2}" \
+      "map(.identifier)" "$SUB_ID"
+    run_capture_to_var TOP_LEVEL_BEFORE_DETACH_TEXT "list_issues(isTopLevel before detach)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"isTopLevel\":true,\"limit\":200}},\"id\":2}"
+    assert_json_array_not_contains "list_issues(isTopLevel) excludes attached child" \
+      "$TOP_LEVEL_BEFORE_DETACH_TEXT" "map(.identifier)" "$SUB_ID"
     run_test "move_issue($SUB_ID)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"move_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$SUB_ID\",\"newParent\":null}},\"id\":2}"
+    if DETACHED_PARENT_STATE=$(pnpm exec tsx scripts/integration-issue-parent-semantics.ts \
+      --project "$PROJECT" --issue "$SUB_ID" --mode top-level --parent "$ISSUE_ID" \
+      --expectedIssueChildren 0 --expectedParentChildren 0); then
+      echo "PASS: move_issue(null) restores NoParent and decrements parent count once"
+      PASSED=$((PASSED + 1))
+      echo "  => $DETACHED_PARENT_STATE"
+    else
+      fail_test "move_issue(null) native detach/count" "parent semantics helper failed"
+    fi
+    wait_for_json_array_contains_to_var TOP_LEVEL_AFTER_DETACH_TEXT "list_issues(isTopLevel) includes detached child" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"isTopLevel\":true,\"limit\":200}},\"id\":2}" \
+      "map(.identifier)" "$SUB_ID"
+    if LEGACY_PARENT_STATE=$(pnpm exec tsx scripts/integration-issue-parent-semantics.ts \
+      --project "$PROJECT" --issue "$SUB_ID" --mode make-legacy --parent "$ISSUE_ID" \
+      --expectedIssueChildren 0 --expectedParentChildren 0); then
+      echo "PASS: integration fixture creates legacy project-attached issue without changing parent count"
+      PASSED=$((PASSED + 1))
+      echo "  => $LEGACY_PARENT_STATE"
+    else
+      fail_test "create legacy project-attached issue fixture" "parent semantics helper failed"
+    fi
+    run_test "move_issue($SUB_ID repair legacy top-level)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"move_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$SUB_ID\",\"newParent\":null}},\"id\":2}"
+    if REPAIRED_PARENT_STATE=$(pnpm exec tsx scripts/integration-issue-parent-semantics.ts \
+      --project "$PROJECT" --issue "$SUB_ID" --mode top-level --parent "$ISSUE_ID" \
+      --expectedIssueChildren 0 --expectedParentChildren 0); then
+      echo "PASS: move_issue(null) repairs legacy attachment without changing parent count"
+      PASSED=$((PASSED + 1))
+      echo "  => $REPAIRED_PARENT_STATE"
+    else
+      fail_test "move_issue(null) legacy repair/count" "parent semantics helper failed"
+    fi
     run_test "delete_issue(sub:$SUB_ID)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$SUB_ID\"}},\"id\":2}"
   fi
@@ -1857,15 +2064,29 @@ if [ $? -eq 0 ]; then
   fi
 
   # Issue labels
+  ISSUE_LABEL_TITLE="inttest-lbl-$RUN_ID"
+  ISSUE_LABEL_TITLE_JSON=$(json_string "$ISSUE_LABEL_TITLE")
+  ISSUE_LABEL_FILTER=$(printf '%s' "$ISSUE_LABEL_TITLE" | tr '[:lower:]' '[:upper:]')
+  ISSUE_LABEL_FILTER_JSON=$(json_string "$ISSUE_LABEL_FILTER")
   run_capture_to_var LBL_TEXT "create_label(for_issue)" \
-    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_label\",\"arguments\":{\"title\":\"inttest-lbl\",\"color\":2}},\"id\":2}"
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_label\",\"arguments\":{\"title\":$ISSUE_LABEL_TITLE_JSON,\"color\":2}},\"id\":2}"
   if [ $? -eq 0 ]; then
     LBL_ID=$(echo "$LBL_TEXT" | jq -r '.id' 2>/dev/null)
     echo "  => label: $LBL_ID"
     run_test "add_issue_label($ISSUE_ID)" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_issue_label\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\",\"label\":\"inttest-lbl\"}},\"id\":2}"
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_issue_label\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\",\"label\":$ISSUE_LABEL_TITLE_JSON}},\"id\":2}"
+    wait_for_json_array_contains_to_var ISSUE_LABEL_GET_TEXT "get_issue projects attached label title" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\"}},\"id\":2}" \
+      ".labels | map(.title)" "$ISSUE_LABEL_TITLE"
+    assert_json_field_equals "get_issue projects attached label color" "$ISSUE_LABEL_GET_TEXT" \
+      ".labels | map(select(.title == \"$ISSUE_LABEL_TITLE\")) | first | .color" "2"
+    wait_for_json_array_contains_to_var ISSUE_LABEL_LIST_TEXT "list_issues filters by case-insensitive label title" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"label\":$ISSUE_LABEL_FILTER_JSON,\"limit\":1}},\"id\":2}" \
+      "map(.identifier)" "$ISSUE_ID"
+    assert_json_array_contains "list_issues projects attached label summary" "$ISSUE_LABEL_LIST_TEXT" \
+      "map(select(.identifier == \"$ISSUE_ID\")) | first | .labels | map(.title)" "$ISSUE_LABEL_TITLE"
     run_test "remove_issue_label($ISSUE_ID)" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"remove_issue_label\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\",\"label\":\"inttest-lbl\"}},\"id\":2}"
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"remove_issue_label\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\",\"label\":$ISSUE_LABEL_TITLE_JSON}},\"id\":2}"
     run_test "delete_label($LBL_ID)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_label\",\"arguments\":{\"label\":\"$LBL_ID\"}},\"id\":2}"
   fi
@@ -1892,10 +2113,27 @@ if [ $? -eq 0 ]; then
   fi
 
   # Time tracking
-  run_test "log_time($ISSUE_ID)" \
-    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"log_time\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\",\"value\":30}},\"id\":2}"
-  run_test "get_time_report($ISSUE_ID)" \
+  run_capture_to_var TIME_REPORT_TEXT "log_time($ISSUE_ID,$TIME_REPORT_HOURS hours)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"log_time\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\",\"value\":$TIME_REPORT_HOURS}},\"id\":2}"
+  if [ $? -eq 0 ]; then
+    TIME_REPORT_ID=$(echo "$TIME_REPORT_TEXT" | jq -r '.reportId' 2>/dev/null)
+    if TIME_TRIGGER_RESULT=$(pnpm exec tsx scripts/integration-time-report-trigger.ts \
+      --project "$PROJECT" --issue "$ISSUE_ID" --report "$TIME_REPORT_ID" \
+      --estimateHours "$TIME_ESTIMATE_HOURS" --reportHours "$TIME_REPORT_HOURS"); then
+      echo "PASS: log_time create/delete uses one native aggregate change and authenticated employee"
+      PASSED=$((PASSED + 1))
+      echo "  => $TIME_TRIGGER_RESULT"
+    else
+      fail_test "log_time native aggregate lifecycle" "trigger verification helper failed"
+    fi
+  fi
+  run_capture_to_var TIME_REPORT_AFTER_DELETE_TEXT "get_time_report($ISSUE_ID after report deletion)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_time_report\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\"}},\"id\":2}"
+  if [ $? -eq 0 ]; then
+    assert_json_field_equals "get_time_report reports zero hours after deletion" "$TIME_REPORT_AFTER_DELETE_TEXT" ".totalTime" "0"
+    assert_json_field_equals "get_time_report restores estimated remaining hours" "$TIME_REPORT_AFTER_DELETE_TEXT" ".remainingTime" "$TIME_ESTIMATE_HOURS"
+    assert_json_field_count "get_time_report removes deleted entry" "$TIME_REPORT_AFTER_DELETE_TEXT" ".reports | length" "0"
+  fi
   run_test "get_detailed_time_report($ISSUE_ID)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_detailed_time_report\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\"}},\"id\":2}"
 
@@ -1989,22 +2227,48 @@ if [ $? -eq 0 ]; then
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_issue_template\",\"arguments\":{\"project\":\"$PROJECT\",\"template\":\"$TMPL_ID\",\"title\":\"Updated Tmpl\"}},\"id\":2}"
 
   # Template children
+  CHILD_ID=""
   run_capture_to_var CHILD_TEXT "add_template_child($TMPL_ID)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_template_child\",\"arguments\":{\"project\":\"$PROJECT\",\"template\":\"$TMPL_ID\",\"title\":\"Child Task\"}},\"id\":2}"
   if [ $? -eq 0 ]; then
     CHILD_ID=$(echo "$CHILD_TEXT" | jq -r '.id' 2>/dev/null)
     echo "  => child: $CHILD_ID"
-    run_test "remove_template_child($CHILD_ID)" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"remove_template_child\",\"arguments\":{\"project\":\"$PROJECT\",\"template\":\"$TMPL_ID\",\"childId\":\"$CHILD_ID\"}},\"id\":2}"
   fi
 
-  # Create from template (NOTE: may hang due to eventual consistency if template was just modified)
+  # Create immediately after modifying the template to exercise eventual consistency.
   run_capture_to_var TMPL_ISSUE_TEXT "create_issue_from_template" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_issue_from_template\",\"arguments\":{\"project\":\"$PROJECT\",\"template\":\"$TMPL_ID\",\"title\":\"From Template\"}},\"id\":2}"
   if [ $? -eq 0 ]; then
     TMPL_ISSUE_ID=$(echo "$TMPL_ISSUE_TEXT" | jq -r '.identifier' 2>/dev/null)
+    if [ -n "$CHILD_ID" ]; then
+      wait_for_json_array_contains_to_var TMPL_CHILD_ISSUES_TEXT \
+        "list_issues(parentIssue) includes template-created child" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"parentIssue\":\"$TMPL_ISSUE_ID\",\"limit\":10}},\"id\":2}" \
+        "map(.title)" "Child Task"
+      TMPL_CHILD_ISSUE_ID=$(echo "$TMPL_CHILD_ISSUES_TEXT" | jq -r '.[] | select(.title == "Child Task") | .identifier' 2>/dev/null | head -1)
+      if [ -n "$TMPL_CHILD_ISSUE_ID" ]; then
+        if TMPL_PARENT_STATE=$(pnpm exec tsx scripts/integration-issue-parent-semantics.ts \
+          --project "$PROJECT" --issue "$TMPL_CHILD_ISSUE_ID" --mode child --parent "$TMPL_ISSUE_ID" \
+          --expectedIssueChildren 0 --expectedParentChildren 1); then
+          echo "PASS: create_issue_from_template attaches child and increments parent count once"
+          PASSED=$((PASSED + 1))
+          echo "  => $TMPL_PARENT_STATE"
+        else
+          fail_test "create_issue_from_template child parent/count" "parent semantics helper failed"
+        fi
+        run_test "delete_issue(template_child:$TMPL_CHILD_ISSUE_ID)" \
+          "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$TMPL_CHILD_ISSUE_ID\"}},\"id\":2}"
+      else
+        fail_test "resolve template-created child identifier" "list_issues did not return the child identifier"
+      fi
+    fi
     run_test "delete_issue(from_tmpl:$TMPL_ISSUE_ID)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$TMPL_ISSUE_ID\"}},\"id\":2}"
+  fi
+
+  if [ -n "$CHILD_ID" ]; then
+    run_test "remove_template_child($CHILD_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"remove_template_child\",\"arguments\":{\"project\":\"$PROJECT\",\"template\":\"$TMPL_ID\",\"childId\":\"$CHILD_ID\"}},\"id\":2}"
   fi
 
   run_test "delete_issue_template($TMPL_ID)" \
@@ -3017,6 +3281,15 @@ if [ $? -eq 0 ]; then
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"schedule_todo\",\"arguments\":{\"locator\":{\"todoId\":\"$TODO_ID\"},\"date\":1777020000000,\"dueDate\":1777023600000}},\"id\":2}"
     SCHEDULE_SLOT_ID=$(echo "$SCHEDULE_TEXT" | jq -r '.workSlotId // empty' 2>/dev/null)
     if [ -n "$SCHEDULE_SLOT_ID" ]; then
+      if PLANNER_SLOT_RESULT=$(pnpm exec tsx scripts/integration-planner-work-slot.ts \
+        --slot "$SCHEDULE_SLOT_ID" --todo "$TODO_ID" --calendar "$CALENDAR_ID" \
+        --date "1777020000000" --dueDate "1777023600000"); then
+        echo "PASS: schedule_todo creates a Planner-visible authenticated calendar slot"
+        PASSED=$((PASSED + 1))
+        echo "  => $PLANNER_SLOT_RESULT"
+      else
+        fail_test "schedule_todo Planner-native slot shape" "Planner visibility verification helper failed"
+      fi
       run_capture_to_var UNSCHEDULE_SLOT_TEXT "unschedule_todo(workSlotId:$SCHEDULE_SLOT_ID)" \
         "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"unschedule_todo\",\"arguments\":{\"workSlotId\":\"$SCHEDULE_SLOT_ID\"}},\"id\":2}"
       if [ $? -eq 0 ]; then
@@ -3155,6 +3428,24 @@ run_test "list_notification_contexts(includeHidden)" \
   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_notification_contexts","arguments":{"limit":3,"includeHidden":true}},"id":2}'
 run_test "list_notification_settings" \
   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_notification_settings","arguments":{}},"id":2}'
+for METADATA_TOOL in list_notification_providers list_notification_types; do
+  METADATA_RESULT=""
+  if run_result_to_var METADATA_RESULT "$METADATA_TOOL(model-backed)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"$METADATA_TOOL\",\"arguments\":{}},\"id\":2}"; then
+    if printf '%s\n' "$METADATA_RESULT" | jq -e '
+      ((.structuredContent.warnings? // []) | length == 0)
+      and ([.content[]? | select((.text | fromjson? | has("warnings")) == true)] | length == 0)
+      and ((.content[0].text | fromjson | length) > 0)
+    ' >/dev/null 2>&1; then
+      echo "PASS: $METADATA_TOOL resolves authoritative model metadata without warnings"
+      PASSED=$((PASSED + 1))
+    else
+      echo "FAIL: $METADATA_TOOL returned empty or degraded model metadata"
+      FAILED=$((FAILED + 1))
+      ERRORS="${ERRORS}\n  - $METADATA_TOOL: empty or degraded model metadata"
+    fi
+  fi
+done
 # mark_all_notifications_read, archive_all_notifications, delete_notification,
 # update_notification_provider_setting — all require existing notifications, skipped if none
 NOTIF_TEXT=$(run_capture_only \
@@ -4123,6 +4414,164 @@ if [ -n "$DERIVED_CARD_TYPE_ID" ]; then
     fail_test "create_card(derived id:$DERIVED_CARD_TYPE_ID) returns id" "missing id"
   fi
 
+  CARD_UNVERSIONED_TITLE="IntTest Unversioned Card $RUN_ID"
+  CARD_UNVERSIONED_TITLE_JSON=$(json_string "$CARD_UNVERSIONED_TITLE")
+  run_capture_to_var CARD_UNVERSIONED_CREATE_TEXT "create_card(unversioned fixture)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_card\",\"arguments\":{\"cardSpace\":\"Default\",\"type\":$DERIVED_CARD_TYPE_ID_JSON,\"title\":$CARD_UNVERSIONED_TITLE_JSON,\"content\":\"Disposable unversioned fixture.\"}},\"id\":2}"
+  CARD_UNVERSIONED_ID=$(printf '%s\n' "$CARD_UNVERSIONED_CREATE_TEXT" | jq -r '.id // empty' 2>/dev/null)
+  CARD_UNVERSIONED_CLEANUP_ID="$CARD_UNVERSIONED_ID"
+  if [ -n "$CARD_UNVERSIONED_ID" ]; then
+    CARD_UNVERSIONED_ID_JSON=$(json_string "$CARD_UNVERSIONED_ID")
+    if pnpm exec tsx scripts/integration-card-version-history.ts \
+      --mode strip \
+      --cardSpace "Default" \
+      --card "$CARD_UNVERSIONED_ID" >/dev/null 2>&1; then
+      echo "PASS: seed absent/null-normalized card version metadata"
+      PASSED=$((PASSED + 1))
+      restart_http_transport_if_needed "after unversioned card fixture write" || exit 1
+      run_capture_to_var CARD_UNVERSIONED_GET_TEXT "get_card(omits incoherent version metadata)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_card\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$CARD_UNVERSIONED_ID_JSON}},\"id\":2}"
+      if [ $? -eq 0 ]; then
+        assert_json_field_equals "get_card omits absent version metadata" "$CARD_UNVERSIONED_GET_TEXT" ".version" "null"
+      fi
+      run_capture_to_var CARD_UNVERSIONED_HISTORY_TEXT "list_card_versions(unversioned singleton)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_card_versions\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$CARD_UNVERSIONED_ID_JSON}},\"id\":2}"
+      if [ $? -eq 0 ]; then
+        assert_json_field_equals "unversioned history length" "$CARD_UNVERSIONED_HISTORY_TEXT" ".versions | length" "1"
+        assert_json_field_equals "unversioned history total" "$CARD_UNVERSIONED_HISTORY_TEXT" ".total" "1"
+        assert_json_field_equals "unversioned history is complete" "$CARD_UNVERSIONED_HISTORY_TEXT" ".hasMore" "false"
+        assert_json_field_equals "unversioned history omits metadata" "$CARD_UNVERSIONED_HISTORY_TEXT" ".versions[0].version" "null"
+      fi
+    else
+      fail_test "seed absent/null-normalized card version metadata" "integration SDK fixture setup failed"
+    fi
+    if run_test "delete_card(unversioned fixture:$CARD_UNVERSIONED_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_card\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$CARD_UNVERSIONED_ID_JSON}},\"id\":2}"; then
+      CARD_UNVERSIONED_CLEANUP_ID=""
+    fi
+  else
+    fail_test "create_card(unversioned fixture) returns id" "missing id"
+  fi
+
+  CARD_VERSION_TITLE="IntTest Card Version History $RUN_ID"
+  CARD_VERSION_TITLE_JSON=$(json_string "$CARD_VERSION_TITLE")
+  run_capture_to_var CARD_VERSION_BASE_TEXT "create_card(version history base)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_card\",\"arguments\":{\"cardSpace\":\"Default\",\"type\":$DERIVED_CARD_TYPE_ID_JSON,\"title\":$CARD_VERSION_TITLE_JSON,\"content\":\"Disposable read-only version history fixture.\"}},\"id\":2}"
+  CARD_VERSION_BASE_ID=$(printf '%s\n' "$CARD_VERSION_BASE_TEXT" | jq -r '.id // empty' 2>/dev/null)
+  CARD_VERSION_CLEANUP_BASE_ID="$CARD_VERSION_BASE_ID"
+  if [ -n "$CARD_VERSION_BASE_ID" ]; then
+    CARD_VERSION_BASE_ID_JSON=$(json_string "$CARD_VERSION_BASE_ID")
+    CARD_VERSION_SETUP_TEXT=$(pnpm exec tsx scripts/integration-card-version-history.ts \
+      --mode setup \
+      --cardSpace "Default" \
+      --card "$CARD_VERSION_BASE_ID" \
+      --additionalVersions 50 2>/dev/null)
+    if [ $? -eq 0 ]; then
+      CARD_VERSION_OLD_ID=$(printf '%s\n' "$CARD_VERSION_SETUP_TEXT" | jq -r '.versionIds[0] // empty' 2>/dev/null)
+      CARD_VERSION_OLD_ID_JSON=$(json_string "$CARD_VERSION_OLD_ID")
+      echo "PASS: seed card version history beyond default page"
+      PASSED=$((PASSED + 1))
+      restart_http_transport_if_needed "after card version fixture writes" || exit 1
+
+      run_capture_to_var CARD_VERSION_GET_TEXT "get_card(coherent version metadata)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_card\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$CARD_VERSION_BASE_ID_JSON}},\"id\":2}"
+      if [ $? -eq 0 ]; then
+        assert_json_field_equals "get_card version chain identity" "$CARD_VERSION_GET_TEXT" ".version.chainId" "$CARD_VERSION_BASE_ID"
+        assert_json_field_equals "get_card version number" "$CARD_VERSION_GET_TEXT" ".version.number" "1"
+      fi
+
+      run_capture_to_var CARD_VERSION_DEFAULT_PAGE_TEXT "list_card_versions(default page by old version id)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_card_versions\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$CARD_VERSION_OLD_ID_JSON}},\"id\":2}"
+      if [ $? -eq 0 ]; then
+        assert_json_field_equals "list_card_versions default page length" "$CARD_VERSION_DEFAULT_PAGE_TEXT" ".versions | length" "50"
+        assert_json_field_equals "list_card_versions authoritative total" "$CARD_VERSION_DEFAULT_PAGE_TEXT" ".total" "51"
+        assert_json_field_equals "list_card_versions default page has more" "$CARD_VERSION_DEFAULT_PAGE_TEXT" ".hasMore" "true"
+        assert_json_field_equals "list_card_versions oldest first" "$CARD_VERSION_DEFAULT_PAGE_TEXT" ".versions[0].version.number" "1"
+      fi
+
+      run_capture_to_var CARD_VERSION_TITLE_PAGE_TEXT "list_card_versions(exact title limited page)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_card_versions\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$CARD_VERSION_TITLE_JSON,\"limit\":2}},\"id\":2}"
+      if [ $? -eq 0 ]; then
+        assert_json_field_equals "list_card_versions title page length" "$CARD_VERSION_TITLE_PAGE_TEXT" ".versions | length" "2"
+        assert_json_field_equals "list_card_versions title total" "$CARD_VERSION_TITLE_PAGE_TEXT" ".total" "51"
+        assert_json_field_equals "list_card_versions title page has more" "$CARD_VERSION_TITLE_PAGE_TEXT" ".hasMore" "true"
+        assert_json_field_equals "list_card_versions deterministic second version" "$CARD_VERSION_TITLE_PAGE_TEXT" ".versions[1].version.number" "2"
+      fi
+    else
+      fail_test "seed card version history beyond default page" "integration SDK fixture setup failed"
+    fi
+
+    if ! cleanup_card_version_artifacts; then
+      fail_test "cleanup card version history fixtures" "cleanup failed after 3 attempts; exit trap will retry"
+    fi
+    restart_http_transport_if_needed "after card version fixture cleanup" || exit 1
+  else
+    fail_test "create_card(version history base) returns id" "missing id"
+  fi
+
+  if [ -n "$DERIVED_CARD_LABEL_ID" ] && [ -n "$DERIVED_CARD_ID_ID" ]; then
+    CARD_COMMENT_BODY="MCP card comment $RUN_ID"
+    CARD_NATIVE_COMMENT_BODY="Huly-native card comment $RUN_ID"
+    CARD_COMMENT_BODY_JSON=$(json_string "$CARD_COMMENT_BODY")
+    CARD_UPDATED_COMMENT_BODY_JSON=$(json_string "Updated MCP card comment $RUN_ID")
+
+    run_capture_to_var CARD_COMMENT_ADD_TEXT "add_card_comment(friendly locators)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_card_comment\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$DERIVED_CARD_LABEL_TITLE_JSON,\"body\":$CARD_COMMENT_BODY_JSON}},\"id\":2}"
+    CARD_COMMENT_ID=$(printf '%s\n' "$CARD_COMMENT_ADD_TEXT" | jq -r '.commentId // empty' 2>/dev/null)
+    CARD_COMMENT_ID_JSON=$(json_string "$CARD_COMMENT_ID")
+
+    CARD_NATIVE_COMMENT_TEXT=$(pnpm exec tsx scripts/integration-card-native-comment.ts \
+      --cardSpace "Default" \
+      --card "$DERIVED_CARD_LABEL_ID" \
+      --body "$CARD_NATIVE_COMMENT_BODY" 2>/dev/null)
+    if [ $? -eq 0 ]; then
+      CARD_NATIVE_COMMENT_ID=$(printf '%s\n' "$CARD_NATIVE_COMMENT_TEXT" | jq -r '.commentId // empty' 2>/dev/null)
+    else
+      CARD_NATIVE_COMMENT_ID=""
+    fi
+    if [ -n "$CARD_NATIVE_COMMENT_ID" ]; then
+      echo "PASS: create Huly-native card comment"
+      PASSED=$((PASSED + 1))
+    else
+      fail_test "create Huly-native card comment" "direct Huly addCollection failed"
+    fi
+    CARD_NATIVE_COMMENT_ID_JSON=$(json_string "$CARD_NATIVE_COMMENT_ID")
+
+    restart_http_transport_if_needed "after card comment writes" || exit 1
+    run_capture_to_var CARD_COMMENT_PAGE_TEXT "list_card_comments(pagination)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_card_comments\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$DERIVED_CARD_LABEL_TITLE_JSON,\"limit\":1}},\"id\":2}"
+    if [ $? -eq 0 ]; then
+      assert_json_field_equals "list_card_comments page length" "$CARD_COMMENT_PAGE_TEXT" ".comments | length" "1"
+      assert_json_field_equals "list_card_comments total includes MCP and Huly-native comments" "$CARD_COMMENT_PAGE_TEXT" ".total" "2"
+    fi
+    run_capture_to_var CARD_COMMENT_LIST_TEXT "list_card_comments(all compatible comments)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_card_comments\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$DERIVED_CARD_LABEL_ID_JSON,\"limit\":10}},\"id\":2}"
+    if [ $? -eq 0 ]; then
+      assert_json_array_contains "list_card_comments includes MCP comment" "$CARD_COMMENT_LIST_TEXT" ".comments | map(.id)" "$CARD_COMMENT_ID"
+      assert_json_array_contains "list_card_comments includes Huly-native comment" "$CARD_COMMENT_LIST_TEXT" ".comments | map(.id)" "$CARD_NATIVE_COMMENT_ID"
+    fi
+
+    run_capture_to_var CARD_COMMENT_UPDATE_TEXT "update_card_comment" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_card_comment\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$DERIVED_CARD_LABEL_ID_JSON,\"commentId\":$CARD_COMMENT_ID_JSON,\"body\":$CARD_UPDATED_COMMENT_BODY_JSON}},\"id\":2}"
+    if [ $? -eq 0 ]; then
+      assert_json_field_equals "update_card_comment reports updated" "$CARD_COMMENT_UPDATE_TEXT" ".updated" "true"
+    fi
+    run_expect_error_contains "update_card_comment rejects comment from another card" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_card_comment\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$DERIVED_CARD_ID_ID_JSON,\"commentId\":$CARD_COMMENT_ID_JSON,\"body\":\"Unauthorized cross-card update\"}},\"id\":2}" \
+      "not found on card"
+
+    run_test "delete_card_comment(MCP-created)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_card_comment\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$DERIVED_CARD_LABEL_ID_JSON,\"commentId\":$CARD_COMMENT_ID_JSON}},\"id\":2}"
+    run_test "delete_card_comment(Huly-native)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_card_comment\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$DERIVED_CARD_LABEL_ID_JSON,\"commentId\":$CARD_NATIVE_COMMENT_ID_JSON}},\"id\":2}"
+    restart_http_transport_if_needed "after card comment deletes" || exit 1
+    run_expect_error_contains "delete_card_comment(missing)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_card_comment\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":$DERIVED_CARD_LABEL_ID_JSON,\"commentId\":$CARD_COMMENT_ID_JSON}},\"id\":2}" \
+      "not found on card"
+  else
+    skip_test "card comment CRUD" "requires two disposable cards"
+  fi
+
   if [ -n "$DERIVED_CARD_LABEL_ID" ]; then
     run_test "delete_card(derived label:$DERIVED_CARD_LABEL_ID)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_card\",\"arguments\":{\"cardSpace\":\"Default\",\"card\":\"$DERIVED_CARD_LABEL_ID\"}},\"id\":2}"
@@ -4491,6 +4940,26 @@ if [ $? -eq 0 ]; then
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_attachment\",\"arguments\":{\"attachmentId\":\"$ATT_ID\",\"description\":\"updated\"}},\"id\":2}"
     run_test "download_attachment($ATT_ID)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"download_attachment\",\"arguments\":{\"attachmentId\":\"$ATT_ID\",\"outputPath\":\"$TEST_TMPDIR/inttest_download.txt\"}},\"id\":2}"
+
+    ATT_IMAGE_DATA="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    run_capture_to_var ATT_IMAGE_TEXT "add_issue_attachment(image:$ATT_ISSUE_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_issue_attachment\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ATT_ISSUE_ID\",\"data\":\"$ATT_IMAGE_DATA\",\"filename\":\"pixel.png\",\"contentType\":\"image/png\"}},\"id\":2}"
+    ATT_IMAGE_ID=$(echo "$ATT_IMAGE_TEXT" | jq -r '.attachmentId // empty' 2>/dev/null)
+    if [ -n "$ATT_IMAGE_ID" ]; then
+      run_result_to_var ATT_IMAGE_RESULT "read_attachment_content($ATT_IMAGE_ID)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"read_attachment_content\",\"arguments\":{\"attachmentId\":\"$ATT_IMAGE_ID\"}},\"id\":2}"
+      assert_json_field_count "read_attachment_content returns exactly one image block" "$ATT_IMAGE_RESULT" \
+        '[.content[] | select(.type == "image")] | length' "1"
+      assert_json_field_equals "read_attachment_content returns image MIME" "$ATT_IMAGE_RESULT" \
+        '.content[] | select(.type == "image") | .mimeType' "image/png"
+      assert_json_field_equals "read_attachment_content structured content omits base64" "$ATT_IMAGE_RESULT" \
+        '.structuredContent.result.data // ""' ""
+      run_test "delete_attachment(image:$ATT_IMAGE_ID)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_attachment\",\"arguments\":{\"attachmentId\":\"$ATT_IMAGE_ID\"}},\"id\":2}"
+    else
+      skip_test "read_attachment_content" "image attachment upload did not return an attachment id"
+    fi
+
     run_test "delete_attachment($ATT_ID)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_attachment\",\"arguments\":{\"attachmentId\":\"$ATT_ID\"}},\"id\":2}"
   fi

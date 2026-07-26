@@ -172,10 +172,20 @@ export const businessReadOnlyCliCommandCatalogA = {
     positional: [],
     description: "List Card Spaces"
   },
+  list_card_comments: {
+    path: ["cards", "comments", "list"],
+    positional: ["cardSpace", "card"],
+    description: "List Card Comments"
+  },
   list_cards: {
     path: ["cards", "list"],
     positional: ["cardSpace"],
     description: "List Cards"
+  },
+  list_card_versions: {
+    path: ["cards", "versions", "list"],
+    positional: ["cardSpace", "card"],
+    description: "List Card Versions"
   },
   list_device_preferences: {
     path: ["office", "devices", "preferences", "list"],

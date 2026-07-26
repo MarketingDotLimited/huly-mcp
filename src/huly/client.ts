@@ -655,6 +655,10 @@ interface RestConnection {
   imageUrl: UrlString
 }
 
+// Full model loading is a one-time connection cost that makes workflow/notification definitions
+// available from the local model. It avoids unsupported REST metadata endpoints on current Huly.
+const LOAD_FULL_MODEL_FOR_AUTHORITATIVE_METADATA = true
+
 function createMarkupOps(
   url: string,
   workspace: WorkspaceUuid,
@@ -712,7 +716,12 @@ const connectRest = async (
   const restClient = sdk.createRestClient(endpoint, workspaceId, token)
   const account = await restClient.getAccount()
 
-  const client = await sdk.createRestTxOperations(endpoint, workspaceId, token)
+  const client = await sdk.createRestTxOperations(
+    endpoint,
+    workspaceId,
+    token,
+    LOAD_FULL_MODEL_FOR_AUTHORITATIVE_METADATA
+  )
   const { imageUrl, ops: markupOps, refUrl } = createMarkupOps(
     config.url,
     workspaceId,

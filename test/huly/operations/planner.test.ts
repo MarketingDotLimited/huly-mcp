@@ -1,12 +1,18 @@
 import { describe, it } from "@effect/vitest"
 import type { MarkupFormat, MarkupRef } from "@hcengineering/api-client"
-import type { Employee, Person } from "@hcengineering/contact"
+import {
+  AccessLevel,
+  type Calendar as HulyCalendar,
+  type ExternalCalendar as HulyExternalCalendar
+} from "@hcengineering/calendar"
+import type { Employee, Person, SocialIdentity } from "@hcengineering/contact"
 import {
   type AccountUuid,
   type Class,
   type Doc,
   type PersonId,
   type Ref,
+  SocialIdType,
   type Space,
   toFindResult
 } from "@hcengineering/core"
@@ -18,9 +24,9 @@ import { expect } from "vitest"
 import { assertAt } from "../../../src/utils/assertions.js"
 
 import { TodoTitle } from "../../../src/domain/schemas/planner.js"
-import { Email, Timestamp, WorkSlotId } from "../../../src/domain/schemas/shared.js"
+import { Email, NonEmptyString, Timestamp, WorkSlotId } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
-import { contact, time, tracker } from "../../../src/huly/huly-plugins.js"
+import { calendar, contact, time, tracker } from "../../../src/huly/huly-plugins.js"
 import {
   markupRefAsTodoDescription,
   queryFromListFilters,
@@ -37,8 +43,9 @@ import {
   unscheduleTodo,
   updateTodo
 } from "../../../src/huly/operations/planner.js"
-import { toRef } from "../../../src/huly/operations/sdk-boundary.js"
+import { toClassRef, toRef, toSocialIdentityRef } from "../../../src/huly/operations/sdk-boundary.js"
 import { issueIdentifier, projectIdentifier, todoId } from "../../helpers/brands.js"
+import { personRef } from "../../helpers/huly-sdk.js"
 import { capturedMarkupChildNodes, capturedMarkupReferenceNodes } from "../../helpers/markup-capture.js"
 
 const asProject = (v: unknown) => v as HulyProject
@@ -123,6 +130,58 @@ const makeEmployee = (overrides?: Partial<Employee>): Employee =>
     ...overrides
   })
 
+const makeSocialIdentity = (overrides?: Partial<SocialIdentity>): SocialIdentity => {
+  const person = makePerson()
+  const identity: SocialIdentity = {
+    _id: toSocialIdentityRef(NonEmptyString.make("test-primary-social-id")),
+    _class: contact.class.SocialIdentity,
+    space: contact.space.Contacts,
+    attachedTo: person._id,
+    attachedToClass: contact.class.Person,
+    collection: "socialIds",
+    type: SocialIdType.EMAIL,
+    value: "jane@example.test",
+    key: "email:jane@example.test",
+    modifiedBy: person.modifiedBy,
+    modifiedOn: person.modifiedOn,
+    createdBy: person.modifiedBy,
+    createdOn: person.modifiedOn,
+    ...overrides
+  }
+  return identity
+}
+
+const makePersonalCalendar = (overrides?: Partial<HulyCalendar>): HulyCalendar => {
+  const identity = makeSocialIdentity()
+  return {
+    _id: toRef<HulyCalendar>(NonEmptyString.make("00000000-0000-4000-8000-000000000001_calendar")),
+    _class: calendar.class.Calendar,
+    space: calendar.space.Calendar,
+    name: "Personal",
+    hidden: false,
+    visibility: "private",
+    user: identity._id,
+    access: AccessLevel.Owner,
+    modifiedBy: identity._id,
+    modifiedOn: 10,
+    createdBy: identity._id,
+    createdOn: 1,
+    ...overrides
+  }
+}
+
+const makeExternalCalendar = (
+  overrides?: Partial<HulyExternalCalendar>
+): HulyExternalCalendar => ({
+  ...makePersonalCalendar(),
+  _id: toRef<HulyExternalCalendar>(NonEmptyString.make("external-calendar-1")),
+  _class: calendar.class.ExternalCalendar,
+  default: true,
+  externalId: "external-calendar-id",
+  externalUser: "jane.external@example.test",
+  ...overrides
+})
+
 const makeTodo = (overrides?: Partial<HulyToDo>): HulyToDo =>
   asTodo({
     _id: "todo-1" as Ref<HulyToDo>,
@@ -177,6 +236,7 @@ const makeWorkSlot = (overrides?: Partial<HulyWorkSlot>): HulyWorkSlot =>
 interface Captures {
   addCollection?: {
     readonly classId: string
+    readonly space: string
     readonly attachedTo: string
     readonly attachedToClass: string
     readonly collection: string
@@ -215,6 +275,8 @@ interface TestConfig {
   readonly todos?: ReadonlyArray<HulyToDo>
   readonly persons?: ReadonlyArray<Person>
   readonly employees?: ReadonlyArray<Employee>
+  readonly socialIdentities?: ReadonlyArray<SocialIdentity>
+  readonly calendars?: ReadonlyArray<HulyCalendar>
   readonly workSlots?: ReadonlyArray<HulyWorkSlot>
   readonly captures?: Captures
   readonly removeCollectionAvailable?: boolean
@@ -226,6 +288,8 @@ const createLayer = (config: TestConfig) => {
   const todos = [...(config.todos ?? [])]
   const persons = [...(config.persons ?? [])]
   const employees = [...(config.employees ?? [])]
+  const socialIdentities = [...(config.socialIdentities ?? [])]
+  const calendars = [...(config.calendars ?? [])]
   const workSlots = [...(config.workSlots ?? [])]
 
   const withTodoLookup = (todo: HulyToDo): HulyToDo => {
@@ -251,6 +315,14 @@ const createLayer = (config: TestConfig) => {
     return (range.$gte === undefined || actual >= range.$gte) && (range.$lte === undefined || actual <= range.$lte)
   }
 
+  const matchesAccess = (actual: AccessLevel, expected: unknown): boolean => {
+    if (expected === undefined) return true
+    if (typeof expected === "object" && expected !== null && "$in" in expected && Array.isArray(expected.$in)) {
+      return expected.$in.includes(actual)
+    }
+    return actual === expected
+  }
+
   const findOne: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     const q = query as Record<string, unknown>
     if (_class === tracker.class.Project) return Effect.succeed(projects.find((p) => p.identifier === q.identifier))
@@ -266,6 +338,19 @@ const createLayer = (config: TestConfig) => {
     if (_class === contact.mixin.Employee) {
       return Effect.succeed(
         employees.find((e) => e._id === q._id || e.name === q.name || e.personUuid === q.personUuid)
+      )
+    }
+    if (_class === contact.class.SocialIdentity) {
+      return Effect.succeed(socialIdentities.find((identity) => identity._id === q._id))
+    }
+    if (_class === calendar.class.Calendar) {
+      return Effect.succeed(
+        calendars.find((candidate) =>
+          (q._id === undefined || candidate._id === q._id)
+          && (q.user === undefined || candidate.user === q.user)
+          && (q.hidden === undefined || candidate.hidden === q.hidden)
+          && matchesAccess(candidate.access, q.access)
+        )
       )
     }
     if (_class === time.class.ToDo) {
@@ -303,6 +388,14 @@ const createLayer = (config: TestConfig) => {
       return Effect.succeed(toFindResult(filtered as Array<Doc>))
     }
     if (_class === contact.class.Channel) return Effect.succeed(toFindResult([] as Array<Doc>))
+    if (_class === calendar.class.Calendar) {
+      const filtered = calendars.filter((candidate) =>
+        (q.user === undefined || candidate.user === q.user)
+        && (q.hidden === undefined || candidate.hidden === q.hidden)
+        && matchesAccess(candidate.access, q.access)
+      )
+      return Effect.succeed(toFindResult(filtered))
+    }
     if (_class === time.class.WorkSlot) {
       const filtered = workSlots.filter((slot) =>
         (q.attachedTo === undefined || slot.attachedTo === q.attachedTo) && matchesRange(slot.date, q.date)
@@ -314,7 +407,7 @@ const createLayer = (config: TestConfig) => {
 
   const addCollection: HulyClientOperations["addCollection"] = ((
     classId: unknown,
-    _space: unknown,
+    space: unknown,
     attachedTo: unknown,
     attachedToClass: unknown,
     collection: unknown,
@@ -324,6 +417,7 @@ const createLayer = (config: TestConfig) => {
     if (config.captures !== undefined) {
       config.captures.addCollection = {
         classId: String(classId),
+        space: String(space),
         attachedTo: String(attachedTo),
         attachedToClass: String(attachedToClass),
         collection: String(collection),
@@ -399,7 +493,7 @@ const createLayer = (config: TestConfig) => {
 
   return HulyClient.testLayer({
     getAccountUuid: () => "00000000-0000-4000-8000-000000000001" as AccountUuid,
-    getPrimarySocialId: () => "employee-1" as PersonId,
+    getPrimarySocialId: () => "test-primary-social-id" as PersonId,
     findOne,
     findAll,
     addCollection,
@@ -1049,22 +1143,228 @@ describe("planner operations", () => {
       expect(captures.updateDoc?.operations.doneOn).toBeNull()
     }))
 
-  it.effect("schedules a ToDo through the work slot collection", () =>
+  it.effect("schedules a Planner-native work slot for the authenticated employee", () =>
     Effect.gen(function*() {
       const captures: Captures = {}
+      const socialIdentity = makeSocialIdentity()
+      const personalCalendar = makePersonalCalendar()
 
       yield* scheduleTodo({
         locator: { todoId: todoId("todo-1") },
         date: Timestamp.make(1_800_000_000_000),
         dueDate: Timestamp.make(1_800_003_600_000)
-      }).pipe(Effect.provide(createLayer({ todos: [makeTodo({ description: "markup-ref" })], captures })))
+      }).pipe(
+        Effect.provide(createLayer({
+          todos: [makeTodo({ description: "markup-ref" })],
+          employees: [makeEmployee()],
+          socialIdentities: [socialIdentity],
+          calendars: [personalCalendar],
+          captures
+        }))
+      )
 
       expect(captures.addCollection?.classId).toBe(time.class.WorkSlot)
+      expect(captures.addCollection?.space).toBe(calendar.space.Calendar)
       expect(captures.addCollection?.attachedTo).toBe("todo-1")
       expect(captures.addCollection?.collection).toBe("workslots")
       expect(captures.addCollection?.attributes.title).toBe("Implement planner tools")
       expect(captures.addCollection?.attributes.description).toBe("Fetched description")
-      expect(captures.addCollection?.attributes.visibility).toBe("private")
+      expect(captures.addCollection?.attributes.calendar).toBe(personalCalendar._id)
+      expect(captures.addCollection?.attributes.participants).toEqual([socialIdentity.attachedTo])
+      expect(captures.addCollection?.attributes.user).toBe(socialIdentity._id)
+      expect(captures.addCollection?.attributes.visibility).toBe("freeBusy")
+      expect(captures.addCollection?.attributes.blockTime).toBe(true)
+      expect(captures.addCollection?.attributes.eventId).toEqual(expect.any(String))
+      expect(captures.addCollection?.attributes.eventId).not.toBe("")
+    }))
+
+  it.effect("schedules on a writable external default calendar", () =>
+    Effect.gen(function*() {
+      const captures: Captures = {}
+      const socialIdentity = makeSocialIdentity()
+      const externalCalendar = makeExternalCalendar({
+        access: AccessLevel.Writer
+      })
+
+      yield* scheduleTodo({
+        locator: { todoId: todoId("todo-1") },
+        date: Timestamp.make(1_800_000_000_000),
+        dueDate: Timestamp.make(1_800_003_600_000)
+      }).pipe(
+        Effect.provide(createLayer({
+          todos: [makeTodo()],
+          employees: [makeEmployee()],
+          socialIdentities: [socialIdentity],
+          calendars: [externalCalendar],
+          captures
+        }))
+      )
+
+      expect(captures.addCollection?.space).toBe(calendar.space.Calendar)
+      expect(captures.addCollection?.attributes.calendar).toBe(externalCalendar._id)
+      expect(captures.addCollection?.attributes.user).toBe(socialIdentity._id)
+      expect(captures.addCollection?.attributes.participants).toEqual([socialIdentity.attachedTo])
+      expect(captures.addCollection?.attributes.blockTime).toBe(true)
+    }))
+
+  it.effect("fails scheduling when the authenticated primary social identity is unavailable", () =>
+    Effect.gen(function*() {
+      const captures: Captures = {}
+      const error = yield* Effect.flip(
+        scheduleTodo({
+          locator: { todoId: todoId("todo-1") },
+          date: Timestamp.make(1_800_000_000_000),
+          dueDate: Timestamp.make(1_800_003_600_000)
+        }).pipe(Effect.provide(createLayer({ todos: [makeTodo()], captures })))
+      )
+
+      expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
+      expect(error).toMatchObject({ prerequisite: "primary social identity" })
+      expect(captures.addCollection).toBeUndefined()
+    }))
+
+  it.effect("maps malformed primary social identity data to a typed prerequisite failure", () =>
+    Effect.gen(function*() {
+      const captures: Captures = {}
+      const malformedIdentity = makeSocialIdentity({ attachedTo: personRef("") })
+      const error = yield* Effect.flip(
+        scheduleTodo({
+          locator: { todoId: todoId("todo-1") },
+          date: Timestamp.make(1_800_000_000_000),
+          dueDate: Timestamp.make(1_800_003_600_000)
+        }).pipe(
+          Effect.provide(createLayer({
+            todos: [makeTodo()],
+            socialIdentities: [malformedIdentity],
+            captures
+          }))
+        )
+      )
+
+      expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
+      expect(error).toMatchObject({ prerequisite: "primary social identity" })
+      expect(captures.addCollection).toBeUndefined()
+    }))
+
+  it.effect("fails scheduling when the primary social identity has no employee", () =>
+    Effect.gen(function*() {
+      const captures: Captures = {}
+      const error = yield* Effect.flip(
+        scheduleTodo({
+          locator: { todoId: todoId("todo-1") },
+          date: Timestamp.make(1_800_000_000_000),
+          dueDate: Timestamp.make(1_800_003_600_000)
+        }).pipe(
+          Effect.provide(createLayer({
+            todos: [makeTodo()],
+            socialIdentities: [makeSocialIdentity()],
+            captures
+          }))
+        )
+      )
+
+      expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
+      expect(error).toMatchObject({ prerequisite: "employee identity" })
+      expect(captures.addCollection).toBeUndefined()
+    }))
+
+  it.effect("maps an inactive employee to a typed prerequisite failure", () =>
+    Effect.gen(function*() {
+      const captures: Captures = {}
+      const error = yield* Effect.flip(
+        scheduleTodo({
+          locator: { todoId: todoId("todo-1") },
+          date: Timestamp.make(1_800_000_000_000),
+          dueDate: Timestamp.make(1_800_003_600_000)
+        }).pipe(
+          Effect.provide(createLayer({
+            todos: [makeTodo()],
+            employees: [makeEmployee({ active: false })],
+            socialIdentities: [makeSocialIdentity()],
+            captures
+          }))
+        )
+      )
+
+      expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
+      expect(error).toMatchObject({ prerequisite: "employee identity" })
+      expect(captures.addCollection).toBeUndefined()
+    }))
+
+  it.effect("fails scheduling when the authenticated user has no writable personal calendar", () =>
+    Effect.gen(function*() {
+      const captures: Captures = {}
+      const error = yield* Effect.flip(
+        scheduleTodo({
+          locator: { todoId: todoId("todo-1") },
+          date: Timestamp.make(1_800_000_000_000),
+          dueDate: Timestamp.make(1_800_003_600_000)
+        }).pipe(
+          Effect.provide(createLayer({
+            todos: [makeTodo()],
+            employees: [makeEmployee()],
+            socialIdentities: [makeSocialIdentity()],
+            captures
+          }))
+        )
+      )
+
+      expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
+      expect(error).toMatchObject({ prerequisite: "personal calendar" })
+      expect(captures.addCollection).toBeUndefined()
+    }))
+
+  it.effect("rejects read-only personal calendars", () =>
+    Effect.gen(function*() {
+      for (const access of [AccessLevel.Reader, AccessLevel.FreeBusyReader]) {
+        const captures: Captures = {}
+        const error = yield* Effect.flip(
+          scheduleTodo({
+            locator: { todoId: todoId("todo-1") },
+            date: Timestamp.make(1_800_000_000_000),
+            dueDate: Timestamp.make(1_800_003_600_000)
+          }).pipe(
+            Effect.provide(createLayer({
+              todos: [makeTodo()],
+              employees: [makeEmployee()],
+              socialIdentities: [makeSocialIdentity()],
+              calendars: [makePersonalCalendar({ access })],
+              captures
+            }))
+          )
+        )
+
+        expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
+        expect(error).toMatchObject({ prerequisite: "personal calendar" })
+        expect(captures.addCollection).toBeUndefined()
+      }
+    }))
+
+  it.effect("maps malformed personal calendar data to a typed prerequisite failure", () =>
+    Effect.gen(function*() {
+      const captures: Captures = {}
+      const malformedCalendar = makePersonalCalendar({
+        _class: toClassRef<HulyCalendar>("malformed-calendar-class")
+      })
+      const error = yield* Effect.flip(
+        scheduleTodo({
+          locator: { todoId: todoId("todo-1") },
+          date: Timestamp.make(1_800_000_000_000),
+          dueDate: Timestamp.make(1_800_003_600_000)
+        }).pipe(
+          Effect.provide(createLayer({
+            todos: [makeTodo()],
+            employees: [makeEmployee()],
+            socialIdentities: [makeSocialIdentity()],
+            calendars: [malformedCalendar],
+            captures
+          }))
+        )
+      )
+
+      expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
+      expect(error).toMatchObject({ prerequisite: "personal calendar" })
+      expect(captures.addCollection).toBeUndefined()
     }))
 
   it.effect("deletes a ToDo by raw locator", () =>

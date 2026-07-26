@@ -19,6 +19,7 @@ import { Context, Effect, Layer, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { ConfigValidationError, sanitizeHulyRuntimeConfigFromEnv } from "../../src/config/config.js"
+import { CanonicalBase64ImageData } from "../../src/domain/schemas/attachments.js"
 import { type GetHulyContextResult, GetHulyContextResultSchema } from "../../src/domain/schemas/index.js"
 import { HulyClient, type HulyClientOperations } from "../../src/huly/client.js"
 import { Diagnostics } from "../../src/huly/diagnostics.js"
@@ -604,6 +605,19 @@ const contentOnlyProxyRegistry: ToolRegistry = {
   ...diagnosticProbeRegistry,
   handleToolCall: async () => ({
     content: [{ type: "text", text: "plain target output" }]
+  })
+}
+
+const imageProxyRegistry: ToolRegistry = {
+  ...diagnosticProbeRegistry,
+  handleToolCall: async () => ({
+    content: [{ type: "text", text: "{\"attachmentId\":\"att-image\"}" }],
+    structuredContent: { result: { attachmentId: "att-image" } },
+    imageContent: {
+      type: "image",
+      data: CanonicalBase64ImageData.make("cG5n"),
+      mimeType: "image/png"
+    }
   })
 }
 
@@ -1487,6 +1501,68 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     })
   })
 
+  it("normalizes JSON-string invoke_tool arguments once at the proxy boundary", async () => {
+    const receivedArguments: Array<unknown> = []
+    const captureRegistry: ToolRegistry = {
+      ...diagnosticProbeRegistry,
+      handleToolCall: async (_toolName, args) => {
+        receivedArguments.push(args)
+        return createInvalidParamsError("captured target arguments", "CapturedArguments")
+      }
+    }
+    const clients = await buildStubClients()()
+    const structuredArguments = { subject: "structured invoke" }
+
+    await handleProxyToolCall({
+      toolName: makeToolName("invoke_tool"),
+      args: { toolName: "diagnostic_probe", arguments: structuredArguments },
+      proxyCandidateRegistry: captureRegistry,
+      clients
+    })
+    await handleProxyToolCall({
+      toolName: makeToolName("invoke_tool"),
+      args: { toolName: "diagnostic_probe", arguments: "{\"subject\":\"stringified invoke\"}" },
+      proxyCandidateRegistry: captureRegistry,
+      clients
+    })
+    await handleProxyToolCall({
+      toolName: makeToolName("invoke_tool"),
+      args: { toolName: "diagnostic_probe", arguments: "\"{\\\"subject\\\":\\\"nested string\\\"}\"" },
+      proxyCandidateRegistry: captureRegistry,
+      clients
+    })
+
+    expect(assertAt(receivedArguments, 0)).toBe(structuredArguments)
+    expect(assertAt(receivedArguments, 1)).toEqual({ subject: "stringified invoke" })
+    expect(assertAt(receivedArguments, 2)).toBe("{\"subject\":\"nested string\"}")
+  })
+
+  it("lets malformed deferred invoke_tool arguments fail against the target schema", async () => {
+    const handlers = createMcpProtocolHandlers(
+      buildStubClients(),
+      createTelemetryProbe().telemetry,
+      protocolRegistries(diagnosticProbeRegistry),
+      makeValidContext,
+      liveNowClock,
+      () => Promise.resolve("0.0.0"),
+      proxyExposureOptions()
+    )
+
+    const response = await handlers.callTool({
+      params: {
+        name: "invoke_tool",
+        arguments: {
+          toolName: "diagnostic_probe",
+          arguments: "{\"subject\":"
+        }
+      }
+    })
+
+    expect(response.isError).toBe(true)
+    expect(firstText(response.content)).toContain("diagnostic_probe")
+    expect(firstText(response.content)).toContain("Expected")
+  })
+
   it("passes workspace clients into proxy invocation when available", async () => {
     const handlers = createMcpProtocolHandlers(
       buildStubClientsWithWorkspace(),
@@ -1582,6 +1658,26 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
       toolName: "diagnostic_probe",
       result: [{ type: "text", text: "plain target output" }]
     })
+  })
+
+  it("preserves exactly one target image through invoke_tool without structured base64 duplication", async () => {
+    const handlers = createMcpProtocolHandlers(
+      buildStubClients(),
+      createTelemetryProbe().telemetry,
+      protocolRegistries(imageProxyRegistry),
+      makeValidContext,
+      liveNowClock,
+      () => Promise.resolve("0.0.0"),
+      proxyExposureOptions()
+    )
+
+    const response = await handlers.callTool({
+      params: { name: "invoke_tool", arguments: { toolName: "diagnostic_probe", arguments: {} } }
+    })
+
+    const images = response.content.filter((content) => content.type === "image")
+    expect(images).toEqual([{ type: "image", data: "cG5n", mimeType: "image/png" }])
+    expect(JSON.stringify(response.structuredContent)).not.toContain("cG5n")
   })
 
   it("returns target proxy errors and null dispatches without wrapping them as successes", async () => {

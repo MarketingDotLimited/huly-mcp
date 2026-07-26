@@ -80,13 +80,15 @@ describe("listStatuses", () => {
         statuses: [
           { _id: "status-1" as Ref<Status> },
           { _id: "status-2" as Ref<Status> },
-          { _id: "status-3" as Ref<Status> }
+          { _id: "status-3" as Ref<Status> },
+          { _id: "status-4" as Ref<Status> }
         ]
       })
       const statuses = [
         { _id: "status-1" as Ref<Status>, name: "Todo", category: "" },
         { _id: "status-2" as Ref<Status>, name: "Done", category: task.statusCategory.Won },
-        { _id: "status-3" as Ref<Status>, name: "Cancelled", category: task.statusCategory.Lost }
+        { _id: "status-3" as Ref<Status>, name: "Cancelled", category: task.statusCategory.Lost },
+        { _id: "status-4" as Ref<Status>, name: "Custom", category: "task:statusCategory:Custom" }
       ]
 
       const testLayer = createTestLayerWithMocks({
@@ -100,8 +102,8 @@ describe("listStatuses", () => {
         withDiagnostics
       )
 
-      expect(result.total).toBe(3)
-      expect(result.statuses).toHaveLength(3)
+      expect(result.total).toBe(4)
+      expect(result.statuses).toHaveLength(4)
 
       const todo = result.statuses.find(s => s.name === "Todo")
       expect(todo).toBeDefined()
@@ -115,6 +117,9 @@ describe("listStatuses", () => {
       const cancelled = result.statuses.find(s => s.name === "Cancelled")
       expect(cancelled?.category).toBe("Lost")
       expect(cancelled?.isDefault).toBe(false)
+
+      const custom = result.statuses.find(s => s.name === "Custom")
+      expect(custom?.category).toBe("unknown")
     }))
 
   it.effect("returns empty array when project has no statuses", () =>

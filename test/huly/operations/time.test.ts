@@ -1,6 +1,6 @@
 import { describe, it } from "@effect/vitest"
-import type { Channel, Employee, Person } from "@hcengineering/contact"
-import { type Doc, type PersonId, type Ref, type Space, toFindResult } from "@hcengineering/core"
+import type { Channel, Employee, Person, SocialIdentity } from "@hcengineering/contact"
+import { type Doc, type PersonId, type Ref, SocialIdType, type Space, toFindResult } from "@hcengineering/core"
 import type { TaskType } from "@hcengineering/task"
 import {
   type Issue as HulyIssue,
@@ -12,10 +12,11 @@ import {
 } from "@hcengineering/tracker"
 import { Clock, Effect } from "effect"
 import { expect } from "vitest"
-import { Timestamp } from "../../../src/domain/schemas/shared.js"
+import { NonEmptyString, Timestamp } from "../../../src/domain/schemas/shared.js"
+import { PositiveTimeHours } from "../../../src/domain/schemas/time.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import type { IssueNotFoundError, ProjectNotFoundError } from "../../../src/huly/errors.js"
-import { toRef } from "../../../src/huly/operations/sdk-boundary.js"
+import { toRef, toSocialIdentityRef } from "../../../src/huly/operations/sdk-boundary.js"
 import {
   getDetailedTimeReport,
   getTimeReport,
@@ -37,6 +38,8 @@ const asIssue = (v: unknown) => v as HulyIssue
 const asTimeSpendReport = (v: unknown) => v as HulyTimeSpendReport
 const asPerson = (v: unknown) => v as Person
 const asChannel = (v: unknown) => v as Channel
+// Intentionally bypass the SDK's static SocialIdentity contract to exercise malformed data returned by the external Huly boundary.
+const asSocialIdentity = (v: unknown) => v as SocialIdentity
 
 const makeProject = (overrides?: Partial<HulyProject>): HulyProject =>
   asProject({
@@ -137,6 +140,27 @@ const makeChannel = (overrides?: Partial<Channel>): Channel =>
     ...overrides
   })
 
+const makeSocialIdentity = (overrides?: Partial<SocialIdentity>): SocialIdentity => {
+  const person = makePerson()
+  const identity: SocialIdentity = {
+    _id: toSocialIdentityRef(NonEmptyString.make("test-primary-social-id")),
+    _class: contact.class.SocialIdentity,
+    space: contact.space.Contacts,
+    attachedTo: person._id,
+    attachedToClass: contact.class.Person,
+    collection: "socialIds",
+    type: SocialIdType.EMAIL,
+    value: "john@example.com",
+    key: "email:john@example.com",
+    modifiedBy: person.modifiedBy,
+    modifiedOn: person.modifiedOn,
+    createdBy: person.modifiedBy,
+    createdOn: person.modifiedOn,
+    ...overrides
+  }
+  return identity
+}
+
 // --- Test Helpers ---
 
 interface MockConfig {
@@ -145,6 +169,7 @@ interface MockConfig {
   reports?: Array<HulyTimeSpendReport>
   persons?: Array<Person>
   channels?: Array<Channel>
+  socialIdentities?: Array<SocialIdentity>
   captureAddCollection?: { attributes?: Record<string, unknown>; id?: string }
   captureUpdateDoc?: { operations?: Record<string, unknown> }
 }
@@ -155,6 +180,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const reports = config.reports ?? []
   const persons = config.persons ?? []
   const channels = config.channels ?? []
+  const socialIdentities = config.socialIdentities ?? []
 
   const findAllImpl: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown, options?: unknown) => {
     const opts = options as { lookup?: Record<string, unknown> } | undefined
@@ -250,6 +276,11 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const found = persons.find(p => p._id === id)
       return Effect.succeed(found)
     }
+    if (_class === contact.class.SocialIdentity) {
+      const id = (query as Record<string, unknown>)._id as string
+      const found = socialIdentities.find(identity => identity._id === id)
+      return Effect.succeed(found)
+    }
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
@@ -308,7 +339,7 @@ describe("logTime", () => {
         const result = yield* logTime({
           project: projectIdentifier("TEST"),
           identifier: issueIdentifier("TEST-1"),
-          value: 30,
+          value: PositiveTimeHours.make(30),
           description: "Worked on feature"
         }).pipe(Effect.provide(testLayer))
 
@@ -318,79 +349,86 @@ describe("logTime", () => {
         expect(captureAddCollection.attributes?.description).toBe("Worked on feature")
       }))
 
-    it.effect("updates issue reportedTime and reports count", () =>
+    it.effect("attributes the report to the authenticated employee", () =>
       Effect.gen(function*() {
         const project = makeProject({ identifier: "TEST" })
-        const issue = makeIssue({ identifier: "TEST-1", reportedTime: 10, reports: 2 })
+        const issue = makeIssue({ identifier: "TEST-1" })
+        const socialIdentity = makeSocialIdentity()
 
-        const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
+        const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
         const testLayer = createTestLayerWithMocks({
           projects: [project],
           issues: [issue],
-          captureUpdateDoc
+          socialIdentities: [socialIdentity],
+          captureAddCollection
         })
 
         yield* logTime({
           project: projectIdentifier("TEST"),
           identifier: issueIdentifier("TEST-1"),
-          value: 15
+          value: PositiveTimeHours.make(0.25)
         }).pipe(Effect.provide(testLayer))
 
-        expect(captureUpdateDoc.operations?.$inc).toEqual({
-          reportedTime: 15,
-          reports: 1
-        })
+        expect(captureAddCollection.attributes?.employee).toBe("person-1")
       }))
 
-    it.effect("reduces remainingTime when time is logged", () =>
+    it.effect("uses anonymous attribution when Huly exposes no authenticated employee", () =>
       Effect.gen(function*() {
         const project = makeProject({ identifier: "TEST" })
-        const issue = makeIssue({ identifier: "TEST-1", remainingTime: 60 })
+        const issue = makeIssue({ identifier: "TEST-1" })
 
-        const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
+        const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
         const testLayer = createTestLayerWithMocks({
           projects: [project],
           issues: [issue],
-          captureUpdateDoc
+          captureAddCollection
         })
 
         yield* logTime({
           project: projectIdentifier("TEST"),
           identifier: issueIdentifier("TEST-1"),
-          value: 25
+          value: PositiveTimeHours.make(0.25)
         }).pipe(Effect.provide(testLayer))
 
-        expect(captureUpdateDoc.operations?.remainingTime).toBe(35)
+        expect(captureAddCollection.attributes?.employee).toBeNull()
       }))
 
-    it.effect("does not reduce remainingTime below zero", () =>
+    it.effect("rejects a malformed authenticated identity without writing a report", () =>
       Effect.gen(function*() {
         const project = makeProject({ identifier: "TEST" })
-        const issue = makeIssue({ identifier: "TEST-1", remainingTime: 10 })
-
-        const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
-
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          captureUpdateDoc
+        const issue = makeIssue({ identifier: "TEST-1" })
+        const malformedIdentity = asSocialIdentity({
+          ...makeSocialIdentity(),
+          attachedTo: 42
         })
+        const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
-        yield* logTime({
-          project: projectIdentifier("TEST"),
-          identifier: issueIdentifier("TEST-1"),
-          value: 50
-        }).pipe(Effect.provide(testLayer))
+        const error = yield* Effect.flip(
+          logTime({
+            project: projectIdentifier("TEST"),
+            identifier: issueIdentifier("TEST-1"),
+            value: PositiveTimeHours.make(0.25)
+          }).pipe(Effect.provide(createTestLayerWithMocks({
+            projects: [project],
+            issues: [issue],
+            socialIdentities: [malformedIdentity],
+            captureAddCollection
+          })))
+        )
 
-        expect(captureUpdateDoc.operations?.remainingTime).toBe(0)
+        if (error._tag !== "HulyConnectionError") {
+          return yield* Effect.dieMessage(`Expected HulyConnectionError, received ${error._tag}`)
+        }
+        expect(error.message).toContain("social identity")
+        expect(captureAddCollection.attributes).toBeUndefined()
       }))
 
-    it.effect("does not set remainingTime when it is zero", () =>
+    it.effect("leaves issue time aggregates to Huly server triggers", () =>
       Effect.gen(function*() {
         const project = makeProject({ identifier: "TEST" })
-        const issue = makeIssue({ identifier: "TEST-1", remainingTime: 0 })
+        const issue = makeIssue({ identifier: "TEST-1", remainingTime: 6, reportedTime: 2 })
 
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
@@ -403,14 +441,10 @@ describe("logTime", () => {
         yield* logTime({
           project: projectIdentifier("TEST"),
           identifier: issueIdentifier("TEST-1"),
-          value: 10
+          value: PositiveTimeHours.make(0.25)
         }).pipe(Effect.provide(testLayer))
 
-        expect(captureUpdateDoc.operations?.remainingTime).toBeUndefined()
-        expect(captureUpdateDoc.operations?.$inc).toEqual({
-          reportedTime: 10,
-          reports: 1
-        })
+        expect(captureUpdateDoc.operations).toBeUndefined()
       }))
 
     it.effect("uses empty description when not provided", () =>
@@ -429,7 +463,7 @@ describe("logTime", () => {
         yield* logTime({
           project: projectIdentifier("TEST"),
           identifier: issueIdentifier("TEST-1"),
-          value: 10
+          value: PositiveTimeHours.make(10)
         }).pipe(Effect.provide(testLayer))
 
         expect(captureAddCollection.attributes?.description).toBe("")
@@ -450,7 +484,7 @@ describe("logTime", () => {
         const result = yield* logTime({
           project: projectIdentifier("PROJ"),
           identifier: issueIdentifier("42"),
-          value: 10
+          value: PositiveTimeHours.make(10)
         }).pipe(Effect.provide(testLayer))
 
         expect(result.identifier).toBe("PROJ-42")
@@ -469,7 +503,7 @@ describe("logTime", () => {
         const result = yield* logTime({
           project: projectIdentifier("HULY"),
           identifier: issueIdentifier("HULY-123"),
-          value: 10
+          value: PositiveTimeHours.make(10)
         }).pipe(Effect.provide(testLayer))
 
         expect(result.identifier).toBe("HULY-123")
@@ -488,7 +522,7 @@ describe("logTime", () => {
           logTime({
             project: projectIdentifier("NONEXISTENT"),
             identifier: issueIdentifier("1"),
-            value: 10
+            value: PositiveTimeHours.make(10)
           }).pipe(Effect.provide(testLayer))
         )
 
@@ -509,7 +543,7 @@ describe("logTime", () => {
           logTime({
             project: projectIdentifier("TEST"),
             identifier: issueIdentifier("TEST-999"),
-            value: 10
+            value: PositiveTimeHours.make(10)
           }).pipe(Effect.provide(testLayer))
         )
 

@@ -78,7 +78,7 @@ export const activityTools = [
     {
       name: "list_activity",
       description:
-        "List activity messages for a Huly issue, document, channel, or raw Huly object. Prefer friendly targets: project+issueIdentifier for issues, teamspace+document for documents, or channel for channels. Advanced callers may pass objectId+objectClass directly. Returns activity sorted by date (newest first).",
+        "List activity messages for a Huly issue, document, channel, or raw Huly object. Prefer friendly targets: project+issueIdentifier for issues, teamspace+document for documents, or channel for channels. Advanced callers may pass objectId+objectClass directly. Returns activity sorted by date (newest first). Legitimately absent or null optional actor, message, class, and metadata fields are omitted from each item.",
       category: CATEGORY,
       inputSchema: listActivityParamsJsonSchema,
       resultSchema: ListActivityResultSchema

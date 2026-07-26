@@ -745,6 +745,21 @@ export {
 } from "./cards.js"
 
 export {
+  CardVersionChainId,
+  type CardVersionMetadata,
+  CardVersionMetadataSchema,
+  CardVersionNumber,
+  type CardVersionSummary,
+  CardVersionSummarySchema,
+  type ListCardVersionsParams,
+  listCardVersionsParamsJsonSchema,
+  ListCardVersionsParamsSchema,
+  type ListCardVersionsResult,
+  ListCardVersionsResultSchema,
+  parseListCardVersionsParams
+} from "./card-versions.js"
+
+export {
   type ListUserStatusesParams,
   listUserStatusesParamsJsonSchema,
   ListUserStatusesParamsSchema,
@@ -808,6 +823,12 @@ export {
   type StartProcessResult,
   StartProcessResultSchema
 } from "./processes.js"
+
+export {
+  CUSTOM_FIELD_DATE_MAX_TIMESTAMP,
+  CustomFieldDateTimestamp,
+  CustomFieldDateValueSchema
+} from "./custom-field-date.js"
 
 export {
   type CustomFieldInfo,
@@ -1863,6 +1884,7 @@ export {
   parseLogTimeParams,
   parseStartTimerParams,
   parseStopTimerParams,
+  PositiveTimeHours,
   type StartTimerParams,
   startTimerParamsJsonSchema,
   StartTimerParamsSchema,
@@ -1873,6 +1895,7 @@ export {
   StopTimerParamsSchema,
   type StopTimerResult,
   StopTimerResultSchema,
+  TimeHours,
   type TimeReportSummary,
   TimeReportSummarySchema,
   type TimeSpendReport,
@@ -2119,12 +2142,24 @@ export {
   parseGetAttachmentParams,
   parseListAttachmentsParams,
   parsePinAttachmentParams,
+  parseReadAttachmentContentParams,
   parseUpdateAttachmentParams,
   type PinAttachmentParams,
   pinAttachmentParamsJsonSchema,
   PinAttachmentParamsSchema,
   type PinAttachmentResult,
   PinAttachmentResultSchema,
+  READ_ATTACHMENT_CONTENT_MAX_BYTES,
+  READ_ATTACHMENT_CONTENT_MAX_MIB,
+  type ReadAttachmentContentMetadata,
+  ReadAttachmentContentMetadataSchema,
+  type ReadAttachmentContentParams,
+  readAttachmentContentParamsJsonSchema,
+  ReadAttachmentContentParamsSchema,
+  type ReadAttachmentContentResult,
+  ReadAttachmentContentResultSchema,
+  type SupportedAttachmentImageType,
+  SupportedAttachmentImageTypeSchema,
   type UpdateAttachmentParams,
   updateAttachmentParamsJsonSchema,
   UpdateAttachmentParamsSchema,

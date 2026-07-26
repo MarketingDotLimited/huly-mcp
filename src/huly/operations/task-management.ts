@@ -36,6 +36,7 @@ import {
   TaskTypeId,
   UnknownStatusCategoryValue
 } from "../../domain/schemas.js"
+import { StatusName } from "../../domain/schemas/shared.js"
 import { isSingle } from "../../utils/assertions.js"
 import { normalizeForComparison } from "../../utils/normalize.js"
 import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
@@ -43,7 +44,14 @@ import type { Diagnostics } from "../diagnostics.js"
 import { HulyConnectionError, HulyError } from "../errors.js"
 import { core, task, tracker } from "../huly-plugins.js"
 import { listTotal } from "./counts.js"
-import { findStatusDocs, resolveByStatusRef, uniqueStatusRefs, workflowStatusFromRef } from "./issues-shared.js"
+import {
+  findStatusDocs,
+  resolveByStatusRef,
+  type StatusMetadata,
+  StatusMetadataSchema,
+  uniqueStatusRefs,
+  workflowStatusFromRef
+} from "./issues-shared.js"
 import { hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
@@ -111,7 +119,7 @@ const encodeOrConnectionError = <A, I, R>(
 interface WorkflowData {
   readonly projectType: ProjectType
   readonly taskTypes: ReadonlyArray<TaskType>
-  readonly statuses: ReadonlyArray<Status>
+  readonly statuses: ReadonlyArray<StatusMetadata>
 }
 
 const uniqueStatusIds = (projectType: ProjectType): Array<Ref<Status>> =>
@@ -129,25 +137,20 @@ const uniqueProjectStatuses = (statuses: ReadonlyArray<ProjectStatus>): Array<Pr
 const getStatusDocs = (
   client: HulyClientOperations,
   statusIds: ReadonlyArray<Ref<Status>>
-): Effect.Effect<ReadonlyArray<Status>, never, Diagnostics> =>
+): Effect.Effect<ReadonlyArray<StatusMetadata>, HulyClientError, Diagnostics> =>
   statusIds.length === 0
     ? Effect.succeed([])
     : findStatusDocs(client, statusIds)
 
-const fallbackStatusDoc = (statusId: Ref<Status>): Status => ({
+const fallbackStatusDoc = (statusId: Ref<Status>): StatusMetadata => ({
   _id: statusId,
-  _class: core.class.Status,
-  space: core.space.Model,
-  modifiedOn: 0,
-  modifiedBy: core.account.System,
-  ofAttribute: tracker.attribute.IssueStatus,
   name: workflowStatusFromRef(statusId).name
-} satisfies Status)
+})
 
 const statusDocsWithFallbacks = (
   statusIds: ReadonlyArray<Ref<Status>>,
-  statusDocs: ReadonlyArray<Status>
-): Array<Status> => resolveByStatusRef(statusIds, statusDocs, (statusDoc) => statusDoc, fallbackStatusDoc)
+  statusDocs: ReadonlyArray<StatusMetadata>
+): Array<StatusMetadata> => resolveByStatusRef(statusIds, statusDocs, (statusDoc) => statusDoc, fallbackStatusDoc)
 
 const getTaskTypes = (
   client: HulyClientOperations,
@@ -167,20 +170,36 @@ const getTaskTypesByProjectType = (
     Effect.map((result) => [...result])
   )
 
+const parseRecoveredStatusMetadata = (
+  status: unknown
+): Effect.Effect<StatusMetadata, HulyConnectionError> =>
+  Schema.decodeUnknown(StatusMetadataSchema)(status).pipe(
+    Effect.mapError((parseError) =>
+      new HulyConnectionError({
+        message: `Recovered workflow status metadata failed schema validation: ${parseError.message}`,
+        cause: parseError
+      })
+    )
+  )
+
 const getRecoverableStatusesByName = (
   client: HulyClientOperations,
   name: string
-): Effect.Effect<ReadonlyArray<Status>, never> =>
-  client.findAll<Status>(core.class.Status, hulyQuery<Status>({ ofAttribute: tracker.attribute.IssueStatus })).pipe(
-    Effect.map((result) =>
-      [...result].filter((status) => normalizeForComparison(status.name) === normalizeForComparison(name))
-    ),
-    // Compatibility fallback for https://github.com/dearlordylord/huly-mcp/issues/34:
-    // this broad recovery query was reported to null-deref on an older self-hosted
-    // Huly. The primary project-type status data is already loaded, so losing only
-    // cross-project duplicate recovery is preferable to failing status creation.
-    Effect.catchAll(() => Effect.succeed([]))
-  )
+): Effect.Effect<ReadonlyArray<StatusMetadata>, HulyConnectionError> =>
+  Effect.gen(function*() {
+    const rows = yield* client.findAll<Status>(
+      core.class.Status,
+      hulyQuery<Status>({ ofAttribute: tracker.attribute.IssueStatus })
+    ).pipe(
+      // Compatibility fallback for https://github.com/dearlordylord/huly-mcp/issues/34:
+      // this broad recovery query was reported to null-deref on an older self-hosted
+      // Huly. The primary project-type status data is already loaded, so losing only
+      // cross-project duplicate recovery is preferable to failing status creation.
+      Effect.catchAll(() => Effect.succeed([]))
+    )
+    const statuses = yield* Effect.forEach(rows, parseRecoveredStatusMetadata)
+    return statuses.filter((status) => normalizeForComparison(status.name) === normalizeForComparison(name))
+  })
 
 const loadWorkflowData = (
   client: HulyClientOperations,
@@ -215,7 +234,7 @@ const statusTaskTypeIds = (projectType: ProjectType, statusId: Ref<Status>): Rea
     .filter((status) => status._id === statusId)
     .map((status) => status.taskType)
 
-const statusSummary = (projectType: ProjectType, status: Status): IssueStatusSummary => ({
+const statusSummary = (projectType: ProjectType, status: StatusMetadata): IssueStatusSummary => ({
   id: IssueStatusId.make(status._id),
   name: status.name,
   category: toCategoryValue(status.category),
@@ -299,12 +318,13 @@ const existingTaskTypeByName = (
   taskTypes.find((taskType) => normalizeForComparison(taskType.name) === normalizeForComparison(name))
 
 const existingStatusByName = (
-  statuses: ReadonlyArray<Status>,
+  statuses: ReadonlyArray<StatusMetadata>,
   name: string
-): Status | undefined => statuses.find((status) => normalizeForComparison(status.name) === normalizeForComparison(name))
+): StatusMetadata | undefined =>
+  statuses.find((status) => normalizeForComparison(status.name) === normalizeForComparison(name))
 
 const requireStatusCategoryMatch = (
-  status: Status,
+  status: StatusMetadata,
   requestedCategory: StatusCategoryValue
 ): Effect.Effect<void, HulyError> => {
   const actualCategory = toCategoryValue(status.category)
@@ -616,16 +636,11 @@ export const createIssueStatus = (
       )
     }
 
-    const statusDoc = existingStatus ?? {
+    const statusDoc: StatusMetadata = existingStatus ?? {
       _id: statusId,
-      _class: statusClass,
-      space: core.space.Model,
-      modifiedOn: 0,
-      modifiedBy: core.account.System,
-      ofAttribute: tracker.attribute.IssueStatus,
-      name: params.name,
+      name: StatusName.make(params.name),
       category: CATEGORY_TO_REF[params.category]
-    } satisfies Status
+    }
     const result = {
       created: existingStatus === undefined || taskTypesNeedingStatusUpdate.length > 0 || projectTypeChanged,
       projectType: projectTypeSummary({

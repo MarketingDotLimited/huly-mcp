@@ -30,7 +30,12 @@ import {
   RecurringEventNotFoundError,
   ScheduleNotFoundError
 } from "./errors-calendar.js"
-import { CardNotFoundError, CardSpaceNotFoundError, MasterTagNotFoundError } from "./errors-cards.js"
+import {
+  CardCommentNotFoundError,
+  CardNotFoundError,
+  CardSpaceNotFoundError,
+  MasterTagNotFoundError
+} from "./errors-cards.js"
 import {
   ContactChannelConflictError,
   ContactChannelIdentifierAmbiguousError,
@@ -44,7 +49,11 @@ import {
   PersonIdentifierAmbiguousError,
   PersonNotFoundError
 } from "./errors-contacts.js"
-import { CustomFieldNotFoundError, CustomFieldObjectNotFoundError } from "./errors-custom-fields.js"
+import {
+  CustomFieldNotFoundError,
+  CustomFieldObjectNotFoundError,
+  InvalidCustomFieldDateValueError
+} from "./errors-custom-fields.js"
 import {
   DocumentContentCorruptedError,
   DocumentEditModeError,
@@ -56,6 +65,7 @@ import {
   TeamspaceNotFoundError
 } from "./errors-documents.js"
 import { HulyDomainBaseError } from "./errors-domain-base.js"
+import { HulyMessagingDomainError } from "./errors-domain-messaging.js"
 import {
   DriveFileCommentNotFoundError,
   DriveFileNotFoundError,
@@ -72,6 +82,9 @@ import {
   DrivePathNotFoundError
 } from "./errors-drive.js"
 import {
+  AttachmentContentTooLargeError,
+  AttachmentContentTypeUnsupportedError,
+  AttachmentContentUnavailableError,
   AttachmentNotFoundError,
   DrawingNotFoundError,
   FileFetchError,
@@ -114,30 +127,19 @@ import { TagCategoryNotFoundError, TagNotFoundError } from "./errors-labels.js"
 import { FunnelNotFoundError, LeadNotFoundError } from "./errors-leads.js"
 import { FloorNotFoundError, MeetingMinutesNotFoundError, RoomNotFoundError } from "./errors-love.js"
 import {
-  ActivityMessageNotFoundError,
-  CannotDirectMessageSelfError,
-  ChannelArchivedError,
-  ChannelLastMemberRemovalError,
-  ChannelLastOwnerRemovalError,
-  ChannelNotFoundError,
-  ChatMessageAttachmentNotFoundError,
-  DirectMessageIdentifierAmbiguousError,
-  DirectMessageNotFoundError,
-  DirectMessageParticipantCountError,
-  MessageNotFoundError,
-  PersonNotAnEmployeeError,
-  ReactionNotFoundError,
-  SavedMessageNotFoundError,
-  ThreadReplyNotFoundError
-} from "./errors-messaging.js"
-import {
   NotificationContextNotFoundError,
   NotificationNotFoundError,
   NotificationPersonSpaceNotFoundError,
   NotificationProviderNotConfigurableError,
+  NotificationProviderNotFoundError,
   NotificationTypeNotFoundError
 } from "./errors-notifications.js"
-import { TodoIdentifierAmbiguousError, TodoNotFoundError, TodoWorkSlotNotFoundError } from "./errors-planner.js"
+import {
+  PlannerSchedulingPrerequisiteError,
+  TodoIdentifierAmbiguousError,
+  TodoNotFoundError,
+  TodoWorkSlotNotFoundError
+} from "./errors-planner.js"
 import {
   ProcessCardIdentifierAmbiguousError,
   ProcessCardNotFoundError,
@@ -277,30 +279,20 @@ export const HulyDomainError = Schema.Union(
   DocumentReferenceError,
   CommentNotFoundError,
   MilestoneNotFoundError,
-  ChannelNotFoundError,
-  ChannelArchivedError,
-  ChannelLastMemberRemovalError,
-  ChannelLastOwnerRemovalError,
-  CannotDirectMessageSelfError,
-  DirectMessageIdentifierAmbiguousError,
-  DirectMessageNotFoundError,
-  DirectMessageParticipantCountError,
-  MessageNotFoundError,
-  ChatMessageAttachmentNotFoundError,
-  PersonNotAnEmployeeError,
-  ThreadReplyNotFoundError,
+  HulyMessagingDomainError,
   CalendarNotAccessibleError,
   EventNotFoundError,
   RecurringEventNotFoundError,
   ScheduleNotFoundError,
-  ActivityMessageNotFoundError,
-  ReactionNotFoundError,
-  SavedMessageNotFoundError,
   AttachmentNotFoundError,
+  AttachmentContentTooLargeError,
+  AttachmentContentTypeUnsupportedError,
+  AttachmentContentUnavailableError,
   SavedAttachmentNotFoundError,
   DrawingNotFoundError,
   CardSpaceNotFoundError,
   CardNotFoundError,
+  CardCommentNotFoundError,
   MasterTagNotFoundError,
   TagNotFoundError,
   TagCategoryNotFoundError,
@@ -324,11 +316,13 @@ export const HulyDomainError = Schema.Union(
   ComponentNotFoundError,
   CustomFieldNotFoundError,
   CustomFieldObjectNotFoundError,
+  InvalidCustomFieldDateValueError,
   IssueTemplateNotFoundError,
   TemplateChildNotFoundError,
   NotificationNotFoundError,
   NotificationContextNotFoundError,
   NotificationPersonSpaceNotFoundError,
+  NotificationProviderNotFoundError,
   NotificationTypeNotFoundError,
   NotificationProviderNotConfigurableError,
   InvalidPersonUuidError,
@@ -392,6 +386,7 @@ export const HulyDomainError = Schema.Union(
   TodoNotFoundError,
   TodoIdentifierAmbiguousError,
   TodoWorkSlotNotFoundError,
+  PlannerSchedulingPrerequisiteError,
   DriveNotFoundError,
   DriveIdentifierAmbiguousError,
   DrivePathNotFoundError,

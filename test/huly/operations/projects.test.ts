@@ -492,7 +492,7 @@ describe("getProject", () => {
       expect(result.defaultStatus).toBe("Backlog")
     }))
 
-  it.effect("falls back to raw status refs when status document lookup fails", () =>
+  it.effect("propagates a server connection failure when model metadata is unavailable", () =>
     Effect.gen(function*() {
       const statusId = statusRef("plainstatus")
       const proj = makeProject({
@@ -508,19 +508,19 @@ describe("getProject", () => {
       })
 
       const diagnostics = yield* makeDiagnosticsScope
-      const result = yield* getProject({ project: projectIdentifier("HULY") }).pipe(
-        Effect.provide(testLayer),
-        Effect.provideService(Diagnostics, diagnostics.service)
+      const error = yield* Effect.flip(
+        getProject({ project: projectIdentifier("HULY") }).pipe(
+          Effect.provide(testLayer),
+          Effect.provideService(Diagnostics, diagnostics.service)
+        )
       )
       const warnings = yield* diagnostics.drainWarnings
 
-      expect(result.defaultStatus).toBe("plainstatus")
-      expect(result.statuses).toEqual(["plainstatus"])
-      expect(warnings).toHaveLength(1)
-      expect(assertAt(warnings, 0).code).toBe("status_metadata_unresolved")
+      expect(error._tag).toBe("HulyConnectionError")
+      expect(warnings).toEqual([])
     }))
 
-  it.effect("falls back to raw status refs when status document and model lookups both fail", () =>
+  it.effect("propagates a genuine connection failure when model and server queries fail", () =>
     Effect.gen(function*() {
       const statusId = statusRef("plainstatus")
       const proj = makeProject({
@@ -537,16 +537,16 @@ describe("getProject", () => {
       })
 
       const diagnostics = yield* makeDiagnosticsScope
-      const result = yield* getProject({ project: projectIdentifier("HULY") }).pipe(
-        Effect.provide(testLayer),
-        Effect.provideService(Diagnostics, diagnostics.service)
+      const error = yield* Effect.flip(
+        getProject({ project: projectIdentifier("HULY") }).pipe(
+          Effect.provide(testLayer),
+          Effect.provideService(Diagnostics, diagnostics.service)
+        )
       )
       const warnings = yield* diagnostics.drainWarnings
 
-      expect(result.defaultStatus).toBe("plainstatus")
-      expect(result.statuses).toEqual(["plainstatus"])
-      expect(warnings).toHaveLength(1)
-      expect(assertAt(warnings, 0).code).toBe("status_metadata_unresolved")
+      expect(error._tag).toBe("HulyConnectionError")
+      expect(warnings).toEqual([])
     }))
 
   it.effect("resolves status metadata from the local model when status document lookup fails", () =>
@@ -647,7 +647,8 @@ describe("getProject", () => {
         { name: "Open", category: "ToDo", isDefault: true },
         { name: "Review", category: "Active", isDefault: false }
       ])
-      expect(warnings).toEqual([])
+      expect(warnings).toHaveLength(1)
+      expect(assertAt(warnings, 0).code).toBe("status_metadata_unresolved")
     }))
 
   it.effect("fails when project details have invalid SDK data", () =>

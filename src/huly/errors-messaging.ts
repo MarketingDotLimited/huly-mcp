@@ -213,6 +213,29 @@ export class ActivityMessageNotFoundError extends Schema.TaggedError<ActivityMes
 }
 
 /**
+ * Huly returned an activity record that cannot be projected safely.
+ */
+export class ActivityRecordInvalidError extends Schema.TaggedError<ActivityRecordInvalidError>()(
+  "ActivityRecordInvalidError",
+  {
+    operation: Schema.Literal(
+      "list_activity",
+      "get_activity_message",
+      "list_activity_replies",
+      "list_drive_file_activity",
+      "list_inventory_product_activity",
+      "list_recruiting_activity"
+    ),
+    recordIndex: Count,
+    details: NonEmptyString
+  }
+) {
+  override get message(): string {
+    return `${this.operation} received an invalid Huly activity record at index ${this.recordIndex}: ${this.details}`
+  }
+}
+
+/**
  * Reaction not found on message.
  */
 export class ReactionNotFoundError extends Schema.TaggedError<ReactionNotFoundError>()(

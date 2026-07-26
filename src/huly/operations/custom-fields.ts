@@ -1,7 +1,8 @@
 import type { AnyAttribute, Class, Doc, Ref } from "@hcengineering/core"
 import { ClassifierKind, SortingOrder } from "@hcengineering/core"
-import { Effect, Either } from "effect"
+import { Data, Effect, Either } from "effect"
 
+import type { CustomFieldDateTimestamp } from "../../domain/schemas/custom-field-date.js"
 import type {
   ArrayCustomFieldTypeDetails,
   CustomFieldInfo,
@@ -20,18 +21,31 @@ import type {
 import { CUSTOM_FIELDS_DEFAULT_LIMIT } from "../../domain/schemas/custom-fields.js"
 import { CustomFieldId, ObjectClassName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
+import type { InvalidCustomFieldDateValueError } from "../errors-custom-fields.js"
 import { CustomFieldNotFoundError, CustomFieldObjectNotFoundError } from "../errors-custom-fields.js"
 import { hulyCustomFieldTypeNameFromClass } from "../huly-attribute-types.js"
 import { decodeHulyModelLabelTail } from "../huly-labels.js"
 import { core } from "../huly-plugins.js"
+import { parseCustomFieldDateValue } from "./custom-field-date.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
 type ListCustomFieldsError = HulyClientError
 type GetCustomFieldValuesError = HulyClientError | CustomFieldObjectNotFoundError
-type SetCustomFieldError = HulyClientError | CustomFieldNotFoundError | CustomFieldObjectNotFoundError
+type SetCustomFieldError =
+  | HulyClientError
+  | CustomFieldNotFoundError
+  | CustomFieldObjectNotFoundError
+  | InvalidCustomFieldDateValueError
 
 type JsonMap = Record<string, unknown>
+
+type ScalarCustomFieldWriteValue = string | number | boolean
+type ParsedCustomFieldValue = Data.TaggedEnum<{
+  Scalar: { readonly value: ScalarCustomFieldWriteValue }
+  Date: { readonly value: CustomFieldDateTimestamp }
+}>
+const ParsedCustomFieldValue = Data.taggedEnum<ParsedCustomFieldValue>()
 
 type TypeDescriptor =
   | { readonly typeName: PrimitiveCustomFieldTypeName; readonly typeDetails: EmptyCustomFieldTypeDetails }
@@ -155,16 +169,21 @@ const batchResolveClassLabels = (
     return labels
   })
 
-const parseValueForType = (value: string, typeName: CustomFieldTypeName): unknown => {
+const parseValueForType = (
+  value: string,
+  typeName: CustomFieldTypeName
+): Effect.Effect<ParsedCustomFieldValue, InvalidCustomFieldDateValueError> => {
   switch (typeName) {
     case "number": {
       const num = Number(value)
-      return Number.isNaN(num) ? value : num
+      return Effect.succeed(ParsedCustomFieldValue.Scalar({ value: Number.isNaN(num) ? value : num }))
     }
+    case "date":
+      return parseCustomFieldDateValue(value).pipe(Effect.map((date) => ParsedCustomFieldValue.Date({ value: date })))
     case "boolean":
-      return value.toLowerCase() === "true"
+      return Effect.succeed(ParsedCustomFieldValue.Scalar({ value: value.toLowerCase() === "true" }))
     default:
-      return value
+      return Effect.succeed(ParsedCustomFieldValue.Scalar({ value }))
   }
 }
 
@@ -314,7 +333,11 @@ export const setCustomField = (
     }
 
     const decodedAttr = decodeCustomFieldAttribute(attr)
-    const parsedValue = parseValueForType(params.value, decodedAttr.typeDescriptor.typeName)
+    const parsedValue = yield* parseValueForType(params.value, decodedAttr.typeDescriptor.typeName)
+    const writeValue = ParsedCustomFieldValue.$match(parsedValue, {
+      Scalar: ({ value }) => value,
+      Date: ({ value }) => value
+    })
     const decodedDoc = decodeCustomFieldDocument(doc)
     const ownerInfo = yield* resolveClassInfo(client, decodedAttr.ownerClassId)
 
@@ -328,7 +351,7 @@ export const setCustomField = (
         decodedDoc.space,
         mixinRef,
         {
-          [decodedAttr.name]: parsedValue
+          [decodedAttr.name]: writeValue
         }
       )
     } else {
@@ -336,7 +359,7 @@ export const setCustomField = (
         toRef<Class<Doc>>(decodedAttr.ownerClassId),
         decodedDoc.space,
         objectRef,
-        { [decodedAttr.name]: parsedValue }
+        { [decodedAttr.name]: writeValue }
       )
     }
 
@@ -344,7 +367,7 @@ export const setCustomField = (
       objectId: params.objectId,
       fieldId: decodedAttr.id,
       label: decodedAttr.label,
-      value: parsedValue,
+      value: writeValue,
       updated: true
     }
   })

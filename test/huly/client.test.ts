@@ -71,6 +71,7 @@ const mockGetMarkup = mockFn()
 const mockCreateMarkup = mockFn()
 const mockUpdateMarkup = mockFn()
 const mockMarkdownToMarkup = mockFn().mockImplementation((md: string) => ({ type: "md-parsed", content: md }))
+const mockCreateRestTxOperations = mockFn().mockImplementation(() => Promise.resolve(mockTxOperations))
 
 const clearAllMockFns = () => {
   mockFindAll.mockClear()
@@ -90,6 +91,7 @@ const clearAllMockFns = () => {
   mockCreateMarkup.mockClear()
   mockUpdateMarkup.mockClear()
   mockMarkdownToMarkup.mockClear()
+  mockCreateRestTxOperations.mockClear()
 }
 
 const mockCollaboratorClient = {
@@ -102,7 +104,7 @@ const testSdk: HulySdkDependencies = {
   createRestClient: mockFn().mockImplementation(() => ({
     getAccount: mockFn().mockResolvedValue({ uuid: "00000000-0000-4000-8000-000000000000" })
   })),
-  createRestTxOperations: mockFn().mockImplementation(() => Promise.resolve(mockTxOperations)),
+  createRestTxOperations: mockCreateRestTxOperations,
   getWorkspaceToken: mockFn().mockImplementation(() =>
     Promise.resolve({
       endpoint: "http://localhost:9090",
@@ -691,7 +693,7 @@ describe("HulyClient.layer (live layer with mocked externals)", () => {
   })
 
   describe("connection", () => {
-    it.effect("connects via connectRestWithRetry and creates client", () =>
+    it.effect("connects with the full model needed by authoritative metadata operations", () =>
       Effect.gen(function*() {
         const client = yield* HulyClient.pipe(Effect.provide(liveClientLayer))
         expect(client.findAll).toBeDefined()
@@ -703,6 +705,12 @@ describe("HulyClient.layer (live layer with mocked externals)", () => {
         expect(client.uploadMarkup).toBeDefined()
         expect(client.fetchMarkup).toBeDefined()
         expect(client.updateMarkup).toBeDefined()
+        expect(mockCreateRestTxOperations.mock.calls).toContainEqual([
+          "http://localhost:9090",
+          "ws-123",
+          "test-token",
+          true
+        ])
       }))
   })
 

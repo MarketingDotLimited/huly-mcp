@@ -1,5 +1,6 @@
 import { parseUploadFileParams, uploadFileParamsJsonSchema } from "../../domain/schemas.js"
 import { UploadFileResultSchema } from "../../domain/schemas/storage.js"
+import { UPLOAD_SOURCE_SEMANTICS } from "../../domain/schemas/upload-source.js"
 import { uploadFile } from "../../huly/operations/storage.js"
 import { defineStorageTool, type RegisteredTool } from "./registry.js"
 
@@ -10,7 +11,7 @@ export const storageTools = [
     {
       name: "upload_file",
       description:
-        "Upload a file to Huly storage. Provide ONE of: filePath (local file - preferred), fileUrl (fetch from URL), or data (base64 - for small files only). Returns blob ID and URL for referencing the file.",
+        `Upload a file to Huly storage. Provide one source: ${UPLOAD_SOURCE_SEMANTICS} Returns the blob ID and URL.`,
       category: CATEGORY,
       inputSchema: uploadFileParamsJsonSchema,
       resultSchema: UploadFileResultSchema

@@ -1,5 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
+import { BYTES_PER_MB, MAX_FILE_SIZE_MB } from "../../huly/errors-files.js"
 import {
   AttachmentByteSize,
   AttachmentDescription,
@@ -8,6 +9,7 @@ import {
   Base64FileData,
   LocalFilePath
 } from "./domain-values.js"
+import { withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 import { optionalOutput } from "./output-helpers.js"
 import {
   assertUpdateFields,
@@ -29,6 +31,12 @@ import {
   UrlString,
   withAtLeastOneRequired
 } from "./shared.js"
+import {
+  UPLOAD_BASE64_DATA_DESCRIPTION,
+  UPLOAD_FILE_PATH_DESCRIPTION,
+  UPLOAD_FILE_URL_DESCRIPTION,
+  UPLOAD_SOURCE_FIELD_DESCRIPTIONS
+} from "./upload-source.js"
 
 const DEFAULT_ATTACHMENT_PINNED = false
 
@@ -82,13 +90,13 @@ const FileSourceFields = {
     description: "MIME type of the file (e.g., 'image/png', 'application/pdf')"
   }),
   filePath: Schema.optional(LocalFilePath.annotations({
-    description: "Local file path to upload (preferred - avoids context flooding)"
+    description: UPLOAD_FILE_PATH_DESCRIPTION
   })),
   fileUrl: Schema.optional(UrlString.annotations({
-    description: "URL to fetch file from (for remote files)"
+    description: UPLOAD_FILE_URL_DESCRIPTION
   })),
   data: Schema.optional(Base64FileData.annotations({
-    description: "Base64-encoded file data (fallback for small files <10KB)"
+    description: `${UPLOAD_BASE64_DATA_DESCRIPTION} Upload limit: ${MAX_FILE_SIZE_MB} MiB.`
   })),
   description: Schema.optional(AttachmentDescription.annotations({
     description: "Attachment description"
@@ -99,6 +107,11 @@ const FileSourceFields = {
   kind: Schema.optional(AttachmentKindSchema.annotations({
     description: "Attachment subclass to create: attachment, embedding, or photo (default: attachment)."
   }))
+}
+
+const ATTACHMENT_UPLOAD_FIELD_DESCRIPTIONS = {
+  ...UPLOAD_SOURCE_FIELD_DESCRIPTIONS,
+  data: `${UPLOAD_BASE64_DATA_DESCRIPTION} Upload limit: ${MAX_FILE_SIZE_MB} MiB.`
 }
 
 const hasFileSource = (params: {
@@ -238,7 +251,10 @@ export type AddDocumentAttachmentParams = Schema.Schema.Type<typeof AddDocumentA
 
 export const listAttachmentsParamsJsonSchema = JSONSchema.make(ListAttachmentsParamsSchema)
 export const getAttachmentParamsJsonSchema = JSONSchema.make(GetAttachmentParamsSchema)
-export const addAttachmentParamsJsonSchema = JSONSchema.make(AddAttachmentParamsSchema)
+export const addAttachmentParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  JSONSchema.make(AddAttachmentParamsSchema),
+  ATTACHMENT_UPLOAD_FIELD_DESCRIPTIONS
+)
 export const updateAttachmentParamsJsonSchema = withAtLeastOneRequired(
   JSONSchema.make(UpdateAttachmentParamsSchema),
   UPDATE_ATTACHMENT_FIELDS
@@ -246,8 +262,14 @@ export const updateAttachmentParamsJsonSchema = withAtLeastOneRequired(
 export const deleteAttachmentParamsJsonSchema = JSONSchema.make(DeleteAttachmentParamsSchema)
 export const pinAttachmentParamsJsonSchema = JSONSchema.make(PinAttachmentParamsSchema)
 export const downloadAttachmentParamsJsonSchema = JSONSchema.make(DownloadAttachmentParamsSchema)
-export const addIssueAttachmentParamsJsonSchema = JSONSchema.make(AddIssueAttachmentParamsSchema)
-export const addDocumentAttachmentParamsJsonSchema = JSONSchema.make(AddDocumentAttachmentParamsSchema)
+export const addIssueAttachmentParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  JSONSchema.make(AddIssueAttachmentParamsSchema),
+  ATTACHMENT_UPLOAD_FIELD_DESCRIPTIONS
+)
+export const addDocumentAttachmentParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  JSONSchema.make(AddDocumentAttachmentParamsSchema),
+  ATTACHMENT_UPLOAD_FIELD_DESCRIPTIONS
+)
 
 export const parseListAttachmentsParams = Schema.decodeUnknown(ListAttachmentsParamsSchema)
 export const parseGetAttachmentParams = Schema.decodeUnknown(GetAttachmentParamsSchema)
@@ -258,6 +280,81 @@ export const parsePinAttachmentParams = Schema.decodeUnknown(PinAttachmentParams
 export const parseDownloadAttachmentParams = Schema.decodeUnknown(DownloadAttachmentParamsSchema)
 export const parseAddIssueAttachmentParams = Schema.decodeUnknown(AddIssueAttachmentParamsSchema)
 export const parseAddDocumentAttachmentParams = Schema.decodeUnknown(AddDocumentAttachmentParamsSchema)
+
+export const READ_ATTACHMENT_CONTENT_MAX_MIB = 4
+export const READ_ATTACHMENT_CONTENT_MAX_BYTES = READ_ATTACHMENT_CONTENT_MAX_MIB * BYTES_PER_MB
+export const SupportedAttachmentImageTypeSchema = Schema.Literal(
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp"
+).annotations({
+  title: "SupportedAttachmentImageType",
+  description: "Image MIME type supported for inline MCP image content."
+})
+export type SupportedAttachmentImageType = Schema.Schema.Type<typeof SupportedAttachmentImageTypeSchema>
+
+const CANONICAL_BASE64_PATTERN = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/
+const MIN_NON_EMPTY_BASE64_LENGTH = 4
+const canonicalBase64RoundTrips = (value: Base64FileData): boolean | string =>
+  Buffer.from(value, "base64").toString("base64") === value
+    ? true
+    : "Image data must use the canonical RFC 4648 representation with zero-valued padding bits."
+
+export const CanonicalBase64ImageData = Base64FileData.pipe(
+  Schema.minLength(MIN_NON_EMPTY_BASE64_LENGTH, {
+    message: () => "Image data must not be empty."
+  }),
+  Schema.pattern(CANONICAL_BASE64_PATTERN, {
+    message: () => "Image data must use the RFC 4648 alphabet and trailing padding where required."
+  }),
+  Schema.filter(canonicalBase64RoundTrips),
+  Schema.brand("CanonicalBase64ImageData")
+).annotations({
+  identifier: "CanonicalBase64ImageData",
+  title: "CanonicalBase64ImageData",
+  description:
+    "Non-empty canonical RFC 4648 base64 image data with trailing padding where required and zero-valued padding bits."
+})
+export type CanonicalBase64ImageData = Schema.Schema.Type<typeof CanonicalBase64ImageData>
+
+export const McpImageContentSchema = Schema.Struct({
+  type: Schema.Literal("image"),
+  data: CanonicalBase64ImageData,
+  mimeType: SupportedAttachmentImageTypeSchema
+}).annotations({
+  title: "McpImageContent",
+  description: "Schema-owned MCP image content block encoded at the protocol boundary."
+})
+export type McpImageContent = Schema.Schema.Type<typeof McpImageContentSchema>
+
+export const ReadAttachmentContentParamsSchema = Schema.Struct({
+  attachmentId: AttachmentId.annotations({
+    description: "Attachment ID whose image content should be returned."
+  })
+}).annotations({
+  title: "ReadAttachmentContentParams",
+  description: "Parameters for reading a supported image attachment as MCP image content."
+})
+export type ReadAttachmentContentParams = Schema.Schema.Type<typeof ReadAttachmentContentParamsSchema>
+
+export const ReadAttachmentContentMetadataSchema = Schema.Struct({
+  attachmentId: AttachmentId,
+  name: AttachmentFileName,
+  type: SupportedAttachmentImageTypeSchema,
+  size: AttachmentByteSize
+})
+export type ReadAttachmentContentMetadata = Schema.Schema.Type<typeof ReadAttachmentContentMetadataSchema>
+
+export const ReadAttachmentContentResultSchema = Schema.Struct({
+  _tag: Schema.Literal("ImageAttachmentContent"),
+  metadata: ReadAttachmentContentMetadataSchema,
+  data: CanonicalBase64ImageData
+})
+export type ReadAttachmentContentResult = Schema.Schema.Type<typeof ReadAttachmentContentResultSchema>
+
+export const readAttachmentContentParamsJsonSchema = JSONSchema.make(ReadAttachmentContentParamsSchema)
+export const parseReadAttachmentContentParams = Schema.decodeUnknown(ReadAttachmentContentParamsSchema)
 
 export const AttachmentSummaryWireSchema = Schema.Struct({
   id: AttachmentId,

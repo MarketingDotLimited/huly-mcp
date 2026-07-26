@@ -196,8 +196,8 @@ MCP_TRANSPORT=http MCP_HTTP_PORT=8080 MCP_HTTP_HOST=0.0.0.0 npx -y @firfi/huly-m
 
 The HTTP server supports both the existing SDK initialize-compatible Streamable HTTP flow and the 2026 stateless HTTP flow at the same `/mcp` endpoint. Dispatch is per request:
 
-- Requests with `MCP-Protocol-Version: 2026-07-28`, matching `_meta.io.modelcontextprotocol/protocolVersion`, or `server/discover` use the 2026 stateless dispatcher.
-- Requests without 2026 protocol signals continue through the SDK transport for compatibility with existing clients.
+- Requests with matching `_meta.io.modelcontextprotocol/protocolVersion`, `server/discover`, or an `Mcp-Method` header that does not also declare a legacy protocol version use the 2026 stateless dispatcher.
+- Requests that explicitly declare a non-2026 `MCP-Protocol-Version` continue through the SDK transport even when newer legacy clients send `Mcp-Method`.
 
 The 2026 path requires one JSON-RPC message per POST, `Accept: application/json, text/event-stream`, `Mcp-Method`, method-specific `Mcp-Name`, and per-request `_meta.io.modelcontextprotocol/*` client metadata. Huly credentials are still configured separately through env vars or supported `x-huly-*` headers.
 
@@ -321,14 +321,14 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `update_component` | Update fields on an existing Huly component. Only provided fields are modified. Description supports markdown. Markdown links to current-workspace Huly browse URLs with _class, _id, and label become native Huly references; external URLs and other-workspace browse URLs stay normal links. |
 | `set_issue_component` | Set or clear the component on a Huly issue. Pass null for component to clear it. |
 | `delete_component` | Permanently delete a Huly component. This action cannot be undone. |
-| `list_issues` | Query Huly issues with optional filters. Returns issues sorted by modification date (newest first). Supports filtering by project, exact workflow status name (status), Huly SDK task.statusCategory key (statusCategory: UnStarted, ToDo, Active, Won, Lost), assignee, component, and parentIssue (to list children of a specific issue). Supports searching by title substring (titleSearch) and description content (descriptionSearch). |
-| `get_issue` | Retrieve full details for a Huly issue including markdown description. Use this to view issue content, comments, or full metadata. |
-| `create_issue` | Create a new issue in a Huly project. Optionally set taskType by ID or display name; it is resolved within the target project's project type, and status is validated against that task type's workflow. Use list_task_types or get_project_type to discover valid task types and statuses. Optionally create as a sub-issue by specifying parentIssue. Description supports markdown formatting; markdown links to current-workspace Huly browse URLs with _class, _id, and label become native references, while external URLs stay normal links. Returns the created issue identifier. |
+| `list_issues` | Query Huly issues with optional filters. Returns issues sorted by modification date (newest first). Supports filtering by project, exact workflow status name (status), Huly SDK task.statusCategory key (statusCategory: UnStarted, ToDo, Active, Won, Lost), assignee, component, a human-readable attached label title (label, exact and case-insensitive), parentIssue (to list children of a specific issue), and isTopLevel (to return only native top-level issues). The label filter is applied before the result limit. Supports searching by title substring (titleSearch) and description content (descriptionSearch). Each result includes deterministic label summaries with title and available color; missing labels are an empty array, duplicate titles collapse case-insensitively while preferring a valid color, and unusable partial attachments are omitted with a tool warning. |
+| `get_issue` | Retrieve full details for a Huly issue including markdown description and deterministic attached-label summaries with title and available color. Missing labels are an empty array, duplicate titles collapse case-insensitively while preferring a valid color, and unusable partial attachments are omitted with a tool warning. Use this to view issue content, comments, classification, or full metadata. |
+| `create_issue` | Create a new issue in a Huly project. Omit parentIssue for a native top-level issue, or specify parentIssue to create a sub-issue. Optionally set taskType by ID or display name; it is resolved within the target project's project type, and status is validated against that task type's workflow. Use list_task_types or get_project_type to discover valid task types and statuses. Description supports markdown formatting; markdown links to current-workspace Huly browse URLs with _class, _id, and label become native references, while external URLs stay normal links. Returns the created issue identifier. |
 | `update_issue` | Update fields on an existing Huly issue. Optionally set taskType by ID or display name; it is resolved within the target project's project type, and the status is preserved only when valid for the new task type. Use list_task_types or get_project_type to discover valid task types and statuses. Only provided fields are modified. Description updates support markdown; markdown links to current-workspace Huly browse URLs with _class, _id, and label become native references, while external URLs stay normal links. |
 | `add_issue_label` | Add a tag/label to a Huly issue. Creates the tag if it doesn't exist in the project. |
 | `remove_issue_label` | Remove a tag/label from a Huly issue. Detaches the label reference; does not delete the label definition. |
 | `delete_issue` | Permanently delete a Huly issue. This action cannot be undone. |
-| `move_issue` | Move an issue to a new parent (making it a sub-issue) or to top-level (null). Updates parent/child relationships and sub-issue counts. |
+| `move_issue` | Move an issue to a new parent (making it a sub-issue), or pass null to restore its native top-level shape. Updates parent/child relationships and sub-issue counts. |
 | `list_issue_templates` | List issue templates in a Huly project. Templates define reusable issue configurations. Returns templates sorted by modification date (newest first). |
 | `get_issue_template` | Retrieve full details for a Huly issue template including children (sub-task templates). Use this to view template content, default values, and child template IDs. |
 | `create_issue_template` | Create a new issue template in a Huly project. Templates define default values for new issues. Template and child descriptions support markdown. Markdown links to current-workspace Huly browse URLs with _class, _id, and label become native Huly references; external URLs and other-workspace browse URLs stay normal links. Optionally include children (sub-task templates) that will become sub-issues when creating issues from this template. Returns the created template ID and title. |
@@ -388,7 +388,7 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 
 | Tool | Description |
 |------|-------------|
-| `upload_file` | Upload a file to Huly storage. Provide ONE of: filePath (local file - preferred), fileUrl (fetch from URL), or data (base64 - for small files only). Returns blob ID and URL for referencing the file. |
+| `upload_file` | Upload a file to Huly storage. Provide one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. Returns the blob ID and URL. |
 
 ### Attachments
 
@@ -396,13 +396,14 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 |------|-------------|
 | `list_attachments` | List attachments on a Huly object (issue, document, etc.). Returns attachments sorted by modification date (newest first). |
 | `get_attachment` | Retrieve full details for a Huly attachment including download URL. |
-| `add_attachment` | Add an attachment to a Huly object. Provide ONE of: filePath (local file - preferred), fileUrl (fetch from URL), or data (base64). Returns the attachment ID and download URL. |
+| `add_attachment` | Add an attachment to a Huly object. Provide one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. Returns the attachment ID and download URL. |
 | `update_attachment` | Update attachment metadata (description, pinned status). |
 | `delete_attachment` | Permanently delete an attachment. This action cannot be undone. |
 | `pin_attachment` | Pin or unpin an attachment. |
 | `download_attachment` | Get download URL for an attachment along with file metadata (name, type, size). |
-| `add_issue_attachment` | Add an attachment to a Huly issue. Convenience method that finds the issue by project and identifier. Provide ONE of: filePath, fileUrl, or data. |
-| `add_document_attachment` | Add an attachment to a Huly document. Convenience method that finds the document by teamspace and title/ID. Provide ONE of: filePath, fileUrl, or data. |
+| `read_attachment_content` | Return a supported image attachment (JPEG, PNG, GIF, or WebP; maximum 4 MiB) as one MCP image content block plus metadata-only structured content. Use this to inspect screenshots or pictures directly. For non-image, unsupported, or oversized files, call download_attachment to get a URL instead. |
+| `add_issue_attachment` | Add an attachment to a Huly issue resolved by project and identifier. Provide one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. |
+| `add_document_attachment` | Add an attachment to a Huly document resolved by teamspace and title/ID. Provide one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. |
 | `save_attachment` | Save/bookmark an attachment for later reference. Idempotent when already saved. |
 | `unsave_attachment` | Remove an attachment from saved/bookmarks. |
 | `list_saved_attachments` | List saved/bookmarked attachments for the current user. |
@@ -478,7 +479,7 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `delete_thread_reply` | Permanently delete a thread reply. This action cannot be undone. |
 | `list_chat_message_attachments` | List files attached directly to a Huly chat message target. target.kind supports channel_message, dm_message, and thread_reply; the tool resolves channel names and one-to-one DM participant display names for you. |
 | `get_chat_message_attachment` | Get one file attached directly to a Huly channel message, direct-message message, or thread reply. The attachmentId must belong to the resolved target. |
-| `add_chat_message_attachment` | Attach a file directly to a Huly channel message, direct-message message, or thread reply. Provide filename, contentType, and exactly one of filePath, fileUrl, or data. |
+| `add_chat_message_attachment` | Attach a file directly to a Huly channel message, direct-message message, or thread reply. Provide filename, contentType, and exactly one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. |
 | `update_chat_message_attachment` | Update description and/or pinned state for a file attached directly to a Huly channel message, direct-message message, or thread reply. The attachmentId must belong to the resolved target. |
 | `delete_chat_message_attachment` | Delete one file attached directly to a Huly channel message, direct-message message, or thread reply. The attachmentId must belong to the resolved target. |
 
@@ -505,10 +506,10 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 
 | Tool | Description |
 |------|-------------|
-| `log_time` | Log time spent on a Huly issue. Records a time entry with optional description. Time value is in minutes. |
-| `get_time_report` | Get time tracking report for a specific Huly issue. Shows total time, estimation, remaining time, and all time entries. |
-| `list_time_spend_reports` | List all time entries across issues. Supports filtering by project and date range. Returns entries sorted by date (newest first). |
-| `get_detailed_time_report` | Get detailed time breakdown for a project. Shows total time grouped by issue and by employee. Supports date range filtering. |
+| `log_time` | Log time spent on a Huly issue. Records a time entry with optional description. Values are hours (Huly native unit): 0.25 = 15 minutes; 8 = one work day. |
+| `get_time_report` | Get time tracking report for a specific Huly issue. Shows total time, estimation, remaining time, and all time entries. Values are hours (Huly native unit): 0.25 = 15 minutes; 8 = one work day. |
+| `list_time_spend_reports` | List all time entries across issues. Supports filtering by project and date range. Returns entries sorted by date (newest first). Values are hours (Huly native unit): 0.25 = 15 minutes; 8 = one work day. |
+| `get_detailed_time_report` | Get detailed time breakdown for a project. Shows total time grouped by issue and by employee. Supports date range filtering. Values are hours (Huly native unit): 0.25 = 15 minutes; 8 = one work day. |
 | `list_work_slots` | List scheduled work slots created by schedule_todo, Huly UI, or other clients. Shows planned time blocks attached to ToDos. Supports filtering by employee and date range. |
 | `start_timer` | Start a client-side timer on a Huly issue. Validates the issue exists and returns a start timestamp. Use log_time to record the elapsed time when done. |
 | `stop_timer` | Stop a client-side timer on a Huly issue. Returns the stop timestamp. Calculate elapsed time from start/stop timestamps and use log_time to record it. |
@@ -534,7 +535,7 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 
 | Tool | Description |
 |------|-------------|
-| `list_activity` | List activity messages for a Huly issue, document, channel, or raw Huly object. Prefer friendly targets: project+issueIdentifier for issues, teamspace+document for documents, or channel for channels. Advanced callers may pass objectId+objectClass directly. Returns activity sorted by date (newest first). |
+| `list_activity` | List activity messages for a Huly issue, document, channel, or raw Huly object. Prefer friendly targets: project+issueIdentifier for issues, teamspace+document for documents, or channel for channels. Advanced callers may pass objectId+objectClass directly. Returns activity sorted by date (newest first). Legitimately absent or null optional actor, message, class, and metadata fields are omitted from each item. |
 | `get_activity_message` | Get a single activity message by ID, including subclass metadata when available. |
 | `pin_activity_message` | Pin or unpin an activity message. Idempotent when the pin state already matches. |
 | `list_activity_filters` | List configured activity filters in display order. |
@@ -555,8 +556,8 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 
 | Tool | Description |
 |------|-------------|
-| `list_notification_providers` | List notification providers such as inbox, push, and sound. Use provider IDs from this tool when updating provider or type settings. |
-| `list_notification_types` | List notification types. Use type IDs from this tool when updating provider-specific notification type settings. |
+| `list_notification_providers` | List model-declared notification providers such as inbox, push, and sound. Use returned provider IDs for setting updates. Older REST servers may return compatibility metadata with an explicit tool warning. |
+| `list_notification_types` | List model-declared notification types. Use returned type IDs for provider-specific setting updates. Older REST servers may return compatibility metadata with an explicit tool warning. |
 | `list_notifications` | List inbox notifications. Returns notifications sorted by modification date (newest first). Supports filtering by read/archived status. |
 | `get_notification` | Retrieve full details for a notification. Use this to view notification content and metadata. |
 | `mark_notification_read` | Mark a notification as read. Idempotent: returns success when the notification is already read. |
@@ -575,8 +576,8 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `subscribe_to_object_notifications` | Subscribe the authenticated account to notifications for a raw Huly object by adding a core collaborator row. Idempotent when already subscribed. |
 | `unsubscribe_from_object_notifications` | Unsubscribe the authenticated account from notifications for a raw Huly object by removing its collaborator row. Idempotent when already absent. |
 | `list_notification_settings` | List notification provider settings. Returns current notification preferences. |
-| `update_notification_provider_setting` | Update notification provider setting. Enable or disable notifications for a specific provider. |
-| `update_notification_type_setting` | Enable or disable one notification type for one provider. Creates the type setting only when the provider has a configurable setting in this workspace. |
+| `update_notification_provider_setting` | Enable or disable a notification provider setting. Validates providerId against authoritative model definitions when available; compatible REST fallback is preserved and explicitly warned. |
+| `update_notification_type_setting` | Enable or disable one notification type for one provider. Validates both IDs against authoritative model definitions when available, and creates a type setting only when the provider is configurable. Compatible REST fallback is preserved and explicitly warned. |
 | `get_unread_notification_count` | Get the count of unread notifications. |
 
 ### Workspace
@@ -641,10 +642,15 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 
 | Tool | Description |
 |------|-------------|
+| `list_card_comments` | List comments genuinely attached to one Huly card, oldest first. Resolves cardSpace by exact name or ID and card by exact title or ID. Includes comments created by this MCP server and compatible Huly UI card-comment conventions. |
+| `add_card_comment` | Add a markdown comment to one Huly card, resolving the card space by exact name or ID and the card by exact title or ID. Markdown links to current-workspace Huly browse URLs with _class, _id, and label become native Huly references; external URLs and other-workspace browse URLs stay normal links. |
+| `update_card_comment` | Update one comment that belongs to the resolved Huly card. Resolves the card space by exact name or ID and the card by exact title or ID. Markdown links to current-workspace Huly browse URLs with _class, _id, and label become native Huly references; external URLs and other-workspace browse URLs stay normal links. |
+| `delete_card_comment` | Permanently delete one comment that belongs to the resolved Huly card. Resolves the card space by exact name or ID and the card by exact title or ID. This action cannot be undone. |
 | `list_card_spaces` | List all Huly card spaces. Returns card spaces sorted by name. Card spaces are containers for cards. |
 | `list_master_tags` | List master tags (card types) available in a Huly card space. Master tags define the type/schema of cards that can be created in a space. |
 | `list_cards` | List cards in a Huly card space. Returns cards sorted by modification date (newest first). Supports filtering by type (master tag), title substring, and content search. |
-| `get_card` | Retrieve full details for a Huly card including markdown content. Use this to view card content and metadata. |
+| `get_card` | Retrieve full details for a Huly card including markdown content. When Huly supplies a coherent version number and chain identity, returns them together in one version object; partial or null version fields are omitted. |
+| `list_card_versions` | Read one page of a Huly card's version history using any version card ID or exact title. Returns deterministic oldest-version-first entries, an authoritative total for the full history, and hasMore when the limit truncates the page. Unversioned cards return one entry without version metadata. This tool never creates or restores versions. |
 | `create_card` | Create a new card in a Huly card space. Requires a master tag (card type). Content supports markdown formatting. Markdown links to current-workspace Huly browse URLs with _class, _id, and label become native Huly references; external URLs and other-workspace browse URLs stay normal links. Returns the created card id. |
 | `update_card` | Update fields on an existing Huly card. Only provided fields are modified. Content updates support markdown. Markdown links to current-workspace Huly browse URLs with _class, _id, and label become native Huly references; external URLs and other-workspace browse URLs stay normal links. |
 | `delete_card` | Permanently delete a Huly card. This action cannot be undone. |
@@ -663,7 +669,7 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 |------|-------------|
 | `list_custom_fields` | List custom field definitions in the workspace. Returns fields with their labels, types, and owner class info. Custom fields are created in the Huly UI on Card types, Issue types, or other classes. Use targetClass to filter fields for a specific class. |
 | `get_custom_field_values` | Read custom field values from a document. Pass the document's ID and class (from list_cards, list_issues, etc.). Returns all custom field values found on the document with their labels and types. |
-| `set_custom_field` | Set a custom field value on a document. Requires the document ID, class, field ID (from list_custom_fields), and value. Values are auto-parsed: numbers from numeric strings, booleans from 'true'/'false', strings as-is. |
+| `set_custom_field` | Set a custom field value on a document. Requires the document ID, class, field ID (from list_custom_fields), and value. Values are parsed before Huly writes: numbers from numeric strings, booleans from 'true'/'false', and strings as-is. Date fields accept only a real YYYY-MM-DD calendar date (UTC midnight) or a canonical non-negative epoch-millisecond string from 0 through 8640000000000000. If a date is rejected, remove any time, time-zone suffix, sign, whitespace, decimal, or exponent and retry with one of those exact forms. |
 
 ### Drive
 
@@ -685,8 +691,8 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `delete_drive_file_comment` | Permanently delete a comment from a Drive file resolved by filePath or fileId. Provide only one locator. This deletes the comment, not the file. |
 | `list_drive_file_activity` | List activity messages for a Drive file resolved by filePath or fileId. Provide only one locator. Returns activity sorted by date, newest first. |
 | `create_drive_folder` | Idempotently create a Drive folder path, creating missing parents like mkdir -p. Returns created=false when the full folder path already exists. |
-| `upload_drive_file` | Upload a file into Drive at a full path including filename. Provide exactly one source: filePath, fileUrl, or base64 data. By default createParents=true creates missing parent folders and reports them. |
-| `upload_drive_file_version` | Upload a new version for an existing Drive file resolved by file id or file path. Provide exactly one source: filePath, fileUrl, or base64 data. This increments the file version counter and makes the uploaded version current. |
+| `upload_drive_file` | Upload a file into Drive at a full path including filename. Provide exactly one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. By default createParents=true creates missing parent folders and reports them. |
+| `upload_drive_file_version` | Upload a new version for an existing Drive file resolved by file id or file path. Provide exactly one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. This increments the file version counter and makes the uploaded version current. |
 | `move_drive_item` | Move a Drive item, meaning a file or folder, to another existing folder path in the same Drive without renaming it. Idempotent when the item is already in that folder. Rejects sibling title collisions and rejects moving a folder into itself or a descendant. |
 | `rename_drive_item` | Rename a Drive item, meaning a file or folder, in its current folder. Idempotent when the title is unchanged. Rejects sibling title collisions; use move_drive_item to change folders. |
 | `delete_drive_item` | Permanently delete a Drive item, meaning a file or folder. Files are deleted with their version records. Folders must be empty; non-empty folders fail with child count and child summaries. This is permanent deletion, not archive or trash. |
@@ -699,12 +705,12 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 |------|-------------|
 | `list_inventory_product_attachments` | List files attached directly to an inventory product resolved by product ID or exact name. Pass category to disambiguate duplicate product names. |
 | `get_inventory_product_attachment` | Get one file attached directly to an inventory product. The attachmentId must belong to the resolved product. |
-| `add_inventory_product_attachment` | Add a file to an inventory product resolved by product ID or exact name. Provide exactly one of filePath, fileUrl, or data. |
+| `add_inventory_product_attachment` | Add a file to an inventory product resolved by product ID or exact name. Provide exactly one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. |
 | `update_inventory_product_attachment` | Update description and/or pinned state for a file attached directly to an inventory product. The attachmentId must belong to the resolved product. |
 | `delete_inventory_product_attachment` | Permanently delete a file attached directly to an inventory product. The attachmentId must belong to the resolved product. |
 | `list_inventory_product_photos` | List photos attached directly to an inventory product resolved by product ID or exact name. Pass category to disambiguate duplicate product names. |
 | `get_inventory_product_photo` | Get one photo attached directly to an inventory product. The photoId must belong to the resolved product. |
-| `add_inventory_product_photo` | Add a photo to an inventory product using Huly's product photos collection. Provide exactly one of filePath, fileUrl, or data. |
+| `add_inventory_product_photo` | Add a photo to an inventory product using Huly's product photos collection. Provide exactly one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. |
 | `update_inventory_product_photo` | Update description and/or pinned state for a photo attached directly to an inventory product. The photoId must belong to the resolved product. |
 | `delete_inventory_product_photo` | Permanently delete a photo attached directly to an inventory product. The photoId must belong to the resolved product. |
 | `list_inventory_product_comments` | List comments attached directly to an inventory product resolved by product ID or exact name. Returns comments oldest first. |
@@ -766,7 +772,7 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `complete_todo` | Complete a Planner ToDo by setting doneOn. Huly may trim future work slots and run issue automation when the ToDo is attached to an issue. |
 | `reopen_todo` | Reopen a completed Planner ToDo by clearing doneOn. Human locators search completed ToDos by default; raw todoId locators target that exact ToDo. |
 | `delete_todo` | Delete a Planner ToDo. This is destructive; deleting the last open issue ToDo can cause Huly classic issue status automation. |
-| `schedule_todo` | Schedule a Planner ToDo by raw todoId or human locator, creating a work slot with ToDo title, description, and visibility metadata. |
+| `schedule_todo` | Schedule a Planner ToDo by raw todoId or human locator. Creates a Planner-visible blocking work slot on the authenticated user's personal calendar, owned by their primary social identity and including them as a participant. Fails actionably when the identity, employee, or writable calendar prerequisite is unavailable. |
 | `unschedule_todo` | Remove ToDo work slots. Pass either workSlotId to remove one slot, locator with scope=all, or locator with scope=future and optional from. |
 
 ### Preferences
@@ -808,7 +814,7 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `delete_recruiting_comment` | Delete one comment attached directly to a Recruiting vacancy, candidate, applicant, review, or opinion. The commentId must belong to the resolved target. |
 | `list_recruiting_attachments` | List files attached directly to a Recruiting vacancy, candidate, applicant, or opinion target. Review attachments are intentionally unsupported unless the model exposes that collection. |
 | `get_recruiting_attachment` | Get one file attached directly to a Recruiting vacancy, candidate, applicant, or opinion. The attachmentId must belong to the resolved target. |
-| `add_recruiting_attachment` | Attach a file to a Recruiting vacancy, candidate, applicant, or opinion target. Provide exactly one of filePath, fileUrl, or data, plus filename and contentType. |
+| `add_recruiting_attachment` | Attach a file to a Recruiting vacancy, candidate, applicant, or opinion target. Provide filename, contentType, and exactly one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. |
 | `update_recruiting_attachment` | Update description and/or pinned state for a file attached directly to a Recruiting vacancy, candidate, applicant, or opinion. The attachmentId must belong to the resolved target. |
 | `delete_recruiting_attachment` | Delete one file attached directly to a Recruiting vacancy, candidate, applicant, or opinion. The attachmentId must belong to the resolved target. |
 | `list_recruiting_activity` | List read-only activity messages for a Recruiting vacancy, candidate, applicant, or review target resolved by friendly Recruiting identifiers. Opinions are intentionally unsupported. |
