@@ -693,7 +693,7 @@ describe("HulyClient.layer (live layer with mocked externals)", () => {
   })
 
   describe("connection", () => {
-    it.effect("connects via connectRestWithRetry and creates client", () =>
+    it.effect("connects with the full model needed by authoritative metadata operations", () =>
       Effect.gen(function*() {
         const client = yield* HulyClient.pipe(Effect.provide(liveClientLayer))
         expect(client.findAll).toBeDefined()

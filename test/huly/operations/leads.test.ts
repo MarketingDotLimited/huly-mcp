@@ -461,7 +461,8 @@ describe("Lead Operations", () => {
         const warnings = yield* diagnostics.drainWarnings
 
         expect(assertAt(result, 0).status).toBe("Active")
-        expect(warnings).toEqual([])
+        expect(warnings).toHaveLength(1)
+        expect(assertAt(warnings, 0).message).toContain("missing: 1")
       }))
 
     it.effect("propagates a server connection failure when model status metadata is unavailable", () =>

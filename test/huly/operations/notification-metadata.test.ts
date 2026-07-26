@@ -1,6 +1,6 @@
 /* eslint-disable no-restricted-syntax, @typescript-eslint/consistent-type-assertions -- SDK phantom fixture types have no runtime constructors */
 import { describe, it } from "@effect/vitest"
-import type { Doc, FindResult, Ref } from "@hcengineering/core"
+import { type Doc, type FindOptions, type FindResult, type Ref, SortingOrder } from "@hcengineering/core"
 import type { NotificationProvider, NotificationType } from "@hcengineering/notification"
 import { Effect } from "effect"
 import { expect } from "vitest"
@@ -58,6 +58,7 @@ const layerWithMetadata = (config: {
   readonly modelTypes?: ReadonlyArray<unknown>
   readonly remoteTypes?: ReadonlyArray<unknown>
   readonly failModel?: boolean
+  readonly failRemote?: boolean
 }) => {
   const select = <T extends Doc>(
     classRef: Ref<Doc>,
@@ -73,8 +74,20 @@ const layerWithMetadata = (config: {
 
     return [...rows] as unknown as FindResult<T>
   }
-  const findAll: HulyClientOperations["findAll"] = (classRef) =>
-    Effect.succeed(select(classRef, config.remoteProviders ?? [], config.remoteTypes ?? []))
+  const findAll: HulyClientOperations["findAll"] = (classRef, _query, options) => {
+    if (config.failRemote === true) {
+      return Effect.fail(new HulyConnectionError({ message: "remote metadata unavailable" }))
+    }
+    const rows = select(classRef, config.remoteProviders ?? [], config.remoteTypes ?? [])
+    const providerOptions: FindOptions<NotificationProvider> | undefined = classRef
+        === notification.class.NotificationProvider
+      ? options as FindOptions<NotificationProvider> | undefined
+      : undefined
+    const sorted = providerOptions?.sort?.order === SortingOrder.Ascending
+      ? [...rows as unknown as FindResult<NotificationProvider>].sort((left, right) => left.order - right.order)
+      : [...rows]
+    return Effect.succeed(sorted.slice(0, options?.limit) as FindResult<never>)
+  }
   const findAllInModel: HulyClientOperations["findAllInModel"] = (classRef) =>
     config.failModel === true
       ? Effect.fail(new HulyConnectionError({ message: "local model unavailable" }))
@@ -119,6 +132,24 @@ describe("notification model metadata", () => {
       expect(assertAt(warnings, 0).message).toContain("server compatibility fallback")
     }))
 
+  it.effect("sorts remote providers before applying the requested limit", () =>
+    Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
+      const result = yield* listNotificationProviders({ limit: 2 }).pipe(
+        Effect.provide(layerWithMetadata({
+          failModel: true,
+          remoteProviders: [
+            provider("provider:last", "Last", 30),
+            provider("provider:first", "First", 10),
+            provider("provider:middle", "Middle", 20)
+          ]
+        })),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+
+      expect(result.map((item) => item.id)).toEqual(["provider:first", "provider:middle"])
+    }))
+
   it.effect("uses authoritative model notification types without warnings", () =>
     Effect.gen(function*() {
       const diagnostics = yield* makeDiagnosticsScope
@@ -154,6 +185,25 @@ describe("notification model metadata", () => {
       expect(yield* diagnostics.drainWarnings).toEqual([])
     }))
 
+  it.effect("validates an exact provider ID outside the 200-item list window", () =>
+    Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
+      const modelProviders = Array.from(
+        { length: 201 },
+        (_, index) => provider(`provider:${index}`, `Provider ${index}`, index)
+      )
+      const result = yield* updateNotificationProviderSetting({
+        providerId: notificationProviderId("provider:200"),
+        enabled: true
+      }).pipe(
+        Effect.provide(layerWithMetadata({ modelProviders })),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+
+      expect(result.providerId).toBe("provider:200")
+      expect(yield* diagnostics.drainWarnings).toEqual([])
+    }))
+
   it.effect("rejects type IDs absent from authoritative model definitions", () =>
     Effect.gen(function*() {
       const diagnostics = yield* makeDiagnosticsScope
@@ -175,6 +225,31 @@ describe("notification model metadata", () => {
       expect(yield* diagnostics.drainWarnings).toEqual([])
     }))
 
+  it.effect("validates an exact type ID outside the 200-item list window", () =>
+    Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
+      const modelTypes = Array.from(
+        { length: 201 },
+        (_, index) => notificationType(`type:${index}`, `Type ${index}`)
+      )
+      const error = yield* Effect.flip(
+        updateNotificationTypeSetting({
+          providerId: notificationProviderId("provider:known"),
+          typeId: notificationTypeId("type:200"),
+          enabled: true
+        }).pipe(
+          Effect.provide(layerWithMetadata({
+            modelProviders: [provider("provider:known", "Known provider")],
+            modelTypes
+          })),
+          Effect.provideService(Diagnostics, diagnostics.service)
+        )
+      )
+
+      expect(error._tag).toBe("NotificationProviderNotConfigurableError")
+      expect(yield* diagnostics.drainWarnings).toEqual([])
+    }))
+
   it.effect("keeps compatible REST provider updates usable and warns when caller IDs must be trusted", () =>
     Effect.gen(function*() {
       const diagnostics = yield* makeDiagnosticsScope
@@ -193,6 +268,26 @@ describe("notification model metadata", () => {
         "notification_metadata_degraded"
       ])
       expect(assertAt(warnings, 1).message).toContain("trusted caller-supplied provider ID")
+    }))
+
+  it.effect("accepts an exact provider ID returned by the REST compatibility lookup", () =>
+    Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
+      const result = yield* updateNotificationProviderSetting({
+        providerId: notificationProviderId("provider:remote"),
+        enabled: true
+      }).pipe(
+        Effect.provide(layerWithMetadata({
+          failModel: true,
+          remoteProviders: [provider("provider:remote", "Remote provider")]
+        })),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+      const warnings = yield* diagnostics.drainWarnings
+
+      expect(result.providerId).toBe("provider:remote")
+      expect(warnings).toHaveLength(1)
+      expect(assertAt(warnings, 0).message).toContain("server compatibility fallback")
     }))
 
   it.effect("omits malformed authoritative rows and presentation fields with actionable warnings", () =>
@@ -289,6 +384,21 @@ describe("notification model metadata", () => {
 
       expect(result.map((type) => type.id)).toEqual(["type:remote"])
       expect(assertAt(warnings, 0).message).toContain("1 malformed definition row")
+    }))
+
+  it.effect("propagates a typed connection error when model and remote metadata lookups fail", () =>
+    Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
+      const error = yield* Effect.flip(
+        listNotificationProviders({}).pipe(
+          Effect.provide(layerWithMetadata({ failModel: true, failRemote: true })),
+          Effect.provideService(Diagnostics, diagnostics.service)
+        )
+      )
+
+      expect(error._tag).toBe("HulyConnectionError")
+      expect(error.message).toContain("remote metadata unavailable")
+      expect(yield* diagnostics.drainWarnings).toEqual([])
     }))
 
   it.effect("warns when invalid model rows force partial REST presentation metadata", () =>

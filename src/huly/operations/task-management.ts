@@ -43,7 +43,13 @@ import type { Diagnostics } from "../diagnostics.js"
 import { HulyConnectionError, HulyError } from "../errors.js"
 import { core, task, tracker } from "../huly-plugins.js"
 import { listTotal } from "./counts.js"
-import { findStatusDocs, resolveByStatusRef, uniqueStatusRefs, workflowStatusFromRef } from "./issues-shared.js"
+import {
+  findStatusDocs,
+  resolveByStatusRef,
+  type StatusMetadata,
+  uniqueStatusRefs,
+  workflowStatusFromRef
+} from "./issues-shared.js"
 import { hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
@@ -111,7 +117,7 @@ const encodeOrConnectionError = <A, I, R>(
 interface WorkflowData {
   readonly projectType: ProjectType
   readonly taskTypes: ReadonlyArray<TaskType>
-  readonly statuses: ReadonlyArray<Status>
+  readonly statuses: ReadonlyArray<StatusMetadata>
 }
 
 const uniqueStatusIds = (projectType: ProjectType): Array<Ref<Status>> =>
@@ -129,25 +135,20 @@ const uniqueProjectStatuses = (statuses: ReadonlyArray<ProjectStatus>): Array<Pr
 const getStatusDocs = (
   client: HulyClientOperations,
   statusIds: ReadonlyArray<Ref<Status>>
-): Effect.Effect<ReadonlyArray<Status>, HulyClientError, Diagnostics> =>
+): Effect.Effect<ReadonlyArray<StatusMetadata>, HulyClientError, Diagnostics> =>
   statusIds.length === 0
     ? Effect.succeed([])
     : findStatusDocs(client, statusIds)
 
-const fallbackStatusDoc = (statusId: Ref<Status>): Status => ({
+const fallbackStatusDoc = (statusId: Ref<Status>): StatusMetadata => ({
   _id: statusId,
-  _class: core.class.Status,
-  space: core.space.Model,
-  modifiedOn: 0,
-  modifiedBy: core.account.System,
-  ofAttribute: tracker.attribute.IssueStatus,
   name: workflowStatusFromRef(statusId).name
-} satisfies Status)
+})
 
 const statusDocsWithFallbacks = (
   statusIds: ReadonlyArray<Ref<Status>>,
-  statusDocs: ReadonlyArray<Status>
-): Array<Status> => resolveByStatusRef(statusIds, statusDocs, (statusDoc) => statusDoc, fallbackStatusDoc)
+  statusDocs: ReadonlyArray<StatusMetadata>
+): Array<StatusMetadata> => resolveByStatusRef(statusIds, statusDocs, (statusDoc) => statusDoc, fallbackStatusDoc)
 
 const getTaskTypes = (
   client: HulyClientOperations,
@@ -215,7 +216,7 @@ const statusTaskTypeIds = (projectType: ProjectType, statusId: Ref<Status>): Rea
     .filter((status) => status._id === statusId)
     .map((status) => status.taskType)
 
-const statusSummary = (projectType: ProjectType, status: Status): IssueStatusSummary => ({
+const statusSummary = (projectType: ProjectType, status: StatusMetadata): IssueStatusSummary => ({
   id: IssueStatusId.make(status._id),
   name: status.name,
   category: toCategoryValue(status.category),
@@ -299,12 +300,13 @@ const existingTaskTypeByName = (
   taskTypes.find((taskType) => normalizeForComparison(taskType.name) === normalizeForComparison(name))
 
 const existingStatusByName = (
-  statuses: ReadonlyArray<Status>,
+  statuses: ReadonlyArray<StatusMetadata>,
   name: string
-): Status | undefined => statuses.find((status) => normalizeForComparison(status.name) === normalizeForComparison(name))
+): StatusMetadata | undefined =>
+  statuses.find((status) => normalizeForComparison(status.name) === normalizeForComparison(name))
 
 const requireStatusCategoryMatch = (
-  status: Status,
+  status: StatusMetadata,
   requestedCategory: StatusCategoryValue
 ): Effect.Effect<void, HulyError> => {
   const actualCategory = toCategoryValue(status.category)

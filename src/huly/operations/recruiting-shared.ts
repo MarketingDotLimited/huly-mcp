@@ -50,7 +50,13 @@ import {
 import { contact, core, task } from "../huly-plugins.js"
 import { recruitIds } from "../recruit-plugin.js"
 import type { Applicant, Candidate, Vacancy } from "../types/recruiting.js"
-import { findStatusDocs, resolveByStatusRef, uniqueStatusRefs, workflowStatusFromRef } from "./issues-shared.js"
+import {
+  findStatusDocs,
+  resolveByStatusRef,
+  type StatusMetadata,
+  uniqueStatusRefs,
+  workflowStatusFromRef
+} from "./issues-shared.js"
 import { clampLimit, escapeLikeWildcards, hulyQuery, type StrictDocumentQuery } from "./query-helpers.js"
 import { candidateEmail, toCandidateRef } from "./recruiting-candidate-shared.js"
 import { toRef } from "./sdk-boundary.js"
@@ -95,7 +101,7 @@ const statusCategoryValueFromRef = (category: Ref<StatusCategory> | undefined): 
     ? UnknownStatusCategoryValue
     : StatusCategoryEntries.find((entry) => entry.ref === category)?.key ?? UnknownStatusCategoryValue
 
-const workflowStatusFromDoc = (doc: Status): RecruitingStatusSummary => ({
+const workflowStatusFromDoc = (doc: StatusMetadata): RecruitingStatusSummary => ({
   id: IssueStatusId.make(doc._id),
   name: StatusName.make(doc.name),
   category: statusCategoryValueFromRef(doc.category)
@@ -112,7 +118,7 @@ const workflowStatusSummaryFromRef = (statusRef: Ref<Status>): RecruitingStatusS
 
 const statusSummariesFromRefs = (
   statusRefs: ReadonlyArray<Ref<Status>>,
-  statusDocs: ReadonlyArray<Status>
+  statusDocs: ReadonlyArray<StatusMetadata>
 ): ReadonlyArray<RecruitingStatusSummary> =>
   resolveByStatusRef(statusRefs, statusDocs, workflowStatusFromDoc, workflowStatusSummaryFromRef)
 

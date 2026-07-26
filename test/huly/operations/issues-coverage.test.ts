@@ -20,13 +20,14 @@ import type {
   Project as HulyProject
 } from "@hcengineering/tracker"
 import { IssuePriority, TimeReportDayType } from "@hcengineering/tracker"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { expect } from "vitest"
 import { Timestamp } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
+import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
 import { HulyConnectionError, type InvalidStatusError, type PersonNotFoundError } from "../../../src/huly/errors.js"
 import { contact, core, task, tracker } from "../../../src/huly/huly-plugins.js"
-import { findStatusDocs } from "../../../src/huly/operations/issues-shared.js"
+import { findStatusDocs, StatusMetadataSchema } from "../../../src/huly/operations/issues-shared.js"
 import { createIssue, getIssue, listIssues, updateIssue } from "../../../src/huly/operations/issues.js"
 import { assertAt, assertExists } from "../../../src/utils/assertions.js"
 import { componentIdentifier, email, issueIdentifier, projectIdentifier, statusName } from "../../helpers/brands.js"
@@ -371,6 +372,80 @@ const createTestLayerWithMocks = (config: MockConfig) => {
 }
 
 describe("Issues Coverage - resolveStatusName", () => {
+  it.effect("round-trips minimal status metadata through its boundary schema", () =>
+    Effect.gen(function*() {
+      const parsedWithCategory = yield* Schema.decodeUnknown(StatusMetadataSchema)({
+        _id: "status-active",
+        name: "Active",
+        category: task.statusCategory.Active
+      })
+      const parsedWithoutCategory = yield* Schema.decodeUnknown(StatusMetadataSchema)({
+        _id: "status-todo",
+        name: "Todo"
+      })
+      const withCategory = yield* Schema.encode(StatusMetadataSchema)(parsedWithCategory)
+      const withoutCategory = yield* Schema.encode(StatusMetadataSchema)(parsedWithoutCategory)
+
+      expect(withCategory).toEqual({
+        _id: "status-active",
+        name: "Active",
+        category: task.statusCategory.Active
+      })
+      expect(withoutCategory).toEqual({ _id: "status-todo", name: "Todo" })
+    }))
+
+  it.effect("warns when authoritative status categories lose semantic fidelity", () =>
+    Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
+      const statusRows = [
+        { _id: "status-missing-category", name: "Missing" },
+        { _id: "status-empty-category", name: "Empty", category: "" },
+        { _id: "status-custom-category", name: "Custom", category: "task:statusCategory:Custom" }
+      ]
+      const testLayer = HulyClient.testLayer({
+        findAllInModel: () => Effect.succeed(toFindResult(statusRows as Array<never>))
+      })
+
+      const result = yield* Effect.gen(function*() {
+        const client = yield* HulyClient
+        return yield* findStatusDocs(client, statusRows.map((status) => status._id as Ref<Status>))
+      }).pipe(
+        Effect.provide(testLayer),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+      const warnings = yield* diagnostics.drainWarnings
+
+      expect(result.map((status) => status.category)).toEqual([undefined, "", "task:statusCategory:Custom"])
+      expect(warnings).toHaveLength(1)
+      expect(assertAt(warnings, 0).message).toContain("3 authoritative workflow status")
+      expect(assertAt(warnings, 0).message).toContain("missing: 1")
+      expect(assertAt(warnings, 0).message).toContain("empty: 1")
+      expect(assertAt(warnings, 0).message).toContain("unrecognized: 1")
+    }))
+
+  it.effect("does not warn for complete authoritative statuses with recognized categories", () =>
+    Effect.gen(function*() {
+      const diagnostics = yield* makeDiagnosticsScope
+      const testLayer = HulyClient.testLayer({
+        findAllInModel: () =>
+          Effect.succeed(toFindResult([{
+            _id: "status-active",
+            name: "Active",
+            category: task.statusCategory.Active
+          }] as Array<never>))
+      })
+
+      yield* Effect.gen(function*() {
+        const client = yield* HulyClient
+        return yield* findStatusDocs(client, ["status-active" as Ref<Status>])
+      }).pipe(
+        Effect.provide(testLayer),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+
+      expect(yield* diagnostics.drainWarnings).toEqual([])
+    }))
+
   it.effect("reports model connection failure when neither metadata source resolves a status", () =>
     Effect.gen(function*() {
       const testLayer = HulyClient.testLayer({
