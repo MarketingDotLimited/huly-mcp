@@ -102,7 +102,7 @@ const parseRows = <A, I>(
   const parsed = rows.map((row) => decode(row))
   return {
     rows: parsed.flatMap((row) => Either.isRight(row) ? [row.right] : []),
-    invalidRows: parsed.filter(Either.isLeft).length
+    invalidRows: Count.make(parsed.filter(Either.isLeft).length)
   }
 }
 

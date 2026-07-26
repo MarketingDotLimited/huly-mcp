@@ -1,13 +1,14 @@
 import type { Either } from "effect"
 import { Effect } from "effect"
 
+import type { Count } from "../../domain/schemas/shared.js"
 import type { HulyClientError } from "../client.js"
 import type { Diagnostics } from "../diagnostics.js"
 import type { ModelMetadataFailure } from "./notification-metadata-warnings.js"
 
 export interface ParsedRows<A> {
   readonly rows: ReadonlyArray<A>
-  readonly invalidRows: number
+  readonly invalidRows: Count
 }
 
 export interface NotificationMetadataResult<A> {
@@ -18,7 +19,7 @@ export interface NotificationMetadataResult<A> {
 type ModelMetadataLookup = Either.Either<ReadonlyArray<unknown>, HulyClientError>
 
 interface InvalidRowsWarning {
-  readonly invalidRows: number
+  readonly invalidRows: Count
 }
 
 interface FallbackWarning extends InvalidRowsWarning {

@@ -6,7 +6,7 @@ import { Effect, Either, ParseResult, Schema } from "effect"
 
 import type { IssuePriority as IssuePriorityStr } from "../../domain/schemas/issues.js"
 import type { NonNegativeNumber } from "../../domain/schemas/shared.js"
-import { IssueStatusId, PositiveNumber, StatusName } from "../../domain/schemas/shared.js"
+import { Count, IssueStatusId, PositiveNumber, StatusName } from "../../domain/schemas/shared.js"
 import {
   StatusCategoryEntries,
   type StatusCategoryValue,
@@ -89,11 +89,11 @@ export type StatusMetadata = Schema.Schema.Type<typeof StatusMetadataSchema>
 
 interface ParsedStatusRows {
   readonly statuses: ReadonlyArray<StatusMetadata>
-  readonly invalidRows: number
+  readonly invalidRows: Count
   readonly categoryFidelityLoss: {
-    readonly missing: number
-    readonly empty: number
-    readonly unrecognized: number
+    readonly missing: Count
+    readonly empty: Count
+    readonly unrecognized: Count
   }
 }
 
@@ -103,15 +103,17 @@ const parseStatusRows = (rows: ReadonlyArray<unknown>): ParsedStatusRows => {
   const valid = parsed.flatMap((row) => Either.isRight(row) ? [row.right] : [])
   return {
     statuses: valid,
-    invalidRows: parsed.filter(Either.isLeft).length,
+    invalidRows: Count.make(parsed.filter(Either.isLeft).length),
     categoryFidelityLoss: {
-      missing: valid.filter((status) => status.category === undefined).length,
-      empty: valid.filter((status) => status.category === "").length,
-      unrecognized: valid.filter((status) =>
-        status.category !== undefined
-        && status.category !== ""
-        && !StatusCategoryEntries.some((entry) => entry.ref === status.category)
-      ).length
+      missing: Count.make(valid.filter((status) => status.category === undefined).length),
+      empty: Count.make(valid.filter((status) => status.category === "").length),
+      unrecognized: Count.make(
+        valid.filter((status) =>
+          status.category !== undefined
+          && status.category !== ""
+          && !StatusCategoryEntries.some((entry) => entry.ref === status.category)
+        ).length
+      )
     }
   }
 }
@@ -216,7 +218,7 @@ const modelStatusState = (result: StatusLookupResult, docs: ReadonlyArray<Status
 
 const warnInvalidAuthoritativeStatuses = (
   diagnostics: Diagnostics["Type"],
-  invalidRows: number
+  invalidRows: Count
 ): Effect.Effect<void> =>
   invalidRows === 0
     ? Effect.void
@@ -231,7 +233,7 @@ const warnAuthoritativeCategoryFidelityLoss = (
   parsed: ParsedStatusRows
 ): Effect.Effect<void> => {
   const { empty, missing, unrecognized } = parsed.categoryFidelityLoss
-  const total = empty + missing + unrecognized
+  const total = Count.make(empty + missing + unrecognized)
   return total === 0
     ? Effect.void
     : diagnostics.warnAgent({

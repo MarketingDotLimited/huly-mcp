@@ -1,5 +1,6 @@
 import { Effect } from "effect"
 
+import type { Count } from "../../domain/schemas/shared.js"
 import { NotificationMetadataDegradedWarningCode } from "../../domain/schemas/tool-warnings.js"
 import { Diagnostics } from "../diagnostics.js"
 
@@ -19,15 +20,15 @@ export type NotificationMetadataWarningDefinition =
 
 type FallbackWarningConfig = NotificationMetadataWarningDefinition & {
   readonly modelFailure: ModelMetadataFailure
-  readonly invalidRows: number
+  readonly invalidRows: Count
 }
 
 type AuthoritativeRowsWarningConfig = NotificationMetadataWarningDefinition & {
-  readonly invalidRows: number
+  readonly invalidRows: Count
 }
 
 type PresentationWarningConfig = NotificationMetadataWarningDefinition & {
-  readonly omittedFields: number
+  readonly omittedFields: Count
   readonly authoritative: boolean
 }
 
