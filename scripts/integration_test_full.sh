@@ -1764,8 +1764,10 @@ ISSUE_TITLE="IntTest Issue $RUN_ID"
 ISSUE_TITLE_JSON=$(json_string "$ISSUE_TITLE")
 ISSUE_TITLE_REGEX_JSON=$(json_string "%$ISSUE_TITLE%")
 ISSUE_TITLE_CASE_REGEX_JSON=$(json_string "%inttest issue $RUN_ID%")
+TIME_ESTIMATE_HOURS=8
+TIME_REPORT_HOURS=0.25
 run_capture_to_var ISSUE_TEXT "create_issue" \
-  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"title\":$ISSUE_TITLE_JSON,\"description\":\"Integration test\",\"priority\":\"low\"}},\"id\":2}"
+  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"title\":$ISSUE_TITLE_JSON,\"description\":\"Integration test\",\"priority\":\"low\",\"estimation\":$TIME_ESTIMATE_HOURS}},\"id\":2}"
 if [ $? -eq 0 ]; then
   ISSUE_ID=$(echo "$ISSUE_TEXT" | jq -r '.identifier' 2>/dev/null)
   ISSUE_OBJ_ID=$(echo "$ISSUE_TEXT" | jq -r '.issueId' 2>/dev/null)
@@ -1892,10 +1894,27 @@ if [ $? -eq 0 ]; then
   fi
 
   # Time tracking
-  run_test "log_time($ISSUE_ID)" \
-    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"log_time\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\",\"value\":30}},\"id\":2}"
-  run_test "get_time_report($ISSUE_ID)" \
+  run_capture_to_var TIME_REPORT_TEXT "log_time($ISSUE_ID,$TIME_REPORT_HOURS hours)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"log_time\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\",\"value\":$TIME_REPORT_HOURS}},\"id\":2}"
+  if [ $? -eq 0 ]; then
+    TIME_REPORT_ID=$(echo "$TIME_REPORT_TEXT" | jq -r '.reportId' 2>/dev/null)
+    if TIME_TRIGGER_RESULT=$(pnpm exec tsx scripts/integration-time-report-trigger.ts \
+      --project "$PROJECT" --issue "$ISSUE_ID" --report "$TIME_REPORT_ID" \
+      --estimateHours "$TIME_ESTIMATE_HOURS" --reportHours "$TIME_REPORT_HOURS"); then
+      echo "PASS: log_time create/delete uses one native aggregate change and authenticated employee"
+      PASSED=$((PASSED + 1))
+      echo "  => $TIME_TRIGGER_RESULT"
+    else
+      fail_test "log_time native aggregate lifecycle" "trigger verification helper failed"
+    fi
+  fi
+  run_capture_to_var TIME_REPORT_AFTER_DELETE_TEXT "get_time_report($ISSUE_ID after report deletion)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_time_report\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\"}},\"id\":2}"
+  if [ $? -eq 0 ]; then
+    assert_json_field_equals "get_time_report reports zero hours after deletion" "$TIME_REPORT_AFTER_DELETE_TEXT" ".totalTime" "0"
+    assert_json_field_equals "get_time_report restores estimated remaining hours" "$TIME_REPORT_AFTER_DELETE_TEXT" ".remainingTime" "$TIME_ESTIMATE_HOURS"
+    assert_json_field_count "get_time_report removes deleted entry" "$TIME_REPORT_AFTER_DELETE_TEXT" ".reports | length" "0"
+  fi
   run_test "get_detailed_time_report($ISSUE_ID)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_detailed_time_report\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\"}},\"id\":2}"
 

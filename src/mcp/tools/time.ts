@@ -21,7 +21,8 @@ import {
   ListWorkSlotsResultSchema,
   LogTimeResultSchema,
   StartTimerResultSchema,
-  StopTimerResultSchema
+  StopTimerResultSchema,
+  TIME_HOURS_EXAMPLES
 } from "../../domain/schemas/time.js"
 import {
   getDetailedTimeReport,
@@ -34,12 +35,15 @@ import {
 } from "../../huly/operations/time.js"
 import { defineTool, type RegisteredTool } from "./registry.js"
 const CATEGORY = "time tracking" as const
+const hoursDescription = (action: string) => `${action} Values are hours (Huly native unit): ${TIME_HOURS_EXAMPLES}.`
+
 export const timeTools = [
   defineTool(
     {
       name: "log_time",
-      description:
-        "Log time spent on a Huly issue. Records a time entry with optional description. Time value is in minutes.",
+      description: hoursDescription(
+        "Log time spent on a Huly issue. Records a time entry with optional description."
+      ),
       category: CATEGORY,
       inputSchema: logTimeParamsJsonSchema,
       resultSchema: LogTimeResultSchema
@@ -50,8 +54,9 @@ export const timeTools = [
   defineTool(
     {
       name: "get_time_report",
-      description:
-        "Get time tracking report for a specific Huly issue. Shows total time, estimation, remaining time, and all time entries.",
+      description: hoursDescription(
+        "Get time tracking report for a specific Huly issue. Shows total time, estimation, remaining time, and all time entries."
+      ),
       category: CATEGORY,
       inputSchema: getTimeReportParamsJsonSchema,
       resultSchema: TimeReportSummarySchema
@@ -62,8 +67,9 @@ export const timeTools = [
   defineTool(
     {
       name: "list_time_spend_reports",
-      description:
-        "List all time entries across issues. Supports filtering by project and date range. Returns entries sorted by date (newest first).",
+      description: hoursDescription(
+        "List all time entries across issues. Supports filtering by project and date range. Returns entries sorted by date (newest first)."
+      ),
       category: CATEGORY,
       inputSchema: listTimeSpendReportsParamsJsonSchema,
       resultSchema: ListTimeSpendReportsResultSchema
@@ -74,8 +80,9 @@ export const timeTools = [
   defineTool(
     {
       name: "get_detailed_time_report",
-      description:
-        "Get detailed time breakdown for a project. Shows total time grouped by issue and by employee. Supports date range filtering.",
+      description: hoursDescription(
+        "Get detailed time breakdown for a project. Shows total time grouped by issue and by employee. Supports date range filtering."
+      ),
       category: CATEGORY,
       inputSchema: getDetailedTimeReportParamsJsonSchema,
       resultSchema: DetailedTimeReportSchema

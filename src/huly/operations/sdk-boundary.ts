@@ -31,9 +31,11 @@ export const toTx = (payload: unknown): Tx => payload as Tx
 // eslint-disable-next-line no-restricted-syntax -- see above
 export const toAccountUuid = (uuid: NonEmptyString | AccountUuid): AccountUuid => uuid as AccountUuid
 
-// SocialIdentity ids are branded as both a document ref and a core PersonId.
-// eslint-disable-next-line no-restricted-syntax -- see above
-export const toSocialIdentityRef = (id: HulyPersonId): SocialIdentity["_id"] => id as SocialIdentity["_id"]
+// Core person IDs and parsed non-empty identity IDs are plain strings at runtime.
+export const toSocialIdentityRef = (id: HulyPersonId | NonEmptyString): SocialIdentity["_id"] => {
+  // eslint-disable-next-line no-restricted-syntax -- see above
+  return id as SocialIdentity["_id"]
+}
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 

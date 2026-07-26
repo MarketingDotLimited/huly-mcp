@@ -505,10 +505,10 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 
 | Tool | Description |
 |------|-------------|
-| `log_time` | Log time spent on a Huly issue. Records a time entry with optional description. Time value is in minutes. |
-| `get_time_report` | Get time tracking report for a specific Huly issue. Shows total time, estimation, remaining time, and all time entries. |
-| `list_time_spend_reports` | List all time entries across issues. Supports filtering by project and date range. Returns entries sorted by date (newest first). |
-| `get_detailed_time_report` | Get detailed time breakdown for a project. Shows total time grouped by issue and by employee. Supports date range filtering. |
+| `log_time` | Log time spent on a Huly issue. Records a time entry with optional description. Values are hours (Huly native unit): 0.25 = 15 minutes; 8 = one work day. |
+| `get_time_report` | Get time tracking report for a specific Huly issue. Shows total time, estimation, remaining time, and all time entries. Values are hours (Huly native unit): 0.25 = 15 minutes; 8 = one work day. |
+| `list_time_spend_reports` | List all time entries across issues. Supports filtering by project and date range. Returns entries sorted by date (newest first). Values are hours (Huly native unit): 0.25 = 15 minutes; 8 = one work day. |
+| `get_detailed_time_report` | Get detailed time breakdown for a project. Shows total time grouped by issue and by employee. Supports date range filtering. Values are hours (Huly native unit): 0.25 = 15 minutes; 8 = one work day. |
 | `list_work_slots` | List scheduled work slots created by schedule_todo, Huly UI, or other clients. Shows planned time blocks attached to ToDos. Supports filtering by employee and date range. |
 | `start_timer` | Start a client-side timer on a Huly issue. Validates the issue exists and returns a start timestamp. Use log_time to record the elapsed time when done. |
 | `stop_timer` | Stop a client-side timer on a Huly issue. Returns the stop timestamp. Calculate elapsed time from start/stop timestamps and use log_time to record it. |

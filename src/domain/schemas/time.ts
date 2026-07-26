@@ -5,6 +5,8 @@ import {
   IssueIdentifier,
   LimitParam,
   NonEmptyString,
+  NonNegativeNumber,
+  PositiveNumber,
   ProjectIdentifier,
   TimeSpendReportId,
   Timestamp,
@@ -12,12 +14,33 @@ import {
   TodoId,
   WorkSlotId
 } from "./shared.js"
+
+export const TIME_HOURS_EXAMPLES = "0.25 = 15 minutes; 8 = one work day"
+const timeHoursDescription = (subject: string) =>
+  `${subject} in hours (Huly native unit). Examples: ${TIME_HOURS_EXAMPLES}.`
+
+export const TimeHours = NonNegativeNumber.pipe(Schema.brand("TimeHours")).annotations({
+  identifier: "TimeHours",
+  title: "TimeHours",
+  description: timeHoursDescription("Time")
+})
+export type TimeHours = Schema.Schema.Type<typeof TimeHours>
+
+export const PositiveTimeHours = PositiveNumber.pipe(Schema.brand("PositiveTimeHours")).annotations({
+  identifier: "PositiveTimeHours",
+  title: "PositiveTimeHours",
+  description: timeHoursDescription("Positive time")
+})
+export type PositiveTimeHours = Schema.Schema.Type<typeof PositiveTimeHours>
+
 export const TimeSpendReportSchema = Schema.Struct({
   id: TimeSpendReportId,
   identifier: Schema.optional(IssueIdentifier),
   employee: Schema.optional(NonEmptyString),
   date: Schema.optional(Schema.NullOr(Timestamp)),
-  value: Schema.Number,
+  value: TimeHours.annotations({
+    description: timeHoursDescription("Reported time")
+  }),
   description: Schema.String
 })
 export type TimeSpendReport = Schema.Schema.Type<typeof TimeSpendReportSchema>
@@ -36,10 +59,8 @@ export const LogTimeParamsSchema = Schema.Struct({
   identifier: IssueIdentifier.annotations({
     description: "Issue identifier (e.g., 'HULY-123' or just '123')"
   }),
-  value: Schema.Number.pipe(
-    Schema.positive()
-  ).annotations({
-    description: "Time spent in minutes"
+  value: PositiveTimeHours.annotations({
+    description: timeHoursDescription("Time spent")
   }),
   description: Schema.optional(Schema.String.annotations({
     description: "Description of work done"
@@ -173,9 +194,19 @@ export const TimeSpendReportWireSchema = TimeSpendReportSchema
 
 export const TimeReportSummarySchema = Schema.Struct({
   identifier: Schema.optional(IssueIdentifier),
-  totalTime: Schema.Number,
-  estimation: Schema.optional(Schema.Number.pipe(Schema.positive())),
-  remainingTime: Schema.optional(Schema.Number.pipe(Schema.positive())),
+  totalTime: TimeHours.annotations({
+    description: timeHoursDescription("Total reported time")
+  }),
+  estimation: Schema.optional(
+    PositiveTimeHours.annotations({
+      description: timeHoursDescription("Issue estimate")
+    })
+  ),
+  remainingTime: Schema.optional(
+    PositiveTimeHours.annotations({
+      description: timeHoursDescription("Remaining time")
+    })
+  ),
   reports: Schema.Array(TimeSpendReportWireSchema)
 })
 export type TimeReportSummary = Schema.Schema.Type<typeof TimeReportSummarySchema>
@@ -190,19 +221,25 @@ export const WorkSlotWireSchema = Schema.Struct({
 
 export const DetailedTimeReportSchema = Schema.Struct({
   project: ProjectIdentifier,
-  totalTime: Schema.Number,
+  totalTime: TimeHours.annotations({
+    description: timeHoursDescription("Total reported time")
+  }),
   byIssue: Schema.Array(
     Schema.Struct({
       identifier: Schema.optional(IssueIdentifier),
       issueTitle: Schema.String,
-      totalTime: Schema.Number,
+      totalTime: TimeHours.annotations({
+        description: timeHoursDescription("Issue reported time")
+      }),
       reports: Schema.Array(TimeSpendReportWireSchema)
     })
   ),
   byEmployee: Schema.Array(
     Schema.Struct({
       employeeName: Schema.optional(NonEmptyString),
-      totalTime: Schema.Number
+      totalTime: TimeHours.annotations({
+        description: timeHoursDescription("Employee reported time")
+      })
     })
   )
 })
