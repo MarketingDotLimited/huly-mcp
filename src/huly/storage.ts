@@ -11,11 +11,11 @@ import type { Readable } from "node:stream"
 
 import { type AuthOptions, type StorageClient } from "@hcengineering/api-client"
 import type { Blob, Ref, WorkspaceUuid } from "@hcengineering/core"
-import { Context, Effect, Layer } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 
 import { HulyConfigService } from "../config/config.js"
 import { AttachmentByteSize } from "../domain/schemas/domain-values.js"
-import type { BlobId } from "../domain/schemas/shared.js"
+import { BlobId, NonEmptyString, UrlString } from "../domain/schemas/shared.js"
 import { concatLink } from "../utils/url.js"
 import { authToOptions, connectWithRetry } from "./client.js"
 import {
@@ -25,6 +25,7 @@ import {
   FileUploadError,
   type HulyAuthError,
   type HulyConnectionError,
+  HulyStorageConfigError,
   type HulyUnavailableError,
   InvalidContentTypeError,
   InvalidFileDataError,
@@ -113,6 +114,7 @@ export type StorageClientError =
   | HulyUnavailableError
   | HulyAuthError
   | FileUploadError
+  | HulyStorageConfigError
   | InvalidFileDataError
   | FileNotFoundError
   | FileFetchError
@@ -190,8 +192,8 @@ export class HulyStorageClient extends Context.Tag("@hulymcp/HulyStorageClient")
 
       const authOptions = authToOptions(config.auth, config.workspace)
 
-      const { baseUrl, storageClient, workspaceId } = yield* connectStorageWithRetry(
-        { url: config.url, ...authOptions },
+      const { filesUrlTemplate, storageClient } = yield* connectStorageClient(
+        { url: UrlString.make(config.url), ...authOptions },
         sdk
       )
 
@@ -204,7 +206,7 @@ export class HulyStorageClient extends Context.Tag("@hulymcp/HulyStorageClient")
                 blobId: blob._id,
                 contentType: blob.contentType,
                 size: blob.size,
-                url: buildFileUrl(baseUrl, workspaceId, blob._id)
+                url: buildFileUrl(filesUrlTemplate, BlobId.make(blob._id))
               }
             },
             catch: (e) => new FileUploadError({ message: `File upload failed: ${String(e)}`, cause: e })
@@ -228,7 +230,7 @@ export class HulyStorageClient extends Context.Tag("@hulymcp/HulyStorageClient")
             )
           ),
 
-        getFileUrl: (blobId) => buildFileUrl(baseUrl, workspaceId, blobId)
+        getFileUrl: (blobId) => buildFileUrl(filesUrlTemplate, BlobId.make(blobId))
       }
 
       return operations
@@ -271,23 +273,59 @@ export class HulyStorageClient extends Context.Tag("@hulymcp/HulyStorageClient")
 
 const isErrnoException = (e: unknown): e is NodeJS.ErrnoException => e instanceof Error && "code" in e
 
-type StorageConnectionConfig = { url: string } & AuthOptions
+const ConfiguredStorageUrl = NonEmptyString.pipe(Schema.brand("ConfiguredStorageUrl"))
+type ConfiguredStorageUrl = Schema.Schema.Type<typeof ConfiguredStorageUrl>
+const ResolvedStorageUrl = NonEmptyString.pipe(Schema.brand("ResolvedStorageUrl"))
+type ResolvedStorageUrl = Schema.Schema.Type<typeof ResolvedStorageUrl>
+const StorageFileUrlTemplate = NonEmptyString.pipe(Schema.brand("StorageFileUrlTemplate"))
+type StorageFileUrlTemplate = Schema.Schema.Type<typeof StorageFileUrlTemplate>
+
+const HulyStorageFilesConfigSchema = Schema.Struct({ FILES_URL: ConfiguredStorageUrl })
+const HulyStorageUploadConfigSchema = Schema.Struct({ UPLOAD_URL: ConfiguredStorageUrl })
+type HulyStorageFilesConfig = Schema.Schema.Type<typeof HulyStorageFilesConfigSchema>
+type HulyStorageUploadConfig = Schema.Schema.Type<typeof HulyStorageUploadConfigSchema>
+type HulyServerStorageConfig = HulyStorageFilesConfig & HulyStorageUploadConfig
+const parseHulyServerStorageConfig = (input: unknown): Effect.Effect<HulyServerStorageConfig, HulyStorageConfigError> =>
+  Effect.all([
+    Schema.decodeUnknown(HulyStorageFilesConfigSchema)(input).pipe(
+      Effect.mapError(() => new HulyStorageConfigError({ field: "FILES_URL" }))
+    ),
+    Schema.decodeUnknown(HulyStorageUploadConfigSchema)(input).pipe(
+      Effect.mapError(() => new HulyStorageConfigError({ field: "UPLOAD_URL" }))
+    )
+  ]).pipe(Effect.map(([filesConfig, uploadConfig]) => ({ ...filesConfig, ...uploadConfig })))
+
+const STORAGE_URL_PLACEHOLDER = { blobId: ":blobId", filename: ":filename", workspace: ":workspace" } as const
+const STORAGE_FILE_PLACEHOLDERS = [STORAGE_URL_PLACEHOLDER.blobId, STORAGE_URL_PLACEHOLDER.filename] as const
+const ENCODED_STORAGE_BLOB_PLACEHOLDER = encodeURIComponent(STORAGE_URL_PLACEHOLDER.blobId)
+
+type StorageConnectionConfig = { url: UrlString } & AuthOptions
 
 interface StorageConnection {
   storageClient: StorageClient
-  workspaceId: WorkspaceUuid
-  baseUrl: string
+  filesUrlTemplate: StorageFileUrlTemplate
 }
 
-const buildFileUrl = (baseUrl: string, workspaceId: WorkspaceUuid, blobId: string): string => {
-  const params = new URLSearchParams({ workspace: workspaceId, file: blobId })
-  return `${concatLink(baseUrl, "/files")}?${params.toString()}`
+const buildFileUrl = (filesUrlTemplate: StorageFileUrlTemplate, blobId: BlobId): UrlString =>
+  UrlString.make(
+    filesUrlTemplate
+      .replaceAll(STORAGE_URL_PLACEHOLDER.blobId, blobId)
+      .replaceAll(STORAGE_URL_PLACEHOLDER.filename, blobId)
+  )
+
+const buildStorageFileTemplate = (filesUrl: ResolvedStorageUrl, workspaceId: WorkspaceUuid): StorageFileUrlTemplate => {
+  const resolvedFilesUrl = filesUrl.replaceAll(STORAGE_URL_PLACEHOLDER.workspace, workspaceId)
+  if (STORAGE_FILE_PLACEHOLDERS.some((placeholder) => resolvedFilesUrl.includes(placeholder))) {
+    return StorageFileUrlTemplate.make(resolvedFilesUrl)
+  }
+  const params = new URLSearchParams({ workspace: workspaceId, file: STORAGE_URL_PLACEHOLDER.blobId })
+  return StorageFileUrlTemplate.make(
+    `${resolvedFilesUrl}?${params.toString().replace(ENCODED_STORAGE_BLOB_PLACEHOLDER, STORAGE_URL_PLACEHOLDER.blobId)}`
+  )
 }
 
-const buildStorageFileTemplate = (baseUrl: string, workspaceId: WorkspaceUuid): string => {
-  const params = new URLSearchParams({ workspace: workspaceId, file: ":blobId" })
-  return `${concatLink(baseUrl, "/files")}?${params.toString().replace("%3AblobId", ":blobId")}`
-}
+const resolveServerUrl = (baseUrl: UrlString, configuredUrl: ConfiguredStorageUrl): ResolvedStorageUrl =>
+  ResolvedStorageUrl.make(URL.canParse(configuredUrl) ? configuredUrl : concatLink(baseUrl, configuredUrl))
 
 const streamToBuffer = async (stream: Readable): Promise<Buffer> => {
   const chunks: Array<Buffer> = []
@@ -338,30 +376,28 @@ const streamToBoundedBuffer = async (stream: Readable, maxBytes: AttachmentByteS
   return { _tag: "WithinLimit", bytes: Buffer.concat(chunks, retainedBytes) }
 }
 
-const connectStorageClient = async (
-  config: StorageConnectionConfig,
-  sdk: HulySdkDependencies
-): Promise<StorageConnection> => {
-  // Use the same authentication flow as HulyClient to get workspace token
-  const { url, ...authOptions } = config
-  const serverConfig = await sdk.loadServerConfig(url)
-  const { token, workspaceId } = await sdk.getWorkspaceToken(url, authOptions, serverConfig)
-
-  // Construct URLs for file operations
-  const filesUrl = buildStorageFileTemplate(url, workspaceId)
-  const uploadUrl = concatLink(url, serverConfig.UPLOAD_URL)
-
-  // Create storage client with proper authentication
-  const storageClient: StorageClient = sdk.createStorageClient(filesUrl, uploadUrl, token, workspaceId)
-
-  return { baseUrl: url, storageClient, workspaceId }
-}
-
-const connectStorageWithRetry = (
+const connectStorageClient = (
   config: StorageConnectionConfig,
   sdk: HulySdkDependencies
 ): Effect.Effect<StorageConnection, StorageClientError> =>
-  connectWithRetry(() => connectStorageClient(config, sdk), config.url)
+  Effect.gen(function* () {
+    const { url, ...authOptions } = config
+    const serverConfig = yield* connectWithRetry(() => sdk.loadServerConfig(url), url)
+    const storageConfig = yield* parseHulyServerStorageConfig(serverConfig)
+    const { token, workspaceId } = yield* connectWithRetry(
+      () => sdk.getWorkspaceToken(url, authOptions, serverConfig),
+      url
+    )
+
+    const filesUrl = resolveServerUrl(url, storageConfig.FILES_URL)
+    const filesTemplate = buildStorageFileTemplate(filesUrl, workspaceId)
+    const uploadUrl = ResolvedStorageUrl.make(
+      resolveServerUrl(url, storageConfig.UPLOAD_URL).replaceAll(STORAGE_URL_PLACEHOLDER.workspace, workspaceId)
+    )
+    const storageClient: StorageClient = sdk.createStorageClient(filesTemplate, uploadUrl, token, workspaceId)
+
+    return { filesUrlTemplate: filesTemplate, storageClient }
+  })
 
 /**
  * Decode base64 data to Buffer with validation.

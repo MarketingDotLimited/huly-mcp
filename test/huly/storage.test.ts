@@ -834,6 +834,91 @@ describe("HulyStorageClient.layer (real layer with mocked api-client)", () => {
     })
   )
 
+  it.effect("uses absolute file and upload URLs from server config", () =>
+    Effect.gen(function* () {
+      setupMocksForSuccess()
+      mockLoadServerConfig.mockImplementation(() =>
+        Promise.resolve({
+          ACCOUNTS_URL: "https://accounts.huly.example.com",
+          COLLABORATOR_URL: "https://collab.huly.example.com",
+          FILES_URL: "https://files.huly.example.com/files",
+          UPLOAD_URL: "https://uploads.huly.example.com/upload"
+        })
+      )
+
+      const layer = Layer.fresh(HulyStorageClient.layerWithDependencies).pipe(
+        Layer.provide(Layer.merge(configLayer, testSdkLayer))
+      )
+      const client = yield* HulyStorageClient.pipe(Effect.provide(layer))
+
+      expect(client.getFileUrl("some-blob-id")).toBe(
+        "https://files.huly.example.com/files?workspace=ws-uuid-123&file=some-blob-id"
+      )
+      expect(mockCreateStorageClient.mock.calls).toContainEqual([
+        "https://files.huly.example.com/files?workspace=ws-uuid-123&file=:blobId",
+        "https://uploads.huly.example.com/upload",
+        "ws-token-abc",
+        "ws-uuid-123"
+      ])
+    })
+  )
+
+  it.effect("resolves bare relative storage URL templates against the Huly base URL", () =>
+    Effect.gen(function* () {
+      setupMocksForSuccess()
+      mockLoadServerConfig.mockImplementation(() =>
+        Promise.resolve({
+          ACCOUNTS_URL: "https://accounts.huly.example.com",
+          COLLABORATOR_URL: "https://collab.huly.example.com",
+          FILES_URL: "files/:workspace/:blobId",
+          UPLOAD_URL: "upload/:workspace"
+        })
+      )
+
+      const layer = Layer.fresh(HulyStorageClient.layerWithDependencies).pipe(
+        Layer.provide(Layer.merge(configLayer, testSdkLayer))
+      )
+      const client = yield* HulyStorageClient.pipe(Effect.provide(layer))
+
+      expect(client.getFileUrl("some-blob-id")).toBe("https://huly.example.com/files/ws-uuid-123/some-blob-id")
+      expect(mockCreateStorageClient.mock.calls).toContainEqual([
+        "https://huly.example.com/files/ws-uuid-123/:blobId",
+        "https://huly.example.com/upload/ws-uuid-123",
+        "ws-token-abc",
+        "ws-uuid-123"
+      ])
+    })
+  )
+
+  it.effect("resolves placeholders in absolute storage URL templates", () =>
+    Effect.gen(function* () {
+      setupMocksForSuccess()
+      mockLoadServerConfig.mockImplementation(() =>
+        Promise.resolve({
+          ACCOUNTS_URL: "https://accounts.huly.example.com",
+          COLLABORATOR_URL: "https://collab.huly.example.com",
+          FILES_URL: "https://datalake.huly.example.com/blob/:workspace/:blobId/:filename",
+          UPLOAD_URL: "https://datalake.huly.example.com/upload/form-data/:workspace"
+        })
+      )
+
+      const layer = Layer.fresh(HulyStorageClient.layerWithDependencies).pipe(
+        Layer.provide(Layer.merge(configLayer, testSdkLayer))
+      )
+      const client = yield* HulyStorageClient.pipe(Effect.provide(layer))
+
+      expect(client.getFileUrl("some-blob-id")).toBe(
+        "https://datalake.huly.example.com/blob/ws-uuid-123/some-blob-id/some-blob-id"
+      )
+      expect(mockCreateStorageClient.mock.calls).toContainEqual([
+        "https://datalake.huly.example.com/blob/ws-uuid-123/:blobId/:filename",
+        "https://datalake.huly.example.com/upload/form-data/ws-uuid-123",
+        "ws-token-abc",
+        "ws-uuid-123"
+      ])
+    })
+  )
+
   it.effect("getFileUrl constructs correct URL without calling API", () =>
     Effect.gen(function* () {
       setupMocksForSuccess()
@@ -848,6 +933,29 @@ describe("HulyStorageClient.layer (real layer with mocked api-client)", () => {
       expect(url).toBe("https://huly.example.com/files?workspace=ws-uuid-123&file=some-blob-id")
     })
   )
+
+  it.each([
+    { field: "FILES_URL", filesUrl: "", uploadUrl: "/upload" },
+    { field: "UPLOAD_URL", filesUrl: "/files", uploadUrl: "" }
+  ])("rejects an empty $field before creating the SDK storage client", async ({ field, filesUrl, uploadUrl }) => {
+    setupMocksForSuccess()
+    mockLoadServerConfig.mockImplementation(() =>
+      Promise.resolve({
+        ACCOUNTS_URL: "https://accounts.huly.example.com",
+        COLLABORATOR_URL: "https://collab.huly.example.com",
+        FILES_URL: filesUrl,
+        UPLOAD_URL: uploadUrl
+      })
+    )
+
+    const layer = Layer.fresh(HulyStorageClient.layerWithDependencies).pipe(
+      Layer.provide(Layer.merge(configLayer, testSdkLayer))
+    )
+    const error = await Effect.runPromise(Effect.flip(HulyStorageClient.pipe(Effect.provide(layer))))
+
+    expect(error).toMatchObject({ _tag: "HulyStorageConfigError", field })
+    expect(mockCreateStorageClient.mock.calls).toHaveLength(0)
+  })
 
   it.effect("bounded downloads retain at most max plus one byte and abort an oversized stream", () =>
     Effect.gen(function* () {

@@ -17,6 +17,7 @@ import {
   HulyConnectionError,
   type HulyDomainError,
   HulyError,
+  HulyStorageConfigError,
   HulyUnavailableError
 } from "../huly/errors.js"
 import {
@@ -225,6 +226,7 @@ const INVALID_PARAMS_TAGS: ReadonlySet<HulyDomainError["_tag"]> = new Set<HulyDo
 
 const INTERNAL_ERROR_PREFIX: Partial<Record<HulyDomainError["_tag"], string>> = {
   FileUploadError: "File upload error",
+  HulyStorageConfigError: "Storage configuration error",
   HulyConnectionError: "Connection error",
   HulyAuthError: "Authentication error"
 }
@@ -265,12 +267,17 @@ export const mapDomainErrorToMcp = (
   return createErrorResponse(message, McpErrorCode.InternalError, error._tag, warnings)
 }
 
-const isClientResolutionError = (value: unknown): value is HulyUnavailableError | HulyConnectionError | HulyAuthError =>
-  value instanceof HulyUnavailableError || value instanceof HulyConnectionError || value instanceof HulyAuthError
+const isClientResolutionError = (
+  value: unknown
+): value is HulyUnavailableError | HulyConnectionError | HulyAuthError | HulyStorageConfigError =>
+  value instanceof HulyUnavailableError ||
+  value instanceof HulyConnectionError ||
+  value instanceof HulyAuthError ||
+  value instanceof HulyStorageConfigError
 
 const clientResolutionFailure = (
   error: unknown
-): HulyUnavailableError | HulyConnectionError | HulyAuthError | undefined => {
+): HulyUnavailableError | HulyConnectionError | HulyAuthError | HulyStorageConfigError | undefined => {
   if (isClientResolutionError(error)) return error
   if (!Runtime.isFiberFailure(error)) return undefined
   return Chunk.toArray(Cause.failures(error[Runtime.FiberFailureCauseId])).find(isClientResolutionError)

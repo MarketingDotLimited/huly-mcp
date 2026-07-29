@@ -127,6 +127,7 @@ import {
   type HulyDomainError,
   HulyDomainError as HulyDomainErrorSchema,
   HulyError,
+  HulyStorageConfigError,
   HulyUnavailableError,
   InvalidContactChannelLocatorError,
   InvalidContactChannelValueError,
@@ -1040,6 +1041,8 @@ describe("Huly Errors", () => {
               return `notfound:${error.filePath}`
             case "FileFetchError":
               return `fetch:${error.fileUrl}`
+            case "HulyStorageConfigError":
+              return `storage-config:${error.field}`
             case "HulyConnectionError":
               return "connection"
             case "HulyUnavailableError":
@@ -1767,6 +1770,7 @@ describe("Huly Errors", () => {
         expect(matchError(new FileFetchError({ fileUrl: "https://example.com/img.png", reason: "404" }))).toBe(
           "fetch:https://example.com/img.png"
         )
+        expect(matchError(new HulyStorageConfigError({ field: "FILES_URL" }))).toBe("storage-config:FILES_URL")
         expect(matchError(new HulyConnectionError({ message: "fail" }))).toBe("connection")
         expect(matchError(new HulyAuthError({ message: "denied" }))).toBe("auth")
         expect(matchError(new HulyError({ message: "oops" }))).toBe("generic")

@@ -42,6 +42,7 @@ import {
   HulyAuthError,
   HulyConnectionError,
   HulyError,
+  HulyStorageConfigError,
   HulyUnavailableError,
   InvalidContactProviderError,
   InvalidFileDataError,
@@ -483,6 +484,7 @@ describe("Error Mapping to MCP", () => {
           )
           const unknown = mapClientResolutionErrorToMcp(new Error("token=secret"))
           const auth = mapClientResolutionErrorToMcp(new HulyAuthError({ message: "secret" }))
+          const storageConfig = mapClientResolutionErrorToMcp(new HulyStorageConfigError({ field: "FILES_URL" }))
           const fiberFailure = yield* Effect.promise(() =>
             Effect.runPromise(
               Effect.fail(
@@ -501,6 +503,9 @@ describe("Error Mapping to MCP", () => {
           expect(assertAt(unavailable.content, 0).text).toContain("Cannot reach hosted Huly")
           expect(assertAt(unknown.content, 0).text).toBe("Failed to initialize Huly clients")
           expect(assertAt(auth.content, 0).text).toBe("Authentication error: secret")
+          expect(assertAt(storageConfig.content, 0).text).toBe(
+            "Storage configuration error: Invalid Huly server config field 'FILES_URL': expected a non-empty string"
+          )
           expect(assertAt(fromFiber.content, 0).text).toContain("Cannot reach hosted Huly")
         })
       )
