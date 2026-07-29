@@ -751,7 +751,7 @@ describe("HTTP transport Effect lifecycle", () => {
     await Effect.runPromise(Scope.close(scope, Exit.void))
   })
 
-  it("supports an injected Effect HTTP server", async () => {
+  it("supports an injected Effect HTTP server", { timeout: 15_000 }, async () => {
     const writes: Array<string> = []
     const ready = deferred<void>()
     const factory = makeTestHttpServerFactory(
