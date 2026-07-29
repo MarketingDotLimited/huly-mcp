@@ -5,7 +5,6 @@ WORKDIR /app
 ENV HUSKY=0
 
 COPY package.json pnpm-lock.yaml ./
-COPY patches ./patches
 RUN corepack enable \
   && corepack prepare pnpm@10.29.3 --activate \
   && pnpm install --frozen-lockfile
@@ -26,7 +25,6 @@ ENV PORT=8080
 EXPOSE 8080
 
 COPY package.json pnpm-lock.yaml ./
-COPY patches ./patches
 RUN corepack enable \
   && corepack prepare pnpm@10.29.3 --activate \
   && pnpm install --prod --frozen-lockfile --ignore-scripts
