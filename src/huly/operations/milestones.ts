@@ -29,8 +29,12 @@ import {
   Timestamp
 } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
-import type { IssueNotFoundError, NoUpdateFieldsError, ProjectNotFoundError } from "../errors.js"
-import type { MilestoneNotFoundError } from "../errors.js"
+import type {
+  IssueNotFoundError,
+  MilestoneNotFoundError,
+  NoUpdateFieldsError,
+  ProjectNotFoundError
+} from "../errors.js"
 import { clearTextAsEmptyString, textContentOrClear } from "./clear-field-updates.js"
 import { findProject, findProjectAndIssue } from "./issues-shared.js"
 import { resolveMilestoneExact } from "./milestone-resolution.js"

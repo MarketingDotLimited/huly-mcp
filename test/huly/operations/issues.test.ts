@@ -814,6 +814,27 @@ describe("listIssues", () => {
         }
       })
     )
+
+    it.effect("fails with a typed connection error when milestone filter metadata is malformed", () =>
+      Effect.gen(function* () {
+        const project = makeProject()
+        const malformedMilestone = Object.assign(
+          makeMilestone(project, milestoneId("milestone-1"), milestoneLabel("Sprint 1")),
+          { label: "" }
+        )
+        const statuses = [makeStatus({ _id: docRef<Status>("status-open"), name: "Open" })]
+        const testLayer = createTestLayerWithMocks({ projects: [project], statuses, milestones: [malformedMilestone] })
+
+        const error = yield* Effect.flip(
+          listIssues({ project: projectIdentifier("TEST"), milestone: milestoneIdentifier("Sprint 1") }).pipe(
+            Effect.provide(testLayer),
+            withDiagnostics
+          )
+        )
+
+        expect(error._tag).toBe("HulyConnectionError")
+      })
+    )
   })
 
   describe("error handling", () => {
@@ -1157,6 +1178,36 @@ describe("getIssue", () => {
         const milestoneWarnings = warnings.filter((warning) => warning.code === "issue_milestone_metadata_degraded")
         expect(milestoneWarnings).toHaveLength(1)
         expect(milestoneWarnings[0]?.message).toContain("1 unresolved milestone reference")
+      })
+    )
+
+    it.effect("omits malformed milestone metadata and emits one bounded warning", () =>
+      Effect.gen(function* () {
+        const project = makeProject()
+        const malformedMilestone = Object.assign(
+          makeMilestone(project, milestoneId("milestone-1"), milestoneLabel("Sprint 1")),
+          { label: "" }
+        )
+        const issue = makeIssue({ milestone: malformedMilestone._id })
+        const statuses = [
+          makeStatus({ _id: docRef<Status>("status-open"), name: "Open", category: task.statusCategory.Active })
+        ]
+        const testLayer = createTestLayerWithMocks({
+          projects: [project],
+          issues: [issue],
+          statuses,
+          milestones: [malformedMilestone]
+        })
+        const diagnostics = yield* makeDiagnosticsScope
+
+        const result = yield* getIssue({
+          project: projectIdentifier("TEST"),
+          identifier: issueIdentifier("TEST-1")
+        }).pipe(Effect.provide(testLayer), Effect.provideService(Diagnostics, diagnostics.service))
+        const warnings = yield* diagnostics.drainWarnings
+
+        expect(result.milestone).toBeUndefined()
+        expect(warnings.filter((warning) => warning.code === "issue_milestone_metadata_degraded")).toHaveLength(1)
       })
     )
 
