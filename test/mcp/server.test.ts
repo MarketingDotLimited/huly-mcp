@@ -38,6 +38,7 @@ import type { ToolDefinition } from "../../src/mcp/tools/registry.js"
 import type { SessionStartProps, TelemetryOperations, ToolCalledProps } from "../../src/telemetry/telemetry.js"
 import { TelemetryService } from "../../src/telemetry/telemetry.js"
 import { assertAt, assertExists } from "../../src/utils/assertions.js"
+import { inertHttpServerFactory } from "./http-test-support.js"
 
 import { tracker } from "../../src/huly/huly-plugins.js"
 
@@ -46,6 +47,7 @@ const ListResourcesRequestSchema = "resources/list"
 const ListResourceTemplatesRequestSchema = "resources/templates/list"
 const ListToolsRequestSchema = "tools/list"
 const ReadResourceRequestSchema = "resources/read"
+const unusedHttpServerFactory = inertHttpServerFactory("HTTP is outside this stdio test")
 
 const createTestStdioTransport = (): StdioServerTransport => {
   const input = new PassThrough()
@@ -791,13 +793,7 @@ describe("McpServerService.layer operations", () => {
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
           const fiber = yield* Effect.fork(
-            ops.run().pipe(
-              Effect.provideService(
-                HttpServerFactoryService,
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { make: () => Effect.void as never }
-              )
-            )
+            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
           )
 
           yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
@@ -816,13 +812,7 @@ describe("McpServerService.layer operations", () => {
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
           const fiber = yield* Effect.fork(
-            ops.run().pipe(
-              Effect.provideService(
-                HttpServerFactoryService,
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { make: () => Effect.void as never }
-              )
-            )
+            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
           )
 
           yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
@@ -852,13 +842,7 @@ describe("McpServerService.layer operations", () => {
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
           const fiber = yield* Effect.fork(
-            ops.run().pipe(
-              Effect.provideService(
-                HttpServerFactoryService,
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { make: () => Effect.void as never }
-              )
-            )
+            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
           )
 
           yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
@@ -877,25 +861,13 @@ describe("McpServerService.layer operations", () => {
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
           const fiber = yield* Effect.fork(
-            ops.run().pipe(
-              Effect.provideService(
-                HttpServerFactoryService,
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { make: () => Effect.void as never }
-              )
-            )
+            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
           )
 
           yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
 
           const error = yield* Effect.flip(
-            ops.run().pipe(
-              Effect.provideService(
-                HttpServerFactoryService,
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { make: () => Effect.void as never }
-              )
-            )
+            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
           )
 
           expect(error._tag).toBe("McpServerError")
@@ -950,13 +922,7 @@ describe("McpServerService.layer operations", () => {
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
           const fiber = yield* Effect.fork(
-            ops.run().pipe(
-              Effect.provideService(
-                HttpServerFactoryService,
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { make: () => Effect.void as never }
-              )
-            )
+            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
           )
 
           yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
@@ -983,13 +949,7 @@ describe("McpServerService.layer operations", () => {
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
           const fiber = yield* Effect.fork(
-            ops.run().pipe(
-              Effect.provideService(
-                HttpServerFactoryService,
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { make: () => Effect.void as never }
-              )
-            )
+            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
           )
 
           yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
@@ -1007,13 +967,7 @@ describe("McpServerService.layer operations", () => {
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
           const fiber = yield* Effect.fork(
-            ops.run().pipe(
-              Effect.provideService(
-                HttpServerFactoryService,
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { make: () => Effect.void as never }
-              )
-            )
+            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
           )
 
           yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
@@ -1043,13 +997,7 @@ describe("McpServerService.layer operations", () => {
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
           const fiber = yield* Effect.fork(
-            ops.run().pipe(
-              Effect.provideService(
-                HttpServerFactoryService,
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { make: () => Effect.void as never }
-              )
-            )
+            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
           )
 
           yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
@@ -1084,13 +1032,7 @@ describe("McpServerService.layer operations", () => {
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
           const fiber = yield* Effect.fork(
-            ops.run().pipe(
-              Effect.provideService(
-                HttpServerFactoryService,
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { make: () => Effect.void as never }
-              )
-            )
+            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
           )
 
           yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
@@ -1180,13 +1122,7 @@ describe("McpServerService.layer operations", () => {
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
           const fiber = yield* Effect.fork(
-            ops.run().pipe(
-              Effect.provideService(
-                HttpServerFactoryService,
-                // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { make: () => Effect.void as never }
-              )
-            )
+            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
           )
 
           yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
@@ -1311,13 +1247,7 @@ describe("McpServerService.layer operations", () => {
         const ctx = yield* Layer.build(serverLayer)
         const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
         const fiber = yield* Effect.fork(
-          ops.run().pipe(
-            Effect.provideService(
-              HttpServerFactoryService,
-              // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-              { make: () => Effect.void as never }
-            )
-          )
+          ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
         )
         yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
         return fiber
@@ -1345,13 +1275,7 @@ describe("McpServerService.layer operations", () => {
         const ctx = yield* Layer.build(serverLayer)
         const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
         const fiber = yield* Effect.fork(
-          ops.run().pipe(
-            Effect.provideService(
-              HttpServerFactoryService,
-              // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-              { make: () => Effect.void as never }
-            )
-          )
+          ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
         )
         yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
         return fiber

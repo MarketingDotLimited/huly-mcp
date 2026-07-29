@@ -113,6 +113,16 @@ describe("Main Entry Point", () => {
         expect(port).toBe(DEFAULT_HTTP_PORT)
       })
     )
+
+    it.effect("rejects an HTTP port outside the TCP range", () =>
+      Effect.gen(function* () {
+        process.env["MCP_HTTP_PORT"] = "65536"
+
+        const error = yield* Effect.flip(getHttpPort)
+
+        expect(String(error)).toContain("must be a whole number between 0 and 65535")
+      })
+    )
   })
 
   describe("MCP HTTP auth token config", () => {

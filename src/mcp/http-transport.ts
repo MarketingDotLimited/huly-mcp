@@ -7,7 +7,8 @@
 import { timingSafeEqual } from "node:crypto"
 import { createServer as createNodeServer } from "node:http"
 
-import { HttpApp, HttpRouter, type HttpServer, HttpServerError } from "@effect/platform"
+import type { HttpServerError } from "@effect/platform"
+import { HttpApp, HttpRouter, type HttpServer } from "@effect/platform"
 import { NodeHttpServer } from "@effect/platform-node"
 import {
   createMcpHandler,
@@ -20,16 +21,47 @@ import {
 import type { Scope } from "effect"
 import { Context, Effect, Layer, Schema } from "effect"
 
-export const DEFAULT_HTTP_PORT = 3000
+const MIN_HTTP_PORT = 0
+const MAX_HTTP_PORT = 65_535
+const HTTP_UNAUTHORIZED_ERROR_CODE = -32_000
 const HTTP_UNAUTHORIZED = 401
+
+export const HttpPort = Schema.Number.pipe(Schema.int(), Schema.between(MIN_HTTP_PORT, MAX_HTTP_PORT)).annotations({
+  identifier: "HttpPort",
+  description: "TCP port used by the MCP HTTP server."
+})
+export type HttpPort = Schema.Schema.Type<typeof HttpPort>
+
+export const HttpHost = Schema.NonEmptyTrimmedString.annotations({
+  identifier: "HttpHost",
+  description: "Host interface used by the MCP HTTP server."
+})
+export type HttpHost = Schema.Schema.Type<typeof HttpHost>
+
+export const DEFAULT_HTTP_PORT: HttpPort = HttpPort.make(3000)
+export const DEFAULT_HTTP_HOST: HttpHost = HttpHost.make("127.0.0.1")
+
+const UnauthorizedJsonRpcResponse = Schema.Struct({
+  jsonrpc: Schema.Literal("2.0"),
+  error: Schema.Struct({ code: Schema.Literal(HTTP_UNAUTHORIZED_ERROR_CODE), message: Schema.Literal("Unauthorized") }),
+  id: Schema.Null
+}).annotations({ identifier: "UnauthorizedJsonRpcResponse" })
+
+const UNAUTHORIZED_JSON_RPC_RESPONSE = Schema.encodeSync(UnauthorizedJsonRpcResponse)(
+  UnauthorizedJsonRpcResponse.make({
+    jsonrpc: "2.0",
+    error: { code: HTTP_UNAUTHORIZED_ERROR_CODE, message: "Unauthorized" },
+    id: null
+  })
+)
 
 const writeStderr = (message: string): void => {
   process.stderr.write(message)
 }
 
 interface HttpTransportConfig {
-  readonly port: number
-  readonly host: string
+  readonly port: HttpPort
+  readonly host: HttpHost
   readonly authToken?: string | undefined
 }
 
@@ -39,20 +71,27 @@ export class HttpTransportError extends Schema.TaggedError<HttpTransportError>()
 }) {}
 
 export interface HttpServerFactory {
-  readonly make: (port: number, host: string) => Effect.Effect<HttpServer.HttpServer, HttpTransportError, Scope.Scope>
+  readonly make: (
+    port: HttpPort,
+    host: HttpHost
+  ) => Effect.Effect<HttpServer.HttpServer, HttpTransportError, Scope.Scope>
   readonly writeError?: (message: string) => void
 }
+
+export const httpServeError = (
+  host: HttpHost,
+  port: HttpPort,
+  error: { readonly cause: unknown }
+): HttpTransportError =>
+  new HttpTransportError({
+    message: `Failed to start HTTP server on ${host}:${port}: ${String(error.cause)}`,
+    cause: error
+  })
 
 const defaultHttpServerFactory: HttpServerFactory = {
   make: (port, host) =>
     NodeHttpServer.make(createNodeServer, { port, host }).pipe(
-      Effect.mapError(
-        (error) =>
-          new HttpTransportError({
-            message: `Failed to start HTTP server on ${host}:${port}: ${String(error.cause)}`,
-            cause: error
-          })
-      )
+      Effect.mapError((error) => httpServeError(host, port, error))
     ),
   writeError: writeStderr
 }
@@ -91,10 +130,10 @@ const isAuthorizedMcpRequest = (request: Request, authToken: string | undefined)
 }
 
 const unauthorizedResponse = (): Response =>
-  Response.json(
-    { jsonrpc: "2.0", error: { code: -32000, message: "Unauthorized" }, id: null },
-    { status: HTTP_UNAUTHORIZED, headers: { "WWW-Authenticate": "Bearer" } }
-  )
+  Response.json(UNAUTHORIZED_JSON_RPC_RESPONSE, {
+    status: HTTP_UNAUTHORIZED,
+    headers: { "WWW-Authenticate": "Bearer" }
+  })
 
 export interface MountedMcpHttpHandler {
   readonly fetch: (request: Request) => Promise<Response>
@@ -142,7 +181,7 @@ export const createMountedMcpHttpHandler = (
   createServer: McpServerFactory,
   authToken?: string,
   writeError: (message: string) => void = writeStderr,
-  host: string = "127.0.0.1"
+  host: HttpHost = DEFAULT_HTTP_HOST
 ): MountedMcpHttpHandler => {
   const reportError = (error: Error): void => {
     writeError(`MCP HTTP handler error: ${error.message}\n`)

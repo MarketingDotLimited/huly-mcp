@@ -6,7 +6,12 @@ import { Context, Effect, Exit, Fiber, Layer, Schema, Scope } from "effect"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { createMcpServer } from "../../src/mcp/create-mcp-server.js"
-import { HttpServerFactoryService, HttpTransportError, startHttpTransport } from "../../src/mcp/http-transport.js"
+import {
+  createMountedMcpHttpHandler,
+  HttpServerFactoryService,
+  HttpTransportError,
+  startHttpTransport
+} from "../../src/mcp/http-transport.js"
 import { PROXY_TOOL_NAMES } from "../../src/mcp/proxy-tools.js"
 import { toolRegistry } from "../../src/mcp/tools/index.js"
 import type { TelemetryOperations } from "../../src/telemetry/telemetry.js"
@@ -564,6 +569,49 @@ describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
 
     expect(await postWithHostHeader(endpoint.baseUrl, "attacker.example")).toBe(403)
     await endpoint.close()
+  })
+
+  it.each([
+    { configuredHost: "localhost", requestHost: "localhost" },
+    { configuredHost: "::1", requestHost: "[::1]" }
+  ])("serves requests for the configured loopback host $configuredHost", async ({ configuredHost, requestHost }) => {
+    const mounted = createMountedMcpHttpHandler(createTestServer, undefined, () => {}, configuredHost)
+    try {
+      const response = await mounted.fetch(
+        new Request(`http://${requestHost}/mcp`, {
+          method: "POST",
+          headers: { ...modernHeaders("server/discover"), host: requestHost, origin: `http://${requestHost}` },
+          body: JSON.stringify(modernBody("server/discover", {}))
+        })
+      )
+
+      expect(response.status).toBe(200)
+      await response.text()
+    } finally {
+      await mounted.close()
+    }
+  })
+
+  it("leaves public-interface Host and Origin policy to the deployment", async () => {
+    const mounted = createMountedMcpHttpHandler(createTestServer, undefined, () => {}, "0.0.0.0")
+    try {
+      const response = await mounted.fetch(
+        new Request("http://attacker.example/mcp", {
+          method: "POST",
+          headers: {
+            ...modernHeaders("server/discover"),
+            host: "attacker.example",
+            origin: "https://attacker.example"
+          },
+          body: JSON.stringify(modernBody("server/discover", {}))
+        })
+      )
+
+      expect(response.status).toBe(200)
+      await response.text()
+    } finally {
+      await mounted.close()
+    }
   })
 
   it("serves tools through final headers and SDK-owned result fields", async () => {
