@@ -24,20 +24,18 @@ type JsonSchemaObject = {
 describe("Comment Schemas", () => {
   describe("CommentSchema", () => {
     it.effect("parses minimal comment", () =>
-      Effect.gen(function*() {
-        const result = yield* parseComment({
-          id: "comment-123",
-          body: "This is a comment"
-        })
+      Effect.gen(function* () {
+        const result = yield* parseComment({ id: "comment-123", body: "This is a comment" })
         expect(result.id).toBe("comment-123")
         expect(result.body).toBe("This is a comment")
         expect(result.author).toBeUndefined()
         expect(result.authorId).toBeUndefined()
         expect(result.createdOn).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("parses full comment with all fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseComment({
           id: "comment-456",
           body: "Full comment with **markdown**",
@@ -54,172 +52,133 @@ describe("Comment Schemas", () => {
         expect(result.createdOn).toBe(1706500000000)
         expect(result.modifiedOn).toBe(1706600000000)
         expect(result.editedOn).toBe(1706550000000)
-      }))
+      })
+    )
 
     it.effect("handles null editedOn", () =>
-      Effect.gen(function*() {
-        const result = yield* parseComment({
-          id: "comment-789",
-          body: "Never edited",
-          editedOn: null
-        })
+      Effect.gen(function* () {
+        const result = yield* parseComment({ id: "comment-789", body: "Never edited", editedOn: null })
         expect(result.editedOn).toBeNull()
-      }))
+      })
+    )
 
     it.effect("rejects empty body", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseComment({
-            id: "comment-empty",
-            body: ""
-          })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseComment({ id: "comment-empty", body: "" }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects missing id", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseComment({ body: "Comment without id" })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseComment({ body: "Comment without id" }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects empty id", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseComment({ id: "  ", body: "Comment" })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseComment({ id: "  ", body: "Comment" }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("trims id whitespace", () =>
-      Effect.gen(function*() {
-        const result = yield* parseComment({
-          id: "  comment-trimmed  ",
-          body: "Trimmed ID"
-        })
+      Effect.gen(function* () {
+        const result = yield* parseComment({ id: "  comment-trimmed  ", body: "Trimmed ID" })
         expect(result.id).toBe("comment-trimmed")
-      }))
+      })
+    )
   })
 
   describe("ListCommentsParamsSchema", () => {
     it.effect("parses minimal params", () =>
-      Effect.gen(function*() {
-        const result = yield* parseListCommentsParams({
-          project: "HULY",
-          issueIdentifier: "HULY-123"
-        })
+      Effect.gen(function* () {
+        const result = yield* parseListCommentsParams({ project: "HULY", issueIdentifier: "HULY-123" })
         expect(result.project).toBe("HULY")
         expect(result.issueIdentifier).toBe("HULY-123")
         expect(result.limit).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("parses with limit", () =>
-      Effect.gen(function*() {
-        const result = yield* parseListCommentsParams({
-          project: "TEST",
-          issueIdentifier: "TEST-42",
-          limit: 25
-        })
+      Effect.gen(function* () {
+        const result = yield* parseListCommentsParams({ project: "TEST", issueIdentifier: "TEST-42", limit: 25 })
         expect(result.project).toBe("TEST")
         expect(result.issueIdentifier).toBe("TEST-42")
         expect(result.limit).toBe(25)
-      }))
+      })
+    )
 
     it.effect("parses with numeric issue identifier", () =>
-      Effect.gen(function*() {
-        const result = yield* parseListCommentsParams({
-          project: "PROJ",
-          issueIdentifier: "456"
-        })
+      Effect.gen(function* () {
+        const result = yield* parseListCommentsParams({ project: "PROJ", issueIdentifier: "456" })
         expect(result.project).toBe("PROJ")
         expect(result.issueIdentifier).toBe("456")
-      }))
+      })
+    )
 
     it.effect("rejects empty project", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseListCommentsParams({
-            project: "  ",
-            issueIdentifier: "HULY-1"
-          })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseListCommentsParams({ project: "  ", issueIdentifier: "HULY-1" }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects empty issueIdentifier", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseListCommentsParams({
-            project: "HULY",
-            issueIdentifier: "   "
-          })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseListCommentsParams({ project: "HULY", issueIdentifier: "   " }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects negative limit", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseListCommentsParams({
-            project: "HULY",
-            issueIdentifier: "HULY-1",
-            limit: -1
-          })
+          parseListCommentsParams({ project: "HULY", issueIdentifier: "HULY-1", limit: -1 })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects non-integer limit", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseListCommentsParams({
-            project: "HULY",
-            issueIdentifier: "HULY-1",
-            limit: 10.5
-          })
+          parseListCommentsParams({ project: "HULY", issueIdentifier: "HULY-1", limit: 10.5 })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects zero limit", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseListCommentsParams({
-            project: "HULY",
-            issueIdentifier: "HULY-1",
-            limit: 0
-          })
+          parseListCommentsParams({ project: "HULY", issueIdentifier: "HULY-1", limit: 0 })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects limit over 200", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseListCommentsParams({
-            project: "HULY",
-            issueIdentifier: "HULY-1",
-            limit: 201
-          })
+          parseListCommentsParams({ project: "HULY", issueIdentifier: "HULY-1", limit: 201 })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("trims project whitespace", () =>
-      Effect.gen(function*() {
-        const result = yield* parseListCommentsParams({
-          project: "  HULY  ",
-          issueIdentifier: "HULY-1"
-        })
+      Effect.gen(function* () {
+        const result = yield* parseListCommentsParams({ project: "  HULY  ", issueIdentifier: "HULY-1" })
         expect(result.project).toBe("HULY")
-      }))
+      })
+    )
   })
 
   describe("AddCommentParamsSchema", () => {
     it.effect("parses valid params", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseAddCommentParams({
           project: "HULY",
           issueIdentifier: "HULY-123",
@@ -228,10 +187,11 @@ describe("Comment Schemas", () => {
         expect(result.project).toBe("HULY")
         expect(result.issueIdentifier).toBe("HULY-123")
         expect(result.body).toBe("This is a new comment")
-      }))
+      })
+    )
 
     it.effect("parses with markdown body", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseAddCommentParams({
           project: "TEST",
           issueIdentifier: "TEST-1",
@@ -240,57 +200,49 @@ describe("Comment Schemas", () => {
         expect(result.project).toBe("TEST")
         expect(result.issueIdentifier).toBe("TEST-1")
         expect(result.body).toBe("# Heading\n\n- Item 1\n- Item 2\n\n```js\nconsole.log('hello');\n```")
-      }))
+      })
+    )
 
     it.effect("rejects empty body", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseAddCommentParams({
-            project: "HULY",
-            issueIdentifier: "HULY-1",
-            body: "   "
-          })
+          parseAddCommentParams({ project: "HULY", issueIdentifier: "HULY-1", body: "   " })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects missing body", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseAddCommentParams({
-            project: "HULY",
-            issueIdentifier: "HULY-1"
-          })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseAddCommentParams({ project: "HULY", issueIdentifier: "HULY-1" }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects empty project", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseAddCommentParams({
-            project: "  ",
-            issueIdentifier: "HULY-1",
-            body: "Comment"
-          })
+          parseAddCommentParams({ project: "  ", issueIdentifier: "HULY-1", body: "Comment" })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("trims body whitespace", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseAddCommentParams({
           project: "HULY",
           issueIdentifier: "HULY-1",
           body: "  Comment with whitespace  "
         })
         expect(result.body).toBe("Comment with whitespace")
-      }))
+      })
+    )
   })
 
   describe("UpdateCommentParamsSchema", () => {
     it.effect("parses valid params", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseUpdateCommentParams({
           project: "HULY",
           issueIdentifier: "HULY-123",
@@ -301,48 +253,38 @@ describe("Comment Schemas", () => {
         expect(result.issueIdentifier).toBe("HULY-123")
         expect(result.commentId).toBe("comment-456")
         expect(result.body).toBe("Updated comment body")
-      }))
+      })
+    )
 
     it.effect("rejects empty commentId", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseUpdateCommentParams({
-            project: "HULY",
-            issueIdentifier: "HULY-1",
-            commentId: "   ",
-            body: "Updated"
-          })
+          parseUpdateCommentParams({ project: "HULY", issueIdentifier: "HULY-1", commentId: "   ", body: "Updated" })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects missing commentId", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseUpdateCommentParams({
-            project: "HULY",
-            issueIdentifier: "HULY-1",
-            body: "Updated"
-          })
+          parseUpdateCommentParams({ project: "HULY", issueIdentifier: "HULY-1", body: "Updated" })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects empty body", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseUpdateCommentParams({
-            project: "HULY",
-            issueIdentifier: "HULY-1",
-            commentId: "comment-1",
-            body: "  "
-          })
+          parseUpdateCommentParams({ project: "HULY", issueIdentifier: "HULY-1", commentId: "comment-1", body: "  " })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("trims all string fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseUpdateCommentParams({
           project: "  HULY  ",
           issueIdentifier: "  HULY-1  ",
@@ -353,12 +295,13 @@ describe("Comment Schemas", () => {
         expect(result.issueIdentifier).toBe("HULY-1")
         expect(result.commentId).toBe("comment-123")
         expect(result.body).toBe("Updated body")
-      }))
+      })
+    )
   })
 
   describe("DeleteCommentParamsSchema", () => {
     it.effect("parses valid params", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseDeleteCommentParams({
           project: "HULY",
           issueIdentifier: "HULY-123",
@@ -367,33 +310,27 @@ describe("Comment Schemas", () => {
         expect(result.project).toBe("HULY")
         expect(result.issueIdentifier).toBe("HULY-123")
         expect(result.commentId).toBe("comment-789")
-      }))
+      })
+    )
 
     it.effect("rejects missing commentId", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseDeleteCommentParams({
-            project: "HULY",
-            issueIdentifier: "HULY-1"
-          })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseDeleteCommentParams({ project: "HULY", issueIdentifier: "HULY-1" }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects empty commentId", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseDeleteCommentParams({
-            project: "HULY",
-            issueIdentifier: "HULY-1",
-            commentId: "   "
-          })
+          parseDeleteCommentParams({ project: "HULY", issueIdentifier: "HULY-1", commentId: "   " })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("trims all string fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseDeleteCommentParams({
           project: "  PROJ  ",
           issueIdentifier: "  PROJ-42  ",
@@ -402,50 +339,55 @@ describe("Comment Schemas", () => {
         expect(result.project).toBe("PROJ")
         expect(result.issueIdentifier).toBe("PROJ-42")
         expect(result.commentId).toBe("comment-xyz")
-      }))
+      })
+    )
   })
 
   describe("JSON Schema Generation", () => {
     it.effect("generates JSON Schema for ListCommentsParams", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const schema = listCommentsParamsJsonSchema as JsonSchemaObject
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
         expect(schema.required).toContain("issueIdentifier")
         expect(schema.properties).toHaveProperty("limit")
-      }))
+      })
+    )
 
     it.effect("generates JSON Schema for AddCommentParams", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const schema = addCommentParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
         expect(schema.required).toContain("issueIdentifier")
         expect(schema.required).toContain("body")
-      }))
+      })
+    )
 
     it.effect("generates JSON Schema for UpdateCommentParams", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const schema = updateCommentParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
         expect(schema.required).toContain("issueIdentifier")
         expect(schema.required).toContain("commentId")
         expect(schema.required).toContain("body")
-      }))
+      })
+    )
 
     it.effect("generates JSON Schema for DeleteCommentParams", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const schema = deleteCommentParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
         expect(schema.required).toContain("issueIdentifier")
         expect(schema.required).toContain("commentId")
-      }))
+      })
+    )
 
     it.effect("schemas have additionalProperties: false", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         // eslint-disable-next-line no-restricted-syntax -- tuple type doesn't overlap with Array<Record<string, unknown>>
         const schemas = [
           listCommentsParamsJsonSchema,
@@ -457,15 +399,17 @@ describe("Comment Schemas", () => {
         for (const schema of schemas) {
           expect(schema.additionalProperties).toBe(false)
         }
-      }))
+      })
+    )
 
     it.effect("ListCommentsParams has property descriptions", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const schema = listCommentsParamsJsonSchema as JsonSchemaObject
         const properties = assertExists(schema.properties)
         expect(assertExists(properties.project).description).toBeDefined()
         expect(assertExists(properties.issueIdentifier).description).toBeDefined()
         expect(assertExists(properties.limit).description).toBeDefined()
-      }))
+      })
+    )
   })
 })

@@ -55,9 +55,7 @@ describe("card version metadata parsing properties", () => {
           if (result._tag !== "Degraded") return
           expect(result.degradedFields).toEqual([omitVersion ? "version" : "baseId"])
           expect(result.resolution).toEqual(
-            omitVersion
-              ? { _tag: "RecoveredChain", chainId: baseId }
-              : { _tag: "Unresolved" }
+            omitVersion ? { _tag: "RecoveredChain", chainId: baseId } : { _tag: "Unresolved" }
           )
         }
       ),
@@ -77,14 +75,8 @@ describe("card version metadata parsing properties", () => {
           const result = parseCardVersionMetadataFields({
             version,
             baseId,
-            isLatest: malformedIsLatest
-              ? malformedFlag
-              : preserveOtherFlag
-              ? false
-              : undefined,
-            readonly: malformedIsLatest
-              ? preserveOtherFlag ? false : undefined
-              : malformedFlag
+            isLatest: malformedIsLatest ? malformedFlag : preserveOtherFlag ? false : undefined,
+            readonly: malformedIsLatest ? (preserveOtherFlag ? false : undefined) : malformedFlag
           })
 
           expect(result._tag).toBe("Degraded")
@@ -94,9 +86,7 @@ describe("card version metadata parsing properties", () => {
             metadata: {
               number: version,
               chainId: baseId,
-              ...(preserveOtherFlag
-                ? malformedIsLatest ? { readonly: false } : { isLatest: false }
-                : {})
+              ...(preserveOtherFlag ? (malformedIsLatest ? { readonly: false } : { isLatest: false }) : {})
             }
           })
           expect(result.degradedFields).toEqual([malformedIsLatest ? "isLatest" : "readonly"])
@@ -107,17 +97,9 @@ describe("card version metadata parsing properties", () => {
   })
 
   it("omits both malformed optional flags from recovered metadata", () => {
-    expect(parseCardVersionMetadataFields({
-      version: 3,
-      baseId: "chain-3",
-      isLatest: "yes",
-      readonly: "no"
-    })).toEqual({
+    expect(parseCardVersionMetadataFields({ version: 3, baseId: "chain-3", isLatest: "yes", readonly: "no" })).toEqual({
       _tag: "Degraded",
-      resolution: {
-        _tag: "RecoveredMetadata",
-        metadata: { number: 3, chainId: "chain-3" }
-      },
+      resolution: { _tag: "RecoveredMetadata", metadata: { number: 3, chainId: "chain-3" } },
       degradedFields: ["isLatest", "readonly"]
     })
   })
@@ -125,12 +107,7 @@ describe("card version metadata parsing properties", () => {
   it("reports every malformed field when no version-chain identity can be recovered", () => {
     fc.assert(
       fc.property(malformedBooleanArbitrary, malformedBooleanArbitrary, (isLatest, readonly) => {
-        const result = parseCardVersionMetadataFields({
-          version: null,
-          baseId: null,
-          isLatest,
-          readonly
-        })
+        const result = parseCardVersionMetadataFields({ version: null, baseId: null, isLatest, readonly })
 
         expect(result).toEqual({
           _tag: "Degraded",

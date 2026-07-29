@@ -62,51 +62,37 @@ const buildCatalogTree = (): MutableCommandNode => {
   return root
 }
 
-const rawLeafArgs = (
-  argv: ReadonlyArray<string>,
-  _path: ReadonlyArray<string>
-): ReadonlyArray<string> => argv
+const rawLeafArgs = (argv: ReadonlyArray<string>, _path: ReadonlyArray<string>): ReadonlyArray<string> => argv
 
-const makeLeafCommand = (
-  node: MutableCommandNode,
-  argv: ReadonlyArray<string>
-): HulyCommand => {
+const makeLeafCommand = (node: MutableCommandNode, argv: ReadonlyArray<string>): HulyCommand => {
   const toolName = node.toolName
   const spec = node.spec
   /* c8 ignore start -- buildCatalogTree assigns both fields for every leaf; this is a defensive invariant error. */
   if (toolName === undefined || spec === undefined) {
-    return Command.make(
-      node.name,
-      {},
-      () => Effect.fail(new CliRuntimeError({ message: `CLI command ${node.name} is missing catalog metadata.` }))
+    return Command.make(node.name, {}, () =>
+      Effect.fail(new CliRuntimeError({ message: `CLI command ${node.name} is missing catalog metadata.` }))
     )
   }
   /* c8 ignore stop */
   const operation = operationRegistry.getOperation(toolName)
 
-  return Command.make(
-    node.name,
-    buildCliCommandConfig(operation, spec),
-    ({ options, positionals }) =>
-      Effect.gen(function*() {
-        const globalOptions = yield* parseGlobalCommandLine(argv).pipe(
-          Effect.mapError((error) =>
-            new CliRuntimeError({ message: error instanceof Error ? error.message : String(error) })
-          )
+  return Command.make(node.name, buildCliCommandConfig(operation, spec), ({ options, positionals }) =>
+    Effect.gen(function* () {
+      const globalOptions = yield* parseGlobalCommandLine(argv).pipe(
+        Effect.mapError(
+          (error) => new CliRuntimeError({ message: error instanceof Error ? error.message : String(error) })
         )
-        yield* runCliTool(toolName, {
-          options: [...globalOptions, ...options],
-          positionals,
-          raw: rawLeafArgs(argv, spec.path)
-        })
+      )
+      yield* runCliTool(toolName, {
+        options: [...globalOptions, ...options],
+        positionals,
+        raw: rawLeafArgs(argv, spec.path)
       })
+    })
   ).pipe(Command.withDescription(spec.description))
 }
 
-const makeGroupCommand = (
-  node: MutableCommandNode,
-  argv: ReadonlyArray<string>
-): HulyCommand => {
+const makeGroupCommand = (node: MutableCommandNode, argv: ReadonlyArray<string>): HulyCommand => {
   const subcommands = [...node.children.values()].map((child) => makeCommand(child, argv))
   const first = subcommands[0]
   /* c8 ignore start -- the catalog is non-empty; retained for totality if future callers build empty groups. */
@@ -121,20 +107,12 @@ const makeGroupCommand = (
   )
 }
 
-const makeCommand = (
-  node: MutableCommandNode,
-  argv: ReadonlyArray<string>
-): HulyCommand =>
-  node.toolName === undefined ? makeGroupCommand(node, argv) : makeLeafCommand(
-    node,
-    argv
-  )
+const makeCommand = (node: MutableCommandNode, argv: ReadonlyArray<string>): HulyCommand =>
+  node.toolName === undefined ? makeGroupCommand(node, argv) : makeLeafCommand(node, argv)
 
 export const buildRootCommand = (argv: ReadonlyArray<string>): HulyCommand => {
   const tree = buildCatalogTree()
-  const rootCommand = Command.make(tree.name, buildGlobalOptionsConfig()).pipe(
-    Command.withDescription("Huly CLI")
-  )
+  const rootCommand = Command.make(tree.name, buildGlobalOptionsConfig()).pipe(Command.withDescription("Huly CLI"))
   const subcommands = [...tree.children.values()].map((child) => makeCommand(child, argv))
   const first = subcommands[0]
   if (first === undefined) return rootCommand

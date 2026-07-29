@@ -61,9 +61,9 @@ const roleAssignments = (
   return entries.length === 0
     ? undefined
     : entries.map(([roleId, members]) => ({
-      roleId: RoleId.make(roleId),
-      members: members.map((member) => AccountUuid.make(member))
-    }))
+        roleId: RoleId.make(roleId),
+        members: members.map((member) => AccountUuid.make(member))
+      }))
 }
 
 export const toSpaceDetail = (

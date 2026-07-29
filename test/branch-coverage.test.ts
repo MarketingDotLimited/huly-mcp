@@ -41,7 +41,7 @@ const asProject = (v: unknown) => v as HulyProject
 
 describe("buildSocialIdToPersonNameMap - person not found in map (channels.ts line 159 false branch)", () => {
   it.effect("skips socialIdentity when its attachedTo person is missing from DB", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const client = yield* HulyClient
 
       const result = yield* buildSocialIdToPersonNameMap(client, ["social-orphan" as PersonId])
@@ -50,41 +50,45 @@ describe("buildSocialIdToPersonNameMap - person not found in map (channels.ts li
     }).pipe(
       Effect.provide(
         HulyClient.testLayer({
-          findAll: (((_class: unknown) => {
+          findAll: ((_class: unknown) => {
             if (_class === contact.class.SocialIdentity) {
-              return Effect.succeed(toFindResult(asDocs([{
-                _id: "social-orphan" as PersonId,
-                _class: contact.class.SocialIdentity,
-                space: "space-1" as Ref<Space>,
-                attachedTo: "person-999" as Ref<Person>,
-                attachedToClass: contact.class.Person,
-                collection: "socialIds",
-                type: SocialIdType.HULY,
-                value: "orphan@example.com",
-                key: "huly:orphan@example.com",
-                modifiedBy: "user-1" as PersonId,
-                modifiedOn: 0
-              }])))
+              return Effect.succeed(
+                toFindResult(
+                  asDocs([
+                    {
+                      _id: "social-orphan" as PersonId,
+                      _class: contact.class.SocialIdentity,
+                      space: "space-1" as Ref<Space>,
+                      attachedTo: "person-999" as Ref<Person>,
+                      attachedToClass: contact.class.Person,
+                      collection: "socialIds",
+                      type: SocialIdType.HULY,
+                      value: "orphan@example.com",
+                      key: "huly:orphan@example.com",
+                      modifiedBy: "user-1" as PersonId,
+                      modifiedOn: 0
+                    }
+                  ])
+                )
+              )
             }
             if (_class === contact.class.Person) {
               return Effect.succeed(toFindResult([]))
             }
             return Effect.succeed(toFindResult([]))
-          }) as HulyClientOperations["findAll"])
+          }) as HulyClientOperations["findAll"]
         })
       )
-    ))
+    )
+  )
 
   it.effect("resolves some but skips others when only some persons exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const client = yield* HulyClient
       const foundSocialId = "social-found" as PersonId
       const orphanSocialId = "social-orphan" as PersonId
 
-      const result = yield* buildSocialIdToPersonNameMap(
-        client,
-        [foundSocialId, orphanSocialId]
-      )
+      const result = yield* buildSocialIdToPersonNameMap(client, [foundSocialId, orphanSocialId])
 
       expect(result.size).toBe(1)
       expect(result.get(foundSocialId)).toBe("Found Person")
@@ -92,54 +96,65 @@ describe("buildSocialIdToPersonNameMap - person not found in map (channels.ts li
     }).pipe(
       Effect.provide(
         HulyClient.testLayer({
-          findAll: (((_class: unknown) => {
+          findAll: ((_class: unknown) => {
             if (_class === contact.class.SocialIdentity) {
-              return Effect.succeed(toFindResult(asDocs([
-                {
-                  _id: "social-found" as PersonId,
-                  _class: contact.class.SocialIdentity,
-                  space: "space-1" as Ref<Space>,
-                  attachedTo: "person-1" as Ref<Person>,
-                  attachedToClass: contact.class.Person,
-                  collection: "socialIds",
-                  type: SocialIdType.HULY,
-                  value: "found@example.com",
-                  key: "huly:found@example.com",
-                  modifiedBy: "user-1" as PersonId,
-                  modifiedOn: 0
-                },
-                {
-                  _id: "social-orphan" as PersonId,
-                  _class: contact.class.SocialIdentity,
-                  space: "space-1" as Ref<Space>,
-                  attachedTo: "person-999" as Ref<Person>,
-                  attachedToClass: contact.class.Person,
-                  collection: "socialIds",
-                  type: SocialIdType.HULY,
-                  value: "orphan@example.com",
-                  key: "huly:orphan@example.com",
-                  modifiedBy: "user-1" as PersonId,
-                  modifiedOn: 0
-                }
-              ])))
+              return Effect.succeed(
+                toFindResult(
+                  asDocs([
+                    {
+                      _id: "social-found" as PersonId,
+                      _class: contact.class.SocialIdentity,
+                      space: "space-1" as Ref<Space>,
+                      attachedTo: "person-1" as Ref<Person>,
+                      attachedToClass: contact.class.Person,
+                      collection: "socialIds",
+                      type: SocialIdType.HULY,
+                      value: "found@example.com",
+                      key: "huly:found@example.com",
+                      modifiedBy: "user-1" as PersonId,
+                      modifiedOn: 0
+                    },
+                    {
+                      _id: "social-orphan" as PersonId,
+                      _class: contact.class.SocialIdentity,
+                      space: "space-1" as Ref<Space>,
+                      attachedTo: "person-999" as Ref<Person>,
+                      attachedToClass: contact.class.Person,
+                      collection: "socialIds",
+                      type: SocialIdType.HULY,
+                      value: "orphan@example.com",
+                      key: "huly:orphan@example.com",
+                      modifiedBy: "user-1" as PersonId,
+                      modifiedOn: 0
+                    }
+                  ])
+                )
+              )
             }
             if (_class === contact.class.Person) {
-              return Effect.succeed(toFindResult(asDocs([{
-                _id: "person-1" as Ref<Person>,
-                _class: contact.class.Person,
-                space: "space-1" as Ref<Space>,
-                name: "Found Person",
-                modifiedBy: "user-1" as PersonId,
-                modifiedOn: 0,
-                createdBy: "user-1" as PersonId,
-                createdOn: 0
-              }])))
+              return Effect.succeed(
+                toFindResult(
+                  asDocs([
+                    {
+                      _id: "person-1" as Ref<Person>,
+                      _class: contact.class.Person,
+                      space: "space-1" as Ref<Space>,
+                      name: "Found Person",
+                      modifiedBy: "user-1" as PersonId,
+                      modifiedOn: 0,
+                      createdBy: "user-1" as PersonId,
+                      createdOn: 0
+                    }
+                  ])
+                )
+              )
             }
             return Effect.succeed(toFindResult([]))
-          }) as HulyClientOperations["findAll"])
+          }) as HulyClientOperations["findAll"]
         })
       )
-    ))
+    )
+  )
 })
 
 // ============================================================
@@ -149,7 +164,7 @@ describe("buildSocialIdToPersonNameMap - person not found in map (channels.ts li
 
 describe("buildAccountUuidToNameMap - employee with undefined personUuid (channels.ts line 187 false branch)", () => {
   it.effect("skips employee when personUuid is undefined", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const dm: HulyDirectMessage = {
         _id: "dm-1" as Ref<HulyDirectMessage>,
         _class: chunter.class.DirectMessage,
@@ -194,10 +209,11 @@ describe("buildAccountUuidToNameMap - employee with undefined personUuid (channe
 
       expect(result.conversations).toHaveLength(1)
       expect(assertAt(result.conversations, 0).participants).toEqual([])
-    }))
+    })
+  )
 
   it.effect("resolves employees WITH personUuid but skips those WITHOUT", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const dm: HulyDirectMessage = {
         _id: "dm-1" as Ref<HulyDirectMessage>,
         _class: chunter.class.DirectMessage,
@@ -256,7 +272,8 @@ describe("buildAccountUuidToNameMap - employee with undefined personUuid (channe
       const result = yield* listDirectMessages({}).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(assertAt(result.conversations, 0).participants).toEqual(["Alice"])
-    }))
+    })
+  )
 })
 
 // ============================================================
@@ -325,11 +342,9 @@ describe("createIssueFromTemplate - person not found for template assignee (issu
   })
 
   it.effect("uses no assignee when template.assignee person is not found in DB", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject()
-      const template = makeTemplate({
-        assignee: "nonexistent-person" as Ref<Person>
-      })
+      const template = makeTemplate({ assignee: "nonexistent-person" as Ref<Person> })
 
       let capturedAttributes: Record<string, unknown> | undefined
 
@@ -398,7 +413,8 @@ describe("createIssueFromTemplate - person not found for template assignee (issu
 
       expect(result.issueId).toBeDefined()
       expect(capturedAttributes?.assignee).toBeNull()
-    }))
+    })
+  )
 })
 
 // ============================================================
@@ -412,7 +428,7 @@ describe("createIssueFromTemplate - person not found for template assignee (issu
 
 describe("hasFileSource - || short-circuit branches (attachments.ts lines 144-145)", () => {
   it.effect("accepts when ONLY fileUrl is provided (filePath falsy)", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseAddAttachmentParams({
         objectId: "obj-1",
         objectClass: "tracker:class:Issue",
@@ -425,10 +441,11 @@ describe("hasFileSource - || short-circuit branches (attachments.ts lines 144-14
       expect(result.fileUrl).toBe("https://example.com/file.txt")
       expect(result.filePath).toBeUndefined()
       expect(result.data).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("accepts when ONLY data is provided (filePath AND fileUrl falsy)", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseAddAttachmentParams({
         objectId: "obj-1",
         objectClass: "tracker:class:Issue",
@@ -441,10 +458,11 @@ describe("hasFileSource - || short-circuit branches (attachments.ts lines 144-14
       expect(result.data).toBe("aGVsbG8=")
       expect(result.filePath).toBeUndefined()
       expect(result.fileUrl).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("accepts AddIssueAttachmentParams with ONLY fileUrl", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseAddIssueAttachmentParams({
         project: "PROJ",
         identifier: "PROJ-1",
@@ -456,10 +474,11 @@ describe("hasFileSource - || short-circuit branches (attachments.ts lines 144-14
       expect(result.fileUrl).toBe("https://example.com/doc.pdf")
       expect(result.filePath).toBeUndefined()
       expect(result.data).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("accepts AddIssueAttachmentParams with ONLY data", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseAddIssueAttachmentParams({
         project: "PROJ",
         identifier: "PROJ-1",
@@ -469,10 +488,11 @@ describe("hasFileSource - || short-circuit branches (attachments.ts lines 144-14
       })
 
       expect(result.data).toBe("iVBORw0KGgo=")
-    }))
+    })
+  )
 
   it.effect("accepts AddDocumentAttachmentParams with ONLY fileUrl", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseAddDocumentAttachmentParams({
         teamspace: "My Docs",
         document: "My Doc",
@@ -482,10 +502,11 @@ describe("hasFileSource - || short-circuit branches (attachments.ts lines 144-14
       })
 
       expect(result.fileUrl).toBe("https://example.com/readme.md")
-    }))
+    })
+  )
 
   it.effect("accepts AddDocumentAttachmentParams with ONLY data", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseAddDocumentAttachmentParams({
         teamspace: "My Docs",
         document: "My Doc",
@@ -495,5 +516,6 @@ describe("hasFileSource - || short-circuit branches (attachments.ts lines 144-14
       })
 
       expect(result.data).toBe("c21hbGw=")
-    }))
+    })
+  )
 })

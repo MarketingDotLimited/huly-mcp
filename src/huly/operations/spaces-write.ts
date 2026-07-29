@@ -52,12 +52,9 @@ const roleClass = core.class.Role
 const spaceTypeClass = core.class.SpaceType
 
 const requireTypedSpaceType = (space: GenericSpace): Effect.Effect<SpaceTypeId, SpaceNotTypedError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (space.type === undefined) {
-      return yield* new SpaceNotTypedError({
-        id: SpaceId.make(space._id),
-        name: NonEmptyString.make(space.name)
-      })
+      return yield* new SpaceNotTypedError({ id: SpaceId.make(space._id), name: NonEmptyString.make(space.name) })
     }
     return SpaceTypeId.make(space.type)
   })
@@ -66,17 +63,14 @@ const findSpaceType = (
   client: HulyClient["Type"],
   spaceType: SpaceTypeId
 ): Effect.Effect<SpaceType, HulyClientError | SpaceRoleNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const result = yield* client.findOne<SpaceType>(
       spaceTypeClass,
       hulyQuery<SpaceType>({ _id: toRef<SpaceType>(spaceType) })
     )
 
     if (result === undefined) {
-      return yield* new SpaceRoleNotFoundError({
-        identifier: NonEmptyString.make("SpaceType roles"),
-        spaceType
-      })
+      return yield* new SpaceRoleNotFoundError({ identifier: NonEmptyString.make("SpaceType roles"), spaceType })
     }
     return result
   })
@@ -86,39 +80,27 @@ const resolveSpaceRole = (
   spaceType: SpaceTypeId,
   role: SpaceRoleMemberMutationParams["role"]
 ): Effect.Effect<Role, HulyClientError | SpaceRoleIdentifierAmbiguousError | SpaceRoleNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<Role>(
       roleClass,
-      hulyQuery<Role>({
-        _id: toRef<Role>(role),
-        attachedTo: toRef<SpaceType>(spaceType)
-      })
+      hulyQuery<Role>({ _id: toRef<Role>(role), attachedTo: toRef<SpaceType>(spaceType) })
     )
     if (byId !== undefined) return byId
 
     const matches = yield* client.findAll<Role>(
       roleClass,
-      hulyQuery<Role>({
-        attachedTo: toRef<SpaceType>(spaceType),
-        name: role
-      }),
+      hulyQuery<Role>({ attachedTo: toRef<SpaceType>(spaceType), name: role }),
       { limit: 2 }
     )
 
     if (matches.length === 0) {
-      return yield* new SpaceRoleNotFoundError({
-        identifier: NonEmptyString.make(role),
-        spaceType
-      })
+      return yield* new SpaceRoleNotFoundError({ identifier: NonEmptyString.make(role), spaceType })
     }
     if (matches.length > 1) {
       return yield* new SpaceRoleIdentifierAmbiguousError({
         identifier: NonEmptyString.make(role),
         spaceType,
-        matches: matches.map((match) => ({
-          id: RoleId.make(match._id),
-          name: NonEmptyString.make(match.name)
-        }))
+        matches: matches.map((match) => ({ id: RoleId.make(match._id), name: NonEmptyString.make(match.name) }))
       })
     }
     return assertAt(matches, 0)
@@ -128,11 +110,9 @@ const findSpaceTypeRoles = (
   client: HulyClient["Type"],
   spaceType: SpaceType
 ): Effect.Effect<Array<Role>, HulyClientError> =>
-  client.findAll<Role>(
-    roleClass,
-    hulyQuery<Role>({ attachedTo: spaceType._id }),
-    { limit: Math.max(spaceType.roles, 1) }
-  )
+  client.findAll<Role>(roleClass, hulyQuery<Role>({ attachedTo: spaceType._id }), {
+    limit: Math.max(spaceType.roles, 1)
+  })
 
 const writeSpaceRoleMembers = (
   client: HulyClient["Type"],
@@ -149,10 +129,12 @@ const writeSpaceRoleMembers = (
   const objectSpace = toRef<Space>(space.space)
 
   return hasSpaceRoleAssignmentMixin(space, spaceType)
-    ? client.updateMixin<GenericSpace, SpaceRoleAssignmentsMixin>(objectId, objectClass, objectSpace, mixin, attributes)
-      .pipe(Effect.asVoid)
-    : client.createMixin<GenericSpace, SpaceRoleAssignmentsMixin>(objectId, objectClass, objectSpace, mixin, attributes)
-      .pipe(Effect.asVoid)
+    ? client
+        .updateMixin<GenericSpace, SpaceRoleAssignmentsMixin>(objectId, objectClass, objectSpace, mixin, attributes)
+        .pipe(Effect.asVoid)
+    : client
+        .createMixin<GenericSpace, SpaceRoleAssignmentsMixin>(objectId, objectClass, objectSpace, mixin, attributes)
+        .pipe(Effect.asVoid)
 }
 
 type RoleMemberListMutation = (
@@ -164,7 +146,7 @@ const mutateSpaceRoleMembers = (
   params: SpaceRoleMemberMutationParams | SetSpaceRoleMembersParams,
   mutateMembers: RoleMemberListMutation
 ): Effect.Effect<SpaceRoleMembersResult, SpaceRoleMemberMutationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const space = yield* findSpace(client, params)
     const spaceType = yield* requireTypedSpaceType(space)
@@ -202,7 +184,7 @@ const mutateSpaceMembers = (
   params: SpaceMemberMutationParams,
   mutateMembers: MemberListMutation
 ): Effect.Effect<SpaceMemberMutationResult, SpaceMemberMutationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const space = yield* findSpace(client, params)
     const resolvedMembers = yield* resolveMembers(client, params.members)
@@ -214,7 +196,7 @@ const mutateSpaceMembers = (
     return { id: SpaceId.make(space._id), members: nextMembers.map((member) => AccountUuid.make(member)), changed }
   })
 
-type UpdateSpaceField = typeof UPDATE_SPACE_FIELDS[number]
+type UpdateSpaceField = (typeof UPDATE_SPACE_FIELDS)[number]
 
 type UpdateSpaceEntries = {
   readonly [Field in UpdateSpaceField]: DirectUpdateEntry<UpdateSpaceField, DocumentUpdate<GenericSpace>, Field>
@@ -235,7 +217,7 @@ const buildUpdateSpaceOperations = (params: UpdateSpaceParams): DocumentUpdate<G
 export const updateSpace = (
   params: UpdateSpaceParams
 ): Effect.Effect<UpdateSpaceResult, UpdateSpaceError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_space", params, UPDATE_SPACE_FIELDS)
     const client = yield* HulyClient
     const space = yield* findSpace(client, params)
@@ -257,7 +239,7 @@ export const removeSpaceMembers = (
 export const setSpaceOwners = (
   params: SetSpaceOwnersParams
 ): Effect.Effect<SetSpaceOwnersResult, SpaceMemberMutationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const space = yield* findSpace(client, params)
     const owners = (yield* resolveMembers(client, params.owners)).map(toAccountUuid)
@@ -270,10 +252,7 @@ export const setSpaceOwners = (
     const changedMembers = !arraysEqual(sortStrings(space.members), nextMembers)
 
     if (changedOwners || changedMembers) {
-      yield* updateSpaceDoc(client, space, {
-        owners,
-        ...(changedMembers ? { members: nextMembers } : {})
-      })
+      yield* updateSpaceDoc(client, space, { owners, ...(changedMembers ? { members: nextMembers } : {}) })
     }
 
     return {

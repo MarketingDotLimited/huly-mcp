@@ -31,31 +31,14 @@ interface ResourceHandlerInput {
   readonly leave: () => void
 }
 
-const withResourceWarnings = (
-  result: ReadResourceResult,
-  warnings: ReadonlyArray<ToolWarning>
-): ReadResourceResult =>
-  warnings.length === 0
-    ? result
-    : {
-      ...result,
-      _meta: {
-        ...result._meta,
-        warnings
-      }
-    }
+const withResourceWarnings = (result: ReadResourceResult, warnings: ReadonlyArray<ToolWarning>): ReadResourceResult =>
+  warnings.length === 0 ? result : { ...result, _meta: { ...result._meta, warnings } }
 
 const createResourceClientResolutionError = (uri: string, error: unknown): McpError =>
-  new McpError(
-    ErrorCode.InternalError,
-    `${clientResolutionErrorMessage(error)} Unable to read resource "${uri}".`
-  )
+  new McpError(ErrorCode.InternalError, `${clientResolutionErrorMessage(error)} Unable to read resource "${uri}".`)
 
 const createResourceListClientResolutionError = (error: unknown): McpError =>
-  new McpError(
-    ErrorCode.InternalError,
-    `${clientResolutionErrorMessage(error)} Unable to list Huly resources.`
-  )
+  new McpError(ErrorCode.InternalError, `${clientResolutionErrorMessage(error)} Unable to list Huly resources.`)
 
 const isConfigValidationFailure = (error: unknown): boolean => {
   if (error instanceof ConfigValidationError) return true
@@ -91,7 +74,9 @@ const throwResourceListError = (cause: Cause.Cause<McpError>): never => {
   throw new McpError(ErrorCode.InternalError, "Failed to list Huly resources")
 }
 
-export const createResourceProtocolHandlers = (input: ResourceHandlerInput): {
+export const createResourceProtocolHandlers = (
+  input: ResourceHandlerInput
+): {
   readonly listResources: () => Promise<ListResourcesResult>
   readonly readResource: (request: ResourceReadRequest) => Promise<ReadResourceResult>
 } => {
@@ -107,9 +92,7 @@ export const createResourceProtocolHandlers = (input: ResourceHandlerInput): {
       }
 
       const resourceList = await Effect.runPromiseExit(
-        listResources().pipe(
-          Effect.provideService(HulyClient, clients.hulyClient)
-        )
+        listResources().pipe(Effect.provideService(HulyClient, clients.hulyClient))
       )
       if (Exit.isSuccess(resourceList)) return resourceList.value
       return throwResourceListError(resourceList.cause)
@@ -122,9 +105,8 @@ export const createResourceProtocolHandlers = (input: ResourceHandlerInput): {
     input.enter()
     try {
       const { uri } = request.params
-      const clients = await resolveResourceClientsOrThrow(
-        input.resolveClients,
-        error => createResourceClientResolutionError(uri, error)
+      const clients = await resolveResourceClientsOrThrow(input.resolveClients, (error) =>
+        createResourceClientResolutionError(uri, error)
       )
       const diagnosticsScope = await Effect.runPromise(makeDiagnosticsScope)
       const resourceRead = await Effect.runPromiseExit(
@@ -141,8 +123,5 @@ export const createResourceProtocolHandlers = (input: ResourceHandlerInput): {
     }
   }
 
-  return {
-    listResources: listResourcesHandler,
-    readResource
-  }
+  return { listResources: listResourcesHandler, readResource }
 }

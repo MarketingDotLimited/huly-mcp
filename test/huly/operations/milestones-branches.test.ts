@@ -64,7 +64,7 @@ const makeMilestone = (overrides?: Partial<HulyMilestone>): HulyMilestone => {
 
 describe("milestones - status mapping exhaustiveness", () => {
   it.effect("all MilestoneStatus enum values map to correct domain strings via listMilestones", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject()
       const milestones = [
         makeMilestone({ _id: "m-1" as Ref<HulyMilestone>, status: MilestoneStatus.Planned, modifiedOn: 4000 }),
@@ -105,12 +105,13 @@ describe("milestones - status mapping exhaustiveness", () => {
       expect(assertAt(result, 1).status).toBe("in-progress")
       expect(assertAt(result, 2).status).toBe("completed")
       expect(assertAt(result, 3).status).toBe("canceled")
-    }))
+    })
+  )
 })
 
 describe("updateMilestone - description dual-write", () => {
   it.effect("uploads markup when a non-empty description is provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject()
       const milestone = makeMilestone({ _id: "m-1" as Ref<HulyMilestone>, label: "Sprint 1" })
 
@@ -159,17 +160,18 @@ describe("updateMilestone - description dual-write", () => {
       }).pipe(Effect.provide(testLayer))
 
       expect(result).toEqual({ id: "m-1", updated: true })
-      expect(uploads.map(upload => upload.attr)).toEqual(["description"])
+      expect(uploads.map((upload) => upload.attr)).toEqual(["description"])
       expect(capturedMarkupChildNodes(assertAt(uploads, 0).value)).toContainEqual({
         type: "text",
         text: "Updated milestone notes",
         marks: []
       })
       expect(assertAt(updates, 0)).toHaveProperty("description")
-    }))
+    })
+  )
 
   it.effect("skips markup upload when the description is blank", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject()
       const milestone = makeMilestone({ _id: "m-1" as Ref<HulyMilestone>, label: "Sprint 1" })
 
@@ -216,10 +218,11 @@ describe("updateMilestone - description dual-write", () => {
 
       expect(result).toEqual({ id: "m-1", updated: true })
       expect(uploads).toEqual([])
-    }))
+    })
+  )
 
   it.effect("clears description and skips markup upload when the description is null", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject()
       const milestone = makeMilestone({ _id: "m-1" as Ref<HulyMilestone>, label: "Sprint 1" })
       const uploads: Array<string> = []
@@ -262,5 +265,6 @@ describe("updateMilestone - description dual-write", () => {
       expect(result).toEqual({ id: "m-1", updated: true })
       expect(uploads).toEqual([])
       expect(updates[0]?.description).toBe("")
-    }))
+    })
+  )
 })

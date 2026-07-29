@@ -45,10 +45,7 @@ export const BoardDetailSchema = Schema.Struct({
 })
 export type BoardDetail = Schema.Schema.Type<typeof BoardDetailSchema>
 
-export const ListBoardsResultSchema = Schema.Struct({
-  boards: Schema.Array(BoardSummarySchema),
-  total: ListTotal
-})
+export const ListBoardsResultSchema = Schema.Struct({ boards: Schema.Array(BoardSummarySchema), total: ListTotal })
 export type ListBoardsResult = Schema.Schema.Type<typeof ListBoardsResultSchema>
 
 export const BoardCardSummarySchema = Schema.Struct({
@@ -97,23 +94,13 @@ export const ListBoardCardsResultSchema = Schema.Struct({
 })
 export type ListBoardCardsResult = Schema.Schema.Type<typeof ListBoardCardsResultSchema>
 
-export const BoardMutationResultSchema = Schema.Struct({
-  id: BoardId,
-  updated: Schema.Boolean
-})
+export const BoardMutationResultSchema = Schema.Struct({ id: BoardId, updated: Schema.Boolean })
 export type BoardMutationResult = Schema.Schema.Type<typeof BoardMutationResultSchema>
 
-export const CreateBoardResultSchema = Schema.Struct({
-  id: BoardId,
-  name: BoardName,
-  created: Schema.Boolean
-})
+export const CreateBoardResultSchema = Schema.Struct({ id: BoardId, name: BoardName, created: Schema.Boolean })
 export type CreateBoardResult = Schema.Schema.Type<typeof CreateBoardResultSchema>
 
-export const BoardCardMutationResultSchema = Schema.Struct({
-  id: BoardCardId,
-  updated: Schema.Boolean
-})
+export const BoardCardMutationResultSchema = Schema.Struct({ id: BoardCardId, updated: Schema.Boolean })
 export type BoardCardMutationResult = Schema.Schema.Type<typeof BoardCardMutationResultSchema>
 
 export const CreateBoardCardResultSchema = Schema.Struct({
@@ -124,8 +111,5 @@ export const CreateBoardCardResultSchema = Schema.Struct({
 })
 export type CreateBoardCardResult = Schema.Schema.Type<typeof CreateBoardCardResultSchema>
 
-export const DeleteBoardCardResultSchema = Schema.Struct({
-  id: BoardCardId,
-  deleted: Schema.Boolean
-})
+export const DeleteBoardCardResultSchema = Schema.Struct({ id: BoardCardId, deleted: Schema.Boolean })
 export type DeleteBoardCardResult = Schema.Schema.Type<typeof DeleteBoardCardResultSchema>

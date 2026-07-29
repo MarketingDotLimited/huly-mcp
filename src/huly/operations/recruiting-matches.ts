@@ -51,7 +51,7 @@ const toMatchRef = (
   client: HulyClient["Type"],
   match: ApplicantMatch
 ): Effect.Effect<ApplicantMatchRef, HulyClientError | RecruitingModelMissingError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const person = yield* client.findOne<Person>(
       contact.class.Person,
       hulyQuery<Person>({ _id: toRef<Person>(match.attachedTo) })
@@ -74,7 +74,7 @@ const toMatchDetail = (
   client: HulyClient["Type"],
   match: ApplicantMatch
 ): Effect.Effect<ApplicantMatchDetail, HulyClientError | RecruitingModelMissingError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ref = yield* toMatchRef(client, match)
     const response = optionalMarkupToMarkdown(match.response, client.markupUrlConfig, undefined)
     return {
@@ -89,20 +89,17 @@ const toMatchDetail = (
 export const listRecruitingApplicantMatches = (
   params: ListRecruitingApplicantMatchesParams
 ): Effect.Effect<ListRecruitingApplicantMatchesResult, MatchReadError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
-    const candidate = params.candidate === undefined
-      ? undefined
-      : yield* resolveCandidatePerson(client, params.candidate)
+    const candidate =
+      params.candidate === undefined ? undefined : yield* resolveCandidatePerson(client, params.candidate)
     const query: StrictDocumentQuery<ApplicantMatch> = {
       ...(candidate === undefined ? {} : { attachedTo: toRef<Candidate>(candidate._id) }),
       ...(params.complete === undefined ? {} : { complete: params.complete })
     }
-    const matches = yield* client.findAll<ApplicantMatch>(
-      recruitIds.class.ApplicantMatch,
-      hulyQuery(query),
-      { sort: { modifiedOn: SortingOrder.Descending } }
-    )
+    const matches = yield* client.findAll<ApplicantMatch>(recruitIds.class.ApplicantMatch, hulyQuery(query), {
+      sort: { modifiedOn: SortingOrder.Descending }
+    })
     const limited = matches.filter((match) => matchesText(match, params.query)).slice(0, listLimit(params.limit))
     const refs = yield* Effect.forEach(limited, (match) => toMatchRef(client, match))
     return { matches: refs, total: Count.make(refs.length) }
@@ -111,7 +108,7 @@ export const listRecruitingApplicantMatches = (
 export const getRecruitingApplicantMatch = (
   params: GetRecruitingApplicantMatchParams
 ): Effect.Effect<ApplicantMatchDetail, MatchReadError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const match = yield* client.findOne<ApplicantMatch>(
       recruitIds.class.ApplicantMatch,

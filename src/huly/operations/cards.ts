@@ -54,65 +54,28 @@ export { listCardVersions } from "./cards-version-history.js"
 
 type ListCardSpacesError = HulyClientError
 
-type ListMasterTagsError =
-  | HulyClientError
-  | CardSpaceNotFoundError
+type ListMasterTagsError = HulyClientError | CardSpaceNotFoundError
 
-type ListCardsError =
-  | HulyClientError
-  | CardSpaceNotFoundError
-  | MasterTagNotFoundError
+type ListCardsError = HulyClientError | CardSpaceNotFoundError | MasterTagNotFoundError
 
-type GetCardError =
-  | HulyClientError
-  | HulyError
-  | CardSpaceNotFoundError
-  | CardNotFoundError
+type GetCardError = HulyClientError | HulyError | CardSpaceNotFoundError | CardNotFoundError
 
-type CreateCardError =
-  | HulyClientError
-  | HulyError
-  | CardSpaceNotFoundError
-  | MasterTagNotFoundError
-  | CardNotFoundError
+type CreateCardError = HulyClientError | HulyError | CardSpaceNotFoundError | MasterTagNotFoundError | CardNotFoundError
 
-type UpdateCardError =
-  | HulyClientError
-  | HulyError
-  | NoUpdateFieldsError
-  | CardSpaceNotFoundError
-  | CardNotFoundError
+type UpdateCardError = HulyClientError | HulyError | NoUpdateFieldsError | CardSpaceNotFoundError | CardNotFoundError
 
-type DeleteCardError =
-  | HulyClientError
-  | HulyError
-  | CardSpaceNotFoundError
-  | CardNotFoundError
+type DeleteCardError = HulyClientError | HulyError | CardSpaceNotFoundError | CardNotFoundError
 
 // --- Helpers ---
 
-const parseResolvedCardSpaceIdentifier = (
-  cardSpace: HulyCardSpace
-): Effect.Effect<CardSpaceIdentifier, HulyError> =>
+const parseResolvedCardSpaceIdentifier = (cardSpace: HulyCardSpace): Effect.Effect<CardSpaceIdentifier, HulyError> =>
   Schema.decodeUnknown(CardSpaceIdentifier)(cardSpace.name).pipe(
-    Effect.mapError((cause) =>
-      new HulyError({
-        message: "Resolved card space has an invalid name",
-        cause
-      })
-    )
+    Effect.mapError((cause) => new HulyError({ message: "Resolved card space has an invalid name", cause }))
   )
 
-const parseResolvedCardIdentifier = (
-  card: HulyCard
-): Effect.Effect<CardIdentifier, HulyError> =>
+const parseResolvedCardIdentifier = (card: HulyCard): Effect.Effect<CardIdentifier, HulyError> =>
   Schema.decodeUnknown(CardIdentifier)(card.title).pipe(
-    Effect.mapError((cause) =>
-      new HulyError({
-        message: "Resolved card has an invalid title",
-        cause
-      })
-    )
+    Effect.mapError((cause) => new HulyError({ message: "Resolved card has an invalid title", cause }))
   )
 
 const findCardSpace = (
@@ -122,7 +85,7 @@ const findCardSpace = (
   CardSpaceNotFoundError | HulyClientError,
   HulyClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const cardSpace = yield* findByNameOrId(
@@ -152,7 +115,7 @@ export const findCardSpaceAndCard = (
   CardSpaceNotFoundError | CardNotFoundError | HulyClientError | HulyError,
   HulyClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { cardSpace, client } = yield* findCardSpace(params.cardSpace)
     const cardSpaceIdentifier = yield* parseResolvedCardSpaceIdentifier(cardSpace)
 
@@ -164,10 +127,7 @@ export const findCardSpaceAndCard = (
     )
 
     if (card === undefined) {
-      return yield* new CardNotFoundError({
-        identifier: params.card,
-        cardSpace: cardSpaceIdentifier
-      })
+      return yield* new CardNotFoundError({ identifier: params.card, cardSpace: cardSpaceIdentifier })
     }
 
     const cardIdentifier = yield* parseResolvedCardIdentifier(card)
@@ -179,7 +139,7 @@ export const findCardSpaceAndCard = (
 export const listCardSpaces = (
   params: ListCardSpacesParams
 ): Effect.Effect<ListCardSpacesResult, ListCardSpacesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const query: DocumentQuery<HulyCardSpace> = {}
@@ -189,16 +149,10 @@ export const listCardSpaces = (
 
     const limit = clampLimit(params.limit)
 
-    const spaces = yield* client.findAll<HulyCardSpace>(
-      cardPlugin.class.CardSpace,
-      query,
-      {
-        limit,
-        sort: {
-          name: SortingOrder.Ascending
-        }
-      }
-    )
+    const spaces = yield* client.findAll<HulyCardSpace>(cardPlugin.class.CardSpace, query, {
+      limit,
+      sort: { name: SortingOrder.Ascending }
+    })
 
     const summaries: Array<CardSpaceSummary> = spaces.map((s) => ({
       id: CardSpaceId.make(s._id),
@@ -207,16 +161,13 @@ export const listCardSpaces = (
       types: s.types.map(String)
     }))
 
-    return {
-      cardSpaces: summaries,
-      total: listTotal(spaces.total)
-    }
+    return { cardSpaces: summaries, total: listTotal(spaces.total) }
   })
 
 export const listMasterTags = (
   params: ListMasterTagsParams
 ): Effect.Effect<ListMasterTagsResult, ListMasterTagsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { cardSpace, client } = yield* findCardSpace(params.cardSpace)
 
     const tags = yield* fetchMasterTagsForSpace(client, cardSpace)
@@ -226,23 +177,16 @@ export const listMasterTags = (
       name: masterTagDisplayName(t)
     }))
 
-    return {
-      masterTags: summaries,
-      total: listTotal(summaries.length)
-    }
+    return { masterTags: summaries, total: listTotal(summaries.length) }
   })
 
-export const listCards = (
-  params: ListCardsParams
-): Effect.Effect<ListCardsResult, ListCardsError, HulyClient> =>
-  Effect.gen(function*() {
+export const listCards = (params: ListCardsParams): Effect.Effect<ListCardsResult, ListCardsError, HulyClient> =>
+  Effect.gen(function* () {
     const { cardSpace, client } = yield* findCardSpace(params.cardSpace)
 
     const limit = clampLimit(params.limit)
 
-    const query: DocumentQuery<HulyCard> = {
-      space: cardSpace._id
-    }
+    const query: DocumentQuery<HulyCard> = { space: cardSpace._id }
 
     if (params.type !== undefined) {
       const masterTag = yield* findMasterTag(client, cardSpace, params.type)
@@ -261,16 +205,10 @@ export const listCards = (
       query.$search = params.contentSearch
     }
 
-    const cards = yield* client.findAll<HulyCard>(
-      cardPlugin.class.Card,
-      query,
-      {
-        limit,
-        sort: {
-          modifiedOn: SortingOrder.Descending
-        }
-      }
-    )
+    const cards = yield* client.findAll<HulyCard>(cardPlugin.class.Card, query, {
+      limit,
+      sort: { modifiedOn: SortingOrder.Descending }
+    })
 
     const summaries: Array<CardSummary> = cards.map((c) => ({
       id: CardId.make(c._id),
@@ -279,16 +217,11 @@ export const listCards = (
       modifiedOn: c.modifiedOn
     }))
 
-    return {
-      cards: summaries,
-      total: listTotal(cards.total)
-    }
+    return { cards: summaries, total: listTotal(cards.total) }
   })
 
-export const getCard = (
-  params: GetCardParams
-): Effect.Effect<CardDetail, GetCardError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+export const getCard = (params: GetCardParams): Effect.Effect<CardDetail, GetCardError, HulyClient | Diagnostics> =>
+  Effect.gen(function* () {
     const diagnostics = yield* Diagnostics
     const { card, cardIdentifier, cardSpaceIdentifier, client } = yield* findCardSpaceAndCard({
       card: params.card,
@@ -296,22 +229,17 @@ export const getCard = (
     })
 
     const content: string | undefined = card.content
-      ? yield* client.fetchMarkup(
-        card._class,
-        card._id,
-        "content",
-        card.content,
-        "markdown"
-      )
+      ? yield* client.fetchMarkup(card._class, card._id, "content", card.content, "markdown")
       : undefined
     const parsedVersion = parseCardVersionMetadata(card)
     const degradedVersionFields = cardVersionDegradedFields(parsedVersion)
     if (degradedVersionFields.length > 0) {
       yield* diagnostics.warnAgent({
         code: CardVersionMetadataDegradedWarningCode,
-        message: `Card '${card._id}' has degraded version metadata because these fields are absent or malformed: `
-          + `${degradedVersionFields.join(", ")}. Treat omitted version data as incomplete and inspect or `
-          + "repair the Huly card data."
+        message:
+          `Card '${card._id}' has degraded version metadata because these fields are absent or malformed: ` +
+          `${degradedVersionFields.join(", ")}. Treat omitted version data as incomplete and inspect or ` +
+          "repair the Huly card data."
       })
     }
     const version = cardVersionMetadataFromState(parsedVersion)
@@ -330,10 +258,8 @@ export const getCard = (
     }
   })
 
-export const createCard = (
-  params: CreateCardParams
-): Effect.Effect<CreateCardResult, CreateCardError, HulyClient> =>
-  Effect.gen(function*() {
+export const createCard = (params: CreateCardParams): Effect.Effect<CreateCardResult, CreateCardError, HulyClient> =>
+  Effect.gen(function* () {
     const { cardSpace, client } = yield* findCardSpace(params.cardSpace)
 
     const masterTag = yield* findMasterTag(client, cardSpace, params.type)
@@ -362,30 +288,28 @@ export const createCard = (
       parentInfo: Array<{ _id: Ref<HulyCard>; _class: Ref<HulyMasterTag>; title: string }>
     }
     const parentParam = params.parent
-    const { parentInfo, parentRef }: CardParentData = parentParam !== undefined
-      ? yield* Effect.gen(function*() {
-        const parentCard = yield* findByNameOrId(
-          client,
-          cardPlugin.class.Card,
-          { space: cardSpace._id, title: parentParam },
-          { space: cardSpace._id, _id: toRef<HulyCard>(parentParam) }
-        )
-        if (parentCard === undefined) {
-          const resolvedCardSpaceIdentifier = yield* parseResolvedCardSpaceIdentifier(cardSpace)
-          return yield* new CardNotFoundError({
-            identifier: parentParam,
-            cardSpace: resolvedCardSpaceIdentifier
+    const { parentInfo, parentRef }: CardParentData =
+      parentParam !== undefined
+        ? yield* Effect.gen(function* () {
+            const parentCard = yield* findByNameOrId(
+              client,
+              cardPlugin.class.Card,
+              { space: cardSpace._id, title: parentParam },
+              { space: cardSpace._id, _id: toRef<HulyCard>(parentParam) }
+            )
+            if (parentCard === undefined) {
+              const resolvedCardSpaceIdentifier = yield* parseResolvedCardSpaceIdentifier(cardSpace)
+              return yield* new CardNotFoundError({ identifier: parentParam, cardSpace: resolvedCardSpaceIdentifier })
+            }
+            return {
+              parentRef: parentCard._id,
+              parentInfo: [
+                ...parentCard.parentInfo,
+                { _id: parentCard._id, _class: parentCard._class, title: parentCard.title }
+              ]
+            }
           })
-        }
-        return {
-          parentRef: parentCard._id,
-          parentInfo: [
-            ...parentCard.parentInfo,
-            { _id: parentCard._id, _class: parentCard._class, title: parentCard.title }
-          ]
-        }
-      })
-      : { parentRef: null, parentInfo: [] }
+        : { parentRef: null, parentInfo: [] }
 
     const cardData: Data<HulyCard> = {
       title: params.title,
@@ -396,28 +320,18 @@ export const createCard = (
       rank
     }
 
-    yield* client.createDoc(
-      masterTag._id,
-      cardSpace._id,
-      cardData,
-      cardId
-    )
+    yield* client.createDoc(masterTag._id, cardSpace._id, cardData, cardId)
 
     return { id: CardId.make(cardId), title: params.title }
   })
 
-export const updateCard = (
-  params: UpdateCardParams
-): Effect.Effect<UpdateCardResult, UpdateCardError, HulyClient> =>
-  Effect.gen(function*() {
+export const updateCard = (params: UpdateCardParams): Effect.Effect<UpdateCardResult, UpdateCardError, HulyClient> =>
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_card", params, UPDATE_CARD_FIELDS)
 
-    const { card, cardSpace, client } = yield* findCardSpaceAndCard({
-      card: params.card,
-      cardSpace: params.cardSpace
-    })
+    const { card, cardSpace, client } = yield* findCardSpaceAndCard({ card: params.card, cardSpace: params.cardSpace })
 
-    type UpdateCardField = typeof UPDATE_CARD_FIELDS[number]
+    type UpdateCardField = (typeof UPDATE_CARD_FIELDS)[number]
     type UpdateCardEntries = {
       readonly [Field in UpdateCardField]: Effect.Effect<
         DirectUpdateEntry<UpdateCardField, DocumentUpdate<HulyCard>, Field>,
@@ -426,7 +340,7 @@ export const updateCard = (
     }
     const updateEntries = {
       title: Effect.succeed(params.title === undefined ? {} : { title: params.title }),
-      content: Effect.gen(function*() {
+      content: Effect.gen(function* () {
         if (params.content === undefined) return {}
         const content = clearTextAsEmptyString(params.content)
         const renderedContent = renderMarkdownPreservingNativeReferences(content, client.markupUrlConfig)
@@ -449,31 +363,17 @@ export const updateCard = (
     const updateOps: DocumentUpdate<HulyCard> = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
 
     if (Object.keys(updateOps).length > 0) {
-      yield* client.updateDoc(
-        card._class,
-        cardSpace._id,
-        card._id,
-        updateOps
-      )
+      yield* client.updateDoc(card._class, cardSpace._id, card._id, updateOps)
     }
 
     return { id: CardId.make(card._id), updated: true }
   })
 
-export const deleteCard = (
-  params: DeleteCardParams
-): Effect.Effect<DeleteCardResult, DeleteCardError, HulyClient> =>
-  Effect.gen(function*() {
-    const { card, cardSpace, client } = yield* findCardSpaceAndCard({
-      card: params.card,
-      cardSpace: params.cardSpace
-    })
+export const deleteCard = (params: DeleteCardParams): Effect.Effect<DeleteCardResult, DeleteCardError, HulyClient> =>
+  Effect.gen(function* () {
+    const { card, cardSpace, client } = yield* findCardSpaceAndCard({ card: params.card, cardSpace: params.cardSpace })
 
-    yield* client.removeDoc(
-      card._class,
-      cardSpace._id,
-      card._id
-    )
+    yield* client.removeDoc(card._class, cardSpace._id, card._id)
 
     return { id: CardId.make(card._id), deleted: true }
   })

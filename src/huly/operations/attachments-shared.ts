@@ -10,9 +10,10 @@ import {
   Count,
   type Count as CountType,
   MimeType,
-  ObjectClassName
+  ObjectClassName,
+  Timestamp,
+  UrlString
 } from "../../domain/schemas/shared.js"
-import { Timestamp, UrlString } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import { AttachmentNotFoundError } from "../errors.js"
 import type { HulyStorageClient } from "../storage.js"
@@ -95,25 +96,21 @@ const attachmentScopeQuery = (
 export const listAttachmentsForScope = (
   client: HulyClient["Type"],
   scope: AttachmentCollectionScope,
-  limit?: number | undefined
+  limit?: number
 ): Effect.Effect<Array<AttachmentSummary>, HulyClientError> =>
   Effect.map(listAttachmentPageForScope(client, scope, limit), (page) => page.attachments)
 
 export const listAttachmentPageForScope = (
   client: HulyClient["Type"],
   scope: AttachmentCollectionScope,
-  limit?: number | undefined
+  limit?: number
 ): Effect.Effect<AttachmentScopeList, HulyClientError> =>
   Effect.map(
-    client.findAll<HulyAttachment>(
-      scope.classRef,
-      hulyQuery(attachmentScopeQuery(undefined, scope)),
-      {
-        limit: clampLimit(limit),
-        sort: { modifiedOn: SortingOrder.Descending },
-        total: true
-      }
-    ),
+    client.findAll<HulyAttachment>(scope.classRef, hulyQuery(attachmentScopeQuery(undefined, scope)), {
+      limit: clampLimit(limit),
+      sort: { modifiedOn: SortingOrder.Descending },
+      total: true
+    }),
     (attachments) => ({
       attachments: attachments.map(toAttachmentSummary),
       total: Count.make(findResultTotal(attachments))
@@ -138,15 +135,14 @@ export const getAttachmentForScope = (
   attachmentId: AttachmentIdType,
   scope: AttachmentLookupScope
 ): Effect.Effect<Attachment, HulyClientError | AttachmentNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const att = yield* findAttachmentForScope(client, attachmentId, scope)
     return toAttachment(att, storageClient.getFileUrl(att.file))
   })
 
 const attachmentUpdateOps = (params: AttachmentMetadataUpdate): DocumentUpdate<HulyAttachment> => {
-  const descriptionOps: DocumentUpdate<HulyAttachment> = params.description === undefined
-    ? {}
-    : { description: params.description === null ? "" : params.description }
+  const descriptionOps: DocumentUpdate<HulyAttachment> =
+    params.description === undefined ? {} : { description: params.description === null ? "" : params.description }
   const pinnedOps: DocumentUpdate<HulyAttachment> = params.pinned === undefined ? {} : { pinned: params.pinned }
   return mergeUpdateEntries([descriptionOps, pinnedOps])
 }
@@ -157,7 +153,7 @@ export const updateAttachmentForScope = (
   params: AttachmentMetadataUpdate,
   scope: AttachmentLookupScope
 ): Effect.Effect<void, HulyClientError | AttachmentNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const att = yield* findAttachmentForScope(client, attachmentId, scope)
     yield* client.updateDoc(scope.classRef, att.space, att._id, attachmentUpdateOps(params))
   })

@@ -57,13 +57,7 @@ interface Store {
   readonly fields: ReadonlyArray<HulyTemplateField>
 }
 
-const baseDoc = {
-  space: workspace,
-  modifiedBy: person,
-  modifiedOn: 1,
-  createdBy: person,
-  createdOn: 1
-}
+const baseDoc = { space: workspace, modifiedBy: person, modifiedOn: 1, createdBy: person, createdOn: 1 }
 
 const category = (id: string, name: string, modifiedOn = 1): HulyTemplateCategory => ({
   ...baseDoc,
@@ -153,9 +147,10 @@ const matches = (doc: Doc, query: unknown): boolean =>
   })
 
 const applyOptions = <T extends Doc>(docs: ReadonlyArray<T>, options: FindOptions<T> | undefined): Array<T> => {
-  const sorted = options?.sort?.modifiedOn === SortingOrder.Descending
-    ? [...docs].sort((left, right) => right.modifiedOn - left.modifiedOn)
-    : [...docs]
+  const sorted =
+    options?.sort?.modifiedOn === SortingOrder.Descending
+      ? [...docs].sort((left, right) => right.modifiedOn - left.modifiedOn)
+      : [...docs]
   return options?.limit === undefined ? sorted : sorted.slice(0, options.limit)
 }
 
@@ -180,12 +175,21 @@ const createLayer = (store: Store) => {
   ): Effect.Effect<FindResult<Doc>> => {
     const kind = supportedClass(_class)
     const source = kind === undefined ? [] : docsFor(store, kind)
-    return Effect.succeed(toFindResult(applyOptions(source.filter((doc) => matches(doc, query)), options)))
+    return Effect.succeed(
+      toFindResult(
+        applyOptions(
+          source.filter((doc) => matches(doc, query)),
+          options
+        )
+      )
+    )
   }) as HulyClientOperations["findAll"]
 
-  const findOne: HulyClientOperations["findOne"] =
-    ((_class: Ref<Class<Doc>>, query: Parameters<HulyClientOperations["findAll"]>[1], options?: FindOptions<Doc>) =>
-      Effect.map(findAll(_class, query, options), (result) => result.at(0))) as HulyClientOperations["findOne"]
+  const findOne: HulyClientOperations["findOne"] = ((
+    _class: Ref<Class<Doc>>,
+    query: Parameters<HulyClientOperations["findAll"]>[1],
+    options?: FindOptions<Doc>
+  ) => Effect.map(findAll(_class, query, options), (result) => result.at(0))) as HulyClientOperations["findOne"]
 
   return HulyClient.testLayer({ findAll, findOne })
 }
@@ -194,7 +198,7 @@ const runOperation = <A, E>(
   effect: Effect.Effect<A, E, HulyClient | Diagnostics>,
   store: Store = testStore()
 ): Effect.Effect<A, E> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const diagnostics = yield* makeDiagnosticsScope
     return yield* effect.pipe(
       Effect.provide(createLayer(store)),
@@ -206,7 +210,7 @@ const runOperationWithWarnings = <A, E>(
   effect: Effect.Effect<A, E, HulyClient | Diagnostics>,
   store: Store = testStore()
 ): Effect.Effect<{ readonly result: A; readonly warnings: ReadonlyArray<ToolWarning> }, E> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const diagnostics = yield* makeDiagnosticsScope
     const result = yield* effect.pipe(
       Effect.provide(createLayer(store)),
@@ -240,15 +244,17 @@ const testStore = (): Store => {
 
 const failureTag = (exit: Exit.Exit<unknown, unknown>): string | undefined => {
   if (!Exit.isFailure(exit)) return undefined
-  return exit.cause._tag === "Fail" && typeof exit.cause.error === "object" && exit.cause.error !== null
-      && "_tag" in exit.cause.error
+  return exit.cause._tag === "Fail" &&
+    typeof exit.cause.error === "object" &&
+    exit.cause.error !== null &&
+    "_tag" in exit.cause.error
     ? String(exit.cause.error._tag)
     : undefined
 }
 
 describe("message template operations", () => {
   it.effect("lists template categories", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* runOperation(listMessageTemplateCategories({}))
 
       expect(result.map((item) => item.name)).toEqual(["Sales", "Support"])
@@ -260,16 +266,17 @@ describe("message template operations", () => {
         modifiedOn: 3,
         createdOn: 1
       })
-    }))
+    })
+  )
 
   it.effect("uses stable category fallback values for sparse category documents", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const withCreatedOn = category("cat-unnamed", "", 5)
       const { createdOn: _createdOn, ...withoutCreatedOn } = withCreatedOn
-      const { result, warnings } = yield* runOperationWithWarnings(
-        listMessageTemplateCategories({}),
-        { ...testStore(), categories: [withoutCreatedOn] }
-      )
+      const { result, warnings } = yield* runOperationWithWarnings(listMessageTemplateCategories({}), {
+        ...testStore(),
+        categories: [withoutCreatedOn]
+      })
 
       expect(result).toEqual([
         {
@@ -283,14 +290,14 @@ describe("message template operations", () => {
       ])
       expect(warnings).toHaveLength(1)
       expect(assertAt(warnings, 0).code).toBe("message_template_metadata_degraded")
-    }))
+    })
+  )
 
   it.effect("lists templates by category and title search with placeholders", () =>
-    Effect.gen(function*() {
-      const result = yield* runOperation(listMessageTemplates({
-        category: templateCategoryIdentifier("Sales"),
-        search: "welcome"
-      }))
+    Effect.gen(function* () {
+      const result = yield* runOperation(
+        listMessageTemplates({ category: templateCategoryIdentifier("Sales"), search: "welcome" })
+      )
 
       expect(result).toHaveLength(1)
       expect(result.at(0)).toMatchObject({
@@ -299,28 +306,21 @@ describe("message template operations", () => {
         category: { id: "cat-sales", name: "Sales" },
         placeholderFieldIds: ["field-owner", "field-company"]
       })
-    }))
+    })
+  )
 
   it.effect("supports category ID filters and fallback category summaries", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const store = testStore()
       const orphanCategory = category("cat-orphan", "Orphan")
       const result = yield* runOperation(
-        listMessageTemplates({
-          category: templateCategoryIdentifier("cat-sales")
-        }),
+        listMessageTemplates({ category: templateCategoryIdentifier("cat-sales") }),
         store
       )
-      const withFallback = yield* runOperationWithWarnings(
-        listMessageTemplates({ search: "   " }),
-        {
-          ...store,
-          templates: [
-            ...store.templates,
-            messageTemplate("tmpl-orphan", "Orphan", orphanCategory, "No category doc.")
-          ]
-        }
-      )
+      const withFallback = yield* runOperationWithWarnings(listMessageTemplates({ search: "   " }), {
+        ...store,
+        templates: [...store.templates, messageTemplate("tmpl-orphan", "Orphan", orphanCategory, "No category doc.")]
+      })
 
       expect(result.map((template) => template.id)).toEqual(["tmpl-sales-welcome", "tmpl-sales-follow-up"])
       expect(withFallback.result.find((template) => template.id === "tmpl-orphan")?.category).toEqual({
@@ -329,74 +329,75 @@ describe("message template operations", () => {
       })
       expect(withFallback.warnings).toHaveLength(1)
       expect(assertAt(withFallback.warnings, 0).code).toBe("message_template_metadata_degraded")
-    }))
+    })
+  )
 
   it.effect("uses template ID fallback values for blank template titles", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const store = testStore()
-      const { result, warnings } = yield* runOperationWithWarnings(
-        listMessageTemplates({}),
-        {
-          ...store,
-          templates: [messageTemplate("tmpl-blank-title", "", assertAt(store.categories, 0), "Hello ${field-owner}.")]
-        }
-      )
+      const { result, warnings } = yield* runOperationWithWarnings(listMessageTemplates({}), {
+        ...store,
+        templates: [messageTemplate("tmpl-blank-title", "", assertAt(store.categories, 0), "Hello ${field-owner}.")]
+      })
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).title).toBe("tmpl-blank-title")
       expect(warnings).toHaveLength(1)
       expect(assertAt(warnings, 0).code).toBe("message_template_metadata_degraded")
-    }))
+    })
+  )
 
   it.effect("does not emit metadata warnings when template search matches no rows", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { result, warnings } = yield* runOperationWithWarnings(
         listMessageTemplates({ search: "not a live template title" })
       )
 
       expect(result).toEqual([])
       expect(warnings).toEqual([])
-    }))
+    })
+  )
 
   it.effect("reports not found and ambiguous category locators for template listing", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const store = testStore()
       const missing = yield* Effect.exit(
         runOperation(listMessageTemplates({ category: templateCategoryIdentifier("Missing") }), store)
       )
       const ambiguous = yield* Effect.exit(
-        runOperation(
-          listMessageTemplates({ category: templateCategoryIdentifier("Sales") }),
-          {
-            ...store,
-            categories: [...store.categories, category("cat-sales-copy", "Sales")]
-          }
-        )
+        runOperation(listMessageTemplates({ category: templateCategoryIdentifier("Sales") }), {
+          ...store,
+          categories: [...store.categories, category("cat-sales-copy", "Sales")]
+        })
       )
 
-      expect(missing).toSatisfy((exit: Exit.Exit<unknown, unknown>) =>
-        Exit.isFailure(exit)
-        && exit.cause._tag === "Fail"
-        && exit.cause.error instanceof MessageTemplateCategoryNotFoundError
+      expect(missing).toSatisfy(
+        (exit: Exit.Exit<unknown, unknown>) =>
+          Exit.isFailure(exit) &&
+          exit.cause._tag === "Fail" &&
+          exit.cause.error instanceof MessageTemplateCategoryNotFoundError
       )
-      expect(ambiguous).toSatisfy((exit: Exit.Exit<unknown, unknown>) =>
-        Exit.isFailure(exit)
-        && exit.cause._tag === "Fail"
-        && exit.cause.error instanceof MessageTemplateCategoryIdentifierAmbiguousError
+      expect(ambiguous).toSatisfy(
+        (exit: Exit.Exit<unknown, unknown>) =>
+          Exit.isFailure(exit) &&
+          exit.cause._tag === "Fail" &&
+          exit.cause.error instanceof MessageTemplateCategoryIdentifierAmbiguousError
       )
-    }))
+    })
+  )
 
   it.effect("gets a template by ID and converts markup to Markdown", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* runOperation(getMessageTemplate({ template: templateIdentifier("tmpl-sales-welcome") }))
 
       expect(result.title).toBe("Welcome")
       expect(result.message).toContain("Hello ${field-owner}")
       expect(result.placeholderFieldIds).toEqual(["field-owner", "field-company"])
-    }))
+    })
+  )
 
   it.effect("gets a blank-title template with title fallback and warning", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const store = testStore()
       const { result, warnings } = yield* runOperationWithWarnings(
         getMessageTemplate({ template: templateIdentifier("tmpl-blank-title") }),
@@ -410,19 +411,22 @@ describe("message template operations", () => {
       expect(result.placeholderFieldIds).toEqual(["field-owner"])
       expect(warnings).toHaveLength(1)
       expect(assertAt(warnings, 0).code).toBe("message_template_metadata_degraded")
-    }))
+    })
+  )
 
   it.effect("renders templates with caller-provided placeholder values", () =>
-    Effect.gen(function*() {
-      const result = yield* runOperation(renderMessageTemplate({
-        template: templateIdentifier("tmpl-sales-welcome"),
-        values: [
-          { field: templateFieldId("field-owner"), value: "First" },
-          { field: templateFieldId("field-owner"), value: "Ada ${field-company}" },
-          { field: templateFieldId("field-company"), value: "ACME" },
-          { field: templateFieldId("field-unused"), value: "Ignored" }
-        ]
-      }))
+    Effect.gen(function* () {
+      const result = yield* runOperation(
+        renderMessageTemplate({
+          template: templateIdentifier("tmpl-sales-welcome"),
+          values: [
+            { field: templateFieldId("field-owner"), value: "First" },
+            { field: templateFieldId("field-owner"), value: "Ada ${field-company}" },
+            { field: templateFieldId("field-company"), value: "ACME" },
+            { field: templateFieldId("field-unused"), value: "Ignored" }
+          ]
+        })
+      )
 
       expect(result.message).toContain("Hello ${field-owner}")
       expect(result.renderedMessage).toContain("Hello Ada ${field-company}, meet ACME.")
@@ -433,10 +437,11 @@ describe("message template operations", () => {
       ])
       expect(result.unresolvedFieldIds).toEqual([])
       expect(result.unusedValueFields).toEqual(["field-unused"])
-    }))
+    })
+  )
 
   it.effect("renders without values and preserves blank-title warnings", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const store = testStore()
       const { result, warnings } = yield* runOperationWithWarnings(
         renderMessageTemplate({ template: templateIdentifier("tmpl-blank-title") }),
@@ -453,80 +458,65 @@ describe("message template operations", () => {
       expect(result.unusedValueFields).toEqual([])
       expect(warnings).toHaveLength(1)
       expect(assertAt(warnings, 0).code).toBe("message_template_metadata_degraded")
-    }))
+    })
+  )
 
   it.effect("rejects ambiguous template titles unless category is provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const ambiguous = yield* Effect.exit(
         runOperation(getMessageTemplate({ template: templateIdentifier("Welcome") }))
       )
-      const resolved = yield* runOperation(getMessageTemplate({
-        template: templateIdentifier("Welcome"),
-        category: templateCategoryIdentifier("Support")
-      }))
+      const resolved = yield* runOperation(
+        getMessageTemplate({ template: templateIdentifier("Welcome"), category: templateCategoryIdentifier("Support") })
+      )
 
       expect(failureTag(ambiguous)).toBe("MessageTemplateIdentifierAmbiguousError")
-      expect(ambiguous).toSatisfy((exit: Exit.Exit<unknown, unknown>) =>
-        Exit.isFailure(exit)
-        && exit.cause._tag === "Fail"
-        && exit.cause.error instanceof MessageTemplateIdentifierAmbiguousError
+      expect(ambiguous).toSatisfy(
+        (exit: Exit.Exit<unknown, unknown>) =>
+          Exit.isFailure(exit) &&
+          exit.cause._tag === "Fail" &&
+          exit.cause.error instanceof MessageTemplateIdentifierAmbiguousError
       )
       expect(resolved.id).toBe("tmpl-support-welcome")
-    }))
+    })
+  )
 
   it.effect("reports not found for missing template IDs", () =>
-    Effect.gen(function*() {
-      const missing = yield* Effect.exit(
-        runOperation(getMessageTemplate({ template: templateIdentifier("missing") }))
-      )
+    Effect.gen(function* () {
+      const missing = yield* Effect.exit(runOperation(getMessageTemplate({ template: templateIdentifier("missing") })))
       const missingInCategory = yield* Effect.exit(
-        runOperation(getMessageTemplate({
-          template: templateIdentifier("missing"),
-          category: templateCategoryIdentifier("Sales")
-        }))
+        runOperation(
+          getMessageTemplate({ template: templateIdentifier("missing"), category: templateCategoryIdentifier("Sales") })
+        )
       )
 
       expect(failureTag(missing)).toBe("MessageTemplateNotFoundError")
       expect(failureTag(missingInCategory)).toBe("MessageTemplateNotFoundError")
-      expect(missing).toSatisfy((exit: Exit.Exit<unknown, unknown>) =>
-        Exit.isFailure(exit)
-        && exit.cause._tag === "Fail"
-        && exit.cause.error instanceof MessageTemplateNotFoundError
+      expect(missing).toSatisfy(
+        (exit: Exit.Exit<unknown, unknown>) =>
+          Exit.isFailure(exit) && exit.cause._tag === "Fail" && exit.cause.error instanceof MessageTemplateNotFoundError
       )
-    }))
+    })
+  )
 
   it.effect("supports field category ID filters and fallback field category summaries", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const store = testStore()
       const orphanFieldCategory = fieldCategory("field-cat-orphan", "Orphan")
       const blankFieldCategory = fieldCategory("field-cat-blank", "")
       const result = yield* runOperation(
-        listMessageTemplateFields({
-          category: fieldCategoryIdentifier("field-cat-contact")
-        }),
+        listMessageTemplateFields({ category: fieldCategoryIdentifier("field-cat-contact") }),
         store
       )
-      const withFallback = yield* runOperationWithWarnings(
-        listMessageTemplateFields({ search: "   " }),
-        {
-          ...store,
-          fields: [
-            ...store.fields,
-            field("field-orphan", "Orphan", orphanFieldCategory, "contact:template-field:Orphan")
-          ]
-        }
-      )
-      const withBlankLabelFallback = yield* runOperationWithWarnings(
-        listMessageTemplateFields({ search: "blank" }),
-        {
-          ...store,
-          fieldCategories: [...store.fieldCategories, blankFieldCategory],
-          fields: [
-            ...store.fields,
-            field("field-blank", "Blank", blankFieldCategory, "contact:template-field:Blank")
-          ]
-        }
-      )
+      const withFallback = yield* runOperationWithWarnings(listMessageTemplateFields({ search: "   " }), {
+        ...store,
+        fields: [...store.fields, field("field-orphan", "Orphan", orphanFieldCategory, "contact:template-field:Orphan")]
+      })
+      const withBlankLabelFallback = yield* runOperationWithWarnings(listMessageTemplateFields({ search: "blank" }), {
+        ...store,
+        fieldCategories: [...store.fieldCategories, blankFieldCategory],
+        fields: [...store.fields, field("field-blank", "Blank", blankFieldCategory, "contact:template-field:Blank")]
+      })
 
       expect(result.map((templateField) => templateField.id)).toEqual(["field-owner"])
       expect(withFallback.result.find((templateField) => templateField.id === "field-orphan")?.category).toEqual({
@@ -541,18 +531,16 @@ describe("message template operations", () => {
       })
       expect(withBlankLabelFallback.warnings).toHaveLength(1)
       expect(assertAt(withBlankLabelFallback.warnings, 0).code).toBe("message_template_metadata_degraded")
-    }))
+    })
+  )
 
   it.effect("uses field ID fallback values for blank template field labels", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const store = testStore()
-      const { result, warnings } = yield* runOperationWithWarnings(
-        listMessageTemplateFields({ search: "   " }),
-        {
-          ...store,
-          fields: [field("field-blank-label", "", assertAt(store.fieldCategories, 0), "contact:template-field:Blank")]
-        }
-      )
+      const { result, warnings } = yield* runOperationWithWarnings(listMessageTemplateFields({ search: "   " }), {
+        ...store,
+        fields: [field("field-blank-label", "", assertAt(store.fieldCategories, 0), "contact:template-field:Blank")]
+      })
 
       expect(result).toEqual([
         {
@@ -564,52 +552,53 @@ describe("message template operations", () => {
       ])
       expect(warnings).toHaveLength(1)
       expect(assertAt(warnings, 0).code).toBe("message_template_metadata_degraded")
-    }))
+    })
+  )
 
   it.effect("does not emit metadata warnings when field search matches no rows", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { result, warnings } = yield* runOperationWithWarnings(
         listMessageTemplateFields({ search: "not a live template field label" })
       )
 
       expect(result).toEqual([])
       expect(warnings).toEqual([])
-    }))
+    })
+  )
 
   it.effect("reports not found and ambiguous field category locators for field listing", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const store = testStore()
       const missing = yield* Effect.exit(
         runOperation(listMessageTemplateFields({ category: fieldCategoryIdentifier("Missing") }), store)
       )
       const ambiguous = yield* Effect.exit(
-        runOperation(
-          listMessageTemplateFields({ category: fieldCategoryIdentifier("Contact") }),
-          {
-            ...store,
-            fieldCategories: [...store.fieldCategories, fieldCategory("field-cat-contact-copy", "Contact")]
-          }
-        )
+        runOperation(listMessageTemplateFields({ category: fieldCategoryIdentifier("Contact") }), {
+          ...store,
+          fieldCategories: [...store.fieldCategories, fieldCategory("field-cat-contact-copy", "Contact")]
+        })
       )
 
-      expect(missing).toSatisfy((exit: Exit.Exit<unknown, unknown>) =>
-        Exit.isFailure(exit)
-        && exit.cause._tag === "Fail"
-        && exit.cause.error instanceof TemplateFieldCategoryNotFoundError
+      expect(missing).toSatisfy(
+        (exit: Exit.Exit<unknown, unknown>) =>
+          Exit.isFailure(exit) &&
+          exit.cause._tag === "Fail" &&
+          exit.cause.error instanceof TemplateFieldCategoryNotFoundError
       )
-      expect(ambiguous).toSatisfy((exit: Exit.Exit<unknown, unknown>) =>
-        Exit.isFailure(exit)
-        && exit.cause._tag === "Fail"
-        && exit.cause.error instanceof TemplateFieldCategoryIdentifierAmbiguousError
+      expect(ambiguous).toSatisfy(
+        (exit: Exit.Exit<unknown, unknown>) =>
+          Exit.isFailure(exit) &&
+          exit.cause._tag === "Fail" &&
+          exit.cause.error instanceof TemplateFieldCategoryIdentifierAmbiguousError
       )
-    }))
+    })
+  )
 
   it.effect("lists fields with field category summaries and resource IDs", () =>
-    Effect.gen(function*() {
-      const result = yield* runOperation(listMessageTemplateFields({
-        category: fieldCategoryIdentifier("Contact"),
-        search: "own"
-      }))
+    Effect.gen(function* () {
+      const result = yield* runOperation(
+        listMessageTemplateFields({ category: fieldCategoryIdentifier("Contact"), search: "own" })
+      )
 
       expect(result).toEqual([
         {
@@ -619,5 +608,6 @@ describe("message template operations", () => {
           resourceId: "contact:template-field:Owner"
         }
       ])
-    }))
+    })
+  )
 })

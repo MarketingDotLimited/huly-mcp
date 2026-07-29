@@ -50,7 +50,7 @@ const FOLDER_NOT_EMPTY_CHILD_SUMMARY_LIMIT = 10
 export const uploadDriveFileVersion = (
   params: UploadDriveFileVersionParams
 ): Effect.Effect<UploadDriveFileVersionResult, DriveOperationError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const storage = yield* HulyStorageClient
     const driveSpace = yield* resolveDrive(client, params.drive)
@@ -94,7 +94,7 @@ export const uploadDriveFileVersion = (
 export const moveDriveItem = (
   params: MoveDriveItemParams
 ): Effect.Effect<MoveDriveItemResult, DriveOperationError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const driveSpace = yield* resolveDrive(client, params.drive)
     const resolved = yield* resolveMutableItem(client, driveSpace, params.drive, params.path, params.itemId, "move")
@@ -132,11 +132,7 @@ export const moveDriveItem = (
     const blockingCollision = collisions.find((candidate) => candidate._id !== item._id)
     if (blockingCollision !== undefined) {
       return yield* Effect.fail(
-        new DrivePathConflictError({
-          drive: params.drive,
-          path: toPath,
-          existingKind: itemKind(blockingCollision)
-        })
+        new DrivePathConflictError({ drive: params.drive, path: toPath, existingKind: itemKind(blockingCollision) })
       )
     }
 
@@ -157,7 +153,7 @@ export const moveDriveItem = (
 export const renameDriveItem = (
   params: RenameDriveItemParams
 ): Effect.Effect<RenameDriveItemResult, DriveOperationError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const driveSpace = yield* resolveDrive(client, params.drive)
     const resolved = yield* resolveMutableItem(client, driveSpace, params.drive, params.path, params.itemId, "rename")
@@ -179,11 +175,7 @@ export const renameDriveItem = (
     const blockingCollision = collisions.find((candidate) => candidate._id !== item._id)
     if (blockingCollision !== undefined) {
       return yield* Effect.fail(
-        new DrivePathConflictError({
-          drive: params.drive,
-          path: toPath,
-          existingKind: itemKind(blockingCollision)
-        })
+        new DrivePathConflictError({ drive: params.drive, path: toPath, existingKind: itemKind(blockingCollision) })
       )
     }
 
@@ -200,7 +192,7 @@ export const renameDriveItem = (
 export const deleteDriveItem = (
   params: DeleteDriveItemParams
 ): Effect.Effect<DeleteDriveItemResult, DriveOperationError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const driveSpace = yield* resolveDrive(client, params.drive)
     const resolved = yield* resolveMutableItem(client, driveSpace, params.drive, params.path, params.itemId, "delete")
@@ -215,11 +207,9 @@ export const deleteDriveItem = (
             drive: params.drive,
             path: resolved.path,
             childCount: Count.make(children.length),
-            children: children.slice(0, FOLDER_NOT_EMPTY_CHILD_SUMMARY_LIMIT).map((child) => ({
-              id: child._id,
-              title: child.title,
-              kind: itemKind(child)
-            }))
+            children: children
+              .slice(0, FOLDER_NOT_EMPTY_CHILD_SUMMARY_LIMIT)
+              .map((child) => ({ id: child._id, title: child.title, kind: itemKind(child) }))
           })
         )
       }
@@ -246,10 +236,11 @@ const resolveMutableItem = (
   itemId: string | undefined,
   operation: "move" | "rename" | "delete"
 ): Effect.Effect<{ readonly item: DriveItem; readonly path: string }, DriveOperationError> =>
-  Effect.gen(function*() {
-    const resolved = itemId !== undefined
-      ? { item: yield* resolveItemById(client, driveSpace, DriveItemId.make(itemId)), path: undefined }
-      : yield* resolvePath(client, driveSpace, normalizeDrivePath(path ?? DEFAULT_DRIVE_PATH))
+  Effect.gen(function* () {
+    const resolved =
+      itemId !== undefined
+        ? { item: yield* resolveItemById(client, driveSpace, DriveItemId.make(itemId)), path: undefined }
+        : yield* resolvePath(client, driveSpace, normalizeDrivePath(path ?? DEFAULT_DRIVE_PATH))
     if (resolved.item === undefined) {
       return yield* Effect.fail(
         new DriveInvalidItemOperationError({
@@ -260,23 +251,21 @@ const resolveMutableItem = (
         })
       )
     }
-    return {
-      item: resolved.item,
-      path: resolved.path ?? (yield* displayPathForItem(client, resolved.item))
-    }
+    return { item: resolved.item, path: resolved.path ?? (yield* displayPathForItem(client, resolved.item)) }
   })
 
 const displayPathForItem = (
   client: HulyClientOperations,
   item: DriveItem
 ): Effect.Effect<string, DriveOperationError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const reversedParents = [...item.path].reverse()
     const titles = yield* Effect.forEach(reversedParents, (parentId) =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const parent = yield* client.findOne<Folder>(drive.class.Folder, hulyQuery<Folder>({ _id: parentId }))
         return parent?.title ?? parentId
-      }))
+      })
+    )
     return `/${[...titles, item.title].join("/")}`
   })
 
@@ -301,14 +290,18 @@ const rewriteDescendantPaths = (
   folder: Folder,
   newFolderPath: ReadonlyArray<Ref<Folder>>
 ): Effect.Effect<void, DriveOperationError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const folders = yield* client.findAll<Folder>(drive.class.Folder, hulyQuery<Folder>({ space: driveSpace._id }))
     const files = yield* client.findAll<File>(drive.class.File, hulyQuery<File>({ space: driveSpace._id }))
     const descendants = [...folders, ...files].filter((candidate) => candidate.path.includes(folder._id))
-    yield* Effect.forEach(descendants, (descendant) => {
-      const nextPath = rewriteMovedFolderDescendantPath(descendant.path, folder._id, newFolderPath)
-      return updateDriveItem(client, driveSpace, descendant, { path: nextPath })
-    }, { discard: true })
+    yield* Effect.forEach(
+      descendants,
+      (descendant) => {
+        const nextPath = rewriteMovedFolderDescendantPath(descendant.path, folder._id, newFolderPath)
+        return updateDriveItem(client, driveSpace, descendant, { path: nextPath })
+      },
+      { discard: true }
+    )
   })
 
 const listAllChildren = (
@@ -316,7 +309,7 @@ const listAllChildren = (
   driveSpace: DriveSpace,
   parent: Ref<Folder>
 ): Effect.Effect<ReadonlyArray<DriveItem>, DriveOperationError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const folders = yield* client.findAll<Folder>(
       drive.class.Folder,
       hulyQuery<Folder>({ space: driveSpace._id, parent })

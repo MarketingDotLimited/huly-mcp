@@ -85,16 +85,10 @@ export const buildContactUrl = (
   return UrlString.make(`${trimmedBase}/workbench/${workspaceUrlSlug}/contact/${id}`)
 }
 
-export const buildContactUrlFromConfig = (
-  config: WorkbenchUrlConfig,
-  id: OrganizationId | PersonId
-): UrlString => buildContactUrl(config.baseUrl, config.workspaceUrlSlug, id)
+export const buildContactUrlFromConfig = (config: WorkbenchUrlConfig, id: OrganizationId | PersonId): UrlString =>
+  buildContactUrl(config.baseUrl, config.workspaceUrlSlug, id)
 
-const buildDriveUrl = (
-  baseUrl: UrlString,
-  workspaceUrlSlug: WorkspaceUrlSlug,
-  id: DriveId
-): UrlString => {
+const buildDriveUrl = (baseUrl: UrlString, workspaceUrlSlug: WorkspaceUrlSlug, id: DriveId): UrlString => {
   const trimmedBase = baseUrl.replace(/\/+$/, "")
   return UrlString.make(`${trimmedBase}/workbench/${workspaceUrlSlug}/drive/${id}`)
 }

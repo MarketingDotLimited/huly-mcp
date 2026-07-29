@@ -57,7 +57,7 @@ interface DriveFileTarget {
 const resolveDriveFileTarget = (
   params: DriveFileLocatorParams
 ): Effect.Effect<DriveFileTarget, DriveOperationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const driveSpace = yield* resolveDrive(client, params.drive)
     const locator = params.fileId ?? params.filePath
@@ -72,7 +72,7 @@ const findDriveFileComment = (
   target: DriveFileTarget,
   commentId: CommentId
 ): Effect.Effect<ChatMessage, DriveOperationError, never> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const comment = yield* target.client.findOne<ChatMessage>(
       chunter.class.ChatMessage,
       hulyQuery<ChatMessage>({
@@ -83,20 +83,13 @@ const findDriveFileComment = (
     )
     if (comment === undefined) {
       return yield* Effect.fail(
-        new DriveFileCommentNotFoundError({
-          drive: target.driveSpace.name,
-          file: target.locator,
-          commentId
-        })
+        new DriveFileCommentNotFoundError({ drive: target.driveSpace.name, file: target.locator, commentId })
       )
     }
     return comment
   })
 
-const toComment = (
-  client: HulyClient["Type"],
-  message: ChatMessage
-) => ({
+const toComment = (client: HulyClient["Type"], message: ChatMessage) => ({
   id: message._id,
   body: optionalMarkupToMarkdown(message.message, client.markupUrlConfig, ""),
   authorId: message.modifiedBy,
@@ -107,18 +100,19 @@ const toComment = (
 
 const decodeComments = (comments: ReadonlyArray<ReturnType<typeof toComment>>) =>
   Schema.decodeUnknown(Schema.Array(CommentSchema))(comments).pipe(
-    Effect.mapError((parseError) =>
-      new HulyConnectionError({
-        message: `Drive file comments response failed schema validation: ${parseError.message}`,
-        cause: parseError
-      })
+    Effect.mapError(
+      (parseError) =>
+        new HulyConnectionError({
+          message: `Drive file comments response failed schema validation: ${parseError.message}`,
+          cause: parseError
+        })
     )
   )
 
 export const listDriveFileComments = (
   params: ListDriveFileCommentsParams
 ): Effect.Effect<ListDriveFileCommentsResult, DriveOperationError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveDriveFileTarget(params)
     const messages = yield* target.client.findAll<ChatMessage>(
       chunter.class.ChatMessage,
@@ -126,10 +120,7 @@ export const listDriveFileComments = (
         attachedTo: toRef<Doc>(target.file._id),
         attachedToClass: toRef<Class<Doc>>(drive.class.File)
       }),
-      {
-        limit: clampLimit(params.limit),
-        sort: { createdOn: SortingOrder.Ascending }
-      }
+      { limit: clampLimit(params.limit), sort: { createdOn: SortingOrder.Ascending } }
     )
     const comments = yield* decodeComments(messages.map((message) => toComment(target.client, message)))
 
@@ -143,7 +134,7 @@ export const listDriveFileComments = (
 export const addDriveFileComment = (
   params: AddDriveFileCommentParams
 ): Effect.Effect<AddDriveFileCommentResult, DriveOperationError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveDriveFileTarget(params)
     const commentId: Ref<ChatMessage> = generateId()
     const commentData: AttachedData<ChatMessage> = {
@@ -169,7 +160,7 @@ export const addDriveFileComment = (
 export const updateDriveFileComment = (
   params: UpdateDriveFileCommentParams
 ): Effect.Effect<UpdateDriveFileCommentResult, DriveOperationError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveDriveFileTarget(params)
     const comment = yield* findDriveFileComment(target, params.commentId)
     const newMarkup = markdownToMarkupString(params.body, target.client.markupUrlConfig)
@@ -183,10 +174,7 @@ export const updateDriveFileComment = (
     }
 
     const now = yield* Clock.currentTimeMillis
-    const updateOps: DocumentUpdate<ChatMessage> = {
-      message: newMarkup,
-      editedOn: now
-    }
+    const updateOps: DocumentUpdate<ChatMessage> = { message: newMarkup, editedOn: now }
     yield* target.client.updateDoc(chunter.class.ChatMessage, target.driveSpace._id, comment._id, updateOps)
 
     return {
@@ -199,7 +187,7 @@ export const updateDriveFileComment = (
 export const deleteDriveFileComment = (
   params: DeleteDriveFileCommentParams
 ): Effect.Effect<DeleteDriveFileCommentResult, DriveOperationError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveDriveFileTarget(params)
     const comment = yield* findDriveFileComment(target, params.commentId)
     yield* target.client.removeDoc(chunter.class.ChatMessage, target.driveSpace._id, comment._id)
@@ -218,7 +206,7 @@ export const listDriveFileActivity = (
   DriveOperationError | ActivityRecordInvalidError,
   HulyClient | HulyStorageClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveDriveFileTarget(params)
     const messages = yield* target.client.findAll<HulyActivityMessage>(
       activity.class.ActivityMessage,
@@ -226,10 +214,7 @@ export const listDriveFileActivity = (
         attachedTo: toRef<Doc>(target.file._id),
         attachedToClass: toRef<Class<Doc>>(drive.class.File)
       }),
-      {
-        limit: clampLimit(params.limit),
-        sort: { modifiedOn: SortingOrder.Descending }
-      }
+      { limit: clampLimit(params.limit), sort: { modifiedOn: SortingOrder.Descending } }
     )
     const mapped = yield* toActivityMessages(messages, target.client.markupUrlConfig, "list_drive_file_activity")
 

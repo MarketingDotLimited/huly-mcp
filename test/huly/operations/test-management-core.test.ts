@@ -144,17 +144,13 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     }
     if (_class === testManagement.class.TestSuite) {
       const found = suites.find(
-        (s) =>
-          ((q._id && s._id === q._id) || (q.name && s.name === q.name))
-          && (!q.space || s.space === q.space)
+        (s) => ((q._id && s._id === q._id) || (q.name && s.name === q.name)) && (!q.space || s.space === q.space)
       )
       return Effect.succeed(found)
     }
     if (_class === testManagement.class.TestCase) {
       const found = cases.find(
-        (tc) =>
-          ((q._id && tc._id === q._id) || (q.name && tc.name === q.name))
-          && (!q.space || tc.space === q.space)
+        (tc) => ((q._id && tc._id === q._id) || (q.name && tc.name === q.name)) && (!q.space || tc.space === q.space)
       )
       return Effect.succeed(found)
     }
@@ -193,24 +189,25 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     return Effect.succeed((id ?? "new-id") as Ref<Doc>)
   }) as HulyClientOperations["addCollection"]
 
-  const updateDocImpl: HulyClientOperations["updateDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown, operations: unknown) => {
-      if (config.captureUpdateDoc) {
-        config.captureUpdateDoc.operations = operations as Record<string, unknown>
-      }
-      return Effect.succeed({} as never)
+  const updateDocImpl: HulyClientOperations["updateDoc"] = ((
+    _class: unknown,
+    _space: unknown,
+    _objectId: unknown,
+    operations: unknown
+  ) => {
+    if (config.captureUpdateDoc) {
+      config.captureUpdateDoc.operations = operations as Record<string, unknown>
     }
-  ) as HulyClientOperations["updateDoc"]
+    return Effect.succeed({} as never)
+  }) as HulyClientOperations["updateDoc"]
 
-  const removeDocImpl: HulyClientOperations["removeDoc"] = (
-    (_class: unknown, _space: unknown, objectId: unknown) => {
-      if (config.captureRemoveDoc) {
-        config.captureRemoveDoc.called = true
-        config.captureRemoveDoc.objectId = objectId as string
-      }
-      return Effect.succeed({} as never)
+  const removeDocImpl: HulyClientOperations["removeDoc"] = ((_class: unknown, _space: unknown, objectId: unknown) => {
+    if (config.captureRemoveDoc) {
+      config.captureRemoveDoc.called = true
+      config.captureRemoveDoc.objectId = objectId as string
     }
-  ) as HulyClientOperations["removeDoc"]
+    return Effect.succeed({} as never)
+  }) as HulyClientOperations["removeDoc"]
 
   const uploadMarkupImpl: HulyClientOperations["uploadMarkup"] = ((
     _class: unknown,
@@ -224,9 +221,8 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     return Effect.succeed("markup-ref" as never)
   }) as HulyClientOperations["uploadMarkup"]
 
-  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = (
-    () => Effect.succeed("fetched content")
-  ) as HulyClientOperations["fetchMarkup"]
+  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = (() =>
+    Effect.succeed("fetched content")) as HulyClientOperations["fetchMarkup"]
 
   return HulyClient.testLayer({
     findAll: findAllImpl,
@@ -242,7 +238,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
 
 describe("listTestProjects", () => {
   it.effect("returns projects", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const projects = [
         makeTestProject({ _id: "tp-1" as Ref<TestProject>, name: "Alpha" }),
         makeTestProject({ _id: "tp-2" as Ref<TestProject>, name: "Beta" })
@@ -254,22 +250,24 @@ describe("listTestProjects", () => {
       expect(result.projects).toHaveLength(2)
       expect(assertAt(result.projects, 0).name).toBe("Alpha")
       expect(assertAt(result.projects, 1).name).toBe("Beta")
-    }))
+    })
+  )
 
   it.effect("returns empty when no projects", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ projects: [] })
 
       const result = yield* listTestProjects({}).pipe(Effect.provide(testLayer))
 
       expect(result.projects).toHaveLength(0)
       expect(result.total).toBe(0)
-    }))
+    })
+  )
 })
 
 describe("listTestSuites", () => {
   it.effect("returns suites in project", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const suites = [
         makeTestSuite({ _id: "ts-1" as Ref<TestSuite>, name: "Suite A" }),
@@ -277,15 +275,16 @@ describe("listTestSuites", () => {
       ]
       const testLayer = createTestLayerWithMocks({ projects: [project], suites })
 
-      const result = yield* listTestSuites({
-        project: testProjectIdentifier("QA Project")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* listTestSuites({ project: testProjectIdentifier("QA Project") }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.suites).toHaveLength(2)
-    }))
+    })
+  )
 
   it.effect("filters by parent suite", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const parentSuite = makeTestSuite({ _id: "ts-parent" as Ref<TestSuite>, name: "Parent" })
       const childSuite = makeTestSuite({
@@ -295,10 +294,7 @@ describe("listTestSuites", () => {
       })
       const otherSuite = makeTestSuite({ _id: "ts-other" as Ref<TestSuite>, name: "Other" })
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        suites: [parentSuite, childSuite, otherSuite]
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], suites: [parentSuite, childSuite, otherSuite] })
 
       const result = yield* listTestSuites({
         project: testProjectIdentifier("QA Project"),
@@ -307,21 +303,18 @@ describe("listTestSuites", () => {
 
       expect(result.suites).toHaveLength(1)
       expect(assertAt(result.suites, 0).name).toBe("Child")
-    }))
+    })
+  )
 })
 
 describe("getTestSuite", () => {
   it.effect("returns suite with case count", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const suite = makeTestSuite()
       const tc = makeTestCase({ attachedTo: suite._id as Ref<Doc> })
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        suites: [suite],
-        cases: [tc]
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], suites: [suite], cases: [tc] })
 
       const result = yield* getTestSuite({
         project: testProjectIdentifier("QA Project"),
@@ -330,66 +323,55 @@ describe("getTestSuite", () => {
 
       expect(result.name).toBe("Login Suite")
       expect(result.testCases).toBe(1)
-    }))
+    })
+  )
 })
 
 describe("createTestSuite", () => {
   it.effect("creates new suite", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const captureCreateDoc: { attributes?: Record<string, unknown>; id?: string } = {}
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        suites: [],
-        captureCreateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], suites: [], captureCreateDoc })
 
-      const result = yield* createTestSuite({
-        project: testProjectIdentifier("QA Project"),
-        name: "New Suite"
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* createTestSuite({ project: testProjectIdentifier("QA Project"), name: "New Suite" }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.name).toBe("New Suite")
       expect(result.created).toBe(true)
       expect(captureCreateDoc.attributes?.name).toBe("New Suite")
-    }))
+    })
+  )
 
   it.effect("returns existing suite (idempotent)", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const existing = makeTestSuite({ name: "Existing" })
       const captureCreateDoc: { attributes?: Record<string, unknown>; id?: string } = {}
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        suites: [existing],
-        captureCreateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], suites: [existing], captureCreateDoc })
 
-      const result = yield* createTestSuite({
-        project: testProjectIdentifier("QA Project"),
-        name: "Existing"
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* createTestSuite({ project: testProjectIdentifier("QA Project"), name: "Existing" }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.id).toBe("ts-1")
       expect(result.created).toBe(false)
       expect(captureCreateDoc.attributes).toBeUndefined()
-    }))
+    })
+  )
 })
 
 describe("updateTestSuite", () => {
   it.effect("updates name", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const suite = makeTestSuite()
       const captureUpdateDoc: { operations?: Record<string, unknown> } = {}
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        suites: [suite],
-        captureUpdateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], suites: [suite], captureUpdateDoc })
 
       const result = yield* updateTestSuite({
         project: testProjectIdentifier("QA Project"),
@@ -399,17 +381,15 @@ describe("updateTestSuite", () => {
 
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.name).toBe("Updated Suite")
-    }))
+    })
+  )
 
   it.effect("fails when no fields provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const suite = makeTestSuite()
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        suites: [suite]
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], suites: [suite] })
 
       const error = yield* Effect.flip(
         updateTestSuite({
@@ -419,10 +399,11 @@ describe("updateTestSuite", () => {
       )
 
       expect(error._tag).toBe("NoUpdateFieldsError")
-    }))
+    })
+  )
 
   it.effect("returns TestSuiteNotFoundError for nonexistent suite", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const testLayer = createTestLayerWithMocks({ projects: [project], suites: [] })
 
@@ -436,21 +417,18 @@ describe("updateTestSuite", () => {
 
       expect(error._tag).toBe("TestSuiteNotFoundError")
       expect((error as TestSuiteNotFoundError).identifier).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("deleteTestSuite", () => {
   it.effect("deletes suite", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const suite = makeTestSuite()
       const captureRemoveDoc: { called?: boolean; objectId?: string } = {}
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        suites: [suite],
-        captureRemoveDoc
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], suites: [suite], captureRemoveDoc })
 
       const result = yield* deleteTestSuite({
         project: testProjectIdentifier("QA Project"),
@@ -460,10 +438,11 @@ describe("deleteTestSuite", () => {
       expect(result.id).toBe("ts-1")
       expect(result.deleted).toBe(true)
       expect(captureRemoveDoc.called).toBe(true)
-    }))
+    })
+  )
 
   it.effect("returns TestSuiteNotFoundError for nonexistent suite", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const testLayer = createTestLayerWithMocks({ projects: [project], suites: [] })
 
@@ -475,30 +454,29 @@ describe("deleteTestSuite", () => {
       )
 
       expect(error._tag).toBe("TestSuiteNotFoundError")
-    }))
+    })
+  )
 })
 
 describe("listTestCases", () => {
   it.effect("returns cases in project", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const tc1 = makeTestCase({ _id: "tc-1" as Ref<TestCase>, name: "Case 1" })
       const tc2 = makeTestCase({ _id: "tc-2" as Ref<TestCase>, name: "Case 2" })
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        cases: [tc1, tc2]
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], cases: [tc1, tc2] })
 
-      const result = yield* listTestCases({
-        project: testProjectIdentifier("QA Project")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* listTestCases({ project: testProjectIdentifier("QA Project") }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.testCases).toHaveLength(2)
-    }))
+    })
+  )
 
   it.effect("filters by suite", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const suite = makeTestSuite()
       const inSuite = makeTestCase({
@@ -512,11 +490,7 @@ describe("listTestCases", () => {
         attachedTo: "ts-other" as Ref<Doc>
       })
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        suites: [suite],
-        cases: [inSuite, outSuite]
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], suites: [suite], cases: [inSuite, outSuite] })
 
       const result = yield* listTestCases({
         project: testProjectIdentifier("QA Project"),
@@ -525,19 +499,17 @@ describe("listTestCases", () => {
 
       expect(result.testCases).toHaveLength(1)
       expect(assertAt(result.testCases, 0).name).toBe("In suite")
-    }))
+    })
+  )
 })
 
 describe("getTestCase", () => {
   it.effect("returns test case", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const tc = makeTestCase()
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        cases: [tc]
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], cases: [tc] })
 
       const result = yield* getTestCase({
         project: testProjectIdentifier("QA Project"),
@@ -548,12 +520,13 @@ describe("getTestCase", () => {
       expect(result.type).toBe("functional")
       expect(result.priority).toBe("medium")
       expect(result.status).toBe("draft")
-    }))
+    })
+  )
 })
 
 describe("createTestCase", () => {
   it.effect("creates test case via addCollection", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const suite = makeTestSuite()
       const captureAddCollection: { attributes?: Record<string, unknown>; id?: string } = {}
@@ -577,10 +550,11 @@ describe("createTestCase", () => {
       expect(captureAddCollection.attributes?.type).toBe(TestCaseType.Functional)
       expect(captureAddCollection.attributes?.priority).toBe(TestCasePriority.Medium)
       expect(captureAddCollection.attributes?.status).toBe(TestCaseStatus.Draft)
-    }))
+    })
+  )
 
   it.effect("creates with explicit type and priority", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const suite = makeTestSuite()
       const captureAddCollection: { attributes?: Record<string, unknown>; id?: string } = {}
@@ -605,21 +579,18 @@ describe("createTestCase", () => {
       expect(captureAddCollection.attributes?.type).toBe(TestCaseType.Performance)
       expect(captureAddCollection.attributes?.priority).toBe(TestCasePriority.High)
       expect(captureAddCollection.attributes?.status).toBe(TestCaseStatus.Approved)
-    }))
+    })
+  )
 })
 
 describe("updateTestCase", () => {
   it.effect("updates name and type", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const tc = makeTestCase()
       const captureUpdateDoc: { operations?: Record<string, unknown> } = {}
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        cases: [tc],
-        captureUpdateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], cases: [tc], captureUpdateDoc })
 
       const result = yield* updateTestCase({
         project: testProjectIdentifier("QA Project"),
@@ -631,17 +602,15 @@ describe("updateTestCase", () => {
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.name).toBe("Updated Name")
       expect(captureUpdateDoc.operations?.type).toBe(TestCaseType.Regression)
-    }))
+    })
+  )
 
   it.effect("fails when no fields provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const tc = makeTestCase()
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        cases: [tc]
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], cases: [tc] })
 
       const error = yield* Effect.flip(
         updateTestCase({
@@ -651,21 +620,18 @@ describe("updateTestCase", () => {
       )
 
       expect(error._tag).toBe("NoUpdateFieldsError")
-    }))
+    })
+  )
 })
 
 describe("deleteTestCase", () => {
   it.effect("deletes test case", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const tc = makeTestCase()
       const captureRemoveDoc: { called?: boolean; objectId?: string } = {}
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        cases: [tc],
-        captureRemoveDoc
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], cases: [tc], captureRemoveDoc })
 
       const result = yield* deleteTestCase({
         project: testProjectIdentifier("QA Project"),
@@ -675,10 +641,11 @@ describe("deleteTestCase", () => {
       expect(result.id).toBe("tc-1")
       expect(result.deleted).toBe(true)
       expect(captureRemoveDoc.called).toBe(true)
-    }))
+    })
+  )
 
   it.effect("returns TestCaseNotFoundError for nonexistent case", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeTestProject()
       const testLayer = createTestLayerWithMocks({ projects: [project], cases: [] })
 
@@ -691,7 +658,8 @@ describe("deleteTestCase", () => {
 
       expect(error._tag).toBe("TestCaseNotFoundError")
       expect((error as TestCaseNotFoundError).identifier).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 const makePerson = (id: string, name: string): HulyPerson => {
@@ -711,7 +679,7 @@ const makePerson = (id: string, name: string): HulyPerson => {
 
 describe("createTestCase — optional fields", () => {
   it.effect("uploads a non-empty description and resolves an assignee", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: { attributes?: Record<string, unknown>; id?: string } = {}
       const captureUploadMarkup: { markup?: string } = {}
       const layer = createTestLayerWithMocks({
@@ -737,10 +705,11 @@ describe("createTestCase — optional fields", () => {
       })
       expect(captureAddCollection.attributes?.description).toBe("markup-ref")
       expect(captureAddCollection.attributes?.assignee).toBe("person-1")
-    }))
+    })
+  )
 
   it.effect("creates test case descriptions with native references", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: { attributes?: Record<string, unknown>; id?: string } = {}
       const captureUploadMarkup: { markup?: string } = {}
       const layer = createTestLayerWithMocks({
@@ -760,17 +729,14 @@ describe("createTestCase — optional fields", () => {
 
       expect(capturedMarkupReferenceNodes(captureUploadMarkup.markup)[0]).toMatchObject({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "HULY-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
       expect(captureAddCollection.attributes?.description).toBe("markup-ref")
-    }))
+    })
+  )
 
   it.effect("treats a whitespace-only description as no description", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: { attributes?: Record<string, unknown>; id?: string } = {}
       const layer = createTestLayerWithMocks({
         projects: [makeTestProject()],
@@ -786,7 +752,8 @@ describe("createTestCase — optional fields", () => {
       }).pipe(Effect.provide(layer))
 
       expect(captureAddCollection.attributes?.description).toBeNull()
-    }))
+    })
+  )
 })
 
 describe("updateTestCase — optional fields", () => {
@@ -794,7 +761,7 @@ describe("updateTestCase — optional fields", () => {
     makeTestCase({ _id: "tc-1" as Ref<TestCase>, name: "Case 1", attachedTo: "ts-1" as Ref<TestSuite> })
 
   it.effect("uploads a new description and updates priority + status", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureUpdateDoc: { operations?: Record<string, unknown> } = {}
       const captureUploadMarkup: { markup?: string } = {}
       const layer = createTestLayerWithMocks({
@@ -821,10 +788,11 @@ describe("updateTestCase — optional fields", () => {
       expect(captureUpdateDoc.operations?.description).toBe("markup-ref")
       expect(captureUpdateDoc.operations?.priority).toBe(TestCasePriority.High)
       expect(captureUpdateDoc.operations?.status).toBe(TestCaseStatus.Approved)
-    }))
+    })
+  )
 
   it.effect("updates test case descriptions with native references", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureUpdateDoc: { operations?: Record<string, unknown> } = {}
       const captureUploadMarkup: { markup?: string } = {}
       const layer = createTestLayerWithMocks({
@@ -844,17 +812,14 @@ describe("updateTestCase — optional fields", () => {
 
       expect(capturedMarkupReferenceNodes(captureUploadMarkup.markup)[0]).toMatchObject({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "HULY-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
       expect(captureUpdateDoc.operations?.description).toBe("markup-ref")
-    }))
+    })
+  )
 
   it.effect("clears description and assignee when set to null", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureUpdateDoc: { operations?: Record<string, unknown> } = {}
       const layer = createTestLayerWithMocks({
         projects: [makeTestProject()],
@@ -872,10 +837,11 @@ describe("updateTestCase — optional fields", () => {
 
       expect(captureUpdateDoc.operations?.description).toBeNull()
       expect(captureUpdateDoc.operations?.assignee).toBeNull()
-    }))
+    })
+  )
 
   it.effect("resolves an assignee by name", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureUpdateDoc: { operations?: Record<string, unknown> } = {}
       const layer = createTestLayerWithMocks({
         projects: [makeTestProject()],
@@ -892,104 +858,108 @@ describe("updateTestCase — optional fields", () => {
       }).pipe(Effect.provide(layer))
 
       expect(captureUpdateDoc.operations?.assignee).toBe("person-2")
-    }))
+    })
+  )
 })
 
 describe("test-management-core summary and filter branches", () => {
   it.effect("omits description for a project without one", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listTestProjects({}).pipe(
         Effect.provide(createTestLayerWithMocks({ projects: [makeTestProject({ description: "" })] }))
       )
       expect(assertAt(result.projects, 0).description).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("filters test cases by assignee and surfaces it in the summary", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       // eslint-disable-next-line no-restricted-syntax -- Ref<Employee> brand has no runtime constructor
       const assigneeRef = "person-2" as unknown as TestCase["assignee"]
       const assignedCase = makeTestCase({ _id: "tc-9" as Ref<TestCase>, name: "Assigned", assignee: assigneeRef })
-      const result = yield* listTestCases({
-        project: testProjectIdentifier("QA Project"),
-        assignee: "Bob"
-      }).pipe(
-        Effect.provide(createTestLayerWithMocks({
-          projects: [makeTestProject()],
-          suites: [makeTestSuite()],
-          cases: [assignedCase],
-          persons: [makePerson("person-2", "Bob")]
-        }))
+      const result = yield* listTestCases({ project: testProjectIdentifier("QA Project"), assignee: "Bob" }).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({
+            projects: [makeTestProject()],
+            suites: [makeTestSuite()],
+            cases: [assignedCase],
+            persons: [makePerson("person-2", "Bob")]
+          })
+        )
       )
       expect(result.testCases).toHaveLength(1)
       expect(assertAt(result.testCases, 0).assignee).toBe("person-2")
-    }))
+    })
+  )
 })
 
 describe("updateTestSuite — description branch", () => {
   it.effect("unsets the description when set to null", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureUpdateDoc: { operations?: Record<string, unknown> } = {}
       yield* updateTestSuite({
         project: testProjectIdentifier("QA Project"),
         suite: testSuiteIdentifier("Login Suite"),
         description: null
-      }).pipe(Effect.provide(createTestLayerWithMocks({
-        projects: [makeTestProject()],
-        suites: [makeTestSuite()],
-        captureUpdateDoc
-      })))
+      }).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({ projects: [makeTestProject()], suites: [makeTestSuite()], captureUpdateDoc })
+        )
+      )
       expect(captureUpdateDoc.operations?.$unset).toEqual({ description: "" })
-    }))
+    })
+  )
 
   it.effect("sets a new description string", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureUpdateDoc: { operations?: Record<string, unknown> } = {}
       yield* updateTestSuite({
         project: testProjectIdentifier("QA Project"),
         suite: testSuiteIdentifier("Login Suite"),
         description: "New description"
-      }).pipe(Effect.provide(createTestLayerWithMocks({
-        projects: [makeTestProject()],
-        suites: [makeTestSuite()],
-        captureUpdateDoc
-      })))
+      }).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({ projects: [makeTestProject()], suites: [makeTestSuite()], captureUpdateDoc })
+        )
+      )
       expect(captureUpdateDoc.operations?.description).toBe("New description")
-    }))
+    })
+  )
 })
 
 describe("test suite summary and createTestSuite parent branches", () => {
   it.effect("omits description and parent for a bare suite", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const bare = makeTestSuite({ _id: "ts-bare" as Ref<TestSuite>, name: "Bare Suite" })
       // eslint-disable-next-line no-restricted-syntax -- removing optional SDK fields from a nominal fixture
       const bareRecord = bare as unknown as Record<string, unknown>
       delete bareRecord.description
       delete bareRecord.parent
-      const result = yield* listTestSuites({
-        project: testProjectIdentifier("QA Project")
-      }).pipe(Effect.provide(createTestLayerWithMocks({ projects: [makeTestProject()], suites: [bare] })))
+      const result = yield* listTestSuites({ project: testProjectIdentifier("QA Project") }).pipe(
+        Effect.provide(createTestLayerWithMocks({ projects: [makeTestProject()], suites: [bare] }))
+      )
       expect(assertAt(result.suites, 0).description).toBeUndefined()
       expect(assertAt(result.suites, 0).parent).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("creates a child suite under an explicit parent suite", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureCreateDoc: { attributes?: Record<string, unknown>; id?: string } = {}
       const parent = makeTestSuite({ _id: "ts-parent" as Ref<TestSuite>, name: "Parent Suite" })
       yield* createTestSuite({
         project: testProjectIdentifier("QA Project"),
         name: "Child Suite",
         parent: testSuiteIdentifier("Parent Suite")
-      }).pipe(Effect.provide(createTestLayerWithMocks({
-        projects: [makeTestProject()],
-        suites: [parent],
-        captureCreateDoc
-      })))
+      }).pipe(
+        Effect.provide(createTestLayerWithMocks({ projects: [makeTestProject()], suites: [parent], captureCreateDoc }))
+      )
       expect(captureCreateDoc.attributes?.parent).toBe("ts-parent")
-    }))
+    })
+  )
 
   it.effect("includes a fetched description in the test case detail", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const described = makeTestCase({
         _id: "tc-desc" as Ref<TestCase>,
         name: "Described",
@@ -999,18 +969,19 @@ describe("test suite summary and createTestSuite parent branches", () => {
       const result = yield* getTestCase({
         project: testProjectIdentifier("QA Project"),
         testCase: testCaseIdentifier("Described")
-      }).pipe(Effect.provide(createTestLayerWithMocks({
-        projects: [makeTestProject()],
-        suites: [makeTestSuite()],
-        cases: [described]
-      })))
+      }).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({ projects: [makeTestProject()], suites: [makeTestSuite()], cases: [described] })
+        )
+      )
       expect(result.description).toBe("fetched content")
-    }))
+    })
+  )
 })
 
 describe("createTestCase + getTestCase enum and optional branches", () => {
   it.effect("returns a case summary without description or suite when both are absent", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       // eslint-disable-next-line no-restricted-syntax -- Ref<Doc> brand has no runtime constructor
       const noSuite = null as unknown as TestCase["attachedTo"]
       const bareCase = makeTestCase({
@@ -1022,12 +993,13 @@ describe("createTestCase + getTestCase enum and optional branches", () => {
       const result = yield* getTestCase({
         project: testProjectIdentifier("QA Project"),
         testCase: testCaseIdentifier("Bare")
-      }).pipe(Effect.provide(createTestLayerWithMocks({
-        projects: [makeTestProject()],
-        suites: [makeTestSuite()],
-        cases: [bareCase]
-      })))
+      }).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({ projects: [makeTestProject()], suites: [makeTestSuite()], cases: [bareCase] })
+        )
+      )
       expect(result.description).toBeUndefined()
       expect(result.suite).toBeUndefined()
-    }))
+    })
+  )
 })

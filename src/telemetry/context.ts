@@ -5,12 +5,6 @@ export interface TelemetryRuntimeContext {
   readonly surface: TelemetrySurface
 }
 
-export const mcpTelemetryContext: TelemetryRuntimeContext = {
-  packageName: "@firfi/huly-mcp",
-  surface: "mcp"
-}
+export const mcpTelemetryContext: TelemetryRuntimeContext = { packageName: "@firfi/huly-mcp", surface: "mcp" }
 
-export const cliTelemetryContext: TelemetryRuntimeContext = {
-  packageName: "@firfi/huly-cli",
-  surface: "cli"
-}
+export const cliTelemetryContext: TelemetryRuntimeContext = { packageName: "@firfi/huly-cli", surface: "cli" }

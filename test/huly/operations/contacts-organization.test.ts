@@ -134,16 +134,16 @@ const createTestLayer = (config: MockConfig) => {
         const attachedTo = q.attachedTo as { $in?: Array<unknown> } | unknown
         if (typeof attachedTo === "object" && attachedTo !== null && "$in" in attachedTo) {
           const ids = attachedTo.$in as Array<unknown>
-          filtered = filtered.filter(c => ids.includes(c.attachedTo))
+          filtered = filtered.filter((c) => ids.includes(c.attachedTo))
         } else {
-          filtered = filtered.filter(c => c.attachedTo === q.attachedTo)
+          filtered = filtered.filter((c) => c.attachedTo === q.attachedTo)
         }
       }
       if (q.provider !== undefined) {
-        filtered = filtered.filter(c => c.provider === q.provider)
+        filtered = filtered.filter((c) => c.provider === q.provider)
       }
       if (q.value !== undefined) {
-        filtered = filtered.filter(c => c.value === q.value)
+        filtered = filtered.filter((c) => c.value === q.value)
       }
       return Effect.succeed(toFindResult(filtered))
     }
@@ -154,7 +154,7 @@ const createTestLayer = (config: MockConfig) => {
         const idFilter = q._id as { $in?: Array<unknown> } | unknown
         if (typeof idFilter === "object" && idFilter !== null && "$in" in idFilter) {
           const ids = idFilter.$in as Array<unknown>
-          filtered = filtered.filter(p => ids.includes(p._id))
+          filtered = filtered.filter((p) => ids.includes(p._id))
         }
       }
       return Effect.succeed(toFindResult(filtered))
@@ -166,11 +166,11 @@ const createTestLayer = (config: MockConfig) => {
         const idFilter = q._id as { $in?: Array<unknown> } | unknown
         if (typeof idFilter === "object" && idFilter !== null && "$in" in idFilter) {
           const ids = idFilter.$in as Array<unknown>
-          filtered = filtered.filter(o => ids.includes(o._id))
+          filtered = filtered.filter((o) => ids.includes(o._id))
         }
       }
       if (q.name !== undefined) {
-        filtered = filtered.filter(o => o.name === q.name)
+        filtered = filtered.filter((o) => o.name === q.name)
       }
       return Effect.succeed(toFindResult(filtered))
     }
@@ -178,11 +178,11 @@ const createTestLayer = (config: MockConfig) => {
       const q = (query ?? {}) as Record<string, unknown>
       let filtered = members
       if (q.attachedTo !== undefined) {
-        filtered = filtered.filter(m => m.attachedTo === q.attachedTo)
+        filtered = filtered.filter((m) => m.attachedTo === q.attachedTo)
       }
       if (q.contact !== undefined) {
         // eslint-disable-next-line no-restricted-syntax -- test mock: Member.contact is not exposed in the TS interface
-        filtered = filtered.filter(m => (m as unknown as Record<string, unknown>).contact === q.contact)
+        filtered = filtered.filter((m) => (m as unknown as Record<string, unknown>).contact === q.contact)
       }
       return Effect.succeed(toFindResult(filtered))
     }
@@ -193,14 +193,14 @@ const createTestLayer = (config: MockConfig) => {
     if (_class === contact.class.Organization) {
       const q = query as Record<string, unknown>
       if (q._id !== undefined) {
-        const found = organizations.find(o => o._id === q._id)
+        const found = organizations.find((o) => o._id === q._id)
         return Effect.succeed(found)
       }
       return Effect.succeed(undefined)
     }
     if (_class === contact.class.Person) {
       const q = query as Record<string, unknown>
-      const found = persons.find(p => p._id === q._id)
+      const found = persons.find((p) => p._id === q._id)
       return Effect.succeed(found)
     }
     return Effect.succeed(undefined)
@@ -248,11 +248,7 @@ const createTestLayer = (config: MockConfig) => {
     return Effect.succeed({})
   }) as HulyClientOperations["updateDoc"]
 
-  const removeDocImpl: HulyClientOperations["removeDoc"] = ((
-    _class: unknown,
-    _space: unknown,
-    objectId: unknown
-  ) => {
+  const removeDocImpl: HulyClientOperations["removeDoc"] = ((_class: unknown, _space: unknown, objectId: unknown) => {
     if (config.captureRemoveDoc) {
       config.captureRemoveDoc.id = String(objectId)
     }
@@ -331,15 +327,10 @@ const createTestLayer = (config: MockConfig) => {
 describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
   describe("createOrganization", () => {
     it.effect("creates organization with unique resolved members", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const person = createMockPerson()
-        const emailPerson = createMockPerson({
-          _id: "person-email-1" as Ref<HulyPerson>
-        })
-        const channel = createMockChannel({
-          attachedTo: "person-email-1" as Ref<Doc>,
-          value: "member@example.com"
-        })
+        const emailPerson = createMockPerson({ _id: "person-email-1" as Ref<HulyPerson> })
+        const channel = createMockChannel({ attachedTo: "person-email-1" as Ref<Doc>, value: "member@example.com" })
         const capture: MockConfig["captureAddCollection"] = {}
 
         const testLayer = createTestLayer({
@@ -350,129 +341,109 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
 
         const result = yield* createOrganization({
           name: "Acme",
-          members: [
-            memberReference("person-123"),
-            memberReference("member@example.com"),
-            memberReference("person-123")
-          ]
+          members: [memberReference("person-123"), memberReference("member@example.com"), memberReference("person-123")]
         }).pipe(Effect.provide(testLayer))
 
         expect(result.id).toBeDefined()
         expect(capture.class).toBe(contact.class.Member)
         expect(capture.attributes?.contact).toBe("person-email-1")
-      }))
+      })
+    )
 
     it.effect("fails when any requested member cannot be resolved", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const person = createMockPerson()
         const captureCreateDoc: MockConfig["captureCreateDoc"] = {}
 
-        const testLayer = createTestLayer({
-          persons: [person],
-          channels: [],
-          captureCreateDoc
-        })
+        const testLayer = createTestLayer({ persons: [person], channels: [], captureCreateDoc })
 
         const error = yield* Effect.flip(
           createOrganization({
             name: "Acme",
-            members: [
-              memberReference("person-123"),
-              memberReference("missing@example.com")
-            ]
+            members: [memberReference("person-123"), memberReference("missing@example.com")]
           }).pipe(Effect.provide(testLayer))
         )
 
         expect(error._tag).toBe("PersonNotFoundError")
         expect(captureCreateDoc.id).toBeUndefined()
-      }))
+      })
+    )
   })
 
   describe("getOrganization", () => {
     it.effect("finds organization by ID and returns details with description", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         // eslint-disable-next-line no-restricted-syntax -- test mock: description is MarkupBlobRef at runtime but typed as null in mock
         const org = createMockOrganization({ description: "some-markup-ref" as unknown as null })
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          fetchMarkupResult: "# About Test Corp"
-        })
+        const testLayer = createTestLayer({ organizations: [org], fetchMarkupResult: "# About Test Corp" })
 
-        const result = yield* getOrganization({ identifier: "org-1" }).pipe(
-          Effect.provide(testLayer)
-        )
+        const result = yield* getOrganization({ identifier: "org-1" }).pipe(Effect.provide(testLayer))
 
         expect(result.id).toBe("org-1")
         expect(result.name).toBe("Test Corp")
         expect(result.city).toBe("SF")
         expect(result.description).toBe("# About Test Corp")
         expect(result.members).toBe(5)
-      }))
+      })
+    )
 
     it.effect("finds organization by name when ID does not match", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
 
         const testLayer = createTestLayer({ organizations: [org] })
 
-        const result = yield* getOrganization({ identifier: "Test Corp" }).pipe(
-          Effect.provide(testLayer)
-        )
+        const result = yield* getOrganization({ identifier: "Test Corp" }).pipe(Effect.provide(testLayer))
 
         expect(result.id).toBe("org-1")
         expect(result.name).toBe("Test Corp")
-      }))
+      })
+    )
 
     it.effect("returns undefined description when org has null description", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization({ description: null })
 
         const testLayer = createTestLayer({ organizations: [org] })
 
-        const result = yield* getOrganization({ identifier: "org-1" }).pipe(
-          Effect.provide(testLayer)
-        )
+        const result = yield* getOrganization({ identifier: "org-1" }).pipe(Effect.provide(testLayer))
 
         expect(result.description).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("returns OrganizationNotFoundError when not found", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const testLayer = createTestLayer({ organizations: [] })
 
-        const error = yield* Effect.flip(
-          getOrganization({ identifier: "nonexistent" }).pipe(Effect.provide(testLayer))
-        )
+        const error = yield* Effect.flip(getOrganization({ identifier: "nonexistent" }).pipe(Effect.provide(testLayer)))
 
         expect(error._tag).toBe("OrganizationNotFoundError")
-      }))
+      })
+    )
   })
 
   describe("updateOrganization", () => {
     it.effect("updates name and city", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
         const capture: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          captureUpdateDoc: capture
-        })
+        const testLayer = createTestLayer({ organizations: [org], captureUpdateDoc: capture })
 
-        const result = yield* updateOrganization({
-          identifier: "org-1",
-          name: "New Name",
-          city: "LA"
-        }).pipe(Effect.provide(testLayer))
+        const result = yield* updateOrganization({ identifier: "org-1", name: "New Name", city: "LA" }).pipe(
+          Effect.provide(testLayer)
+        )
 
         expect(result.updated).toBe(true)
         expect(capture.operations?.name).toBe("New Name")
         expect(capture.operations?.city).toBe("LA")
-      }))
+      })
+    )
 
     it.effect("uploads description via uploadMarkup when organization has no existing description", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
         const capture: MockConfig["captureUpdateDoc"] = {}
         const captureUploadMarkup: MockConfig["captureUploadMarkup"] = {}
@@ -484,10 +455,9 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
           uploadMarkupResult: "markup-ref-new"
         })
 
-        const result = yield* updateOrganization({
-          identifier: "org-1",
-          description: "# New description"
-        }).pipe(Effect.provide(testLayer))
+        const result = yield* updateOrganization({ identifier: "org-1", description: "# New description" }).pipe(
+          Effect.provide(testLayer)
+        )
 
         expect(result.updated).toBe(true)
         expect(capturedMarkupChildNodes(captureUploadMarkup.markup)).toContainEqual({
@@ -496,10 +466,11 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
           marks: []
         })
         expect(capture.operations?.description).toBe("markup-ref-new")
-      }))
+      })
+    )
 
     it.effect("uploads missing organization descriptions with native references", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
         const captureUploadMarkup: MockConfig["captureUploadMarkup"] = {}
 
@@ -507,26 +478,27 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
           identifier: "org-1",
           description:
             "See [HULY-1](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-1&label=HULY-1)."
-        }).pipe(Effect.provide(createTestLayer({
-          organizations: [createMockOrganization()],
-          captureUpdateDoc,
-          captureUploadMarkup,
-          uploadMarkupResult: "markup-ref-new"
-        })))
+        }).pipe(
+          Effect.provide(
+            createTestLayer({
+              organizations: [createMockOrganization()],
+              captureUpdateDoc,
+              captureUploadMarkup,
+              uploadMarkupResult: "markup-ref-new"
+            })
+          )
+        )
 
         expect(capturedMarkupReferenceNodes(captureUploadMarkup.markup)[0]).toMatchObject({
           type: "reference",
-          attrs: {
-            id: "issue-1",
-            objectclass: "tracker:class:Issue",
-            label: "HULY-1"
-          }
+          attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
         })
         expect(captureUpdateDoc.operations?.description).toBe("markup-ref-new")
-      }))
+      })
+    )
 
     it.effect("updates description in place when organization already has markup", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization({
           // eslint-disable-next-line no-restricted-syntax -- test boundary: description markup ref is stored as an opaque string
           description: "existing-markup" as unknown as null
@@ -534,16 +506,11 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
         const captureUpdateMarkup: MockConfig["captureUpdateMarkup"] = {}
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          captureUpdateDoc,
-          captureUpdateMarkup
-        })
+        const testLayer = createTestLayer({ organizations: [org], captureUpdateDoc, captureUpdateMarkup })
 
-        const result = yield* updateOrganization({
-          identifier: "org-1",
-          description: "# Updated"
-        }).pipe(Effect.provide(testLayer))
+        const result = yield* updateOrganization({ identifier: "org-1", description: "# Updated" }).pipe(
+          Effect.provide(testLayer)
+        )
 
         expect(result.updated).toBe(true)
         expect(capturedMarkupChildNodes(captureUpdateMarkup.markup)).toContainEqual({
@@ -553,10 +520,11 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         })
         expect(captureUpdateMarkup.objectId).toBe("org-1")
         expect(captureUpdateDoc.operations?.description).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("updates existing organization descriptions with native references", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization({
           // eslint-disable-next-line no-restricted-syntax -- test boundary: description markup ref is stored as an opaque string
           description: "existing-markup" as unknown as null
@@ -572,63 +540,51 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
 
         expect(capturedMarkupReferenceNodes(captureUpdateMarkup.markup)[0]).toMatchObject({
           type: "reference",
-          attrs: {
-            id: "issue-1",
-            objectclass: "tracker:class:Issue",
-            label: "HULY-1"
-          }
+          attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
         })
         expect(captureUpdateDoc.operations?.description).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("updates organization by exact name", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization({ name: "Test Corp" })
         const capture: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          captureUpdateDoc: capture
-        })
+        const testLayer = createTestLayer({ organizations: [org], captureUpdateDoc: capture })
 
-        const result = yield* updateOrganization({
-          identifier: "Test Corp",
-          city: "LA"
-        }).pipe(Effect.provide(testLayer))
+        const result = yield* updateOrganization({ identifier: "Test Corp", city: "LA" }).pipe(
+          Effect.provide(testLayer)
+        )
 
         expect(result.updated).toBe(true)
         expect(result.id).toBe("org-1")
         expect(capture.operations?.city).toBe("LA")
-      }))
+      })
+    )
 
     it.effect("sets description to null when empty string provided", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
         const capture: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          captureUpdateDoc: capture
-        })
+        const testLayer = createTestLayer({ organizations: [org], captureUpdateDoc: capture })
 
-        const result = yield* updateOrganization({
-          identifier: "org-1",
-          description: ""
-        }).pipe(Effect.provide(testLayer))
+        const result = yield* updateOrganization({ identifier: "org-1", description: "" }).pipe(
+          Effect.provide(testLayer)
+        )
 
         expect(result.updated).toBe(true)
         expect(capture.operations?.description).toBeNull()
-      }))
+      })
+    )
 
     it.effect("converts null city to empty string", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
         const capture: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          captureUpdateDoc: capture
-        })
+        const testLayer = createTestLayer({ organizations: [org], captureUpdateDoc: capture })
 
         const result = yield* updateOrganization({
           identifier: "org-1",
@@ -638,25 +594,23 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
 
         expect(result.updated).toBe(true)
         expect(capture.operations?.city).toBe("")
-      }))
+      })
+    )
 
     it.effect("fails when no changes provided", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
 
         const testLayer = createTestLayer({ organizations: [org] })
 
-        const error = yield* Effect.flip(
-          updateOrganization({
-            identifier: "org-1"
-          }).pipe(Effect.provide(testLayer))
-        )
+        const error = yield* Effect.flip(updateOrganization({ identifier: "org-1" }).pipe(Effect.provide(testLayer)))
 
         expect(error._tag).toBe("NoUpdateFieldsError")
-      }))
+      })
+    )
 
     it.effect("returns OrganizationNotFoundError when org not found", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const testLayer = createTestLayer({ organizations: [] })
 
         const error = yield* Effect.flip(
@@ -664,10 +618,11 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         )
 
         expect(error._tag).toBe("OrganizationNotFoundError")
-      }))
+      })
+    )
 
     it.effect("returns ambiguity error when exact-name lookup matches multiple organizations", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const testLayer = createTestLayer({
           organizations: [
             createMockOrganization({ _id: "org-1" as Ref<HulyOrganization>, name: "Acme" }),
@@ -680,97 +635,84 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         )
 
         expect(error._tag).toBe("OrganizationIdentifierAmbiguousError")
-      }))
+      })
+    )
   })
 
   describe("deleteOrganization", () => {
     it.effect("deletes organization and returns deleted:true", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
         const capture: MockConfig["captureRemoveDoc"] = {}
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          captureRemoveDoc: capture
-        })
+        const testLayer = createTestLayer({ organizations: [org], captureRemoveDoc: capture })
 
-        const result = yield* deleteOrganization({ identifier: "org-1" }).pipe(
-          Effect.provide(testLayer)
-        )
+        const result = yield* deleteOrganization({ identifier: "org-1" }).pipe(Effect.provide(testLayer))
 
         expect(result.deleted).toBe(true)
         expect(result.id).toBe("org-1")
         expect(capture.id).toBe("org-1")
-      }))
+      })
+    )
 
     it.effect("deletes organization by exact name", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization({ name: "Test Corp" })
         const capture: MockConfig["captureRemoveDoc"] = {}
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          captureRemoveDoc: capture
-        })
+        const testLayer = createTestLayer({ organizations: [org], captureRemoveDoc: capture })
 
-        const result = yield* deleteOrganization({ identifier: "Test Corp" }).pipe(
-          Effect.provide(testLayer)
-        )
+        const result = yield* deleteOrganization({ identifier: "Test Corp" }).pipe(Effect.provide(testLayer))
 
         expect(result.deleted).toBe(true)
         expect(capture.id).toBe("org-1")
-      }))
+      })
+    )
 
     it.effect("returns OrganizationNotFoundError when org not found", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const testLayer = createTestLayer({ organizations: [] })
 
-        const error = yield* Effect.flip(
-          deleteOrganization({ identifier: "missing" }).pipe(Effect.provide(testLayer))
-        )
+        const error = yield* Effect.flip(deleteOrganization({ identifier: "missing" }).pipe(Effect.provide(testLayer)))
 
         expect(error._tag).toBe("OrganizationNotFoundError")
-      }))
+      })
+    )
   })
 
   describe("makeOrganizationCustomer", () => {
     it.effect("applies customer mixin to organization", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
         const capture: MockConfig["captureCreateMixin"] = {}
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          captureCreateMixin: capture
-        })
+        const testLayer = createTestLayer({ organizations: [org], captureCreateMixin: capture })
 
-        const result = yield* makeOrganizationCustomer({ identifier: "org-1" }).pipe(
-          Effect.provide(testLayer)
-        )
+        const result = yield* makeOrganizationCustomer({ identifier: "org-1" }).pipe(Effect.provide(testLayer))
 
         expect(result.applied).toBe(true)
         expect(result.id).toBe("org-1")
         expect(capture.mixin).toBe("lead:mixin:Customer")
-      }))
+      })
+    )
 
     it.effect("returns applied:false when mixin already present", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization() // Simulate mixin already applied by adding the key to the org object
-         // eslint-disable-next-line no-restricted-syntax -- test boundary: mixin presence check uses string key lookup
+        // eslint-disable-next-line no-restricted-syntax -- test boundary: mixin presence check uses string key lookup
         ;(org as unknown as Record<string, unknown>)["lead:mixin:Customer"] = {}
 
         const testLayer = createTestLayer({ organizations: [org] })
 
-        const result = yield* makeOrganizationCustomer({ identifier: "org-1" }).pipe(
-          Effect.provide(testLayer)
-        )
+        const result = yield* makeOrganizationCustomer({ identifier: "org-1" }).pipe(Effect.provide(testLayer))
 
         expect(result.applied).toBe(false)
         expect(result.id).toBe("org-1")
-      }))
+      })
+    )
 
     it.effect("returns OrganizationNotFoundError when org not found", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const testLayer = createTestLayer({ organizations: [] })
 
         const error = yield* Effect.flip(
@@ -778,19 +720,17 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         )
 
         expect(error._tag).toBe("OrganizationNotFoundError")
-      }))
+      })
+    )
   })
 
   describe("addOrganizationChannel", () => {
     it.effect("adds email channel to organization", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
         const capture: MockConfig["captureAddCollection"] = {}
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          captureAddCollection: capture
-        })
+        const testLayer = createTestLayer({ organizations: [org], captureAddCollection: capture })
 
         const result = yield* addOrganizationChannel({
           organizationId: organizationId("org-1"),
@@ -803,17 +743,15 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         expect(capture.attachedTo).toBe("org-1")
         expect(capture.attributes?.provider).toBe(contact.channelProvider.Email)
         expect(capture.attributes?.value).toBe("info@testcorp.com")
-      }))
+      })
+    )
 
     it.effect("adds linkedin channel", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
         const capture: MockConfig["captureAddCollection"] = {}
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          captureAddCollection: capture
-        })
+        const testLayer = createTestLayer({ organizations: [org], captureAddCollection: capture })
 
         const result = yield* addOrganizationChannel({
           organizationId: organizationId("org-1"),
@@ -823,17 +761,15 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
 
         expect(result.added).toBe(true)
         expect(capture.attributes?.provider).toBe(contact.channelProvider.LinkedIn)
-      }))
+      })
+    )
 
     it.effect("adds whatsapp channel", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
         const capture: MockConfig["captureAddCollection"] = {}
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          captureAddCollection: capture
-        })
+        const testLayer = createTestLayer({ organizations: [org], captureAddCollection: capture })
 
         const result = yield* addOrganizationChannel({
           organizationId: organizationId("org-1"),
@@ -843,10 +779,11 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
 
         expect(result.added).toBe(true)
         expect(capture.attributes?.provider).toBe(contact.channelProvider.Whatsapp)
-      }))
+      })
+    )
 
     it.effect("returns OrganizationNotFoundError when org not found", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const testLayer = createTestLayer({ organizations: [] })
 
         const error = yield* Effect.flip(
@@ -858,35 +795,32 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         )
 
         expect(error._tag).toBe("OrganizationNotFoundError")
-      }))
+      })
+    )
   })
 
   describe("addOrganizationMember", () => {
     it.effect("returns OrganizationNotFoundError when the organization is missing", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const testLayer = createTestLayer({ organizations: [], persons: [createMockPerson()] })
 
         const error = yield* Effect.flip(
-          addOrganizationMember({
-            organizationId: organizationId("missing-org"),
-            personIdentifier: "person-123"
-          }).pipe(Effect.provide(testLayer))
+          addOrganizationMember({ organizationId: organizationId("missing-org"), personIdentifier: "person-123" }).pipe(
+            Effect.provide(testLayer)
+          )
         )
 
         expect(error._tag).toBe("OrganizationNotFoundError")
-      }))
+      })
+    )
 
     it.effect("adds person as member by person ID", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
         const person = createMockPerson()
         const capture: MockConfig["captureAddCollection"] = {}
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          persons: [person],
-          captureAddCollection: capture
-        })
+        const testLayer = createTestLayer({ organizations: [org], persons: [person], captureAddCollection: capture })
 
         const result = yield* addOrganizationMember({
           organizationId: organizationId("org-1"),
@@ -897,18 +831,14 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         expect(capture.class).toBe(contact.class.Member)
         expect(capture.attachedTo).toBe("org-1")
         expect(capture.attributes?.contact).toBe("person-123")
-      }))
+      })
+    )
 
     it.effect("adds person as member by email", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
-        const person = createMockPerson({
-          _id: "person-email-1" as Ref<HulyPerson>
-        })
-        const channel = createMockChannel({
-          attachedTo: "person-email-1" as Ref<Doc>,
-          value: "member@example.com"
-        })
+        const person = createMockPerson({ _id: "person-email-1" as Ref<HulyPerson> })
+        const channel = createMockChannel({ attachedTo: "person-email-1" as Ref<Doc>, value: "member@example.com" })
         const capture: MockConfig["captureAddCollection"] = {}
 
         const testLayer = createTestLayer({
@@ -925,36 +855,30 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
 
         expect(result.added).toBe(true)
         expect(capture.attributes?.contact).toBe("person-email-1")
-      }))
+      })
+    )
 
     it.effect("returns error when person not found", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          persons: [],
-          channels: []
-        })
+        const testLayer = createTestLayer({ organizations: [org], persons: [], channels: [] })
 
         const error = yield* Effect.flip(
-          addOrganizationMember({
-            organizationId: organizationId("org-1"),
-            personIdentifier: "nonexistent"
-          }).pipe(Effect.provide(testLayer))
+          addOrganizationMember({ organizationId: organizationId("org-1"), personIdentifier: "nonexistent" }).pipe(
+            Effect.provide(testLayer)
+          )
         )
 
         expect(error._tag).toBe("PersonNotFoundError")
-      }))
+      })
+    )
 
     it.effect("returns added:false when person is already a member", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
         const person = createMockPerson()
-        const member = createMockMember({
-          attachedTo: "org-1" as Ref<Doc>,
-          contact: "person-123" as Ref<Contact>
-        })
+        const member = createMockMember({ attachedTo: "org-1" as Ref<Doc>, contact: "person-123" as Ref<Contact> })
         const capture: MockConfig["captureAddCollection"] = {}
 
         const testLayer = createTestLayer({
@@ -971,22 +895,17 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
 
         expect(result.added).toBe(false)
         expect(capture.attributes).toBeUndefined()
-      }))
+      })
+    )
   })
 
   describe("listOrganizationMembers", () => {
     it.effect("returns members with person details and emails", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
         const person = createMockPerson()
-        const member = createMockMember({
-          attachedTo: "org-1" as Ref<Doc>,
-          contact: "person-123" as Ref<Contact>
-        })
-        const channel = createMockChannel({
-          attachedTo: "person-123" as Ref<Doc>,
-          value: "john@example.com"
-        })
+        const member = createMockMember({ attachedTo: "org-1" as Ref<Doc>, contact: "person-123" as Ref<Contact> })
+        const channel = createMockChannel({ attachedTo: "person-123" as Ref<Doc>, value: "john@example.com" })
 
         const testLayer = createTestLayer({
           organizations: [org],
@@ -1004,16 +923,14 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         expect(assertAt(result.members, 0).personId).toBe("person-123")
         expect(assertAt(result.members, 0).name).toBe("Doe,John")
         expect(assertAt(result.members, 0).email).toBe("john@example.com")
-      }))
+      })
+    )
 
     it.effect("returns empty members array when no members exist", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          members: []
-        })
+        const testLayer = createTestLayer({ organizations: [org], members: [] })
 
         const result = yield* listOrganizationMembers({ organizationId: organizationId("org-1") }).pipe(
           Effect.provide(testLayer)
@@ -1021,10 +938,11 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
 
         expect(result.organizationId).toBe("org-1")
         expect(result.members).toEqual([])
-      }))
+      })
+    )
 
     it.effect("returns OrganizationNotFoundError when org not found", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const testLayer = createTestLayer({ organizations: [] })
 
         const error = yield* Effect.flip(
@@ -1032,24 +950,18 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         )
 
         expect(error._tag).toBe("OrganizationNotFoundError")
-      }))
+      })
+    )
   })
 
   describe("listPersonOrganizations", () => {
     it.effect("returns organizations a person belongs to by personId", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const person = createMockPerson()
         const org = createMockOrganization()
-        const member = createMockMember({
-          attachedTo: "org-1" as Ref<Doc>,
-          contact: "person-123" as Ref<Contact>
-        })
+        const member = createMockMember({ attachedTo: "org-1" as Ref<Doc>, contact: "person-123" as Ref<Contact> })
 
-        const testLayer = createTestLayer({
-          persons: [person],
-          organizations: [org],
-          members: [member]
-        })
+        const testLayer = createTestLayer({ persons: [person], organizations: [org], members: [member] })
 
         const result = yield* listPersonOrganizations({ personId: personId("person-123") }).pipe(
           Effect.provide(testLayer)
@@ -1059,16 +971,14 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         expect(result.organizations).toHaveLength(1)
         expect(assertAt(result.organizations, 0).id).toBe("org-1")
         expect(assertAt(result.organizations, 0).name).toBe("Test Corp")
-      }))
+      })
+    )
 
     it.effect("returns empty organizations when person has no memberships", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const person = createMockPerson()
 
-        const testLayer = createTestLayer({
-          persons: [person],
-          members: []
-        })
+        const testLayer = createTestLayer({ persons: [person], members: [] })
 
         const result = yield* listPersonOrganizations({ personId: personId("person-123") }).pipe(
           Effect.provide(testLayer)
@@ -1076,10 +986,11 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
 
         expect(result.personId).toBe("person-123")
         expect(result.organizations).toEqual([])
-      }))
+      })
+    )
 
     it.effect("returns PersonNotFoundError when person not found", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const testLayer = createTestLayer({ persons: [] })
 
         const error = yield* Effect.flip(
@@ -1087,17 +998,15 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         )
 
         expect(error._tag).toBe("PersonNotFoundError")
-      }))
+      })
+    )
 
     it.effect("resolves the person by email and lists their organizations", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const person = createMockPerson()
         const org = createMockOrganization()
         const channel = createMockChannel({ value: "john@example.com", attachedTo: "person-123" as Ref<Doc> })
-        const member = createMockMember({
-          attachedTo: "org-1" as Ref<Doc>,
-          contact: "person-123" as Ref<Contact>
-        })
+        const member = createMockMember({ attachedTo: "org-1" as Ref<Doc>, contact: "person-123" as Ref<Contact> })
 
         const testLayer = createTestLayer({
           persons: [person],
@@ -1111,11 +1020,12 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         )
 
         expect(result.personId).toBe("person-123")
-        expect(result.organizations.map(o => o.id)).toEqual(["org-1"])
-      }))
+        expect(result.organizations.map((o) => o.id)).toEqual(["org-1"])
+      })
+    )
 
     it.effect("returns PersonNotFoundError keyed by email when no person matches", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const testLayer = createTestLayer({ persons: [], channels: [] })
 
         const error = yield* Effect.flip(
@@ -1123,18 +1033,16 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         )
 
         expect(error._tag).toBe("PersonNotFoundError")
-      }))
+      })
+    )
   })
 
   describe("removeOrganizationMember", () => {
     it.effect("removes member and returns removed:true", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
         const person = createMockPerson()
-        const member = createMockMember({
-          attachedTo: "org-1" as Ref<Doc>,
-          contact: "person-123" as Ref<Contact>
-        })
+        const member = createMockMember({ attachedTo: "org-1" as Ref<Doc>, contact: "person-123" as Ref<Contact> })
         const capture: MockConfig["captureRemoveDoc"] = {}
 
         const testLayer = createTestLayer({
@@ -1152,18 +1060,15 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         expect(result.removed).toBe(true)
         expect(result.id).toBe("org-1")
         expect(capture.id).toBe("member-1")
-      }))
+      })
+    )
 
     it.effect("returns removed:false when person is not a member", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
         const person = createMockPerson()
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          persons: [person],
-          members: []
-        })
+        const testLayer = createTestLayer({ organizations: [org], persons: [person], members: [] })
 
         const result = yield* removeOrganizationMember({
           organizationId: organizationId("org-1"),
@@ -1171,40 +1076,37 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         }).pipe(Effect.provide(testLayer))
 
         expect(result.removed).toBe(false)
-      }))
+      })
+    )
 
     it.effect("returns error when person not found", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization()
 
-        const testLayer = createTestLayer({
-          organizations: [org],
-          persons: [],
-          channels: []
-        })
+        const testLayer = createTestLayer({ organizations: [org], persons: [], channels: [] })
 
         const error = yield* Effect.flip(
-          removeOrganizationMember({
-            organizationId: organizationId("org-1"),
-            personIdentifier: "ghost"
-          }).pipe(Effect.provide(testLayer))
+          removeOrganizationMember({ organizationId: organizationId("org-1"), personIdentifier: "ghost" }).pipe(
+            Effect.provide(testLayer)
+          )
         )
 
         expect(error._tag).toBe("PersonNotFoundError")
-      }))
+      })
+    )
 
     it.effect("returns OrganizationNotFoundError when org not found", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const testLayer = createTestLayer({ organizations: [] })
 
         const error = yield* Effect.flip(
-          removeOrganizationMember({
-            organizationId: organizationId("missing"),
-            personIdentifier: "person-123"
-          }).pipe(Effect.provide(testLayer))
+          removeOrganizationMember({ organizationId: organizationId("missing"), personIdentifier: "person-123" }).pipe(
+            Effect.provide(testLayer)
+          )
         )
 
         expect(error._tag).toBe("OrganizationNotFoundError")
-      }))
+      })
+    )
   })
 })

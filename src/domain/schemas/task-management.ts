@@ -20,17 +20,15 @@ export const StatusCategoryBySdkKey = {
   Lost: task.statusCategory.Lost
 } satisfies Record<keyof typeof task.statusCategory, Ref<StatusCategory>>
 
-export const StatusCategoryKeys = [
-  "UnStarted",
-  "ToDo",
-  "Active",
-  "Won",
-  "Lost"
-] as const satisfies ReadonlyArray<keyof typeof task.statusCategory>
+export const StatusCategoryKeys = ["UnStarted", "ToDo", "Active", "Won", "Lost"] as const satisfies ReadonlyArray<
+  keyof typeof task.statusCategory
+>
 
-type StatusCategoryKey = typeof StatusCategoryKeys[number]
+type StatusCategoryKey = (typeof StatusCategoryKeys)[number]
 type ExactStatusCategoryKeys = [keyof typeof task.statusCategory] extends [StatusCategoryKey]
-  ? [StatusCategoryKey] extends [keyof typeof task.statusCategory] ? true : never
+  ? [StatusCategoryKey] extends [keyof typeof task.statusCategory]
+    ? true
+    : never
   : never
 
 const exactStatusCategoryKeys = <T extends true>(value: T): T => value
@@ -47,9 +45,11 @@ export const StatusCategoryEntries = [
   readonly ref: Ref<StatusCategory>
 }>
 
-type StatusCategoryEntryKey = typeof StatusCategoryEntries[number]["key"]
+type StatusCategoryEntryKey = (typeof StatusCategoryEntries)[number]["key"]
 type ExactStatusCategoryEntries = [keyof typeof task.statusCategory] extends [StatusCategoryEntryKey]
-  ? [StatusCategoryEntryKey] extends [keyof typeof task.statusCategory] ? true : never
+  ? [StatusCategoryEntryKey] extends [keyof typeof task.statusCategory]
+    ? true
+    : never
   : never
 
 const exactStatusCategoryEntries = <T extends true>(value: T): T => value
@@ -66,22 +66,18 @@ const normalizedStatusCategoryLookup = new Map(
   StatusCategoryValues.map((value) => [value.toLowerCase(), value] as const)
 )
 
-export const KnownStatusCategoryValueSchema = Schema.transformOrFail(
-  Schema.String,
-  KnownStatusCategoryValueLiteral,
-  {
-    strict: true,
-    decode: (input, _options, ast) => {
-      const match = normalizedStatusCategoryLookup.get(input.toLowerCase())
-      return match !== undefined
-        ? ParseResult.succeed(match)
-        : ParseResult.fail(
+export const KnownStatusCategoryValueSchema = Schema.transformOrFail(Schema.String, KnownStatusCategoryValueLiteral, {
+  strict: true,
+  decode: (input, _options, ast) => {
+    const match = normalizedStatusCategoryLookup.get(input.toLowerCase())
+    return match !== undefined
+      ? ParseResult.succeed(match)
+      : ParseResult.fail(
           new ParseResult.Type(ast, input, `Expected one of: ${enumValuesDescription(StatusCategoryValues)}`)
         )
-    },
-    encode: ParseResult.succeed
-  }
-).annotations({
+  },
+  encode: ParseResult.succeed
+}).annotations({
   title: "KnownStatusCategoryValue",
   description: `Huly SDK task.statusCategory key: ${enumValuesDescription(StatusCategoryValues)}`,
   jsonSchema: { type: "string", enum: [...StatusCategoryValues] }
@@ -147,11 +143,9 @@ export const ProjectTypeDetailSchema = Schema.Struct({
   taskTypes: Schema.Array(TaskTypeSummarySchema),
   statuses: Schema.Array(IssueStatusSummarySchema),
   statusCategories: Schema.Array(StatusCategorySummarySchema),
-  taskTypeStatuses: Schema.Array(Schema.Struct({
-    taskTypeId: TaskTypeId,
-    taskTypeName: NonEmptyString,
-    statusIds: Schema.Array(IssueStatusId)
-  }))
+  taskTypeStatuses: Schema.Array(
+    Schema.Struct({ taskTypeId: TaskTypeId, taskTypeName: NonEmptyString, statusIds: Schema.Array(IssueStatusId) })
+  )
 })
 export type ProjectTypeDetail = Schema.Schema.Type<typeof ProjectTypeDetailSchema>
 
@@ -159,43 +153,55 @@ export const ListProjectTypesParamsSchema = Schema.Struct({})
 export type ListProjectTypesParams = Schema.Schema.Type<typeof ListProjectTypesParamsSchema>
 
 export const GetProjectTypeParamsSchema = Schema.Struct({
-  projectType: Schema.optional(ProjectTypeRefSchema.annotations({
-    description: "Project type ID or display name. If omitted, uses the unambiguous Classic tracker project type."
-  }))
+  projectType: Schema.optional(
+    ProjectTypeRefSchema.annotations({
+      description: "Project type ID or display name. If omitted, uses the unambiguous Classic tracker project type."
+    })
+  )
 })
 export type GetProjectTypeParams = Schema.Schema.Type<typeof GetProjectTypeParamsSchema>
 
 export const ListTaskTypesParamsSchema = Schema.Struct({
-  projectType: Schema.optional(ProjectTypeRefSchema.annotations({
-    description: "Optional project type ID or display name. If omitted, returns task types from all project types."
-  }))
+  projectType: Schema.optional(
+    ProjectTypeRefSchema.annotations({
+      description: "Optional project type ID or display name. If omitted, returns task types from all project types."
+    })
+  )
 })
 export type ListTaskTypesParams = Schema.Schema.Type<typeof ListTaskTypesParamsSchema>
 
 export const CreateTaskTypeParamsSchema = Schema.Struct({
-  projectType: Schema.optional(ProjectTypeRefSchema.annotations({
-    description: "Project type ID or display name. If omitted, uses the unambiguous Classic tracker project type."
-  })),
+  projectType: Schema.optional(
+    ProjectTypeRefSchema.annotations({
+      description: "Project type ID or display name. If omitted, uses the unambiguous Classic tracker project type."
+    })
+  ),
   name: NonEmptyString.annotations({ description: "Display name for the new issue/task type." }),
-  templateTaskType: Schema.optional(TaskTypeRefSchema.annotations({
-    description:
-      "Existing task type ID or display name to copy required Huly configuration from. Omit to copy from the first task type on the project type."
-  }))
+  templateTaskType: Schema.optional(
+    TaskTypeRefSchema.annotations({
+      description:
+        "Existing task type ID or display name to copy required Huly configuration from. Omit to copy from the first task type on the project type."
+    })
+  )
 })
 export type CreateTaskTypeParams = Schema.Schema.Type<typeof CreateTaskTypeParamsSchema>
 
 export const CreateIssueStatusParamsSchema = Schema.Struct({
-  projectType: Schema.optional(ProjectTypeRefSchema.annotations({
-    description: "Project type ID or display name. If omitted, uses the unambiguous Classic tracker project type."
-  })),
+  projectType: Schema.optional(
+    ProjectTypeRefSchema.annotations({
+      description: "Project type ID or display name. If omitted, uses the unambiguous Classic tracker project type."
+    })
+  ),
   name: NonEmptyString.annotations({ description: "Display name for the workflow status to add." }),
   category: CreateStatusCategoryValueSchema.annotations({
     description: `Huly SDK task.statusCategory key: ${enumValuesDescription(StatusCategoryValues)}.`
   }),
-  taskType: Schema.optional(TaskTypeRefSchema.annotations({
-    description:
-      "Optional task type ID or display name to scope the status to. If omitted, the status is added to every task type in the project type."
-  }))
+  taskType: Schema.optional(
+    TaskTypeRefSchema.annotations({
+      description:
+        "Optional task type ID or display name to scope the status to. If omitted, the status is added to every task type in the project type."
+    })
+  )
 })
 export type CreateIssueStatusParams = Schema.Schema.Type<typeof CreateIssueStatusParamsSchema>
 

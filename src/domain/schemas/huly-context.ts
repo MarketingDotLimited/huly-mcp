@@ -7,16 +7,21 @@ const NonEmptyTrimmedString = Schema.NonEmptyTrimmedString
 const SanitizedUrlSchema = Schema.Struct({
   configured: Schema.Boolean,
   valid: Schema.optional(Schema.Boolean),
-  origin: Schema.optional(NonEmptyTrimmedString.pipe(
-    Schema.filter((value) => {
-      try {
-        const url = new URL(value)
-        return (url.protocol === "http:" || url.protocol === "https:") && url.href === url.origin + "/"
-      } catch {
-        return false
-      }
-    }, { message: () => "Must be a sanitized http or https URL origin" })
-  )),
+  origin: Schema.optional(
+    NonEmptyTrimmedString.pipe(
+      Schema.filter(
+        (value) => {
+          try {
+            const url = new URL(value)
+            return (url.protocol === "http:" || url.protocol === "https:") && url.href === url.origin + "/"
+          } catch {
+            return false
+          }
+        },
+        { message: () => "Must be a sanitized http or https URL origin" }
+      )
+    )
+  ),
   host: Schema.optional(NonEmptyTrimmedString),
   protocol: Schema.optional(Schema.Literal("http:", "https:"))
 })
@@ -119,16 +124,12 @@ const ToolExposureContextSchema = Schema.Struct({
 })
 
 export const GetHulyContextResultSchema = Schema.Struct({
-  package: Schema.Struct({
-    name: Schema.Literal("@firfi/huly-mcp"),
-    version: NonEmptyTrimmedString
-  }),
+  package: Schema.Struct({ name: Schema.Literal("@firfi/huly-mcp"), version: NonEmptyTrimmedString }),
   transport: Schema.Struct({
     type: Schema.Literal("stdio", "http"),
-    http: Schema.optional(Schema.Struct({
-      host: NonEmptyTrimmedString,
-      port: Schema.Number.pipe(Schema.int(), Schema.positive())
-    }))
+    http: Schema.optional(
+      Schema.Struct({ host: NonEmptyTrimmedString, port: Schema.Number.pipe(Schema.int(), Schema.positive()) })
+    )
   }),
   huly: HulyRuntimeContextSchema,
   auth: AuthContextSchema,

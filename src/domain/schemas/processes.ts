@@ -59,10 +59,7 @@ export const ProcessSummarySchema = Schema.Struct({
 })
 export type ProcessSummary = Schema.Schema.Type<typeof ProcessSummarySchema>
 
-export const ProcessStateSummarySchema = Schema.Struct({
-  id: ProcessStateId,
-  title: NonEmptyString
-})
+export const ProcessStateSummarySchema = Schema.Struct({ id: ProcessStateId, title: NonEmptyString })
 export type ProcessStateSummary = Schema.Schema.Type<typeof ProcessStateSummarySchema>
 
 export const ProcessTransitionSummarySchema = Schema.Struct({
@@ -77,11 +74,13 @@ export const ProcessTransitionSummarySchema = Schema.Struct({
 export type ProcessTransitionSummary = Schema.Schema.Type<typeof ProcessTransitionSummarySchema>
 
 export const ProcessDetailSchema = ProcessSummarySchema.pipe(
-  Schema.extend(Schema.Struct({
-    initialStateId: Schema.optional(ProcessStateId),
-    states: Schema.Array(ProcessStateSummarySchema),
-    transitions: Schema.Array(ProcessTransitionSummarySchema)
-  }))
+  Schema.extend(
+    Schema.Struct({
+      initialStateId: Schema.optional(ProcessStateId),
+      states: Schema.Array(ProcessStateSummarySchema),
+      transitions: Schema.Array(ProcessTransitionSummarySchema)
+    })
+  )
 )
 export type ProcessDetail = Schema.Schema.Type<typeof ProcessDetailSchema>
 
@@ -103,13 +102,17 @@ export const ProcessExecutionSummarySchema = Schema.Struct({
 export type ProcessExecutionSummary = Schema.Schema.Type<typeof ProcessExecutionSummarySchema>
 
 export const ListProcessesParamsSchema = Schema.Struct({
-  masterTag: Schema.optional(ProcessMasterTagIdentifier.annotations({
-    description:
-      "Optional master tag/card type ID or display label. Use this when you only want workflows attached to one Huly card/document type."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of process definitions to return (default: ${DEFAULT_LIMIT}, maximum: ${MAX_LIMIT}).`
-  }))
+  masterTag: Schema.optional(
+    ProcessMasterTagIdentifier.annotations({
+      description:
+        "Optional master tag/card type ID or display label. Use this when you only want workflows attached to one Huly card/document type."
+    })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({
+      description: `Maximum number of process definitions to return (default: ${DEFAULT_LIMIT}, maximum: ${MAX_LIMIT}).`
+    })
+  )
 }).annotations({
   title: "ListProcessesParams",
   description: "Parameters for listing Huly Process workflow definitions."
@@ -128,20 +131,28 @@ export const GetProcessParamsSchema = Schema.Struct({
 export type GetProcessParams = Schema.Schema.Type<typeof GetProcessParamsSchema>
 
 export const ListExecutionsParamsSchema = Schema.Struct({
-  process: Schema.optional(ProcessIdentifier.annotations({
-    description:
-      "Optional process/workflow ID or exact display name. Ambiguous names fail with candidate IDs instead of guessing."
-  })),
-  card: Schema.optional(ProcessCardIdentifier.annotations({
-    description:
-      "Optional card/document ID or exact title. If a title matches multiple cards, the call fails with candidates."
-  })),
-  status: Schema.optional(ProcessExecutionStatusSchema.annotations({
-    description: "Optional execution status filter: active, done, or cancelled."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of executions to return (default: ${DEFAULT_LIMIT}, maximum: ${MAX_LIMIT}).`
-  }))
+  process: Schema.optional(
+    ProcessIdentifier.annotations({
+      description:
+        "Optional process/workflow ID or exact display name. Ambiguous names fail with candidate IDs instead of guessing."
+    })
+  ),
+  card: Schema.optional(
+    ProcessCardIdentifier.annotations({
+      description:
+        "Optional card/document ID or exact title. If a title matches multiple cards, the call fails with candidates."
+    })
+  ),
+  status: Schema.optional(
+    ProcessExecutionStatusSchema.annotations({
+      description: "Optional execution status filter: active, done, or cancelled."
+    })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({
+      description: `Maximum number of executions to return (default: ${DEFAULT_LIMIT}, maximum: ${MAX_LIMIT}).`
+    })
+  )
 }).annotations({
   title: "ListExecutionsParams",
   description: "Parameters for listing read-only Huly Process workflow executions."

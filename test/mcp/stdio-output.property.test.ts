@@ -12,19 +12,15 @@ interface ConsoleCall {
 }
 
 const methodArbitrary = fc.constantFrom<ConsoleMethodName>("debug", "error", "info", "log", "warn")
-const dataArbitrary = fc.array(
-  fc.oneof(fc.string(), fc.integer(), fc.boolean(), fc.constant(null)),
-  { maxLength: 4 }
-)
-const callArbitrary = fc.record({
-  data: dataArbitrary,
-  method: methodArbitrary
-})
+const dataArbitrary = fc.array(fc.oneof(fc.string(), fc.integer(), fc.boolean(), fc.constant(null)), { maxLength: 4 })
+const callArbitrary = fc.record({ data: dataArbitrary, method: methodArbitrary })
 
 const createConsoleTarget = (calls: Array<ConsoleCall>): ConsoleRedirectTarget => {
-  const writer = (method: ConsoleMethodName) => (...data: ReadonlyArray<unknown>): void => {
-    calls.push({ data, method })
-  }
+  const writer =
+    (method: ConsoleMethodName) =>
+    (...data: ReadonlyArray<unknown>): void => {
+      calls.push({ data, method })
+    }
 
   return {
     debug: writer("debug"),

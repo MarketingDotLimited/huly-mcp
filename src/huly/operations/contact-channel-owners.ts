@@ -26,7 +26,7 @@ const resolvePerson = (
   client: HulyClient["Type"],
   identifier: string
 ): Effect.Effect<HulyPerson, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = Option.fromNullable(yield* findPersonById(client, identifier))
     return yield* Option.match(byId, {
       onNone: () =>
@@ -65,7 +65,7 @@ export const resolveOrganizationOwner = (
   ResolvedOwner<HulyOrganization>,
   HulyClientError | OrganizationIdentifierAmbiguousError | OrganizationNotFoundError
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const org = yield* resolveOrganizationByIdentifier(client, identifier)
     return { id: org._id, ownerClass: contact.class.Organization, identifier }
   })

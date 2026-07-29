@@ -91,7 +91,7 @@ export const listHulyPluginConfigurations = (): Effect.Effect<
   HulyClientError,
   HulyClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const configs = yield* client.findAll<HulyPluginConfiguration>(
       core.class.PluginConfiguration,
@@ -99,10 +99,7 @@ export const listHulyPluginConfigurations = (): Effect.Effect<
       { sort: { pluginId: SortingOrder.Ascending } }
     )
     const pluginConfigurations = configs.map(toPluginConfigurationSummary)
-    return {
-      pluginConfigurations,
-      total: Count.make(pluginConfigurations.length)
-    }
+    return { pluginConfigurations, total: Count.make(pluginConfigurations.length) }
   })
 
 export const listHulyDomainIndexConfigurations = (): Effect.Effect<
@@ -110,7 +107,7 @@ export const listHulyDomainIndexConfigurations = (): Effect.Effect<
   HulyClientError,
   HulyClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const configs = yield* client.findAll<HulyDomainIndexConfiguration>(
       core.class.DomainIndexConfiguration,
@@ -118,20 +115,15 @@ export const listHulyDomainIndexConfigurations = (): Effect.Effect<
       { sort: { domain: SortingOrder.Ascending } }
     )
     const domainIndexConfigurations = configs.map(toDomainIndexConfigurationSummary)
-    return {
-      domainIndexConfigurations,
-      total: Count.make(domainIndexConfigurations.length)
-    }
+    return { domainIndexConfigurations, total: Count.make(domainIndexConfigurations.length) }
   })
 
 export const listHulySequences = (): Effect.Effect<ListHulySequencesResult, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
-    const sequences = yield* client.findAll<HulySequence>(
-      core.class.Sequence,
-      hulyQuery<HulySequence>({}),
-      { sort: { _id: SortingOrder.Ascending } }
-    )
+    const sequences = yield* client.findAll<HulySequence>(core.class.Sequence, hulyQuery<HulySequence>({}), {
+      sort: { _id: SortingOrder.Ascending }
+    })
     const customSequences = yield* client.findAll<HulyCustomSequence>(
       core.class.CustomSequence,
       hulyQuery<HulyCustomSequence>({}),
@@ -142,16 +134,13 @@ export const listHulySequences = (): Effect.Effect<ListHulySequencesResult, Huly
       ...customSequences.map((sequence) => [sequenceKey(sequence), sequence] as const)
     ])
     const sequenceSummaries = [...merged.values()].map(toSequenceSummary)
-    return {
-      sequences: sequenceSummaries,
-      total: Count.make(sequenceSummaries.length)
-    }
+    return { sequences: sequenceSummaries, total: Count.make(sequenceSummaries.length) }
   })
 
 export const describeHulySpaceTypeCapabilities = (
   params: DescribeHulySpaceTypeCapabilitiesParams
 ): Effect.Effect<HulySpaceTypeCapabilities, DescribeHulySpaceTypeCapabilitiesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const detail = yield* getSpaceType({ spaceType: params.spaceType })
     return {
       id: detail.id,

@@ -142,12 +142,12 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     const useTotal = opts?.total === true
 
     if (_class === tracker.class.Issue) {
-      let filtered = issues.filter(i => q.space === undefined || i.space === q.space)
+      let filtered = issues.filter((i) => q.space === undefined || i.space === q.space)
       if (q.component !== undefined) {
-        filtered = filtered.filter(i => i.component === q.component)
+        filtered = filtered.filter((i) => i.component === q.component)
       }
       if (q.milestone !== undefined) {
-        filtered = filtered.filter(i => i.milestone === q.milestone)
+        filtered = filtered.filter((i) => i.milestone === q.milestone)
       }
       const result = toFindResult(filtered)
       if (useTotal) {
@@ -156,7 +156,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       return Effect.succeed(result)
     }
     if (_class === tracker.class.Component) {
-      const filtered = components.filter(c => q.space === undefined || c.space === q.space)
+      const filtered = components.filter((c) => q.space === undefined || c.space === q.space)
       const result = toFindResult(filtered)
       if (useTotal) {
         return Effect.succeed(Object.assign(result, { total: config.totals?.components ?? filtered.length }))
@@ -164,7 +164,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       return Effect.succeed(result)
     }
     if (_class === tracker.class.Milestone) {
-      const filtered = milestones.filter(m => q.space === undefined || m.space === q.space)
+      const filtered = milestones.filter((m) => q.space === undefined || m.space === q.space)
       const result = toFindResult(filtered)
       if (useTotal) {
         return Effect.succeed(Object.assign(result, { total: config.totals?.milestones ?? filtered.length }))
@@ -172,7 +172,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       return Effect.succeed(result)
     }
     if (_class === tracker.class.IssueTemplate) {
-      const filtered = templates.filter(t => q.space === undefined || t.space === q.space)
+      const filtered = templates.filter((t) => q.space === undefined || t.space === q.space)
       const result = toFindResult(filtered)
       if (useTotal) {
         return Effect.succeed(Object.assign(result, { total: config.totals?.templates ?? filtered.length }))
@@ -185,44 +185,47 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     const q = query as Record<string, unknown>
     if (_class === tracker.class.Project) {
-      const found = projects.find(p => p.identifier === q.identifier)
+      const found = projects.find((p) => p.identifier === q.identifier)
       return Effect.succeed(found)
     }
     if (_class === tracker.class.Issue) {
-      const found = issues.find(i =>
-        (q.space !== undefined && q.identifier !== undefined && i.space === q.space && i.identifier === q.identifier)
-        || (q.space !== undefined && q.number !== undefined && i.space === q.space && i.number === q.number)
+      const found = issues.find(
+        (i) =>
+          (q.space !== undefined &&
+            q.identifier !== undefined &&
+            i.space === q.space &&
+            i.identifier === q.identifier) ||
+          (q.space !== undefined && q.number !== undefined && i.space === q.space && i.number === q.number)
       )
       return Effect.succeed(found)
     }
     if (_class === tracker.class.Component) {
-      const found = components.find(c =>
-        (q.space !== undefined && q._id !== undefined && c.space === q.space && c._id === q._id)
-        || (q.space !== undefined && q.label !== undefined && c.space === q.space && c.label === q.label)
+      const found = components.find(
+        (c) =>
+          (q.space !== undefined && q._id !== undefined && c.space === q.space && c._id === q._id) ||
+          (q.space !== undefined && q.label !== undefined && c.space === q.space && c.label === q.label)
       )
       return Effect.succeed(found)
     }
     if (_class === tracker.class.Milestone) {
-      const found = milestones.find(m =>
-        (q.space !== undefined && q._id !== undefined && m.space === q.space && m._id === q._id)
-        || (q.space !== undefined && q.label !== undefined && m.space === q.space && m.label === q.label)
+      const found = milestones.find(
+        (m) =>
+          (q.space !== undefined && q._id !== undefined && m.space === q.space && m._id === q._id) ||
+          (q.space !== undefined && q.label !== undefined && m.space === q.space && m.label === q.label)
       )
       return Effect.succeed(found)
     }
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
-  return HulyClient.testLayer({
-    findAll: findAllImpl,
-    findOne: findOneImpl
-  })
+  return HulyClient.testLayer({ findAll: findAllImpl, findOne: findOneImpl })
 }
 
 // --- Tests ---
 
 describe("previewDeletion - issue", () => {
   it.effect("returns impact for issue with sub-issues, comments, relations", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -256,10 +259,11 @@ describe("previewDeletion - issue", () => {
       expect(result.impact.relations).toBe(1)
       expect(result.totalAffected).toBe(9)
       expect(result.warnings.length).toBeGreaterThan(0)
-    }))
+    })
+  )
 
   it.effect("returns zero counts for issue with nothing attached", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const issue = makeIssue({
         space: "proj-1" as Ref<HulyProject>,
@@ -279,62 +283,56 @@ describe("previewDeletion - issue", () => {
 
       expect(result.totalAffected).toBe(0)
       expect(result.warnings).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("returns IssueNotFoundError when issue doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const testLayer = createTestLayerWithMocks({ projects: [project], issues: [] })
 
       const error = yield* Effect.flip(
-        previewDeletion({
-          entityType: "issue",
-          project: projectIdentifier("PROJ"),
-          identifier: "PROJ-999"
-        }).pipe(Effect.provide(testLayer))
+        previewDeletion({ entityType: "issue", project: projectIdentifier("PROJ"), identifier: "PROJ-999" }).pipe(
+          Effect.provide(testLayer)
+        )
       )
 
       expect(error._tag).toBe("IssueNotFoundError")
       expect((error as IssueNotFoundError).identifier).toBe("PROJ-999")
-    }))
+    })
+  )
 
   it.effect("returns ProjectNotFoundError when project doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ projects: [] })
 
       const error = yield* Effect.flip(
-        previewDeletion({
-          entityType: "issue",
-          project: projectIdentifier("NOPE"),
-          identifier: "NOPE-1"
-        }).pipe(Effect.provide(testLayer))
+        previewDeletion({ entityType: "issue", project: projectIdentifier("NOPE"), identifier: "NOPE-1" }).pipe(
+          Effect.provide(testLayer)
+        )
       )
 
       expect(error._tag).toBe("ProjectNotFoundError")
-    }))
+    })
+  )
 })
 
 describe("previewDeletion - project", () => {
   it.effect("returns counts of all project contents", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const issues = [
         makeIssue({ _id: "i1" as Ref<HulyIssue>, space: "proj-1" as Ref<HulyProject> }),
         makeIssue({ _id: "i2" as Ref<HulyIssue>, space: "proj-1" as Ref<HulyProject> })
       ]
-      const components = [
-        makeComponent({ _id: "c1" as Ref<HulyComponent>, space: "proj-1" as Ref<HulyProject> })
-      ]
-      const milestones = [
-        makeMilestone({ _id: "m1" as Ref<HulyMilestone>, space: "proj-1" as Ref<HulyProject> })
-      ]
+      const components = [makeComponent({ _id: "c1" as Ref<HulyComponent>, space: "proj-1" as Ref<HulyProject> })]
+      const milestones = [makeMilestone({ _id: "m1" as Ref<HulyMilestone>, space: "proj-1" as Ref<HulyProject> })]
 
       const testLayer = createTestLayerWithMocks({ projects: [project], issues, components, milestones })
 
-      const result = yield* previewDeletion({
-        entityType: "project",
-        project: projectIdentifier("PROJ")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* previewDeletion({ entityType: "project", project: projectIdentifier("PROJ") }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.entityType).toBe("project")
       expect(result.identifier).toBe("PROJ")
@@ -344,65 +342,59 @@ describe("previewDeletion - project", () => {
       expect(result.impact.templates).toBe(0)
       expect(result.totalAffected).toBe(4)
       expect(result.warnings.length).toBeGreaterThan(0)
-    }))
+    })
+  )
 
   it.effect("returns zero counts for empty project", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const testLayer = createTestLayerWithMocks({ projects: [project] })
 
-      const result = yield* previewDeletion({
-        entityType: "project",
-        project: projectIdentifier("PROJ")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* previewDeletion({ entityType: "project", project: projectIdentifier("PROJ") }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.totalAffected).toBe(0)
       expect(result.warnings).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("preserves unknown backend totals for project contents", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const testLayer = createTestLayerWithMocks({
         projects: [project],
-        totals: {
-          issues: UNKNOWN_TOTAL,
-          components: 0,
-          milestones: 0,
-          templates: 0
-        }
+        totals: { issues: UNKNOWN_TOTAL, components: 0, milestones: 0, templates: 0 }
       })
 
-      const result = yield* previewDeletion({
-        entityType: "project",
-        project: projectIdentifier("PROJ")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* previewDeletion({ entityType: "project", project: projectIdentifier("PROJ") }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.impact.issues).toBe(UNKNOWN_TOTAL)
       expect(result.impact.components).toBe(0)
       expect(result.totalAffected).toBe(UNKNOWN_TOTAL)
       expect(result.warnings).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("returns ProjectNotFoundError when project doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ projects: [] })
 
       const error = yield* Effect.flip(
-        previewDeletion({
-          entityType: "project",
-          project: projectIdentifier("NOPE")
-        }).pipe(Effect.provide(testLayer))
+        previewDeletion({ entityType: "project", project: projectIdentifier("NOPE") }).pipe(Effect.provide(testLayer))
       )
 
       expect(error._tag).toBe("ProjectNotFoundError")
       expect((error as ProjectNotFoundError).identifier).toBe("NOPE")
-    }))
+    })
+  )
 })
 
 describe("previewDeletion - component", () => {
   it.effect("returns issue count for component", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const comp = makeComponent({
         _id: "comp-1" as Ref<HulyComponent>,
@@ -435,10 +427,11 @@ describe("previewDeletion - component", () => {
       expect(result.impact.issues).toBe(2)
       expect(result.totalAffected).toBe(2)
       expect(result.warnings).toHaveLength(1)
-    }))
+    })
+  )
 
   it.effect("returns zero when no issues use component", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const comp = makeComponent({
         _id: "comp-1" as Ref<HulyComponent>,
@@ -456,29 +449,29 @@ describe("previewDeletion - component", () => {
 
       expect(result.totalAffected).toBe(0)
       expect(result.warnings).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("returns ComponentNotFoundError when component doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const testLayer = createTestLayerWithMocks({ projects: [project], components: [] })
 
       const error = yield* Effect.flip(
-        previewDeletion({
-          entityType: "component",
-          project: projectIdentifier("PROJ"),
-          identifier: "Ghost"
-        }).pipe(Effect.provide(testLayer))
+        previewDeletion({ entityType: "component", project: projectIdentifier("PROJ"), identifier: "Ghost" }).pipe(
+          Effect.provide(testLayer)
+        )
       )
 
       expect(error._tag).toBe("ComponentNotFoundError")
       expect((error as ComponentNotFoundError).identifier).toBe("Ghost")
-    }))
+    })
+  )
 })
 
 describe("previewDeletion - milestone", () => {
   it.effect("returns issue count for milestone", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const ms = makeMilestone({
         _id: "ms-1" as Ref<HulyMilestone>,
@@ -516,10 +509,11 @@ describe("previewDeletion - milestone", () => {
       expect(result.impact.issues).toBe(3)
       expect(result.totalAffected).toBe(3)
       expect(result.warnings).toHaveLength(1)
-    }))
+    })
+  )
 
   it.effect("returns zero when no issues in milestone", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const ms = makeMilestone({
         _id: "ms-1" as Ref<HulyMilestone>,
@@ -537,59 +531,57 @@ describe("previewDeletion - milestone", () => {
 
       expect(result.totalAffected).toBe(0)
       expect(result.warnings).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("returns MilestoneNotFoundError when milestone doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const testLayer = createTestLayerWithMocks({ projects: [project], milestones: [] })
 
       const error = yield* Effect.flip(
-        previewDeletion({
-          entityType: "milestone",
-          project: projectIdentifier("PROJ"),
-          identifier: "Ghost"
-        }).pipe(Effect.provide(testLayer))
+        previewDeletion({ entityType: "milestone", project: projectIdentifier("PROJ"), identifier: "Ghost" }).pipe(
+          Effect.provide(testLayer)
+        )
       )
 
       expect(error._tag).toBe("MilestoneNotFoundError")
       expect((error as MilestoneNotFoundError).identifier).toBe("Ghost")
-    }))
+    })
+  )
 })
 
 describe("PreviewDeletionParamsSchema validation", () => {
   it.effect("rejects entityType=issue without identifier", () =>
-    Effect.gen(function*() {
-      const exit = yield* Effect.exit(
-        parsePreviewDeletionParams({ entityType: "issue", project: "PROJ" })
-      )
+    Effect.gen(function* () {
+      const exit = yield* Effect.exit(parsePreviewDeletionParams({ entityType: "issue", project: "PROJ" }))
       expect(Exit.isFailure(exit)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("rejects entityType=component with empty identifier", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const exit = yield* Effect.exit(
         parsePreviewDeletionParams({ entityType: "component", project: "PROJ", identifier: "  " })
       )
       expect(Exit.isFailure(exit)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("accepts entityType=project without identifier", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parsePreviewDeletionParams({ entityType: "project", project: "PROJ" })
       expect(result.entityType).toBe("project")
-    }))
+    })
+  )
 
   it.effect("accepts entityType=issue with identifier", () =>
-    Effect.gen(function*() {
-      const result = yield* parsePreviewDeletionParams({
-        entityType: "issue",
-        project: "PROJ",
-        identifier: "PROJ-1"
-      })
+    Effect.gen(function* () {
+      const result = yield* parsePreviewDeletionParams({ entityType: "issue", project: "PROJ", identifier: "PROJ-1" })
       expect(result.entityType).toBe("issue")
       expect(result.identifier).toBe("PROJ-1")
-    }))
+    })
+  )
 })
 
 const makeTemplate = (id: string): HulyIssueTemplate =>
@@ -598,7 +590,7 @@ const makeTemplate = (id: string): HulyIssueTemplate =>
 
 describe("previewDeletion - pluralization branches", () => {
   it.effect("uses singular and plural warning forms by issue attachment counts", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -621,10 +613,11 @@ describe("previewDeletion - pluralization branches", () => {
       }).pipe(Effect.provide(createTestLayerWithMocks({ projects: [project], issues: [issue] })))
       expect(result.impact).toEqual({ subIssues: 1, comments: 1, attachments: 2, blockedBy: 1, relations: 2 })
       expect(result.warnings).toHaveLength(5)
-    }))
+    })
+  )
 
   it.effect("defaults a missing comment count to zero", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -641,46 +634,48 @@ describe("previewDeletion - pluralization branches", () => {
         identifier: "PROJ-8"
       }).pipe(Effect.provide(createTestLayerWithMocks({ projects: [project], issues: [issue] })))
       expect(result.impact.comments).toBe(0)
-    }))
+    })
+  )
 
   it.effect("uses plural forms and a single template form for project contents", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
-      const result = yield* previewDeletion({
-        entityType: "project",
-        project: projectIdentifier("PROJ")
-      }).pipe(Effect.provide(createTestLayerWithMocks({
-        projects: [project],
-        issues: [makeIssue({ _id: "i1" as Ref<HulyIssue>, space: "proj-1" as Ref<HulyProject> })],
-        components: [
-          makeComponent({ _id: "c1" as Ref<HulyComponent>, space: "proj-1" as Ref<HulyProject> }),
-          makeComponent({ _id: "c2" as Ref<HulyComponent>, space: "proj-1" as Ref<HulyProject> })
-        ],
-        milestones: [
-          makeMilestone({ _id: "m1" as Ref<HulyMilestone>, space: "proj-1" as Ref<HulyProject> }),
-          makeMilestone({ _id: "m2" as Ref<HulyMilestone>, space: "proj-1" as Ref<HulyProject> })
-        ],
-        templates: [makeTemplate("t1")]
-      })))
+      const result = yield* previewDeletion({ entityType: "project", project: projectIdentifier("PROJ") }).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({
+            projects: [project],
+            issues: [makeIssue({ _id: "i1" as Ref<HulyIssue>, space: "proj-1" as Ref<HulyProject> })],
+            components: [
+              makeComponent({ _id: "c1" as Ref<HulyComponent>, space: "proj-1" as Ref<HulyProject> }),
+              makeComponent({ _id: "c2" as Ref<HulyComponent>, space: "proj-1" as Ref<HulyProject> })
+            ],
+            milestones: [
+              makeMilestone({ _id: "m1" as Ref<HulyMilestone>, space: "proj-1" as Ref<HulyProject> }),
+              makeMilestone({ _id: "m2" as Ref<HulyMilestone>, space: "proj-1" as Ref<HulyProject> })
+            ],
+            templates: [makeTemplate("t1")]
+          })
+        )
+      )
       expect(result.impact).toEqual({ issues: 1, components: 2, milestones: 2, templates: 1 })
       expect(result.warnings).toHaveLength(4)
-    }))
+    })
+  )
 
   it.effect("uses the plural template form for multiple templates", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
-      const result = yield* previewDeletion({
-        entityType: "project",
-        project: projectIdentifier("PROJ")
-      }).pipe(Effect.provide(createTestLayerWithMocks({
-        projects: [project],
-        templates: [makeTemplate("t1"), makeTemplate("t2")]
-      })))
+      const result = yield* previewDeletion({ entityType: "project", project: projectIdentifier("PROJ") }).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({ projects: [project], templates: [makeTemplate("t1"), makeTemplate("t2")] })
+        )
+      )
       expect(result.impact.templates).toBe(2)
-    }))
+    })
+  )
 
   it.effect("uses singular verb forms for a component used by one issue", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const comp = makeComponent({
         _id: "comp-1" as Ref<HulyComponent>,
@@ -691,21 +686,28 @@ describe("previewDeletion - pluralization branches", () => {
         entityType: "component",
         project: projectIdentifier("PROJ"),
         identifier: "Backend"
-      }).pipe(Effect.provide(createTestLayerWithMocks({
-        projects: [project],
-        components: [comp],
-        issues: [makeIssue({
-          _id: "i1" as Ref<HulyIssue>,
-          space: "proj-1" as Ref<HulyProject>,
-          component: "comp-1" as Ref<HulyComponent>
-        })]
-      })))
+      }).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({
+            projects: [project],
+            components: [comp],
+            issues: [
+              makeIssue({
+                _id: "i1" as Ref<HulyIssue>,
+                space: "proj-1" as Ref<HulyProject>,
+                component: "comp-1" as Ref<HulyComponent>
+              })
+            ]
+          })
+        )
+      )
       expect(result.impact.issues).toBe(1)
       expect(assertAt(result.warnings, 0)).toContain("1 issue uses this component")
-    }))
+    })
+  )
 
   it.effect("uses singular verb forms for a milestone with one issue", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const ms = makeMilestone({
         _id: "ms-1" as Ref<HulyMilestone>,
@@ -716,16 +718,23 @@ describe("previewDeletion - pluralization branches", () => {
         entityType: "milestone",
         project: projectIdentifier("PROJ"),
         identifier: "v1.0"
-      }).pipe(Effect.provide(createTestLayerWithMocks({
-        projects: [project],
-        milestones: [ms],
-        issues: [makeIssue({
-          _id: "i1" as Ref<HulyIssue>,
-          space: "proj-1" as Ref<HulyProject>,
-          milestone: "ms-1" as Ref<HulyMilestone>
-        })]
-      })))
+      }).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({
+            projects: [project],
+            milestones: [ms],
+            issues: [
+              makeIssue({
+                _id: "i1" as Ref<HulyIssue>,
+                space: "proj-1" as Ref<HulyProject>,
+                milestone: "ms-1" as Ref<HulyMilestone>
+              })
+            ]
+          })
+        )
+      )
       expect(result.impact.issues).toBe(1)
       expect(assertAt(result.warnings, 0)).toContain("1 issue is in this milestone")
-    }))
+    })
+  )
 })

@@ -29,28 +29,12 @@ const CliArgsSchema = Schema.Union(
     card: CardIdentifier,
     additionalVersions: AdditionalVersionCount
   }),
-  Schema.Struct({
-    mode: Schema.Literal("cleanup"),
-    cardSpace: CardSpaceIdentifier,
-    baseId: CardId
-  }),
-  Schema.Struct({
-    mode: Schema.Literal("strip"),
-    cardSpace: CardSpaceIdentifier,
-    card: CardIdentifier
-  })
+  Schema.Struct({ mode: Schema.Literal("cleanup"), cardSpace: CardSpaceIdentifier, baseId: CardId }),
+  Schema.Struct({ mode: Schema.Literal("strip"), cardSpace: CardSpaceIdentifier, card: CardIdentifier })
 )
-const SetupResultSchema = Schema.Struct({
-  baseId: CardId,
-  versionIds: Schema.Array(CardId),
-  total: Count
-})
-const CleanupResultSchema = Schema.Struct({
-  removed: Count
-})
-const StripResultSchema = Schema.Struct({
-  cardId: CardId
-})
+const SetupResultSchema = Schema.Struct({ baseId: CardId, versionIds: Schema.Array(CardId), total: Count })
+const CleanupResultSchema = Schema.Struct({ removed: Count })
+const StripResultSchema = Schema.Struct({ cardId: CardId })
 
 type CliArgs = Schema.Schema.Type<typeof CliArgsSchema>
 
@@ -68,17 +52,13 @@ const parseCliArgs = (): CliArgs =>
     }).values
   )
 
-const findCardSpace = async (
-  client: TxOperations,
-  identifier: CardSpaceIdentifier
-): Promise<HulyCardSpace> => {
-  const cardSpace = (await client.findOne<HulyCardSpace>(
-    cardPlugin.class.CardSpace,
-    hulyQuery<HulyCardSpace>({ name: identifier })
-  )) ?? await client.findOne<HulyCardSpace>(
-    cardPlugin.class.CardSpace,
-    hulyQuery<HulyCardSpace>({ _id: toRef<HulyCardSpace>(identifier) })
-  )
+const findCardSpace = async (client: TxOperations, identifier: CardSpaceIdentifier): Promise<HulyCardSpace> => {
+  const cardSpace =
+    (await client.findOne<HulyCardSpace>(cardPlugin.class.CardSpace, hulyQuery<HulyCardSpace>({ name: identifier }))) ??
+    (await client.findOne<HulyCardSpace>(
+      cardPlugin.class.CardSpace,
+      hulyQuery<HulyCardSpace>({ _id: toRef<HulyCardSpace>(identifier) })
+    ))
   if (cardSpace === undefined) throw new Error(`Card space '${identifier}' not found.`)
   return cardSpace
 }
@@ -96,10 +76,7 @@ const findCard = async (
   return card
 }
 
-const versionData = (
-  source: HulyCard,
-  baseId: Ref<Doc>
-): Data<VersionableCardDoc> => ({
+const versionData = (source: HulyCard, baseId: Ref<Doc>): Data<VersionableCardDoc> => ({
   title: source.title,
   content: source.content,
   blobs: source.blobs,
@@ -129,11 +106,7 @@ const setup = async (
     versionIds.push(CardId.make(versionId))
   }
 
-  return {
-    baseId,
-    versionIds,
-    total: Count.make(versionIds.length + 1)
-  }
+  return { baseId, versionIds, total: Count.make(versionIds.length + 1) }
 }
 
 const cleanup = async (
@@ -143,10 +116,7 @@ const cleanup = async (
   const cardSpace = await findCardSpace(client, args.cardSpace)
   const cards = await client.findAll<VersionableCardDoc>(
     toClassRef<VersionableCardDoc>(cardPlugin.class.Card),
-    hulyQuery<VersionableCardDoc>({
-      space: cardSpace._id,
-      baseId: toRef<Doc>(args.baseId)
-    })
+    hulyQuery<VersionableCardDoc>({ space: cardSpace._id, baseId: toRef<Doc>(args.baseId) })
   )
   for (const card of cards) {
     await client.removeDoc(card._class, card.space, card._id)
@@ -164,14 +134,7 @@ const stripVersionMetadata = async (
     toClassRef<VersionableCardDoc>(card._class),
     card.space,
     toRef<VersionableCardDoc>(card._id),
-    {
-      $unset: {
-        baseId: true,
-        version: true,
-        isLatest: true,
-        readonly: true
-      }
-    }
+    { $unset: { baseId: true, version: true, isLatest: true, readonly: true } }
   )
   return { cardId: CardId.make(card._id) }
 }

@@ -71,26 +71,20 @@ export { deleteDriveItem, moveDriveItem, renameDriveItem, uploadDriveFileVersion
 export const listDrives = (
   params: ListDrivesParams
 ): Effect.Effect<ListDrivesResult, DriveOperationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const query = (params.includeArchived ?? DEFAULT_INCLUDE_ARCHIVED) ? {} : { archived: false }
-    const drives = yield* client.findAll<DriveSpace>(
-      drive.class.Drive,
-      hulyQuery<DriveSpace>(query),
-      { limit: clampLimit(params.limit), sort: { name: SortingOrder.Ascending } }
-    )
+    const drives = yield* client.findAll<DriveSpace>(drive.class.Drive, hulyQuery<DriveSpace>(query), {
+      limit: clampLimit(params.limit),
+      sort: { name: SortingOrder.Ascending }
+    })
     const filtered = filterDrivesByQuery(drives, params.query).slice(0, clampLimit(params.limit))
 
-    return {
-      drives: filtered.map((item) => toDriveSummary(client, item)),
-      total: Count.make(filtered.length)
-    }
+    return { drives: filtered.map((item) => toDriveSummary(client, item)), total: Count.make(filtered.length) }
   })
 
-export const getDrive = (
-  params: GetDriveParams
-): Effect.Effect<DriveSummary, DriveOperationError, HulyClient> =>
-  Effect.gen(function*() {
+export const getDrive = (params: GetDriveParams): Effect.Effect<DriveSummary, DriveOperationError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const resolved = yield* resolveDrive(client, params.drive)
     return toDriveSummary(client, resolved)
@@ -99,7 +93,7 @@ export const getDrive = (
 export const listDriveItems = (
   params: ListDriveItemsParams
 ): Effect.Effect<ListDriveItemsResult, DriveOperationError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const driveSpace = yield* resolveDrive(client, params.drive)
     const normalized = normalizeDrivePath(params.path ?? DEFAULT_DRIVE_PATH)
@@ -117,7 +111,8 @@ export const listDriveItems = (
       drive: toDriveSummary(client, driveSpace),
       path: DrivePath.make(normalized.path),
       items: yield* Effect.forEach(items, (item) =>
-        toDriveItemSummary(item, driveSpace, childPath(normalized.path, item.title), client)),
+        toDriveItemSummary(item, driveSpace, childPath(normalized.path, item.title), client)
+      ),
       total: Count.make(items.length)
     }
   })
@@ -125,20 +120,18 @@ export const listDriveItems = (
 export const getDriveItem = (
   params: GetDriveItemParams
 ): Effect.Effect<DriveItemSummary, DriveOperationError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const driveSpace = yield* resolveDrive(client, params.drive)
-    const resolved = params.itemId !== undefined
-      ? { item: yield* resolveItemById(client, driveSpace, params.itemId), path: undefined }
-      : yield* resolvePath(client, driveSpace, normalizeDrivePath(params.path ?? DEFAULT_DRIVE_PATH))
+    const resolved =
+      params.itemId !== undefined
+        ? { item: yield* resolveItemById(client, driveSpace, params.itemId), path: undefined }
+        : yield* resolvePath(client, driveSpace, normalizeDrivePath(params.path ?? DEFAULT_DRIVE_PATH))
     const item = resolved.item
 
     if (item === undefined) {
       return yield* Effect.fail(
-        new DrivePathNotFoundError({
-          drive: params.drive,
-          path: params.path ?? DEFAULT_DRIVE_PATH
-        })
+        new DrivePathNotFoundError({ drive: params.drive, path: params.path ?? DEFAULT_DRIVE_PATH })
       )
     }
     return yield* toDriveItemSummary(item, driveSpace, resolved.path ?? pathForItem(item), client)
@@ -147,7 +140,7 @@ export const getDriveItem = (
 export const createDriveFolder = (
   params: CreateDriveFolderParams
 ): Effect.Effect<CreateDriveFolderResult, DriveOperationError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const driveSpace = yield* resolveDrive(client, params.drive)
     const normalized = normalizeDrivePath(params.path)
@@ -169,7 +162,7 @@ export const createDriveFolder = (
 export const uploadDriveFile = (
   params: UploadDriveFileParams
 ): Effect.Effect<UploadDriveFileResult, DriveOperationError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const storage = yield* HulyStorageClient
     const driveSpace = yield* resolveDrive(client, params.drive)
@@ -196,11 +189,7 @@ export const uploadDriveFile = (
     if (isNonEmpty(existing)) {
       const existingItem = existing[0]
       return yield* Effect.fail(
-        new DrivePathConflictError({
-          drive: params.drive,
-          path: normalized.path,
-          existingKind: itemKind(existingItem)
-        })
+        new DrivePathConflictError({ drive: params.drive, path: normalized.path, existingKind: itemKind(existingItem) })
       )
     }
 
@@ -211,18 +200,14 @@ export const uploadDriveFile = (
     const uploaded = yield* storage.uploadFile(title, buffer, params.contentType)
     const now = yield* Clock.currentTimeMillis
     const versionId = toRef<FileVersion>(generateId())
-    const fileId = yield* client.createDoc<File>(
-      drive.class.File,
-      driveSpace._id,
-      {
-        title,
-        parent: parent.folder?._id ?? drive.ids.Root,
-        path: parent.folder === undefined ? [] : [parent.folder._id, ...parent.folder.path],
-        file: versionId,
-        version: 1,
-        versions: 0
-      }
-    )
+    const fileId = yield* client.createDoc<File>(drive.class.File, driveSpace._id, {
+      title,
+      parent: parent.folder?._id ?? drive.ids.Root,
+      path: parent.folder === undefined ? [] : [parent.folder._id, ...parent.folder.path],
+      file: versionId,
+      version: 1,
+      versions: 0
+    })
     const version = makeFileVersionData(title, uploaded.blobId, uploaded.size, uploaded.contentType, now, 1)
     yield* client.addCollection<File, FileVersion>(
       drive.class.FileVersion,
@@ -239,7 +224,8 @@ export const uploadDriveFile = (
     return {
       file: yield* toDriveItemSummary(file, driveSpace, normalized.path, client),
       createdParents: yield* Effect.forEach(parent.createdFolders, (created) =>
-        toDriveItemSummary(created.folder, driveSpace, created.path, client)),
+        toDriveItemSummary(created.folder, driveSpace, created.path, client)
+      ),
       currentVersion: versionSummary
     }
   })
@@ -247,7 +233,7 @@ export const uploadDriveFile = (
 export const listDriveFileVersions = (
   params: ListDriveFileVersionsParams
 ): Effect.Effect<ListDriveFileVersionsResult, DriveOperationError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const driveSpace = yield* resolveDrive(client, params.drive)
     const file = yield* resolveFile(client, driveSpace, params.drive, params.file)
@@ -269,7 +255,7 @@ export const listDriveFileVersions = (
 export const restoreDriveFileVersion = (
   params: RestoreDriveFileVersionParams
 ): Effect.Effect<RestoreDriveFileVersionResult, DriveOperationError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const driveSpace = yield* resolveDrive(client, params.drive)
     const file = yield* resolveFile(client, driveSpace, params.drive, params.file)

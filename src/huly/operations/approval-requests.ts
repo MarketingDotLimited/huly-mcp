@@ -71,9 +71,7 @@ const fromHulyStatus = (status: HulyRequestStatus): ApprovalRequestStatus => {
 const listQuery = (params: ListApprovalRequestsParams): StrictDocumentQuery<HulyApprovalRequest> => ({
   ...(params.status === undefined ? {} : { status: toHulyStatus(params.status) }),
   ...(params.attachedTo === undefined ? {} : { attachedTo: toRef<Doc>(params.attachedTo) }),
-  ...(params.attachedToClass === undefined
-    ? {}
-    : { attachedToClass: toClassRef<Doc>(params.attachedToClass) })
+  ...(params.attachedToClass === undefined ? {} : { attachedToClass: toClassRef<Doc>(params.attachedToClass) })
 })
 
 const uniquePersonIds = (requests: ReadonlyArray<HulyApprovalRequest>): ReadonlyArray<string> =>
@@ -115,10 +113,9 @@ const warnMissingPeople = (
 
   return diagnostics.warnAgent({
     code: ApprovalRequestPersonMetadataDegradedWarningCode,
-    message:
-      `Some approval request person metadata was omitted because ${missingIds.length} person id(s) could not be resolved: ${
-        missingIds.join(", ")
-      }. Results still include raw person IDs.`
+    message: `Some approval request person metadata was omitted because ${missingIds.length} person id(s) could not be resolved: ${missingIds.join(
+      ", "
+    )}. Results still include raw person IDs.`
   })
 }
 
@@ -127,7 +124,7 @@ const fetchPeopleById = (
   diagnostics: Diagnostics["Type"],
   requests: ReadonlyArray<HulyApprovalRequest>
 ): Effect.Effect<ReadonlyMap<string, ApprovalPersonRef>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ids = uniquePersonIds(requests)
     if (ids.length === 0) return new Map<string, ApprovalPersonRef>()
 
@@ -145,10 +142,8 @@ const fetchPeopleById = (
     return peopleById
   })
 
-const resolvePerson = (
-  peopleById: ReadonlyMap<string, ApprovalPersonRef>,
-  id: Ref<HulyPerson>
-): ApprovalPersonRef => peopleById.get(String(id)) ?? { id: PersonId.make(String(id)) }
+const resolvePerson = (peopleById: ReadonlyMap<string, ApprovalPersonRef>, id: Ref<HulyPerson>): ApprovalPersonRef =>
+  peopleById.get(String(id)) ?? { id: PersonId.make(String(id)) }
 
 type ApprovalCountField = "requiredApprovesCount" | "comments"
 
@@ -160,17 +155,19 @@ const countOrWarn = (
 ): Effect.Effect<Count> =>
   Number.isInteger(value) && value >= 0
     ? Effect.succeed(Count.make(value))
-    : diagnostics.warnAgent({
-      code: ApprovalRequestCountMetadataDegradedWarningCode,
-      message: `Approval request ${requestId} field ${field} contained invalid count ${value}; returned 0 instead.`
-    }).pipe(Effect.as(Count.make(0)))
+    : diagnostics
+        .warnAgent({
+          code: ApprovalRequestCountMetadataDegradedWarningCode,
+          message: `Approval request ${requestId} field ${field} contained invalid count ${value}; returned 0 instead.`
+        })
+        .pipe(Effect.as(Count.make(0)))
 
 const requestSummary = (
   diagnostics: Diagnostics["Type"],
   item: HulyApprovalRequest,
   peopleById: ReadonlyMap<string, ApprovalPersonRef>
 ): Effect.Effect<ApprovalRequestSummary> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const id = ApprovalRequestId.make(item._id)
     const requiredApprovesCount = yield* countOrWarn(
       diagnostics,
@@ -178,9 +175,8 @@ const requestSummary = (
       "requiredApprovesCount",
       item.requiredApprovesCount
     )
-    const comments = item.comments === undefined
-      ? undefined
-      : yield* countOrWarn(diagnostics, id, "comments", item.comments)
+    const comments =
+      item.comments === undefined ? undefined : yield* countOrWarn(diagnostics, id, "comments", item.comments)
 
     return {
       id,
@@ -205,7 +201,7 @@ const requestDetail = (
   item: HulyApprovalRequest,
   peopleById: ReadonlyMap<string, ApprovalPersonRef>
 ): Effect.Effect<ApprovalRequestDetail> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const summary = yield* requestSummary(diagnostics, item, peopleById)
     return {
       ...summary,
@@ -220,7 +216,7 @@ const requestDetail = (
 export const listApprovalRequests = (
   params: ListApprovalRequestsParams
 ): Effect.Effect<ListApprovalRequestsResult, HulyClientError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const diagnostics = yield* Diagnostics
     const requests = yield* client.findAll<HulyApprovalRequest>(
@@ -231,16 +227,13 @@ export const listApprovalRequests = (
     const peopleById = yield* fetchPeopleById(client, diagnostics, requests)
     const summaries = yield* Effect.all(requests.map((item) => requestSummary(diagnostics, item, peopleById)))
 
-    return {
-      requests: summaries,
-      total: listTotal(requests.total)
-    }
+    return { requests: summaries, total: listTotal(requests.total) }
   })
 
 export const getApprovalRequest = (
   params: GetApprovalRequestParams
 ): Effect.Effect<GetApprovalRequestResult, ApprovalRequestError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const diagnostics = yield* Diagnostics
     const item = yield* client.findOne<HulyApprovalRequest>(

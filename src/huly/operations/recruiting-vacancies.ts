@@ -83,16 +83,12 @@ type VacancyUpdateError =
   | RecruitingVacancyNotFoundError
   | RecruitingVacancyTypeNotFoundError
 
-const companySummary = (
-  client: HulyClient["Type"],
-  company: Ref<Organization> | undefined
-) =>
+const companySummary = (client: HulyClient["Type"], company: Ref<Organization> | undefined) =>
   company === undefined
     ? Effect.succeed(undefined)
-    : Effect.map(
-      client.findOne<Organization>(contact.class.Organization, { _id: company }),
-      (org) => org === undefined ? undefined : { id: DocId.make(org._id), name: org.name }
-    )
+    : Effect.map(client.findOne<Organization>(contact.class.Organization, { _id: company }), (org) =>
+        org === undefined ? undefined : { id: DocId.make(org._id), name: org.name }
+      )
 
 const uploadFullDescription = (
   client: HulyClient["Type"],
@@ -101,37 +97,34 @@ const uploadFullDescription = (
 ) =>
   fullDescription === undefined || fullDescription.trim() === ""
     ? Effect.succeed(null)
-    : Effect.gen(function*() {
-      const rendered = renderMarkdownPreservingNativeReferences(fullDescription, client.markupUrlConfig)
-      const ref = yield* client.uploadMarkup(
-        recruitIds.class.Vacancy,
-        vacancyId,
-        "fullDescription",
-        rendered.markup,
-        rendered.format
-      )
-      return markupRefAsBlobRef(ref)
-    })
+    : Effect.gen(function* () {
+        const rendered = renderMarkdownPreservingNativeReferences(fullDescription, client.markupUrlConfig)
+        const ref = yield* client.uploadMarkup(
+          recruitIds.class.Vacancy,
+          vacancyId,
+          "fullDescription",
+          rendered.markup,
+          rendered.format
+        )
+        return markupRefAsBlobRef(ref)
+      })
 
-const fetchFullDescription = (
-  client: HulyClient["Type"],
-  vacancy: Vacancy
-) =>
+const fetchFullDescription = (client: HulyClient["Type"], vacancy: Vacancy) =>
   vacancy.fullDescription === null
     ? Effect.succeed(undefined)
     : client.fetchMarkup(
-      recruitIds.class.Vacancy,
-      vacancy._id,
-      "fullDescription",
-      markupBlobRefAsMarkupRef(vacancy.fullDescription),
-      "markdown"
-    )
+        recruitIds.class.Vacancy,
+        vacancy._id,
+        "fullDescription",
+        markupBlobRefAsMarkupRef(vacancy.fullDescription),
+        "markdown"
+      )
 
 const toVacancyDetail = (
   client: HulyClient["Type"],
   vacancy: Vacancy
 ): Effect.Effect<VacancyDetail, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const [type, fullDescription, company] = yield* Effect.all([
       getVacancyTypeById(client, vacancy.type),
       fetchFullDescription(client, vacancy),
@@ -161,7 +154,7 @@ const toVacancyDetail = (
 export const listRecruitingVacancyTypes = (
   params: ListRecruitingVacancyTypesParams
 ): Effect.Effect<ListRecruitingVacancyTypesResult, ListVacancyTypesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const types = yield* client.findAll<ProjectType>(
       task.class.ProjectType,
@@ -175,7 +168,7 @@ export const listRecruitingVacancyTypes = (
 export const listRecruitingVacancyStatuses = (
   params: ListRecruitingVacancyStatusesParams
 ): Effect.Effect<ListRecruitingVacancyStatusesResult, VacancyStatusError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const vacancy = yield* resolveVacancy(client, params.vacancy)
     const statuses = yield* getVacancyStatuses(client, vacancy)
@@ -185,14 +178,14 @@ export const listRecruitingVacancyStatuses = (
 export const listRecruitingVacancies = (
   params: ListRecruitingVacanciesParams
 ): Effect.Effect<ListRecruitingVacanciesResult, ListVacanciesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
-    const typeFilter: StrictDocumentQuery<Vacancy> = params.type === undefined
-      ? {}
-      : { type: (yield* resolveVacancyType(client, params.type))._id }
-    const companyFilter: StrictDocumentQuery<Vacancy> = params.company === undefined
-      ? {}
-      : { company: (yield* resolveOrganizationByIdentifier(client, params.company))._id }
+    const typeFilter: StrictDocumentQuery<Vacancy> =
+      params.type === undefined ? {} : { type: (yield* resolveVacancyType(client, params.type))._id }
+    const companyFilter: StrictDocumentQuery<Vacancy> =
+      params.company === undefined
+        ? {}
+        : { company: (yield* resolveOrganizationByIdentifier(client, params.company))._id }
     const query: StrictDocumentQuery<Vacancy> = {
       ...(params.includeArchived === true ? {} : { archived: false }),
       ...vacancyNameSearchFilter(params.query),
@@ -200,18 +193,17 @@ export const listRecruitingVacancies = (
       ...companyFilter
     }
 
-    const vacancies = yield* client.findAll<Vacancy>(
-      recruitIds.class.Vacancy,
-      hulyQuery(query),
-      { limit: listLimit(params.limit), ...sortByModifiedDescending }
-    )
+    const vacancies = yield* client.findAll<Vacancy>(recruitIds.class.Vacancy, hulyQuery(query), {
+      limit: listLimit(params.limit),
+      ...sortByModifiedDescending
+    })
     return { vacancies: vacancies.map(toVacancyRef), total: Count.make(vacancies.length) }
   })
 
 export const getRecruitingVacancy = (
   params: GetRecruitingVacancyParams
 ): Effect.Effect<VacancyDetail, VacancyGetError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     return yield* toVacancyDetail(client, yield* resolveVacancy(client, params.vacancy))
   })
@@ -219,12 +211,11 @@ export const getRecruitingVacancy = (
 export const createRecruitingVacancy = (
   params: CreateRecruitingVacancyParams
 ): Effect.Effect<RecruitingVacancyMutationResult, VacancyCreateError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const type = yield* resolveVacancyType(client, params.type)
-    const company = params.company === undefined
-      ? undefined
-      : (yield* resolveOrganizationByIdentifier(client, params.company))._id
+    const company =
+      params.company === undefined ? undefined : (yield* resolveOrganizationByIdentifier(client, params.company))._id
     const vacancyId = generateId<Vacancy>()
     const number = yield* incrementSequence(client, recruitIds.class.Vacancy, "vacancy")
     const fullDescription = yield* uploadFullDescription(client, vacancyId, params.fullDescription)
@@ -275,7 +266,7 @@ const buildVacancyUpdate = (
   | OrganizationNotFoundError
   | RecruitingVacancyTypeNotFoundError
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const clearFields = {
       ...(params.company === null ? { company: "" } : {}),
       ...(params.dueTo === null ? { dueTo: "" } : {})
@@ -286,16 +277,17 @@ const buildVacancyUpdate = (
       ...(params.fullDescription === undefined
         ? {}
         : {
-          fullDescription: params.fullDescription === null || params.fullDescription.trim() === ""
-            ? null
-            : yield* uploadFullDescription(client, vacancy._id, params.fullDescription)
-        }),
+            fullDescription:
+              params.fullDescription === null || params.fullDescription.trim() === ""
+                ? null
+                : yield* uploadFullDescription(client, vacancy._id, params.fullDescription)
+          }),
       ...(params.type === undefined ? {} : { type: (yield* resolveVacancyType(client, params.type))._id }),
       ...(params.company === undefined
         ? {}
         : params.company === null
-        ? {}
-        : { company: (yield* resolveOrganizationByIdentifier(client, params.company))._id }),
+          ? {}
+          : { company: (yield* resolveOrganizationByIdentifier(client, params.company))._id }),
       ...(params.location === undefined ? {} : { location: params.location ?? "" }),
       ...(params.dueTo === undefined || params.dueTo === null ? {} : { dueTo: params.dueTo }),
       ...(params.private === undefined ? {} : { private: params.private }),
@@ -306,7 +298,7 @@ const buildVacancyUpdate = (
 export const updateRecruitingVacancy = (
   params: UpdateRecruitingVacancyParams
 ): Effect.Effect<RecruitingVacancyMutationResult, VacancyUpdateError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const vacancy = yield* resolveVacancy(client, params.vacancy)
     const update = yield* buildVacancyUpdate(client, params, vacancy)
@@ -318,7 +310,7 @@ const setVacancyArchiveState = (
   vacancyIdentifier: GetRecruitingVacancyParams["vacancy"],
   archived: boolean
 ): Effect.Effect<RecruitingVacancyMutationResult, VacancyUpdateError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const vacancy = yield* resolveVacancy(client, vacancyIdentifier)
     yield* client.updateDoc(recruitIds.class.Vacancy, vacancy.space, vacancy._id, { archived })

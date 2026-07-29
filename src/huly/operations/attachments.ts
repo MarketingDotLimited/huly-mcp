@@ -58,26 +58,15 @@ export { addAttachment, addDocumentAttachment, addIssueAttachment } from "./atta
 
 type ListAttachmentsError = HulyClientError
 
-type GetAttachmentError =
-  | HulyClientError
-  | AttachmentNotFoundError
+type GetAttachmentError = HulyClientError | AttachmentNotFoundError
 
-type UpdateAttachmentError =
-  | HulyClientError
-  | NoUpdateFieldsError
-  | AttachmentNotFoundError
+type UpdateAttachmentError = HulyClientError | NoUpdateFieldsError | AttachmentNotFoundError
 
-type DeleteAttachmentError =
-  | HulyClientError
-  | AttachmentNotFoundError
+type DeleteAttachmentError = HulyClientError | AttachmentNotFoundError
 
-type PinAttachmentError =
-  | HulyClientError
-  | AttachmentNotFoundError
+type PinAttachmentError = HulyClientError | AttachmentNotFoundError
 
-type DownloadAttachmentError =
-  | HulyClientError
-  | AttachmentNotFoundError
+type DownloadAttachmentError = HulyClientError | AttachmentNotFoundError
 
 type ReadAttachmentContentError =
   | HulyClientError
@@ -94,16 +83,10 @@ const StoredAttachmentContentSchema = Schema.Struct({
   size: AttachmentByteSize
 })
 
-const parseStoredAttachmentContent = (
-  attachmentId: ReadAttachmentContentParams["attachmentId"],
-  input: unknown
-) =>
+const parseStoredAttachmentContent = (attachmentId: ReadAttachmentContentParams["attachmentId"], input: unknown) =>
   Schema.decodeUnknown(StoredAttachmentContentSchema)(input).pipe(
-    Effect.mapError(() =>
-      new AttachmentContentUnavailableError({
-        attachmentId,
-        reason: "stored attachment metadata is invalid"
-      })
+    Effect.mapError(
+      () => new AttachmentContentUnavailableError({ attachmentId, reason: "stored attachment metadata is invalid" })
     )
   )
 
@@ -126,15 +109,19 @@ const parseSupportedImageType = (
 export const listAttachments = (
   params: ListAttachmentsParams
 ): Effect.Effect<Array<AttachmentSummary>, ListAttachmentsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
-    return yield* listAttachmentsForScope(client, {
-      classRef: attachment.class.Attachment,
-      attachedTo: toRef<Doc>(params.objectId),
-      attachedToClass: toRef<Class<Doc<Space>>>(params.objectClass),
-      collection: "attachments"
-    }, params.limit)
+    return yield* listAttachmentsForScope(
+      client,
+      {
+        classRef: attachment.class.Attachment,
+        attachedTo: toRef<Doc>(params.objectId),
+        attachedToClass: toRef<Class<Doc<Space>>>(params.objectClass),
+        collection: "attachments"
+      },
+      params.limit
+    )
   })
 
 /**
@@ -143,7 +130,7 @@ export const listAttachments = (
 export const getAttachment = (
   params: GetAttachmentParams
 ): Effect.Effect<Attachment, GetAttachmentError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const storageClient = yield* HulyStorageClient
 
@@ -158,14 +145,12 @@ export const getAttachment = (
 export const updateAttachment = (
   params: UpdateAttachmentParams
 ): Effect.Effect<UpdateAttachmentResult, UpdateAttachmentError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_attachment", params, UPDATE_ATTACHMENT_FIELDS)
 
     const client = yield* HulyClient
 
-    yield* updateAttachmentForScope(client, params.attachmentId, params, {
-      classRef: attachment.class.Attachment
-    })
+    yield* updateAttachmentForScope(client, params.attachmentId, params, { classRef: attachment.class.Attachment })
 
     return { attachmentId: AttachmentId.make(params.attachmentId), updated: true }
   })
@@ -176,18 +161,12 @@ export const updateAttachment = (
 export const deleteAttachment = (
   params: DeleteAttachmentParams
 ): Effect.Effect<DeleteAttachmentResult, DeleteAttachmentError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
-    const att = yield* findAttachmentForScope(client, params.attachmentId, {
-      classRef: attachment.class.Attachment
-    })
+    const att = yield* findAttachmentForScope(client, params.attachmentId, { classRef: attachment.class.Attachment })
 
-    yield* client.removeDoc(
-      attachment.class.Attachment,
-      att.space,
-      att._id
-    )
+    yield* client.removeDoc(attachment.class.Attachment, att.space, att._id)
 
     return { attachmentId: AttachmentId.make(params.attachmentId), deleted: true }
   })
@@ -198,19 +177,12 @@ export const deleteAttachment = (
 export const pinAttachment = (
   params: PinAttachmentParams
 ): Effect.Effect<PinAttachmentResult, PinAttachmentError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
-    const att = yield* findAttachmentForScope(client, params.attachmentId, {
-      classRef: attachment.class.Attachment
-    })
+    const att = yield* findAttachmentForScope(client, params.attachmentId, { classRef: attachment.class.Attachment })
 
-    yield* client.updateDoc(
-      attachment.class.Attachment,
-      att.space,
-      att._id,
-      { pinned: params.pinned }
-    )
+    yield* client.updateDoc(attachment.class.Attachment, att.space, att._id, { pinned: params.pinned })
 
     return { attachmentId: AttachmentId.make(params.attachmentId), pinned: params.pinned }
   })
@@ -221,13 +193,11 @@ export const pinAttachment = (
 export const downloadAttachment = (
   params: DownloadAttachmentParams
 ): Effect.Effect<DownloadAttachmentResult, DownloadAttachmentError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const storageClient = yield* HulyStorageClient
 
-    const att = yield* findAttachmentForScope(client, params.attachmentId, {
-      classRef: attachment.class.Attachment
-    })
+    const att = yield* findAttachmentForScope(client, params.attachmentId, { classRef: attachment.class.Attachment })
 
     const url = storageClient.getFileUrl(att.file)
 
@@ -243,7 +213,7 @@ export const downloadAttachment = (
 export const readAttachmentContent = (
   params: ReadAttachmentContentParams
 ): Effect.Effect<ReadAttachmentContentResult, ReadAttachmentContentError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const storageClient = yield* HulyStorageClient
     const attachmentDoc = yield* findAttachmentForScope(client, params.attachmentId, {
@@ -277,14 +247,14 @@ export const readAttachmentContent = (
       )
       return yield* download.left._tag === "FileTooLargeError"
         ? new AttachmentContentTooLargeError({
-          attachmentId: params.attachmentId,
-          size: download.left.size,
-          maxSize: READ_ATTACHMENT_CONTENT_MAX_BYTES
-        })
+            attachmentId: params.attachmentId,
+            size: download.left.size,
+            maxSize: READ_ATTACHMENT_CONTENT_MAX_BYTES
+          })
         : new AttachmentContentUnavailableError({
-          attachmentId: params.attachmentId,
-          reason: "authenticated storage download failed"
-        })
+            attachmentId: params.attachmentId,
+            reason: "authenticated storage download failed"
+          })
     }
     const bytes = download.right
 

@@ -93,12 +93,7 @@ const makePerson = (id: string, name: string): Person =>
   })
 
 const makeEmployee = (id: string, name: string, personUuid: HulyAccountUuid): HulyEmployee =>
-  asEmployee({
-    ...makePerson(id, name),
-    _class: contact.mixin.Employee,
-    active: true,
-    personUuid
-  })
+  asEmployee({ ...makePerson(id, name), _class: contact.mixin.Employee, active: true, personUuid })
 
 const makePersonSpace = (person: Ref<Person>): PersonSpace =>
   asPersonSpace({
@@ -156,17 +151,17 @@ const createLayer = (data: TestData) => {
     if (_class === chunter.class.DirectMessage) {
       const q = query as { members?: HulyAccountUuid }
       const member = q.members
-      return Effect.succeed(toFindResult(
-        member === undefined ? directMessages : directMessages.filter((dm) => dm.members.includes(member))
-      ))
+      return Effect.succeed(
+        toFindResult(member === undefined ? directMessages : directMessages.filter((dm) => dm.members.includes(member)))
+      )
     }
     if (_class === contact.mixin.Employee) {
       const q = query as { name?: string; personUuid?: { $in?: Array<HulyAccountUuid> } }
       let result = [...employees]
       if (q.name !== undefined) result = result.filter((employee) => employee.name === q.name)
       if (q.personUuid?.$in !== undefined && data.ignoreEmployeePersonUuidFilter !== true) {
-        result = result.filter((employee) =>
-          employee.personUuid !== undefined && q.personUuid?.$in?.includes(employee.personUuid) === true
+        result = result.filter(
+          (employee) => employee.personUuid !== undefined && q.personUuid?.$in?.includes(employee.personUuid) === true
         )
       }
       return Effect.succeed(toFindResult(result))
@@ -184,8 +179,9 @@ const createLayer = (data: TestData) => {
     if (_class === chunter.class.Channel) {
       const q = query as { _id?: Ref<HulyChannel>; name?: string }
       return Effect.succeed(
-        channels.find((channel) =>
-          (q._id !== undefined && channel._id === q._id) || (q.name !== undefined && channel.name === q.name)
+        channels.find(
+          (channel) =>
+            (q._id !== undefined && channel._id === q._id) || (q.name !== undefined && channel.name === q.name)
         )
       )
     }
@@ -196,17 +192,20 @@ const createLayer = (data: TestData) => {
     if (_class === contact.class.Person) {
       const q = query as { _id?: Ref<Person>; name?: string }
       return Effect.succeed(
-        persons.find((person) =>
-          (q._id !== undefined && person._id === q._id) || (q.name !== undefined && person.name === q.name)
+        persons.find(
+          (person) => (q._id !== undefined && person._id === q._id) || (q.name !== undefined && person.name === q.name)
         )
       )
     }
     if (_class === contact.mixin.Employee) {
       const q = query as { _id?: Ref<HulyEmployee>; personUuid?: HulyAccountUuid }
-      return Effect.succeed(employees.find((employee) =>
-        (q._id !== undefined && employee._id === q._id)
-        || (q.personUuid !== undefined && employee.personUuid === q.personUuid)
-      ))
+      return Effect.succeed(
+        employees.find(
+          (employee) =>
+            (q._id !== undefined && employee._id === q._id) ||
+            (q.personUuid !== undefined && employee.personUuid === q.personUuid)
+        )
+      )
     }
     if (_class === contact.class.PersonSpace) {
       const q = query as { person?: Ref<Person> }
@@ -215,8 +214,9 @@ const createLayer = (data: TestData) => {
     if (_class === notification.class.DocNotifyContext) {
       const q = query as { user?: HulyAccountUuid; objectId?: Ref<Doc>; objectClass?: Ref<Class<Doc>> }
       return Effect.succeed(
-        contexts.find((context) =>
-          context.user === q.user && context.objectId === q.objectId && context.objectClass === q.objectClass
+        contexts.find(
+          (context) =>
+            context.user === q.user && context.objectId === q.objectId && context.objectClass === q.objectClass
         )
       )
     }
@@ -240,30 +240,34 @@ const createLayer = (data: TestData) => {
     return Effect.succeed({})
   }) as HulyClientOperations["updateDoc"]
 
-  const createDoc: HulyClientOperations["createDoc"] =
-    ((_class: unknown, space: unknown, attributes: unknown, id?: unknown) => {
-      if (_class === chunter.class.DirectMessage) {
-        directMessages.push({
-          ...(attributes as Data<HulyDirectMessage>),
-          _id: id as Ref<HulyDirectMessage>,
-          _class: chunter.class.DirectMessage,
-          space: space as Ref<Space>,
-          modifiedBy: "social-1" as PersonId,
-          modifiedOn: 0
-        } as HulyDirectMessage)
-      }
-      if (_class === notification.class.DocNotifyContext) {
-        contexts.push({
-          ...(attributes as Data<HulyDocNotifyContext>),
-          _id: id as Ref<HulyDocNotifyContext>,
-          _class: notification.class.DocNotifyContext,
-          space: space as Ref<PersonSpace>,
-          modifiedBy: "social-1" as PersonId,
-          modifiedOn: 0
-        } as HulyDocNotifyContext)
-      }
-      return Effect.succeed(id as Ref<Doc>)
-    }) as HulyClientOperations["createDoc"]
+  const createDoc: HulyClientOperations["createDoc"] = ((
+    _class: unknown,
+    space: unknown,
+    attributes: unknown,
+    id?: unknown
+  ) => {
+    if (_class === chunter.class.DirectMessage) {
+      directMessages.push({
+        ...(attributes as Data<HulyDirectMessage>),
+        _id: id as Ref<HulyDirectMessage>,
+        _class: chunter.class.DirectMessage,
+        space: space as Ref<Space>,
+        modifiedBy: "social-1" as PersonId,
+        modifiedOn: 0
+      } as HulyDirectMessage)
+    }
+    if (_class === notification.class.DocNotifyContext) {
+      contexts.push({
+        ...(attributes as Data<HulyDocNotifyContext>),
+        _id: id as Ref<HulyDocNotifyContext>,
+        _class: notification.class.DocNotifyContext,
+        space: space as Ref<PersonSpace>,
+        modifiedBy: "social-1" as PersonId,
+        modifiedOn: 0
+      } as HulyDocNotifyContext)
+    }
+    return Effect.succeed(id as Ref<Doc>)
+  }) as HulyClientOperations["createDoc"]
 
   return HulyClient.testLayer({ findAll, findOne, updateDoc, createDoc })
 }
@@ -282,7 +286,7 @@ const defaultEmployees = [
 
 describe("channel member operations", () => {
   it.effect("lists members with account UUIDs and names when available", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ members: [me, accountA] })
       const result = yield* listChannelMembers({ channel: channelIdentifier("general") }).pipe(
         Effect.provide(createLayer({ channels: [channel], employees: defaultEmployees }))
@@ -293,38 +297,43 @@ describe("channel member operations", () => {
         { accountUuid: me, name: "Self,User" },
         { accountUuid: accountA, name: "A,Person" }
       ])
-    }))
+    })
+  )
 
   it.effect("lists an empty channel member set", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ members: [] })
       const result = yield* listChannelMembers({ channel: channelIdentifier("general") }).pipe(
         Effect.provide(createLayer({ channels: [channel] }))
       )
 
       expect(result.members).toEqual([])
-    }))
+    })
+  )
 
   it.effect("omits names for employee rows without account UUIDs", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const employeeWithoutUuid = asEmployee({
         ...makePerson("person-without-uuid", "NoUuid,Person"),
         _class: contact.mixin.Employee,
         active: true
       })
       const result = yield* listChannelMembers({ channel: channelIdentifier("general") }).pipe(
-        Effect.provide(createLayer({
-          channels: [makeChannel({ members: [me] })],
-          employees: [employeeWithoutUuid],
-          ignoreEmployeePersonUuidFilter: true
-        }))
+        Effect.provide(
+          createLayer({
+            channels: [makeChannel({ members: [me] })],
+            employees: [employeeWithoutUuid],
+            ignoreEmployeePersonUuidFilter: true
+          })
+        )
       )
 
       expect(result.members).toEqual([{ accountUuid: me, name: undefined }])
-    }))
+    })
+  )
 
   it.effect("adds and removes members idempotently using full sorted replacement", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ members: [me], owners: [me] })
       const layer = createLayer({ channels: [channel], persons: defaultPeople, employees: defaultEmployees })
 
@@ -346,10 +355,11 @@ describe("channel member operations", () => {
       expect(addedAgain.changed).toBe(false)
       expect(removed.changed).toBe(true)
       expect(removed.members).toEqual([me])
-    }))
+    })
+  )
 
   it.effect("adds members by account UUID without person resolution", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ members: [me], owners: [me] })
       const result = yield* addChannelMembers({
         channel: channelIdentifier("general"),
@@ -358,10 +368,11 @@ describe("channel member operations", () => {
 
       expect(result.changed).toBe(true)
       expect(result.members).toEqual([me, accountA].sort())
-    }))
+    })
+  )
 
   it.effect("join and leave are idempotent and use the authenticated account", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ members: [accountA], owners: [accountA] })
       const layer = createLayer({ channels: [channel] })
 
@@ -373,27 +384,25 @@ describe("channel member operations", () => {
       expect(joinedAgain.changed).toBe(false)
       expect(left.changed).toBe(true)
       expect(left.members).toEqual([accountA])
-    }))
+    })
+  )
 
   it.effect("allows removal when a channel has no owners list", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ members: [me, accountA] })
       delete (channel as { owners?: ReadonlyArray<HulyAccountUuid> }).owners
       const removed = yield* removeChannelMembers({
         channel: channelIdentifier("general"),
         members: [personName("A,Person")]
-      }).pipe(Effect.provide(createLayer({
-        channels: [channel],
-        persons: defaultPeople,
-        employees: defaultEmployees
-      })))
+      }).pipe(Effect.provide(createLayer({ channels: [channel], persons: defaultPeople, employees: defaultEmployees })))
 
       expect(removed.changed).toBe(true)
       expect(removed.members).toEqual([me])
-    }))
+    })
+  )
 
   it.effect("rejects archived channel mutation, last member removal, and last owner removal", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const archived = makeChannel({ archived: true, members: [me], owners: [me] })
       const lastMember = makeChannel({ _id: "last-member" as Ref<HulyChannel>, members: [me], owners: [me] })
       const lastOwner = makeChannel({ _id: "last-owner" as Ref<HulyChannel>, members: [me, accountA], owners: [me] })
@@ -426,10 +435,11 @@ describe("channel member operations", () => {
       if (Exit.isFailure(lastOwnerExit)) {
         expect(lastOwnerExit.cause.toString()).toContain("ChannelLastOwnerRemovalError")
       }
-    }))
+    })
+  )
 
   it.effect("archives and unarchives idempotently", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel()
       const layer = createLayer({ channels: [channel] })
 
@@ -440,71 +450,70 @@ describe("channel member operations", () => {
       expect(archived).toMatchObject({ archived: true, changed: true })
       expect(archivedAgain).toMatchObject({ archived: true, changed: false })
       expect(unarchived).toMatchObject({ archived: false, changed: true })
-    }))
+    })
+  )
 })
 
 describe("group direct-message creation", () => {
   it.effect("exact-matches existing group DMs regardless of input order and duplicates", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const dm = makeDirectMessage({ members: [accountB, me, accountA] })
       const result = yield* createGroupDirectMessage({
         people: [personName("B,Person"), personName("A,Person"), personName("A,Person")]
-      }).pipe(Effect.provide(createLayer({
-        directMessages: [dm],
-        persons: defaultPeople,
-        employees: defaultEmployees
-      })))
+      }).pipe(
+        Effect.provide(createLayer({ directMessages: [dm], persons: defaultPeople, employees: defaultEmployees }))
+      )
 
       expect(result.created).toBe(false)
       expect(result.id).toBe("dm-1")
       expect(result.members).toEqual([accountA, accountB, me].sort())
-    }))
+    })
+  )
 
   it.effect("creates a group DM when no exact match exists", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const directMessages: Array<HulyDirectMessage> = []
-      const result = yield* createGroupDirectMessage({
-        people: [personName("A,Person"), personName("B,Person")]
-      }).pipe(Effect.provide(createLayer({
-        directMessages,
-        persons: defaultPeople,
-        employees: defaultEmployees
-      })))
+      const result = yield* createGroupDirectMessage({ people: [personName("A,Person"), personName("B,Person")] }).pipe(
+        Effect.provide(createLayer({ directMessages, persons: defaultPeople, employees: defaultEmployees }))
+      )
 
       expect(result.created).toBe(true)
       expect(directMessages).toHaveLength(1)
       expect(assertAt(directMessages, 0).members).toEqual([accountA, accountB, me].sort())
-    }))
+    })
+  )
 
   it.effect("rejects self-only group DM participant sets after de-dupe", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const exit = yield* Effect.exit(
-        createGroupDirectMessage({
-          people: [personName("Self,User"), personName("Self,User")]
-        }).pipe(Effect.provide(createLayer({ persons: defaultPeople, employees: defaultEmployees })))
+        createGroupDirectMessage({ people: [personName("Self,User"), personName("Self,User")] }).pipe(
+          Effect.provide(createLayer({ persons: defaultPeople, employees: defaultEmployees }))
+        )
       )
 
       expect(Exit.isFailure(exit)).toBe(true)
       if (Exit.isFailure(exit)) {
         expect(exit.cause.toString()).toContain("DirectMessageParticipantCountError")
       }
-    }))
+    })
+  )
 })
 
 describe("conversation state", () => {
   it.effect("creates a missing channel context and stars it", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const contexts: Array<HulyDocNotifyContext> = []
       const channel = makeChannel()
-      const result = yield* setConversationStarred({
-        channel: channelIdentifier("general"),
-        starred: true
-      }).pipe(Effect.provide(createLayer({
-        channels: [channel],
-        employees: defaultEmployees,
-        personSpaces: [makePersonSpace("person-self" as Ref<Person>)],
-        contexts
-      })))
+      const result = yield* setConversationStarred({ channel: channelIdentifier("general"), starred: true }).pipe(
+        Effect.provide(
+          createLayer({
+            channels: [channel],
+            employees: defaultEmployees,
+            personSpaces: [makePersonSpace("person-self" as Ref<Person>)],
+            contexts
+          })
+        )
+      )
 
       expect(result.kind).toBe("channel")
       expect(result.objectId).toBe("channel-1")
@@ -512,61 +521,53 @@ describe("conversation state", () => {
       expect(result.closed).toBe(false)
       expect(result.changed).toBe(true)
       expect(assertAt(contexts, 0).isPinned).toBe(true)
-    }))
+    })
+  )
 
   it.effect("creates a missing channel context without an update when target state is false", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const contexts: Array<HulyDocNotifyContext> = []
-      const result = yield* setConversationClosed({
-        channel: channelIdentifier("general"),
-        closed: false
-      }).pipe(Effect.provide(createLayer({
-        channels: [makeChannel()],
-        employees: defaultEmployees,
-        personSpaces: [makePersonSpace("person-self" as Ref<Person>)],
-        contexts
-      })))
+      const result = yield* setConversationClosed({ channel: channelIdentifier("general"), closed: false }).pipe(
+        Effect.provide(
+          createLayer({
+            channels: [makeChannel()],
+            employees: defaultEmployees,
+            personSpaces: [makePersonSpace("person-self" as Ref<Person>)],
+            contexts
+          })
+        )
+      )
 
       expect(result.closed).toBe(false)
       expect(result.starred).toBe(false)
       expect(result.changed).toBe(true)
       expect(assertAt(contexts, 0).hidden).toBe(false)
-    }))
+    })
+  )
 
   it.effect("does not update an existing context already in the requested starred state", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const context = makeContext({ isPinned: true })
-      const result = yield* setConversationStarred({
-        channel: channelIdentifier("general"),
-        starred: true
-      }).pipe(Effect.provide(createLayer({
-        channels: [makeChannel()],
-        contexts: [context]
-      })))
+      const result = yield* setConversationStarred({ channel: channelIdentifier("general"), starred: true }).pipe(
+        Effect.provide(createLayer({ channels: [makeChannel()], contexts: [context] }))
+      )
 
       expect(result.starred).toBe(true)
       expect(result.changed).toBe(false)
-    }))
+    })
+  )
 
   it.effect("updates existing starred and closed contexts back to false", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const starredContext = makeContext({ isPinned: true })
-      const unstarred = yield* setConversationStarred({
-        channel: channelIdentifier("general"),
-        starred: false
-      }).pipe(Effect.provide(createLayer({
-        channels: [makeChannel()],
-        contexts: [starredContext]
-      })))
+      const unstarred = yield* setConversationStarred({ channel: channelIdentifier("general"), starred: false }).pipe(
+        Effect.provide(createLayer({ channels: [makeChannel()], contexts: [starredContext] }))
+      )
 
       const closedContext = makeContext({ hidden: true })
-      const reopened = yield* setConversationClosed({
-        channel: channelIdentifier("general"),
-        closed: false
-      }).pipe(Effect.provide(createLayer({
-        channels: [makeChannel()],
-        contexts: [closedContext]
-      })))
+      const reopened = yield* setConversationClosed({ channel: channelIdentifier("general"), closed: false }).pipe(
+        Effect.provide(createLayer({ channels: [makeChannel()], contexts: [closedContext] }))
+      )
 
       expect(unstarred.starred).toBe(false)
       expect(unstarred.changed).toBe(true)
@@ -574,10 +575,11 @@ describe("conversation state", () => {
       expect(reopened.closed).toBe(false)
       expect(reopened.changed).toBe(true)
       expect(closedContext.hidden).toBe(false)
-    }))
+    })
+  )
 
   it.effect("closes an existing DM context without changing DM members", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const dm = makeDirectMessage({ _id: "dm-1" as Ref<HulyDirectMessage>, members: [me, accountA] })
       const context = makeContext({
         objectId: "dm-1" as Ref<Doc>,
@@ -586,58 +588,54 @@ describe("conversation state", () => {
         hidden: false
       })
 
-      const result = yield* setConversationClosed({
-        dm: directMessageIdentifier("dm-1"),
-        closed: true
-      }).pipe(Effect.provide(createLayer({
-        directMessages: [dm],
-        contexts: [context]
-      })))
+      const result = yield* setConversationClosed({ dm: directMessageIdentifier("dm-1"), closed: true }).pipe(
+        Effect.provide(createLayer({ directMessages: [dm], contexts: [context] }))
+      )
 
       expect(result.kind).toBe("direct_message")
       expect(result.closed).toBe(true)
       expect(result.changed).toBe(true)
       expect(dm.members).toEqual([me, accountA])
       expect(context.hidden).toBe(true)
-    }))
+    })
+  )
 
   it.effect("fails when creating a missing context without a current employee", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const exit = yield* Effect.exit(
-        setConversationStarred({
-          channel: channelIdentifier("general"),
-          starred: true
-        }).pipe(Effect.provide(createLayer({
-          channels: [makeChannel()],
-          employees: [],
-          personSpaces: [makePersonSpace("person-self" as Ref<Person>)],
-          contexts: []
-        })))
+        setConversationStarred({ channel: channelIdentifier("general"), starred: true }).pipe(
+          Effect.provide(
+            createLayer({
+              channels: [makeChannel()],
+              employees: [],
+              personSpaces: [makePersonSpace("person-self" as Ref<Person>)],
+              contexts: []
+            })
+          )
+        )
       )
 
       expect(Exit.isFailure(exit)).toBe(true)
       if (Exit.isFailure(exit)) {
         expect(exit.cause.toString()).toContain("NotificationPersonSpaceNotFoundError")
       }
-    }))
+    })
+  )
 
   it.effect("fails when creating a missing context without a current person space", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const exit = yield* Effect.exit(
-        setConversationClosed({
-          channel: channelIdentifier("general"),
-          closed: true
-        }).pipe(Effect.provide(createLayer({
-          channels: [makeChannel()],
-          employees: defaultEmployees,
-          personSpaces: [],
-          contexts: []
-        })))
+        setConversationClosed({ channel: channelIdentifier("general"), closed: true }).pipe(
+          Effect.provide(
+            createLayer({ channels: [makeChannel()], employees: defaultEmployees, personSpaces: [], contexts: [] })
+          )
+        )
       )
 
       expect(Exit.isFailure(exit)).toBe(true)
       if (Exit.isFailure(exit)) {
         expect(exit.cause.toString()).toContain("NotificationPersonSpaceNotFoundError")
       }
-    }))
+    })
+  )
 })

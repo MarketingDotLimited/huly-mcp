@@ -19,49 +19,29 @@ import { toRef } from "./sdk-boundary.js"
 
 export type ListNotificationsError = HulyClientError
 
-export type GetNotificationError =
-  | HulyClientError
-  | NotificationNotFoundError
+export type GetNotificationError = HulyClientError | NotificationNotFoundError
 
-export type MarkNotificationReadError =
-  | HulyClientError
-  | NotificationNotFoundError
+export type MarkNotificationReadError = HulyClientError | NotificationNotFoundError
 
-export type MarkNotificationUnreadError =
-  | HulyClientError
-  | NotificationNotFoundError
+export type MarkNotificationUnreadError = HulyClientError | NotificationNotFoundError
 
-export type ArchiveNotificationError =
-  | HulyClientError
-  | NotificationNotFoundError
+export type ArchiveNotificationError = HulyClientError | NotificationNotFoundError
 
-export type UnarchiveNotificationError =
-  | HulyClientError
-  | NotificationNotFoundError
+export type UnarchiveNotificationError = HulyClientError | NotificationNotFoundError
 
-export type DeleteNotificationError =
-  | HulyClientError
-  | NotificationNotFoundError
+export type DeleteNotificationError = HulyClientError | NotificationNotFoundError
 
-export type GetNotificationContextError =
-  | HulyClientError
-  | NotificationContextNotFoundError
+export type GetNotificationContextError = HulyClientError | NotificationContextNotFoundError
 
 export type ListNotificationContextsError = HulyClientError
 
-export type PinNotificationContextError =
-  | HulyClientError
-  | NotificationContextNotFoundError
+export type PinNotificationContextError = HulyClientError | NotificationContextNotFoundError
 
-export type HideNotificationContextError =
-  | HulyClientError
-  | NotificationContextNotFoundError
+export type HideNotificationContextError = HulyClientError | NotificationContextNotFoundError
 
 export type ListNotificationSettingsError = HulyClientError
 
-export type UpdateNotificationProviderSettingError =
-  | HulyClientError
-  | NotificationProviderNotFoundError
+export type UpdateNotificationProviderSettingError = HulyClientError | NotificationProviderNotFoundError
 
 export type MarkAllNotificationsReadError = HulyClientError
 
@@ -84,7 +64,7 @@ export const findNotification = (
   NotificationNotFoundError | HulyClientError,
   HulyClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const notif = yield* findOneOrFail(
@@ -104,7 +84,7 @@ export const findNotificationContext = (
   NotificationContextNotFoundError | HulyClientError,
   HulyClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const ctx = yield* findOneOrFail(

@@ -179,10 +179,7 @@ const createLayer = (config?: {
   readonly updateDocCalls?: Array<UpdateDocCall>
 }) => {
   const processes = config?.processes ?? [makeProcess()]
-  const states = config?.states ?? [
-    makeState(),
-    makeState({ _id: approvedStateId, title: "Approved" })
-  ]
+  const states = config?.states ?? [makeState(), makeState({ _id: approvedStateId, title: "Approved" })]
   const transitions = config?.transitions ?? [makeInitialTransition(), makeTransition()]
   const executions = config?.executions ?? [makeExecution()]
   const cards = config?.cards ?? [makeCard()]
@@ -235,18 +232,7 @@ const createLayer = (config?: {
     id?: unknown
   ) => {
     config?.createDocCalls?.push(
-      id === undefined
-        ? {
-          class: _class,
-          space,
-          attributes
-        }
-        : {
-          class: _class,
-          space,
-          attributes,
-          id: String(id)
-        }
+      id === undefined ? { class: _class, space, attributes } : { class: _class, space, attributes, id: String(id) }
     )
     return Effect.succeed((id ?? "execution-new") as Ref<Doc>)
   }) as HulyClientOperations["createDoc"]
@@ -257,12 +243,7 @@ const createLayer = (config?: {
     objectId: unknown,
     operations: unknown
   ) => {
-    config?.updateDocCalls?.push({
-      class: _class,
-      space,
-      objectId: String(objectId),
-      operations
-    })
+    config?.updateDocCalls?.push({ class: _class, space, objectId: String(objectId), operations })
     return Effect.succeed({})
   }) as HulyClientOperations["updateDoc"]
 
@@ -276,59 +257,66 @@ const createLayer = (config?: {
 
 describe("process operations", () => {
   it.effect("lists processes with master tag names and workflow counts", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listProcesses({}).pipe(Effect.provide(createLayer()))
 
       expect(result).toEqual({
-        processes: [{
-          id: processId,
-          name: "Approval",
-          description: "Approval workflow",
-          masterTagId,
-          masterTagName: "Document",
-          autoStart: true,
-          automationOnly: false,
-          parallelExecutionForbidden: false,
-          stateCount: 2,
-          transitionCount: 2
-        }],
+        processes: [
+          {
+            id: processId,
+            name: "Approval",
+            description: "Approval workflow",
+            masterTagId,
+            masterTagName: "Document",
+            autoStart: true,
+            automationOnly: false,
+            parallelExecutionForbidden: false,
+            stateCount: 2,
+            transitionCount: 2
+          }
+        ],
         total: 1
       })
-    }))
+    })
+  )
 
   it.effect("filters processes by master tag display name", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listProcesses({ masterTag: ProcessMasterTagIdentifier.make("Proposal") }).pipe(
-        Effect.provide(createLayer({
-          processes: [
-            makeProcess(),
-            makeProcess({ _id: duplicateProcessId, name: "Proposal QA", masterTag: otherMasterTagId })
-          ]
-        }))
+        Effect.provide(
+          createLayer({
+            processes: [
+              makeProcess(),
+              makeProcess({ _id: duplicateProcessId, name: "Proposal QA", masterTag: otherMasterTagId })
+            ]
+          })
+        )
       )
 
       expect(result.processes.map((process) => process.id)).toEqual([duplicateProcessId])
-    }))
+    })
+  )
 
   it.effect("filters processes by raw master tag ID even when display lookup is unavailable", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const dynamicMasterTag = "card:masterTag:External" as Ref<MasterTag>
-      const result = yield* listProcesses({
-        masterTag: ProcessMasterTagIdentifier.make(dynamicMasterTag)
-      }).pipe(
-        Effect.provide(createLayer({
-          processes: [
-            makeProcess(),
-            makeProcess({ _id: duplicateProcessId, name: "External Flow", masterTag: dynamicMasterTag })
-          ]
-        }))
+      const result = yield* listProcesses({ masterTag: ProcessMasterTagIdentifier.make(dynamicMasterTag) }).pipe(
+        Effect.provide(
+          createLayer({
+            processes: [
+              makeProcess(),
+              makeProcess({ _id: duplicateProcessId, name: "External Flow", masterTag: dynamicMasterTag })
+            ]
+          })
+        )
       )
 
       expect(result.processes.map((process) => process.id)).toEqual([duplicateProcessId])
-    }))
+    })
+  )
 
   it.effect("fails unknown master tag display names", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.either(
         listProcesses({ masterTag: ProcessMasterTagIdentifier.make("Missing Card Type") }).pipe(
           Effect.provide(createLayer())
@@ -339,17 +327,19 @@ describe("process operations", () => {
       if (result._tag === "Left") {
         expect(result.left._tag).toBe("ProcessMasterTagNotFoundError")
       }
-    }))
+    })
+  )
 
   it.effect("uses returned item count when Huly does not include a process total", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listProcesses({}).pipe(Effect.provide(createLayer({ total: -1 })))
 
       expect(result.total).toBe(1)
-    }))
+    })
+  )
 
   it.effect("gets process details by name with states and transitions", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* getProcess({ process: ProcessIdentifier.make("approval") }).pipe(
         Effect.provide(createLayer())
       )
@@ -377,17 +367,19 @@ describe("process operations", () => {
           actionCount: 1
         }
       ])
-    }))
+    })
+  )
 
   it.effect("fails ambiguous process names with candidates", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.either(
-        getProcess({ process: ProcessIdentifier.make("Approval") }).pipe(Effect.provide(createLayer({
-          processes: [
-            makeProcess(),
-            makeProcess({ _id: duplicateProcessId, masterTag: otherMasterTagId })
-          ]
-        })))
+        getProcess({ process: ProcessIdentifier.make("Approval") }).pipe(
+          Effect.provide(
+            createLayer({
+              processes: [makeProcess(), makeProcess({ _id: duplicateProcessId, masterTag: otherMasterTagId })]
+            })
+          )
+        )
       )
 
       expect(result._tag).toBe("Left")
@@ -396,84 +388,90 @@ describe("process operations", () => {
         expect(result.left.message).toContain(String(processId))
         expect(result.left.message).toContain(String(duplicateProcessId))
       }
-    }))
+    })
+  )
 
   it.effect("lists executions enriched with process, card, and state details", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listExecutions({ status: "active" }).pipe(Effect.provide(createLayer()))
 
       expect(result).toEqual({
-        executions: [{
-          id: "execution-1",
-          processId,
-          processName: "Approval",
-          cardId,
-          cardTitle: "Contract",
-          currentStateId: approvedStateId,
-          currentStateTitle: "Approved",
-          status: "active",
-          errorCount: 0,
-          hasError: false,
-          hasParent: false,
-          modifiedOn: 100
-        }],
+        executions: [
+          {
+            id: "execution-1",
+            processId,
+            processName: "Approval",
+            cardId,
+            cardTitle: "Contract",
+            currentStateId: approvedStateId,
+            currentStateTitle: "Approved",
+            status: "active",
+            errorCount: 0,
+            hasError: false,
+            hasParent: false,
+            modifiedOn: 100
+          }
+        ],
         total: 1
       })
-    }))
+    })
+  )
 
   it.effect("includes execution error and parent details", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const parentExecutionId = "execution-parent" as Ref<HulyProcessExecution>
-      const result = yield* listExecutions({}).pipe(Effect.provide(createLayer({
-        executions: [
-          makeExecution({
-            error: [{ message: "failed" }],
-            parentId: parentExecutionId
-          })
-        ]
-      })))
+      const result = yield* listExecutions({}).pipe(
+        Effect.provide(
+          createLayer({ executions: [makeExecution({ error: [{ message: "failed" }], parentId: parentExecutionId })] })
+        )
+      )
 
       expect(assertAt(result.executions, 0).errorCount).toBe(1)
       expect(assertAt(result.executions, 0).hasError).toBe(true)
       expect(assertAt(result.executions, 0).hasParent).toBe(true)
       expect(assertAt(result.executions, 0).parentExecutionId).toBe(parentExecutionId)
-    }))
+    })
+  )
 
   it.effect("uses returned item count when Huly does not include an execution total", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listExecutions({}).pipe(Effect.provide(createLayer({ total: -1 })))
 
       expect(result.total).toBe(1)
-    }))
+    })
+  )
 
   it.effect("filters executions by card ID before considering matching titles", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const titleCollisionId = "card-title-collision" as Ref<Card>
-      const result = yield* listExecutions({
-        card: ProcessCardIdentifier.make(titleCollisionId)
-      }).pipe(Effect.provide(createLayer({
-        cards: [
-          makeCard({ _id: titleCollisionId, title: "Actual ID Target" }),
-          makeCard({ _id: "card-other" as Ref<Card>, title: titleCollisionId })
-        ],
-        executions: [
-          makeExecution({ _id: "execution-id-target" as Ref<HulyProcessExecution>, card: titleCollisionId }),
-          makeExecution({ _id: "execution-title-target" as Ref<HulyProcessExecution>, card: "card-other" as Ref<Card> })
-        ]
-      })))
+      const result = yield* listExecutions({ card: ProcessCardIdentifier.make(titleCollisionId) }).pipe(
+        Effect.provide(
+          createLayer({
+            cards: [
+              makeCard({ _id: titleCollisionId, title: "Actual ID Target" }),
+              makeCard({ _id: "card-other" as Ref<Card>, title: titleCollisionId })
+            ],
+            executions: [
+              makeExecution({ _id: "execution-id-target" as Ref<HulyProcessExecution>, card: titleCollisionId }),
+              makeExecution({
+                _id: "execution-title-target" as Ref<HulyProcessExecution>,
+                card: "card-other" as Ref<Card>
+              })
+            ]
+          })
+        )
+      )
 
       expect(result.executions.map((execution) => execution.id)).toEqual(["execution-id-target"])
-    }))
+    })
+  )
 
   it.effect("fails ambiguous card title execution filters with candidate IDs", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.either(
-        listExecutions({ card: ProcessCardIdentifier.make("Contract") }).pipe(Effect.provide(createLayer({
-          cards: [
-            makeCard(),
-            makeCard({ _id: "card-2" as Ref<Card> })
-          ]
-        })))
+        listExecutions({ card: ProcessCardIdentifier.make("Contract") }).pipe(
+          Effect.provide(createLayer({ cards: [makeCard(), makeCard({ _id: "card-2" as Ref<Card> })] }))
+        )
       )
 
       expect(result._tag).toBe("Left")
@@ -482,10 +480,11 @@ describe("process operations", () => {
         expect(result.left.message).toContain("card-1")
         expect(result.left.message).toContain("card-2")
       }
-    }))
+    })
+  )
 
   it.effect("fails unknown card title execution filters", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.either(
         listExecutions({ card: ProcessCardIdentifier.make("Missing Contract") }).pipe(Effect.provide(createLayer()))
       )
@@ -494,10 +493,11 @@ describe("process operations", () => {
       if (result._tag === "Left") {
         expect(result.left._tag).toBe("ProcessCardNotFoundError")
       }
-    }))
+    })
+  )
 
   it.effect("starts a process by process ID and card ID", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const createDocCalls: Array<CreateDocCall> = []
       const result = yield* startProcess({
         process: ProcessIdentifier.make(processId),
@@ -525,10 +525,11 @@ describe("process operations", () => {
         context: {},
         status: "active"
       })
-    }))
+    })
+  )
 
   it.effect("starts a process by process name and card title", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* startProcess({
         process: ProcessIdentifier.make("approval"),
         card: ProcessCardIdentifier.make("Contract")
@@ -537,65 +538,70 @@ describe("process operations", () => {
       expect(result.processId).toBe(processId)
       expect(result.cardId).toBe(cardId)
       expect(result.currentStateId).toBe(initStateId)
-    }))
+    })
+  )
 
   it.effect("uses the lowest-rank null transition as the initial process state", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const earliestStateId = "state-earliest" as Ref<HulyProcessState>
       const createDocCalls: Array<CreateDocCall> = []
       const result = yield* startProcess({
         process: ProcessIdentifier.make(processId),
         card: ProcessCardIdentifier.make(cardId)
-      }).pipe(Effect.provide(createLayer({
-        executions: [],
-        states: [
-          makeState({ _id: earliestStateId, title: "Earliest", rank: "0" }),
-          makeState()
-        ],
-        transitions: [
-          makeInitialTransition({ _id: "transition-late" as Ref<HulyProcessTransition>, to: initStateId, rank: "z" }),
-          makeInitialTransition({
-            _id: "transition-early" as Ref<HulyProcessTransition>,
-            to: earliestStateId,
-            rank: "a"
+      }).pipe(
+        Effect.provide(
+          createLayer({
+            executions: [],
+            states: [makeState({ _id: earliestStateId, title: "Earliest", rank: "0" }), makeState()],
+            transitions: [
+              makeInitialTransition({
+                _id: "transition-late" as Ref<HulyProcessTransition>,
+                to: initStateId,
+                rank: "z"
+              }),
+              makeInitialTransition({
+                _id: "transition-early" as Ref<HulyProcessTransition>,
+                to: earliestStateId,
+                rank: "a"
+              })
+            ],
+            createDocCalls
           })
-        ],
-        createDocCalls
-      })))
+        )
+      )
 
       expect(result.currentStateId).toBe(earliestStateId)
       expect(result.currentStateTitle).toBe("Earliest")
       expect(assertAt(createDocCalls, 0).attributes).toMatchObject({ currentState: earliestStateId })
-    }))
+    })
+  )
 
   it.effect("fails start_process when the process has no initial transition", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.either(
-        startProcess({
-          process: ProcessIdentifier.make(processId),
-          card: ProcessCardIdentifier.make(cardId)
-        }).pipe(Effect.provide(createLayer({
-          transitions: [makeTransition()],
-          executions: []
-        })))
+        startProcess({ process: ProcessIdentifier.make(processId), card: ProcessCardIdentifier.make(cardId) }).pipe(
+          Effect.provide(createLayer({ transitions: [makeTransition()], executions: [] }))
+        )
       )
 
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") {
         expect(result.left._tag).toBe("ProcessInitialStateNotFoundError")
       }
-    }))
+    })
+  )
 
   it.effect("fails start_process when parallel execution is forbidden and an active execution exists", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.either(
-        startProcess({
-          process: ProcessIdentifier.make(processId),
-          card: ProcessCardIdentifier.make(cardId)
-        }).pipe(Effect.provide(createLayer({
-          processes: [makeProcess({ parallelExecutionForbidden: true })],
-          executions: [makeExecution({ currentState: initStateId, status: "active" })]
-        })))
+        startProcess({ process: ProcessIdentifier.make(processId), card: ProcessCardIdentifier.make(cardId) }).pipe(
+          Effect.provide(
+            createLayer({
+              processes: [makeProcess({ parallelExecutionForbidden: true })],
+              executions: [makeExecution({ currentState: initStateId, status: "active" })]
+            })
+          )
+        )
       )
 
       expect(result._tag).toBe("Left")
@@ -603,31 +609,26 @@ describe("process operations", () => {
         expect(result.left._tag).toBe("ProcessParallelExecutionForbiddenError")
         expect(result.left.message).toContain("execution-1")
       }
-    }))
+    })
+  )
 
   it.effect("fails start_process for ambiguous card titles", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.either(
-        startProcess({
-          process: ProcessIdentifier.make(processId),
-          card: ProcessCardIdentifier.make("Contract")
-        }).pipe(Effect.provide(createLayer({
-          executions: [],
-          cards: [
-            makeCard(),
-            makeCard({ _id: "card-2" as Ref<Card> })
-          ]
-        })))
+        startProcess({ process: ProcessIdentifier.make(processId), card: ProcessCardIdentifier.make("Contract") }).pipe(
+          Effect.provide(createLayer({ executions: [], cards: [makeCard(), makeCard({ _id: "card-2" as Ref<Card> })] }))
+        )
       )
 
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") {
         expect(result.left._tag).toBe("ProcessCardIdentifierAmbiguousError")
       }
-    }))
+    })
+  )
 
   it.effect("fails start_process for missing card titles", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.either(
         startProcess({
           process: ProcessIdentifier.make(processId),
@@ -639,87 +640,80 @@ describe("process operations", () => {
       if (result._tag === "Left") {
         expect(result.left._tag).toBe("ProcessCardNotFoundError")
       }
-    }))
+    })
+  )
 
   it.effect("cancels an active execution", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const updateDocCalls: Array<UpdateDocCall> = []
-      const result = yield* cancelExecution({
-        execution: ProcessExecutionId.make("execution-1")
-      }).pipe(Effect.provide(createLayer({ updateDocCalls })))
+      const result = yield* cancelExecution({ execution: ProcessExecutionId.make("execution-1") }).pipe(
+        Effect.provide(createLayer({ updateDocCalls }))
+      )
 
-      expect(result).toEqual({
-        executionId: "execution-1",
-        status: "cancelled",
-        cancelled: true
-      })
+      expect(result).toEqual({ executionId: "execution-1", status: "cancelled", cancelled: true })
       const updatedExecution = assertAt(updateDocCalls, 0)
       expect(updatedExecution.class).toBe(processPlugin.class.Execution)
       expect(updatedExecution.objectId).toBe("execution-1")
       expect(updatedExecution.operations).toEqual({ status: "cancelled" })
-    }))
+    })
+  )
 
   it.effect("returns cancelled=false for already-cancelled executions without updating", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const updateDocCalls: Array<UpdateDocCall> = []
-      const result = yield* cancelExecution({
-        execution: ProcessExecutionId.make("execution-1")
-      }).pipe(Effect.provide(createLayer({
-        executions: [makeExecution({ status: "cancelled" })],
-        updateDocCalls
-      })))
+      const result = yield* cancelExecution({ execution: ProcessExecutionId.make("execution-1") }).pipe(
+        Effect.provide(createLayer({ executions: [makeExecution({ status: "cancelled" })], updateDocCalls }))
+      )
 
-      expect(result).toEqual({
-        executionId: "execution-1",
-        status: "cancelled",
-        cancelled: false
-      })
+      expect(result).toEqual({ executionId: "execution-1", status: "cancelled", cancelled: false })
       expect(updateDocCalls).toEqual([])
-    }))
+    })
+  )
 
   it.effect("fails cancel_execution for missing executions", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.either(
-        cancelExecution({
-          execution: ProcessExecutionId.make("execution-missing")
-        }).pipe(Effect.provide(createLayer({ executions: [] })))
+        cancelExecution({ execution: ProcessExecutionId.make("execution-missing") }).pipe(
+          Effect.provide(createLayer({ executions: [] }))
+        )
       )
 
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") {
         expect(result.left._tag).toBe("ProcessExecutionNotFoundError")
       }
-    }))
+    })
+  )
 
   it.effect("fails cancel_execution for completed executions", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.either(
-        cancelExecution({
-          execution: ProcessExecutionId.make("execution-1")
-        }).pipe(Effect.provide(createLayer({
-          executions: [makeExecution({ status: "done" })]
-        })))
+        cancelExecution({ execution: ProcessExecutionId.make("execution-1") }).pipe(
+          Effect.provide(createLayer({ executions: [makeExecution({ status: "done" })] }))
+        )
       )
 
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") {
         expect(result.left._tag).toBe("ProcessExecutionNotCancellableError")
       }
-    }))
+    })
+  )
 })
 
 describe("process operations branch coverage", () => {
   it.effect("reports a connection error when a process fails output schema validation", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.either(
         listProcesses({}).pipe(Effect.provide(createLayer({ processes: [makeProcess({ name: "" })] })))
       )
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") expect(result.left._tag).toBe("HulyConnectionError")
-    }))
+    })
+  )
 
   it.effect("defaults optional process flags and omits an empty description", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const bare = asProcess({
         ...makeProcess(),
         description: undefined,
@@ -733,33 +727,41 @@ describe("process operations branch coverage", () => {
       expect(summary.automationOnly).toBe(false)
       expect(summary.parallelExecutionForbidden).toBe(false)
       expect(summary.description).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("falls back to the master tag id when its label is empty", () =>
-    Effect.gen(function*() {
-      const result = yield* listProcesses({}).pipe(Effect.provide(createLayer({
-        processes: [makeProcess({ masterTag: masterTagId })],
-        masterTags: [makeMasterTag({ label: asIntlString("") })]
-      })))
+    Effect.gen(function* () {
+      const result = yield* listProcesses({}).pipe(
+        Effect.provide(
+          createLayer({
+            processes: [makeProcess({ masterTag: masterTagId })],
+            masterTags: [makeMasterTag({ label: asIntlString("") })]
+          })
+        )
+      )
       expect(result.processes[0]?.masterTagName).toBe(String(masterTagId))
-    }))
+    })
+  )
 
   it.effect("lists no processes when none exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listProcesses({}).pipe(Effect.provide(createLayer({ processes: [] })))
       expect(result).toEqual({ processes: [], total: 0 })
-    }))
+    })
+  )
 
   it.effect("omits the initial state when no null-origin transition exists", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* getProcess({ process: ProcessIdentifier.make(processId) }).pipe(
         Effect.provide(createLayer({ transitions: [makeTransition()] }))
       )
       expect(result.initialStateId).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("fails get_process when the identifier matches no process", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.either(
         getProcess({ process: ProcessIdentifier.make("Nonexistent") }).pipe(
           Effect.provide(createLayer({ processes: [makeProcess()] }))
@@ -767,63 +769,73 @@ describe("process operations branch coverage", () => {
       )
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") expect(result.left._tag).toBe("ProcessNotFoundError")
-    }))
+    })
+  )
 
   it.effect("resolves a master tag filter by exact id", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listProcesses({ masterTag: ProcessMasterTagIdentifier.make(masterTagId) }).pipe(
         Effect.provide(createLayer())
       )
       expect(result.processes.map((process) => process.id)).toEqual([processId])
-    }))
+    })
+  )
 
   it.effect("tolerates unlabeled tags while matching a master tag display name", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const thirdTagId = "card:class:Blank" as Ref<MasterTag>
       const result = yield* listProcesses({ masterTag: ProcessMasterTagIdentifier.make("Proposal") }).pipe(
-        Effect.provide(createLayer({
-          processes: [makeProcess({ _id: duplicateProcessId, name: "Proposal QA", masterTag: otherMasterTagId })],
-          masterTags: [
-            makeMasterTag(),
-            makeMasterTag({ _id: otherMasterTagId, label: asIntlString("Proposal") }),
-            makeMasterTag({ _id: thirdTagId, label: asIntlString("") })
-          ]
-        }))
+        Effect.provide(
+          createLayer({
+            processes: [makeProcess({ _id: duplicateProcessId, name: "Proposal QA", masterTag: otherMasterTagId })],
+            masterTags: [
+              makeMasterTag(),
+              makeMasterTag({ _id: otherMasterTagId, label: asIntlString("Proposal") }),
+              makeMasterTag({ _id: thirdTagId, label: asIntlString("") })
+            ]
+          })
+        )
       )
       expect(result.processes.map((process) => process.id)).toEqual([duplicateProcessId])
-    }))
+    })
+  )
 
   it.effect("fails an ambiguous master tag filter with candidate ids", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const dupTagId = "card:class:Dup" as Ref<MasterTag>
       const result = yield* Effect.either(
         listProcesses({ masterTag: ProcessMasterTagIdentifier.make("Document") }).pipe(
-          Effect.provide(createLayer({
-            masterTags: [makeMasterTag(), makeMasterTag({ _id: dupTagId, label: asIntlString("Document") })]
-          }))
+          Effect.provide(
+            createLayer({
+              masterTags: [makeMasterTag(), makeMasterTag({ _id: dupTagId, label: asIntlString("Document") })]
+            })
+          )
         )
       )
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") expect(result.left._tag).toBe("ProcessMasterTagAmbiguousError")
-    }))
+    })
+  )
 
   it.effect("lists no executions when none exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listExecutions({}).pipe(Effect.provide(createLayer({ executions: [] })))
       expect(result).toEqual({ executions: [], total: 0 })
-    }))
+    })
+  )
 
   it.effect("filters executions by a resolved process", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listExecutions({ process: ProcessIdentifier.make(processId) }).pipe(
         Effect.provide(createLayer())
       )
       expect(result.executions.every((execution) => String(execution.processId) === String(processId))).toBe(true)
       expect(result.executions.length).toBeGreaterThan(0)
-    }))
+    })
+  )
 
   it.effect("fails start_process when a synthesized card id resolves to no document", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.either(
         startProcess({
           process: ProcessIdentifier.make(processId),
@@ -832,36 +844,38 @@ describe("process operations branch coverage", () => {
       )
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") expect(result.left._tag).toBe("ProcessCardNotFoundError")
-    }))
+    })
+  )
 
   it.effect("fails start_process when the initial state document is missing", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.either(
-        startProcess({
-          process: ProcessIdentifier.make(processId),
-          card: ProcessCardIdentifier.make(cardId)
-        }).pipe(Effect.provide(createLayer({
-          executions: [],
-          states: [],
-          transitions: [makeInitialTransition()]
-        })))
+        startProcess({ process: ProcessIdentifier.make(processId), card: ProcessCardIdentifier.make(cardId) }).pipe(
+          Effect.provide(createLayer({ executions: [], states: [], transitions: [makeInitialTransition()] }))
+        )
       )
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") expect(result.left._tag).toBe("ProcessInitialStateNotFoundError")
-    }))
+    })
+  )
 
   it.effect("starts a parallel-forbidden process when no active execution exists", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const createDocCalls: Array<CreateDocCall> = []
       const result = yield* startProcess({
         process: ProcessIdentifier.make(processId),
         card: ProcessCardIdentifier.make(cardId)
-      }).pipe(Effect.provide(createLayer({
-        processes: [makeProcess({ parallelExecutionForbidden: true })],
-        executions: [],
-        createDocCalls
-      })))
+      }).pipe(
+        Effect.provide(
+          createLayer({
+            processes: [makeProcess({ parallelExecutionForbidden: true })],
+            executions: [],
+            createDocCalls
+          })
+        )
+      )
       expect(result.status).toBe("active")
       expect(createDocCalls).toHaveLength(1)
-    }))
+    })
+  )
 })

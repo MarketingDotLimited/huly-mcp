@@ -230,11 +230,12 @@ const INTERNAL_ERROR_PREFIX: Partial<Record<HulyDomainError["_tag"], string>> = 
 }
 
 const hulyUnavailableMessage = (error: HulyUnavailableError): string => {
-  const failureGuidance = error.failureKind === "timeout"
-    ? " The request timed out; verify HULY_CONNECTION_TIMEOUT before retrying."
-    : error.failureKind === "dns" || error.failureKind === "tls"
-    ? " Verify the hostname, certificate, DNS, and proxy configuration before retrying."
-    : ""
+  const failureGuidance =
+    error.failureKind === "timeout"
+      ? " The request timed out; verify HULY_CONNECTION_TIMEOUT before retrying."
+      : error.failureKind === "dns" || error.failureKind === "tls"
+        ? " Verify the hostname, certificate, DNS, and proxy configuration before retrying."
+        : ""
   if (isDefaultHulyCloudOrigin(error.endpointOrigin)) {
     return `Cannot reach hosted Huly (${error.endpointOrigin}) from this MCP server. Huly's README announces that hosted Huly is being discontinued, with shutdown expected ${HOSTED_HULY_SUNSET.expectedShutdown}; this outage may be related but is not confirmed. Export and back up your data, then migrate to a hosted alternative or self-hosted Huly. ${HOSTED_HULY_MIGRATION_LINKS} Check network/DNS/proxy access if you need one last connection; set HULY_URL to a reachable self-hosted instance after migration. Do not retry a write until connectivity is restored.${failureGuidance}`
   }
@@ -290,13 +291,10 @@ export const clientResolutionErrorMessage = (error: unknown): string =>
 
 export const formatParseError = (error: ParseResult.ParseError): string => {
   const issues = ParseResult.ArrayFormatter.formatErrorSync(error)
-  return issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ")
+  return issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")
 }
 
-export const mapParseErrorToMcp = (
-  error: ParseResult.ParseError,
-  toolName?: string
-): McpErrorResponseWithMeta => {
+export const mapParseErrorToMcp = (error: ParseResult.ParseError, toolName?: string): McpErrorResponseWithMeta => {
   const prefix = toolName ? `Invalid parameters for ${toolName}: ` : "Invalid parameters: "
   const message = formatParseError(error)
 

@@ -33,9 +33,6 @@ describe("update guard helpers", () => {
       coveredUpdateEntry("title", { title: "Covered" })
     ])
 
-    expect(result).toEqual({
-      title: "Covered",
-      $unset: { assignee: "", dueDate: "" }
-    })
+    expect(result).toEqual({ title: "Covered", $unset: { assignee: "", dueDate: "" } })
   })
 })

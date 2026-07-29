@@ -10,32 +10,24 @@ import { toRef } from "./sdk-boundary.js"
 
 import { chunter } from "../huly-plugins.js"
 
-export const findChannelMessage = (
-  params: {
-    channel: ChannelIdentifier
-    messageId: MessageId
-  }
-): Effect.Effect<
+export const findChannelMessage = (params: {
+  channel: ChannelIdentifier
+  messageId: MessageId
+}): Effect.Effect<
   { client: HulyClient["Type"]; channel: HulyChannel; message: ChatMessage },
   ChannelNotFoundError | MessageNotFoundError | HulyClientError,
   HulyClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { channel, client } = yield* findChannel(params.channel)
 
-    const message = yield* client.findOne<ChatMessage>(
-      chunter.class.ChatMessage,
-      {
-        _id: toRef<ChatMessage>(params.messageId),
-        space: channel._id
-      }
-    )
+    const message = yield* client.findOne<ChatMessage>(chunter.class.ChatMessage, {
+      _id: toRef<ChatMessage>(params.messageId),
+      space: channel._id
+    })
 
     if (message === undefined) {
-      return yield* new MessageNotFoundError({
-        messageId: params.messageId,
-        channel: params.channel
-      })
+      return yield* new MessageNotFoundError({ messageId: params.messageId, channel: params.channel })
     }
 
     return { client, channel, message }

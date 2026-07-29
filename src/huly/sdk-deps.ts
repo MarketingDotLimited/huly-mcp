@@ -6,9 +6,8 @@ import { htmlToJSON, jsonToHTML, jsonToMarkup, markupToJSON } from "./huly-text.
 
 const accountClient = require("@hcengineering/account-client") as typeof import("@hcengineering/account-client")
 const apiClient = require("@hcengineering/api-client") as typeof import("@hcengineering/api-client")
-const collaboratorClient = require(
-  "@hcengineering/collaborator-client"
-) as typeof import("@hcengineering/collaborator-client")
+const collaboratorClient =
+  require("@hcengineering/collaborator-client") as typeof import("@hcengineering/collaborator-client")
 
 /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports, no-restricted-syntax */
 
@@ -36,10 +35,7 @@ export interface HulySdkDependencies {
   readonly markupToMarkdown: typeof markupToMarkdown
 }
 
-export class HulySdk extends Context.Tag("@hulymcp/HulySdk")<
-  HulySdk,
-  HulySdkDependencies
->() {
+export class HulySdk extends Context.Tag("@hulymcp/HulySdk")<HulySdk, HulySdkDependencies>() {
   static readonly defaultLayer: Layer.Layer<HulySdk> = Layer.succeed(HulySdk, {
     createRestClient,
     createRestTxOperations,

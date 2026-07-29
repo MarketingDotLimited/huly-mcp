@@ -80,10 +80,7 @@ export type MessageTemplateCategorySummary = Schema.Schema.Type<typeof MessageTe
 export const MessageTemplateCategoryRefSchema = Schema.Struct({
   id: MessageTemplateCategoryId,
   name: NonEmptyString
-}).annotations({
-  title: "MessageTemplateCategoryRef",
-  description: "Resolved message template category reference."
-})
+}).annotations({ title: "MessageTemplateCategoryRef", description: "Resolved message template category reference." })
 export type MessageTemplateCategoryRef = Schema.Schema.Type<typeof MessageTemplateCategoryRefSchema>
 
 export const MessageTemplateSummarySchema = Schema.Struct({
@@ -118,10 +115,7 @@ export type MessageTemplate = Schema.Schema.Type<typeof MessageTemplateSchema>
 export const TemplateFieldCategoryRefSchema = Schema.Struct({
   id: TemplateFieldCategoryId,
   label: NonEmptyString
-}).annotations({
-  title: "TemplateFieldCategoryRef",
-  description: "Resolved Huly template field category reference."
-})
+}).annotations({ title: "TemplateFieldCategoryRef", description: "Resolved Huly template field category reference." })
 export type TemplateFieldCategoryRef = Schema.Schema.Type<typeof TemplateFieldCategoryRefSchema>
 
 export const MessageTemplateFieldSchema = Schema.Struct({
@@ -139,9 +133,7 @@ export const MessageTemplateRenderValueSchema = Schema.Struct({
   field: TemplateFieldId.annotations({
     description: "Template field ID to replace when the template contains a matching dollar-brace token."
   }),
-  value: Schema.String.annotations({
-    description: "Caller-provided replacement text for this template field ID."
-  })
+  value: Schema.String.annotations({ description: "Caller-provided replacement text for this template field ID." })
 }).annotations({
   title: "MessageTemplateRenderValue",
   description: "Caller-provided value used to render a Huly message template placeholder."
@@ -183,13 +175,11 @@ export const ListMessageTemplatesParamsSchema = Schema.Struct({
       description: "Optional category filter. Accepts a category ID or exact category name."
     })
   ),
-  search: Schema.optional(Schema.String.annotations({
-    description: "Optional case-insensitive substring search over template titles."
-  })),
+  search: Schema.optional(
+    Schema.String.annotations({ description: "Optional case-insensitive substring search over template titles." })
+  ),
   limit: Schema.optional(
-    LimitParam.annotations({
-      description: `Maximum number of templates to return (default: ${DEFAULT_LIMIT}).`
-    })
+    LimitParam.annotations({ description: `Maximum number of templates to return (default: ${DEFAULT_LIMIT}).` })
   )
 }).annotations({
   title: "ListMessageTemplatesParams",
@@ -240,13 +230,13 @@ export const ListMessageTemplateFieldsParamsSchema = Schema.Struct({
       description: "Optional template field category ID or exact raw label string."
     })
   ),
-  search: Schema.optional(Schema.String.annotations({
-    description: "Optional case-insensitive substring search over raw template field labels."
-  })),
-  limit: Schema.optional(
-    LimitParam.annotations({
-      description: `Maximum number of template fields to return (default: ${DEFAULT_LIMIT}).`
+  search: Schema.optional(
+    Schema.String.annotations({
+      description: "Optional case-insensitive substring search over raw template field labels."
     })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of template fields to return (default: ${DEFAULT_LIMIT}).` })
   )
 }).annotations({
   title: "ListMessageTemplateFieldsParams",
@@ -256,9 +246,7 @@ export type ListMessageTemplateFieldsParams = Schema.Schema.Type<typeof ListMess
 
 export const listMessageTemplateCategoriesParamsJsonSchema = withJsonSchemaPropertyDescriptions(
   JSONSchema.make(ListMessageTemplateCategoriesParamsSchema),
-  {
-    limit: `Maximum number of template categories to return (default: ${DEFAULT_LIMIT}).`
-  }
+  { limit: `Maximum number of template categories to return (default: ${DEFAULT_LIMIT}).` }
 )
 export const listMessageTemplatesParamsJsonSchema = withJsonSchemaPropertyDescriptions(
   JSONSchema.make(ListMessageTemplatesParamsSchema),
@@ -293,9 +281,7 @@ export const listMessageTemplateFieldsParamsJsonSchema = withJsonSchemaPropertyD
   }
 )
 
-export const parseListMessageTemplateCategoriesParams = Schema.decodeUnknown(
-  ListMessageTemplateCategoriesParamsSchema
-)
+export const parseListMessageTemplateCategoriesParams = Schema.decodeUnknown(ListMessageTemplateCategoriesParamsSchema)
 export const parseListMessageTemplatesParams = Schema.decodeUnknown(ListMessageTemplatesParamsSchema)
 export const parseGetMessageTemplateParams = Schema.decodeUnknown(GetMessageTemplateParamsSchema)
 export const parseRenderMessageTemplateParams = Schema.decodeUnknown(RenderMessageTemplateParamsSchema)

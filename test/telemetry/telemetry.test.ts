@@ -13,10 +13,7 @@ const debugMessages: Array<string> = []
 let sessionCounter = 0
 
 const makeDependencies = (): PostHogTelemetryDependencies => ({
-  createClient: () => ({
-    capture: mockCapture,
-    shutdown: mockShutdown
-  }),
+  createClient: () => ({ capture: mockCapture, shutdown: mockShutdown }),
   createSessionId: () => {
     sessionCounter++
     return `00000000-0000-4000-8000-${sessionCounter.toString().padStart(12, "0")}`
@@ -40,21 +37,10 @@ describe("Telemetry", () => {
     it("all methods are callable without throwing", () => {
       const noop = createNoopTelemetry()
       expect(() =>
-        noop.sessionStart({
-          transport: "stdio",
-          authMethod: "password",
-          toolCount: 10,
-          toolsets: null
-        })
+        noop.sessionStart({ transport: "stdio", authMethod: "password", toolCount: 10, toolsets: null })
       ).not.toThrow()
       expect(() => noop.firstListTools()).not.toThrow()
-      expect(() =>
-        noop.toolCalled({
-          toolName: "test",
-          status: "success",
-          durationMs: 100
-        })
-      ).not.toThrow()
+      expect(() => noop.toolCalled({ toolName: "test", status: "success", durationMs: 100 })).not.toThrow()
     })
 
     it("shutdown resolves", async () => {
@@ -66,12 +52,7 @@ describe("Telemetry", () => {
   describe("createPostHogTelemetry", () => {
     it("sessionStart captures with correct event and properties", () => {
       const telemetry = createTelemetry(false)
-      telemetry.sessionStart({
-        transport: "stdio",
-        authMethod: "token",
-        toolCount: 5,
-        toolsets: ["issues"]
-      })
+      telemetry.sessionStart({ transport: "stdio", authMethod: "token", toolCount: 5, toolsets: ["issues"] })
 
       expect(mockCapture.mock.calls).toHaveLength(1)
       const call = assertAt(mockCapture.mock.calls, 0)[0]
@@ -88,53 +69,28 @@ describe("Telemetry", () => {
 
     it("toolCalled captures with correct event and properties", () => {
       const telemetry = createTelemetry(false)
-      telemetry.toolCalled({
-        toolName: "list_issues",
-        status: "success",
-        durationMs: 42
-      })
+      telemetry.toolCalled({ toolName: "list_issues", status: "success", durationMs: 42 })
 
       expect(mockCapture.mock.calls).toHaveLength(1)
       const call = assertAt(mockCapture.mock.calls, 0)[0]
       expect(call.event).toBe("tool_called")
-      expect(call.properties).toMatchObject({
-        tool_name: "list_issues",
-        status: "success",
-        duration_ms: 42
-      })
+      expect(call.properties).toMatchObject({ tool_name: "list_issues", status: "success", duration_ms: 42 })
       expect(call.properties).not.toHaveProperty("error_tag")
     })
 
     it("toolCalled with error captures errorTag", () => {
       const telemetry = createTelemetry(false)
-      telemetry.toolCalled({
-        toolName: "get_issue",
-        status: "error",
-        errorTag: "HulyConnectionError",
-        durationMs: 150
-      })
+      telemetry.toolCalled({ toolName: "get_issue", status: "error", errorTag: "HulyConnectionError", durationMs: 150 })
 
       expect(mockCapture.mock.calls).toHaveLength(1)
       const call = assertAt(mockCapture.mock.calls, 0)[0]
-      expect(call.properties).toMatchObject({
-        status: "error",
-        error_tag: "HulyConnectionError"
-      })
+      expect(call.properties).toMatchObject({ status: "error", error_tag: "HulyConnectionError" })
     })
 
     it("sessionId is consistent across calls", () => {
       const telemetry = createTelemetry(false)
-      telemetry.sessionStart({
-        transport: "stdio",
-        authMethod: "password",
-        toolCount: 1,
-        toolsets: null
-      })
-      telemetry.toolCalled({
-        toolName: "x",
-        status: "success",
-        durationMs: 0
-      })
+      telemetry.sessionStart({ transport: "stdio", authMethod: "password", toolCount: 1, toolsets: null })
+      telemetry.toolCalled({ toolName: "x", status: "success", durationMs: 0 })
 
       expect(mockCapture.mock.calls).toHaveLength(2)
       const id1 = assertAt(mockCapture.mock.calls, 0)[0].distinctId
@@ -150,21 +106,14 @@ describe("Telemetry", () => {
       telemetry.firstListTools()
       telemetry.firstListTools()
 
-      const listToolsCalls = mockCapture.mock.calls.filter(
-        (c) => assertAt(c, 0).event === "first_list_tools"
-      )
+      const listToolsCalls = mockCapture.mock.calls.filter((c) => assertAt(c, 0).event === "first_list_tools")
       expect(listToolsCalls).toHaveLength(1)
     })
 
     it("debug mode logs to stderr", () => {
       const telemetry = createTelemetry(true)
 
-      telemetry.sessionStart({
-        transport: "http",
-        authMethod: "password",
-        toolCount: 3,
-        toolsets: null
-      })
+      telemetry.sessionStart({ transport: "http", authMethod: "password", toolCount: 3, toolsets: null })
 
       expect(debugMessages).toContainEqual(expect.stringContaining("[telemetry] session_start"))
     })
@@ -173,9 +122,7 @@ describe("Telemetry", () => {
       const telemetry = createTelemetry(false)
       await telemetry.shutdown()
 
-      const endCalls = mockCapture.mock.calls.filter(
-        (c) => assertAt(c, 0).event === "session_end"
-      )
+      const endCalls = mockCapture.mock.calls.filter((c) => assertAt(c, 0).event === "session_end")
       expect(endCalls).toHaveLength(1)
       expect(mockShutdown.mock.calls).toHaveLength(1)
       expect(mockShutdown.mock.calls).toContainEqual([2000])
@@ -192,43 +139,40 @@ describe("Telemetry", () => {
 
   describe("TelemetryService", () => {
     it.scoped("layer provides telemetry with default config (enabled)", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const telemetry = yield* TelemetryService
         expect(telemetry.sessionStart).toBeTypeOf("function")
         expect(telemetry.firstListTools).toBeTypeOf("function")
         expect(telemetry.toolCalled).toBeTypeOf("function")
         expect(telemetry.shutdown).toBeTypeOf("function")
-      }).pipe(Effect.provide(TelemetryService.layer)))
+      }).pipe(Effect.provide(TelemetryService.layer))
+    )
 
     it.scoped("testLayer provides noop by default", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const telemetry = yield* TelemetryService
-        telemetry.sessionStart({
-          transport: "stdio",
-          authMethod: "password",
-          toolCount: 1,
-          toolsets: null
-        })
-        telemetry.toolCalled({
-          toolName: "x",
-          status: "success",
-          durationMs: 0
-        })
+        telemetry.sessionStart({ transport: "stdio", authMethod: "password", toolCount: 1, toolsets: null })
+        telemetry.toolCalled({ toolName: "x", status: "success", durationMs: 0 })
         // noop should not have called the mock
         expect(mockCapture.mock.calls).toHaveLength(0)
-      }).pipe(Effect.provide(TelemetryService.testLayer())))
+      }).pipe(Effect.provide(TelemetryService.testLayer()))
+    )
 
     it.scoped("testLayer allows overriding operations", () => {
       let called = false
-      return Effect.gen(function*() {
+      return Effect.gen(function* () {
         const telemetry = yield* TelemetryService
         telemetry.firstListTools()
         expect(called).toBe(true)
-      }).pipe(Effect.provide(TelemetryService.testLayer({
-        firstListTools: () => {
-          called = true
-        }
-      })))
+      }).pipe(
+        Effect.provide(
+          TelemetryService.testLayer({
+            firstListTools: () => {
+              called = true
+            }
+          })
+        )
+      )
     })
   })
 
@@ -250,19 +194,10 @@ describe("Telemetry", () => {
 
     it.scoped("HULY_MCP_TELEMETRY=0 yields noop (no captures)", () => {
       process.env[envKey] = "0"
-      return Effect.gen(function*() {
+      return Effect.gen(function* () {
         const telemetry = yield* TelemetryService
-        telemetry.sessionStart({
-          transport: "stdio",
-          authMethod: "password",
-          toolCount: 0,
-          toolsets: null
-        })
-        telemetry.toolCalled({
-          toolName: "test",
-          status: "success",
-          durationMs: 10
-        })
+        telemetry.sessionStart({ transport: "stdio", authMethod: "password", toolCount: 0, toolsets: null })
+        telemetry.toolCalled({ toolName: "test", status: "success", durationMs: 10 })
         // noop implementation: PostHog capture should not be called
         expect(mockCapture.mock.calls).toHaveLength(0)
       }).pipe(Effect.provide(TelemetryService.layer))

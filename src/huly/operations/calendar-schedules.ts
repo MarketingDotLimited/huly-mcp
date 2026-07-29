@@ -133,15 +133,16 @@ const hulyAvailabilityToSchedule = (availability: HulyDecodedScheduleAvailabilit
 const parseHulyScheduleAvailability = (availability: unknown) =>
   decodeHulyScheduleAvailabilitySchema(availability).pipe(
     Effect.map(hulyAvailabilityToSchedule),
-    Effect.mapError((parseError) =>
-      new HulyConnectionError({
-        message: `Calendar schedule availability failed schema validation: ${parseError.message}`,
-        cause: parseError
-      })
+    Effect.mapError(
+      (parseError) =>
+        new HulyConnectionError({
+          message: `Calendar schedule availability failed schema validation: ${parseError.message}`,
+          cause: parseError
+        })
     )
   )
 
-const optionalTimestamp = (value: number | undefined) => value === undefined ? undefined : Timestamp.make(value)
+const optionalTimestamp = (value: number | undefined) => (value === undefined ? undefined : Timestamp.make(value))
 
 const optionalDescription = (value: string | undefined): string | undefined =>
   value === undefined || value.trim() === "" ? undefined : value
@@ -160,7 +161,7 @@ const lookupMeetingScheduleRooms = (
   client: HulyClient["Type"],
   schedules: ReadonlyArray<HulySchedule>
 ): Effect.Effect<ReadonlyMap<string, RoomReference>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const scheduleIds = schedules.map((schedule) => toRef<HulyMeetingSchedule>(schedule._id))
     if (scheduleIds.length === 0) return new Map()
     const meetingSchedules = yield* client.findAll<HulyMeetingSchedule>(
@@ -169,18 +170,14 @@ const lookupMeetingScheduleRooms = (
     )
     const roomIds = [...new Set(meetingSchedules.map((schedule) => schedule.room))]
     if (roomIds.length === 0) return new Map()
-    const rooms = yield* client.findAll<HulyRoom>(
-      love.class.Room,
-      hulyQuery<HulyRoom>({ _id: { $in: roomIds } })
-    )
+    const rooms = yield* client.findAll<HulyRoom>(love.class.Room, hulyQuery<HulyRoom>({ _id: { $in: roomIds } }))
     const roomsById = new Map(rooms.map((room) => [room._id, room]))
-    return new Map(meetingSchedules.map((schedule) => [
-      String(schedule._id),
-      {
-        roomId: RoomId.make(schedule.room),
-        name: optionalRoomName(roomsById.get(schedule.room)?.name)
-      }
-    ]))
+    return new Map(
+      meetingSchedules.map((schedule) => [
+        String(schedule._id),
+        { roomId: RoomId.make(schedule.room), name: optionalRoomName(roomsById.get(schedule.room)?.name) }
+      ])
+    )
   })
 
 const summarizeSchedule = (
@@ -211,10 +208,7 @@ const scheduleDetails = (
     createdOn: optionalTimestamp(schedule.createdOn)
   }))
 
-const buildOwner = (
-  client: HulyClient["Type"],
-  schedule: HulySchedule
-): Effect.Effect<Participant, HulyClientError> =>
+const buildOwner = (client: HulyClient["Type"], schedule: HulySchedule): Effect.Effect<Participant, HulyClientError> =>
   Effect.map(
     buildParticipants(client, [schedule.owner]),
     (owners) => owners[0] ?? { id: PersonId.make(schedule.owner) }
@@ -223,30 +217,26 @@ const buildOwner = (
 export const listSchedules = (
   params: ListSchedulesParams
 ): Effect.Effect<Array<ScheduleSummary>, ListSchedulesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const query: StrictDocumentQuery<HulySchedule> = {}
     if (params.owner !== undefined) {
       query.owner = yield* resolveTodoOwner(client, params.owner)
     }
-    const schedules = yield* client.findAll<HulySchedule>(
-      calendar.class.Schedule,
-      hulyQuery(query),
-      {
-        limit: clampLimit(params.limit),
-        sort: { modifiedOn: SortingOrder.Descending }
-      }
-    )
+    const schedules = yield* client.findAll<HulySchedule>(calendar.class.Schedule, hulyQuery(query), {
+      limit: clampLimit(params.limit),
+      sort: { modifiedOn: SortingOrder.Descending }
+    })
     const rooms = yield* lookupMeetingScheduleRooms(client, schedules)
-    return yield* Effect.all(schedules.map((schedule) =>
-      Effect.map(buildOwner(client, schedule), (owner) => summarizeSchedule(schedule, owner, rooms))
-    ))
+    return yield* Effect.all(
+      schedules.map((schedule) =>
+        Effect.map(buildOwner(client, schedule), (owner) => summarizeSchedule(schedule, owner, rooms))
+      )
+    )
   })
 
-export const getSchedule = (
-  params: GetScheduleParams
-): Effect.Effect<ScheduleDetails, GetScheduleError, HulyClient> =>
-  Effect.gen(function*() {
+export const getSchedule = (params: GetScheduleParams): Effect.Effect<ScheduleDetails, GetScheduleError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const schedule = yield* client.findOne<HulySchedule>(
       calendar.class.Schedule,
@@ -261,7 +251,7 @@ export const getSchedule = (
 export const createSchedule = (
   params: CreateScheduleParams
 ): Effect.Effect<CreateScheduleResult, CreateScheduleError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const owner = yield* resolveTodoOwner(client, params.owner)
     const calendarRef: Ref<HulyCalendar> | undefined =
@@ -280,18 +270,14 @@ export const createSchedule = (
     if (params.description !== undefined) data.description = params.description
     if (calendarRef !== undefined) data.calendar = calendarRef
 
-    const scheduleId = yield* client.createDoc(
-      calendar.class.Schedule,
-      toRef<Space>(calendar.space.Calendar),
-      data
-    )
+    const scheduleId = yield* client.createDoc(calendar.class.Schedule, toRef<Space>(calendar.space.Calendar), data)
     return { scheduleId: ScheduleId.make(scheduleId) }
   })
 
 export const updateSchedule = (
   params: UpdateScheduleParams
 ): Effect.Effect<UpdateScheduleResult, UpdateScheduleError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_schedule", params, UPDATE_SCHEDULE_FIELDS)
     const client = yield* HulyClient
     const schedule = yield* client.findOne<HulySchedule>(
@@ -300,11 +286,11 @@ export const updateSchedule = (
     )
     if (schedule === undefined) return yield* new ScheduleNotFoundError({ scheduleId: params.scheduleId })
 
-    type UpdateScheduleField = typeof UPDATE_SCHEDULE_FIELDS[number]
+    type UpdateScheduleField = (typeof UPDATE_SCHEDULE_FIELDS)[number]
     type UpdateScheduleEntry = Effect.Effect<DocumentUpdate<HulySchedule>, UpdateScheduleError>
     type UpdateScheduleEntries = Record<UpdateScheduleField, UpdateScheduleEntry>
     const entries = {
-      owner: Effect.gen(function*() {
+      owner: Effect.gen(function* () {
         if (params.owner === undefined) return {}
         return { owner: yield* resolveTodoOwner(client, params.owner) }
       }),
@@ -323,11 +309,11 @@ export const updateSchedule = (
         params.availability === undefined ? {} : { availability: availabilityToHuly(params.availability) }
       ),
       timeZone: Effect.succeed(params.timeZone === undefined ? {} : { timeZone: params.timeZone }),
-      calendarId: Effect.gen(function*() {
+      calendarId: Effect.gen(function* () {
         if (params.calendarId === undefined) return {}
         return { calendar: yield* resolveCalendarRef(client, params.calendarId) }
       }),
-      calendarName: Effect.gen(function*() {
+      calendarName: Effect.gen(function* () {
         if (params.calendarName === undefined) return {}
         return { calendar: yield* resolveCalendarRef(client, undefined, params.calendarName) }
       })
@@ -341,7 +327,7 @@ export const updateSchedule = (
 export const deleteSchedule = (
   params: DeleteScheduleParams
 ): Effect.Effect<DeleteScheduleResult, DeleteScheduleError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const schedule = yield* client.findOne<HulySchedule>(
       calendar.class.Schedule,

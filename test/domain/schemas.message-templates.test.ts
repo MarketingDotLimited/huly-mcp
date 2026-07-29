@@ -26,22 +26,11 @@ const schemaPropertyDescription = (schema: unknown, name: string): string | unde
 
 describe("message template schemas", () => {
   it.effect("accepts valid list/get params and locators", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const categories = yield* parseListMessageTemplateCategoriesParams({ limit: 10 })
-      const templates = yield* parseListMessageTemplatesParams({
-        category: "Sales",
-        search: "welcome",
-        limit: 5
-      })
-      const template = yield* parseGetMessageTemplateParams({
-        template: "Welcome",
-        category: "Sales"
-      })
-      const fields = yield* parseListMessageTemplateFieldsParams({
-        category: "Contact",
-        search: "owner",
-        limit: 5
-      })
+      const templates = yield* parseListMessageTemplatesParams({ category: "Sales", search: "welcome", limit: 5 })
+      const template = yield* parseGetMessageTemplateParams({ template: "Welcome", category: "Sales" })
+      const fields = yield* parseListMessageTemplateFieldsParams({ category: "Contact", search: "owner", limit: 5 })
       const rendered = yield* parseRenderMessageTemplateParams({
         template: "Welcome",
         category: "Sales",
@@ -53,23 +42,17 @@ describe("message template schemas", () => {
       expect(template.template).toBe("Welcome")
       expect(fields.search).toBe("owner")
       expect(rendered.values?.at(0)?.value).toBe("Ada")
-    }))
+    })
+  )
 
   it.effect("rejects empty template, category, and field-category locators", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const emptyTemplate = yield* Effect.either(parseGetMessageTemplateParams({ template: "  " }))
       const emptyRenderTemplate = yield* Effect.either(parseRenderMessageTemplateParams({ template: "  " }))
-      const emptyTemplateCategory = yield* Effect.either(
-        parseListMessageTemplatesParams({ category: "  " })
-      )
-      const emptyFieldCategory = yield* Effect.either(
-        parseListMessageTemplateFieldsParams({ category: "  " })
-      )
+      const emptyTemplateCategory = yield* Effect.either(parseListMessageTemplatesParams({ category: "  " }))
+      const emptyFieldCategory = yield* Effect.either(parseListMessageTemplateFieldsParams({ category: "  " }))
       const emptyRenderField = yield* Effect.either(
-        parseRenderMessageTemplateParams({
-          template: "Welcome",
-          values: [{ field: "  ", value: "Ada" }]
-        })
+        parseRenderMessageTemplateParams({ template: "Welcome", values: [{ field: "  ", value: "Ada" }] })
       )
 
       expect(Either.isLeft(emptyTemplate)).toBe(true)
@@ -77,7 +60,8 @@ describe("message template schemas", () => {
       expect(Either.isLeft(emptyTemplateCategory)).toBe(true)
       expect(Either.isLeft(emptyFieldCategory)).toBe(true)
       expect(Either.isLeft(emptyRenderField)).toBe(true)
-    }))
+    })
+  )
 
   it("emits LLM-useful JSON Schema descriptions for locator fields", () => {
     expect(schemaPropertyDescription(listMessageTemplatesParamsJsonSchema, "category")).toContain(

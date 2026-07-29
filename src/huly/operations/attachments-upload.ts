@@ -115,12 +115,8 @@ export const uploadAndAttach = (
     readonly kind?: AttachmentKind | undefined
   },
   parent: AttachmentParent
-): Effect.Effect<
-  AddAttachmentResult,
-  AddAttachmentError,
-  HulyClient | HulyStorageClient
-> =>
-  Effect.gen(function*() {
+): Effect.Effect<AddAttachmentResult, AddAttachmentError, HulyClient | HulyStorageClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const storageClient = yield* HulyStorageClient
 
@@ -128,11 +124,7 @@ export const uploadAndAttach = (
     yield* validateFileSize(buffer, params.filename)
     yield* validateContentType(params.contentType, params.filename)
 
-    const uploadResult = yield* storageClient.uploadFile(
-      params.filename,
-      buffer,
-      params.contentType
-    )
+    const uploadResult = yield* storageClient.uploadFile(params.filename, buffer, params.contentType)
 
     const attachmentId: Ref<HulyAttachment> = generateId()
     const now = yield* Clock.currentTimeMillis
@@ -175,7 +167,7 @@ export const addAttachment = (
 export const addIssueAttachment = (
   params: AddIssueAttachmentParams
 ): Effect.Effect<AddAttachmentResult, AddIssueAttachmentError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { issue, project } = yield* findProjectAndIssue(params)
 
     return yield* uploadAndAttach(params, {
@@ -188,7 +180,7 @@ export const addIssueAttachment = (
 export const addDocumentAttachment = (
   params: AddDocumentAttachmentParams
 ): Effect.Effect<AddAttachmentResult, AddDocumentAttachmentError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { doc, teamspace } = yield* findTeamspaceAndDocument({
       teamspace: params.teamspace,
       document: params.document

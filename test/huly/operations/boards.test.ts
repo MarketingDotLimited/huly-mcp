@@ -239,11 +239,13 @@ const createLayer = (fixture: BoardFixture = {}) => {
   const employees = [...(fixture.employees ?? [makeEmployee("emp-1", "Alice"), makeEmployee("emp-2", "Bob")])]
   const persons = [...(fixture.persons ?? employees)]
   const sequences = [
-    ...(fixture.sequences ?? [{
-      ...docBase("seq-board-card" as Ref<Sequence>, core.class.Sequence, core.space.Model),
-      attachedTo: board.class.Card,
-      sequence: 1
-    }])
+    ...(fixture.sequences ?? [
+      {
+        ...docBase("seq-board-card" as Ref<Sequence>, core.class.Sequence, core.space.Model),
+        attachedTo: board.class.Card,
+        sequence: 1
+      }
+    ])
   ]
   const hasSequenceUpdateResult = Object.prototype.hasOwnProperty.call(fixture, "sequenceUpdateResult")
   const captures: { readonly createdCards: Array<HulyBoardCard>; readonly updates: Array<unknown> } = {
@@ -253,23 +255,24 @@ const createLayer = (fixture: BoardFixture = {}) => {
 
   const findAll: HulyClientOperations["findAll"] = (_class, query, options) => {
     const classId = String(_class)
-    const source: Array<Doc> = classId === String(board.class.Board)
-      ? boards
-      : classId === String(board.class.Card)
-      ? cards
-      : classId === String(task.class.ProjectType)
-      ? projectTypes
-      : classId === String(task.class.TaskType)
-      ? taskTypes
-      : classId === String(core.class.Status)
-      ? statuses
-      : classId === String(core.class.Sequence)
-      ? sequences
-      : classId === String(contact.mixin.Employee)
-      ? employees
-      : classId === String(contact.class.Person)
-      ? persons
-      : []
+    const source: Array<Doc> =
+      classId === String(board.class.Board)
+        ? boards
+        : classId === String(board.class.Card)
+          ? cards
+          : classId === String(task.class.ProjectType)
+            ? projectTypes
+            : classId === String(task.class.TaskType)
+              ? taskTypes
+              : classId === String(core.class.Status)
+                ? statuses
+                : classId === String(core.class.Sequence)
+                  ? sequences
+                  : classId === String(contact.mixin.Employee)
+                    ? employees
+                    : classId === String(contact.class.Person)
+                      ? persons
+                      : []
     const matched = source.filter((doc) => matchesQuery(doc, query as DocumentQuery<Doc>))
     const limited = options?.limit === undefined ? matched : matched.slice(0, options.limit)
     return Effect.succeed(toFindResult(limited as Array<never>, matched.length))
@@ -312,12 +315,13 @@ const createLayer = (fixture: BoardFixture = {}) => {
         const sequence = sequences.find((s) => String(s._id) === String(objectId))
         if (sequence !== undefined) sequence.sequence += 1
         return Effect.succeed(
-          retrieve ? (hasSequenceUpdateResult ? fixture.sequenceUpdateResult ?? {} : { object: sequence }) : {}
+          retrieve ? (hasSequenceUpdateResult ? (fixture.sequenceUpdateResult ?? {}) : { object: sequence }) : {}
         )
       }
-      const target = classId === String(board.class.Board)
-        ? boards.find((item) => String(item._id) === String(objectId))
-        : cards.find((item) => String(item._id) === String(objectId))
+      const target =
+        classId === String(board.class.Board)
+          ? boards.find((item) => String(item._id) === String(objectId))
+          : cards.find((item) => String(item._id) === String(objectId))
       if (target !== undefined) Object.assign(target, operations)
       return Effect.succeed({})
     },
@@ -348,14 +352,14 @@ const provideDiagnostics = <A, E>(
   effect: Effect.Effect<A, E, HulyClient | Diagnostics>,
   layer: ReturnType<typeof HulyClient.testLayer>
 ) =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const scope = yield* makeDiagnosticsScope
     return yield* effect.pipe(Effect.provideService(Diagnostics, scope.service), Effect.provide(layer))
   })
 
 describe("board operations", () => {
   it.effect("lists, gets, creates, updates, archives, and unarchives boards", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const fixture = createLayer()
 
       expect(assertAt((yield* listBoards({}).pipe(Effect.provide(fixture.layer))).boards, 0).name).toBe("Roadmap")
@@ -364,8 +368,7 @@ describe("board operations", () => {
       expect((yield* createBoard({ name: bn("New Board") }).pipe(Effect.provide(fixture.layer))).created).toBe(true)
       expect(
         (yield* updateBoard({ board: b("Roadmap"), description: null }).pipe(Effect.provide(fixture.layer))).updated
-      )
-        .toBe(true)
+      ).toBe(true)
       expect((yield* archiveBoard({ board: b("Roadmap") }).pipe(Effect.provide(fixture.layer))).updated).toBe(true)
       expect(assertAt(fixture.state.boards, 0).archived).toBe(true)
       expect((yield* unarchiveBoard({ board: b("Roadmap") }).pipe(Effect.provide(fixture.layer))).updated).toBe(true)
@@ -383,34 +386,34 @@ describe("board operations", () => {
       expect(
         (yield* resolveBoardFromContext(b("Roadmap Next"), { includeArchived: false }).pipe(
           Effect.provide(fixture.layer)
-        ))
-          .board
-          ._id
+        )).board._id
       ).toBe(boardId)
-    }))
+    })
+  )
 
   it.effect("lists and gets cards by id, identifier, number, and exact title", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const fixture = createLayer()
 
       const listed = yield* provideDiagnostics(listBoardCards({ board: b("Roadmap") }), fixture.layer)
       expect(assertAt(listed.cards, 0).identifier).toBe("CARD-1")
-      expect((yield* provideDiagnostics(getBoardCard({ board: b("Roadmap"), card: c("card-1") }), fixture.layer)).id)
-        .toBe("card-1")
+      expect(
+        (yield* provideDiagnostics(getBoardCard({ board: b("Roadmap"), card: c("card-1") }), fixture.layer)).id
+      ).toBe("card-1")
       expect(
         (yield* provideDiagnostics(getBoardCard({ board: b("Roadmap"), card: c("CARD-1") }), fixture.layer)).number
-      )
-        .toBe(1)
-      expect((yield* provideDiagnostics(getBoardCard({ board: b("Roadmap"), card: c("1") }), fixture.layer)).number)
-        .toBe(1)
+      ).toBe(1)
+      expect(
+        (yield* provideDiagnostics(getBoardCard({ board: b("Roadmap"), card: c("1") }), fixture.layer)).number
+      ).toBe(1)
       expect(
         (yield* provideDiagnostics(getBoardCard({ board: b("Roadmap"), card: c("Planning") }), fixture.layer)).title
-      )
-        .toBe("Planning")
-    }))
+      ).toBe("Planning")
+    })
+  )
 
   it.effect("creates a card with default workflow, markup description, people, dates, location, and cover", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const fixture = createLayer({ cards: [] })
       const result = yield* provideDiagnostics(
         createBoardCard({
@@ -447,16 +450,13 @@ describe("board operations", () => {
       )
       expect(capturedMarkupReferenceNodes(assertAt(fixture.captures.createdCards, 1).description)[0]).toMatchObject({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "HULY-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
-    }))
+    })
+  )
 
   it.effect("updates card mutable fields and archives, unarchives, then deletes only after archive", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const fixture = createLayer()
       yield* provideDiagnostics(
         updateBoardCard({
@@ -492,13 +492,13 @@ describe("board operations", () => {
       yield* archiveBoardCard({ board: b("Roadmap"), card: c("CARD-1") }).pipe(Effect.provide(fixture.layer))
       expect(
         (yield* deleteBoardCard({ board: b("Roadmap"), card: c("CARD-1") }).pipe(Effect.provide(fixture.layer))).deleted
-      )
-        .toBe(true)
+      ).toBe(true)
       expect(fixture.state.cards).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("fails ambiguous board, card, task type, and status locators with domain errors", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const duplicateCard = makeCard({ _id: "card-2" as Ref<HulyBoardCard> })
       const duplicateStatus = makeStatus("status-todo-2" as Ref<Status>, "Todo")
       const duplicateTask = makeTaskType({ _id: "task-type-card-2" as Ref<TaskType> })
@@ -509,25 +509,27 @@ describe("board operations", () => {
         taskTypes: [makeTaskType(), duplicateTask]
       })
       const statusFixture = createLayer({
-        projectTypes: [makeProjectType({
-          statuses: [
-            { _id: todoStatusId, taskType: taskTypeId },
-            { _id: doneStatusId, taskType: taskTypeId },
-            { _id: duplicateStatus._id, taskType: taskTypeId }
-          ]
-        })],
+        projectTypes: [
+          makeProjectType({
+            statuses: [
+              { _id: todoStatusId, taskType: taskTypeId },
+              { _id: doneStatusId, taskType: taskTypeId },
+              { _id: duplicateStatus._id, taskType: taskTypeId }
+            ]
+          })
+        ],
         taskTypes: [makeTaskType({ statuses: [todoStatusId, doneStatusId, duplicateStatus._id] })],
         statuses: [makeStatus(todoStatusId, "Todo"), makeStatus(doneStatusId, "Done"), duplicateStatus]
       })
 
-      expect(yield* Effect.flip(getBoard({ board: b("Roadmap") }).pipe(Effect.provide(ambiguousFixture.layer))))
-        .toBeInstanceOf(BoardIdentifierAmbiguousError)
+      expect(
+        yield* Effect.flip(getBoard({ board: b("Roadmap") }).pipe(Effect.provide(ambiguousFixture.layer)))
+      ).toBeInstanceOf(BoardIdentifierAmbiguousError)
       expect(
         yield* Effect.flip(
           provideDiagnostics(getBoardCard({ board: b("board-1"), card: c("Planning") }), ambiguousFixture.layer)
         )
-      )
-        .toBeInstanceOf(BoardCardIdentifierAmbiguousError)
+      ).toBeInstanceOf(BoardCardIdentifierAmbiguousError)
       expect(
         yield* Effect.flip(
           provideDiagnostics(
@@ -535,8 +537,7 @@ describe("board operations", () => {
             ambiguousFixture.layer
           )
         )
-      )
-        .toBeInstanceOf(BoardTaskTypeIdentifierAmbiguousError)
+      ).toBeInstanceOf(BoardTaskTypeIdentifierAmbiguousError)
       expect(
         yield* Effect.flip(
           provideDiagnostics(
@@ -544,12 +545,12 @@ describe("board operations", () => {
             statusFixture.layer
           )
         )
-      )
-        .toBeInstanceOf(BoardStatusIdentifierAmbiguousError)
-    }))
+      ).toBeInstanceOf(BoardStatusIdentifierAmbiguousError)
+    })
+  )
 
   it.effect("filters archived records and projects card metadata with fallbacks", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const archivedCard = makeCard({
         _id: "card-2" as Ref<HulyBoardCard>,
         identifier: "CARD-2",
@@ -562,15 +563,16 @@ describe("board operations", () => {
         cards: [makeCard({ assignee: toRef<Person>("emp-1") }), archivedCard]
       })
       expect((yield* listBoards({}).pipe(Effect.provide(metadataFixture.layer))).boards).toHaveLength(1)
-      expect((yield* listBoards({ includeArchived: true }).pipe(Effect.provide(metadataFixture.layer))).boards)
-        .toHaveLength(2)
-      expect((yield* provideDiagnostics(listBoardCards({ board: b("Roadmap") }), metadataFixture.layer)).cards)
-        .toHaveLength(1)
+      expect(
+        (yield* listBoards({ includeArchived: true }).pipe(Effect.provide(metadataFixture.layer))).boards
+      ).toHaveLength(2)
+      expect(
+        (yield* provideDiagnostics(listBoardCards({ board: b("Roadmap") }), metadataFixture.layer)).cards
+      ).toHaveLength(1)
       expect(
         assertAt((yield* provideDiagnostics(listBoardCards({ board: b("Roadmap") }), metadataFixture.layer)).cards, 0)
           .assignee
-      )
-        .toBe("Alice")
+      ).toBe("Alice")
       expect(
         assertAt(
           (yield* provideDiagnostics(
@@ -582,15 +584,17 @@ describe("board operations", () => {
       ).toBe("CARD-2")
 
       const detailFixture = createLayer({
-        cards: [makeCard({
-          assignee: toRef<Person>("emp-1"),
-          cover: { color: 4, size: "small" },
-          createdOn: 1700000000000,
-          location: "Office",
-          members: [toRef<Employee>("emp-2"), toRef<Employee>("missing-employee")],
-          startDate: 1700000100000,
-          status: "status-fallback" as Ref<Status>
-        })],
+        cards: [
+          makeCard({
+            assignee: toRef<Person>("emp-1"),
+            cover: { color: 4, size: "small" },
+            createdOn: 1700000000000,
+            location: "Office",
+            members: [toRef<Employee>("emp-2"), toRef<Employee>("missing-employee")],
+            startDate: 1700000100000,
+            status: "status-fallback" as Ref<Status>
+          })
+        ],
         projectTypes: [makeProjectType({ statuses: [] })],
         taskTypes: [makeTaskType({ statuses: [] })]
       })
@@ -615,10 +619,11 @@ describe("board operations", () => {
       )
       expect(noMembersDetail.kind).toBe("missing-task-type")
       expect(noMembersDetail.members).toEqual([])
-    }))
+    })
+  )
 
   it.effect("creates boards with explicit project type locators and rejects invalid model locators", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const byIdFixture = createLayer({ boards: [] })
       expect(
         (yield* createBoard({ name: bn("By ID"), projectType: pt(String(projectTypeId)) }).pipe(
@@ -630,31 +635,33 @@ describe("board operations", () => {
       expect(
         (yield* createBoard({ name: bn("By Name"), projectType: pt("Board") }).pipe(
           Effect.provide(byNameFixture.layer)
-        ))
-          .created
+        )).created
       ).toBe(true)
 
       const emptyDescriptionFixture = createLayer({ boards: [makeBoard({ description: "" })] })
-      expect((yield* getBoard({ board: b("Roadmap") }).pipe(Effect.provide(emptyDescriptionFixture.layer))).description)
-        .toBeUndefined()
+      expect(
+        (yield* getBoard({ board: b("Roadmap") }).pipe(Effect.provide(emptyDescriptionFixture.layer))).description
+      ).toBeUndefined()
 
       const duplicateBoardFixture = createLayer({
         boards: [makeBoard(), makeBoard({ _id: "board-2" as Ref<HulyBoard> })]
       })
-      expect(yield* Effect.flip(createBoard({ name: bn("Roadmap") }).pipe(Effect.provide(duplicateBoardFixture.layer))))
-        .toBeInstanceOf(BoardIdentifierAmbiguousError)
+      expect(
+        yield* Effect.flip(createBoard({ name: bn("Roadmap") }).pipe(Effect.provide(duplicateBoardFixture.layer)))
+      ).toBeInstanceOf(BoardIdentifierAmbiguousError)
 
       const missingProjectFixture = createLayer({ projectTypes: [] })
-      expect(yield* Effect.flip(createBoard({ name: bn("No Type") }).pipe(Effect.provide(missingProjectFixture.layer))))
-        .toBeInstanceOf(BoardProjectTypeNotFoundError)
-      expect(yield* Effect.flip(getBoard({ board: b("board-1") }).pipe(Effect.provide(missingProjectFixture.layer))))
-        .toBeInstanceOf(BoardProjectTypeNotFoundError)
+      expect(
+        yield* Effect.flip(createBoard({ name: bn("No Type") }).pipe(Effect.provide(missingProjectFixture.layer)))
+      ).toBeInstanceOf(BoardProjectTypeNotFoundError)
+      expect(
+        yield* Effect.flip(getBoard({ board: b("board-1") }).pipe(Effect.provide(missingProjectFixture.layer)))
+      ).toBeInstanceOf(BoardProjectTypeNotFoundError)
 
       const nonBoardProjectFixture = createLayer({
-        projectTypes: [makeProjectType({
-          descriptor: toRef("tracker:projectType:Classic"),
-          targetClass: task.class.Project
-        })]
+        projectTypes: [
+          makeProjectType({ descriptor: toRef("tracker:projectType:Classic"), targetClass: task.class.Project })
+        ]
       })
       expect(
         yield* Effect.flip(
@@ -674,10 +681,11 @@ describe("board operations", () => {
           )
         )
       ).toBeInstanceOf(BoardProjectTypeIdentifierAmbiguousError)
-    }))
+    })
+  )
 
   it.effect("rejects missing board card model pieces and sequence failures", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const parentTaskFixture = createLayer({
         cards: [],
         projectTypes: [makeProjectType({ tasks: [], statuses: [{ _id: todoStatusId, taskType: taskTypeId }] })],
@@ -751,10 +759,11 @@ describe("board operations", () => {
           )
         )
       ).toBeInstanceOf(BoardModelSequenceMissingError)
-    }))
+    })
+  )
 
   it.effect("updates optional card fields by replacement, removal, direct employee id, and no member changes", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const fixture = createLayer({
         cards: [
           makeCard({ assignee: toRef<Person>("emp-2"), members: [toRef<Employee>("emp-1"), toRef<Employee>("emp-2")] })
@@ -797,11 +806,7 @@ describe("board operations", () => {
       )
       expect(capturedMarkupReferenceNodes(assertAt(fixture.state.cards, 0).description)[0]).toMatchObject({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "HULY-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
 
       yield* provideDiagnostics(
@@ -835,17 +840,16 @@ describe("board operations", () => {
           )
         )
       ).toBeInstanceOf(PersonNotAnEmployeeError)
-    }))
+    })
+  )
 
   it.effect("rejects ambiguous numeric card locators and unsupported archived-card deletion", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const numberFixture = createLayer({
         cards: [makeCard(), makeCard({ _id: "card-2" as Ref<HulyBoardCard>, title: "Other" })]
       })
       expect(
-        yield* Effect.flip(
-          provideDiagnostics(getBoardCard({ board: b("Roadmap"), card: c("1") }), numberFixture.layer)
-        )
+        yield* Effect.flip(provideDiagnostics(getBoardCard({ board: b("Roadmap"), card: c("1") }), numberFixture.layer))
       ).toBeInstanceOf(BoardCardIdentifierAmbiguousError)
       expect(
         yield* Effect.flip(
@@ -859,5 +863,6 @@ describe("board operations", () => {
           deleteBoardCard({ board: b("Roadmap"), card: c("CARD-1") }).pipe(Effect.provide(deleteFixture.layer))
         )
       ).toBeInstanceOf(BoardMutationUnsupportedError)
-    }))
+    })
+  )
 })

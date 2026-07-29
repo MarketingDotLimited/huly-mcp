@@ -7,17 +7,7 @@ import { createToolOutputSchema, hulyContextToolOutputSchema } from "../../src/m
 describe("createToolOutputSchema", () => {
   it("derives the warning code enum from ToolWarningCodeSchema", () => {
     expect(createToolOutputSchema(Schema.String)).toMatchObject({
-      properties: {
-        warnings: {
-          items: {
-            properties: {
-              code: {
-                enum: [...ToolWarningCodeSchema.literals]
-              }
-            }
-          }
-        }
-      }
+      properties: { warnings: { items: { properties: { code: { enum: [...ToolWarningCodeSchema.literals] } } } } }
     })
   })
 })
@@ -30,6 +20,6 @@ describe("hulyContextToolOutputSchema", () => {
     expect(resultSchema).toEqual(expect.objectContaining({ type: "object" }))
     expect(resultSchema).not.toHaveProperty("$defs")
     expect(resultSchema).not.toHaveProperty("$schema")
-    expect(JSON.stringify(resultSchema)).toContain("\"$ref\":\"#/$defs/NonEmptyTrimmedString\"")
+    expect(JSON.stringify(resultSchema)).toContain('"$ref":"#/$defs/NonEmptyTrimmedString"')
   })
 })

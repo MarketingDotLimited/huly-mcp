@@ -51,9 +51,9 @@ type CreateRecurringEventError =
   | PersonNotFoundError
 type ListEventInstancesError = HulyClientError | RecurringEventNotFoundError
 
-const optionalTimestamp = (value: number | undefined) => value === undefined ? undefined : Timestamp.make(value)
+const optionalTimestamp = (value: number | undefined) => (value === undefined ? undefined : Timestamp.make(value))
 
-const optionalTimeZoneId = (value: string | undefined) => value === undefined ? undefined : TimeZoneId.make(value)
+const optionalTimeZoneId = (value: string | undefined) => (value === undefined ? undefined : TimeZoneId.make(value))
 
 const UNTITLED_RECURRING_EVENT = CalendarEventTitle.make("Untitled Recurring Event")
 const UNTITLED_EVENT_INSTANCE = CalendarEventTitle.make("Untitled Event Instance")
@@ -66,18 +66,17 @@ const eventInstanceTitle = (title: string): CalendarEventTitle =>
 
 const hulyRuleToRule = (rule: HulyRecurringRule): Effect.Effect<RecurringRule, HulyConnectionError> =>
   Schema.decodeUnknown(RecurringRuleSchema)(rule).pipe(
-    Effect.mapError((parseError) =>
-      new HulyConnectionError({
-        message: `Recurring event rule failed schema validation: ${parseError.message}`,
-        cause: parseError
-      })
+    Effect.mapError(
+      (parseError) =>
+        new HulyConnectionError({
+          message: `Recurring event rule failed schema validation: ${parseError.message}`,
+          cause: parseError
+        })
     )
   )
 
 const ruleToHulyRule = (rule: RecurringRule): HulyRecurringRule => {
-  const result: HulyRecurringRule = {
-    freq: rule.freq
-  }
+  const result: HulyRecurringRule = { freq: rule.freq }
 
   if (rule.endDate !== undefined) result.endDate = rule.endDate
   if (rule.count !== undefined) result.count = rule.count
@@ -94,7 +93,7 @@ const ruleToHulyRule = (rule: RecurringRule): HulyRecurringRule => {
 export const listRecurringEvents = (
   params: ListRecurringEventsParams
 ): Effect.Effect<Array<RecurringEventSummary>, ListRecurringEventsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const limit = clampLimit(params.limit)
@@ -102,22 +101,24 @@ export const listRecurringEvents = (
     const events = yield* client.findAll<HulyRecurringEvent>(
       calendar.class.ReccuringEvent,
       {},
-      {
-        limit,
-        sort: { modifiedOn: SortingOrder.Descending }
-      }
+      { limit, sort: { modifiedOn: SortingOrder.Descending } }
     )
 
-    const summaries = yield* Effect.all(events.map(event =>
-      Effect.map(Effect.all(event.rules.map(hulyRuleToRule)), (rules): RecurringEventSummary => ({
-        eventId: EventId.make(event.eventId),
-        title: recurringEventTitle(event.title),
-        originalStartTime: Timestamp.make(event.originalStartTime),
-        rules,
-        timeZone: optionalTimeZoneId(event.timeZone),
-        modifiedOn: optionalTimestamp(event.modifiedOn)
-      }))
-    ))
+    const summaries = yield* Effect.all(
+      events.map((event) =>
+        Effect.map(
+          Effect.all(event.rules.map(hulyRuleToRule)),
+          (rules): RecurringEventSummary => ({
+            eventId: EventId.make(event.eventId),
+            title: recurringEventTitle(event.title),
+            originalStartTime: Timestamp.make(event.originalStartTime),
+            rules,
+            timeZone: optionalTimeZoneId(event.timeZone),
+            modifiedOn: optionalTimestamp(event.modifiedOn)
+          })
+        )
+      )
+    )
 
     return summaries
   })
@@ -125,11 +126,11 @@ export const listRecurringEvents = (
 export const createRecurringEvent = (
   params: CreateRecurringEventParams
 ): Effect.Effect<CreateRecurringEventResult, CreateRecurringEventError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const eventId = generateEventId()
-    const dueDate = params.dueDate ?? (params.startDate + ONE_HOUR_MS)
+    const dueDate = params.dueDate ?? params.startDate + ONE_HOUR_MS
 
     const { calendarRef, descriptionRef, participantRefs } = yield* resolveEventInputs(
       client,
@@ -192,21 +193,18 @@ export const createRecurringEvent = (
 export const listEventInstances = (
   params: ListEventInstancesParams
 ): Effect.Effect<Array<EventInstance>, ListEventInstancesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
-    const recurringEvent = yield* client.findOne<HulyRecurringEvent>(
-      calendar.class.ReccuringEvent,
-      { eventId: params.recurringEventId }
-    )
+    const recurringEvent = yield* client.findOne<HulyRecurringEvent>(calendar.class.ReccuringEvent, {
+      eventId: params.recurringEventId
+    })
 
     if (recurringEvent === undefined) {
       return yield* new RecurringEventNotFoundError({ eventId: params.recurringEventId })
     }
 
-    const query: DocumentQuery<HulyRecurringInstance> = {
-      recurringEventId: params.recurringEventId
-    }
+    const query: DocumentQuery<HulyRecurringInstance> = { recurringEventId: params.recurringEventId }
 
     if (params.from !== undefined) {
       query.date = { $gte: params.from }
@@ -218,24 +216,20 @@ export const listEventInstances = (
 
     const limit = clampLimit(params.limit)
 
-    const instances = yield* client.findAll<HulyRecurringInstance>(
-      calendar.class.ReccuringInstance,
-      query,
-      {
-        limit,
-        sort: { date: SortingOrder.Ascending }
-      }
-    )
+    const instances = yield* client.findAll<HulyRecurringInstance>(calendar.class.ReccuringInstance, query, {
+      limit,
+      sort: { date: SortingOrder.Ascending }
+    })
 
     const participantMap = new Map<string, Array<Participant>>()
     if (params.includeParticipants) {
-      const allParticipantRefs = [...new Set(instances.flatMap(i => i.participants))]
+      const allParticipantRefs = [...new Set(instances.flatMap((i) => i.participants))]
       if (allParticipantRefs.length > 0) {
         const participants = yield* buildParticipants(client, allParticipantRefs)
-        const participantById = new Map(participants.map(p => [p.id, p]))
+        const participantById = new Map(participants.map((p) => [p.id, p]))
         for (const instance of instances) {
           const instanceParticipants = instance.participants
-            .map(ref => participantById.get(PersonId.make(ref)))
+            .map((ref) => participantById.get(PersonId.make(ref)))
             .filter((p) => p !== undefined)
           participantMap.set(instance.eventId, instanceParticipants)
         }
@@ -246,7 +240,7 @@ export const listEventInstances = (
       }
     }
 
-    const results: Array<EventInstance> = instances.map(instance => ({
+    const results: Array<EventInstance> = instances.map((instance) => ({
       eventId: EventId.make(instance.eventId),
       recurringEventId: EventId.make(instance.recurringEventId),
       title: eventInstanceTitle(instance.title),
@@ -261,7 +255,7 @@ export const listEventInstances = (
       /* v8 ignore next -- participantMap is populated for every instance when includeParticipants is true */
       participants: params.includeParticipants ? (participantMap.get(instance.eventId) ?? []) : undefined,
       externalParticipants: instance.externalParticipants
-        ? instance.externalParticipants.map(p => Email.make(p))
+        ? instance.externalParticipants.map((p) => Email.make(p))
         : undefined
     }))
 

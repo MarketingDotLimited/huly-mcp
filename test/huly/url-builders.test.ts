@@ -5,8 +5,9 @@ import { buildContactUrl, buildDocumentUrl, slugifyTitle } from "../../src/huly/
 
 describe("slugifyTitle", () => {
   it("reproduces the known Huly slug for a real document title", () => {
-    expect(slugifyTitle("v1.0a Short-Circuit Analysis - Lite/Keel Variants"))
-      .toBe("v1.0a-short-circuit-analysis-litekeel-variants")
+    expect(slugifyTitle("v1.0a Short-Circuit Analysis - Lite/Keel Variants")).toBe(
+      "v1.0a-short-circuit-analysis-litekeel-variants"
+    )
   })
 
   it("lowercases", () => {
@@ -49,24 +50,21 @@ describe("buildDocumentUrl", () => {
   const id = DocumentId.make("69e6a5dab299f79d42314f12")
 
   it("reproduces the canonical working URL", () => {
-    expect(buildDocumentUrl(
-      baseUrl,
-      workspaceUrlSlug,
-      "v1.0a Short-Circuit Analysis - Lite/Keel Variants",
-      id
-    )).toBe(
+    expect(buildDocumentUrl(baseUrl, workspaceUrlSlug, "v1.0a Short-Circuit Analysis - Lite/Keel Variants", id)).toBe(
       "https://huly.axzez.org/workbench/axzez-6925fc59-8ee2eba17e-eb022e/document/v1.0a-short-circuit-analysis-litekeel-variants-69e6a5dab299f79d42314f12"
     )
   })
 
   it("tolerates trailing slash on baseUrl", () => {
-    expect(buildDocumentUrl(UrlString.make(`${baseUrl}/`), workspaceUrlSlug, "Test", id))
-      .toBe(`${baseUrl}/workbench/${workspaceUrlSlug}/document/test-${id}`)
+    expect(buildDocumentUrl(UrlString.make(`${baseUrl}/`), workspaceUrlSlug, "Test", id)).toBe(
+      `${baseUrl}/workbench/${workspaceUrlSlug}/document/test-${id}`
+    )
   })
 
   it("falls back to bare id when slug is empty", () => {
-    expect(buildDocumentUrl(baseUrl, workspaceUrlSlug, "!!!", id))
-      .toBe(`${baseUrl}/workbench/${workspaceUrlSlug}/document/${id}`)
+    expect(buildDocumentUrl(baseUrl, workspaceUrlSlug, "!!!", id)).toBe(
+      `${baseUrl}/workbench/${workspaceUrlSlug}/document/${id}`
+    )
   })
 })
 
@@ -89,7 +87,8 @@ describe("buildContactUrl", () => {
   })
 
   it("tolerates trailing slash on baseUrl", () => {
-    expect(buildContactUrl(UrlString.make(`${baseUrl}/`), workspaceUrlSlug, orgId))
-      .toBe(`${baseUrl}/workbench/${workspaceUrlSlug}/contact/${orgId}`)
+    expect(buildContactUrl(UrlString.make(`${baseUrl}/`), workspaceUrlSlug, orgId)).toBe(
+      `${baseUrl}/workbench/${workspaceUrlSlug}/contact/${orgId}`
+    )
   })
 })

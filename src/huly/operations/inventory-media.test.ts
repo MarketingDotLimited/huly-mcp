@@ -105,13 +105,7 @@ interface State {
   nextBlob: number
 }
 
-const baseDoc = {
-  space: workspace,
-  modifiedBy: person,
-  modifiedOn: 1,
-  createdBy: person,
-  createdOn: 1
-}
+const baseDoc = { space: workspace, modifiedBy: person, modifiedOn: 1, createdBy: person, createdOn: 1 }
 
 const category = (id: string, name: string): HulyInventoryCategory => ({
   ...baseDoc,
@@ -156,20 +150,21 @@ const media = (
   pinned: false
 })
 
-const comment = (id: string, attachedTo: Ref<HulyInventoryProduct>, body: string): ChatMessage => ({
-  ...baseDoc,
-  _id: toRef<ChatMessage>(id),
-  _class: chunter.class.ChatMessage,
-  attachedTo,
-  attachedToClass: inventory.class.Product,
-  collection: "comments",
-  message: markdownToMarkupString(body, testMarkupUrlConfig),
-  editedOn: undefined,
-  isPinned: false,
-  replies: 0,
-  reactions: 0
-  // The SDK ChatMessage type includes plugin fields not read by these operations; this fixture includes the fields under test.
-} as unknown as ChatMessage)
+const comment = (id: string, attachedTo: Ref<HulyInventoryProduct>, body: string): ChatMessage =>
+  ({
+    ...baseDoc,
+    _id: toRef<ChatMessage>(id),
+    _class: chunter.class.ChatMessage,
+    attachedTo,
+    attachedToClass: inventory.class.Product,
+    collection: "comments",
+    message: markdownToMarkupString(body, testMarkupUrlConfig),
+    editedOn: undefined,
+    isPinned: false,
+    replies: 0,
+    reactions: 0
+    // The SDK ChatMessage type includes plugin fields not read by these operations; this fixture includes the fields under test.
+  }) as unknown as ChatMessage
 
 const activityMessage = (id: string, attachedTo: Ref<HulyInventoryProduct>): HulyActivityMessage => ({
   ...baseDoc,
@@ -190,16 +185,16 @@ const docsForClass = (state: State, classRef: Ref<Class<Doc>>): ReadonlyArray<Do
   classRef === inventory.class.Category
     ? state.categories
     : classRef === inventory.class.Product
-    ? state.products
-    : classRef === attachment.class.Attachment
-    ? state.attachments
-    : classRef === attachment.class.Photo
-    ? state.photos
-    : classRef === chunter.class.ChatMessage
-    ? state.comments
-    : classRef === activity.class.ActivityMessage
-    ? state.activityMessages
-    : []
+      ? state.products
+      : classRef === attachment.class.Attachment
+        ? state.attachments
+        : classRef === attachment.class.Photo
+          ? state.photos
+          : classRef === chunter.class.ChatMessage
+            ? state.comments
+            : classRef === activity.class.ActivityMessage
+              ? state.activityMessages
+              : []
 
 const applyOptions = <T extends Doc>(docs: ReadonlyArray<T>, options: FindOptions<T> | undefined): ReadonlyArray<T> =>
   options?.limit === undefined ? docs : docs.slice(0, options.limit)
@@ -255,10 +250,8 @@ const makeLayer = (state: State, includeRemoveCollection = true): Layer.Layer<Hu
     return Effect.succeed(Object.assign([...applyOptions(filtered as Array<T>, options)], { total: filtered.length }))
   }
 
-  const findOne: HulyClientOperations["findOne"] = <T extends Doc>(
-    classRef: Ref<Class<T>>,
-    query: DocumentQuery<T>
-  ) => Effect.map(findAll(classRef, query), (docs) => docs.at(0))
+  const findOne: HulyClientOperations["findOne"] = <T extends Doc>(classRef: Ref<Class<T>>, query: DocumentQuery<T>) =>
+    Effect.map(findAll(classRef, query), (docs) => docs.at(0))
 
   const addCollection: HulyClientOperations["addCollection"] = <T extends Doc, P extends AttachedDoc>(
     classRef: Ref<Class<P>>,
@@ -398,42 +391,44 @@ const makeLayer = (state: State, includeRemoveCollection = true): Layer.Layer<Hu
 
 describe("inventory product media schemas", () => {
   it.effect("rejects empty locators, invalid file sources, and no-op media updates", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect((yield* Effect.exit(parseListInventoryProductAttachmentsParams({ product: "  " })))._tag).toBe("Failure")
       expect(
-        (yield* Effect.exit(parseAddInventoryProductAttachmentParams({
-          product: "Camera",
-          filename: "file.txt",
-          contentType: "text/plain"
-        })))._tag
+        (yield* Effect.exit(
+          parseAddInventoryProductAttachmentParams({
+            product: "Camera",
+            filename: "file.txt",
+            contentType: "text/plain"
+          })
+        ))._tag
       ).toBe("Failure")
       expect(
-        (yield* Effect.exit(parseAddInventoryProductPhotoParams({
-          product: "Camera",
-          filename: "photo.png",
-          contentType: "image/png",
-          data: "aGVsbG8=",
-          fileUrl: "https://example.test/photo.png"
-        })))._tag
+        (yield* Effect.exit(
+          parseAddInventoryProductPhotoParams({
+            product: "Camera",
+            filename: "photo.png",
+            contentType: "image/png",
+            data: "aGVsbG8=",
+            fileUrl: "https://example.test/photo.png"
+          })
+        ))._tag
       ).toBe("Failure")
       expect(
-        (yield* Effect.exit(parseUpdateInventoryProductAttachmentParams({
-          product: "Camera",
-          attachmentId: "att-camera"
-        })))._tag
+        (yield* Effect.exit(
+          parseUpdateInventoryProductAttachmentParams({ product: "Camera", attachmentId: "att-camera" })
+        ))._tag
       ).toBe("Failure")
       expect(
-        (yield* Effect.exit(parseUpdateInventoryProductPhotoParams({
-          product: "Camera",
-          photoId: "photo-camera"
-        })))._tag
+        (yield* Effect.exit(parseUpdateInventoryProductPhotoParams({ product: "Camera", photoId: "photo-camera" })))
+          ._tag
       ).toBe("Failure")
-    }))
+    })
+  )
 })
 
 describe("inventory product media operations", () => {
   it.effect("adds attachments and photos with the exact Huly class and collection", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = baseState()
       const layer = makeLayer(state)
       const attachmentParams = yield* parseAddInventoryProductAttachmentParams({
@@ -468,10 +463,11 @@ describe("inventory product media operations", () => {
         attachedToClass: inventory.class.Product,
         collection: "photos"
       })
-    }))
+    })
+  )
 
   it.effect("scopes attachment list/get/update/delete to the resolved product and uses removeCollection", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = baseState()
       const layer = makeLayer(state)
       const listParams = yield* parseListInventoryProductAttachmentsParams({
@@ -512,23 +508,23 @@ describe("inventory product media operations", () => {
       expect(wrongProduct._tag).toBe("AttachmentNotFoundError")
       expect(updated.updated).toBe(true)
       expect(deleted.deleted).toBe(true)
-      expect(state.removeCollectionCalls).toEqual([{
-        classRef: attachment.class.Attachment,
-        objectId: "att-camera",
-        attachedTo: "prod-camera",
-        collection: "attachments"
-      }])
+      expect(state.removeCollectionCalls).toEqual([
+        {
+          classRef: attachment.class.Attachment,
+          objectId: "att-camera",
+          attachedTo: "prod-camera",
+          collection: "attachments"
+        }
+      ])
       expect(state.removeDocCalls).toEqual([])
-    }))
+    })
+  )
 
   it.effect("scopes photo list/get/update/delete to the resolved product and uses removeCollection", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = baseState()
       const layer = makeLayer(state)
-      const listParams = yield* parseListInventoryProductPhotosParams({
-        product: "Camera",
-        category: "Electronics"
-      })
+      const listParams = yield* parseListInventoryProductPhotosParams({ product: "Camera", category: "Electronics" })
       const getParams = yield* parseGetInventoryProductPhotoParams({
         product: "Camera",
         category: "Electronics",
@@ -563,17 +559,15 @@ describe("inventory product media operations", () => {
       expect(wrongProduct._tag).toBe("AttachmentNotFoundError")
       expect(updated.updated).toBe(true)
       expect(deleted.deleted).toBe(true)
-      expect(state.removeCollectionCalls).toEqual([{
-        classRef: attachment.class.Photo,
-        objectId: "photo-camera",
-        attachedTo: "prod-camera",
-        collection: "photos"
-      }])
+      expect(state.removeCollectionCalls).toEqual([
+        { classRef: attachment.class.Photo, objectId: "photo-camera", attachedTo: "prod-camera", collection: "photos" }
+      ])
       expect(state.removeDocCalls).toEqual([])
-    }))
+    })
+  )
 
   it.effect("reports unsupported product media delete when removeCollection is unavailable", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = baseState()
       const params = yield* parseDeleteInventoryProductAttachmentParams({
         product: "Camera",
@@ -582,23 +576,17 @@ describe("inventory product media operations", () => {
       })
 
       const error = yield* Effect.flip(
-        deleteInventoryProductAttachment(params).pipe(Effect.provide(makeLayer(
-          state,
-          false
-        )))
+        deleteInventoryProductAttachment(params).pipe(Effect.provide(makeLayer(state, false)))
       )
 
       expect(error).toBeInstanceOf(InventoryMutationUnsupportedError)
       expect(state.removeDocCalls).toEqual([])
-    }))
+    })
+  )
 
   it.effect("manages product comments and blocks product deletion while direct comments remain", () =>
-    Effect.gen(function*() {
-      const state = {
-        ...baseState(),
-        attachments: [],
-        photos: []
-      }
+    Effect.gen(function* () {
+      const state = { ...baseState(), attachments: [], photos: [] }
       const layer = makeLayer(state)
       const listCommentParams = yield* parseListInventoryProductCommentsParams({
         product: "Camera",
@@ -615,9 +603,7 @@ describe("inventory product media operations", () => {
         commentId: "comment-camera",
         body: "Updated"
       })
-      const listed = yield* listInventoryProductComments(listCommentParams).pipe(
-        Effect.provide(layer)
-      )
+      const listed = yield* listInventoryProductComments(listCommentParams).pipe(Effect.provide(layer))
       const added = yield* addInventoryProductComment(addCommentParams).pipe(Effect.provide(layer))
       const updated = yield* updateInventoryProductComment(updateCommentParams).pipe(Effect.provide(layer))
       const deleteProductParams = yield* parseDeleteInventoryProductParams({
@@ -645,14 +631,12 @@ describe("inventory product media operations", () => {
       expect(updated.updated).toBe(true)
       expect(blocked).toBeInstanceOf(InventoryNotEmptyError)
       expect(deleted.deleted).toBe(true)
-    }))
+    })
+  )
 
   it.effect("blocks product deletion when direct media records exist even if product counters are stale", () =>
-    Effect.gen(function*() {
-      const state = {
-        ...baseState(),
-        comments: []
-      }
+    Effect.gen(function* () {
+      const state = { ...baseState(), comments: [] }
       const deleteProductParams = yield* parseDeleteInventoryProductParams({
         product: "Camera",
         category: "Electronics"
@@ -671,10 +655,11 @@ describe("inventory product media operations", () => {
           { classRef: String(chunter.class.ChatMessage), total: true }
         ])
       )
-    }))
+    })
+  )
 
   it.effect("reports total matching product attachments, comments, and activity beyond the page limit", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = baseState()
       state.attachments.push(
         media("att-camera-extra", attachment.class.Attachment, toRef("prod-camera"), "attachments")
@@ -715,40 +700,38 @@ describe("inventory product media operations", () => {
           { classRef: String(activity.class.ActivityMessage), total: true }
         ])
       )
-    }))
+    })
+  )
 
   it("falls back to page length when Huly reports an unknown total", () => {
     expect(findResultTotal({ length: 1, total: -1 })).toBe(1)
   })
 
   it.effect("returns a connection error when product comment decoding fails", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = {
         ...baseState(),
-        comments: [{
-          ...comment("comment-invalid", toRef<HulyInventoryProduct>("prod-camera"), "Body"),
-          // Deliberately bypass the SDK PersonId brand to exercise response schema validation.
-          modifiedBy: "" as PersonId
-        }]
+        comments: [
+          {
+            ...comment("comment-invalid", toRef<HulyInventoryProduct>("prod-camera"), "Body"),
+            // Deliberately bypass the SDK PersonId brand to exercise response schema validation.
+            modifiedBy: "" as PersonId
+          }
+        ]
       }
-      const params = yield* parseListInventoryProductCommentsParams({
-        product: "Camera",
-        category: "Electronics"
-      })
+      const params = yield* parseListInventoryProductCommentsParams({ product: "Camera", category: "Electronics" })
 
       const error = yield* Effect.flip(listInventoryProductComments(params).pipe(Effect.provide(makeLayer(state))))
 
       expect(error).toBeInstanceOf(HulyConnectionError)
       expect(error.message).toContain("Inventory product comments response failed schema validation")
-    }))
+    })
+  )
 
   it.effect("lists raw product activity for the resolved inventory product", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = baseState()
-      const params = yield* parseListInventoryProductActivityParams({
-        product: "Camera",
-        category: "Electronics"
-      })
+      const params = yield* parseListInventoryProductActivityParams({ product: "Camera", category: "Electronics" })
       const result = yield* listInventoryProductActivity(params).pipe(Effect.provide(makeLayer(state)))
 
       expect(result.product.id).toBe("prod-camera")
@@ -757,5 +740,6 @@ describe("inventory product media operations", () => {
         objectId: "prod-camera",
         objectClass: inventory.class.Product
       })
-    }))
+    })
+  )
 })

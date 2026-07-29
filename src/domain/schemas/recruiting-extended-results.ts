@@ -20,10 +20,7 @@ export const ReviewDetailSchema = Schema.Struct({
   description: Schema.optional(StoredRecruitingText),
   verdict: Schema.optional(StoredRecruitingText),
   application: Schema.optional(ApplicantRefSchema),
-  company: Schema.optional(Schema.Struct({
-    id: DocId,
-    name: RecruitingCompanyName
-  })),
+  company: Schema.optional(Schema.Struct({ id: DocId, name: RecruitingCompanyName })),
   location: Schema.optional(StoredRecruitingText),
   date: Timestamp,
   dueDate: Timestamp,
@@ -53,10 +50,7 @@ export const ApplicantMatchDetailSchema = Schema.Struct({
 })
 export type ApplicantMatchDetail = Schema.Schema.Type<typeof ApplicantMatchDetailSchema>
 
-export const ListRecruitingReviewsResultSchema = Schema.Struct({
-  reviews: Schema.Array(ReviewRefSchema),
-  total: Count
-})
+export const ListRecruitingReviewsResultSchema = Schema.Struct({ reviews: Schema.Array(ReviewRefSchema), total: Count })
 export type ListRecruitingReviewsResult = Schema.Schema.Type<typeof ListRecruitingReviewsResultSchema>
 
 export const ListRecruitingOpinionsResultSchema = Schema.Struct({
@@ -69,18 +63,12 @@ export const ListRecruitingApplicantMatchesResultSchema = Schema.Struct({
   matches: Schema.Array(ApplicantMatchRefSchema),
   total: Count
 })
-export type ListRecruitingApplicantMatchesResult = Schema.Schema.Type<
-  typeof ListRecruitingApplicantMatchesResultSchema
->
+export type ListRecruitingApplicantMatchesResult = Schema.Schema.Type<typeof ListRecruitingApplicantMatchesResultSchema>
 
-export const RecruitingReviewMutationResultSchema = Schema.Struct({
-  review: ReviewRefSchema
-})
+export const RecruitingReviewMutationResultSchema = Schema.Struct({ review: ReviewRefSchema })
 export type RecruitingReviewMutationResult = Schema.Schema.Type<typeof RecruitingReviewMutationResultSchema>
 
-export const RecruitingOpinionMutationResultSchema = Schema.Struct({
-  opinion: OpinionRefSchema
-})
+export const RecruitingOpinionMutationResultSchema = Schema.Struct({ opinion: OpinionRefSchema })
 export type RecruitingOpinionMutationResult = Schema.Schema.Type<typeof RecruitingOpinionMutationResultSchema>
 
 export const DeleteRecruitingReviewResultSchema = Schema.Struct({

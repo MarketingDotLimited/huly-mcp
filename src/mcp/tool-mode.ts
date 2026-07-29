@@ -42,11 +42,7 @@ const isUnknownRecord = (input: unknown): input is Readonly<Record<string, unkno
 
 const envShapeFailure = (input: unknown): ToolExposureConfigParseResult => {
   if (isUnknownRecord(input)) {
-    if (
-      "hulyToolMode" in input
-      && input.hulyToolMode !== undefined
-      && typeof input.hulyToolMode !== "string"
-    ) {
+    if ("hulyToolMode" in input && input.hulyToolMode !== undefined && typeof input.hulyToolMode !== "string") {
       return {
         _tag: "Failure",
         field: "HULY_TOOL_MODE",
@@ -54,9 +50,9 @@ const envShapeFailure = (input: unknown): ToolExposureConfigParseResult => {
       }
     }
     if (
-      "proxyOutputStrict" in input
-      && input.proxyOutputStrict !== undefined
-      && typeof input.proxyOutputStrict !== "string"
+      "proxyOutputStrict" in input &&
+      input.proxyOutputStrict !== undefined &&
+      typeof input.proxyOutputStrict !== "string"
     ) {
       return {
         _tag: "Failure",
@@ -102,9 +98,7 @@ const McpClientName = Schema.Trim.pipe(Schema.nonEmptyString(), Schema.brand("Mc
   description: "Trimmed MCP client name from initialize or request metadata."
 })
 
-const McpClientInfoLikeSchema = Schema.Struct({
-  name: Schema.optionalWith(McpClientName, { exact: true })
-})
+const McpClientInfoLikeSchema = Schema.Struct({ name: Schema.optionalWith(McpClientName, { exact: true }) })
 export type McpClientInfoLike = Schema.Schema.Type<typeof McpClientInfoLikeSchema>
 
 export interface ResolveToolExposureModeInput {
@@ -114,9 +108,7 @@ export interface ResolveToolExposureModeInput {
 
 const trimmedLower = (value: string): string => value.trim().toLowerCase()
 
-const parseConfiguredMode = (
-  raw: string | undefined
-): EnvValueParseResult<ToolModeConfig> => {
+const parseConfiguredMode = (raw: string | undefined): EnvValueParseResult<ToolModeConfig> => {
   if (raw === undefined) {
     return { _tag: "Success", value: DEFAULT_TOOL_EXPOSURE_CONFIG.configuredMode }
   }
@@ -131,9 +123,7 @@ const parseConfiguredMode = (
   }
 }
 
-const parseProxyOutputStrict = (
-  raw: string | undefined
-): EnvValueParseResult<boolean> => {
+const parseProxyOutputStrict = (raw: string | undefined): EnvValueParseResult<boolean> => {
   if (raw === undefined) return { _tag: "Success", value: false }
 
   const normalized = trimmedLower(raw)
@@ -181,9 +171,7 @@ const rawClientName = (clientInfo: McpClientInfoLike | undefined): string => {
 const withoutRemoteSuffix = (name: string): string => name.replace(/\s*\([^)]*\)\s*$/, "").trim()
 const makeClientKind = Schema.decodeUnknownSync(ClientKindSchema)
 
-export const classifyMcpClient = (
-  clientInfo: McpClientInfoLike | undefined
-): ClientKind => {
+export const classifyMcpClient = (clientInfo: McpClientInfoLike | undefined): ClientKind => {
   const rawName = rawClientName(clientInfo)
 
   if (rawName === "claude-code") return makeClientKind("claude-code")
@@ -195,10 +183,10 @@ export const classifyMcpClient = (
   if (name === "cursor-vscode" || name.startsWith("cursor")) return makeClientKind("cursor")
   if (name.startsWith("windsurf") || name.startsWith("cascade")) return makeClientKind("windsurf")
   if (
-    name.startsWith("github-copilot")
-    || name.startsWith("copilot")
-    || name.startsWith("visual studio code")
-    || name.startsWith("visual-studio-code")
+    name.startsWith("github-copilot") ||
+    name.startsWith("copilot") ||
+    name.startsWith("visual studio code") ||
+    name.startsWith("visual-studio-code")
   ) {
     return makeClientKind("github-copilot")
   }
@@ -208,9 +196,7 @@ export const classifyMcpClient = (
   return makeClientKind("unknown")
 }
 
-export const resolveToolExposureMode = (
-  input: ResolveToolExposureModeInput
-): ToolExposureMode => {
+export const resolveToolExposureMode = (input: ResolveToolExposureModeInput): ToolExposureMode => {
   if (input.configuredMode !== "auto") return input.configuredMode
 
   return DEFAULT_MODE_BY_CLIENT_KIND[classifyMcpClient(input.clientInfo)]

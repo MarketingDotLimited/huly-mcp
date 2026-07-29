@@ -88,11 +88,7 @@ interface ActivityTarget {
   readonly objectClass: ObjectClassName
 }
 
-const activityTarget = (
-  client: HulyClient["Type"],
-  objectId: string,
-  objectClass: string
-): ActivityTarget => ({
+const activityTarget = (client: HulyClient["Type"], objectId: string, objectClass: string): ActivityTarget => ({
   client,
   objectId: DocId.make(objectId),
   objectClass: ObjectClassName.make(objectClass)
@@ -101,7 +97,7 @@ const activityTarget = (
 const resolveActivityTarget = (
   params: ListActivityParams
 ): Effect.Effect<ActivityTarget, ListActivityError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (params.objectId !== undefined && params.objectClass !== undefined) {
       const client = yield* HulyClient
       return activityTarget(client, params.objectId, params.objectClass)
@@ -145,23 +141,15 @@ const serverPopulatedCreateBy: HulyReaction["createBy"] = "" as HulyReaction["cr
 export const listActivity = (
   params: ListActivityParams
 ): Effect.Effect<Array<ActivityMessage>, ListActivityError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveActivityTarget(params)
 
     const limit = clampLimit(params.limit)
 
     const messages = yield* target.client.findAll<HulyActivityMessage>(
       activity.class.ActivityMessage,
-      {
-        attachedTo: toRef<Doc>(target.objectId),
-        attachedToClass: toRef<Class<Doc>>(target.objectClass)
-      },
-      {
-        limit,
-        sort: {
-          modifiedOn: SortingOrder.Descending
-        }
-      }
+      { attachedTo: toRef<Doc>(target.objectId), attachedToClass: toRef<Class<Doc>>(target.objectClass) },
+      { limit, sort: { modifiedOn: SortingOrder.Descending } }
     )
 
     return yield* toActivityMessages(messages, target.client.markupUrlConfig, "list_activity")
@@ -173,7 +161,7 @@ export const listActivity = (
 export const addReaction = (
   params: AddReactionParams
 ): Effect.Effect<AddReactionResult, AddReactionError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const message = yield* findOneOrFail(
@@ -185,10 +173,7 @@ export const addReaction = (
 
     const reactionId: Ref<HulyReaction> = generateId()
 
-    const reactionData: AttachedData<HulyReaction> = {
-      emoji: params.emoji,
-      createBy: serverPopulatedCreateBy
-    }
+    const reactionData: AttachedData<HulyReaction> = { emoji: params.emoji, createBy: serverPopulatedCreateBy }
 
     yield* client.addCollection(
       activity.class.Reaction,
@@ -200,10 +185,7 @@ export const addReaction = (
       reactionId
     )
 
-    return {
-      reactionId: ReactionId.make(reactionId),
-      messageId: ActivityMessageId.make(params.messageId)
-    }
+    return { reactionId: ReactionId.make(reactionId), messageId: ActivityMessageId.make(params.messageId) }
   })
 
 /**
@@ -212,33 +194,19 @@ export const addReaction = (
 export const removeReaction = (
   params: RemoveReactionParams
 ): Effect.Effect<RemoveReactionResult, RemoveReactionError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const reaction = yield* findOneOrFail(
       client,
       activity.class.Reaction,
-      {
-        attachedTo: toRef<HulyActivityMessage>(params.messageId),
-        emoji: params.emoji
-      },
-      () =>
-        new ReactionNotFoundError({
-          messageId: params.messageId,
-          emoji: params.emoji
-        })
+      { attachedTo: toRef<HulyActivityMessage>(params.messageId), emoji: params.emoji },
+      () => new ReactionNotFoundError({ messageId: params.messageId, emoji: params.emoji })
     )
 
-    yield* client.removeDoc(
-      activity.class.Reaction,
-      reaction.space,
-      reaction._id
-    )
+    yield* client.removeDoc(activity.class.Reaction, reaction.space, reaction._id)
 
-    return {
-      messageId: ActivityMessageId.make(params.messageId),
-      removed: true
-    }
+    return { messageId: ActivityMessageId.make(params.messageId), removed: true }
   })
 
 /**
@@ -247,16 +215,14 @@ export const removeReaction = (
 export const listReactions = (
   params: ListReactionsParams
 ): Effect.Effect<Array<Reaction>, ListReactionsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const limit = clampLimit(params.limit)
 
     const reactions = yield* client.findAll<HulyReaction>(
       activity.class.Reaction,
-      {
-        attachedTo: toRef<HulyActivityMessage>(params.messageId)
-      },
+      { attachedTo: toRef<HulyActivityMessage>(params.messageId) },
       { limit }
     )
 
@@ -276,7 +242,7 @@ export const listReactions = (
 export const saveMessage = (
   params: SaveMessageParams
 ): Effect.Effect<SaveMessageResult, SaveMessageError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const message = yield* findOneOrFail(
@@ -288,19 +254,9 @@ export const saveMessage = (
 
     const savedId: Ref<HulySavedMessage> = generateId()
 
-    yield* client.createDoc(
-      activity.class.SavedMessage,
-      core.space.Workspace,
-      {
-        attachedTo: message._id
-      },
-      savedId
-    )
+    yield* client.createDoc(activity.class.SavedMessage, core.space.Workspace, { attachedTo: message._id }, savedId)
 
-    return {
-      savedId: SavedMessageId.make(savedId),
-      messageId: ActivityMessageId.make(params.messageId)
-    }
+    return { savedId: SavedMessageId.make(savedId), messageId: ActivityMessageId.make(params.messageId) }
   })
 
 /**
@@ -309,28 +265,19 @@ export const saveMessage = (
 export const unsaveMessage = (
   params: UnsaveMessageParams
 ): Effect.Effect<UnsaveMessageResult, UnsaveMessageError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const saved = yield* findOneOrFail(
       client,
       activity.class.SavedMessage,
-      {
-        attachedTo: toRef<HulyActivityMessage>(params.messageId)
-      },
+      { attachedTo: toRef<HulyActivityMessage>(params.messageId) },
       () => new SavedMessageNotFoundError({ messageId: params.messageId })
     )
 
-    yield* client.removeDoc(
-      activity.class.SavedMessage,
-      saved.space,
-      saved._id
-    )
+    yield* client.removeDoc(activity.class.SavedMessage, saved.space, saved._id)
 
-    return {
-      messageId: ActivityMessageId.make(params.messageId),
-      removed: true
-    }
+    return { messageId: ActivityMessageId.make(params.messageId), removed: true }
   })
 
 /**
@@ -339,16 +286,12 @@ export const unsaveMessage = (
 export const listSavedMessages = (
   params: ListSavedMessagesParams
 ): Effect.Effect<Array<SavedMessage>, ListSavedMessagesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const limit = clampLimit(params.limit)
 
-    const saved = yield* client.findAll<HulySavedMessage>(
-      activity.class.SavedMessage,
-      {},
-      { limit }
-    )
+    const saved = yield* client.findAll<HulySavedMessage>(activity.class.SavedMessage, {}, { limit })
 
     const result: Array<SavedMessage> = saved.map((s) => ({
       id: SavedMessageId.make(s._id),
@@ -364,7 +307,7 @@ export const listSavedMessages = (
 export const listMentions = (
   params: ListMentionsParams
 ): Effect.Effect<Array<Mention>, ListMentionsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const limit = clampLimit(params.limit)
@@ -372,12 +315,7 @@ export const listMentions = (
     const mentions = yield* client.findAll<UserMentionInfo>(
       activity.class.UserMentionInfo,
       {},
-      {
-        limit,
-        sort: {
-          modifiedOn: SortingOrder.Descending
-        }
-      }
+      { limit, sort: { modifiedOn: SortingOrder.Descending } }
     )
 
     const result: Array<Mention> = mentions.map((m) => ({

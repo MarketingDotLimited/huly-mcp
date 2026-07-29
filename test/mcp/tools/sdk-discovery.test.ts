@@ -58,11 +58,10 @@ const hulyClient: HulyClientOperations = {
     return Effect.succeed(toFindResult([]))
   }) as HulyClientOperations["findAll"],
   findAllInModel: () => Effect.succeed(toFindResult([])),
-  findOne:
-    ((_class: unknown) =>
-      _class === core.class.Class ? Effect.succeed(issueClass) : Effect.succeed(undefined)) as HulyClientOperations[
-        "findOne"
-      ],
+  findOne: ((_class: unknown) =>
+    _class === core.class.Class
+      ? Effect.succeed(issueClass)
+      : Effect.succeed(undefined)) as HulyClientOperations["findOne"],
   createDoc: () => Effect.die(new Error("not implemented")),
   updateDoc: () => Effect.die(new Error("not implemented")),
   addCollection: () => Effect.die(new Error("not implemented")),
@@ -83,7 +82,7 @@ const findTool = (name: string) => {
 
 describe("sdkDiscoveryTools", () => {
   it.effect("exports sdk discovery tools in the sdk-discovery category", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(sdkDiscoveryTools.map((tool) => tool.name)).toEqual([
         "list_huly_classes",
         "get_huly_class",
@@ -97,36 +96,41 @@ describe("sdkDiscoveryTools", () => {
       for (const tool of sdkDiscoveryTools) {
         expect(tool.category).toBe("sdk-discovery")
       }
-    }))
+    })
+  )
 
   it.effect("list_huly_classes handler encodes successful output", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = findTool("list_huly_classes")
       const result = yield* Effect.promise(() => tool.handler({}, hulyClient, noopStorageClient))
 
       expect(result.isError).toBeUndefined()
       const parsed = JSON.parse(assertAt(result.content, 0).text) as { classes: Array<{ classId: string }> }
       expect(assertAt(parsed.classes, 0).classId).toBe(tracker.class.Issue)
-    }))
+    })
+  )
 
   it.effect("get_huly_class maps schema parse errors", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = findTool("get_huly_class")
       const result = yield* Effect.promise(() => tool.handler({}, hulyClient, noopStorageClient))
 
       expect(result.isError).toBe(true)
-    }))
+    })
+  )
 
   it.effect("read-only annotations are derived for all discovery tools", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       for (const tool of sdkDiscoveryTools) {
-        expect(tool.name.startsWith("list_") || tool.name.startsWith("get_") || tool.name.startsWith("describe_"))
-          .toBe(true)
+        expect(tool.name.startsWith("list_") || tool.name.startsWith("get_") || tool.name.startsWith("describe_")).toBe(
+          true
+        )
       }
-    }))
+    })
+  )
 
   it.effect("uses registered tools as first-class tool hint examples", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const registeredToolNames = new Set(Object.keys(TOOL_DEFINITIONS))
       const exampleTools = [...firstClassToolHints.values()].flatMap((hints) =>
         hints.flatMap((hint) => hint.exampleTools)
@@ -135,5 +139,6 @@ describe("sdkDiscoveryTools", () => {
       for (const toolName of exampleTools) {
         expect(registeredToolNames.has(toolName)).toBe(true)
       }
-    }))
+    })
+  )
 })

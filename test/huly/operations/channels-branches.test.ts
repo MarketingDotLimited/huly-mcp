@@ -58,7 +58,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const q = query as { _id?: { $in?: Array<PersonId> } }
       const ids = q._id?.$in
       if (ids) {
-        const filtered = socialIdentities.filter(si => ids.includes(si._id))
+        const filtered = socialIdentities.filter((si) => ids.includes(si._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(socialIdentities))
@@ -67,7 +67,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const q = query as { _id?: { $in?: Array<Ref<Person>> } }
       const personIds = q._id?.$in
       if (personIds) {
-        const filtered = persons.filter(p => personIds.includes(p._id))
+        const filtered = persons.filter((p) => personIds.includes(p._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(persons))
@@ -78,31 +78,26 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === chunter.class.Channel) {
       const q = query as Record<string, unknown>
-      const found = channels.find(c =>
-        (q.name && c.name === q.name)
-        || (q._id && c._id === q._id)
-      )
+      const found = channels.find((c) => (q.name && c.name === q.name) || (q._id && c._id === q._id))
       return Effect.succeed(found)
     }
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
-  return HulyClient.testLayer({
-    findAll: findAllImpl,
-    findOne: findOneImpl
-  })
+  return HulyClient.testLayer({ findAll: findAllImpl, findOne: findOneImpl })
 }
 
 describe("buildSocialIdToPersonNameMap - empty socialIds branch (line 136)", () => {
   it.effect("returns empty map when socialIds array is empty", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const client = yield* HulyClient
 
       const result = yield* buildSocialIdToPersonNameMap(client, [])
 
       expect(result).toBeInstanceOf(Map)
       expect(result.size).toBe(0)
-    }).pipe(Effect.provide(createTestLayerWithMocks({}))))
+    }).pipe(Effect.provide(createTestLayerWithMocks({})))
+  )
 
   it.effect("skips a social identity whose person no longer exists", () => {
     // The social identity resolves, but its person is absent from the persons
@@ -112,7 +107,7 @@ describe("buildSocialIdToPersonNameMap - empty socialIds branch (line 136)", () 
       attachedTo: "person-gone" as Ref<Person>
     })
 
-    return Effect.gen(function*() {
+    return Effect.gen(function* () {
       const client = yield* HulyClient
 
       const result = yield* buildSocialIdToPersonNameMap(client, ["social-gone" as PersonId])
@@ -124,84 +119,72 @@ describe("buildSocialIdToPersonNameMap - empty socialIds branch (line 136)", () 
 
 describe("listChannels - nameSearch branch (line 214)", () => {
   it.effect("applies nameSearch filter to query", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureQuery: MockConfig["captureChannelQuery"] = {}
-      const testLayer = createTestLayerWithMocks({
-        channels: [],
-        captureChannelQuery: captureQuery
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [], captureChannelQuery: captureQuery })
 
       yield* listChannels({ nameSearch: "dev" }).pipe(Effect.provide(testLayer))
 
       expect(captureQuery.query?.name).toEqual({ $like: "%dev%" })
-    }))
+    })
+  )
 
   it.effect("skips nameSearch when empty string", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureQuery: MockConfig["captureChannelQuery"] = {}
-      const testLayer = createTestLayerWithMocks({
-        channels: [],
-        captureChannelQuery: captureQuery
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [], captureChannelQuery: captureQuery })
 
       yield* listChannels({ nameSearch: "   " }).pipe(Effect.provide(testLayer))
 
       expect(captureQuery.query?.name).toBeUndefined()
-    }))
+    })
+  )
 })
 
 describe("listChannels - nameRegex branch", () => {
   it.effect("applies nameRegex filter to query", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureQuery: MockConfig["captureChannelQuery"] = {}
-      const testLayer = createTestLayerWithMocks({
-        channels: [],
-        captureChannelQuery: captureQuery
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [], captureChannelQuery: captureQuery })
 
       yield* listChannels({ nameRegex: "dev%" }).pipe(Effect.provide(testLayer))
 
       expect(captureQuery.query?.name).toEqual({ $regex: "dev%" })
-    }))
+    })
+  )
 
   it.effect("skips nameRegex when blank", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureQuery: MockConfig["captureChannelQuery"] = {}
-      const testLayer = createTestLayerWithMocks({
-        channels: [],
-        captureChannelQuery: captureQuery
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [], captureChannelQuery: captureQuery })
 
       yield* listChannels({ nameRegex: "  " }).pipe(Effect.provide(testLayer))
 
       expect(captureQuery.query?.name).toBeUndefined()
-    }))
+    })
+  )
 })
 
 describe("listChannels - topicSearch branch (line 218)", () => {
   it.effect("applies topicSearch filter to query", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureQuery: MockConfig["captureChannelQuery"] = {}
-      const testLayer = createTestLayerWithMocks({
-        channels: [],
-        captureChannelQuery: captureQuery
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [], captureChannelQuery: captureQuery })
 
       yield* listChannels({ topicSearch: "bugs" }).pipe(Effect.provide(testLayer))
 
       expect(captureQuery.query?.topic).toEqual({ $like: "%bugs%" })
-    }))
+    })
+  )
 
   it.effect("skips topicSearch when empty string", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureQuery: MockConfig["captureChannelQuery"] = {}
-      const testLayer = createTestLayerWithMocks({
-        channels: [],
-        captureChannelQuery: captureQuery
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [], captureChannelQuery: captureQuery })
 
       yield* listChannels({ topicSearch: "  " }).pipe(Effect.provide(testLayer))
 
       expect(captureQuery.query?.topic).toBeUndefined()
-    }))
+    })
+  )
 })

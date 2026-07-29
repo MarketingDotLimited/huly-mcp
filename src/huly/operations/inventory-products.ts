@@ -45,14 +45,15 @@ import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 export const listInventoryProducts = (
   params: ListInventoryProductsParams
 ): Effect.Effect<ListInventoryProductsResult, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
-    const query: StrictDocumentQuery<HulyInventoryProduct> = params.category === undefined
-      ? {}
-      : yield* Effect.map(
-        resolveCategory(client, params.category, undefined),
-        (category): StrictDocumentQuery<HulyInventoryProduct> => ({ attachedTo: category._id })
-      )
+    const query: StrictDocumentQuery<HulyInventoryProduct> =
+      params.category === undefined
+        ? {}
+        : yield* Effect.map(
+            resolveCategory(client, params.category, undefined),
+            (category): StrictDocumentQuery<HulyInventoryProduct> => ({ attachedTo: category._id })
+          )
     const products = yield* findAllProducts(client, query)
     const filtered = products.filter((product) => matchesText(product.name, params.query))
     return {
@@ -64,7 +65,7 @@ export const listInventoryProducts = (
 export const getInventoryProduct = (
   params: GetInventoryProductParams
 ): Effect.Effect<InventoryProductDetail, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const product = yield* resolveProduct(client, params.product, params.category)
     return toProductDetail(product)
@@ -73,7 +74,7 @@ export const getInventoryProduct = (
 export const createInventoryProduct = (
   params: CreateInventoryProductParams
 ): Effect.Effect<InventoryCreatedResult, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const category = yield* resolveCategory(client, params.category, undefined)
     yield* ensureProductNameAvailable(client, category._id, params.name)
@@ -94,13 +95,12 @@ export const createInventoryProduct = (
 export const updateInventoryProduct = (
   params: UpdateInventoryProductParams
 ): Effect.Effect<InventoryUpdatedResult, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_inventory_product", params, UPDATE_INVENTORY_PRODUCT_FIELDS)
     const client = yield* HulyClient
     const product = yield* resolveProduct(client, params.product, params.category)
-    const newCategory = params.newCategory === undefined
-      ? undefined
-      : yield* resolveCategory(client, params.newCategory, undefined)
+    const newCategory =
+      params.newCategory === undefined ? undefined : yield* resolveCategory(client, params.newCategory, undefined)
     yield* ensureProductNameAvailable(
       client,
       newCategory?._id ?? toRef<HulyInventoryCategory>(product.attachedTo),
@@ -109,11 +109,9 @@ export const updateInventoryProduct = (
     )
     const entries: ReadonlyArray<DocumentUpdate<HulyInventoryProduct>> = [
       params.name === undefined ? {} : { name: params.name },
-      newCategory === undefined ? {} : {
-        attachedTo: newCategory._id,
-        attachedToClass: inventory.class.Category,
-        collection: PRODUCTS_COLLECTION
-      }
+      newCategory === undefined
+        ? {}
+        : { attachedTo: newCategory._id, attachedToClass: inventory.class.Category, collection: PRODUCTS_COLLECTION }
     ]
     const update = mergeUpdateEntries(entries)
     if (newCategory === undefined) {
@@ -137,7 +135,7 @@ export const updateInventoryProduct = (
 export const deleteInventoryProduct = (
   params: DeleteInventoryProductParams
 ): Effect.Effect<InventoryDeletedResult, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const product = yield* resolveProduct(client, params.product, params.category)
     const variants = yield* findAllVariants(client, { attachedTo: product._id })
@@ -174,8 +172,7 @@ export const deleteInventoryProduct = (
     const commentCount = findResultTotal(comments)
     if (variantCount > 0 || photoCount > 0 || attachmentCount > 0 || commentCount > 0) {
       return yield* new InventoryNotEmptyError({
-        message:
-          `Inventory product '${product.name}' is not empty: ${variantCount} variants, ${photoCount} photos, ${attachmentCount} attachments, ${commentCount} comments`
+        message: `Inventory product '${product.name}' is not empty: ${variantCount} variants, ${photoCount} photos, ${attachmentCount} attachments, ${commentCount} comments`
       })
     }
     const removeCollection = requireRemoveCollection(client)

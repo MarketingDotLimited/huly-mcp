@@ -144,7 +144,7 @@ const testLayer = (config: FixtureConfig = {}) => {
 const withWarnings = <A, E, R>(
   effect: Effect.Effect<A, E, R | Diagnostics>
 ): Effect.Effect<{ readonly value: A; readonly warnings: ReadonlyArray<ToolWarning> }, E, R> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const diagnostics = yield* makeDiagnosticsScope
     const value = yield* effect.pipe(Effect.provideService(Diagnostics, diagnostics.service))
     const warnings = yield* diagnostics.drainWarnings
@@ -153,7 +153,7 @@ const withWarnings = <A, E, R>(
 
 describe("space preference operations", () => {
   it.effect("lists SpacePreference rows with attached space summaries", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const secondSpace = makeSpace({ _id: toRef<Space>("space-2"), name: "Design" })
       const secondPreference = makePreference({
         _id: toRef<HulySpacePreference>("pref-2"),
@@ -171,10 +171,11 @@ describe("space preference operations", () => {
       expect(value.total).toBe(2)
       expect(value.preferences.map((item) => item.preferenceId)).toEqual(["pref-1", "pref-2"])
       expect(value.preferences.map((item) => item.attachedSpace?.name)).toEqual(["General", "Design"])
-    }))
+    })
+  )
 
   it.effect("filters listSpacePreferences by resolved space name", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Array<CapturedFindAll> = []
       const typedSpace = makeSpace({ type: toRef<SpaceType>("space-type-1") })
       const otherPreference = makePreference({
@@ -195,10 +196,11 @@ describe("space preference operations", () => {
       expect(value.preferences.map((item) => item.preferenceId)).toEqual(["pref-1"])
       const preferenceQuery = captures.find((capture) => capture.classId === preference.class.SpacePreference)?.query
       expect(preferenceQuery).toMatchObject({ attachedTo: "space-1" })
-    }))
+    })
+  )
 
   it.effect("filters listSpacePreferences with default space resolver options", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { value, warnings } = yield* listSpacePreferences({ space: spaceIdentifier("General") }).pipe(
         withWarnings,
         Effect.provide(testLayer())
@@ -206,10 +208,11 @@ describe("space preference operations", () => {
 
       expect(warnings).toEqual([])
       expect(value.preferences.map((item) => item.preferenceId)).toEqual(["pref-1"])
-    }))
+    })
+  )
 
   it.effect("returns present=false when a resolved space has no SpacePreference row", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* getSpacePreference({ space: spaceIdentifier("General") }).pipe(
         Effect.provide(testLayer({ preferences: [] }))
       )
@@ -219,26 +222,22 @@ describe("space preference operations", () => {
         attachedTo: "space-1",
         attachedSpace: { id: "space-1", name: "General" }
       })
-    }))
+    })
+  )
 
   it.effect("returns present=true when a resolved space has a SpacePreference row", () =>
-    Effect.gen(function*() {
-      const result = yield* getSpacePreference({ space: spaceIdentifier("General") }).pipe(
-        Effect.provide(testLayer())
-      )
+    Effect.gen(function* () {
+      const result = yield* getSpacePreference({ space: spaceIdentifier("General") }).pipe(Effect.provide(testLayer()))
 
       expect(result).toMatchObject({
         present: true,
-        preference: {
-          preferenceId: "pref-1",
-          attachedTo: "space-1",
-          attachedSpace: { id: "space-1", name: "General" }
-        }
+        preference: { preferenceId: "pref-1", attachedTo: "space-1", attachedSpace: { id: "space-1", name: "General" } }
       })
-    }))
+    })
+  )
 
   it.effect("lists an empty SpacePreference result without metadata warnings", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Array<CapturedFindAll> = []
       const { value, warnings } = yield* listSpacePreferences({}).pipe(
         withWarnings,
@@ -248,20 +247,22 @@ describe("space preference operations", () => {
       expect(value).toEqual({ preferences: [], total: 0 })
       expect(warnings).toEqual([])
       expect(captures.filter((capture) => capture.classId === core.class.Space)).toEqual([])
-    }))
+    })
+  )
 
   it.effect("fails getSpacePreference when the target space cannot be resolved", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const exit = yield* getSpacePreference({ space: spaceIdentifier("Missing") }).pipe(
         Effect.provide(testLayer({ spaces: [], preferences: [] })),
         Effect.exit
       )
 
       expect(exitCauseText(exit)).toContain("SpaceNotFoundError")
-    }))
+    })
+  )
 
   it.effect("warns when listSpacePreferences cannot hydrate attached space metadata", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const missingPreference = makePreference({ attachedTo: toRef<Space>("missing-space") })
       const { value, warnings } = yield* listSpacePreferences({}).pipe(
         withWarnings,
@@ -272,5 +273,6 @@ describe("space preference operations", () => {
       const firstPreference = assertAt(value.preferences, 0)
       expect(firstPreference.attachedTo).toBe("missing-space")
       expect("attachedSpace" in firstPreference).toBe(false)
-    }))
+    })
+  )
 })

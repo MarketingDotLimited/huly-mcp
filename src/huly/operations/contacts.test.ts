@@ -72,7 +72,7 @@ const createTestLayer = (config: MockConfig) => {
         const idFilter = q._id as { $in?: Array<unknown> } | unknown
         if (typeof idFilter === "object" && idFilter !== null && "$in" in idFilter) {
           const ids = idFilter.$in as Array<unknown>
-          filtered = filtered.filter(p => ids.includes(p._id))
+          filtered = filtered.filter((p) => ids.includes(p._id))
         }
       }
       const opts = (options ?? {}) as { limit?: number }
@@ -89,21 +89,21 @@ const createTestLayer = (config: MockConfig) => {
         const attachedTo = q.attachedTo as { $in?: Array<unknown> } | unknown
         if (typeof attachedTo === "object" && attachedTo !== null && "$in" in attachedTo) {
           const ids = attachedTo.$in as Array<unknown>
-          filtered = filtered.filter(c => ids.includes(c.attachedTo))
+          filtered = filtered.filter((c) => ids.includes(c.attachedTo))
         } else {
-          filtered = filtered.filter(c => c.attachedTo === q.attachedTo)
+          filtered = filtered.filter((c) => c.attachedTo === q.attachedTo)
         }
       }
       if (q.provider !== undefined) {
-        filtered = filtered.filter(c => c.provider === q.provider)
+        filtered = filtered.filter((c) => c.provider === q.provider)
       }
       if (q.value !== undefined) {
         const value = q.value as { $like?: string } | string
         if (typeof value === "object" && "$like" in value) {
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- guarded by "$like" in value check
-          filtered = filtered.filter(c => matchesLike(c.value, value.$like!))
+          filtered = filtered.filter((c) => matchesLike(c.value, value.$like!))
         } else {
-          filtered = filtered.filter(c => c.value === value)
+          filtered = filtered.filter((c) => c.value === value)
         }
       }
       // eslint-disable-next-line no-restricted-syntax -- typed array doesn't overlap with FindResult<Doc>
@@ -116,7 +116,7 @@ const createTestLayer = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === contact.class.Person) {
       const q = query as Record<string, unknown>
-      const found = persons.find(p => p._id === q._id)
+      const found = persons.find((p) => p._id === q._id)
       return Effect.succeed(found)
     }
     return Effect.succeed(undefined)
@@ -161,11 +161,7 @@ const createTestLayer = (config: MockConfig) => {
     return Effect.succeed({})
   }) as HulyClientOperations["updateDoc"]
 
-  const removeDocImpl: HulyClientOperations["removeDoc"] = ((
-    _class: unknown,
-    _space: unknown,
-    objectId: unknown
-  ) => {
+  const removeDocImpl: HulyClientOperations["removeDoc"] = ((_class: unknown, _space: unknown, objectId: unknown) => {
     if (config.captureRemoveDoc) {
       config.captureRemoveDoc.id = String(objectId)
     }
@@ -187,9 +183,7 @@ describe("Contacts Operations", () => {
     it("returns empty array when no persons exist", async () => {
       const testLayer = createTestLayer({ persons: [] })
 
-      const result = await Effect.runPromise(
-        listPersons({ limit: 10 }).pipe(Effect.provide(testLayer))
-      )
+      const result = await Effect.runPromise(listPersons({ limit: 10 }).pipe(Effect.provide(testLayer)))
 
       expect(result).toEqual([])
     })
@@ -198,14 +192,9 @@ describe("Contacts Operations", () => {
       const mockPerson = createMockPerson()
       const mockChannel = createMockChannel()
 
-      const testLayer = createTestLayer({
-        persons: [mockPerson],
-        channels: [mockChannel]
-      })
+      const testLayer = createTestLayer({ persons: [mockPerson], channels: [mockChannel] })
 
-      const result = await Effect.runPromise(
-        listPersons({ limit: 10 }).pipe(Effect.provide(testLayer))
-      )
+      const result = await Effect.runPromise(listPersons({ limit: 10 }).pipe(Effect.provide(testLayer)))
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0)).toMatchObject({
@@ -219,14 +208,9 @@ describe("Contacts Operations", () => {
     it("handles persons without email", async () => {
       const mockPerson = createMockPerson()
 
-      const testLayer = createTestLayer({
-        persons: [mockPerson],
-        channels: []
-      })
+      const testLayer = createTestLayer({ persons: [mockPerson], channels: [] })
 
-      const result = await Effect.runPromise(
-        listPersons({ limit: 10 }).pipe(Effect.provide(testLayer))
-      )
+      const result = await Effect.runPromise(listPersons({ limit: 10 }).pipe(Effect.provide(testLayer)))
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).email).toBeUndefined()
@@ -239,32 +223,18 @@ describe("Contacts Operations", () => {
       const { city: _city, ...personWithoutCity } = basePerson
       const mockPerson = personWithoutCity as HulyPerson
 
-      const testLayer = createTestLayer({
-        persons: [mockPerson],
-        channels: []
-      })
+      const testLayer = createTestLayer({ persons: [mockPerson], channels: [] })
 
-      const result = await Effect.runPromise(
-        listPersons({ limit: 10 }).pipe(Effect.provide(testLayer))
-      )
+      const result = await Effect.runPromise(listPersons({ limit: 10 }).pipe(Effect.provide(testLayer)))
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).city).toBeUndefined()
     })
 
     it("correctly associates emails with multiple persons", async () => {
-      const person1 = createMockPerson({
-        _id: "person-1" as Ref<HulyPerson>,
-        name: "Doe,John"
-      })
-      const person2 = createMockPerson({
-        _id: "person-2" as Ref<HulyPerson>,
-        name: "Smith,Jane"
-      })
-      const person3 = createMockPerson({
-        _id: "person-3" as Ref<HulyPerson>,
-        name: "Brown,Bob"
-      })
+      const person1 = createMockPerson({ _id: "person-1" as Ref<HulyPerson>, name: "Doe,John" })
+      const person2 = createMockPerson({ _id: "person-2" as Ref<HulyPerson>, name: "Smith,Jane" })
+      const person3 = createMockPerson({ _id: "person-3" as Ref<HulyPerson>, name: "Brown,Bob" })
 
       const channel1 = createMockChannel({
         _id: "channel-1" as Ref<Channel>,
@@ -287,26 +257,18 @@ describe("Contacts Operations", () => {
         channels: [channel1, channel2, channel3]
       })
 
-      const result = await Effect.runPromise(
-        listPersons({ limit: 10 }).pipe(Effect.provide(testLayer))
-      )
+      const result = await Effect.runPromise(listPersons({ limit: 10 }).pipe(Effect.provide(testLayer)))
 
       expect(result).toHaveLength(3)
-      const resultMap = new Map(result.map(p => [p.id, p]))
+      const resultMap = new Map(result.map((p) => [p.id, p]))
       expect(resultMap.get(PersonId.make("person-1"))?.email).toBe("john@example.com")
       expect(resultMap.get(PersonId.make("person-2"))?.email).toBe("jane@example.com")
       expect(resultMap.get(PersonId.make("person-3"))?.email).toBe("bob@example.com")
     })
 
     it("filters by emailSearch using server-side channel query", async () => {
-      const person1 = createMockPerson({
-        _id: "person-1" as Ref<HulyPerson>,
-        name: "Doe,John"
-      })
-      const person2 = createMockPerson({
-        _id: "person-2" as Ref<HulyPerson>,
-        name: "Smith,Jane"
-      })
+      const person1 = createMockPerson({ _id: "person-1" as Ref<HulyPerson>, name: "Doe,John" })
+      const person2 = createMockPerson({ _id: "person-2" as Ref<HulyPerson>, name: "Smith,Jane" })
 
       const channel1 = createMockChannel({
         _id: "channel-1" as Ref<Channel>,
@@ -319,10 +281,7 @@ describe("Contacts Operations", () => {
         value: "jane@other.com"
       })
 
-      const testLayer = createTestLayer({
-        persons: [person1, person2],
-        channels: [channel1, channel2]
-      })
+      const testLayer = createTestLayer({ persons: [person1, person2], channels: [channel1, channel2] })
 
       const result = await Effect.runPromise(
         listPersons({ emailSearch: "example.com", limit: 10 }).pipe(Effect.provide(testLayer))
@@ -337,10 +296,7 @@ describe("Contacts Operations", () => {
       const person1 = createMockPerson()
       const channel1 = createMockChannel({ value: "john@example.com" })
 
-      const testLayer = createTestLayer({
-        persons: [person1],
-        channels: [channel1]
-      })
+      const testLayer = createTestLayer({ persons: [person1], channels: [channel1] })
 
       const result = await Effect.runPromise(
         listPersons({ emailSearch: "nonexistent.com", limit: 10 }).pipe(Effect.provide(testLayer))
@@ -353,15 +309,14 @@ describe("Contacts Operations", () => {
       const persons: Array<HulyPerson> = []
       const channels: Array<Channel> = []
       for (let i = 0; i < 5; i++) {
-        persons.push(createMockPerson({
-          _id: `person-${i}` as Ref<HulyPerson>,
-          name: `Last${i},First${i}`
-        }))
-        channels.push(createMockChannel({
-          _id: `channel-${i}` as Ref<Channel>,
-          attachedTo: `person-${i}` as Ref<Doc>,
-          value: `user${i}@example.com`
-        }))
+        persons.push(createMockPerson({ _id: `person-${i}` as Ref<HulyPerson>, name: `Last${i},First${i}` }))
+        channels.push(
+          createMockChannel({
+            _id: `channel-${i}` as Ref<Channel>,
+            attachedTo: `person-${i}` as Ref<Doc>,
+            value: `user${i}@example.com`
+          })
+        )
       }
 
       const testLayer = createTestLayer({ persons, channels })
@@ -379,10 +334,7 @@ describe("Contacts Operations", () => {
       const mockPerson = createMockPerson()
       const mockChannel = createMockChannel()
 
-      const testLayer = createTestLayer({
-        persons: [mockPerson],
-        channels: [mockChannel]
-      })
+      const testLayer = createTestLayer({ persons: [mockPerson], channels: [mockChannel] })
 
       const result = await Effect.runPromise(
         getPerson({ personId: PersonId.make("person-123") }).pipe(Effect.provide(testLayer))
@@ -406,12 +358,10 @@ describe("Contacts Operations", () => {
 
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
-        const error = result.cause.pipe(
-          (cause) => {
-            if (cause._tag === "Fail") return cause.error
-            return undefined
-          }
-        )
+        const error = result.cause.pipe((cause) => {
+          if (cause._tag === "Fail") return cause.error
+          return undefined
+        })
         expect(error).toBeDefined()
         expect((error as { _tag: string })._tag).toBe("PersonNotFoundError")
         expect((error as { identifier: string }).identifier).toBe("nonexistent")
@@ -421,10 +371,7 @@ describe("Contacts Operations", () => {
     it("parses name with comma correctly", async () => {
       const mockPerson = createMockPerson({ name: "Smith,Jane" })
 
-      const testLayer = createTestLayer({
-        persons: [mockPerson],
-        channels: []
-      })
+      const testLayer = createTestLayer({ persons: [mockPerson], channels: [] })
 
       const result = await Effect.runPromise(
         getPerson({ personId: PersonId.make("person-123") }).pipe(Effect.provide(testLayer))
@@ -437,10 +384,7 @@ describe("Contacts Operations", () => {
     it("handles name without comma", async () => {
       const mockPerson = createMockPerson({ name: "SingleName" })
 
-      const testLayer = createTestLayer({
-        persons: [mockPerson],
-        channels: []
-      })
+      const testLayer = createTestLayer({ persons: [mockPerson], channels: [] })
 
       const result = await Effect.runPromise(
         getPerson({ personId: PersonId.make("person-123") }).pipe(Effect.provide(testLayer))
@@ -453,10 +397,7 @@ describe("Contacts Operations", () => {
     it("handles name with multiple commas", async () => {
       const mockPerson = createMockPerson({ name: "Doe,John,Jr" })
 
-      const testLayer = createTestLayer({
-        persons: [mockPerson],
-        channels: []
-      })
+      const testLayer = createTestLayer({ persons: [mockPerson], channels: [] })
 
       const result = await Effect.runPromise(
         getPerson({ personId: PersonId.make("person-123") }).pipe(Effect.provide(testLayer))
@@ -470,10 +411,7 @@ describe("Contacts Operations", () => {
       const mockPerson = createMockPerson()
       const mockChannel = createMockChannel({ value: "john@example.com" })
 
-      const testLayer = createTestLayer({
-        persons: [mockPerson],
-        channels: [mockChannel]
-      })
+      const testLayer = createTestLayer({ persons: [mockPerson], channels: [mockChannel] })
 
       const result = await Effect.runPromise(
         getPerson({ email: Email.make("john@example.com") }).pipe(Effect.provide(testLayer))
@@ -485,7 +423,7 @@ describe("Contacts Operations", () => {
       expect(result.lastName).toBe("Doe")
       expect(result.channels).toBeDefined()
       expect(result.channels!.length).toBeGreaterThanOrEqual(1)
-      expect(result.channels!.find(c => c.value === "john@example.com")).toBeDefined()
+      expect(result.channels!.find((c) => c.value === "john@example.com")).toBeDefined()
     })
 
     it("fails with PersonNotFoundError when email not found", async () => {
@@ -497,12 +435,10 @@ describe("Contacts Operations", () => {
 
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
-        const error = result.cause.pipe(
-          (cause) => {
-            if (cause._tag === "Fail") return cause.error
-            return undefined
-          }
-        )
+        const error = result.cause.pipe((cause) => {
+          if (cause._tag === "Fail") return cause.error
+          return undefined
+        })
         expect(error).toBeDefined()
         expect((error as { _tag: string })._tag).toBe("PersonNotFoundError")
         expect((error as { identifier: string }).identifier).toBe("nonexistent@example.com")
@@ -514,15 +450,10 @@ describe("Contacts Operations", () => {
     it("creates person with required fields", async () => {
       const capture: MockConfig["captureCreateDoc"] = {}
 
-      const testLayer = createTestLayer({
-        captureCreateDoc: capture
-      })
+      const testLayer = createTestLayer({ captureCreateDoc: capture })
 
       const result = await Effect.runPromise(
-        createPerson({
-          firstName: "John",
-          lastName: "Doe"
-        }).pipe(Effect.provide(testLayer))
+        createPerson({ firstName: "John", lastName: "Doe" }).pipe(Effect.provide(testLayer))
       )
 
       expect(result.id).toBeDefined()
@@ -533,16 +464,10 @@ describe("Contacts Operations", () => {
     it("creates person with city", async () => {
       const capture: MockConfig["captureCreateDoc"] = {}
 
-      const testLayer = createTestLayer({
-        captureCreateDoc: capture
-      })
+      const testLayer = createTestLayer({ captureCreateDoc: capture })
 
       await Effect.runPromise(
-        createPerson({
-          firstName: "John",
-          lastName: "Doe",
-          city: "NYC"
-        }).pipe(Effect.provide(testLayer))
+        createPerson({ firstName: "John", lastName: "Doe", city: "NYC" }).pipe(Effect.provide(testLayer))
       )
 
       expect(capture.data?.city).toBe("NYC")
@@ -551,16 +476,12 @@ describe("Contacts Operations", () => {
     it("creates email channel when email provided", async () => {
       const channelCapture: MockConfig["captureAddCollection"] = {}
 
-      const testLayer = createTestLayer({
-        captureAddCollection: channelCapture
-      })
+      const testLayer = createTestLayer({ captureAddCollection: channelCapture })
 
       await Effect.runPromise(
-        createPerson({
-          firstName: "John",
-          lastName: "Doe",
-          email: Email.make("john@example.com")
-        }).pipe(Effect.provide(testLayer))
+        createPerson({ firstName: "John", lastName: "Doe", email: Email.make("john@example.com") }).pipe(
+          Effect.provide(testLayer)
+        )
       )
 
       expect(channelCapture.attributes?.value).toBe("john@example.com")
@@ -575,9 +496,7 @@ describe("Contacts Operations", () => {
     it("fails when no changes", async () => {
       const mockPerson = createMockPerson()
 
-      const testLayer = createTestLayer({
-        persons: [mockPerson]
-      })
+      const testLayer = createTestLayer({ persons: [mockPerson] })
 
       const error = await Effect.runPromise(
         Effect.flip(updatePerson({ personId: PersonId.make("person-123") }).pipe(Effect.provide(testLayer)))
@@ -590,16 +509,10 @@ describe("Contacts Operations", () => {
       const mockPerson = createMockPerson({ name: "Doe,John" })
       const capture: MockConfig["captureUpdateDoc"] = {}
 
-      const testLayer = createTestLayer({
-        persons: [mockPerson],
-        captureUpdateDoc: capture
-      })
+      const testLayer = createTestLayer({ persons: [mockPerson], captureUpdateDoc: capture })
 
       const result = await Effect.runPromise(
-        updatePerson({
-          personId: PersonId.make("person-123"),
-          firstName: "Jane"
-        }).pipe(Effect.provide(testLayer))
+        updatePerson({ personId: PersonId.make("person-123"), firstName: "Jane" }).pipe(Effect.provide(testLayer))
       )
 
       expect(result.updated).toBe(true)
@@ -610,16 +523,10 @@ describe("Contacts Operations", () => {
       const mockPerson = createMockPerson({ city: "NYC" })
       const capture: MockConfig["captureUpdateDoc"] = {}
 
-      const testLayer = createTestLayer({
-        persons: [mockPerson],
-        captureUpdateDoc: capture
-      })
+      const testLayer = createTestLayer({ persons: [mockPerson], captureUpdateDoc: capture })
 
       const result = await Effect.runPromise(
-        updatePerson({
-          personId: PersonId.make("person-123"),
-          city: null
-        }).pipe(Effect.provide(testLayer))
+        updatePerson({ personId: PersonId.make("person-123"), city: null }).pipe(Effect.provide(testLayer))
       )
 
       expect(result.updated).toBe(true)
@@ -635,12 +542,10 @@ describe("Contacts Operations", () => {
 
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
-        const error = result.cause.pipe(
-          (cause) => {
-            if (cause._tag === "Fail") return cause.error
-            return undefined
-          }
-        )
+        const error = result.cause.pipe((cause) => {
+          if (cause._tag === "Fail") return cause.error
+          return undefined
+        })
         expect(error).toBeDefined()
         expect((error as { _tag: string })._tag).toBe("PersonNotFoundError")
         expect((error as { identifier: string }).identifier).toBe("nonexistent")
@@ -653,10 +558,7 @@ describe("Contacts Operations", () => {
       const mockPerson = createMockPerson()
       const capture: MockConfig["captureRemoveDoc"] = {}
 
-      const testLayer = createTestLayer({
-        persons: [mockPerson],
-        captureRemoveDoc: capture
-      })
+      const testLayer = createTestLayer({ persons: [mockPerson], captureRemoveDoc: capture })
 
       const result = await Effect.runPromise(
         deletePerson({ personId: PersonId.make("person-123") }).pipe(Effect.provide(testLayer))

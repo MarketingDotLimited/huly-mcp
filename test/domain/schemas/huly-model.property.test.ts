@@ -33,11 +33,7 @@ interface HulyAttributeTypeFixture {
 
 const rawDetailsArbitrary = fc.dictionary(
   fc.stringMatching(/^[a-z][a-z0-9_]{0,8}$/),
-  fc.oneof(
-    fc.string({ maxLength: 20 }),
-    fc.integer({ min: -100, max: 100 }),
-    fc.boolean()
-  ),
+  fc.oneof(fc.string({ maxLength: 20 }), fc.integer({ min: -100, max: 100 }), fc.boolean()),
   { maxKeys: 3 }
 )
 const detailsWithoutRequiredCustomFieldKeysArbitrary = fc.dictionary(
@@ -53,10 +49,7 @@ const attributeTypeArbitrary = (depth: number): fc.Arbitrary<HulyAttributeTypeFi
   })
 
   const scalar = baseFields.chain((base) =>
-    fc.constantFrom("string", "number", "boolean", "date", "markup", "unknown").map((kind) => ({
-      ...base,
-      kind
-    }))
+    fc.constantFrom("string", "number", "boolean", "date", "markup", "unknown").map((kind) => ({ ...base, kind }))
   )
   const ref = baseFields.chain((base) => classArbitrary.map((refTo) => ({ ...base, kind: "ref" as const, refTo })))
   const enumType = baseFields.chain((base) => idArbitrary.map((enumId) => ({ ...base, kind: "enum" as const, enumId })))
@@ -112,12 +105,7 @@ describe("Huly model schema properties", () => {
   it("HulyAttributeTypeSchema rejects variants missing kind-specific required fields", () => {
     fc.assert(
       fc.property(
-        fc.constantFrom(
-          { kind: "ref" },
-          { kind: "enum" },
-          { kind: "collection" },
-          { kind: "array" }
-        ),
+        fc.constantFrom({ kind: "ref" }, { kind: "enum" }, { kind: "collection" }, { kind: "array" }),
         (attributeType) => {
           expect(decodeSucceeds(HulyAttributeTypeSchema, attributeType)).toBe(false)
         }
@@ -152,11 +140,13 @@ describe("Huly model schema properties", () => {
     fc.assert(
       fc.property(customFieldBaseArbitrary, primitiveCustomFieldTypeArbitrary, (base, type) => {
         expect(decodeSucceeds(CustomFieldInfoWireSchema, { ...base, type, typeDetails: {} })).toBe(true)
-        expect(decodeSucceeds(CustomFieldInfoWireSchema, {
-          ...base,
-          type,
-          typeDetails: { extra: "not allowed for primitives" }
-        })).toBe(false)
+        expect(
+          decodeSucceeds(CustomFieldInfoWireSchema, {
+            ...base,
+            type,
+            typeDetails: { extra: "not allowed for primitives" }
+          })
+        ).toBe(false)
       }),
       propertyTestParameters
     )
@@ -167,33 +157,40 @@ describe("Huly model schema properties", () => {
         rawDetailsArbitrary,
         detailsWithoutRequiredCustomFieldKeysArbitrary,
         (base, extraDetails, missingDetails) => {
-          expect(decodeSucceeds(CustomFieldInfoWireSchema, {
-            ...base,
-            type: "enum",
-            typeDetails: { ...extraDetails, enumRef: "status" }
-          })).toBe(true)
-          expect(decodeSucceeds(CustomFieldInfoWireSchema, {
-            ...base,
-            type: "array",
-            typeDetails: { ...extraDetails, of: "string" }
-          })).toBe(true)
-          expect(decodeSucceeds(CustomFieldInfoWireSchema, {
-            ...base,
-            type: "ref",
-            typeDetails: { ...extraDetails, to: "tracker:class:Issue" }
-          })).toBe(true)
-          expect(decodeSucceeds(CustomFieldInfoWireSchema, {
-            ...base,
-            type: "unknown",
-            typeDetails: extraDetails
-          })).toBe(true)
+          expect(
+            decodeSucceeds(CustomFieldInfoWireSchema, {
+              ...base,
+              type: "enum",
+              typeDetails: { ...extraDetails, enumRef: "status" }
+            })
+          ).toBe(true)
+          expect(
+            decodeSucceeds(CustomFieldInfoWireSchema, {
+              ...base,
+              type: "array",
+              typeDetails: { ...extraDetails, of: "string" }
+            })
+          ).toBe(true)
+          expect(
+            decodeSucceeds(CustomFieldInfoWireSchema, {
+              ...base,
+              type: "ref",
+              typeDetails: { ...extraDetails, to: "tracker:class:Issue" }
+            })
+          ).toBe(true)
+          expect(
+            decodeSucceeds(CustomFieldInfoWireSchema, { ...base, type: "unknown", typeDetails: extraDetails })
+          ).toBe(true)
 
-          expect(decodeSucceeds(CustomFieldInfoWireSchema, { ...base, type: "enum", typeDetails: missingDetails }))
-            .toBe(false)
-          expect(decodeSucceeds(CustomFieldInfoWireSchema, { ...base, type: "array", typeDetails: missingDetails }))
-            .toBe(false)
-          expect(decodeSucceeds(CustomFieldInfoWireSchema, { ...base, type: "ref", typeDetails: missingDetails }))
-            .toBe(false)
+          expect(
+            decodeSucceeds(CustomFieldInfoWireSchema, { ...base, type: "enum", typeDetails: missingDetails })
+          ).toBe(false)
+          expect(
+            decodeSucceeds(CustomFieldInfoWireSchema, { ...base, type: "array", typeDetails: missingDetails })
+          ).toBe(false)
+          expect(decodeSucceeds(CustomFieldInfoWireSchema, { ...base, type: "ref", typeDetails: missingDetails })).toBe(
+            false
+          )
         }
       ),
       propertyTestParameters

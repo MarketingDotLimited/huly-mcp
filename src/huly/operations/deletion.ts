@@ -35,11 +35,8 @@ const sumListTotals = (values: ReadonlyArray<ListTotal>): ListTotal =>
 const previewIssueDeletion = (
   params: PreviewDeletionParams & { identifier: string }
 ): Effect.Effect<DeletionImpact, PreviewDeletionError, HulyClient> =>
-  Effect.gen(function*() {
-    const { issue } = yield* findProjectAndIssue({
-      project: params.project,
-      identifier: params.identifier
-    })
+  Effect.gen(function* () {
+    const { issue } = yield* findProjectAndIssue({ project: params.project, identifier: params.identifier })
 
     const subIssues = issue.subIssues
     const comments = issue.comments ?? 0
@@ -80,30 +77,14 @@ const previewIssueDeletion = (
 const previewProjectDeletion = (
   params: PreviewDeletionParams
 ): Effect.Effect<DeletionImpact, PreviewDeletionError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, project } = yield* findProject(params.project)
 
     const [issues, components, milestones, templates] = yield* Effect.all([
-      client.findAll<HulyIssue>(
-        tracker.class.Issue,
-        { space: project._id },
-        { limit: 1, total: true }
-      ),
-      client.findAll<HulyComponent>(
-        tracker.class.Component,
-        { space: project._id },
-        { limit: 1, total: true }
-      ),
-      client.findAll<HulyMilestone>(
-        tracker.class.Milestone,
-        { space: project._id },
-        { limit: 1, total: true }
-      ),
-      client.findAll<HulyIssueTemplate>(
-        tracker.class.IssueTemplate,
-        { space: project._id },
-        { limit: 1, total: true }
-      )
+      client.findAll<HulyIssue>(tracker.class.Issue, { space: project._id }, { limit: 1, total: true }),
+      client.findAll<HulyComponent>(tracker.class.Component, { space: project._id }, { limit: 1, total: true }),
+      client.findAll<HulyMilestone>(tracker.class.Milestone, { space: project._id }, { limit: 1, total: true }),
+      client.findAll<HulyIssueTemplate>(tracker.class.IssueTemplate, { space: project._id }, { limit: 1, total: true })
     ])
 
     const issueCount = listTotal(issues.total)
@@ -128,12 +109,7 @@ const previewProjectDeletion = (
     return {
       entityType: "project" as const,
       identifier: project.identifier,
-      impact: {
-        issues: issueCount,
-        components: componentCount,
-        milestones: milestoneCount,
-        templates: templateCount
-      },
+      impact: { issues: issueCount, components: componentCount, milestones: milestoneCount, templates: templateCount },
       warnings,
       totalAffected
     }
@@ -142,7 +118,7 @@ const previewProjectDeletion = (
 const previewComponentDeletion = (
   params: PreviewDeletionParams & { identifier: string }
 ): Effect.Effect<DeletionImpact, PreviewDeletionError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, project } = yield* findProject(params.project)
 
     const component = yield* findComponentByIdOrLabel(client, project._id, params.identifier)
@@ -160,9 +136,7 @@ const previewComponentDeletion = (
 
     const warnings: Array<string> = []
     if (issueCount > 0) {
-      warnings.push(
-        `${issueCount} issue${issueCount > 1 ? "s" : ""} use${issueCount === 1 ? "s" : ""} this component`
-      )
+      warnings.push(`${issueCount} issue${issueCount > 1 ? "s" : ""} use${issueCount === 1 ? "s" : ""} this component`)
     }
 
     return {
@@ -177,7 +151,7 @@ const previewComponentDeletion = (
 const previewMilestoneDeletion = (
   params: PreviewDeletionParams & { identifier: string }
 ): Effect.Effect<DeletionImpact, PreviewDeletionError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, project } = yield* findProject(params.project)
 
     const milestone = yield* findByNameOrId(

@@ -80,62 +80,66 @@ const asCardSpace = (value: unknown): HulyCardSpace => value as HulyCardSpace
 const asCard = (value: unknown): HulyCard => value as HulyCard
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- SDK fixture builder
-const association = (overrides: Partial<HulyAssociation> & { readonly automationOnly?: boolean }): HulyAssociation => ({
-  _id: "assoc-1" as Ref<HulyAssociation>,
-  _class: core.class.Association,
-  space,
-  modifiedBy: person,
-  modifiedOn: 100,
-  createdBy: person,
-  createdOn: 100,
-  classA: tracker.class.Issue,
-  classB: tracker.class.Issue,
-  nameA: "relates",
-  nameB: "relates",
-  type: "N:N",
-  ...overrides
-} as HulyAssociation)
+const association = (overrides: Partial<HulyAssociation> & { readonly automationOnly?: boolean }): HulyAssociation =>
+  ({
+    _id: "assoc-1" as Ref<HulyAssociation>,
+    _class: core.class.Association,
+    space,
+    modifiedBy: person,
+    modifiedOn: 100,
+    createdBy: person,
+    createdOn: 100,
+    classA: tracker.class.Issue,
+    classB: tracker.class.Issue,
+    nameA: "relates",
+    nameB: "relates",
+    type: "N:N",
+    ...overrides
+  }) as HulyAssociation
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- SDK fixture builder
-const relation = (overrides: Partial<HulyRelation>): HulyRelation => ({
-  _id: "rel-1" as Ref<HulyRelation>,
-  _class: core.class.Relation,
-  space,
-  modifiedBy: person,
-  modifiedOn: 200,
-  createdBy: person,
-  createdOn: 200,
-  docA: "issue-1" as Ref<Doc>,
-  docB: "issue-2" as Ref<Doc>,
-  association: "assoc-1" as Ref<HulyAssociation>,
-  ...overrides
-} as HulyRelation)
+const relation = (overrides: Partial<HulyRelation>): HulyRelation =>
+  ({
+    _id: "rel-1" as Ref<HulyRelation>,
+    _class: core.class.Relation,
+    space,
+    modifiedBy: person,
+    modifiedOn: 200,
+    createdBy: person,
+    createdOn: 200,
+    docA: "issue-1" as Ref<Doc>,
+    docB: "issue-2" as Ref<Doc>,
+    association: "assoc-1" as Ref<HulyAssociation>,
+    ...overrides
+  }) as HulyRelation
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- SDK fixture builder
-const issue = (id: string, identifier: string): HulyIssue => ({
-  _id: id as Ref<HulyIssue>,
-  _class: tracker.class.Issue,
-  space,
-  modifiedBy: person,
-  modifiedOn: 100,
-  createdBy: person,
-  createdOn: 100,
-  title: identifier,
-  identifier,
-  number: 1
-} as HulyIssue)
+const issue = (id: string, identifier: string): HulyIssue =>
+  ({
+    _id: id as Ref<HulyIssue>,
+    _class: tracker.class.Issue,
+    space,
+    modifiedBy: person,
+    modifiedOn: 100,
+    createdBy: person,
+    createdOn: 100,
+    title: identifier,
+    identifier,
+    number: 1
+  }) as HulyIssue
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- SDK fixture builder
-const documentDoc = (id: string, title: string): HulyDocument => ({
-  _id: id as Ref<HulyDocument>,
-  _class: documentPlugin.class.Document,
-  space,
-  modifiedBy: person,
-  modifiedOn: 100,
-  createdBy: person,
-  createdOn: 100,
-  title
-} as HulyDocument)
+const documentDoc = (id: string, title: string): HulyDocument =>
+  ({
+    _id: id as Ref<HulyDocument>,
+    _class: documentPlugin.class.Document,
+    space,
+    modifiedBy: person,
+    modifiedOn: 100,
+    createdBy: person,
+    createdOn: 100,
+    title
+  }) as HulyDocument
 
 const cardSpaceDoc = (id: string, name: string): HulyCardSpace =>
   asCardSpace({
@@ -178,13 +182,11 @@ interface TestData {
   readonly cardSpaces?: ReadonlyArray<HulyCardSpace>
 }
 
-type FindAllObserver = (
-  request: {
-    readonly _class: unknown
-    readonly query: unknown
-    readonly options: unknown
-  }
-) => void
+type FindAllObserver = (request: {
+  readonly _class: unknown
+  readonly query: unknown
+  readonly options: unknown
+}) => void
 
 const matchesQuery = (doc: Doc, query: Record<string, unknown>): boolean =>
   Object.entries(query).every(([key, value]) => {
@@ -198,17 +200,14 @@ const matchesQuery = (doc: Doc, query: Record<string, unknown>): boolean =>
 const getProperty = (value: unknown, key: string): unknown =>
   typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined
 
-const resultFor = <T extends Doc>(
-  docs: ReadonlyArray<T>,
-  query: unknown,
-  options: unknown
-): FindResult<T> => {
+const resultFor = <T extends Doc>(docs: ReadonlyArray<T>, query: unknown, options: unknown): FindResult<T> => {
   const q = query as Record<string, unknown>
   const opts = options as { limit?: number; sort?: { modifiedOn?: SortingOrder } } | undefined
   const matches = docs.filter((doc) => matchesQuery(doc, q))
-  const sorted = opts?.sort?.modifiedOn === SortingOrder.Descending
-    ? [...matches].sort((left, right) => right.modifiedOn - left.modifiedOn)
-    : matches
+  const sorted =
+    opts?.sort?.modifiedOn === SortingOrder.Descending
+      ? [...matches].sort((left, right) => right.modifiedOn - left.modifiedOn)
+      : matches
   return toFindResult(sorted.slice(0, opts?.limit), matches.length)
 }
 
@@ -318,7 +317,7 @@ const testLayer = (data: TestData, onFindAll?: FindAllObserver) => {
 
 describe("listAssociations", () => {
   it.effect("lists visible associations and hides core system associations by default", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const visible = association({ _id: "assoc-visible" as Ref<HulyAssociation> })
       const system = association({
         _id: "assoc-system" as Ref<HulyAssociation>,
@@ -326,19 +325,18 @@ describe("listAssociations", () => {
         classB: core.class.Doc
       })
 
-      const result = yield* listAssociations({}).pipe(
-        Effect.provide(testLayer({ associations: [visible, system] }))
-      )
+      const result = yield* listAssociations({}).pipe(Effect.provide(testLayer({ associations: [visible, system] })))
 
       expect(result.associations.map((item) => item.associationId)).toEqual(["assoc-visible"])
       expect(assertAt(result.associations, 0).sourceClassLabel).toBe("Issue")
       expect(assertAt(result.associations, 0).targetClassLabel).toBe("Issue")
       expect(assertAt(result.associations, 0).canListRelations).toBe(true)
       expect(assertAt(result.associations, 0).canCreateRelation).toBe(true)
-    }))
+    })
+  )
 
   it.effect("applies limit after hiding system associations", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const system1 = association({
         _id: "assoc-system-1" as Ref<HulyAssociation>,
         classA: core.class.Doc,
@@ -357,62 +355,60 @@ describe("listAssociations", () => {
 
       expect(result.associations.map((item) => item.associationId)).toEqual(["assoc-visible"])
       expect(result.total).toBe(1)
-    }))
+    })
+  )
 
   it.effect("maps SDK association type to public cardinality", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listAssociations({}).pipe(
-        Effect.provide(testLayer({
-          associations: [
-            association({ _id: "assoc-1-1" as Ref<HulyAssociation>, type: "1:1" }),
-            association({ _id: "assoc-1-n" as Ref<HulyAssociation>, type: "1:N" }),
-            association({ _id: "assoc-n-n" as Ref<HulyAssociation>, type: "N:N" })
-          ]
-        }))
+        Effect.provide(
+          testLayer({
+            associations: [
+              association({ _id: "assoc-1-1" as Ref<HulyAssociation>, type: "1:1" }),
+              association({ _id: "assoc-1-n" as Ref<HulyAssociation>, type: "1:N" }),
+              association({ _id: "assoc-n-n" as Ref<HulyAssociation>, type: "N:N" })
+            ]
+          })
+        )
       )
 
-      expect(result.associations.map((item) => item.cardinality)).toEqual([
-        "one-to-one",
-        "one-to-many",
-        "many-to-many"
-      ])
-    }))
+      expect(result.associations.map((item) => item.cardinality)).toEqual(["one-to-one", "one-to-many", "many-to-many"])
+    })
+  )
 
   it.effect("returns relation-writable associations when requested", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listAssociations({ writableOnly: true }).pipe(
         Effect.provide(testLayer({ associations: [association({})] }))
       )
 
       expect(result.associations.map((item) => item.associationId)).toEqual(["assoc-1"])
       expect(result.total).toBe(1)
-    }))
+    })
+  )
 
   it.effect("filters selected non-writable associations after resolving them", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listAssociations({ association: assocId, writableOnly: true }).pipe(
-        Effect.provide(testLayer({
-          associations: [
-            association({
-              _id: "assoc-1" as Ref<HulyAssociation>,
-              automationOnly: true
-            })
-          ]
-        }))
+        Effect.provide(
+          testLayer({ associations: [association({ _id: "assoc-1" as Ref<HulyAssociation>, automationOnly: true })] })
+        )
       )
 
       expect(result.associations).toEqual([])
       expect(result.total).toBe(0)
-    }))
+    })
+  )
 
   it.effect("resolves a selected association ID beyond the discovery window", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const nonMatches = Array.from({ length: 205 }, (_, index) =>
         association({
           _id: `assoc-other-${index}` as Ref<HulyAssociation>,
           nameA: `other-${index}`,
           nameB: `other-${index}`
-        }))
+        })
+      )
       const target = association({
         _id: "assoc-target" as Ref<HulyAssociation>,
         nameA: "outside-window",
@@ -424,16 +420,18 @@ describe("listAssociations", () => {
       )
 
       expect(result.associations.map((item) => item.associationId)).toEqual(["assoc-target"])
-    }))
+    })
+  )
 
   it.effect("resolves a selected association name beyond the discovery window", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const nonMatches = Array.from({ length: 205 }, (_, index) =>
         association({
           _id: `assoc-other-${index}` as Ref<HulyAssociation>,
           nameA: `other-${index}`,
           nameB: `other-${index}`
-        }))
+        })
+      )
       const target = association({
         _id: "assoc-target" as Ref<HulyAssociation>,
         nameA: "outside-window",
@@ -445,10 +443,11 @@ describe("listAssociations", () => {
       )
 
       expect(result.associations.map((item) => item.associationId)).toEqual(["assoc-target"])
-    }))
+    })
+  )
 
   it.effect("applies class filters before limiting selected association name lookups", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const target = association({
         _id: "assoc-target" as Ref<HulyAssociation>,
         classA: documentPlugin.class.Document,
@@ -460,69 +459,77 @@ describe("listAssociations", () => {
         sourceClass: documentClass,
         targetClass: documentClass
       }).pipe(
-        Effect.provide(testLayer({
-          associations: [
-            association({ _id: "assoc-issue-1" as Ref<HulyAssociation> }),
-            association({ _id: "assoc-issue-2" as Ref<HulyAssociation> }),
-            target
-          ]
-        }))
+        Effect.provide(
+          testLayer({
+            associations: [
+              association({ _id: "assoc-issue-1" as Ref<HulyAssociation> }),
+              association({ _id: "assoc-issue-2" as Ref<HulyAssociation> }),
+              target
+            ]
+          })
+        )
       )
 
       expect(result.associations.map((item) => item.associationId)).toEqual(["assoc-target"])
       expect(assertAt(result.associations, 0).sourceClassLabel).toBe("Document")
       expect(assertAt(result.associations, 0).targetClassLabel).toBe("Document")
-    }))
+    })
+  )
 
   it.effect("fails on ambiguous association names", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         listAssociations({ association: relatesAssociation }).pipe(
-          Effect.provide(testLayer({
-            associations: [
-              association({ _id: "assoc-1" as Ref<HulyAssociation> }),
-              association({ _id: "assoc-2" as Ref<HulyAssociation> })
-            ]
-          }))
+          Effect.provide(
+            testLayer({
+              associations: [
+                association({ _id: "assoc-1" as Ref<HulyAssociation> }),
+                association({ _id: "assoc-2" as Ref<HulyAssociation> })
+              ]
+            })
+          )
         )
       )
 
       expect(error).toBeInstanceOf(AssociationIdentifierAmbiguousError)
-    }))
+    })
+  )
 
   it.effect("caps exact-name lookup queries while detecting ambiguity", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const lookupLimits: Array<number | undefined> = []
       const error = yield* Effect.flip(
         listAssociations({ association: relatesAssociation }).pipe(
-          Effect.provide(testLayer(
-            {
-              associations: [
-                association({ _id: "assoc-1" as Ref<HulyAssociation> }),
-                association({ _id: "assoc-2" as Ref<HulyAssociation> }),
-                association({ _id: "assoc-3" as Ref<HulyAssociation> })
-              ]
-            },
-            ({ _class, options }) => {
-              if (_class === core.class.Association) {
-                const limit = typeof options === "object" && options !== null
-                  ? Reflect.get(options, "limit")
-                  : undefined
-                lookupLimits.push(typeof limit === "number" ? limit : undefined)
+          Effect.provide(
+            testLayer(
+              {
+                associations: [
+                  association({ _id: "assoc-1" as Ref<HulyAssociation> }),
+                  association({ _id: "assoc-2" as Ref<HulyAssociation> }),
+                  association({ _id: "assoc-3" as Ref<HulyAssociation> })
+                ]
+              },
+              ({ _class, options }) => {
+                if (_class === core.class.Association) {
+                  const limit =
+                    typeof options === "object" && options !== null ? Reflect.get(options, "limit") : undefined
+                  lookupLimits.push(typeof limit === "number" ? limit : undefined)
+                }
               }
-            }
-          ))
+            )
+          )
         )
       )
 
       expect(error).toBeInstanceOf(AssociationIdentifierAmbiguousError)
       expect(lookupLimits).toEqual([2, 2])
-    }))
+    })
+  )
 })
 
 describe("listRelations", () => {
   it.effect("lists relation instances with resolved endpoint display", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const assoc = association({ _id: "assoc-1" as Ref<HulyAssociation> })
       const rel = relation({})
 
@@ -531,21 +538,24 @@ describe("listRelations", () => {
         source: { kind: "raw", id: docId("issue-1"), class: issueClass },
         target: { kind: "raw", id: docId("issue-2"), class: issueClass }
       }).pipe(
-        Effect.provide(testLayer({
-          associations: [assoc],
-          relations: [rel],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-        }))
+        Effect.provide(
+          testLayer({
+            associations: [assoc],
+            relations: [rel],
+            issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+          })
+        )
       )
 
       expect(result.total).toBe(1)
       expect(assertAt(result.relations, 0).relationId).toBe("rel-1")
       expect(assertAt(result.relations, 0).source.display).toBe("HULY-1")
       expect(assertAt(result.relations, 0).target.display).toBe("HULY-2")
-    }))
+    })
+  )
 
   it.effect("matches symmetric associations in either direction", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const assoc = association({ _id: "assoc-1" as Ref<HulyAssociation> })
       const rel = relation({})
 
@@ -555,19 +565,22 @@ describe("listRelations", () => {
         target: { kind: "raw", id: docId("issue-1"), class: issueClass },
         direction: "either"
       }).pipe(
-        Effect.provide(testLayer({
-          associations: [assoc],
-          relations: [rel],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-        }))
+        Effect.provide(
+          testLayer({
+            associations: [assoc],
+            relations: [rel],
+            issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+          })
+        )
       )
 
       expect(result.total).toBe(1)
       expect(assertAt(result.relations, 0).relationId).toBe("rel-1")
-    }))
+    })
+  )
 
   it.effect("validates reversed endpoints against asymmetric association classes", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const issueToDocument = association({
         _id: "assoc-1" as Ref<HulyAssociation>,
         classA: tracker.class.Issue,
@@ -576,10 +589,7 @@ describe("listRelations", () => {
         nameB: "document",
         type: "1:N"
       })
-      const rel = relation({
-        docA: "issue-1" as Ref<Doc>,
-        docB: "doc-1" as Ref<Doc>
-      })
+      const rel = relation({ docA: "issue-1" as Ref<Doc>, docB: "doc-1" as Ref<Doc> })
 
       const result = yield* listRelations({
         association: assocId,
@@ -587,21 +597,24 @@ describe("listRelations", () => {
         target: { kind: "raw", id: docId("issue-1"), class: issueClass },
         direction: "target-to-source"
       }).pipe(
-        Effect.provide(testLayer({
-          associations: [issueToDocument],
-          relations: [rel],
-          issues: [issue("issue-1", "HULY-1")],
-          documents: [documentDoc("doc-1", "Spec")]
-        }))
+        Effect.provide(
+          testLayer({
+            associations: [issueToDocument],
+            relations: [rel],
+            issues: [issue("issue-1", "HULY-1")],
+            documents: [documentDoc("doc-1", "Spec")]
+          })
+        )
       )
 
       expect(result.total).toBe(1)
       expect(assertAt(result.relations, 0).source.display).toBe("HULY-1")
       expect(assertAt(result.relations, 0).target.display).toBe("Spec")
-    }))
+    })
+  )
 
   it.effect("matches asymmetric associations in either direction", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const issueToDocument = association({
         _id: "assoc-1" as Ref<HulyAssociation>,
         classA: tracker.class.Issue,
@@ -610,10 +623,7 @@ describe("listRelations", () => {
         nameB: "document",
         type: "1:N"
       })
-      const rel = relation({
-        docA: "issue-1" as Ref<Doc>,
-        docB: "doc-1" as Ref<Doc>
-      })
+      const rel = relation({ docA: "issue-1" as Ref<Doc>, docB: "doc-1" as Ref<Doc> })
 
       const result = yield* listRelations({
         association: assocId,
@@ -621,22 +631,25 @@ describe("listRelations", () => {
         target: { kind: "raw", id: docId("issue-1"), class: issueClass },
         direction: "either"
       }).pipe(
-        Effect.provide(testLayer({
-          associations: [issueToDocument],
-          relations: [rel],
-          issues: [issue("issue-1", "HULY-1")],
-          documents: [documentDoc("doc-1", "Spec")]
-        }))
+        Effect.provide(
+          testLayer({
+            associations: [issueToDocument],
+            relations: [rel],
+            issues: [issue("issue-1", "HULY-1")],
+            documents: [documentDoc("doc-1", "Spec")]
+          })
+        )
       )
 
       expect(result.total).toBe(1)
       expect(assertAt(result.relations, 0).relationId).toBe("rel-1")
       expect(assertAt(result.relations, 0).source.display).toBe("HULY-1")
       expect(assertAt(result.relations, 0).target.display).toBe("Spec")
-    }))
+    })
+  )
 
   it.effect("matches omitted asymmetric associations in either direction", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const issueToDocument = association({
         _id: "assoc-1" as Ref<HulyAssociation>,
         classA: tracker.class.Issue,
@@ -645,32 +658,32 @@ describe("listRelations", () => {
         nameB: "document",
         type: "1:N"
       })
-      const rel = relation({
-        docA: "issue-1" as Ref<Doc>,
-        docB: "doc-1" as Ref<Doc>
-      })
+      const rel = relation({ docA: "issue-1" as Ref<Doc>, docB: "doc-1" as Ref<Doc> })
 
       const result = yield* listRelations({
         source: { kind: "raw", id: docId("doc-1"), class: documentClass },
         target: { kind: "raw", id: docId("issue-1"), class: issueClass },
         direction: "either"
       }).pipe(
-        Effect.provide(testLayer({
-          associations: [issueToDocument],
-          relations: [rel],
-          issues: [issue("issue-1", "HULY-1")],
-          documents: [documentDoc("doc-1", "Spec")]
-        }))
+        Effect.provide(
+          testLayer({
+            associations: [issueToDocument],
+            relations: [rel],
+            issues: [issue("issue-1", "HULY-1")],
+            documents: [documentDoc("doc-1", "Spec")]
+          })
+        )
       )
 
       expect(result.total).toBe(1)
       expect(assertAt(result.relations, 0).relationId).toBe("rel-1")
       expect(assertAt(result.relations, 0).source.display).toBe("HULY-1")
       expect(assertAt(result.relations, 0).target.display).toBe("Spec")
-    }))
+    })
+  )
 
   it.effect("deduplicates omitted same-class association discovery in either direction", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const findAllRequests: Array<Parameters<FindAllObserver>[0]> = []
       const rel = relation({})
 
@@ -679,22 +692,28 @@ describe("listRelations", () => {
         target: { kind: "raw", id: docId("issue-2"), class: issueClass },
         direction: "either"
       }).pipe(
-        Effect.provide(testLayer({
-          associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-          relations: [rel],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-        }, (request) => {
-          findAllRequests.push(request)
-        }))
+        Effect.provide(
+          testLayer(
+            {
+              associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+              relations: [rel],
+              issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+            },
+            (request) => {
+              findAllRequests.push(request)
+            }
+          )
+        )
       )
 
       expect(result.total).toBe(1)
       expect(findAllRequests.filter((request) => request._class === core.class.Association)).toHaveLength(1)
       expect(findAllRequests.filter((request) => request._class === core.class.Relation)).toHaveLength(2)
-    }))
+    })
+  )
 
   it.effect("skips incompatible associations when association is omitted", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const documentAssociation = association({
         _id: "assoc-doc" as Ref<HulyAssociation>,
         classA: documentPlugin.class.Document,
@@ -703,42 +722,47 @@ describe("listRelations", () => {
       const issueAssociation = association({ _id: "assoc-1" as Ref<HulyAssociation> })
       const rel = relation({})
 
-      const result = yield* listRelations({
-        source: { kind: "raw", id: docId("issue-1"), class: issueClass }
-      }).pipe(
-        Effect.provide(testLayer({
-          associations: [documentAssociation, issueAssociation],
-          relations: [rel],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-        }))
+      const result = yield* listRelations({ source: { kind: "raw", id: docId("issue-1"), class: issueClass } }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [documentAssociation, issueAssociation],
+            relations: [rel],
+            issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+          })
+        )
       )
 
       expect(result.total).toBe(1)
       expect(assertAt(result.relations, 0).associationId).toBe("assoc-1")
-    }))
+    })
+  )
 
   it.effect("does not fan out relation queries by discovered associations when association is omitted", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const findAllRequests: Array<Parameters<FindAllObserver>[0]> = []
       const associations = Array.from({ length: 20 }, (_, index) =>
         association({
           _id: `assoc-extra-${index}` as Ref<HulyAssociation>,
           classA: tracker.class.Issue,
           classB: tracker.class.Issue
-        }))
+        })
+      )
       const issueAssociation = association({ _id: "assoc-1" as Ref<HulyAssociation> })
       const rel = relation({})
 
-      const result = yield* listRelations({
-        source: { kind: "raw", id: docId("issue-1"), class: issueClass }
-      }).pipe(
-        Effect.provide(testLayer({
-          associations: [...associations, issueAssociation],
-          relations: [rel],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-        }, (request) => {
-          findAllRequests.push(request)
-        }))
+      const result = yield* listRelations({ source: { kind: "raw", id: docId("issue-1"), class: issueClass } }).pipe(
+        Effect.provide(
+          testLayer(
+            {
+              associations: [...associations, issueAssociation],
+              relations: [rel],
+              issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+            },
+            (request) => {
+              findAllRequests.push(request)
+            }
+          )
+        )
       )
 
       const associationRequests = findAllRequests.filter((request) => request._class === core.class.Association)
@@ -753,10 +777,11 @@ describe("listRelations", () => {
       expect(getProperty(associationRequests[0]?.query, "classA")).toBe(tracker.class.Issue)
       expect(getProperty(associationRequests[0]?.query, "classB")).toBeUndefined()
       expect(getProperty(associationFilter, "$in")).toContain("assoc-1")
-    }))
+    })
+  )
 
   it.effect("applies the relation limit after filtering hidden associations when association is omitted", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const systemAssociation = association({
         _id: "assoc-system" as Ref<HulyAssociation>,
         classA: tracker.class.Issue,
@@ -779,95 +804,96 @@ describe("listRelations", () => {
         source: { kind: "raw", id: docId("issue-1"), class: issueClass },
         limit: 1
       }).pipe(
-        Effect.provide(testLayer({
-          associations: [systemAssociation, visibleAssociation],
-          relations: [hiddenRelation, visibleRelation],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-        }))
+        Effect.provide(
+          testLayer({
+            associations: [systemAssociation, visibleAssociation],
+            relations: [hiddenRelation, visibleRelation],
+            issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+          })
+        )
       )
 
       expect(result.total).toBe(1)
       expect(assertAt(result.relations, 0).associationId).toBe("assoc-1")
-    }))
+    })
+  )
 
   it.effect("discovers newest compatible associations before applying the association window", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const olderAssociations = Array.from({ length: MAX_LIMIT }, (_, index) =>
-        association({
-          _id: `assoc-old-${index}` as Ref<HulyAssociation>,
-          modifiedOn: index
-        }))
-      const visibleAssociation = association({
-        _id: "assoc-1" as Ref<HulyAssociation>,
-        modifiedOn: MAX_LIMIT + 1
-      })
+        association({ _id: `assoc-old-${index}` as Ref<HulyAssociation>, modifiedOn: index })
+      )
+      const visibleAssociation = association({ _id: "assoc-1" as Ref<HulyAssociation>, modifiedOn: MAX_LIMIT + 1 })
       const rel = relation({})
 
       const result = yield* listRelations({
         source: { kind: "raw", id: docId("issue-1"), class: issueClass },
         limit: 1
       }).pipe(
-        Effect.provide(testLayer({
-          associations: [...olderAssociations, visibleAssociation],
-          relations: [rel],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-        }))
+        Effect.provide(
+          testLayer({
+            associations: [...olderAssociations, visibleAssociation],
+            relations: [rel],
+            issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+          })
+        )
       )
 
       expect(result.total).toBe(1)
       expect(assertAt(result.relations, 0).associationId).toBe("assoc-1")
-    }))
+    })
+  )
 
   it.effect("warns when omitted-association discovery reaches the association cap", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cappedAssociations = Array.from({ length: MAX_LIMIT }, (_, index) =>
-        association({
-          _id: `assoc-${index}` as Ref<HulyAssociation>,
-          modifiedOn: MAX_LIMIT - index
-        }))
+        association({ _id: `assoc-${index}` as Ref<HulyAssociation>, modifiedOn: MAX_LIMIT - index })
+      )
       const rel = relation({ association: "assoc-0" as Ref<HulyAssociation> })
 
-      const result = yield* listRelations({
-        source: { kind: "raw", id: docId("issue-1"), class: issueClass }
-      }).pipe(
-        Effect.provide(testLayer({
-          associations: cappedAssociations,
-          relations: [rel],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-        }))
+      const result = yield* listRelations({ source: { kind: "raw", id: docId("issue-1"), class: issueClass } }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: cappedAssociations,
+            relations: [rel],
+            issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+          })
+        )
       )
 
       expect(result.total).toBe(1)
       expect(result.warnings).toHaveLength(1)
       expect(result.warnings?.[0]).toContain(`${MAX_LIMIT}-association cap`)
-    }))
+    })
+  )
 
   it.effect("does not warn when an explicit association is provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cappedAssociations = Array.from({ length: MAX_LIMIT }, (_, index) =>
-        association({
-          _id: `assoc-${index}` as Ref<HulyAssociation>,
-          modifiedOn: MAX_LIMIT - index
-        }))
+        association({ _id: `assoc-${index}` as Ref<HulyAssociation>, modifiedOn: MAX_LIMIT - index })
+      )
       const rel = relation({})
 
       const result = yield* listRelations({
         association: assocId,
         source: { kind: "raw", id: docId("issue-1"), class: issueClass }
       }).pipe(
-        Effect.provide(testLayer({
-          associations: cappedAssociations,
-          relations: [rel],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-        }))
+        Effect.provide(
+          testLayer({
+            associations: cappedAssociations,
+            relations: [rel],
+            issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+          })
+        )
       )
 
       expect(result.total).toBe(1)
       expect(result.warnings).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("chunks endpoint hydration by class instead of hydrating per relation", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const findAllRequests: Array<Parameters<FindAllObserver>[0]> = []
       const relations = Array.from({ length: MAX_LIMIT }, (_, index) =>
         relation({
@@ -875,7 +901,8 @@ describe("listRelations", () => {
           docA: "issue-0" as Ref<Doc>,
           docB: `issue-${index + 1}` as Ref<Doc>,
           modifiedOn: 300 - index
-        }))
+        })
+      )
       const issues = Array.from({ length: MAX_LIMIT + 1 }, (_, index) => issue(`issue-${index}`, `HULY-${index}`))
 
       const result = yield* listRelations({
@@ -883,13 +910,14 @@ describe("listRelations", () => {
         source: { kind: "raw", id: docId("issue-0"), class: issueClass },
         limit: MAX_LIMIT
       }).pipe(
-        Effect.provide(testLayer({
-          associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-          relations,
-          issues
-        }, (request) => {
-          findAllRequests.push(request)
-        }))
+        Effect.provide(
+          testLayer(
+            { associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })], relations, issues },
+            (request) => {
+              findAllRequests.push(request)
+            }
+          )
+        )
       )
 
       const issueHydrationRequests = findAllRequests.filter((request) => request._class === tracker.class.Issue)
@@ -902,56 +930,61 @@ describe("listRelations", () => {
       expect(issueHydrationRequests).toHaveLength(2)
       expect(chunkSizes.sort((left, right) => left - right)).toEqual([1, MAX_LIMIT])
       expect(findAllRequests.filter((request) => request._class === core.class.Relation)).toHaveLength(1)
-    }))
+    })
+  )
 
   it.effect("fails when a locator resolves to the wrong endpoint class", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
-        listRelations({
-          association: assocId,
-          source: { kind: "raw", id: docId("doc-1"), class: documentClass }
-        }).pipe(
-          Effect.provide(testLayer({
-            associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-            documents: [documentDoc("doc-1", "Spec")]
-          }))
+        listRelations({ association: assocId, source: { kind: "raw", id: docId("doc-1"), class: documentClass } }).pipe(
+          Effect.provide(
+            testLayer({
+              associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+              documents: [documentDoc("doc-1", "Spec")]
+            })
+          )
         )
       )
 
       expect(error).toBeInstanceOf(RelationEndpointClassMismatchError)
-    }))
+    })
+  )
 
   it.effect("fails when direction either resolves an endpoint outside the association class pair", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         listRelations({
           association: assocId,
           direction: "either",
           source: { kind: "raw", id: docId("doc-1"), class: documentClass }
         }).pipe(
-          Effect.provide(testLayer({
-            associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-            documents: [documentDoc("doc-1", "Spec")]
-          }))
+          Effect.provide(
+            testLayer({
+              associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+              documents: [documentDoc("doc-1", "Spec")]
+            })
+          )
         )
       )
 
       expect(error).toBeInstanceOf(RelationEndpointClassMismatchError)
-    }))
+    })
+  )
 
   it.effect("fails with typed invalid locator error for raw locators without a known class", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
-        listRelations({
-          source: { kind: "raw", id: docId("issue-1") }
-        }).pipe(Effect.provide(testLayer({ associations: [association({})] })))
+        listRelations({ source: { kind: "raw", id: docId("issue-1") } }).pipe(
+          Effect.provide(testLayer({ associations: [association({})] }))
+        )
       )
 
       expect(error).toBeInstanceOf(GenericObjectLocatorInvalidError)
-    }))
+    })
+  )
 
   it.effect("fails with typed not found error for missing raw objects", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         listRelations({
           association: assocId,
@@ -960,32 +993,35 @@ describe("listRelations", () => {
       )
 
       expect(error).toBeInstanceOf(GenericObjectNotFoundError)
-    }))
+    })
+  )
 
   it.effect("fails with typed invalid locator error for issue locators without project or full key", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
-        listRelations({
-          source: { kind: "issue", issue: issueIdentifier("123") }
-        }).pipe(Effect.provide(testLayer({ associations: [association({})] })))
+        listRelations({ source: { kind: "issue", issue: issueIdentifier("123") } }).pipe(
+          Effect.provide(testLayer({ associations: [association({})] }))
+        )
       )
 
       expect(error).toBeInstanceOf(GenericObjectLocatorInvalidError)
-    }))
+    })
+  )
 
   it.effect("fails with typed not found error for missing documents without teamspace", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
-        listRelations({
-          source: { kind: "document", document: documentIdentifier("Missing Spec") }
-        }).pipe(Effect.provide(testLayer({ associations: [association({})] })))
+        listRelations({ source: { kind: "document", document: documentIdentifier("Missing Spec") } }).pipe(
+          Effect.provide(testLayer({ associations: [association({})] }))
+        )
       )
 
       expect(error).toBeInstanceOf(GenericObjectNotFoundError)
-    }))
+    })
+  )
 
   it.effect("resolves card locators by ID without requiring a card space", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cardToIssue = association({
         _id: "assoc-1" as Ref<HulyAssociation>,
         classA: contractAssociationClassRef,
@@ -999,26 +1035,24 @@ describe("listRelations", () => {
         source: { kind: "card", card: CardIdentifier.make("card-1") },
         target: { kind: "raw", id: docId("issue-1"), class: issueClass }
       }).pipe(
-        Effect.provide(testLayer({
-          associations: [cardToIssue],
-          relations: [
-            relation({
-              docA: "card-1" as Ref<Doc>,
-              docB: "issue-1" as Ref<Doc>
-            })
-          ],
-          cards: [cardDoc("card-1", "Contract")],
-          issues: [issue("issue-1", "HULY-1")]
-        }))
+        Effect.provide(
+          testLayer({
+            associations: [cardToIssue],
+            relations: [relation({ docA: "card-1" as Ref<Doc>, docB: "issue-1" as Ref<Doc> })],
+            cards: [cardDoc("card-1", "Contract")],
+            issues: [issue("issue-1", "HULY-1")]
+          })
+        )
       )
 
       expect(result.total).toBe(1)
       expect(assertAt(result.relations, 0).source.display).toBe("Contract")
       expect(assertAt(result.relations, 0).source.class).toBe(cardClass)
-    }))
+    })
+  )
 
   it.effect("resolves card locators by title when card space is provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cardToIssue = association({
         _id: "assoc-1" as Ref<HulyAssociation>,
         classA: contractAssociationClassRef,
@@ -1036,40 +1070,36 @@ describe("listRelations", () => {
         },
         target: { kind: "raw", id: docId("issue-1"), class: issueClass }
       }).pipe(
-        Effect.provide(testLayer({
-          associations: [cardToIssue],
-          relations: [
-            relation({
-              docA: "card-1" as Ref<Doc>,
-              docB: "issue-1" as Ref<Doc>
-            })
-          ],
-          cardSpaces: [cardSpaceDoc("cards-1", "Contracts")],
-          cards: [cardDoc("card-1", "Contract")],
-          issues: [issue("issue-1", "HULY-1")]
-        }))
+        Effect.provide(
+          testLayer({
+            associations: [cardToIssue],
+            relations: [relation({ docA: "card-1" as Ref<Doc>, docB: "issue-1" as Ref<Doc> })],
+            cardSpaces: [cardSpaceDoc("cards-1", "Contracts")],
+            cards: [cardDoc("card-1", "Contract")],
+            issues: [issue("issue-1", "HULY-1")]
+          })
+        )
       )
 
       expect(result.total).toBe(1)
       expect(assertAt(result.relations, 0).source.display).toBe("Contract")
-    }))
+    })
+  )
 
   it.effect("requires card space for card title lookup", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
-        listRelations({
-          source: { kind: "card", card: CardIdentifier.make("Contract") }
-        }).pipe(Effect.provide(testLayer({
-          associations: [association({})],
-          cards: [cardDoc("card-1", "Different title")]
-        })))
+        listRelations({ source: { kind: "card", card: CardIdentifier.make("Contract") } }).pipe(
+          Effect.provide(testLayer({ associations: [association({})], cards: [cardDoc("card-1", "Different title")] }))
+        )
       )
 
       expect(error).toBeInstanceOf(GenericObjectLocatorInvalidError)
-    }))
+    })
+  )
 
   it.effect("fails on ambiguous card titles inside the selected card space", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         listRelations({
           source: {
@@ -1077,23 +1107,25 @@ describe("listRelations", () => {
             card: CardIdentifier.make("Contract"),
             cardSpace: CardSpaceIdentifier.make("Contracts")
           }
-        }).pipe(Effect.provide(testLayer({
-          associations: [association({})],
-          cardSpaces: [cardSpaceDoc("cards-1", "Contracts")],
-          cards: [
-            cardDoc("card-1", "Contract"),
-            cardDoc("card-2", "Contract")
-          ]
-        })))
+        }).pipe(
+          Effect.provide(
+            testLayer({
+              associations: [association({})],
+              cardSpaces: [cardSpaceDoc("cards-1", "Contracts")],
+              cards: [cardDoc("card-1", "Contract"), cardDoc("card-2", "Contract")]
+            })
+          )
+        )
       )
 
       expect(error).toBeInstanceOf(GenericObjectIdentifierAmbiguousError)
-    }))
+    })
+  )
 })
 
 describe("association mutations", () => {
   it.effect("createAssociation creates a non-system association", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* createAssociation({
         sourceClass: issueClass,
         targetClass: documentClass,
@@ -1107,10 +1139,11 @@ describe("association mutations", () => {
       expect(result.association.sourceClass).toBe(tracker.class.Issue)
       expect(result.association.targetClass).toBe(documentPlugin.class.Document)
       expect(result.association.cardinality).toBe("one-to-many")
-    }))
+    })
+  )
 
   it.effect("createAssociation returns an identical existing association", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* createAssociation({
         sourceClass: issueClass,
         targetClass: issueClass,
@@ -1122,10 +1155,11 @@ describe("association mutations", () => {
       expect(result.created).toBe(false)
       expect(result.existing).toBe(true)
       expect(result.association.associationId).toBe("assoc-1")
-    }))
+    })
+  )
 
   it.effect("createAssociation fails on conflicting exact duplicates", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         createAssociation({
           sourceClass: issueClass,
@@ -1137,10 +1171,11 @@ describe("association mutations", () => {
       )
 
       expect(error).toBeInstanceOf(AssociationConflictError)
-    }))
+    })
+  )
 
   it.effect("createAssociation rejects core system classes", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         createAssociation({
           sourceClass: ObjectClassName.make(core.class.Doc),
@@ -1152,10 +1187,11 @@ describe("association mutations", () => {
       )
 
       expect(error).toBeInstanceOf(AssociationSystemClassUnsupportedError)
-    }))
+    })
+  )
 
   it.effect("deleteAssociation deletes unused associations", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* deleteAssociation({ association: assocId }).pipe(
         Effect.provide(testLayer({ associations: [association({})] }))
       )
@@ -1163,10 +1199,11 @@ describe("association mutations", () => {
       expect(result.associationId).toBe("assoc-1")
       expect(result.deleted).toBe(true)
       expect(result.relationCount).toBe(0)
-    }))
+    })
+  )
 
   it.effect("deleteAssociation is idempotent when the association is missing", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* deleteAssociation({ association: AssociationIdentifier.make("missing-assoc") }).pipe(
         Effect.provide(testLayer({}))
       )
@@ -1176,46 +1213,40 @@ describe("association mutations", () => {
       expect(result.deleted).toBe(false)
       expect(result.relationCount).toBe(0)
       expect(result.reason).toBe("not_found")
-    }))
+    })
+  )
 
   it.effect("deleteAssociation fails while relations still reference the association", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         deleteAssociation({ association: assocId }).pipe(
-          Effect.provide(testLayer({
-            associations: [association({})],
-            relations: [relation({})]
-          }))
+          Effect.provide(testLayer({ associations: [association({})], relations: [relation({})] }))
         )
       )
 
       expect(error).toBeInstanceOf(AssociationInUseError)
-    }))
+    })
+  )
 
   it.effect("deleteAssociation treats returned relation rows as usage even when SDK total is stale", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         deleteAssociation({ association: assocId }).pipe(
-          Effect.provide(testLayer({
-            associations: [association({})],
-            relations: [relation({})],
-            relationTotal: 0
-          }))
+          Effect.provide(testLayer({ associations: [association({})], relations: [relation({})], relationTotal: 0 }))
         )
       )
 
       expect(error).toBeInstanceOf(AssociationInUseError)
-    }))
+    })
+  )
 
   it.effect("deleteAssociation preserves unknown relation totals when sampled rows show usage", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         deleteAssociation({ association: assocId }).pipe(
-          Effect.provide(testLayer({
-            associations: [association({})],
-            relations: [relation({})],
-            relationTotal: UNKNOWN_TOTAL
-          }))
+          Effect.provide(
+            testLayer({ associations: [association({})], relations: [relation({})], relationTotal: UNKNOWN_TOTAL })
+          )
         )
       )
 
@@ -1225,37 +1256,34 @@ describe("association mutations", () => {
       }
       expect(error.relationCount).toBe(UNKNOWN_TOTAL)
       expect(error.sampleRelationIds).toEqual([RelationId.make("rel-1")])
-    }))
+    })
+  )
 
   it.effect("deleteAssociation rejects invalid negative relation totals before sample fallback", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const exit = yield* Effect.exit(
         deleteAssociation({ association: assocId }).pipe(
-          Effect.provide(testLayer({
-            associations: [association({})],
-            relations: [],
-            relationTotal: -2
-          }))
+          Effect.provide(testLayer({ associations: [association({})], relations: [], relationTotal: -2 }))
         )
       )
 
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("deleteAssociation deletes unused automation-only associations", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* deleteAssociation({ association: assocId }).pipe(
-        Effect.provide(testLayer({
-          associations: [association({ automationOnly: true })]
-        }))
+        Effect.provide(testLayer({ associations: [association({ automationOnly: true })] }))
       )
 
       expect(result.deleted).toBe(true)
       expect(result.associationId).toBe("assoc-1")
-    }))
+    })
+  )
 
   it.effect("createAssociation fails when ifExists is fail and an identical association exists", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         createAssociation({
           sourceClass: issueClass,
@@ -1268,10 +1296,11 @@ describe("association mutations", () => {
       )
       expect(error).toBeInstanceOf(AssociationConflictError)
       expect((error as AssociationConflictError).reason).toContain("ifExists=fail")
-    }))
+    })
+  )
 
   it.effect("createAssociation fails when automationOnly differs from an existing association", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         createAssociation({
           sourceClass: issueClass,
@@ -1284,10 +1313,11 @@ describe("association mutations", () => {
       )
       expect(error).toBeInstanceOf(AssociationConflictError)
       expect((error as AssociationConflictError).reason).toContain("automationOnly")
-    }))
+    })
+  )
 
   it.effect("deleteAssociation rejects an association whose source is a core system class", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const system = association({
         _id: "assoc-sys" as Ref<HulyAssociation>,
         classA: core.class.Doc,
@@ -1299,10 +1329,11 @@ describe("association mutations", () => {
         )
       )
       expect(error).toBeInstanceOf(AssociationSystemClassUnsupportedError)
-    }))
+    })
+  )
 
   it.effect("deleteAssociation rejects an association whose target is a core system class", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const system = association({
         _id: "assoc-sys" as Ref<HulyAssociation>,
         classA: tracker.class.Issue,
@@ -1314,10 +1345,11 @@ describe("association mutations", () => {
         )
       )
       expect(error).toBeInstanceOf(AssociationSystemClassUnsupportedError)
-    }))
+    })
+  )
 
   it.effect("deleteAssociation resolves an association by its target role name", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const assoc = association({
         _id: "assoc-roles" as Ref<HulyAssociation>,
         nameA: "references",
@@ -1328,10 +1360,11 @@ describe("association mutations", () => {
       )
       expect(result.deleted).toBe(true)
       expect(result.associationId).toBe("assoc-roles")
-    }))
+    })
+  )
 
   it.effect("deleteAssociation resolves an association by its 'source -> target' role pair", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const assoc = association({
         _id: "assoc-roles" as Ref<HulyAssociation>,
         nameA: "references",
@@ -1342,12 +1375,13 @@ describe("association mutations", () => {
       }).pipe(Effect.provide(testLayer({ associations: [assoc] })))
       expect(result.deleted).toBe(true)
       expect(result.associationId).toBe("assoc-roles")
-    }))
+    })
+  )
 })
 
 describe("listAssociations branch coverage", () => {
   it.effect("summarizes a system association with an unsupported-write reason when included", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const system = association({
         _id: "assoc-sys" as Ref<HulyAssociation>,
         classA: core.class.Doc,
@@ -1360,10 +1394,11 @@ describe("listAssociations branch coverage", () => {
       expect(summary?.system).toBe(true)
       expect(summary?.canCreateRelation).toBe(false)
       expect(summary?.unsupportedReason).toContain("system class")
-    }))
+    })
+  )
 
   it.effect("filters association discovery by source and target class", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const match = association({
         _id: "assoc-it" as Ref<HulyAssociation>,
         classA: tracker.class.Issue,
@@ -1373,10 +1408,11 @@ describe("listAssociations branch coverage", () => {
         Effect.provide(testLayer({ associations: [match] }))
       )
       expect(result.associations.map((item) => item.associationId)).toEqual(["assoc-it"])
-    }))
+    })
+  )
 
   it.effect("reports a system association as not found when system classes are excluded", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const system = association({
         _id: "assoc-sys" as Ref<HulyAssociation>,
         classA: core.class.Doc,
@@ -1388,12 +1424,13 @@ describe("listAssociations branch coverage", () => {
         )
       )
       expect(error).toBeInstanceOf(AssociationNotFoundError)
-    }))
+    })
+  )
 })
 
 describe("relation mutations", () => {
   it.effect("createRelation creates a concrete relation and returns existing by default", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const layer = testLayer({
         associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
         issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
@@ -1412,82 +1449,99 @@ describe("relation mutations", () => {
       expect(existing.created).toBe(false)
       expect(existing.existing).toBe(true)
       expect(existing.relationId).toBe(created.relationId)
-    }))
+    })
+  )
 
   it.effect("createRelation enforces ifExists=fail", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         createRelation({
           association: assocId,
           source: { kind: "raw", id: docId("issue-1"), class: issueClass },
           target: { kind: "raw", id: docId("issue-2"), class: issueClass },
           ifExists: "fail"
-        }).pipe(Effect.provide(testLayer({
-          associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-          relations: [relation({})],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-        })))
+        }).pipe(
+          Effect.provide(
+            testLayer({
+              associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+              relations: [relation({})],
+              issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+            })
+          )
+        )
       )
 
       expect(error).toBeInstanceOf(RelationCardinalityViolationError)
-    }))
+    })
+  )
 
   it.effect("createRelation enforces one-to-many target-side cardinality", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         createRelation({
           association: assocId,
           source: { kind: "raw", id: docId("issue-3"), class: issueClass },
           target: { kind: "raw", id: docId("issue-2"), class: issueClass }
-        }).pipe(Effect.provide(testLayer({
-          associations: [association({ _id: "assoc-1" as Ref<HulyAssociation>, type: "1:N" })],
-          relations: [relation({ docA: "issue-1" as Ref<Doc>, docB: "issue-2" as Ref<Doc> })],
-          issues: [
-            issue("issue-1", "HULY-1"),
-            issue("issue-2", "HULY-2"),
-            issue("issue-3", "HULY-3")
-          ]
-        })))
+        }).pipe(
+          Effect.provide(
+            testLayer({
+              associations: [association({ _id: "assoc-1" as Ref<HulyAssociation>, type: "1:N" })],
+              relations: [relation({ docA: "issue-1" as Ref<Doc>, docB: "issue-2" as Ref<Doc> })],
+              issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2"), issue("issue-3", "HULY-3")]
+            })
+          )
+        )
       )
 
       expect(error).toBeInstanceOf(RelationCardinalityViolationError)
-    }))
+    })
+  )
 
   it.effect("createRelation rejects automation-only associations", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         createRelation({
           association: assocId,
           source: { kind: "raw", id: docId("issue-1"), class: issueClass },
           target: { kind: "raw", id: docId("issue-2"), class: issueClass }
-        }).pipe(Effect.provide(testLayer({
-          associations: [association({ _id: "assoc-1" as Ref<HulyAssociation>, automationOnly: true })],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-        })))
+        }).pipe(
+          Effect.provide(
+            testLayer({
+              associations: [association({ _id: "assoc-1" as Ref<HulyAssociation>, automationOnly: true })],
+              issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+            })
+          )
+        )
       )
 
       expect(error).toBeInstanceOf(RelationMutationUnsupportedError)
-    }))
+    })
+  )
 
   it.effect("createRelation rejects direction either for same-class associations", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         createRelation({
           association: assocId,
           source: { kind: "raw", id: docId("issue-1"), class: issueClass },
           target: { kind: "raw", id: docId("issue-2"), class: issueClass },
           direction: "either"
-        }).pipe(Effect.provide(testLayer({
-          associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-        })))
+        }).pipe(
+          Effect.provide(
+            testLayer({
+              associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+              issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+            })
+          )
+        )
       )
 
       expect(error).toBeInstanceOf(RelationDirectionAmbiguousError)
-    }))
+    })
+  )
 
   it.effect("deleteRelation deletes by id and is idempotent", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const layer = testLayer({
         associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
         relations: [relation({})]
@@ -1500,48 +1554,59 @@ describe("relation mutations", () => {
       expect(deleted.associationId).toBe("assoc-1")
       expect(missing.deleted).toBe(false)
       expect(missing.reason).toBe("not_found")
-    }))
+    })
+  )
 
   it.effect("deleteRelation deletes by exact triple", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* deleteRelation({
         association: assocId,
         source: { kind: "raw", id: docId("issue-1"), class: issueClass },
         target: { kind: "raw", id: docId("issue-2"), class: issueClass }
-      }).pipe(Effect.provide(testLayer({
-        associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-        relations: [relation({})],
-        issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-      })))
+      }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+            relations: [relation({})],
+            issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+          })
+        )
+      )
 
       expect(result.deleted).toBe(true)
       expect(result.relationId).toBe("rel-1")
-    }))
+    })
+  )
 
   it.effect("deleteRelation fails on ambiguous triple matches", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         deleteRelation({
           association: assocId,
           source: { kind: "raw", id: docId("issue-1"), class: issueClass },
           target: { kind: "raw", id: docId("issue-2"), class: issueClass }
-        }).pipe(Effect.provide(testLayer({
-          associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-          relations: [
-            relation({ _id: "rel-1" as Ref<HulyRelation> }),
-            relation({ _id: "rel-2" as Ref<HulyRelation> })
-          ],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-        })))
+        }).pipe(
+          Effect.provide(
+            testLayer({
+              associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+              relations: [
+                relation({ _id: "rel-1" as Ref<HulyRelation> }),
+                relation({ _id: "rel-2" as Ref<HulyRelation> })
+              ],
+              issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+            })
+          )
+        )
       )
 
       expect(error).toBeInstanceOf(RelationIdentifierAmbiguousError)
-    }))
+    })
+  )
 })
 
 describe("generic-associations resolver and mutation branch coverage", () => {
   it.effect("createRelation rejects associations on a core system class", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const system = association({
         _id: "assoc-1" as Ref<HulyAssociation>,
         classA: core.class.Doc,
@@ -1552,16 +1617,18 @@ describe("generic-associations resolver and mutation branch coverage", () => {
           association: assocId,
           source: { kind: "raw", id: docId("issue-1"), class: issueClass },
           target: { kind: "raw", id: docId("issue-2"), class: issueClass }
-        }).pipe(Effect.provide(testLayer({
-          associations: [system],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-        })))
+        }).pipe(
+          Effect.provide(
+            testLayer({ associations: [system], issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")] })
+          )
+        )
       )
       expect(error).toBeInstanceOf(AssociationSystemClassUnsupportedError)
-    }))
+    })
+  )
 
   it.effect("createAssociation conflict reason defaults a missing automationOnly to false", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         createAssociation({
           sourceClass: issueClass,
@@ -1573,24 +1640,30 @@ describe("generic-associations resolver and mutation branch coverage", () => {
       )
       expect(error).toBeInstanceOf(AssociationConflictError)
       expect((error as AssociationConflictError).reason).toContain("requested false")
-    }))
+    })
+  )
 
   it.effect("deleteRelation by triple is idempotent when no relation matches", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* deleteRelation({
         association: assocId,
         source: { kind: "raw", id: docId("issue-1"), class: issueClass },
         target: { kind: "raw", id: docId("issue-2"), class: issueClass }
-      }).pipe(Effect.provide(testLayer({
-        associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-        issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-      })))
+      }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+            issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+          })
+        )
+      )
       expect(result.deleted).toBe(false)
       expect(result.reason).toBe("not_found")
-    }))
+    })
+  )
 
   it.effect("resolves a document endpoint by its id", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const docToIssue = association({
         _id: "assoc-1" as Ref<HulyAssociation>,
         classA: documentPlugin.class.Document,
@@ -1602,31 +1675,39 @@ describe("generic-associations resolver and mutation branch coverage", () => {
         association: assocId,
         source: { kind: "document", document: documentIdentifier("doc-1") },
         target: { kind: "raw", id: docId("issue-1"), class: issueClass }
-      }).pipe(Effect.provide(testLayer({
-        associations: [docToIssue],
-        relations: [relation({ docA: "doc-1" as Ref<Doc>, docB: "issue-1" as Ref<Doc> })],
-        documents: [documentDoc("doc-1", "Spec")],
-        issues: [issue("issue-1", "HULY-1")]
-      })))
+      }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [docToIssue],
+            relations: [relation({ docA: "doc-1" as Ref<Doc>, docB: "issue-1" as Ref<Doc> })],
+            documents: [documentDoc("doc-1", "Spec")],
+            issues: [issue("issue-1", "HULY-1")]
+          })
+        )
+      )
       expect(result.total).toBe(1)
       expect(assertAt(result.relations, 0).source.display).toBe("Spec")
-    }))
+    })
+  )
 
   it.effect("fails on ambiguous document titles without a teamspace", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
-        listRelations({
-          source: { kind: "document", document: documentIdentifier("Shared Title") }
-        }).pipe(Effect.provide(testLayer({
-          associations: [association({})],
-          documents: [documentDoc("doc-1", "Shared Title"), documentDoc("doc-2", "Shared Title")]
-        })))
+        listRelations({ source: { kind: "document", document: documentIdentifier("Shared Title") } }).pipe(
+          Effect.provide(
+            testLayer({
+              associations: [association({})],
+              documents: [documentDoc("doc-1", "Shared Title"), documentDoc("doc-2", "Shared Title")]
+            })
+          )
+        )
       )
       expect(error).toBeInstanceOf(GenericObjectIdentifierAmbiguousError)
-    }))
+    })
+  )
 
   it.effect("resolves a card endpoint by id within a card space resolved by id", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cardToIssue = association({
         _id: "assoc-1" as Ref<HulyAssociation>,
         classA: contractAssociationClassRef,
@@ -1638,18 +1719,23 @@ describe("generic-associations resolver and mutation branch coverage", () => {
         association: assocId,
         source: { kind: "card", card: CardIdentifier.make("card-1"), cardSpace: CardSpaceIdentifier.make("cards-1") },
         target: { kind: "raw", id: docId("issue-1"), class: issueClass }
-      }).pipe(Effect.provide(testLayer({
-        associations: [cardToIssue],
-        relations: [relation({ docA: "card-1" as Ref<Doc>, docB: "issue-1" as Ref<Doc> })],
-        cardSpaces: [cardSpaceDoc("cards-1", "Contracts")],
-        cards: [cardDoc("card-1", "Contract")],
-        issues: [issue("issue-1", "HULY-1")]
-      })))
+      }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [cardToIssue],
+            relations: [relation({ docA: "card-1" as Ref<Doc>, docB: "issue-1" as Ref<Doc> })],
+            cardSpaces: [cardSpaceDoc("cards-1", "Contracts")],
+            cards: [cardDoc("card-1", "Contract")],
+            issues: [issue("issue-1", "HULY-1")]
+          })
+        )
+      )
       expect(result.total).toBe(1)
-    }))
+    })
+  )
 
   it.effect("fails when the referenced card space does not exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         listRelations({
           source: {
@@ -1657,16 +1743,14 @@ describe("generic-associations resolver and mutation branch coverage", () => {
             card: CardIdentifier.make("Contract"),
             cardSpace: CardSpaceIdentifier.make("Nonexistent")
           }
-        }).pipe(Effect.provide(testLayer({
-          associations: [association({})],
-          cards: [cardDoc("card-1", "Contract")]
-        })))
+        }).pipe(Effect.provide(testLayer({ associations: [association({})], cards: [cardDoc("card-1", "Contract")] })))
       )
       expect(error).toBeInstanceOf(GenericObjectNotFoundError)
-    }))
+    })
+  )
 
   it.effect("fails on an ambiguous card space name", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         listRelations({
           source: {
@@ -1674,17 +1758,22 @@ describe("generic-associations resolver and mutation branch coverage", () => {
             card: CardIdentifier.make("Contract"),
             cardSpace: CardSpaceIdentifier.make("Contracts")
           }
-        }).pipe(Effect.provide(testLayer({
-          associations: [association({})],
-          cardSpaces: [cardSpaceDoc("cards-1", "Contracts"), cardSpaceDoc("cards-2", "Contracts")],
-          cards: [cardDoc("card-1", "Contract")]
-        })))
+        }).pipe(
+          Effect.provide(
+            testLayer({
+              associations: [association({})],
+              cardSpaces: [cardSpaceDoc("cards-1", "Contracts"), cardSpaceDoc("cards-2", "Contracts")],
+              cards: [cardDoc("card-1", "Contract")]
+            })
+          )
+        )
       )
       expect(error).toBeInstanceOf(GenericObjectIdentifierAmbiguousError)
-    }))
+    })
+  )
 
   it.effect("fails when a card title is missing inside the selected card space", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         listRelations({
           source: {
@@ -1692,14 +1781,19 @@ describe("generic-associations resolver and mutation branch coverage", () => {
             card: CardIdentifier.make("Missing Card"),
             cardSpace: CardSpaceIdentifier.make("Contracts")
           }
-        }).pipe(Effect.provide(testLayer({
-          associations: [association({})],
-          cardSpaces: [cardSpaceDoc("cards-1", "Contracts")],
-          cards: [cardDoc("card-1", "Contract")]
-        })))
+        }).pipe(
+          Effect.provide(
+            testLayer({
+              associations: [association({})],
+              cardSpaces: [cardSpaceDoc("cards-1", "Contracts")],
+              cards: [cardDoc("card-1", "Contract")]
+            })
+          )
+        )
       )
       expect(error).toBeInstanceOf(GenericObjectNotFoundError)
-    }))
+    })
+  )
 })
 
 describe("generic-associations direction and cardinality branch coverage", () => {
@@ -1714,154 +1808,199 @@ describe("generic-associations direction and cardinality branch coverage", () =>
     })
 
   it.effect("lists relations for a target-to-source direction with a known association", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listRelations({
         association: assocId,
         source: { kind: "document", document: documentIdentifier("doc-1") },
         direction: "target-to-source"
-      }).pipe(Effect.provide(testLayer({
-        associations: [issueDocAssoc()],
-        relations: [relation({ docA: "issue-1" as Ref<Doc>, docB: "doc-1" as Ref<Doc> })],
-        issues: [issue("issue-1", "HULY-1")],
-        documents: [documentDoc("doc-1", "Spec")]
-      })))
+      }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [issueDocAssoc()],
+            relations: [relation({ docA: "issue-1" as Ref<Doc>, docB: "doc-1" as Ref<Doc> })],
+            issues: [issue("issue-1", "HULY-1")],
+            documents: [documentDoc("doc-1", "Spec")]
+          })
+        )
+      )
       expect(result.total).toBe(1)
-    }))
+    })
+  )
 
   it.effect("lists relations for an either direction with a known association", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listRelations({
         association: assocId,
         source: { kind: "raw", id: docId("issue-1"), class: issueClass },
         direction: "either"
-      }).pipe(Effect.provide(testLayer({
-        associations: [issueDocAssoc()],
-        relations: [relation({ docA: "issue-1" as Ref<Doc>, docB: "doc-1" as Ref<Doc> })],
-        issues: [issue("issue-1", "HULY-1")],
-        documents: [documentDoc("doc-1", "Spec")]
-      })))
+      }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [issueDocAssoc()],
+            relations: [relation({ docA: "issue-1" as Ref<Doc>, docB: "doc-1" as Ref<Doc> })],
+            issues: [issue("issue-1", "HULY-1")],
+            documents: [documentDoc("doc-1", "Spec")]
+          })
+        )
+      )
       expect(result.total).toBe(1)
-    }))
+    })
+  )
 
   it.effect("discovers relations for a target-to-source direction without an association", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listRelations({
         source: { kind: "raw", id: docId("issue-2"), class: issueClass },
         direction: "target-to-source"
-      }).pipe(Effect.provide(testLayer({
-        associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-        relations: [relation({ docA: "issue-1" as Ref<Doc>, docB: "issue-2" as Ref<Doc> })],
-        issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-      })))
+      }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+            relations: [relation({ docA: "issue-1" as Ref<Doc>, docB: "issue-2" as Ref<Doc> })],
+            issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+          })
+        )
+      )
       expect(result.total).toBe(1)
-    }))
+    })
+  )
 
   it.effect("discovers relations for an either direction without an association", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listRelations({
         source: { kind: "raw", id: docId("issue-1"), class: issueClass },
         direction: "either"
-      }).pipe(Effect.provide(testLayer({
-        associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-        relations: [relation({ docA: "issue-1" as Ref<Doc>, docB: "issue-2" as Ref<Doc> })],
-        issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-      })))
+      }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+            relations: [relation({ docA: "issue-1" as Ref<Doc>, docB: "issue-2" as Ref<Doc> })],
+            issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+          })
+        )
+      )
       expect(result.total).toBe(1)
-    }))
+    })
+  )
 
   it.effect("flags a relation endpoint that cannot be resolved for display", () =>
-    Effect.gen(function*() {
-      const result = yield* listRelations({
-        association: assocId
-      }).pipe(Effect.provide(testLayer({
-        associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-        relations: [relation({ docA: "ghost-issue" as Ref<Doc>, docB: "issue-2" as Ref<Doc> })],
-        issues: [issue("issue-2", "HULY-2")]
-      })))
+    Effect.gen(function* () {
+      const result = yield* listRelations({ association: assocId }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+            relations: [relation({ docA: "ghost-issue" as Ref<Doc>, docB: "issue-2" as Ref<Doc> })],
+            issues: [issue("issue-2", "HULY-2")]
+          })
+        )
+      )
       expect(assertAt(result.relations, 0).source.warning).toContain("Could not resolve")
-    }))
+    })
+  )
 
   it.effect("fails an issue locator carrying a project the workspace cannot resolve", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         listRelations({
           source: { kind: "issue", issue: issueIdentifier("1"), project: projectIdentifier("HULY") }
         }).pipe(Effect.provide(testLayer({ associations: [association({})] })))
       )
       expect(error._tag).toBeDefined()
-    }))
+    })
+  )
 
   it.effect("fails a project-prefixed issue locator the workspace cannot resolve", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
-        listRelations({
-          source: { kind: "issue", issue: issueIdentifier("HULY-1") }
-        }).pipe(Effect.provide(testLayer({ associations: [association({})] })))
+        listRelations({ source: { kind: "issue", issue: issueIdentifier("HULY-1") } }).pipe(
+          Effect.provide(testLayer({ associations: [association({})] }))
+        )
       )
       expect(error._tag).toBeDefined()
-    }))
+    })
+  )
 
   it.effect("createRelation resolves endpoints for a target-to-source direction", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* createRelation({
         association: assocId,
         source: { kind: "raw", id: docId("doc-1"), class: documentClass },
         target: { kind: "raw", id: docId("issue-1"), class: issueClass },
         direction: "target-to-source"
-      }).pipe(Effect.provide(testLayer({
-        associations: [issueDocAssoc()],
-        issues: [issue("issue-1", "HULY-1")],
-        documents: [documentDoc("doc-1", "Spec")]
-      })))
+      }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [issueDocAssoc()],
+            issues: [issue("issue-1", "HULY-1")],
+            documents: [documentDoc("doc-1", "Spec")]
+          })
+        )
+      )
       expect(result.created).toBe(true)
-    }))
+    })
+  )
 
   it.effect("createRelation picks the forward orientation for an either direction", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* createRelation({
         association: assocId,
         source: { kind: "raw", id: docId("issue-1"), class: issueClass },
         target: { kind: "raw", id: docId("doc-1"), class: documentClass },
         direction: "either"
-      }).pipe(Effect.provide(testLayer({
-        associations: [issueDocAssoc()],
-        issues: [issue("issue-1", "HULY-1")],
-        documents: [documentDoc("doc-1", "Spec")]
-      })))
+      }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [issueDocAssoc()],
+            issues: [issue("issue-1", "HULY-1")],
+            documents: [documentDoc("doc-1", "Spec")]
+          })
+        )
+      )
       expect(result.created).toBe(true)
-    }))
+    })
+  )
 
   it.effect("createRelation picks the reverse orientation for an either direction", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* createRelation({
         association: assocId,
         source: { kind: "raw", id: docId("doc-1"), class: documentClass },
         target: { kind: "raw", id: docId("issue-1"), class: issueClass },
         direction: "either"
-      }).pipe(Effect.provide(testLayer({
-        associations: [issueDocAssoc()],
-        issues: [issue("issue-1", "HULY-1")],
-        documents: [documentDoc("doc-1", "Spec")]
-      })))
+      }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [issueDocAssoc()],
+            issues: [issue("issue-1", "HULY-1")],
+            documents: [documentDoc("doc-1", "Spec")]
+          })
+        )
+      )
       expect(result.created).toBe(true)
-    }))
+    })
+  )
 
   it.effect("createRelation enforces one-to-one source-side cardinality", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         createRelation({
           association: assocId,
           source: { kind: "raw", id: docId("issue-1"), class: issueClass },
           target: { kind: "raw", id: docId("issue-3"), class: issueClass }
-        }).pipe(Effect.provide(testLayer({
-          associations: [association({ _id: "assoc-1" as Ref<HulyAssociation>, type: "1:1" })],
-          relations: [relation({ docA: "issue-1" as Ref<Doc>, docB: "issue-2" as Ref<Doc> })],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2"), issue("issue-3", "HULY-3")]
-        })))
+        }).pipe(
+          Effect.provide(
+            testLayer({
+              associations: [association({ _id: "assoc-1" as Ref<HulyAssociation>, type: "1:1" })],
+              relations: [relation({ docA: "issue-1" as Ref<Doc>, docB: "issue-2" as Ref<Doc> })],
+              issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2"), issue("issue-3", "HULY-3")]
+            })
+          )
+        )
       )
       expect(error).toBeInstanceOf(RelationCardinalityViolationError)
       expect((error as RelationCardinalityViolationError).reason).toContain("one-to-one")
-    }))
+    })
+  )
 })
 
 describe("generic-associations either-orientation and discovery edge cases", () => {
@@ -1876,116 +2015,143 @@ describe("generic-associations either-orientation and discovery edge cases", () 
     })
 
   it.effect("lists relations for an either direction with no endpoints", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listRelations({ association: assocId, direction: "either" }).pipe(
-        Effect.provide(testLayer({
-          associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-          relations: [relation({})],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-        }))
+        Effect.provide(
+          testLayer({
+            associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+            relations: [relation({})],
+            issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+          })
+        )
       )
       expect(result.total).toBe(1)
-    }))
+    })
+  )
 
   it.effect("returns no relations when no association matches the discovered endpoint class", () =>
-    Effect.gen(function*() {
-      const result = yield* listRelations({
-        source: { kind: "raw", id: docId("doc-1"), class: documentClass }
-      }).pipe(Effect.provide(testLayer({
-        associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-        documents: [documentDoc("doc-1", "Spec")]
-      })))
+    Effect.gen(function* () {
+      const result = yield* listRelations({ source: { kind: "raw", id: docId("doc-1"), class: documentClass } }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+            documents: [documentDoc("doc-1", "Spec")]
+          })
+        )
+      )
       expect(result.total).toBe(0)
-    }))
+    })
+  )
 
   it.effect("discovers relations using only a target endpoint", () =>
-    Effect.gen(function*() {
-      const result = yield* listRelations({
-        target: { kind: "raw", id: docId("issue-2"), class: issueClass }
-      }).pipe(Effect.provide(testLayer({
-        associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-        relations: [relation({ docA: "issue-1" as Ref<Doc>, docB: "issue-2" as Ref<Doc> })],
-        issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-      })))
+    Effect.gen(function* () {
+      const result = yield* listRelations({ target: { kind: "raw", id: docId("issue-2"), class: issueClass } }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+            relations: [relation({ docA: "issue-1" as Ref<Doc>, docB: "issue-2" as Ref<Doc> })],
+            issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+          })
+        )
+      )
       expect(result.total).toBe(1)
-    }))
+    })
+  )
 
   it.effect("sorts multiple discovered relations by recency", () =>
-    Effect.gen(function*() {
-      const result = yield* listRelations({
-        source: { kind: "raw", id: docId("issue-1"), class: issueClass }
-      }).pipe(Effect.provide(testLayer({
-        associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-        relations: [
-          relation({
-            _id: "rel-1" as Ref<HulyRelation>,
-            docA: "issue-1" as Ref<Doc>,
-            docB: "issue-2" as Ref<Doc>,
-            modifiedOn: 100
-          }),
-          relation({
-            _id: "rel-2" as Ref<HulyRelation>,
-            docA: "issue-1" as Ref<Doc>,
-            docB: "issue-3" as Ref<Doc>,
-            modifiedOn: 200
+    Effect.gen(function* () {
+      const result = yield* listRelations({ source: { kind: "raw", id: docId("issue-1"), class: issueClass } }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+            relations: [
+              relation({
+                _id: "rel-1" as Ref<HulyRelation>,
+                docA: "issue-1" as Ref<Doc>,
+                docB: "issue-2" as Ref<Doc>,
+                modifiedOn: 100
+              }),
+              relation({
+                _id: "rel-2" as Ref<HulyRelation>,
+                docA: "issue-1" as Ref<Doc>,
+                docB: "issue-3" as Ref<Doc>,
+                modifiedOn: 200
+              })
+            ],
+            issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2"), issue("issue-3", "HULY-3")]
           })
-        ],
-        issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2"), issue("issue-3", "HULY-3")]
-      })))
+        )
+      )
       expect(result.total).toBe(2)
-    }))
+    })
+  )
 
   it.effect("createRelation rejects an either endpoint whose class matches neither side", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         createRelation({
           association: assocId,
           source: { kind: "raw", id: docId("issue-1"), class: issueClass },
           target: { kind: "raw", id: docId("card-1"), class: cardClass },
           direction: "either"
-        }).pipe(Effect.provide(testLayer({
-          associations: [issueDocAssoc()],
-          issues: [issue("issue-1", "HULY-1")],
-          cards: [cardDoc("card-1", "Contract")]
-        })))
+        }).pipe(
+          Effect.provide(
+            testLayer({
+              associations: [issueDocAssoc()],
+              issues: [issue("issue-1", "HULY-1")],
+              cards: [cardDoc("card-1", "Contract")]
+            })
+          )
+        )
       )
       expect(error).toBeInstanceOf(RelationEndpointClassMismatchError)
-    }))
+    })
+  )
 
   it.effect("createRelation rejects either endpoints that both match the source side", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         createRelation({
           association: assocId,
           source: { kind: "raw", id: docId("issue-1"), class: issueClass },
           target: { kind: "raw", id: docId("issue-2"), class: issueClass },
           direction: "either"
-        }).pipe(Effect.provide(testLayer({
-          associations: [issueDocAssoc()],
-          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
-        })))
+        }).pipe(
+          Effect.provide(
+            testLayer({
+              associations: [issueDocAssoc()],
+              issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+            })
+          )
+        )
       )
       expect(error).toBeInstanceOf(RelationEndpointClassMismatchError)
-    }))
+    })
+  )
 
   it.effect("createRelation rejects either endpoints that both match the target side", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         createRelation({
           association: assocId,
           source: { kind: "raw", id: docId("doc-1"), class: documentClass },
           target: { kind: "raw", id: docId("doc-2"), class: documentClass },
           direction: "either"
-        }).pipe(Effect.provide(testLayer({
-          associations: [issueDocAssoc()],
-          documents: [documentDoc("doc-1", "Spec A"), documentDoc("doc-2", "Spec B")]
-        })))
+        }).pipe(
+          Effect.provide(
+            testLayer({
+              associations: [issueDocAssoc()],
+              documents: [documentDoc("doc-1", "Spec A"), documentDoc("doc-2", "Spec B")]
+            })
+          )
+        )
       )
       expect(error).toBeInstanceOf(RelationEndpointClassMismatchError)
-    }))
+    })
+  )
 
   it.effect("fails a document locator that requires an unresolvable teamspace", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         listRelations({
           source: {
@@ -1998,19 +2164,23 @@ describe("generic-associations either-orientation and discovery edge cases", () 
         )
       )
       expect(error._tag).toBeDefined()
-    }))
+    })
+  )
 })
 
 describe("generic-associations display fallback", () => {
   it.effect("falls back to the document id when no display field is present", () =>
-    Effect.gen(function*() {
-      const result = yield* listRelations({
-        association: assocId
-      }).pipe(Effect.provide(testLayer({
-        associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
-        relations: [relation({ docA: "bare-1" as Ref<Doc>, docB: "issue-2" as Ref<Doc> })],
-        issues: [issue("bare-1", ""), issue("issue-2", "HULY-2")]
-      })))
+    Effect.gen(function* () {
+      const result = yield* listRelations({ association: assocId }).pipe(
+        Effect.provide(
+          testLayer({
+            associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+            relations: [relation({ docA: "bare-1" as Ref<Doc>, docB: "issue-2" as Ref<Doc> })],
+            issues: [issue("bare-1", ""), issue("issue-2", "HULY-2")]
+          })
+        )
+      )
       expect(assertAt(result.relations, 0).source.display).toBe("bare-1")
-    }))
+    })
+  )
 })

@@ -53,7 +53,7 @@ export interface CreatedFolder {
 export const DRIVE_ROOT_PATH = "/"
 export const VERSIONS_COLLECTION = "versions"
 
-export const itemKind = (item: DriveItem): "folder" | "file" => isFile(item) ? "file" : "folder"
+export const itemKind = (item: DriveItem): "folder" | "file" => (isFile(item) ? "file" : "folder")
 
 export const isFolder = (item: DriveItem): item is Folder => !("version" in item)
 
@@ -64,10 +64,7 @@ const UNTITLED_DRIVE_TEXT = NonEmptyString.make("(untitled)")
 export const driveTextOrUntitled = (value: string): NonEmptyString =>
   hulyNonEmptyTextOrFallback(NonEmptyString, value, UNTITLED_DRIVE_TEXT)
 
-export const filterDrivesByQuery = (
-  drives: ReadonlyArray<DriveSpace>,
-  query?: string
-): ReadonlyArray<DriveSpace> => {
+export const filterDrivesByQuery = (drives: ReadonlyArray<DriveSpace>, query?: string): ReadonlyArray<DriveSpace> => {
   if (query === undefined) return drives
   const lower = query.toLowerCase()
   return drives.filter((item) => item.name.toLowerCase().includes(lower))

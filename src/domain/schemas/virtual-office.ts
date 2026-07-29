@@ -42,11 +42,11 @@ export type MeetingMinutesTitle = Schema.Schema.Type<typeof MeetingMinutesTitle>
 
 // MCP-normalized labels for numeric @hcengineering/love RoomAccess values.
 const RoomAccessValues = ["open", "knock", "dnd"] as const
-export type RoomAccess = typeof RoomAccessValues[number]
+export type RoomAccess = (typeof RoomAccessValues)[number]
 
 // MCP-normalized labels for numeric @hcengineering/love RoomType values.
 const RoomTypeValues = ["video", "audio", "reception"] as const
-export type RoomType = typeof RoomTypeValues[number]
+export type RoomType = (typeof RoomTypeValues)[number]
 
 // MCP-normalized labels for numeric @hcengineering/love MeetingStatus values.
 export type MeetingStatus = "active" | "finished"
@@ -99,9 +99,11 @@ const RoomLanguageValues = [
   "uk",
   "vi"
 ] as const
-type RoomLanguageValue = typeof RoomLanguageValues[number]
+type RoomLanguageValue = (typeof RoomLanguageValues)[number]
 type ExactRoomLanguageValues = [HulyRoomLanguage] extends [RoomLanguageValue]
-  ? [RoomLanguageValue] extends [HulyRoomLanguage] ? true : never
+  ? [RoomLanguageValue] extends [HulyRoomLanguage]
+    ? true
+    : never
   : never
 const exactRoomLanguageValues = <T extends true>(value: T): T => value
 exactRoomLanguageValues<ExactRoomLanguageValues>(true)
@@ -219,46 +221,28 @@ export const OfficeDefaultsSummarySchema = Schema.Struct({
 export type OfficeDefaultsSummary = Schema.Schema.Type<typeof OfficeDefaultsSummarySchema>
 
 const ListOfficeFloorsParamsSchema = Schema.Struct({
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of floors to return (default: ${DEFAULT_LIMIT}).`
-  }))
-}).annotations({
-  title: "ListOfficeFloorsParams",
-  description: "List virtual office floors."
-})
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of floors to return (default: ${DEFAULT_LIMIT}).` })
+  )
+}).annotations({ title: "ListOfficeFloorsParams", description: "List virtual office floors." })
 export type ListOfficeFloorsParams = Schema.Schema.Type<typeof ListOfficeFloorsParamsSchema>
 
 const GetOfficeFloorParamsSchema = Schema.Struct({
-  floorId: FloorId.annotations({
-    description: "Virtual office floor ID."
-  })
-}).annotations({
-  title: "GetOfficeFloorParams",
-  description: "Get one virtual office floor by ID."
-})
+  floorId: FloorId.annotations({ description: "Virtual office floor ID." })
+}).annotations({ title: "GetOfficeFloorParams", description: "Get one virtual office floor by ID." })
 export type GetOfficeFloorParams = Schema.Schema.Type<typeof GetOfficeFloorParamsSchema>
 
 export const ListOfficeRoomsParamsSchema = Schema.Struct({
-  floorId: Schema.optional(FloorId.annotations({
-    description: "Optional floor ID filter."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of rooms to return (default: ${DEFAULT_LIMIT}).`
-  }))
-}).annotations({
-  title: "ListOfficeRoomsParams",
-  description: "List virtual office rooms."
-})
+  floorId: Schema.optional(FloorId.annotations({ description: "Optional floor ID filter." })),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of rooms to return (default: ${DEFAULT_LIMIT}).` })
+  )
+}).annotations({ title: "ListOfficeRoomsParams", description: "List virtual office rooms." })
 export type ListOfficeRoomsParams = Schema.Schema.Type<typeof ListOfficeRoomsParamsSchema>
 
 export const GetOfficeRoomParamsSchema = Schema.Struct({
-  roomId: RoomId.annotations({
-    description: "Virtual office room ID."
-  })
-}).annotations({
-  title: "GetOfficeRoomParams",
-  description: "Get one virtual office room by ID."
-})
+  roomId: RoomId.annotations({ description: "Virtual office room ID." })
+}).annotations({ title: "GetOfficeRoomParams", description: "Get one virtual office room by ID." })
 export type GetOfficeRoomParams = Schema.Schema.Type<typeof GetOfficeRoomParamsSchema>
 
 const ListOfficesParamsSchema = ListOfficeRoomsParamsSchema.annotations({
@@ -280,9 +264,7 @@ const ListActiveRoomInfoParamsSchema = EmptyParamsSchema.annotations({
 export type ListActiveRoomInfoParams = Schema.Schema.Type<typeof ListActiveRoomInfoParamsSchema>
 
 export const ListActiveRoomParticipantsParamsSchema = Schema.Struct({
-  roomId: Schema.optional(RoomId.annotations({
-    description: "Optional room ID filter."
-  }))
+  roomId: Schema.optional(RoomId.annotations({ description: "Optional room ID filter." }))
 }).annotations({
   title: "ListActiveRoomParticipantsParams",
   description: "List active transient participant positions in virtual office rooms."
@@ -290,23 +272,20 @@ export const ListActiveRoomParticipantsParamsSchema = Schema.Struct({
 export type ListActiveRoomParticipantsParams = Schema.Schema.Type<typeof ListActiveRoomParticipantsParamsSchema>
 
 export const ListMeetingMinutesParamsSchema = Schema.Struct({
-  attachedToId: Schema.optional(DocId.annotations({
-    description:
-      "Optional room or meeting document ID that the meeting notes/transcript record (minutes) is attached to."
-  })),
-  from: Schema.optional(Timestamp.annotations({
-    description: "Created-on lower bound timestamp."
-  })),
-  to: Schema.optional(Timestamp.annotations({
-    description: "Created-on upper bound timestamp."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of meeting notes/transcript records (minutes) to return (default: ${DEFAULT_LIMIT}).`
-  }))
-}).annotations({
-  title: "ListMeetingMinutesParams",
-  description: "List meeting notes/transcript records (minutes)."
-})
+  attachedToId: Schema.optional(
+    DocId.annotations({
+      description:
+        "Optional room or meeting document ID that the meeting notes/transcript record (minutes) is attached to."
+    })
+  ),
+  from: Schema.optional(Timestamp.annotations({ description: "Created-on lower bound timestamp." })),
+  to: Schema.optional(Timestamp.annotations({ description: "Created-on upper bound timestamp." })),
+  limit: Schema.optional(
+    LimitParam.annotations({
+      description: `Maximum number of meeting notes/transcript records (minutes) to return (default: ${DEFAULT_LIMIT}).`
+    })
+  )
+}).annotations({ title: "ListMeetingMinutesParams", description: "List meeting notes/transcript records (minutes)." })
 export type ListMeetingMinutesParams = Schema.Schema.Type<typeof ListMeetingMinutesParamsSchema>
 
 export const GetMeetingMinutesParamsSchema = Schema.Struct({

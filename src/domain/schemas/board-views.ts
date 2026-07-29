@@ -62,12 +62,14 @@ export const BoardSavedViewVisibilitySchema = Schema.Literal("own", "shared", "a
 export type BoardSavedViewVisibility = Schema.Schema.Type<typeof BoardSavedViewVisibilitySchema>
 
 export const ListBoardMenuPagesParamsSchema = Schema.Struct({
-  page: Schema.optional(BoardMenuPageIdentifier.annotations({
-    description: "Optional MenuPage _id, pageId, or exact label. Omit to list all board menu pages."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of board menu pages to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  page: Schema.optional(
+    BoardMenuPageIdentifier.annotations({
+      description: "Optional MenuPage _id, pageId, or exact label. Omit to list all board menu pages."
+    })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of board menu pages to return (default: ${DEFAULT_LIMIT}).` })
+  )
 }).annotations({
   title: "ListBoardMenuPagesParams",
   description: "Read-only discovery for @hcengineering/board MenuPage model documents."
@@ -76,12 +78,12 @@ export type ListBoardMenuPagesParams = Schema.Schema.Type<typeof ListBoardMenuPa
 
 export const ListBoardSavedViewsParamsSchema = Schema.Struct({
   visibility: Schema.optional(BoardSavedViewVisibilitySchema),
-  nameSearch: Schema.optional(Schema.String.annotations({
-    description: "Optional saved view name substring search."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of board saved views to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  nameSearch: Schema.optional(Schema.String.annotations({ description: "Optional saved view name substring search." })),
+  limit: Schema.optional(
+    LimitParam.annotations({
+      description: `Maximum number of board saved views to return (default: ${DEFAULT_LIMIT}).`
+    })
+  )
 }).annotations({
   title: "ListBoardSavedViewsParams",
   description:
@@ -100,12 +102,14 @@ export const GetBoardSavedViewParamsSchema = Schema.Struct({
 export type GetBoardSavedViewParams = Schema.Schema.Type<typeof GetBoardSavedViewParamsSchema>
 
 export const ListBoardViewletsParamsSchema = Schema.Struct({
-  viewlet: Schema.optional(BoardViewletIdentifier.annotations({
-    description: "Optional Viewlet _id, exact title, variant, or descriptor _id. Omit to list board card viewlets."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of board viewlets to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  viewlet: Schema.optional(
+    BoardViewletIdentifier.annotations({
+      description: "Optional Viewlet _id, exact title, variant, or descriptor _id. Omit to list board card viewlets."
+    })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of board viewlets to return (default: ${DEFAULT_LIMIT}).` })
+  )
 }).annotations({
   title: "ListBoardViewletsParams",
   description:

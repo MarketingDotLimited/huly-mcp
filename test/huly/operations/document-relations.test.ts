@@ -110,12 +110,7 @@ interface MockConfig {
   issues?: Array<HulyIssue>
   teamspaces?: Array<HulyTeamspace>
   documents?: Array<HulyDocument>
-  capturedUpdateDocs?: Array<{
-    _class: unknown
-    space: unknown
-    objectId: unknown
-    operations: unknown
-  }>
+  capturedUpdateDocs?: Array<{ _class: unknown; space: unknown; objectId: unknown; operations: unknown }>
 }
 
 const createTestLayerWithMocks = (config: MockConfig) => {
@@ -128,35 +123,30 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === tracker.class.Project) {
       const identifier = (query as Record<string, unknown>).identifier as string
-      return Effect.succeed(projects.find(p => p.identifier === identifier))
+      return Effect.succeed(projects.find((p) => p.identifier === identifier))
     }
     if (_class === tracker.class.Issue) {
       const q = query as Record<string, unknown>
       return Effect.succeed(
-        issues.find(i =>
-          (q.identifier && i.identifier === q.identifier)
-          || (q.number && i.number === q.number)
-        )
+        issues.find((i) => (q.identifier && i.identifier === q.identifier) || (q.number && i.number === q.number))
       )
     }
     if (_class === documentPlugin.class.Teamspace) {
       const q = query as Record<string, unknown>
-      return Effect.succeed(
-        teamspaces.find(ts => ts.name === q.name) ?? teamspaces.find(ts => ts._id === q._id)
-      )
+      return Effect.succeed(teamspaces.find((ts) => ts.name === q.name) ?? teamspaces.find((ts) => ts._id === q._id))
     }
     if (_class === documentPlugin.class.Document) {
       const q = query as Record<string, unknown>
       return Effect.succeed(
-        documents.find(d => d.space === q.space && d.title === q.title)
-          ?? documents.find(d => d.space === q.space && d._id === q._id)
+        documents.find((d) => d.space === q.space && d.title === q.title) ??
+          documents.find((d) => d.space === q.space && d._id === q._id)
       )
     }
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
-  const findAllImpl: HulyClientOperations["findAll"] =
-    (() => Effect.succeed(toFindResult([]))) as HulyClientOperations["findAll"]
+  const findAllImpl: HulyClientOperations["findAll"] = (() =>
+    Effect.succeed(toFindResult([]))) as HulyClientOperations["findAll"]
 
   const updateDocImpl: HulyClientOperations["updateDoc"] = ((
     _class: unknown,
@@ -168,16 +158,12 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     return Effect.succeed({} as TxResult)
   }) as HulyClientOperations["updateDoc"]
 
-  return HulyClient.testLayer({
-    findAll: findAllImpl,
-    findOne: findOneImpl,
-    updateDoc: updateDocImpl
-  })
+  return HulyClient.testLayer({ findAll: findAllImpl, findOne: findOneImpl, updateDoc: updateDocImpl })
 }
 
 describe("linkDocumentToIssue", () => {
   it.effect("links a document to an issue via $push to relations", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -217,10 +203,11 @@ describe("linkDocumentToIssue", () => {
       const relation = assertExists(pushOps.relations)
       expect(relation._id).toBe("doc-1")
       expect(String(relation._class)).toBe(String(documentPlugin.class.Document))
-    }))
+    })
+  )
 
   it.effect("returns linked=false when document is already linked", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -253,12 +240,13 @@ describe("linkDocumentToIssue", () => {
 
       expect(result.linked).toBe(false)
       expect(captured).toHaveLength(0)
-    }))
+    })
+  )
 })
 
 describe("unlinkDocumentFromIssue", () => {
   it.effect("unlinks a document from an issue via $pull from relations", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -297,10 +285,11 @@ describe("unlinkDocumentFromIssue", () => {
       const ops = assertAt(captured, 0).operations as DocumentUpdate<HulyIssue>
       const pullOps = ops.$pull as Record<string, { _id: string }>
       expect(assertExists(pullOps.relations)._id).toBe("doc-1")
-    }))
+    })
+  )
 
   it.effect("returns unlinked=false when document is not linked", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -332,5 +321,6 @@ describe("unlinkDocumentFromIssue", () => {
 
       expect(result.unlinked).toBe(false)
       expect(captured).toHaveLength(0)
-    }))
+    })
+  )
 })

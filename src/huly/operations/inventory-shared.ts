@@ -85,9 +85,7 @@ export const findAllCategories = (
   client.findAll<HulyInventoryCategory>(
     inventory.class.Category,
     hulyQuery(query),
-    limit === undefined
-      ? { sort: { name: SortingOrder.Ascending } }
-      : { limit, sort: { name: SortingOrder.Ascending } }
+    limit === undefined ? { sort: { name: SortingOrder.Ascending } } : { limit, sort: { name: SortingOrder.Ascending } }
   )
 
 export const findAllProducts = (
@@ -98,9 +96,7 @@ export const findAllProducts = (
   client.findAll<HulyInventoryProduct>(
     inventory.class.Product,
     hulyQuery(query),
-    limit === undefined
-      ? { sort: { name: SortingOrder.Ascending } }
-      : { limit, sort: { name: SortingOrder.Ascending } }
+    limit === undefined ? { sort: { name: SortingOrder.Ascending } } : { limit, sort: { name: SortingOrder.Ascending } }
   )
 
 export const findAllVariants = (
@@ -111,22 +107,17 @@ export const findAllVariants = (
   client.findAll<HulyInventoryVariant>(
     inventory.class.Variant,
     hulyQuery(query),
-    limit === undefined
-      ? { sort: { name: SortingOrder.Ascending } }
-      : { limit, sort: { name: SortingOrder.Ascending } }
+    limit === undefined ? { sort: { name: SortingOrder.Ascending } } : { limit, sort: { name: SortingOrder.Ascending } }
   )
 
 export const categoryCounts = (
   client: HulyClient["Type"],
   category: HulyInventoryCategory
 ): Effect.Effect<Pick<InventoryCategorySummary, "childCategories" | "products">, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const children = yield* findAllCategories(client, { attachedTo: category._id })
     const products = yield* findAllProducts(client, { attachedTo: category._id })
-    return {
-      childCategories: Count.make(children.length),
-      products: Count.make(products.length)
-    }
+    return { childCategories: Count.make(children.length), products: Count.make(products.length) }
   })
 
 const categoryParentId = (category: HulyInventoryCategory): InventoryCategoryId | undefined =>
@@ -138,13 +129,9 @@ export const toCategorySummary = (
   client: HulyClient["Type"],
   category: HulyInventoryCategory
 ): Effect.Effect<InventoryCategorySummary, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const counts = yield* categoryCounts(client, category)
-    const summary = {
-      id: InventoryCategoryId.make(category._id),
-      name: category.name,
-      ...counts
-    }
+    const summary = { id: InventoryCategoryId.make(category._id), name: category.name, ...counts }
     const parentCategory = categoryParentId(category)
     return parentCategory === undefined ? summary : { ...summary, parentCategory }
   })
@@ -181,7 +168,7 @@ export const resolveCategoryParent = (
   client: HulyClient["Type"],
   identifier: InventoryCategoryIdentifier | undefined
 ): Effect.Effect<ResolvedCategoryParent, InventoryError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (identifier === undefined || isRootCategoryIdentifier(identifier)) {
       return { id: inventory.global.Category }
     }
@@ -194,7 +181,7 @@ export const resolveCategory = (
   identifier: InventoryCategoryIdentifier,
   parentIdentifier: InventoryCategoryIdentifier | undefined
 ): Effect.Effect<HulyInventoryCategory, InventoryError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (isRootCategoryIdentifier(identifier)) {
       return yield* new InventoryMutationUnsupportedError({
         message: "The Inventory root category is a container and cannot be used as a category record"
@@ -207,12 +194,13 @@ export const resolveCategory = (
     )
     if (byId !== undefined) return byId
 
-    const query: StrictDocumentQuery<HulyInventoryCategory> = parentIdentifier === undefined
-      ? { name: identifier }
-      : yield* Effect.map(
-        resolveCategoryParent(client, parentIdentifier),
-        (parent): StrictDocumentQuery<HulyInventoryCategory> => ({ name: identifier, attachedTo: parent.id })
-      )
+    const query: StrictDocumentQuery<HulyInventoryCategory> =
+      parentIdentifier === undefined
+        ? { name: identifier }
+        : yield* Effect.map(
+            resolveCategoryParent(client, parentIdentifier),
+            (parent): StrictDocumentQuery<HulyInventoryCategory> => ({ name: identifier, attachedTo: parent.id })
+          )
     const matches = yield* findAllCategories(client, query)
     if (isSingle(matches)) return matches[0]
     if (matches.length > 1) {
@@ -226,19 +214,20 @@ export const resolveProduct = (
   identifier: InventoryProductIdentifier,
   categoryIdentifier: InventoryCategoryIdentifier | undefined
 ): Effect.Effect<HulyInventoryProduct, InventoryError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<HulyInventoryProduct>(
       inventory.class.Product,
       hulyQuery<HulyInventoryProduct>({ _id: toRef<HulyInventoryProduct>(identifier) })
     )
     if (byId !== undefined) return byId
 
-    const query: StrictDocumentQuery<HulyInventoryProduct> = categoryIdentifier === undefined
-      ? { name: identifier }
-      : yield* Effect.map(
-        resolveCategory(client, categoryIdentifier, undefined),
-        (category): StrictDocumentQuery<HulyInventoryProduct> => ({ name: identifier, attachedTo: category._id })
-      )
+    const query: StrictDocumentQuery<HulyInventoryProduct> =
+      categoryIdentifier === undefined
+        ? { name: identifier }
+        : yield* Effect.map(
+            resolveCategory(client, categoryIdentifier, undefined),
+            (category): StrictDocumentQuery<HulyInventoryProduct> => ({ name: identifier, attachedTo: category._id })
+          )
     const matches = yield* findAllProducts(client, query)
     if (isSingle(matches)) return matches[0]
     if (matches.length > 1) {
@@ -253,19 +242,20 @@ export const resolveVariant = (
   productIdentifier: InventoryProductIdentifier | undefined,
   categoryIdentifier: InventoryCategoryIdentifier | undefined
 ): Effect.Effect<HulyInventoryVariant, InventoryError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<HulyInventoryVariant>(
       inventory.class.Variant,
       hulyQuery<HulyInventoryVariant>({ _id: toRef<HulyInventoryVariant>(identifier) })
     )
     if (byId !== undefined) return byId
 
-    const query: StrictDocumentQuery<HulyInventoryVariant> = productIdentifier === undefined
-      ? {}
-      : yield* Effect.map(
-        resolveProduct(client, productIdentifier, categoryIdentifier),
-        (product): StrictDocumentQuery<HulyInventoryVariant> => ({ attachedTo: product._id })
-      )
+    const query: StrictDocumentQuery<HulyInventoryVariant> =
+      productIdentifier === undefined
+        ? {}
+        : yield* Effect.map(
+            resolveProduct(client, productIdentifier, categoryIdentifier),
+            (product): StrictDocumentQuery<HulyInventoryVariant> => ({ attachedTo: product._id })
+          )
 
     const candidates = yield* findAllVariants(client, query)
     const matches = candidates.filter((variant) => variant.name === identifier || variant.sku === identifier)
@@ -282,7 +272,7 @@ export const ensureCategoryNameAvailable = (
   name: string,
   except?: Ref<HulyInventoryCategory>
 ): Effect.Effect<void, InventoryError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const matches = yield* findAllCategories(client, { attachedTo: parent, name })
     if (matches.some((category) => category._id !== except)) {
       return yield* new InventoryConflictError({
@@ -297,7 +287,7 @@ export const ensureProductNameAvailable = (
   name: string,
   except?: Ref<HulyInventoryProduct>
 ): Effect.Effect<void, InventoryError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const matches = yield* findAllProducts(client, { attachedTo: category, name })
     if (matches.some((product) => product._id !== except)) {
       return yield* new InventoryConflictError({
@@ -313,7 +303,7 @@ export const ensureVariantAvailable = (
   sku: string,
   except?: Ref<HulyInventoryVariant>
 ): Effect.Effect<void, InventoryError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const variants = yield* findAllVariants(client, { attachedTo: product })
     if (variants.some((variant) => variant._id !== except && variant.name === name)) {
       return yield* new InventoryConflictError({
@@ -350,11 +340,9 @@ export const isDescendantCategory = (
   category: HulyInventoryCategory,
   possibleDescendant: Ref<HulyInventoryCategory>
 ): Effect.Effect<boolean, HulyClientError> =>
-  Effect.gen(function*() {
-    const visit = (
-      current: Ref<HulyInventoryCategory> | undefined
-    ): Effect.Effect<boolean, HulyClientError> =>
-      Effect.gen(function*() {
+  Effect.gen(function* () {
+    const visit = (current: Ref<HulyInventoryCategory> | undefined): Effect.Effect<boolean, HulyClientError> =>
+      Effect.gen(function* () {
         if (current === undefined || String(current) === String(inventory.global.Category)) return false
         if (current === category._id) return true
         const parent: HulyInventoryCategory | undefined = yield* client.findOne<HulyInventoryCategory>(

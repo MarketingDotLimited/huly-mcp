@@ -96,8 +96,7 @@ export const inventoryMediaTools = [
   defineCombinedTool(
     {
       name: "add_inventory_product_attachment",
-      description:
-        `Add a file to an inventory product resolved by product ID or exact name. Provide exactly one source: ${UPLOAD_SOURCE_SEMANTICS}`,
+      description: `Add a file to an inventory product resolved by product ID or exact name. Provide exactly one source: ${UPLOAD_SOURCE_SEMANTICS}`,
       category: CATEGORY,
       inputSchema: addInventoryProductAttachmentParamsJsonSchema,
       resultSchema: AddInventoryProductAttachmentResultSchema
@@ -156,8 +155,7 @@ export const inventoryMediaTools = [
   defineCombinedTool(
     {
       name: "add_inventory_product_photo",
-      description:
-        `Add a photo to an inventory product using Huly's product photos collection. Provide exactly one source: ${UPLOAD_SOURCE_SEMANTICS}`,
+      description: `Add a photo to an inventory product using Huly's product photos collection. Provide exactly one source: ${UPLOAD_SOURCE_SEMANTICS}`,
       category: CATEGORY,
       inputSchema: addInventoryProductPhotoParamsJsonSchema,
       resultSchema: AddInventoryProductPhotoResultSchema
@@ -205,8 +203,8 @@ export const inventoryMediaTools = [
     {
       name: "add_inventory_product_comment",
       description:
-        "Add a Markdown comment directly to an inventory product resolved by product ID or exact name. Pass category to disambiguate duplicate names. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
+        "Add a Markdown comment directly to an inventory product resolved by product ID or exact name. Pass category to disambiguate duplicate names. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
       category: CATEGORY,
       inputSchema: addInventoryProductCommentParamsJsonSchema,
       resultSchema: AddInventoryProductCommentResultSchema
@@ -218,8 +216,8 @@ export const inventoryMediaTools = [
     {
       name: "update_inventory_product_comment",
       description:
-        "Update a comment attached directly to an inventory product. The commentId must belong to the resolved product. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
+        "Update a comment attached directly to an inventory product. The commentId must belong to the resolved product. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
       category: CATEGORY,
       inputSchema: updateInventoryProductCommentParamsJsonSchema,
       resultSchema: UpdateInventoryProductCommentResultSchema

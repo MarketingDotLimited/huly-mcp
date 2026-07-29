@@ -5,7 +5,7 @@ const mergeDefinitionRecords = (
   definitions: ReadonlyArray<Record<string, unknown> | undefined>
 ): Record<string, unknown> | undefined => {
   const merged = definitions.reduce<Record<string, unknown>>(
-    (acc, definition) => definition === undefined ? acc : { ...acc, ...definition },
+    (acc, definition) => (definition === undefined ? acc : { ...acc, ...definition }),
     {}
   )
   return Object.keys(merged).length > 0 ? merged : undefined
@@ -56,9 +56,7 @@ export const stripCollidingSchemaIdsRecord = (record: Record<string, unknown>): 
   return isJsonObject(stripped) ? stripped : record
 }
 
-export const stripCollidingSchemaIdsProperties = (
-  properties: Record<string, object>
-): Record<string, object> =>
+export const stripCollidingSchemaIdsProperties = (properties: Record<string, object>): Record<string, object> =>
   Object.fromEntries(
     Object.entries(properties).map(([key, value]) => {
       const stripped = stripCollidingSchemaIds(value)

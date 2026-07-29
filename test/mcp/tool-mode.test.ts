@@ -21,10 +21,7 @@ const clientInfo = (name: string): McpClientInfoLike => {
 
 describe("classifyMcpClient", () => {
   it("classifies known client names after trimming and case normalization", () => {
-    const cases: ReadonlyArray<{
-      readonly clientInfo: McpClientInfoLike
-      readonly expected: ClientKind
-    }> = [
+    const cases: ReadonlyArray<{ readonly clientInfo: McpClientInfoLike; readonly expected: ClientKind }> = [
       { clientInfo: clientInfo(" claude-code "), expected: "claude-code" },
       { clientInfo: clientInfo("Claude-AI"), expected: "claude-ai" },
       { clientInfo: clientInfo("cursor-vscode"), expected: "cursor" },
@@ -53,8 +50,9 @@ describe("classifyMcpClient", () => {
 
   it("keeps wrapped claude-code out of the exact native-only classification", () => {
     expect(classifyMcpClient(clientInfo("claude-code (via mcp-remote)"))).toBe("unknown")
-    expect(resolveToolExposureMode({ configuredMode: "auto", clientInfo: clientInfo("claude-code (via mcp-remote)") }))
-      .toBe("proxy")
+    expect(
+      resolveToolExposureMode({ configuredMode: "auto", clientInfo: clientInfo("claude-code (via mcp-remote)") })
+    ).toBe("proxy")
   })
 
   it("defaults missing and unknown client names to unknown", () => {
@@ -76,10 +74,7 @@ describe("resolveToolExposureMode", () => {
 
   it("maps auto mode through the default client-kind table", () => {
     const defaults: Record<ClientKind, ToolExposureMode> = DEFAULT_MODE_BY_CLIENT_KIND
-    const input: ResolveToolExposureModeInput = {
-      configuredMode: "auto",
-      clientInfo: clientInfo("claude-code")
-    }
+    const input: ResolveToolExposureModeInput = { configuredMode: "auto", clientInfo: clientInfo("claude-code") }
 
     expect(defaults["claude-code"]).toBe("native")
     expect(defaults.unknown).toBe("proxy")
@@ -119,10 +114,7 @@ describe("parseToolExposureConfig", () => {
       field: "PROXY_OUTPUT_STRICT",
       message: expect.stringContaining("true or false")
     })
-    expect(parseToolExposureConfig({ hulyToolMode: " " })).toMatchObject({
-      _tag: "Failure",
-      field: "HULY_TOOL_MODE"
-    })
+    expect(parseToolExposureConfig({ hulyToolMode: " " })).toMatchObject({ _tag: "Failure", field: "HULY_TOOL_MODE" })
   })
 
   it("rejects invalid exposure env shapes instead of defaulting", () => {

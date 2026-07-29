@@ -98,11 +98,12 @@ const encodeOrConnectionError = <A, I, R>(
 ): Effect.Effect<A, HulyConnectionError, R> =>
   Schema.encode(schema)(value).pipe(
     Effect.as(value),
-    Effect.mapError((parseError) =>
-      new HulyConnectionError({
-        message: `${operation} response failed schema validation: ${parseError.message}`,
-        cause: parseError
-      })
+    Effect.mapError(
+      (parseError) =>
+        new HulyConnectionError({
+          message: `${operation} response failed schema validation: ${parseError.message}`,
+          cause: parseError
+        })
     )
   )
 
@@ -118,10 +119,7 @@ const masterTagLabel = (tag: MasterTag | Tag): string | undefined => nonEmpty(ta
 
 const masterTagName = (tag: MasterTag | Tag): string => masterTagLabel(tag) ?? String(tag._id)
 
-const masterTagDisplay = (tag: MasterTag | Tag): MasterTagDisplay => ({
-  id: tag._id,
-  name: masterTagName(tag)
-})
+const masterTagDisplay = (tag: MasterTag | Tag): MasterTagDisplay => ({ id: tag._id, name: masterTagName(tag) })
 
 const findMasterTagsByIds = (
   client: HulyClientOperations,
@@ -129,27 +127,30 @@ const findMasterTagsByIds = (
 ): Effect.Effect<ReadonlyMap<Ref<MasterTag | Tag>, MasterTagDisplay>, HulyClientError> =>
   ids.length === 0
     ? Effect.succeed(new Map<Ref<MasterTag | Tag>, MasterTagDisplay>())
-    : Effect.gen(function*() {
-      const uniqueIds = Array.from(new Set(ids))
-      const [masterTags, tags] = yield* Effect.all([
-        client.findAll<MasterTag>(cardPlugin.class.MasterTag, { _id: { $in: uniqueIds } }),
-        client.findAll<Tag>(cardPlugin.class.Tag, { _id: { $in: uniqueIds } })
-      ])
-      const entries = [...masterTags, ...tags].map((tag) => {
-        const display = masterTagDisplay(tag)
-        return [display.id, display] as const
+    : Effect.gen(function* () {
+        const uniqueIds = Array.from(new Set(ids))
+        const [masterTags, tags] = yield* Effect.all([
+          client.findAll<MasterTag>(cardPlugin.class.MasterTag, { _id: { $in: uniqueIds } }),
+          client.findAll<Tag>(cardPlugin.class.Tag, { _id: { $in: uniqueIds } })
+        ])
+        const entries = [...masterTags, ...tags].map((tag) => {
+          const display = masterTagDisplay(tag)
+          return [display.id, display] as const
+        })
+        return new Map(entries)
       })
-      return new Map(entries)
-    })
 
 const loadProcessDefinitionData = (
   client: HulyClientOperations,
   processes: ReadonlyArray<HulyProcessDefinition>
 ): Effect.Effect<ReadonlyArray<ProcessDefinitionData>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const processIds = processes.map((process) => process._id)
     const [masterTags, states, transitions] = yield* Effect.all([
-      findMasterTagsByIds(client, processes.map((process) => process.masterTag)),
+      findMasterTagsByIds(
+        client,
+        processes.map((process) => process.masterTag)
+      ),
       client.findAll<HulyProcessState>(processPlugin.class.State, { process: { $in: processIds } }),
       client.findAll<HulyProcessTransition>(processPlugin.class.Transition, { process: { $in: processIds } })
     ])
@@ -179,9 +180,8 @@ const processSummary = (data: ProcessDefinitionData): ProcessSummary => ({
   transitionCount: Count.make(data.transitionCount)
 })
 
-const stateTitleMap = (
-  states: ReadonlyArray<HulyProcessState>
-): ReadonlyMap<Ref<HulyProcessState>, string> => new Map(states.map((state) => [state._id, state.title]))
+const stateTitleMap = (states: ReadonlyArray<HulyProcessState>): ReadonlyMap<Ref<HulyProcessState>, string> =>
+  new Map(states.map((state) => [state._id, state.title]))
 
 const transitionSummary = (
   transition: HulyProcessTransition,
@@ -196,16 +196,12 @@ const transitionSummary = (
   actionCount: Count.make(transition.actions.length)
 })
 
-const initialTransition = (
-  transitions: ReadonlyArray<HulyProcessTransition>
-): HulyProcessTransition | undefined =>
-  [...transitions].filter((transition) => transition.from === null).sort((a, b) =>
-    String(a.rank).localeCompare(String(b.rank))
-  )[0]
+const initialTransition = (transitions: ReadonlyArray<HulyProcessTransition>): HulyProcessTransition | undefined =>
+  [...transitions]
+    .filter((transition) => transition.from === null)
+    .sort((a, b) => String(a.rank).localeCompare(String(b.rank)))[0]
 
-const initialStateId = (
-  transitions: ReadonlyArray<HulyProcessTransition>
-): ProcessStateId | undefined => {
+const initialStateId = (transitions: ReadonlyArray<HulyProcessTransition>): ProcessStateId | undefined => {
   const transition = initialTransition(transitions)
   return transition === undefined ? undefined : ProcessStateId.make(transition.to)
 }
@@ -215,10 +211,7 @@ const processDetail = (data: ProcessDetailData): ProcessDetail => {
   return {
     ...processSummary(data),
     initialStateId: initialStateId(data.transitions),
-    states: data.states.map((state) => ({
-      id: ProcessStateId.make(state._id),
-      title: state.title
-    })),
+    states: data.states.map((state) => ({ id: ProcessStateId.make(state._id), title: state.title })),
     transitions: data.transitions.map((transition) => transitionSummary(transition, titles))
   }
 }
@@ -227,11 +220,10 @@ const resolveProcess = (
   client: HulyClientOperations,
   identifier: string
 ): Effect.Effect<HulyProcessDefinition, ProcessOperationError> =>
-  Effect.gen(function*() {
-    const byId = yield* client.findOne<HulyProcessDefinition>(
-      processPlugin.class.Process,
-      { _id: toRef<HulyProcessDefinition>(identifier) }
-    )
+  Effect.gen(function* () {
+    const byId = yield* client.findOne<HulyProcessDefinition>(processPlugin.class.Process, {
+      _id: toRef<HulyProcessDefinition>(identifier)
+    })
     if (byId !== undefined) return byId
 
     const allProcesses = yield* client.findAll<HulyProcessDefinition>(
@@ -239,24 +231,24 @@ const resolveProcess = (
       {},
       { sort: { name: SortingOrder.Ascending } }
     )
-    const matches = [...allProcesses].filter((process) =>
-      normalizeForComparison(process.name) === normalizeForComparison(identifier)
+    const matches = [...allProcesses].filter(
+      (process) => normalizeForComparison(process.name) === normalizeForComparison(identifier)
     )
 
     if (isSingle(matches)) return matches[0]
 
     const data = yield* loadProcessDefinitionData(client, matches.length === 0 ? [...allProcesses] : matches)
     const candidates = data.map(processCandidate)
-    return yield* (matches.length === 0
+    return yield* matches.length === 0
       ? Effect.fail(new ProcessNotFoundError({ identifier, candidates }))
-      : Effect.fail(new ProcessIdentifierAmbiguousError({ identifier, candidates })))
+      : Effect.fail(new ProcessIdentifierAmbiguousError({ identifier, candidates }))
   })
 
 const resolveMasterTag = (
   client: HulyClientOperations,
   identifier: string
 ): Effect.Effect<Ref<MasterTag | Tag>, ProcessOperationError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const [masterTags, tags] = yield* Effect.all([
       client.findAll<MasterTag>(cardPlugin.class.MasterTag, {}),
       client.findAll<Tag>(cardPlugin.class.Tag, {})
@@ -265,24 +257,21 @@ const resolveMasterTag = (
     const byId = allTags.find((tag) => tag._id === identifier)
     if (byId !== undefined) return byId._id
 
-    const matches = allTags.filter((tag) =>
-      normalizeForComparison(masterTagLabel(tag) ?? "") === normalizeForComparison(identifier)
+    const matches = allTags.filter(
+      (tag) => normalizeForComparison(masterTagLabel(tag) ?? "") === normalizeForComparison(identifier)
     )
     if (isSingle(matches)) return matches[0]._id
 
     if (matches.length === 0) {
-      return yield* (looksLikeMasterTagId(identifier)
+      return yield* looksLikeMasterTagId(identifier)
         ? Effect.succeed(toRef<MasterTag | Tag>(identifier))
-        : Effect.fail(new ProcessMasterTagNotFoundError({ identifier })))
+        : Effect.fail(new ProcessMasterTagNotFoundError({ identifier }))
     }
 
     return yield* Effect.fail(
       new ProcessMasterTagAmbiguousError({
         identifier,
-        candidates: matches.map((tag) => ({
-          id: MasterTagId.make(tag._id),
-          name: masterTagName(tag)
-        }))
+        candidates: matches.map((tag) => ({ id: MasterTagId.make(tag._id), name: masterTagName(tag) }))
       })
     )
   })
@@ -291,7 +280,7 @@ const resolveCardFilter = (
   client: HulyClientOperations,
   identifier: string
 ): Effect.Effect<Ref<Card>, HulyClientError | ProcessCardIdentifierAmbiguousError | ProcessCardNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<Card>(cardPlugin.class.Card, { _id: toRef<Card>(identifier) })
     if (byId !== undefined) return byId._id
 
@@ -301,16 +290,13 @@ const resolveCardFilter = (
       return yield* Effect.fail(
         new ProcessCardIdentifierAmbiguousError({
           identifier,
-          candidates: byTitle.map((card) => ({
-            id: CardId.make(card._id),
-            title: card.title
-          }))
+          candidates: byTitle.map((card) => ({ id: CardId.make(card._id), title: card.title }))
         })
       )
     }
-    return yield* (looksLikeCardId(identifier)
+    return yield* looksLikeCardId(identifier)
       ? Effect.succeed(toRef<Card>(identifier))
-      : Effect.fail(new ProcessCardNotFoundError({ identifier })))
+      : Effect.fail(new ProcessCardNotFoundError({ identifier }))
   })
 
 const findCardsByIds = (
@@ -319,9 +305,9 @@ const findCardsByIds = (
 ): Effect.Effect<ReadonlyMap<Ref<Card>, Card>, HulyClientError> =>
   ids.length === 0
     ? Effect.succeed(new Map<Ref<Card>, Card>())
-    : client.findAll<Card>(cardPlugin.class.Card, { _id: { $in: Array.from(new Set(ids)) } }).pipe(
-      Effect.map((cards) => new Map(cards.map((card) => [card._id, card])))
-    )
+    : client
+        .findAll<Card>(cardPlugin.class.Card, { _id: { $in: Array.from(new Set(ids)) } })
+        .pipe(Effect.map((cards) => new Map(cards.map((card) => [card._id, card]))))
 
 const findStatesByIds = (
   client: HulyClientOperations,
@@ -329,10 +315,9 @@ const findStatesByIds = (
 ): Effect.Effect<ReadonlyMap<Ref<HulyProcessState>, HulyProcessState>, HulyClientError> =>
   ids.length === 0
     ? Effect.succeed(new Map<Ref<HulyProcessState>, HulyProcessState>())
-    : client.findAll<HulyProcessState>(
-      processPlugin.class.State,
-      { _id: { $in: Array.from(new Set(ids)) } }
-    ).pipe(Effect.map((states) => new Map(states.map((state) => [state._id, state]))))
+    : client
+        .findAll<HulyProcessState>(processPlugin.class.State, { _id: { $in: Array.from(new Set(ids)) } })
+        .pipe(Effect.map((states) => new Map(states.map((state) => [state._id, state]))))
 
 const executionSummary = (
   execution: HulyProcessExecution,
@@ -375,45 +360,34 @@ const findExecutionOrFail = (
   client: HulyClientOperations,
   executionId: ProcessExecutionId
 ): Effect.Effect<HulyProcessExecution, HulyClientError | ProcessExecutionNotFoundError> =>
-  client.findOne<HulyProcessExecution>(
-    processPlugin.class.Execution,
-    { _id: toRef<HulyProcessExecution>(executionId) }
-  ).pipe(
-    Effect.flatMap((execution) =>
-      execution === undefined
-        ? Effect.fail(
-          new ProcessExecutionNotFoundError({
-            executionId: ProcessExecutionId.make(executionId)
-          })
-        )
-        : Effect.succeed(execution)
+  client
+    .findOne<HulyProcessExecution>(processPlugin.class.Execution, { _id: toRef<HulyProcessExecution>(executionId) })
+    .pipe(
+      Effect.flatMap((execution) =>
+        execution === undefined
+          ? Effect.fail(new ProcessExecutionNotFoundError({ executionId: ProcessExecutionId.make(executionId) }))
+          : Effect.succeed(execution)
+      )
     )
-  )
 
 export const listProcesses = (
   params: ListProcessesParams
 ): Effect.Effect<ListProcessesResult, ProcessOperationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const masterTag = params.masterTag === undefined ? undefined : yield* resolveMasterTag(client, params.masterTag)
     const query: DocumentQuery<HulyProcessDefinition> = masterTag === undefined ? {} : { masterTag }
-    const processes = yield* client.findAll<HulyProcessDefinition>(
-      processPlugin.class.Process,
-      query,
-      { limit: clampLimit(params.limit), sort: { name: SortingOrder.Ascending } }
-    )
+    const processes = yield* client.findAll<HulyProcessDefinition>(processPlugin.class.Process, query, {
+      limit: clampLimit(params.limit),
+      sort: { name: SortingOrder.Ascending }
+    })
     const data = yield* loadProcessDefinitionData(client, [...processes])
-    const result = {
-      processes: data.map(processSummary),
-      total: listTotal(data.length)
-    }
+    const result = { processes: data.map(processSummary), total: listTotal(data.length) }
     return yield* encodeOrConnectionError(ListProcessesResultSchema, result, "listProcesses")
   })
 
-export const getProcess = (
-  params: GetProcessParams
-): Effect.Effect<ProcessDetail, ProcessOperationError, HulyClient> =>
-  Effect.gen(function*() {
+export const getProcess = (params: GetProcessParams): Effect.Effect<ProcessDetail, ProcessOperationError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const process = yield* resolveProcess(client, params.process)
     const [masterTags, states, transitions] = yield* Effect.all([
@@ -444,7 +418,7 @@ export const getProcess = (
 export const listExecutions = (
   params: ListExecutionsParams
 ): Effect.Effect<ListExecutionsResult, ProcessOperationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const process = params.process === undefined ? undefined : yield* resolveProcess(client, params.process)
     const card = params.card === undefined ? undefined : yield* resolveCardFilter(client, params.card)
@@ -453,23 +427,30 @@ export const listExecutions = (
       ...(card === undefined ? {} : { card }),
       ...(params.status === undefined ? {} : { status: params.status })
     }
-    const executions = yield* client.findAll<HulyProcessExecution>(
-      processPlugin.class.Execution,
-      query,
-      { limit: clampLimit(params.limit), sort: { modifiedOn: SortingOrder.Descending } }
-    )
+    const executions = yield* client.findAll<HulyProcessExecution>(processPlugin.class.Execution, query, {
+      limit: clampLimit(params.limit),
+      sort: { modifiedOn: SortingOrder.Descending }
+    })
 
     const processIds = executions.map((execution) => execution.process)
-    const processLookup = processIds.length === 0
-      ? Effect.succeed(new Map<Ref<HulyProcessDefinition>, HulyProcessDefinition>())
-      : client.findAll<HulyProcessDefinition>(
-        processPlugin.class.Process,
-        { _id: { $in: Array.from(new Set(processIds)) } }
-      ).pipe(Effect.map((items) => new Map(items.map((item) => [item._id, item]))))
+    const processLookup =
+      processIds.length === 0
+        ? Effect.succeed(new Map<Ref<HulyProcessDefinition>, HulyProcessDefinition>())
+        : client
+            .findAll<HulyProcessDefinition>(processPlugin.class.Process, {
+              _id: { $in: Array.from(new Set(processIds)) }
+            })
+            .pipe(Effect.map((items) => new Map(items.map((item) => [item._id, item]))))
     const [processes, states, cards] = yield* Effect.all([
       processLookup,
-      findStatesByIds(client, executions.map((execution) => execution.currentState)),
-      findCardsByIds(client, executions.map((execution) => execution.card))
+      findStatesByIds(
+        client,
+        executions.map((execution) => execution.currentState)
+      ),
+      findCardsByIds(
+        client,
+        executions.map((execution) => execution.card)
+      )
     ])
 
     const result = {
@@ -482,7 +463,7 @@ export const listExecutions = (
 export const startProcess = (
   params: StartProcessParams
 ): Effect.Effect<StartProcessResult, ProcessOperationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const process = yield* resolveProcess(client, params.process)
     const cardId = yield* resolveCardFilter(client, params.card)
@@ -500,35 +481,23 @@ export const startProcess = (
     const transition = initialTransition(transitions)
     if (transition === undefined) {
       return yield* Effect.fail(
-        new ProcessInitialStateNotFoundError({
-          processId: ProcessId.make(process._id),
-          processName: process.name
-        })
+        new ProcessInitialStateNotFoundError({ processId: ProcessId.make(process._id), processName: process.name })
       )
     }
 
-    const currentState = yield* client.findOne<HulyProcessState>(
-      processPlugin.class.State,
-      { _id: transition.to }
-    )
+    const currentState = yield* client.findOne<HulyProcessState>(processPlugin.class.State, { _id: transition.to })
     if (currentState === undefined) {
       return yield* Effect.fail(
-        new ProcessInitialStateNotFoundError({
-          processId: ProcessId.make(process._id),
-          processName: process.name
-        })
+        new ProcessInitialStateNotFoundError({ processId: ProcessId.make(process._id), processName: process.name })
       )
     }
 
     if (process.parallelExecutionForbidden === true) {
-      const activeExecution = yield* client.findOne<HulyProcessExecution>(
-        processPlugin.class.Execution,
-        {
-          process: process._id,
-          card: card._id,
-          status: "active"
-        }
-      )
+      const activeExecution = yield* client.findOne<HulyProcessExecution>(processPlugin.class.Execution, {
+        process: process._id,
+        card: card._id,
+        status: "active"
+      })
       if (activeExecution !== undefined) {
         return yield* Effect.fail(
           new ProcessParallelExecutionForbiddenError({
@@ -564,7 +533,7 @@ export const startProcess = (
 export const cancelExecution = (
   params: CancelExecutionParams
 ): Effect.Effect<CancelExecutionResult, ProcessOperationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const execution = yield* findExecutionOrFail(client, params.execution)
 
@@ -579,20 +548,12 @@ export const cancelExecution = (
 
     if (execution.status === "done") {
       return yield* Effect.fail(
-        new ProcessExecutionNotCancellableError({
-          executionId: ProcessExecutionId.make(execution._id),
-          status: "done"
-        })
+        new ProcessExecutionNotCancellableError({ executionId: ProcessExecutionId.make(execution._id), status: "done" })
       )
     }
 
     const update: DocumentUpdate<HulyProcessExecution> = { status: "cancelled" }
-    yield* client.updateDoc(
-      processPlugin.class.Execution,
-      execution.space,
-      execution._id,
-      update
-    )
+    yield* client.updateDoc(processPlugin.class.Execution, execution.space, execution._id, update)
 
     const result: CancelExecutionResult = {
       executionId: ProcessExecutionId.make(execution._id),

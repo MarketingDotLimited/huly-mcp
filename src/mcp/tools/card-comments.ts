@@ -40,8 +40,8 @@ export const cardCommentTools = [
     {
       name: "add_card_comment",
       description:
-        "Add a markdown comment to one Huly card, resolving the card space by exact name or ID and the card by exact title or ID. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
+        "Add a markdown comment to one Huly card, resolving the card space by exact name or ID and the card by exact title or ID. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
       category: CATEGORY,
       inputSchema: addCardCommentParamsJsonSchema,
       resultSchema: AddCardCommentResultSchema
@@ -53,8 +53,8 @@ export const cardCommentTools = [
     {
       name: "update_card_comment",
       description:
-        "Update one comment that belongs to the resolved Huly card. Resolves the card space by exact name or ID and the card by exact title or ID. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
+        "Update one comment that belongs to the resolved Huly card. Resolves the card space by exact name or ID and the card by exact title or ID. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
       category: CATEGORY,
       inputSchema: updateCardCommentParamsJsonSchema,
       resultSchema: UpdateCardCommentResultSchema

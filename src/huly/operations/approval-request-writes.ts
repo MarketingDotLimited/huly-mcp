@@ -51,7 +51,7 @@ type ApprovalRequestWriteError =
 const currentEmployeeRef = (
   client: HulyClient["Type"]
 ): Effect.Effect<Ref<HulyPerson>, HulyClientError | PersonNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const actor = client.getPrimarySocialId()
     const socialIdentity = yield* client.findOne<SocialIdentity>(
       contact.class.SocialIdentity,
@@ -83,7 +83,7 @@ const resolveRequestedPerson = (
   client: HulyClient["Type"],
   identifier: string
 ): Effect.Effect<Ref<HulyPerson>, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* findPersonById(client, identifier)
     if (byId !== undefined) return byId._id
 
@@ -96,11 +96,8 @@ const resolveRequestedPerson = (
 const resolveRequestedPeople = (
   client: HulyClient["Type"],
   identifiers: ReadonlyArray<string>
-): Effect.Effect<
-  Array<Ref<HulyPerson>>,
-  HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError
-> =>
-  Effect.gen(function*() {
+): Effect.Effect<Array<Ref<HulyPerson>>, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
+  Effect.gen(function* () {
     const resolved = yield* Effect.all(identifiers.map((identifier) => resolveRequestedPerson(client, identifier)))
     return [...new Set(resolved)]
   })
@@ -125,7 +122,7 @@ const targetSpace = (
   client: HulyClient["Type"],
   params: AddApprovalRequestParams
 ): Effect.Effect<Ref<Space>, HulyClientError | ApprovalRequestTargetNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (params.space !== undefined) return toRef<Space>(params.space)
 
     const target = yield* client.findOne<Doc>(
@@ -147,7 +144,7 @@ const findApprovalRequest = (
   client: HulyClient["Type"],
   request: ApprovalRequestId
 ): Effect.Effect<HulyApprovalRequest, HulyClientError | ApprovalRequestNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const item = yield* client.findOne<HulyApprovalRequest>(
       requestPlugin.class.Request,
       hulyQuery<HulyApprovalRequest>({ _id: toRef<HulyApprovalRequest>(request) })
@@ -160,9 +157,7 @@ const findApprovalRequest = (
     return item
   })
 
-const requireActive = (
-  item: HulyApprovalRequest
-): Effect.Effect<void, ApprovalRequestNotActiveError> =>
+const requireActive = (item: HulyApprovalRequest): Effect.Effect<void, ApprovalRequestNotActiveError> =>
   item.status === HulyRequestStatus.Active
     ? Effect.void
     : Effect.fail(new ApprovalRequestNotActiveError({ request: item._id, status: item.status }))
@@ -170,11 +165,8 @@ const requireActive = (
 const requestedCurrentEmployee = (
   client: HulyClient["Type"],
   item: HulyApprovalRequest
-): Effect.Effect<
-  Ref<HulyPerson>,
-  HulyClientError | PersonNotFoundError | ApprovalRequestApproverNotRequestedError
-> =>
-  Effect.gen(function*() {
+): Effect.Effect<Ref<HulyPerson>, HulyClientError | PersonNotFoundError | ApprovalRequestApproverNotRequestedError> =>
+  Effect.gen(function* () {
     const employee = yield* currentEmployeeRef(client)
     if (!item.requested.includes(employee)) {
       return yield* new ApprovalRequestApproverNotRequestedError({ request: item._id, person: employee })
@@ -209,11 +201,9 @@ const addRequestComment = (
   body: string,
   decision: boolean
 ): Effect.Effect<Ref<ChatMessage>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const commentId: Ref<ChatMessage> = generateId()
-    const commentData: AttachedData<ChatMessage> = {
-      message: markdownToMarkupString(body, client.markupUrlConfig)
-    }
+    const commentData: AttachedData<ChatMessage> = { message: markdownToMarkupString(body, client.markupUrlConfig) }
 
     yield* client.addCollection(
       chunter.class.ChatMessage,
@@ -238,14 +228,12 @@ const addRequestComment = (
     return commentId
   })
 
-const mutationResult = (
-  result: ApprovalRequestMutationResult
-): ApprovalRequestMutationResult => result
+const mutationResult = (result: ApprovalRequestMutationResult): ApprovalRequestMutationResult => result
 
 export const addApprovalRequest = (
   params: AddApprovalRequestParams
 ): Effect.Effect<ApprovalRequestMutationResult, ApprovalRequestWriteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const requested = yield* resolveRequestedPeople(client, params.requested)
     const requiredApprovesCount = yield* requiredApprovalCount(params, requested.length)
@@ -282,7 +270,7 @@ export const addApprovalRequest = (
 export const addApprovalRequestComment = (
   params: AddApprovalRequestCommentParams
 ): Effect.Effect<ApprovalRequestMutationResult, ApprovalRequestWriteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const item = yield* findApprovalRequest(client, params.request)
     const commentId = yield* addRequestComment(client, item, params.body, false)
@@ -298,25 +286,19 @@ export const addApprovalRequestComment = (
 export const approveApprovalRequest = (
   params: ApproveApprovalRequestParams
 ): Effect.Effect<ApprovalRequestMutationResult, ApprovalRequestWriteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const item = yield* findApprovalRequest(client, params.request)
     yield* requireActive(item)
 
     const employee = yield* requestedCurrentEmployee(client, item)
     if (item.approved.includes(employee)) {
-      return mutationResult({
-        request: params.request,
-        action: "approved",
-        changed: false,
-        status: "Active"
-      })
+      return mutationResult({ request: params.request, action: "approved", changed: false, status: "Active" })
     }
 
     yield* updateRequestCollection(client, "approve_approval_request", item, { $push: { approved: employee } })
-    const comment = params.comment === undefined
-      ? undefined
-      : yield* addRequestComment(client, item, params.comment, true)
+    const comment =
+      params.comment === undefined ? undefined : yield* addRequestComment(client, item, params.comment, true)
 
     return mutationResult({
       request: params.request,
@@ -329,7 +311,7 @@ export const approveApprovalRequest = (
 export const rejectApprovalRequest = (
   params: RejectApprovalRequestParams
 ): Effect.Effect<ApprovalRequestMutationResult, ApprovalRequestWriteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const item = yield* findApprovalRequest(client, params.request)
     yield* requireActive(item)
@@ -353,7 +335,7 @@ export const rejectApprovalRequest = (
 export const cancelApprovalRequest = (
   params: CancelApprovalRequestParams
 ): Effect.Effect<ApprovalRequestMutationResult, ApprovalRequestWriteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const item = yield* findApprovalRequest(client, params.request)
     yield* requireActive(item)
@@ -363,9 +345,8 @@ export const cancelApprovalRequest = (
     const socialIds = (client.getSocialIds?.() ?? [client.getPrimarySocialId()]).map(String)
     const creator = item.createdBy === undefined ? undefined : String(item.createdBy)
     const matchesDirectActor = creator === actor || creator === primarySocialId || socialIds.includes(creator ?? "")
-    const matchesEmployee = creator === undefined || matchesDirectActor
-      ? false
-      : String(yield* currentEmployeeRef(client)) === creator
+    const matchesEmployee =
+      creator === undefined || matchesDirectActor ? false : String(yield* currentEmployeeRef(client)) === creator
     if (!matchesDirectActor && !matchesEmployee) {
       return yield* new ApprovalRequestCancelUnauthorizedError({
         request: params.request,
@@ -376,10 +357,5 @@ export const cancelApprovalRequest = (
 
     yield* updateRequestCollection(client, "cancel_approval_request", item, { status: HulyRequestStatus.Cancelled })
 
-    return mutationResult({
-      request: params.request,
-      action: "cancelled",
-      changed: true,
-      status: "Cancelled"
-    })
+    return mutationResult({ request: params.request, action: "cancelled", changed: true, status: "Cancelled" })
   })

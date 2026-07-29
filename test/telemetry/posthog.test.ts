@@ -10,10 +10,7 @@ const debugMessages: Array<string> = []
 let sessionCounter = 0
 
 const makeDependencies = (): PostHogTelemetryDependencies => ({
-  createClient: () => ({
-    capture: mockCapture,
-    shutdown: mockShutdown
-  }),
+  createClient: () => ({ capture: mockCapture, shutdown: mockShutdown }),
   createSessionId: () => {
     sessionCounter++
     return `00000000-0000-4000-8000-${sessionCounter.toString().padStart(12, "0")}`
@@ -60,12 +57,7 @@ describe("createPostHogTelemetry", () => {
 
     it("maps http transport correctly", () => {
       const telemetry = createTelemetry(false)
-      telemetry.sessionStart({
-        transport: "http",
-        authMethod: "password",
-        toolCount: 0,
-        toolsets: null
-      })
+      telemetry.sessionStart({ transport: "http", authMethod: "password", toolCount: 0, toolsets: null })
 
       const call = assertAt(mockCapture.mock.calls, 0)[0]
       expect(call.properties.transport).toBe("http")
@@ -76,20 +68,11 @@ describe("createPostHogTelemetry", () => {
 
     it("marks CLI telemetry with a distinct surface and package", () => {
       const telemetry = createPostHogTelemetry(false, makeDependencies(), cliTelemetryContext)
-      telemetry.sessionStart({
-        transport: "cli",
-        authMethod: "token",
-        toolCount: 399,
-        toolsets: null
-      })
+      telemetry.sessionStart({ transport: "cli", authMethod: "token", toolCount: 399, toolsets: null })
 
       const call = assertAt(mockCapture.mock.calls, 0)[0]
       expect(call.event).toBe("session_start")
-      expect(call.properties).toMatchObject({
-        package_name: "@firfi/huly-cli",
-        surface: "cli",
-        transport: "cli"
-      })
+      expect(call.properties).toMatchObject({ package_name: "@firfi/huly-cli", surface: "cli", transport: "cli" })
     })
   })
 
@@ -101,9 +84,7 @@ describe("createPostHogTelemetry", () => {
       telemetry.firstListTools()
       telemetry.firstListTools()
 
-      const calls = mockCapture.mock.calls.filter(
-        (c) => assertAt(c, 0).event === "first_list_tools"
-      )
+      const calls = mockCapture.mock.calls.filter((c) => assertAt(c, 0).event === "first_list_tools")
       expect(calls).toHaveLength(1)
     })
 
@@ -123,30 +104,19 @@ describe("createPostHogTelemetry", () => {
 
       const call = assertAt(mockCapture.mock.calls, 0)[0]
       expect(call.event).toBe("first_list_tools")
-      expect(call.properties).toMatchObject({
-        client_kind: "codex",
-        resolved_mode: "proxy"
-      })
+      expect(call.properties).toMatchObject({ client_kind: "codex", resolved_mode: "proxy" })
     })
   })
 
   describe("toolCalled", () => {
     it("captures with correct property mapping", () => {
       const telemetry = createTelemetry(false)
-      telemetry.toolCalled({
-        toolName: "list_issues",
-        status: "success",
-        durationMs: 42
-      })
+      telemetry.toolCalled({ toolName: "list_issues", status: "success", durationMs: 42 })
 
       expect(mockCapture.mock.calls).toHaveLength(1)
       const call = assertAt(mockCapture.mock.calls, 0)[0]
       expect(call.event).toBe("tool_called")
-      expect(call.properties).toMatchObject({
-        tool_name: "list_issues",
-        status: "success",
-        duration_ms: 42
-      })
+      expect(call.properties).toMatchObject({ tool_name: "list_issues", status: "success", duration_ms: 42 })
     })
 
     it("captures client classification when provided", () => {
@@ -161,19 +131,12 @@ describe("createPostHogTelemetry", () => {
 
       const call = assertAt(mockCapture.mock.calls, 0)[0]
       expect(call.event).toBe("tool_called")
-      expect(call.properties).toMatchObject({
-        client_kind: "codex",
-        resolved_mode: "proxy"
-      })
+      expect(call.properties).toMatchObject({ client_kind: "codex", resolved_mode: "proxy" })
     })
 
     it("omits error_tag when not provided", () => {
       const telemetry = createTelemetry(false)
-      telemetry.toolCalled({
-        toolName: "get_issue",
-        status: "success",
-        durationMs: 10
-      })
+      telemetry.toolCalled({ toolName: "get_issue", status: "success", durationMs: 10 })
 
       const call = assertAt(mockCapture.mock.calls, 0)[0]
       expect(call.properties).not.toHaveProperty("error_tag")
@@ -181,12 +144,7 @@ describe("createPostHogTelemetry", () => {
 
     it("includes error_tag when provided", () => {
       const telemetry = createTelemetry(false)
-      telemetry.toolCalled({
-        toolName: "get_issue",
-        status: "error",
-        errorTag: "HulyConnectionError",
-        durationMs: 150
-      })
+      telemetry.toolCalled({ toolName: "get_issue", status: "error", errorTag: "HulyConnectionError", durationMs: 150 })
 
       const call = assertAt(mockCapture.mock.calls, 0)[0]
       expect(call.properties.error_tag).toBe("HulyConnectionError")
@@ -210,11 +168,7 @@ describe("createPostHogTelemetry", () => {
 
     it("omits input_bytes and output_bytes when not provided", () => {
       const telemetry = createTelemetry(false)
-      telemetry.toolCalled({
-        toolName: "list_issues",
-        status: "success",
-        durationMs: 10
-      })
+      telemetry.toolCalled({ toolName: "list_issues", status: "success", durationMs: 10 })
 
       const call = assertAt(mockCapture.mock.calls, 0)[0]
       expect(call.properties).not.toHaveProperty("input_bytes")
@@ -236,11 +190,7 @@ describe("createPostHogTelemetry", () => {
 
     it("omits edit_mode when not provided", () => {
       const telemetry = createTelemetry(false)
-      telemetry.toolCalled({
-        toolName: "list_issues",
-        status: "success",
-        durationMs: 10
-      })
+      telemetry.toolCalled({ toolName: "list_issues", status: "success", durationMs: 10 })
 
       const call = assertAt(mockCapture.mock.calls, 0)[0]
       expect(call.properties).not.toHaveProperty("edit_mode")
@@ -252,9 +202,7 @@ describe("createPostHogTelemetry", () => {
       const telemetry = createTelemetry(false)
       await telemetry.shutdown()
 
-      const endCalls = mockCapture.mock.calls.filter(
-        (c) => assertAt(c, 0).event === "session_end"
-      )
+      const endCalls = mockCapture.mock.calls.filter((c) => assertAt(c, 0).event === "session_end")
       expect(endCalls).toHaveLength(1)
       expect(mockShutdown.mock.calls).toHaveLength(1)
       expect(mockShutdown.mock.calls).toContainEqual([2000])
@@ -266,9 +214,7 @@ describe("createPostHogTelemetry", () => {
       await expect(telemetry.shutdown()).resolves.toBeUndefined()
 
       // session_end should still have been captured before the rejection
-      const endCalls = mockCapture.mock.calls.filter(
-        (c) => assertAt(c, 0).event === "session_end"
-      )
+      const endCalls = mockCapture.mock.calls.filter((c) => assertAt(c, 0).event === "session_end")
       expect(endCalls).toHaveLength(1)
       expect(mockShutdown.mock.calls).toHaveLength(1)
     })
@@ -287,12 +233,7 @@ describe("createPostHogTelemetry", () => {
     it("logs sessionStart to console.error", () => {
       const telemetry = createTelemetry(true)
 
-      telemetry.sessionStart({
-        transport: "http",
-        authMethod: "password",
-        toolCount: 3,
-        toolsets: null
-      })
+      telemetry.sessionStart({ transport: "http", authMethod: "password", toolCount: 3, toolsets: null })
 
       expect(debugMessages).toContainEqual(expect.stringContaining("[telemetry] session_start"))
     })
@@ -308,11 +249,7 @@ describe("createPostHogTelemetry", () => {
     it("logs toolCalled to console.error", () => {
       const telemetry = createTelemetry(true)
 
-      telemetry.toolCalled({
-        toolName: "x",
-        status: "success",
-        durationMs: 0
-      })
+      telemetry.toolCalled({ toolName: "x", status: "success", durationMs: 0 })
 
       expect(debugMessages).toContainEqual(expect.stringContaining("[telemetry] tool_called"))
     })
@@ -359,18 +296,9 @@ describe("createPostHogTelemetry", () => {
   describe("session identity", () => {
     it("uses consistent sessionId across all events", () => {
       const telemetry = createTelemetry(false)
-      telemetry.sessionStart({
-        transport: "stdio",
-        authMethod: "password",
-        toolCount: 1,
-        toolsets: null
-      })
+      telemetry.sessionStart({ transport: "stdio", authMethod: "password", toolCount: 1, toolsets: null })
       telemetry.firstListTools()
-      telemetry.toolCalled({
-        toolName: "x",
-        status: "success",
-        durationMs: 0
-      })
+      telemetry.toolCalled({ toolName: "x", status: "success", durationMs: 0 })
 
       expect(mockCapture.mock.calls).toHaveLength(3)
       const ids = mockCapture.mock.calls.map((c) => assertAt(c, 0).distinctId)

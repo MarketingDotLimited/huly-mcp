@@ -73,11 +73,7 @@ type CreateTestCaseError = HulyClientError | TestProjectNotFoundError | TestSuit
 type DeleteTestCaseError = HulyClientError | TestProjectNotFoundError | TestCaseNotFoundError
 
 const toProjectSummary = (p: TestProject): TestProjectSummary => {
-  const result: TestProjectSummary = {
-    id: TestProjectId.make(p._id),
-    name: p.name,
-    archived: p.archived
-  }
+  const result: TestProjectSummary = { id: TestProjectId.make(p._id), name: p.name, archived: p.archived }
   if (p.description) {
     return { ...result, description: p.description }
   }
@@ -110,23 +106,17 @@ const toCaseSummary = (tc: TestCase): TestCaseSummary => {
 export const listTestProjects = (
   params: ListTestProjectsParams
 ): Effect.Effect<ListTestProjectsResult, ListTestProjectsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit)
 
     const projects = yield* client.findAll<TestProject>(
       testManagement.class.TestProject,
       {},
-      {
-        limit,
-        sort: { name: SortingOrder.Ascending }
-      }
+      { limit, sort: { name: SortingOrder.Ascending } }
     )
 
-    return {
-      projects: projects.map(toProjectSummary),
-      total: listTotal(projects.total)
-    }
+    return { projects: projects.map(toProjectSummary), total: listTotal(projects.total) }
   })
 
 // --- List Test Suites ---
@@ -134,7 +124,7 @@ export const listTestProjects = (
 export const listTestSuites = (
   params: ListTestSuitesParams
 ): Effect.Effect<ListTestSuitesResult, ListTestSuitesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const limit = clampLimit(params.limit)
@@ -146,19 +136,12 @@ export const listTestSuites = (
       query.parent = parentSuite._id
     }
 
-    const suites = yield* client.findAll<TestSuite>(
-      testManagement.class.TestSuite,
-      query,
-      {
-        limit,
-        sort: { modifiedOn: SortingOrder.Descending }
-      }
-    )
+    const suites = yield* client.findAll<TestSuite>(testManagement.class.TestSuite, query, {
+      limit,
+      sort: { modifiedOn: SortingOrder.Descending }
+    })
 
-    return {
-      suites: suites.map(toSuiteSummary),
-      total: listTotal(suites.total)
-    }
+    return { suites: suites.map(toSuiteSummary), total: listTotal(suites.total) }
   })
 
 // --- Get Test Suite ---
@@ -166,7 +149,7 @@ export const listTestSuites = (
 export const getTestSuite = (
   params: GetTestSuiteParams
 ): Effect.Effect<GetTestSuiteResult, GetTestSuiteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const suite = yield* findTestSuite(client, project, params.suite)
@@ -177,10 +160,7 @@ export const getTestSuite = (
       { limit: 1 }
     )
 
-    return {
-      ...toSuiteSummary(suite),
-      testCases: listTotal(cases.total)
-    }
+    return { ...toSuiteSummary(suite), testCases: listTotal(cases.total) }
   })
 
 // --- Create Test Suite ---
@@ -188,21 +168,23 @@ export const getTestSuite = (
 export const createTestSuite = (
   params: CreateTestSuiteParams
 ): Effect.Effect<CreateTestSuiteResult, CreateTestSuiteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
 
     // Resolve parent first — needed for both idempotency check and creation.
     // Default parent is the project class ref (Huly convention for root suites).
     // toRef bridges Ref<Class<TestProject>> -> Ref<TestSuite> at the SDK boundary.
-    const parentRef: Ref<TestSuite> = params.parent !== undefined
-      ? (yield* findTestSuite(client, project, params.parent))._id
-      : toRef<TestSuite>(testManagement.class.TestProject)
+    const parentRef: Ref<TestSuite> =
+      params.parent !== undefined
+        ? (yield* findTestSuite(client, project, params.parent))._id
+        : toRef<TestSuite>(testManagement.class.TestProject)
 
-    const existing = yield* client.findOne<TestSuite>(
-      testManagement.class.TestSuite,
-      { name: params.name, space: project._id, parent: parentRef }
-    )
+    const existing = yield* client.findOne<TestSuite>(testManagement.class.TestSuite, {
+      name: params.name,
+      space: project._id,
+      parent: parentRef
+    })
 
     if (existing !== undefined) {
       return { id: TestSuiteId.make(existing._id), name: existing.name, created: false }
@@ -231,16 +213,12 @@ export const createTestSuite = (
 export const deleteTestSuite = (
   params: DeleteTestSuiteParams
 ): Effect.Effect<DeleteTestSuiteResult, DeleteTestSuiteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const suite = yield* findTestSuite(client, project, params.suite)
 
-    yield* client.removeDoc(
-      testManagement.class.TestSuite,
-      project._id,
-      suite._id
-    )
+    yield* client.removeDoc(testManagement.class.TestSuite, project._id, suite._id)
 
     return { id: TestSuiteId.make(suite._id), deleted: true }
   })
@@ -250,7 +228,7 @@ export const deleteTestSuite = (
 export const listTestCases = (
   params: ListTestCasesParams
 ): Effect.Effect<ListTestCasesResult, ListTestCasesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const limit = clampLimit(params.limit)
@@ -267,19 +245,12 @@ export const listTestCases = (
       query.assignee = toRef<Employee>(person._id)
     }
 
-    const cases = yield* client.findAll<TestCase>(
-      testManagement.class.TestCase,
-      query,
-      {
-        limit,
-        sort: { modifiedOn: SortingOrder.Descending }
-      }
-    )
+    const cases = yield* client.findAll<TestCase>(testManagement.class.TestCase, query, {
+      limit,
+      sort: { modifiedOn: SortingOrder.Descending }
+    })
 
-    return {
-      testCases: cases.map(toCaseSummary),
-      total: listTotal(cases.total)
-    }
+    return { testCases: cases.map(toCaseSummary), total: listTotal(cases.total) }
   })
 
 // --- Get Test Case ---
@@ -287,17 +258,12 @@ export const listTestCases = (
 export const getTestCase = (
   params: GetTestCaseParams
 ): Effect.Effect<GetTestCaseResult, GetTestCaseError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const tc = yield* findTestCase(client, project, params.testCase)
 
-    const descriptionStr = yield* fetchDescription(
-      client,
-      testManagement.class.TestCase,
-      tc._id,
-      tc.description
-    )
+    const descriptionStr = yield* fetchDescription(client, testManagement.class.TestCase, tc._id, tc.description)
 
     return {
       ...toCaseSummary(tc),
@@ -311,29 +277,24 @@ export const getTestCase = (
 export const createTestCase = (
   params: CreateTestCaseParams
 ): Effect.Effect<CreateTestCaseResult, CreateTestCaseError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const suite = yield* findTestSuite(client, project, params.suite)
 
     const caseId: Ref<TestCase> = generateId()
 
-    const assigneeRef: Ref<Employee> | null = params.assignee !== undefined
-      ? toRef<Employee>((yield* resolveAssignee(params.assignee))._id)
-      : null
+    const assigneeRef: Ref<Employee> | null =
+      params.assignee !== undefined ? toRef<Employee>((yield* resolveAssignee(params.assignee))._id) : null
 
     const typeEnum = resolveCaseType(params.type ?? DEFAULT_TEST_CASE_TYPE)
     const priorityEnum = resolveCasePriority(params.priority ?? DEFAULT_TEST_CASE_PRIORITY)
     const statusEnum = resolveCaseStatus(params.status ?? DEFAULT_TEST_CASE_STATUS)
 
-    const descRef: MarkupBlobRef | null = params.description !== undefined && params.description.trim() !== ""
-      ? yield* uploadDescription(
-        client,
-        testManagement.class.TestCase,
-        caseId,
-        params.description
-      )
-      : null
+    const descRef: MarkupBlobRef | null =
+      params.description !== undefined && params.description.trim() !== ""
+        ? yield* uploadDescription(client, testManagement.class.TestCase, caseId, params.description)
+        : null
 
     // TestCase is an AttachedDoc; no typed constructor for AttachedData<TestCase>.
     // Build as Record and cast once — unavoidable at the SDK boundary.
@@ -365,16 +326,12 @@ export const createTestCase = (
 export const deleteTestCase = (
   params: DeleteTestCaseParams
 ): Effect.Effect<DeleteTestCaseResult, DeleteTestCaseError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const tc = yield* findTestCase(client, project, params.testCase)
 
-    yield* client.removeDoc(
-      testManagement.class.TestCase,
-      project._id,
-      tc._id
-    )
+    yield* client.removeDoc(testManagement.class.TestCase, project._id, tc._id)
 
     return { id: TestCaseId.make(tc._id), deleted: true }
   })

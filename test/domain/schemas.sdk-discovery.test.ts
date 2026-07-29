@@ -28,7 +28,7 @@ import { MAX_LIMIT } from "../../src/domain/schemas/shared.js"
 
 describe("sdk discovery schemas", () => {
   it.effect("maps classifier kinds with the real Huly SDK enum values", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const sdkClassifierKindNames = Object.keys(ClassifierKind)
         .filter((key) => Number.isNaN(Number(key)))
         .sort()
@@ -46,10 +46,11 @@ describe("sdk discovery schemas", () => {
       expect(yield* Schema.encode(HulySdkClassifierKindSchema)("interface")).toBe(ClassifierKind.INTERFACE)
       expect(yield* Schema.encode(HulySdkClassifierKindSchema)("mixin")).toBe(ClassifierKind.MIXIN)
       expect(Either.isLeft(Schema.decodeUnknownEither(HulySdkClassifierKindSchema)(999))).toBe(true)
-    }))
+    })
+  )
 
   it.effect("validates class discovery params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const params = yield* Schema.decodeUnknown(ListHulyClassesParamsSchema)({
         query: "issue",
         kind: "class",
@@ -57,17 +58,13 @@ describe("sdk discovery schemas", () => {
         limit: 20
       })
 
-      expect(params).toEqual({
-        query: "issue",
-        kind: "class",
-        domain: "tracker",
-        limit: 20
-      })
+      expect(params).toEqual({ query: "issue", kind: "class", domain: "tracker", limit: 20 })
 
       expect(() => Schema.decodeUnknownSync(ListHulyClassesParamsSchema)({ query: "   " })).toThrow()
       expect(() => Schema.decodeUnknownSync(ListHulyClassesParamsSchema)({ kind: "document" })).toThrow()
       expect(() => Schema.decodeUnknownSync(ListHulyClassesParamsSchema)({ limit: MAX_LIMIT + 1 })).toThrow()
-    }))
+    })
+  )
 
   it("documents SDK discovery limits from shared constants", () => {
     const jsonSchema = JSON.stringify(listHulyAttributesParamsJsonSchema)
@@ -77,73 +74,82 @@ describe("sdk discovery schemas", () => {
   })
 
   it.effect("validates get class, attribute, and enum params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(yield* Schema.decodeUnknown(GetHulyClassParamsSchema)({ class: "tracker:class:Issue" })).toEqual({
         class: "tracker:class:Issue"
       })
       expect(() => Schema.decodeUnknownSync(GetHulyClassParamsSchema)({ class: "" })).toThrow()
       expect(() => Schema.decodeUnknownSync(ListHulyAttributesParamsSchema)({ class: " " })).toThrow()
       expect(() => Schema.decodeUnknownSync(ListHulyEnumsParamsSchema)({ enum: "" })).toThrow()
-    }))
+    })
+  )
 
   it.effect("encodes discovery result schemas", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const classResult = yield* Schema.decodeUnknown(ListHulyClassesResultSchema)({
-        classes: [{
-          classId: "tracker:class:Issue",
-          label: "Issue",
-          kind: "class",
-          directAncestors: [],
-          domain: "tracker",
-          attributesCount: 1,
-          firstClassToolHints: [{ category: "issues", exampleTools: ["list_issues"] }],
-          routingHints: []
-        }],
+        classes: [
+          {
+            classId: "tracker:class:Issue",
+            label: "Issue",
+            kind: "class",
+            directAncestors: [],
+            domain: "tracker",
+            attributesCount: 1,
+            firstClassToolHints: [{ category: "issues", exampleTools: ["list_issues"] }],
+            routingHints: []
+          }
+        ],
         total: 1
       })
       expect(yield* Schema.encodeUnknown(ListHulyClassesResultSchema)(classResult)).toEqual({
-        classes: [{
-          classId: "tracker:class:Issue",
-          label: "Issue",
-          kind: "class",
-          directAncestors: [],
-          domain: "tracker",
-          attributesCount: 1,
-          firstClassToolHints: [{ category: "issues", exampleTools: ["list_issues"] }],
-          routingHints: []
-        }],
+        classes: [
+          {
+            classId: "tracker:class:Issue",
+            label: "Issue",
+            kind: "class",
+            directAncestors: [],
+            domain: "tracker",
+            attributesCount: 1,
+            firstClassToolHints: [{ category: "issues", exampleTools: ["list_issues"] }],
+            routingHints: []
+          }
+        ],
         total: 1
       })
 
       const attributeResult = yield* Schema.decodeUnknown(ListHulyAttributesResultSchema)({
-        attributes: [{
-          attributeId: "attr:issue.assignee",
-          name: "assignee",
-          label: "Assignee",
-          ownerClassId: "tracker:class:Issue",
-          ownerClassLabel: "Issue",
-          type: {
-            kind: "ref",
-            classId: "core:class:RefTo",
-            refTo: "contact:class:Person",
-            raw: { _class: "core:class:RefTo", to: "contact:class:Person" }
-          },
-          inherited: false
-        }],
-        total: 1
-      })
-      expect((yield* Schema.encodeUnknown(ListHulyAttributesResultSchema)(attributeResult)).total).toBe(1)
-      expect(() =>
-        Schema.decodeUnknownSync(ListHulyAttributesResultSchema)({
-          attributes: [{
+        attributes: [
+          {
             attributeId: "attr:issue.assignee",
             name: "assignee",
             label: "Assignee",
             ownerClassId: "tracker:class:Issue",
             ownerClassLabel: "Issue",
-            type: { kind: "ref", raw: { _class: "core:class:RefTo" } },
+            type: {
+              kind: "ref",
+              classId: "core:class:RefTo",
+              refTo: "contact:class:Person",
+              raw: { _class: "core:class:RefTo", to: "contact:class:Person" }
+            },
             inherited: false
-          }],
+          }
+        ],
+        total: 1
+      })
+      expect((yield* Schema.encodeUnknown(ListHulyAttributesResultSchema)(attributeResult)).total).toBe(1)
+      expect(() =>
+        Schema.decodeUnknownSync(ListHulyAttributesResultSchema)({
+          attributes: [
+            {
+              attributeId: "attr:issue.assignee",
+              name: "assignee",
+              label: "Assignee",
+              ownerClassId: "tracker:class:Issue",
+              ownerClassLabel: "Issue",
+              type: { kind: "ref", raw: { _class: "core:class:RefTo" } },
+              inherited: false
+            }
+          ],
           total: 1
         })
       ).toThrow()
@@ -165,20 +171,23 @@ describe("sdk discovery schemas", () => {
         enums: [{ enumId: "enum:priority", name: "Priority", values: ["Low", "High"] }],
         total: 1
       })
-    }))
+    })
+  )
 
   it("rejects negative and fractional discovery counts", () => {
     expect(() =>
       Schema.decodeUnknownSync(ListHulyClassesResultSchema)({
-        classes: [{
-          classId: "tracker:class:Issue",
-          label: "Issue",
-          kind: "class",
-          directAncestors: [],
-          attributesCount: -1,
-          firstClassToolHints: [],
-          routingHints: []
-        }],
+        classes: [
+          {
+            classId: "tracker:class:Issue",
+            label: "Issue",
+            kind: "class",
+            directAncestors: [],
+            attributesCount: -1,
+            firstClassToolHints: [],
+            routingHints: []
+          }
+        ],
         total: 1
       })
     ).toThrow()
@@ -188,58 +197,50 @@ describe("sdk discovery schemas", () => {
   })
 
   it.effect("validates new read-only SDK discovery outputs", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(
         yield* Schema.decodeUnknown(ListHulyPluginConfigurationsResultSchema)({
-          pluginConfigurations: [{
-            pluginId: "tracker",
-            label: "Tracker",
-            enabled: true,
-            beta: false,
-            transactionCount: 3
-          }],
+          pluginConfigurations: [
+            { pluginId: "tracker", label: "Tracker", enabled: true, beta: false, transactionCount: 3 }
+          ],
           total: 1
         })
       ).toMatchObject({ total: 1 })
 
       expect(
         yield* Schema.decodeUnknown(ListHulyDomainIndexConfigurationsResultSchema)({
-          domainIndexConfigurations: [{
-            domain: "tracker",
-            disabled: [{ kind: "field", key: "legacyIndex" }],
-            indexes: [{ kind: "sdk-open-metadata", metadata: { keys: "identifier" } }],
-            skip: ["transient"]
-          }],
+          domainIndexConfigurations: [
+            {
+              domain: "tracker",
+              disabled: [{ kind: "field", key: "legacyIndex" }],
+              indexes: [{ kind: "sdk-open-metadata", metadata: { keys: "identifier" } }],
+              skip: ["transient"]
+            }
+          ],
           total: 1
         })
       ).toMatchObject({ total: 1 })
 
       expect(
         yield* Schema.decodeUnknown(ListHulySequencesResultSchema)({
-          sequences: [{
-            sequenceId: "sequence-issue",
-            attachedClass: "tracker:class:Issue",
-            currentValue: 0,
-            prefix: "ISSUE"
-          }],
+          sequences: [
+            { sequenceId: "sequence-issue", attachedClass: "tracker:class:Issue", currentValue: 0, prefix: "ISSUE" }
+          ],
           total: 1
         })
       ).toMatchObject({ total: 1 })
 
       expect(() =>
         Schema.decodeUnknownSync(ListHulySequencesResultSchema)({
-          sequences: [{
-            sequenceId: "sequence-issue",
-            attachedClass: "tracker:class:Issue",
-            currentValue: -1
-          }],
+          sequences: [{ sequenceId: "sequence-issue", attachedClass: "tracker:class:Issue", currentValue: -1 }],
           total: 1
         })
       ).toThrow()
-    }))
+    })
+  )
 
   it.effect("validates parity routing and space capability params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(
         yield* Schema.decodeUnknown(HulyClassRoutingHintSchema)({
           status: "covered",
@@ -262,9 +263,8 @@ describe("sdk discovery schemas", () => {
         })
       ).toThrow()
       expect(
-        yield* Schema.decodeUnknown(DescribeHulySpaceTypeCapabilitiesParamsSchema)({
-          spaceType: "space-type-1"
-        })
+        yield* Schema.decodeUnknown(DescribeHulySpaceTypeCapabilitiesParamsSchema)({ spaceType: "space-type-1" })
       ).toEqual({ spaceType: "space-type-1" })
-    }))
+    })
+  )
 })

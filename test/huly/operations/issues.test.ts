@@ -247,9 +247,8 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       // Apply sorting if specified in options
       const opts = options as { sort?: Record<string, number>; lookup?: Record<string, unknown> } | undefined
       const idFilter = queryField(query, "_id")
-      let result = idFilter === undefined
-        ? [...issues]
-        : issues.filter((issue) => matchesQueryValue(issue._id, idFilter))
+      let result =
+        idFilter === undefined ? [...issues] : issues.filter((issue) => matchesQueryValue(issue._id, idFilter))
       if (opts?.sort?.modifiedOn !== undefined) {
         // SortingOrder.Descending = -1, Ascending = 1
         const direction = opts.sort.modifiedOn
@@ -257,16 +256,11 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       }
       // Add $lookup data for assignee if lookup is requested
       if (opts?.lookup?.assignee) {
-        result = result.map(issue => {
+        result = result.map((issue) => {
           const assigneePerson = issue.assignee
-            ? persons.find(p => String(p._id) === String(issue.assignee))
+            ? persons.find((p) => String(p._id) === String(issue.assignee))
             : undefined
-          return {
-            ...issue,
-            $lookup: {
-              assignee: assigneePerson
-            }
-          }
+          return { ...issue, $lookup: { assignee: assigneePerson } }
         })
       }
       return Effect.succeed(toFindResult(result))
@@ -279,20 +273,20 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       const inQuery = q._id as { $in?: Array<Ref<Status>> } | undefined
       if (inQuery?.$in) {
-        const filtered = statuses.filter(s => inQuery.$in!.includes(s._id))
+        const filtered = statuses.filter((s) => inQuery.$in!.includes(s._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(statuses))
     }
     if (_class === contact.class.Channel) {
       const value = (query as Record<string, unknown>).value as string
-      const filtered = channels.filter(c => c.value === value)
+      const filtered = channels.filter((c) => c.value === value)
       return Effect.succeed(toFindResult(filtered))
     }
     if (_class === contact.class.Person) {
       const nameFilter = (query as Record<string, unknown>).name as string | undefined
       if (nameFilter) {
-        const filtered = persons.filter(p => p.name === nameFilter)
+        const filtered = persons.filter((p) => p.name === nameFilter)
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(persons))
@@ -300,9 +294,10 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     if (_class === tags.class.TagReference) {
       const attachedToFilter = queryField(query, "attachedTo")
       const attachedToClassFilter = queryField(query, "attachedToClass")
-      const filtered = tagReferences.filter(tr =>
-        (attachedToFilter === undefined || matchesQueryValue(tr.attachedTo, attachedToFilter))
-        && tr.attachedToClass === attachedToClassFilter
+      const filtered = tagReferences.filter(
+        (tr) =>
+          (attachedToFilter === undefined || matchesQueryValue(tr.attachedTo, attachedToFilter)) &&
+          tr.attachedToClass === attachedToClassFilter
       )
       return Effect.succeed(toFindResult(filtered))
     }
@@ -312,7 +307,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown, options?: unknown) => {
     if (_class === tracker.class.Project) {
       const identifier = (query as Record<string, unknown>).identifier as string
-      const found = projects.find(p => p.identifier === identifier)
+      const found = projects.find((p) => p.identifier === identifier)
       if (found === undefined) {
         return Effect.succeed(undefined)
       }
@@ -322,12 +317,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
         // Return project with $lookup.type containing statuses
         const projectWithLookup = {
           ...found,
-          $lookup: {
-            type: {
-              _id: "project-type-1",
-              statuses: statuses.map(s => ({ _id: s._id }))
-            }
-          }
+          $lookup: { type: { _id: "project-type-1", statuses: statuses.map((s) => ({ _id: s._id })) } }
         }
         return Effect.succeed(projectWithLookup)
       }
@@ -338,18 +328,17 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const opts = options as { sort?: Record<string, number> } | undefined
       // Find by identifier or number
       if (q.identifier || q.number) {
-        const found = issues.find(i =>
-          (q.identifier && i.identifier === q.identifier)
-          || (q.number && i.number === q.number)
+        const found = issues.find(
+          (i) => (q.identifier && i.identifier === q.identifier) || (q.number && i.number === q.number)
         )
         return Effect.succeed(found)
       }
       // Space-only query (rank queries) - respect sort option
       if (q.space) {
-        const matching = issues.filter(i => i.space === q.space)
+        const matching = issues.filter((i) => i.space === q.space)
         const rankSort = opts?.sort?.rank
         if (rankSort !== undefined) {
-          matching.sort((a, b) => rankSort * (a.rank.localeCompare(b.rank)))
+          matching.sort((a, b) => rankSort * a.rank.localeCompare(b.rank))
         }
         return Effect.succeed(matching.at(0))
       }
@@ -359,13 +348,13 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       const value = q.value as string | { $like: string } | undefined
       if (typeof value === "string") {
-        const found = channels.find(c => c.value === value && (q.provider === undefined || c.provider === q.provider))
+        const found = channels.find((c) => c.value === value && (q.provider === undefined || c.provider === q.provider))
         return Effect.succeed(found)
       }
       if (value && typeof value === "object" && "$like" in value) {
         const pattern = value.$like.replace(/%/g, "")
-        const found = channels.find(c =>
-          c.value.includes(pattern) && (q.provider === undefined || c.provider === q.provider)
+        const found = channels.find(
+          (c) => c.value.includes(pattern) && (q.provider === undefined || c.provider === q.provider)
         )
         return Effect.succeed(found)
       }
@@ -374,17 +363,17 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     if (_class === contact.class.Person) {
       const q = query as Record<string, unknown>
       if (q._id) {
-        const found = persons.find(p => p._id === q._id)
+        const found = persons.find((p) => p._id === q._id)
         return Effect.succeed(found)
       }
       if (q.name) {
         if (typeof q.name === "string") {
-          const found = persons.find(p => p.name === q.name)
+          const found = persons.find((p) => p.name === q.name)
           return Effect.succeed(found)
         }
         if (typeof q.name === "object" && "$like" in (q.name as Record<string, unknown>)) {
           const pattern = assertExists((q.name as { readonly $like?: string }).$like).replace(/%/g, "")
-          const found = persons.find(p => p.name.includes(pattern))
+          const found = persons.find((p) => p.name.includes(pattern))
           return Effect.succeed(found)
         }
       }
@@ -393,9 +382,10 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     if (_class === tags.class.TagElement) {
       const q = query as Record<string, unknown>
       // Find by _id or by title + targetClass
-      const found = tagElements.find(te =>
-        (q._id && te._id === q._id)
-        || (q.title && q.targetClass && te.title === q.title && te.targetClass === q.targetClass)
+      const found = tagElements.find(
+        (te) =>
+          (q._id && te._id === q._id) ||
+          (q.title && q.targetClass && te.title === q.title && te.targetClass === q.targetClass)
       )
       return Effect.succeed(found)
     }
@@ -403,25 +393,31 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   }) as HulyClientOperations["findOne"]
 
   const markupContent = config.markupContent ?? {}
-  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = (
-    (_objectClass: unknown, _objectId: unknown, _objectAttr: unknown, id: unknown) => {
-      const content = markupContent[id as string] ?? ""
-      return Effect.succeed(content)
-    }
-  ) as HulyClientOperations["fetchMarkup"]
+  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = ((
+    _objectClass: unknown,
+    _objectId: unknown,
+    _objectAttr: unknown,
+    id: unknown
+  ) => {
+    const content = markupContent[id as string] ?? ""
+    return Effect.succeed(content)
+  }) as HulyClientOperations["fetchMarkup"]
 
   // Mock updateDoc - captures operation and returns incremented sequence
-  const updateDocImpl: HulyClientOperations["updateDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown, operations: unknown) => {
-      if (config.captureUpdateDoc) {
-        config.captureUpdateDoc.operations = operations as Record<string, unknown>
-      }
-      // Return project with incremented sequence
-      const project = assertAt(projects, 0)
-      const sequence = (config.updateDocResult?.object?.sequence) ?? project.sequence + 1
-      return Effect.succeed({ object: { sequence } } as never)
+  const updateDocImpl: HulyClientOperations["updateDoc"] = ((
+    _class: unknown,
+    _space: unknown,
+    _objectId: unknown,
+    operations: unknown
+  ) => {
+    if (config.captureUpdateDoc) {
+      config.captureUpdateDoc.operations = operations as Record<string, unknown>
     }
-  ) as HulyClientOperations["updateDoc"]
+    // Return project with incremented sequence
+    const project = assertAt(projects, 0)
+    const sequence = config.updateDocResult?.object?.sequence ?? project.sequence + 1
+    return Effect.succeed({ object: { sequence } } as never)
+  }) as HulyClientOperations["updateDoc"]
 
   // Mock addCollection - captures attributes
 
@@ -459,10 +455,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     }
     // If creating a tag element, add it to the tagElements array for subsequent findOne
     if (_class === tags.class.TagElement && id) {
-      const newTag = makeTagElement({
-        _id: id as Ref<TagElement>,
-        ...(attributes as Partial<TagElement>)
-      })
+      const newTag = makeTagElement({ _id: id as Ref<TagElement>, ...(attributes as Partial<TagElement>) })
       tagElements.push(newTag)
     }
     return Effect.succeed((id ?? "new-doc-id") as Ref<Doc>)
@@ -501,22 +494,16 @@ const createTestLayerWithMocks = (config: MockConfig) => {
 describe("listIssues", () => {
   describe("basic functionality", () => {
     it.effect("returns issues for a project", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         // Input: older issue first (opposite of expected output order)
         const issues = [
           makeIssue({ _id: docRef<HulyIssue>("issue-2"), identifier: "TEST-2", title: "Issue 2", modifiedOn: 1000 }),
           makeIssue({ _id: docRef<HulyIssue>("issue-1"), identifier: "TEST-1", title: "Issue 1", modifiedOn: 2000 })
         ]
-        const statuses = [
-          makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })
-        ]
+        const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues,
-          statuses
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues, statuses })
 
         const result = yield* listIssues({ project: projectIdentifier("TEST") }).pipe(
           Effect.provide(testLayer),
@@ -529,10 +516,11 @@ describe("listIssues", () => {
         expect(assertAt(result, 0).identifier).toBe("TEST-1")
         expect(assertAt(result, 1).issueId).toBe("issue-2")
         expect(assertAt(result, 1).identifier).toBe("TEST-2")
-      }))
+      })
+    )
 
     it.effect("transforms priority correctly", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const issues = [
           makeIssue({ identifier: "TEST-1", priority: IssuePriority.Urgent, modifiedOn: 1000 }),
@@ -543,40 +531,30 @@ describe("listIssues", () => {
         ]
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues,
-          statuses
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues, statuses })
 
         const result = yield* listIssues({ project: projectIdentifier("TEST") }).pipe(
           Effect.provide(testLayer),
           withDiagnostics
         )
 
-        const byIdentifier = (id: string) => result.find(r => r.identifier === id)
+        const byIdentifier = (id: string) => result.find((r) => r.identifier === id)
         expect(byIdentifier("TEST-1")?.priority).toBe("urgent")
         expect(byIdentifier("TEST-2")?.priority).toBe("high")
         expect(byIdentifier("TEST-3")?.priority).toBe("medium")
         expect(byIdentifier("TEST-4")?.priority).toBe("low")
         expect(byIdentifier("TEST-5")?.priority).toBe("no-priority")
-      }))
+      })
+    )
 
     it.effect("includes assignee name when assigned", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const person = makePerson({ _id: "person-1" as Ref<Person>, name: "Jane Doe" })
-        const issues = [
-          makeIssue({ assignee: "person-1" as Ref<Person> })
-        ]
+        const issues = [makeIssue({ assignee: "person-1" as Ref<Person> })]
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues,
-          statuses,
-          persons: [person]
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues, statuses, persons: [person] })
 
         const result = yield* listIssues({ project: projectIdentifier("TEST") }).pipe(
           Effect.provide(testLayer),
@@ -584,10 +562,11 @@ describe("listIssues", () => {
         )
 
         expect(assertAt(result, 0).assignee).toBe("Jane Doe")
-      }))
+      })
+    )
 
     it.effect("projects attached labels for every issue and uses an empty array when none are attached", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const labelledIssue = makeIssue({ _id: docRef<HulyIssue>("issue-labelled"), identifier: "TEST-1" })
         const plainIssue = makeIssue({ _id: docRef<HulyIssue>("issue-plain"), identifier: "TEST-2" })
@@ -612,14 +591,13 @@ describe("listIssues", () => {
           withDiagnostics
         )
 
-        expect(result.find((issue) => issue.identifier === "TEST-1")?.labels).toEqual([
-          { title: "Bug", color: 4 }
-        ])
+        expect(result.find((issue) => issue.identifier === "TEST-1")?.labels).toEqual([{ title: "Bug", color: 4 }])
         expect(result.find((issue) => issue.identifier === "TEST-2")?.labels).toEqual([])
-      }))
+      })
+    )
 
     it.effect("filters by attached label title case-insensitively before applying the issue query limit", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const matchingIssue = makeIssue({ _id: docRef<HulyIssue>("issue-match"), identifier: "TEST-7" })
         const otherIssue = makeIssue({ _id: docRef<HulyIssue>("issue-other"), identifier: "TEST-8" })
@@ -630,11 +608,7 @@ describe("listIssues", () => {
           issues: [otherIssue, matchingIssue],
           statuses,
           tagReferences: [
-            makeTagReference({
-              attachedTo: matchingIssue._id,
-              title: "Needs Review",
-              color: 6
-            }),
+            makeTagReference({ attachedTo: matchingIssue._id, title: "Needs Review", color: 6 }),
             makeTagReference({
               _id: docRef<TagReference>("tag-ref-other"),
               attachedTo: otherIssue._id,
@@ -645,20 +619,20 @@ describe("listIssues", () => {
           captureIssueQuery: captureQuery
         })
 
-        const result = yield* listIssues({
-          project: projectIdentifier("TEST"),
-          label: "needs review",
-          limit: 1
-        }).pipe(Effect.provide(testLayer), withDiagnostics)
+        const result = yield* listIssues({ project: projectIdentifier("TEST"), label: "needs review", limit: 1 }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
 
         expect(result.map((issue) => issue.identifier)).toEqual(["TEST-7"])
         expect(result[0]?.labels).toEqual([{ title: "Needs Review", color: 6 }])
         expect(captureQuery.query?._id).toEqual({ $in: [matchingIssue._id] })
         expect(captureQuery.options?.limit).toBe(1)
-      }))
+      })
+    )
 
     it.effect("returns no issues when no usable attachment has the requested label title", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const issue = makeIssue()
         const statuses = [makeStatus({ _id: docRef<Status>("status-open"), name: "Open" })]
@@ -667,34 +641,25 @@ describe("listIssues", () => {
           projects: [project],
           issues: [issue],
           statuses,
-          tagReferences: [
-            makeTagReference({
-              attachedTo: issue._id,
-              title: "Backend",
-              color: 2
-            })
-          ],
+          tagReferences: [makeTagReference({ attachedTo: issue._id, title: "Backend", color: 2 })],
           captureIssueQuery: captureQuery
         })
 
-        const result = yield* listIssues({
-          project: projectIdentifier("TEST"),
-          label: "Frontend"
-        }).pipe(Effect.provide(testLayer), withDiagnostics)
+        const result = yield* listIssues({ project: projectIdentifier("TEST"), label: "Frontend" }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
 
         expect(result).toEqual([])
         expect(captureQuery.query).toBeUndefined()
-      }))
+      })
+    )
   })
 
   describe("error handling", () => {
     it.effect("returns ProjectNotFoundError when project doesn't exist", () =>
-      Effect.gen(function*() {
-        const testLayer = createTestLayerWithMocks({
-          projects: [],
-          issues: [],
-          statuses: []
-        })
+      Effect.gen(function* () {
+        const testLayer = createTestLayerWithMocks({ projects: [], issues: [], statuses: [] })
 
         const error = yield* Effect.flip(
           listIssues({ project: projectIdentifier("NONEXISTENT") }).pipe(Effect.provide(testLayer), withDiagnostics)
@@ -702,18 +667,15 @@ describe("listIssues", () => {
 
         expect(error._tag).toBe("ProjectNotFoundError")
         expect((error as ProjectNotFoundError).identifier).toBe("NONEXISTENT")
-      }))
+      })
+    )
 
     it.effect("returns InvalidStatusError for unknown status name", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [],
-          statuses
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [], statuses })
 
         const error = yield* Effect.flip(
           listIssues({ project: projectIdentifier("TEST"), status: statusName("InvalidStatus") }).pipe(
@@ -724,19 +686,18 @@ describe("listIssues", () => {
 
         expect(error._tag).toBe("InvalidStatusError")
         expect((error as InvalidStatusError).status).toBe("InvalidStatus")
-      }))
+      })
+    )
   })
 
   describe("status filtering", () => {
     it.effect("filters by exact status name (case insensitive)", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const inProgressStatus = makeStatus({ _id: "status-progress" as Ref<Status>, name: "In Progress" })
         const todoStatus = makeStatus({ _id: "status-todo" as Ref<Status>, name: "Todo" })
         const statuses = [inProgressStatus, todoStatus]
-        const issues = [
-          makeIssue({ status: "status-progress" as Ref<Status> })
-        ]
+        const issues = [makeIssue({ status: "status-progress" as Ref<Status> })]
 
         const captureQuery: MockConfig["captureIssueQuery"] = {}
 
@@ -754,27 +715,16 @@ describe("listIssues", () => {
         )
 
         expect(captureQuery.query?.status).toBe("status-progress")
-      }))
+      })
+    )
 
     it.effect("status 'open' resolves an exact status name, not a category alias", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const statuses = [
-          makeStatus({
-            _id: "status-open" as Ref<Status>,
-            name: "Open",
-            category: task.statusCategory.Active
-          }),
-          makeStatus({
-            _id: "status-done" as Ref<Status>,
-            name: "Done",
-            category: task.statusCategory.Won
-          }),
-          makeStatus({
-            _id: "status-canceled" as Ref<Status>,
-            name: "Canceled",
-            category: task.statusCategory.Lost
-          })
+          makeStatus({ _id: "status-open" as Ref<Status>, name: "Open", category: task.statusCategory.Active }),
+          makeStatus({ _id: "status-done" as Ref<Status>, name: "Done", category: task.statusCategory.Won }),
+          makeStatus({ _id: "status-canceled" as Ref<Status>, name: "Canceled", category: task.statusCategory.Lost })
         ]
         const issues = [makeIssue({ status: "status-open" as Ref<Status> })]
 
@@ -793,12 +743,13 @@ describe("listIssues", () => {
         )
 
         expect(captureQuery.query?.status).toBe("status-open")
-      }))
+      })
+    )
   })
 
   describe("assignee filtering", () => {
     it.effect("filters by assignee email", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const person = makePerson({ _id: "person-1" as Ref<Person> })
         const channel = makeChannel({ attachedTo: "person-1" as Ref<Doc>, value: "john@example.com" })
@@ -822,10 +773,11 @@ describe("listIssues", () => {
         )
 
         expect(captureQuery.query?.assignee).toBe("person-1")
-      }))
+      })
+    )
 
     it.effect("returns empty results when assignee not found", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
@@ -840,18 +792,16 @@ describe("listIssues", () => {
         const result = yield* listIssues({
           project: projectIdentifier("TEST"),
           assignee: email("nonexistent@example.com")
-        }).pipe(
-          Effect.provide(testLayer),
-          withDiagnostics
-        )
+        }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(result).toHaveLength(0)
-      }))
+      })
+    )
   })
 
   describe("limit handling", () => {
     it.effect("uses default limit of 50", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
@@ -867,10 +817,11 @@ describe("listIssues", () => {
         yield* listIssues({ project: projectIdentifier("TEST") }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureQuery.options?.limit).toBe(50)
-      }))
+      })
+    )
 
     it.effect("enforces max limit of 200", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
@@ -889,10 +840,11 @@ describe("listIssues", () => {
         )
 
         expect(captureQuery.options?.limit).toBe(200)
-      }))
+      })
+    )
 
     it.effect("uses provided limit when under max", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
@@ -911,12 +863,13 @@ describe("listIssues", () => {
         )
 
         expect(captureQuery.options?.limit).toBe(25)
-      }))
+      })
+    )
   })
 
   describe("sorting", () => {
     it.effect("sorts by modifiedOn descending", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
@@ -933,14 +886,15 @@ describe("listIssues", () => {
 
         // SortingOrder.Descending = -1
         expect((captureQuery.options?.sort as Record<string, number>).modifiedOn).toBe(-1)
-      }))
+      })
+    )
   })
 })
 
 describe("getIssue", () => {
   describe("basic functionality", () => {
     it.effect("returns issue with full identifier", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({
           identifier: "TEST-1",
@@ -951,37 +905,28 @@ describe("getIssue", () => {
         })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses })
 
-        const result = yield* getIssue({ project: projectIdentifier("TEST"), identifier: issueIdentifier("TEST-1") })
-          .pipe(Effect.provide(testLayer), withDiagnostics)
+        const result = yield* getIssue({
+          project: projectIdentifier("TEST"),
+          identifier: issueIdentifier("TEST-1")
+        }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(result.identifier).toBe("TEST-1")
         expect(result.issueId).toBe("issue-1")
         expect(result.title).toBe("Test Issue")
         expect(result.status).toBe("Open")
         expect(result.project).toBe("TEST")
-      }))
+      })
+    )
 
     it.effect("returns issue with numeric identifier", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "HULY" })
-        const issue = makeIssue({
-          identifier: "HULY-123",
-          title: "Numeric Lookup Issue",
-          number: 123
-        })
+        const issue = makeIssue({ identifier: "HULY-123", title: "Numeric Lookup Issue", number: 123 })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses })
 
         const result = yield* getIssue({ project: projectIdentifier("HULY"), identifier: issueIdentifier("123") }).pipe(
           Effect.provide(testLayer),
@@ -990,58 +935,53 @@ describe("getIssue", () => {
 
         expect(result.identifier).toBe("HULY-123")
         expect(result.title).toBe("Numeric Lookup Issue")
-      }))
+      })
+    )
 
     it.effect("returns issue with lowercase identifier", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-5", number: 5 })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses })
 
-        const result = yield* getIssue({ project: projectIdentifier("TEST"), identifier: issueIdentifier("test-5") })
-          .pipe(Effect.provide(testLayer), withDiagnostics)
+        const result = yield* getIssue({
+          project: projectIdentifier("TEST"),
+          identifier: issueIdentifier("test-5")
+        }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(result.identifier).toBe("TEST-5")
-      }))
+      })
+    )
 
     it.effect("fetches markdown description", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
-        const issue = makeIssue({
-          identifier: "TEST-1",
-          description: "markup-id-123" as MarkupBlobRef
-        })
+        const issue = makeIssue({ identifier: "TEST-1", description: "markup-id-123" as MarkupBlobRef })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
         const testLayer = createTestLayerWithMocks({
           projects: [project],
           issues: [issue],
           statuses,
-          markupContent: {
-            "markup-id-123": "# Hello World\n\nThis is markdown content."
-          }
+          markupContent: { "markup-id-123": "# Hello World\n\nThis is markdown content." }
         })
 
-        const result = yield* getIssue({ project: projectIdentifier("TEST"), identifier: issueIdentifier("TEST-1") })
-          .pipe(Effect.provide(testLayer), withDiagnostics)
+        const result = yield* getIssue({
+          project: projectIdentifier("TEST"),
+          identifier: issueIdentifier("TEST-1")
+        }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(result.description).toBe("# Hello World\n\nThis is markdown content.")
-      }))
+      })
+    )
 
     it.effect("includes assignee name when assigned", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const person = makePerson({ _id: "person-1" as Ref<Person>, name: "Jane Developer" })
-        const issue = makeIssue({
-          identifier: "TEST-1",
-          assignee: "person-1" as Ref<Person>
-        })
+        const issue = makeIssue({ identifier: "TEST-1", assignee: "person-1" as Ref<Person> })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
         const testLayer = createTestLayerWithMocks({
@@ -1051,58 +991,53 @@ describe("getIssue", () => {
           persons: [person]
         })
 
-        const result = yield* getIssue({ project: projectIdentifier("TEST"), identifier: issueIdentifier("TEST-1") })
-          .pipe(Effect.provide(testLayer), withDiagnostics)
+        const result = yield* getIssue({
+          project: projectIdentifier("TEST"),
+          identifier: issueIdentifier("TEST-1")
+        }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(result.assignee).toBe("Jane Developer")
         expect(result.assigneeRef?.id).toBe("person-1")
         expect(result.assigneeRef?.name).toBe("Jane Developer")
-      }))
+      })
+    )
 
     it.effect("transforms priority correctly", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
-        const issue = makeIssue({
-          identifier: "TEST-1",
-          priority: IssuePriority.High
-        })
+        const issue = makeIssue({ identifier: "TEST-1", priority: IssuePriority.High })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses })
 
-        const result = yield* getIssue({ project: projectIdentifier("TEST"), identifier: issueIdentifier("TEST-1") })
-          .pipe(Effect.provide(testLayer), withDiagnostics)
+        const result = yield* getIssue({
+          project: projectIdentifier("TEST"),
+          identifier: issueIdentifier("TEST-1")
+        }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(result.priority).toBe("high")
-      }))
+      })
+    )
 
     it.effect("returns undefined description when not set", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
-        const issue = makeIssue({
-          identifier: "TEST-1",
-          description: null
-        })
+        const issue = makeIssue({ identifier: "TEST-1", description: null })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses })
 
-        const result = yield* getIssue({ project: projectIdentifier("TEST"), identifier: issueIdentifier("TEST-1") })
-          .pipe(Effect.provide(testLayer), withDiagnostics)
+        const result = yield* getIssue({
+          project: projectIdentifier("TEST"),
+          identifier: issueIdentifier("TEST-1")
+        }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(result.description).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("returns deterministic labels for duplicate and partially populated backend references", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const issue = makeIssue()
         const statuses = [makeStatus({ _id: docRef<Status>("status-open"), name: "Open" })]
@@ -1159,33 +1094,23 @@ describe("getIssue", () => {
         const result = yield* getIssue({
           project: projectIdentifier("TEST"),
           identifier: issueIdentifier("TEST-1")
-        }).pipe(
-          Effect.provide(testLayer),
-          Effect.provideService(Diagnostics, diagnostics.service)
-        )
+        }).pipe(Effect.provide(testLayer), Effect.provideService(Diagnostics, diagnostics.service))
         const warnings = yield* diagnostics.drainWarnings
 
-        expect(result.labels).toEqual([
-          { title: "Accessibility" },
-          { title: "bug", color: 8 },
-          { title: "No Color" }
-        ])
+        expect(result.labels).toEqual([{ title: "Accessibility" }, { title: "bug", color: 8 }, { title: "No Color" }])
         const labelWarning = warnings.find((warning) => warning.code === "issue_label_metadata_degraded")
         expect(labelWarning).toBeDefined()
         expect(labelWarning?.message).toContain("1 malformed attachment")
         expect(labelWarning?.message).toContain("1 missing or malformed title")
         expect(labelWarning?.message).toContain("2 invalid color(s)")
-      }))
+      })
+    )
   })
 
   describe("error handling", () => {
     it.effect("returns ProjectNotFoundError when project doesn't exist", () =>
-      Effect.gen(function*() {
-        const testLayer = createTestLayerWithMocks({
-          projects: [],
-          issues: [],
-          statuses: []
-        })
+      Effect.gen(function* () {
+        const testLayer = createTestLayerWithMocks({ projects: [], issues: [], statuses: [] })
 
         const error = yield* Effect.flip(
           getIssue({ project: projectIdentifier("NONEXISTENT"), identifier: issueIdentifier("1") }).pipe(
@@ -1196,18 +1121,15 @@ describe("getIssue", () => {
 
         expect(error._tag).toBe("ProjectNotFoundError")
         expect((error as ProjectNotFoundError).identifier).toBe("NONEXISTENT")
-      }))
+      })
+    )
 
     it.effect("returns IssueNotFoundError when issue doesn't exist", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [],
-          statuses
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [], statuses })
 
         const error = yield* Effect.flip(
           getIssue({ project: projectIdentifier("TEST"), identifier: issueIdentifier("TEST-999") }).pipe(
@@ -1219,18 +1141,15 @@ describe("getIssue", () => {
         expect(error._tag).toBe("IssueNotFoundError")
         expect((error as IssueNotFoundError).identifier).toBe("TEST-999")
         expect((error as IssueNotFoundError).project).toBe("TEST")
-      }))
+      })
+    )
 
     it.effect("returns IssueNotFoundError with helpful message", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject()
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [],
-          statuses
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [], statuses })
 
         const error = yield* Effect.flip(
           getIssue({ project: projectIdentifier("TEST"), identifier: issueIdentifier("42") }).pipe(
@@ -1241,39 +1160,35 @@ describe("getIssue", () => {
 
         expect(error.message).toContain("42")
         expect(error.message).toContain("TEST")
-      }))
+      })
+    )
   })
 
   describe("identifier parsing", () => {
     it.effect("handles prefixed identifier HULY-123", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "HULY" })
         const issue = makeIssue({ identifier: "HULY-123", number: 123 })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses })
 
-        const result = yield* getIssue({ project: projectIdentifier("HULY"), identifier: issueIdentifier("HULY-123") })
-          .pipe(Effect.provide(testLayer), withDiagnostics)
+        const result = yield* getIssue({
+          project: projectIdentifier("HULY"),
+          identifier: issueIdentifier("HULY-123")
+        }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(result.identifier).toBe("HULY-123")
-      }))
+      })
+    )
 
     it.effect("handles just number 123", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "PROJ" })
         const issue = makeIssue({ identifier: "PROJ-42", number: 42 })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses })
 
         const result = yield* getIssue({ project: projectIdentifier("PROJ"), identifier: issueIdentifier("42") }).pipe(
           Effect.provide(testLayer),
@@ -1281,14 +1196,15 @@ describe("getIssue", () => {
         )
 
         expect(result.identifier).toBe("PROJ-42")
-      }))
+      })
+    )
   })
 })
 
 describe("createIssue", () => {
   describe("basic functionality", () => {
     it.effect("creates issue with minimal parameters", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 5 })
 
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
@@ -1301,17 +1217,18 @@ describe("createIssue", () => {
           updateDocResult: { object: { sequence: 6 } }
         })
 
-        const result = yield* createIssue({
-          project: projectIdentifier("TEST"),
-          title: "New Issue"
-        }).pipe(Effect.provide(testLayer), withDiagnostics)
+        const result = yield* createIssue({ project: projectIdentifier("TEST"), title: "New Issue" }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
 
         expect(result.identifier).toBe("TEST-6")
         expect(captureAddCollection.attributes?.title).toBe("New Issue")
-      }))
+      })
+    )
 
     it.effect("creates issue with description", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
 
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
@@ -1338,10 +1255,11 @@ describe("createIssue", () => {
         expect(nodes).toContainEqual({ type: "text", text: "Markdown", marks: [] })
         expect(nodes).toContainEqual({ type: "text", text: "This is a description.", marks: [] })
         expect(captureAddCollection.attributes?.description).toBe("markup-ref-123")
-      }))
+      })
+    )
 
     it.effect("creates issue descriptions with native references for current-workspace Huly browse links", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
         const captureUploadMarkup: MockConfig["captureUploadMarkup"] = {}
@@ -1366,18 +1284,15 @@ describe("createIssue", () => {
         const reference = capturedMarkupReferenceNodes(captureUploadMarkup.markup)[0]
         expect(reference).toMatchObject({
           type: "reference",
-          attrs: {
-            id: "issue-1",
-            objectclass: "tracker:class:Issue",
-            label: "TEST-1"
-          }
+          attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "TEST-1" }
         })
         expect(Object.hasOwn(reference ?? {}, "content")).toBe(false)
         expect(captureAddCollection.attributes?.description).toBe("markup-ref-123")
-      }))
+      })
+    )
 
     it.effect("keeps external links and other-workspace Huly browse links as normal issue description links", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
         const captureUploadMarkup: MockConfig["captureUploadMarkup"] = {}
 
@@ -1399,20 +1314,18 @@ describe("createIssue", () => {
         const nodes = capturedMarkupChildNodes(captureUploadMarkup.markup)
         expect(nodes.some((node) => node.type === "reference")).toBe(false)
         const linkMarks = nodes.filter((node) => node.type === "text").flatMap((node) => node.marks ?? [])
-        expect(linkMarks).toContainEqual({
-          type: "link",
-          attrs: { href: "https://example.com" }
-        })
+        expect(linkMarks).toContainEqual({ type: "link", attrs: { href: "https://example.com" } })
         expect(linkMarks).toContainEqual({
           type: "link",
           attrs: {
             href: "https://test.invalid/browse?workspace=other&_class=tracker%3Aclass%3AIssue&_id=issue-1&label=TEST-1"
           }
         })
-      }))
+      })
+    )
 
     it.effect("fails malformed current-workspace Huly browse links before issue description writes", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
         const captureUploadMarkup: MockConfig["captureUploadMarkup"] = {}
@@ -1445,10 +1358,11 @@ describe("createIssue", () => {
         expect(captureUploadMarkup.markup).toBeUndefined()
         expect(captureAddCollection.attributes).toBeUndefined()
         expect(captureUpdateDoc.operations).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("creates issue with priority", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
 
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
@@ -1461,18 +1375,18 @@ describe("createIssue", () => {
           updateDocResult: { object: { sequence: 2 } }
         })
 
-        yield* createIssue({
-          project: projectIdentifier("TEST"),
-          title: "High Priority Issue",
-          priority: "high"
-        }).pipe(Effect.provide(testLayer), withDiagnostics)
+        yield* createIssue({ project: projectIdentifier("TEST"), title: "High Priority Issue", priority: "high" }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
 
         // IssuePriority.High = 2
         expect(captureAddCollection.attributes?.priority).toBe(2)
-      }))
+      })
+    )
 
     it.effect("creates issue with assignee by email", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
         const person = makePerson({ _id: "person-1" as Ref<Person>, name: "John Doe" })
         const channel = makeChannel({ attachedTo: "person-1" as Ref<Doc>, value: "john@example.com" })
@@ -1496,10 +1410,11 @@ describe("createIssue", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureAddCollection.attributes?.assignee).toBe("person-1")
-      }))
+      })
+    )
 
     it.effect("creates issue with specific status", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
         const todoStatus = makeStatus({ _id: "status-todo" as Ref<Status>, name: "Todo" })
         const inProgressStatus = makeStatus({ _id: "status-progress" as Ref<Status>, name: "In Progress" })
@@ -1521,10 +1436,11 @@ describe("createIssue", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureAddCollection.attributes?.status).toBe("status-progress")
-      }))
+      })
+    )
 
     it.effect("uses project default status when not specified", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({
           identifier: "TEST",
           sequence: 1,
@@ -1541,16 +1457,17 @@ describe("createIssue", () => {
           updateDocResult: { object: { sequence: 2 } }
         })
 
-        yield* createIssue({
-          project: projectIdentifier("TEST"),
-          title: "Default Status Issue"
-        }).pipe(Effect.provide(testLayer), withDiagnostics)
+        yield* createIssue({ project: projectIdentifier("TEST"), title: "Default Status Issue" }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
 
         expect(captureAddCollection.attributes?.status).toBe("status-default")
-      }))
+      })
+    )
 
     it.effect("calculates rank for new issue based on highest-ranked existing issue", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
         const lowRankedIssue = makeIssue({ identifier: "TEST-1", number: 1, rank: "0|aaaaaa:" })
         const highRankedIssue = makeIssue({ identifier: "TEST-2", number: 2, rank: "0|hzzzzz:" })
@@ -1565,10 +1482,10 @@ describe("createIssue", () => {
           updateDocResult: { object: { sequence: 3 } }
         })
 
-        yield* createIssue({
-          project: projectIdentifier("TEST"),
-          title: "Ranked Issue"
-        }).pipe(Effect.provide(testLayer), withDiagnostics)
+        yield* createIssue({ project: projectIdentifier("TEST"), title: "Ranked Issue" }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
 
         const newRank = captureAddCollection.attributes?.rank as string
         expect(newRank).toBeDefined()
@@ -1576,10 +1493,11 @@ describe("createIssue", () => {
         // Rank must be greater than the highest existing rank (not the lowest)
         expect(newRank > highRankedIssue.rank).toBe(true)
         expect(newRank > lowRankedIssue.rank).toBe(true)
-      }))
+      })
+    )
 
     it.effect("maps priority strings correctly", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 0 })
 
         const priorities: Array<{ input: "urgent" | "high" | "medium" | "low" | "no-priority"; expected: number }> = [
@@ -1601,47 +1519,40 @@ describe("createIssue", () => {
             updateDocResult: { object: { sequence: 1 } }
           })
 
-          yield* createIssue({
-            project: projectIdentifier("TEST"),
-            title: `Priority ${input}`,
-            priority: input
-          }).pipe(Effect.provide(testLayer), withDiagnostics)
+          yield* createIssue({ project: projectIdentifier("TEST"), title: `Priority ${input}`, priority: input }).pipe(
+            Effect.provide(testLayer),
+            withDiagnostics
+          )
 
           expect(captureAddCollection.attributes?.priority).toBe(expected)
         }
-      }))
+      })
+    )
   })
 
   describe("error handling", () => {
     it.effect("returns ProjectNotFoundError when project doesn't exist", () =>
-      Effect.gen(function*() {
-        const testLayer = createTestLayerWithMocks({
-          projects: [],
-          issues: [],
-          statuses: []
-        })
+      Effect.gen(function* () {
+        const testLayer = createTestLayerWithMocks({ projects: [], issues: [], statuses: [] })
 
         const error = yield* Effect.flip(
-          createIssue({
-            project: projectIdentifier("NONEXISTENT"),
-            title: "Test Issue"
-          }).pipe(Effect.provide(testLayer), withDiagnostics)
+          createIssue({ project: projectIdentifier("NONEXISTENT"), title: "Test Issue" }).pipe(
+            Effect.provide(testLayer),
+            withDiagnostics
+          )
         )
 
         expect(error._tag).toBe("ProjectNotFoundError")
         expect((error as ProjectNotFoundError).identifier).toBe("NONEXISTENT")
-      }))
+      })
+    )
 
     it.effect("returns InvalidStatusError for unknown status", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const todoStatus = makeStatus({ _id: "status-todo" as Ref<Status>, name: "Todo" })
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [],
-          statuses: [todoStatus]
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [], statuses: [todoStatus] })
 
         const error = yield* Effect.flip(
           createIssue({
@@ -1653,10 +1564,11 @@ describe("createIssue", () => {
 
         expect(error._tag).toBe("InvalidStatusError")
         expect((error as InvalidStatusError).status).toBe("InvalidStatus")
-      }))
+      })
+    )
 
     it.effect("returns PersonNotFoundError when assignee not found", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
 
         const testLayer = createTestLayerWithMocks({
@@ -1677,10 +1589,11 @@ describe("createIssue", () => {
 
         expect(error._tag).toBe("PersonNotFoundError")
         expect((error as PersonNotFoundError).identifier).toBe("nonexistent@example.com")
-      }))
+      })
+    )
 
     it.effect("PersonNotFoundError has helpful message", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
 
         const testLayer = createTestLayerWithMocks({
@@ -1700,12 +1613,13 @@ describe("createIssue", () => {
         )
 
         expect(error.message).toContain("jane@example.com")
-      }))
+      })
+    )
   })
 
   describe("status resolution", () => {
     it.effect("matches status case-insensitively", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
         const inProgressStatus = makeStatus({ _id: "status-progress" as Ref<Status>, name: "In Progress" })
 
@@ -1726,10 +1640,11 @@ describe("createIssue", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureAddCollection.attributes?.status).toBe("status-progress")
-      }))
+      })
+    )
 
     it.effect("matches status with hyphens (in-progress -> In Progress)", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
         const inProgressStatus = makeStatus({ _id: "status-progress" as Ref<Status>, name: "In Progress" })
 
@@ -1750,10 +1665,11 @@ describe("createIssue", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureAddCollection.attributes?.status).toBe("status-progress")
-      }))
+      })
+    )
 
     it.effect("matches status with underscores (IN_PROGRESS -> In Progress)", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
         const inProgressStatus = makeStatus({ _id: "status-progress" as Ref<Status>, name: "In Progress" })
 
@@ -1774,10 +1690,11 @@ describe("createIssue", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureAddCollection.attributes?.status).toBe("status-progress")
-      }))
+      })
+    )
 
     it.effect("matches camelCase status (InProgress -> In Progress)", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
         const inProgressStatus = makeStatus({ _id: "status-progress" as Ref<Status>, name: "In Progress" })
 
@@ -1798,12 +1715,13 @@ describe("createIssue", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureAddCollection.attributes?.status).toBe("status-progress")
-      }))
+      })
+    )
   })
 
   describe("sub-issue creation", () => {
     it.effect("creates sub-issue with parent reference", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 5 })
         const parentIssue = makeIssue({
           _id: "parent-1" as Ref<HulyIssue>,
@@ -1833,17 +1751,20 @@ describe("createIssue", () => {
         expect(captureAddCollection.attachedTo).toBe("parent-1")
         expect(captureAddCollection.attachedToClass).toBe(tracker.class.Issue)
         expect(captureAddCollection.collection).toBe("subIssues")
-        const parents = captureAddCollection.attributes?.parents as Array<
-          { parentId: string; identifier: string; parentTitle: string }
-        >
+        const parents = captureAddCollection.attributes?.parents as Array<{
+          parentId: string
+          identifier: string
+          parentTitle: string
+        }>
         expect(parents).toHaveLength(1)
         expect(assertAt(parents, 0).parentId).toBe("parent-1")
         expect(assertAt(parents, 0).identifier).toBe("TEST-1")
         expect(assertAt(parents, 0).parentTitle).toBe("Parent Issue")
-      }))
+      })
+    )
 
     it.effect("creates top-level issue when no parentIssue specified", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
 
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
@@ -1856,19 +1777,20 @@ describe("createIssue", () => {
           updateDocResult: { object: { sequence: 2 } }
         })
 
-        yield* createIssue({
-          project: projectIdentifier("TEST"),
-          title: "Top Level Issue"
-        }).pipe(Effect.provide(testLayer), withDiagnostics)
+        yield* createIssue({ project: projectIdentifier("TEST"), title: "Top Level Issue" }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
 
         expect(captureAddCollection.attachedTo).toBe(tracker.ids.NoParent)
         expect(captureAddCollection.attachedToClass).toBe(tracker.class.Issue)
         expect(captureAddCollection.collection).toBe("subIssues")
         expect(captureAddCollection.attributes?.parents).toEqual([])
-      }))
+      })
+    )
 
     it.effect("builds parents chain from grandparent", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 10 })
         const grandparentInfo: IssueParentInfo = {
           parentId: "grandparent-1" as Ref<HulyIssue>,
@@ -1900,19 +1822,22 @@ describe("createIssue", () => {
           parentIssue: issueIdentifier("TEST-5")
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
-        const parents = captureAddCollection.attributes?.parents as Array<
-          { parentId: string; identifier: string; parentTitle: string }
-        >
+        const parents = captureAddCollection.attributes?.parents as Array<{
+          parentId: string
+          identifier: string
+          parentTitle: string
+        }>
         expect(parents).toHaveLength(2)
         expect(assertAt(parents, 0).parentId).toBe("grandparent-1")
         expect(assertAt(parents, 0).identifier).toBe("TEST-1")
         expect(assertAt(parents, 1).parentId).toBe("parent-2")
         expect(assertAt(parents, 1).identifier).toBe("TEST-5")
         expect(assertAt(parents, 1).parentTitle).toBe("Parent Issue")
-      }))
+      })
+    )
 
     it.effect("returns IssueNotFoundError when parent doesn't exist", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
 
         const testLayer = createTestLayerWithMocks({
@@ -1932,12 +1857,13 @@ describe("createIssue", () => {
 
         expect(error._tag).toBe("IssueNotFoundError")
         expect((error as IssueNotFoundError).identifier).toBe("TEST-999")
-      }))
+      })
+    )
   })
 
   describe("assignee resolution", () => {
     it.effect("resolves assignee by name when email not found", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
         const person = makePerson({ _id: "person-2" as Ref<Person>, name: "Jane Developer" })
 
@@ -1960,12 +1886,13 @@ describe("createIssue", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureAddCollection.attributes?.assignee).toBe("person-2")
-      }))
+      })
+    )
   })
 
   describe("description handling", () => {
     it.effect("skips upload for empty description", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
 
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
@@ -1980,17 +1907,18 @@ describe("createIssue", () => {
           updateDocResult: { object: { sequence: 2 } }
         })
 
-        yield* createIssue({
-          project: projectIdentifier("TEST"),
-          title: "Issue without description"
-        }).pipe(Effect.provide(testLayer), withDiagnostics)
+        yield* createIssue({ project: projectIdentifier("TEST"), title: "Issue without description" }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
 
         expect(captureUploadMarkup.markup).toBeUndefined()
         expect(captureAddCollection.attributes?.description).toBeNull()
-      }))
+      })
+    )
 
     it.effect("skips upload for whitespace-only description", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 1 })
 
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
@@ -2013,26 +1941,22 @@ describe("createIssue", () => {
 
         expect(captureUploadMarkup.markup).toBeUndefined()
         expect(captureAddCollection.attributes?.description).toBeNull()
-      }))
+      })
+    )
   })
 })
 
 describe("updateIssue", () => {
   describe("basic functionality", () => {
     it.effect("updates issue title", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", title: "Old Title", number: 1 })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses,
-          captureUpdateDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureUpdateDoc })
 
         const result = yield* updateIssue({
           project: projectIdentifier("TEST"),
@@ -2043,22 +1967,18 @@ describe("updateIssue", () => {
         expect(result.identifier).toBe("TEST-1")
         expect(result.updated).toBe(true)
         expect(captureUpdateDoc.operations?.title).toBe("New Title")
-      }))
+      })
+    )
 
     it.effect("updates issue priority", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", priority: IssuePriority.Low })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses,
-          captureUpdateDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureUpdateDoc })
 
         yield* updateIssue({
           project: projectIdentifier("TEST"),
@@ -2068,10 +1988,11 @@ describe("updateIssue", () => {
 
         // IssuePriority.Urgent = 1
         expect(captureUpdateDoc.operations?.priority).toBe(1)
-      }))
+      })
+    )
 
     it.effect("updates issue status", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", status: "status-open" as Ref<Status> })
         const todoStatus = makeStatus({ _id: "status-todo" as Ref<Status>, name: "Todo" })
@@ -2080,12 +2001,7 @@ describe("updateIssue", () => {
 
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses,
-          captureUpdateDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureUpdateDoc })
 
         yield* updateIssue({
           project: projectIdentifier("TEST"),
@@ -2094,10 +2010,11 @@ describe("updateIssue", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureUpdateDoc.operations?.status).toBe("status-done")
-      }))
+      })
+    )
 
     it.effect("updates issue description", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1" })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
@@ -2124,10 +2041,11 @@ describe("updateIssue", () => {
         expect(nodes).toContainEqual({ type: "text", text: "New Description", marks: [] })
         expect(nodes).toContainEqual({ type: "text", text: "Updated content.", marks: [] })
         expect(captureUpdateDoc.operations?.description).toBe("markup-ref-123")
-      }))
+      })
+    )
 
     it.effect("uploads a new issue description with native references when none exists", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", description: null })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
@@ -2153,17 +2071,14 @@ describe("updateIssue", () => {
         const reference = capturedMarkupReferenceNodes(captureUploadMarkup.markup)[0]
         expect(reference).toMatchObject({
           type: "reference",
-          attrs: {
-            id: "issue-1",
-            objectclass: "tracker:class:Issue",
-            label: "TEST-1"
-          }
+          attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "TEST-1" }
         })
         expect(captureUpdateDoc.operations?.description).toBe("markup-ref-123")
-      }))
+      })
+    )
 
     it.effect("fails malformed issue description links before update markup writes", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", description: null })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
@@ -2189,10 +2104,11 @@ describe("updateIssue", () => {
         expect(error._tag).toBe("IssueReferenceError")
         expect(captureUploadMarkup.markup).toBeUndefined()
         expect(captureUpdateDoc.operations).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("updates issue assignee", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", assignee: null })
         const person = makePerson({ _id: "person-1" as Ref<Person>, name: "Jane Doe" })
@@ -2217,22 +2133,18 @@ describe("updateIssue", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureUpdateDoc.operations?.assignee).toBe("person-1")
-      }))
+      })
+    )
 
     it.effect("unassigns issue when assignee is null", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", assignee: "person-1" as Ref<Person> })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses,
-          captureUpdateDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureUpdateDoc })
 
         yield* updateIssue({
           project: projectIdentifier("TEST"),
@@ -2241,32 +2153,30 @@ describe("updateIssue", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureUpdateDoc.operations?.assignee).toBeNull()
-      }))
+      })
+    )
 
     it.effect("fails when no fields provided", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1" })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses })
 
         const error = yield* Effect.flip(
-          updateIssue({
-            project: projectIdentifier("TEST"),
-            identifier: issueIdentifier("TEST-1")
-          }).pipe(Effect.provide(testLayer), withDiagnostics)
+          updateIssue({ project: projectIdentifier("TEST"), identifier: issueIdentifier("TEST-1") }).pipe(
+            Effect.provide(testLayer),
+            withDiagnostics
+          )
         )
 
         expect(error._tag).toBe("NoUpdateFieldsError")
-      }))
+      })
+    )
 
     it.effect("updates multiple fields at once", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1" })
         const doneStatus = makeStatus({ _id: "status-done" as Ref<Status>, name: "Done" })
@@ -2274,12 +2184,7 @@ describe("updateIssue", () => {
 
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses,
-          captureUpdateDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureUpdateDoc })
 
         yield* updateIssue({
           project: projectIdentifier("TEST"),
@@ -2292,22 +2197,18 @@ describe("updateIssue", () => {
         expect(captureUpdateDoc.operations?.title).toBe("Updated Title")
         expect(captureUpdateDoc.operations?.priority).toBe(2) // IssuePriority.High
         expect(captureUpdateDoc.operations?.status).toBe("status-done")
-      }))
+      })
+    )
 
     it.effect("clears description when empty string provided", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", description: "markup-old" as MarkupBlobRef })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses,
-          captureUpdateDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureUpdateDoc })
 
         yield* updateIssue({
           project: projectIdentifier("TEST"),
@@ -2316,10 +2217,11 @@ describe("updateIssue", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureUpdateDoc.operations?.description).toBeNull()
-      }))
+      })
+    )
 
     it.effect("clears description when null provided", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", description: "markup-old" as MarkupBlobRef })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
@@ -2337,24 +2239,20 @@ describe("updateIssue", () => {
         )
 
         expect(captureUpdateDoc.operations?.description).toBeNull()
-      }))
+      })
+    )
   })
 
   describe("identifier parsing", () => {
     it.effect("finds issue by full identifier", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "HULY" })
         const issue = makeIssue({ identifier: "HULY-42", number: 42 })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses,
-          captureUpdateDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureUpdateDoc })
 
         const result = yield* updateIssue({
           project: projectIdentifier("HULY"),
@@ -2365,22 +2263,18 @@ describe("updateIssue", () => {
         expect(result.identifier).toBe("HULY-42")
         expect(result.updated).toBe(true)
         expect(captureUpdateDoc.operations).toEqual({ title: "Updated" })
-      }))
+      })
+    )
 
     it.effect("finds issue by numeric identifier", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-99", number: 99 })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses,
-          captureUpdateDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureUpdateDoc })
 
         const result = yield* updateIssue({
           project: projectIdentifier("TEST"),
@@ -2389,17 +2283,14 @@ describe("updateIssue", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(result.identifier).toBe("TEST-99")
-      }))
+      })
+    )
   })
 
   describe("error handling", () => {
     it.effect("returns ProjectNotFoundError when project doesn't exist", () =>
-      Effect.gen(function*() {
-        const testLayer = createTestLayerWithMocks({
-          projects: [],
-          issues: [],
-          statuses: []
-        })
+      Effect.gen(function* () {
+        const testLayer = createTestLayerWithMocks({ projects: [], issues: [], statuses: [] })
 
         const error = yield* Effect.flip(
           updateIssue({
@@ -2411,18 +2302,15 @@ describe("updateIssue", () => {
 
         expect(error._tag).toBe("ProjectNotFoundError")
         expect((error as ProjectNotFoundError).identifier).toBe("NONEXISTENT")
-      }))
+      })
+    )
 
     it.effect("returns IssueNotFoundError when issue doesn't exist", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [],
-          statuses
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [], statuses })
 
         const error = yield* Effect.flip(
           updateIssue({
@@ -2435,19 +2323,16 @@ describe("updateIssue", () => {
         expect(error._tag).toBe("IssueNotFoundError")
         expect((error as IssueNotFoundError).identifier).toBe("TEST-999")
         expect((error as IssueNotFoundError).project).toBe("TEST")
-      }))
+      })
+    )
 
     it.effect("returns InvalidStatusError for unknown status", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1" })
         const todoStatus = makeStatus({ _id: "status-todo" as Ref<Status>, name: "Todo" })
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses: [todoStatus]
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses: [todoStatus] })
 
         const error = yield* Effect.flip(
           updateIssue({
@@ -2460,10 +2345,11 @@ describe("updateIssue", () => {
         expect(error._tag).toBe("InvalidStatusError")
         expect((error as InvalidStatusError).status).toBe("InvalidStatus")
         expect((error as InvalidStatusError).project).toBe("TEST")
-      }))
+      })
+    )
 
     it.effect("returns PersonNotFoundError when assignee not found", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1" })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
@@ -2486,12 +2372,13 @@ describe("updateIssue", () => {
 
         expect(error._tag).toBe("PersonNotFoundError")
         expect((error as PersonNotFoundError).identifier).toBe("nonexistent@example.com")
-      }))
+      })
+    )
   })
 
   describe("status resolution", () => {
     it.effect("matches status case-insensitively", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1" })
         const inProgressStatus = makeStatus({ _id: "status-progress" as Ref<Status>, name: "In Progress" })
@@ -2512,12 +2399,13 @@ describe("updateIssue", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureUpdateDoc.operations?.status).toBe("status-progress")
-      }))
+      })
+    )
   })
 
   describe("assignee resolution", () => {
     it.effect("resolves assignee by name when email not found", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1" })
         const person = makePerson({ _id: "person-2" as Ref<Person>, name: "Jane Developer" })
@@ -2541,14 +2429,15 @@ describe("updateIssue", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureUpdateDoc.operations?.assignee).toBe("person-2")
-      }))
+      })
+    )
   })
 })
 
 describe("addLabel", () => {
   describe("basic functionality", () => {
     it.effect("adds a new label to an issue", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
 
@@ -2577,17 +2466,14 @@ describe("addLabel", () => {
         // Should have added the tag reference
         expect(captureAddCollection.class).toBe(tags.class.TagReference)
         expect(captureAddCollection.attributes?.title).toBe("Bug")
-      }))
+      })
+    )
 
     it.effect("uses existing tag element when label already exists in project", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
-        const existingTag = makeTagElement({
-          _id: "tag-existing" as Ref<TagElement>,
-          title: "Bug",
-          color: 5
-        })
+        const existingTag = makeTagElement({ _id: "tag-existing" as Ref<TagElement>, title: "Bug", color: 5 })
 
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
         const captureCreateDoc: MockConfig["captureCreateDoc"] = {}
@@ -2614,16 +2500,14 @@ describe("addLabel", () => {
         // Should have added the tag reference with existing tag's color
         expect(captureAddCollection.attributes?.color).toBe(5)
         expect(captureAddCollection.attributes?.tag).toBe("tag-existing")
-      }))
+      })
+    )
 
     it.effect("returns labelAdded=false when label already attached (idempotent)", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
-        const existingTag = makeTagElement({
-          _id: "tag-existing" as Ref<TagElement>,
-          title: "Bug"
-        })
+        const existingTag = makeTagElement({ _id: "tag-existing" as Ref<TagElement>, title: "Bug" })
         const existingRef = makeTagReference({
           attachedTo: "issue-1" as Ref<Doc>,
           attachedToClass: tracker.class.Issue,
@@ -2651,10 +2535,11 @@ describe("addLabel", () => {
         expect(result.labelAdded).toBe(false)
         // Should NOT have called addCollection
         expect(captureAddCollection.attributes).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("handles case-insensitive label matching for idempotency", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
         const existingRef = makeTagReference({
@@ -2676,10 +2561,11 @@ describe("addLabel", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(result.labelAdded).toBe(false)
-      }))
+      })
+    )
 
     it.effect("uses provided color when creating new tag", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
 
@@ -2701,10 +2587,11 @@ describe("addLabel", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureCreateDoc.attributes?.color).toBe(7)
-      }))
+      })
+    )
 
     it.effect("uses default color 0 when not specified", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
 
@@ -2725,10 +2612,11 @@ describe("addLabel", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureCreateDoc.attributes?.color).toBe(0)
-      }))
+      })
+    )
 
     it.effect("trims whitespace from label name", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
 
@@ -2749,12 +2637,13 @@ describe("addLabel", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureCreateDoc.attributes?.title).toBe("Trimmed Label")
-      }))
+      })
+    )
   })
 
   describe("identifier parsing", () => {
     it.effect("finds issue by full identifier", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "HULY" })
         const issue = makeIssue({ identifier: "HULY-42", number: 42 })
 
@@ -2779,10 +2668,11 @@ describe("addLabel", () => {
         // Verify addCollection was called to create TagReference
         expect(captureAddCollection.attributes).toBeDefined()
         expect(captureAddCollection.attributes?.title).toBe("Bug")
-      }))
+      })
+    )
 
     it.effect("finds issue by numeric identifier", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-99", number: 99 })
 
@@ -2804,49 +2694,44 @@ describe("addLabel", () => {
 
         expect(result.identifier).toBe("TEST-99")
         expect(result.labelAdded).toBe(true)
-      }))
+      })
+    )
   })
 
   describe("error handling", () => {
     it.effect("returns ProjectNotFoundError when project doesn't exist", () =>
-      Effect.gen(function*() {
-        const testLayer = createTestLayerWithMocks({
-          projects: [],
-          issues: []
-        })
+      Effect.gen(function* () {
+        const testLayer = createTestLayerWithMocks({ projects: [], issues: [] })
 
         const error = yield* Effect.flip(
-          addLabel({
-            project: projectIdentifier("NONEXISTENT"),
-            identifier: issueIdentifier("1"),
-            label: "Bug"
-          }).pipe(Effect.provide(testLayer), withDiagnostics)
+          addLabel({ project: projectIdentifier("NONEXISTENT"), identifier: issueIdentifier("1"), label: "Bug" }).pipe(
+            Effect.provide(testLayer),
+            withDiagnostics
+          )
         )
 
         expect(error._tag).toBe("ProjectNotFoundError")
         expect((error as ProjectNotFoundError).identifier).toBe("NONEXISTENT")
-      }))
+      })
+    )
 
     it.effect("returns IssueNotFoundError when issue doesn't exist", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: []
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [] })
 
         const error = yield* Effect.flip(
-          addLabel({
-            project: projectIdentifier("TEST"),
-            identifier: issueIdentifier("TEST-999"),
-            label: "Bug"
-          }).pipe(Effect.provide(testLayer), withDiagnostics)
+          addLabel({ project: projectIdentifier("TEST"), identifier: issueIdentifier("TEST-999"), label: "Bug" }).pipe(
+            Effect.provide(testLayer),
+            withDiagnostics
+          )
         )
 
         expect(error._tag).toBe("IssueNotFoundError")
         expect((error as IssueNotFoundError).identifier).toBe("TEST-999")
         expect((error as IssueNotFoundError).project).toBe("TEST")
-      }))
+      })
+    )
   })
 })

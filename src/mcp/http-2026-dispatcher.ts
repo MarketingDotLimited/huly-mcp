@@ -68,11 +68,7 @@ const complete = <T extends object>(result: T): T & { readonly resultType: "comp
   resultType: "complete"
 })
 
-const cacheable = (
-  result: object,
-  ttlMs: number,
-  cacheScope: CacheScope
-): object => ({
+const cacheable = (result: object, ttlMs: number, cacheScope: CacheScope): object => ({
   ...complete(result),
   ttlMs,
   cacheScope
@@ -82,11 +78,7 @@ const toModernMcpError = (error: McpError): JsonRpcErrorObject => {
   if (error.code === McpErrorCode.ResourceNotFound) {
     return { code: ErrorCode.InvalidParams, message: "Resource not found", data: error.data }
   }
-  return {
-    code: error.code,
-    message: error.message,
-    data: error.data
-  }
+  return { code: error.code, message: error.message, data: error.data }
 }
 
 const thrownToJsonRpcError = (error: unknown): JsonRpcErrorObject => {
@@ -115,10 +107,7 @@ export const dispatchMcp2026Request = async (
           validation.id,
           complete(
             await handlers.callTool({
-              params: {
-                name: validation.params.name,
-                arguments: validation.params.arguments
-              }
+              params: { name: validation.params.name, arguments: validation.params.arguments }
             })
           )
         )

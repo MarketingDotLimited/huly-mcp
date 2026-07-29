@@ -12,37 +12,32 @@ const makePlatformError = (code: string): PlatformError<Record<string, never>> =
 describe("connection-helpers", () => {
   describe("authToOptions", () => {
     it.effect("returns token and workspace for token auth", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const auth: Auth = { _tag: "token", token: Redacted.make("my-secret-token") }
         const result = authToOptions(auth, "test-workspace")
         expect(result).toStrictEqual({ token: "my-secret-token", workspace: "test-workspace" })
-      }))
+      })
+    )
 
     it.effect("returns email, password, and workspace for password auth", () =>
-      Effect.gen(function*() {
-        const auth: Auth = {
-          _tag: "password",
-          email: "user@example.com",
-          password: Redacted.make("hunter2")
-        }
+      Effect.gen(function* () {
+        const auth: Auth = { _tag: "password", email: "user@example.com", password: Redacted.make("hunter2") }
         const result = authToOptions(auth, "my-ws")
-        expect(result).toStrictEqual({
-          email: "user@example.com",
-          password: "hunter2",
-          workspace: "my-ws"
-        })
-      }))
+        expect(result).toStrictEqual({ email: "user@example.com", password: "hunter2", workspace: "my-ws" })
+      })
+    )
   })
 
   describe("connectWithRetry", () => {
     it.effect("resolves on successful connection", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* connectWithRetry(() => Promise.resolve("connected"), "https://huly.app")
         expect(result).toBe("connected")
-      }))
+      })
+    )
 
     it.effect("retries on non-auth errors and eventually fails with HulyConnectionError", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         let callCount = 0
         const fiber = yield* Effect.fork(
           connectWithRetry(() => {
@@ -60,10 +55,11 @@ describe("connection-helpers", () => {
         if (error._tag === "HulyUnavailableError") expect(error.endpointOrigin).toBe("https://huly.app")
         // 1 initial + 2 retries = 3 total calls
         expect(callCount).toBe(3)
-      }))
+      })
+    )
 
     it.effect("does not retry on auth errors, fails immediately with HulyAuthError", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         let callCount = 0
         const error = yield* Effect.flip(
           connectWithRetry(() => {
@@ -76,10 +72,11 @@ describe("connection-helpers", () => {
         expect(error._tag).toBe("HulyAuthError")
         expect(error.message).toContain("authorization")
         expect(callCount).toBe(1)
-      }))
+      })
+    )
 
     it.effect("retains only an allow-listed detail code", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const fiber = yield* Effect.fork(
           connectWithRetry(
             () => Promise.reject(Object.assign(new Error("token=secret"), { code: "ECONNREFUSED" })),
@@ -91,10 +88,11 @@ describe("connection-helpers", () => {
 
         expect(error._tag).toBe("HulyUnavailableError")
         if (error._tag === "HulyUnavailableError") expect(error.detailCode).toBe("ECONNREFUSED")
-      }))
+      })
+    )
 
     it.effect("succeeds after initial failures when retry works", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         let callCount = 0
         const fiber = yield* Effect.fork(
           connectWithRetry(() => {
@@ -111,10 +109,11 @@ describe("connection-helpers", () => {
         const result = yield* Fiber.join(fiber)
         expect(result).toBe("recovered")
         expect(callCount).toBe(3)
-      }))
+      })
+    )
 
     it.effect("maps all auth status codes to HulyAuthError", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const authCodes = [
           "platform:status:Unauthorized",
           "platform:status:TokenExpired",
@@ -132,10 +131,11 @@ describe("connection-helpers", () => {
           )
           expect(error).toBeInstanceOf(HulyAuthError)
         }
-      }))
+      })
+    )
 
     it.effect("maps non-auth PlatformError to HulyConnectionError", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const fiber = yield* Effect.fork(
           connectWithRetry(
             () => Promise.reject(makePlatformError("platform:status:InternalServerError")),
@@ -148,6 +148,7 @@ describe("connection-helpers", () => {
         const error = yield* Effect.flip(Fiber.join(fiber))
         expect(error).toBeInstanceOf(HulyUnavailableError)
         expect(error._tag).toBe("HulyUnavailableError")
-      }))
+      })
+    )
   })
 })

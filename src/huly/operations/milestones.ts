@@ -34,35 +34,17 @@ import { tracker } from "../huly-plugins.js"
 import { optionalMarkdownToMarkup, optionalMarkupToMarkdown } from "./markup.js"
 import { renderMarkdownPreservingNativeReferences } from "./native-reference-markup.js"
 
-type ListMilestonesError =
-  | HulyClientError
-  | ProjectNotFoundError
+type ListMilestonesError = HulyClientError | ProjectNotFoundError
 
-type GetMilestoneError =
-  | HulyClientError
-  | ProjectNotFoundError
-  | MilestoneNotFoundError
+type GetMilestoneError = HulyClientError | ProjectNotFoundError | MilestoneNotFoundError
 
-type CreateMilestoneError =
-  | HulyClientError
-  | ProjectNotFoundError
+type CreateMilestoneError = HulyClientError | ProjectNotFoundError
 
-type UpdateMilestoneError =
-  | HulyClientError
-  | NoUpdateFieldsError
-  | ProjectNotFoundError
-  | MilestoneNotFoundError
+type UpdateMilestoneError = HulyClientError | NoUpdateFieldsError | ProjectNotFoundError | MilestoneNotFoundError
 
-type SetIssueMilestoneError =
-  | HulyClientError
-  | ProjectNotFoundError
-  | IssueNotFoundError
-  | MilestoneNotFoundError
+type SetIssueMilestoneError = HulyClientError | ProjectNotFoundError | IssueNotFoundError | MilestoneNotFoundError
 
-type DeleteMilestoneError =
-  | HulyClientError
-  | ProjectNotFoundError
-  | MilestoneNotFoundError
+type DeleteMilestoneError = HulyClientError | ProjectNotFoundError | MilestoneNotFoundError
 
 const milestoneStatusToStringMap = {
   [MilestoneStatus.Planned]: "planned",
@@ -74,10 +56,10 @@ const milestoneStatusToStringMap = {
 const milestoneStatusToString = (status: MilestoneStatus): MilestoneStatusStr => milestoneStatusToStringMap[status]
 
 const stringToMilestoneStatusMap = {
-  "planned": MilestoneStatus.Planned,
+  planned: MilestoneStatus.Planned,
   "in-progress": MilestoneStatus.InProgress,
-  "completed": MilestoneStatus.Completed,
-  "canceled": MilestoneStatus.Canceled
+  completed: MilestoneStatus.Completed,
+  canceled: MilestoneStatus.Canceled
 } as const satisfies Record<MilestoneStatusStr, MilestoneStatus>
 
 const stringToMilestoneStatus = (status: MilestoneStatusStr): MilestoneStatus => stringToMilestoneStatusMap[status]
@@ -88,7 +70,7 @@ const findMilestone = (
   milestoneIdentifier: string,
   projectIdentifier: string
 ): Effect.Effect<HulyMilestone, MilestoneNotFoundError | HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const milestone = yield* findByNameOrId(
       client,
       tracker.class.Milestone,
@@ -97,23 +79,21 @@ const findMilestone = (
     )
 
     if (milestone === undefined) {
-      return yield* new MilestoneNotFoundError({
-        identifier: milestoneIdentifier,
-        project: projectIdentifier
-      })
+      return yield* new MilestoneNotFoundError({ identifier: milestoneIdentifier, project: projectIdentifier })
     }
 
     return milestone
   })
 
-const findProjectAndMilestone = (
-  params: { project: string; milestone: string }
-): Effect.Effect<
+const findProjectAndMilestone = (params: {
+  project: string
+  milestone: string
+}): Effect.Effect<
   { client: HulyClient["Type"]; project: HulyProject; milestone: HulyMilestone },
   ProjectNotFoundError | MilestoneNotFoundError | HulyClientError,
   HulyClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, project } = yield* findProject(params.project)
     const milestone = yield* findMilestone(client, project, params.milestone, params.project)
     return { client, project, milestone }
@@ -122,7 +102,7 @@ const findProjectAndMilestone = (
 export const listMilestones = (
   params: ListMilestonesParams
 ): Effect.Effect<Array<MilestoneSummary>, ListMilestonesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, project } = yield* findProject(params.project)
 
     const limit = clampLimit(params.limit)
@@ -130,13 +110,10 @@ export const listMilestones = (
     const milestones = yield* client.findAll<HulyMilestone>(
       tracker.class.Milestone,
       { space: project._id },
-      {
-        limit,
-        sort: { modifiedOn: SortingOrder.Descending }
-      }
+      { limit, sort: { modifiedOn: SortingOrder.Descending } }
     )
 
-    const summaries: Array<MilestoneSummary> = milestones.map(m => ({
+    const summaries: Array<MilestoneSummary> = milestones.map((m) => ({
       id: MilestoneId.make(m._id),
       label: MilestoneLabel.make(m.label),
       status: milestoneStatusToString(m.status),
@@ -147,10 +124,8 @@ export const listMilestones = (
     return summaries
   })
 
-export const getMilestone = (
-  params: GetMilestoneParams
-): Effect.Effect<Milestone, GetMilestoneError, HulyClient> =>
-  Effect.gen(function*() {
+export const getMilestone = (params: GetMilestoneParams): Effect.Effect<Milestone, GetMilestoneError, HulyClient> =>
+  Effect.gen(function* () {
     const { client, milestone } = yield* findProjectAndMilestone(params)
     const markupUrlConfig = client.markupUrlConfig
 
@@ -171,7 +146,7 @@ export const getMilestone = (
 export const createMilestone = (
   params: CreateMilestoneParams
 ): Effect.Effect<CreateMilestoneResult, CreateMilestoneError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, project } = yield* findProject(params.project)
     const markupUrlConfig = client.markupUrlConfig
 
@@ -185,25 +160,14 @@ export const createMilestone = (
       comments: 0
     }
 
-    yield* client.createDoc(
-      tracker.class.Milestone,
-      project._id,
-      milestoneData,
-      milestoneId
-    )
+    yield* client.createDoc(tracker.class.Milestone, project._id, milestoneData, milestoneId)
 
     // Milestone.description is typed as Markup (not MarkupBlobRef), so we must
     // dual-write: the raw Markup field (above, in milestoneData) for API reads,
     // plus the collaborative document (below) for Huly UI rendering.
     if (params.description !== undefined && params.description.trim() !== "") {
       const rendered = renderMarkdownPreservingNativeReferences(params.description, client.markupUrlConfig)
-      yield* client.uploadMarkup(
-        tracker.class.Milestone,
-        milestoneId,
-        "description",
-        rendered.markup,
-        rendered.format
-      )
+      yield* client.uploadMarkup(tracker.class.Milestone, milestoneId, "description", rendered.markup, rendered.format)
     }
 
     return { id: MilestoneId.make(milestoneId), label: MilestoneLabel.make(params.label) }
@@ -212,13 +176,13 @@ export const createMilestone = (
 export const updateMilestone = (
   params: UpdateMilestoneParams
 ): Effect.Effect<UpdateMilestoneResult, UpdateMilestoneError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_milestone", params, UPDATE_MILESTONE_FIELDS)
 
     const { client, milestone, project } = yield* findProjectAndMilestone(params)
     const markupUrlConfig = client.markupUrlConfig
 
-    type UpdateMilestoneField = typeof UPDATE_MILESTONE_FIELDS[number]
+    type UpdateMilestoneField = (typeof UPDATE_MILESTONE_FIELDS)[number]
     type UpdateMilestoneEntries = {
       readonly [Field in UpdateMilestoneField]: Effect.Effect<
         DirectUpdateEntry<UpdateMilestoneField, DocumentUpdate<HulyMilestone>, Field>,
@@ -227,7 +191,7 @@ export const updateMilestone = (
     }
     const updateEntries = {
       label: Effect.succeed(params.label === undefined ? {} : { label: params.label }),
-      description: Effect.gen(function*() {
+      description: Effect.gen(function* () {
         if (params.description === undefined) return {}
         const description = textContentOrClear(params.description)
         // Dual-write: see comment in createMilestone for rationale.
@@ -250,12 +214,7 @@ export const updateMilestone = (
     } satisfies UpdateMilestoneEntries
     const updateOps: DocumentUpdate<HulyMilestone> = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
 
-    yield* client.updateDoc(
-      tracker.class.Milestone,
-      project._id,
-      milestone._id,
-      updateOps
-    )
+    yield* client.updateDoc(tracker.class.Milestone, project._id, milestone._id, updateOps)
 
     return { id: MilestoneId.make(milestone._id), updated: true }
   })
@@ -263,19 +222,13 @@ export const updateMilestone = (
 export const setIssueMilestone = (
   params: SetIssueMilestoneParams
 ): Effect.Effect<SetIssueMilestoneResult, SetIssueMilestoneError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, issue, project } = yield* findProjectAndIssue(params)
 
-    const milestoneRef: Ref<HulyMilestone> | null = params.milestone !== null
-      ? (yield* findMilestone(client, project, params.milestone, params.project))._id
-      : null
+    const milestoneRef: Ref<HulyMilestone> | null =
+      params.milestone !== null ? (yield* findMilestone(client, project, params.milestone, params.project))._id : null
 
-    yield* client.updateDoc(
-      tracker.class.Issue,
-      project._id,
-      issue._id,
-      { milestone: milestoneRef }
-    )
+    yield* client.updateDoc(tracker.class.Issue, project._id, issue._id, { milestone: milestoneRef })
 
     return { identifier: IssueIdentifier.make(issue.identifier), milestoneSet: true }
   })
@@ -283,14 +236,10 @@ export const setIssueMilestone = (
 export const deleteMilestone = (
   params: DeleteMilestoneParams
 ): Effect.Effect<DeleteMilestoneResult, DeleteMilestoneError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, milestone, project } = yield* findProjectAndMilestone(params)
 
-    yield* client.removeDoc(
-      tracker.class.Milestone,
-      project._id,
-      milestone._id
-    )
+    yield* client.removeDoc(tracker.class.Milestone, project._id, milestone._id)
 
     return { id: MilestoneId.make(milestone._id), deleted: true }
   })

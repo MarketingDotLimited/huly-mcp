@@ -43,7 +43,7 @@ export const resolveBoardCard = (
   resolvedBoard: HulyBoard,
   identifier: BoardCardRef
 ): Effect.Effect<HulyBoardCard, BoardCardResolverError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const space = boardSpace(resolvedBoard._id)
     const idMatches = yield* client.findAll<HulyBoardCard>(
       board.class.Card,
@@ -93,7 +93,7 @@ export const loadBoardCardMetadata = (
   resolvedBoard: HulyBoard,
   cards: ReadonlyArray<HulyBoardCard>
 ): Effect.Effect<BoardCardMetadata, HulyClientError | BoardModelError, Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const projectType = yield* getBoardProjectType(client, resolvedBoard)
     const taskTypes = yield* getBoardTaskTypes(client, projectType)
     const statusIds = allStatusIds(projectType, taskTypes)
@@ -107,17 +107,13 @@ export const loadBoardCardMetadata = (
       ).map((status) => [status.id, status.name])
     )
     const taskTypeNames = new Map(taskTypes.map((taskType) => [taskType._id, taskType.name]))
-    const assignees = cards.flatMap((card) => card.assignee === null ? [] : [toRef<Employee>(card.assignee)])
+    const assignees = cards.flatMap((card) => (card.assignee === null ? [] : [toRef<Employee>(card.assignee)]))
     const members = cards.flatMap((card) => card.members ?? [])
     const employeeNames = yield* employeeNamesById(client, [...assignees, ...members])
     return { employeeNames, statusNames, taskTypeNames }
   })
 
-export const cardSummaryWithMetadata = (
-  resolvedBoard: HulyBoard,
-  metadata: BoardCardMetadata,
-  card: HulyBoardCard
-) =>
+export const cardSummaryWithMetadata = (resolvedBoard: HulyBoard, metadata: BoardCardMetadata, card: HulyBoardCard) =>
   boardCardSummary(
     resolvedBoard,
     card,

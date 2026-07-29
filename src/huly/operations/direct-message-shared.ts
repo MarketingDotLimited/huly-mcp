@@ -16,28 +16,23 @@ export type FindDirectMessageError =
   | DirectMessageIdentifierAmbiguousError
   | DirectMessageNotFoundError
 
-export const sortedDirectMessageMembers = (
-  first: HulyAccountUuid,
-  second: HulyAccountUuid
-): Array<HulyAccountUuid> => [first, second].sort()
+export const sortedDirectMessageMembers = (first: HulyAccountUuid, second: HulyAccountUuid): Array<HulyAccountUuid> =>
+  [first, second].sort()
 
 export const hasExactDirectMessageMembers = (
   dm: HulyDirectMessage,
   sortedMembers: ReadonlyArray<HulyAccountUuid>
 ): boolean => {
   const dmMembers = [...dm.members].sort()
-  return dmMembers.length === sortedMembers.length
-    && sortedMembers.every((member, index) => dmMembers[index] === member)
+  return (
+    dmMembers.length === sortedMembers.length && sortedMembers.every((member, index) => dmMembers[index] === member)
+  )
 }
 
 export const findDirectMessage = (
   identifier: DirectMessageIdentifier
-): Effect.Effect<
-  { client: HulyClient["Type"]; dm: HulyDirectMessage },
-  FindDirectMessageError,
-  HulyClient
-> =>
-  Effect.gen(function*() {
+): Effect.Effect<{ client: HulyClient["Type"]; dm: HulyDirectMessage }, FindDirectMessageError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const byId = yield* client.findOne<HulyDirectMessage>(
@@ -97,7 +92,7 @@ export const createDirectMessageSpace = (
   client: HulyClient["Type"],
   members: ReadonlyArray<HulyAccountUuid>
 ): Effect.Effect<Ref<HulyDirectMessage>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const dmId: Ref<HulyDirectMessage> = generateId()
     const dmData: Data<HulyDirectMessage> = {
       name: "",
@@ -107,12 +102,7 @@ export const createDirectMessageSpace = (
       members: [...members]
     }
 
-    yield* client.createDoc(
-      chunter.class.DirectMessage,
-      toRef<Space>(core.space.Space),
-      dmData,
-      dmId
-    )
+    yield* client.createDoc(chunter.class.DirectMessage, toRef<Space>(core.space.Space), dmData, dmId)
 
     return dmId
   })

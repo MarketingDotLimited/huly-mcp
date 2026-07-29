@@ -15,7 +15,6 @@ export const hulyModelLabelTail = (value: string): string => {
 }
 
 export const decodeHulyModelLabelTail = (value: unknown) =>
-  Either.flatMap(
-    Schema.decodeUnknownEither(Schema.String)(value),
-    (label) => Schema.decodeUnknownEither(NonEmptyString)(hulyModelLabelTail(label))
+  Either.flatMap(Schema.decodeUnknownEither(Schema.String)(value), (label) =>
+    Schema.decodeUnknownEither(NonEmptyString)(hulyModelLabelTail(label))
   )

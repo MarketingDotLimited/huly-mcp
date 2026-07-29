@@ -269,7 +269,10 @@ export const listCategories = (registry: ToolRegistry): McpToolResponse => {
 }
 
 const queryTokens = (query: string): ReadonlyArray<string> =>
-  query.toLowerCase().split(/[^a-z0-9]+/u).filter((token) => token !== "")
+  query
+    .toLowerCase()
+    .split(/[^a-z0-9]+/u)
+    .filter((token) => token !== "")
 
 const tokenHitCount = (tokens: ReadonlyArray<string>, text: string): number => {
   const lower = text.toLowerCase()
@@ -281,11 +284,13 @@ const toolScore = (tool: ToolDefinition, tokens: ReadonlyArray<string>, normaliz
   const paramText = [...params.requiredParams, ...params.optionalParams].join(" ")
   const categoryText = `${tool.category} ${categoryDescription(tool.category)}`
   const exactScore = tool.name.toLowerCase() === normalizedQuery ? 10_000 : 0
-  return exactScore
-    + tokenHitCount(tokens, tool.name) * 1_000
-    + tokenHitCount(tokens, categoryText) * 100
-    + tokenHitCount(tokens, tool.description) * 10
-    + tokenHitCount(tokens, paramText)
+  return (
+    exactScore +
+    tokenHitCount(tokens, tool.name) * 1_000 +
+    tokenHitCount(tokens, categoryText) * 100 +
+    tokenHitCount(tokens, tool.description) * 10 +
+    tokenHitCount(tokens, paramText)
+  )
 }
 
 export const searchToolDefinitions = (

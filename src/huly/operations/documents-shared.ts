@@ -28,7 +28,7 @@ export const findTeamspace = (
   TeamspaceNotFoundError | HulyClientError,
   HulyClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const nameQuery: StrictDocumentQuery<HulyTeamspace> = { name: identifier }
@@ -38,12 +38,7 @@ export const findTeamspace = (
       idQuery.archived = false
     }
 
-    const teamspace = yield* findByNameOrId(
-      client,
-      documentPlugin.class.Teamspace,
-      nameQuery,
-      idQuery
-    )
+    const teamspace = yield* findByNameOrId(client, documentPlugin.class.Teamspace, nameQuery, idQuery)
 
     if (teamspace === undefined) {
       return yield* new TeamspaceNotFoundError({ identifier })
@@ -52,17 +47,15 @@ export const findTeamspace = (
     return { client, teamspace }
   })
 
-export const findTeamspaceAndDocument = (
-  params: {
-    readonly teamspace: TeamspaceIdentifier
-    readonly document: DocumentIdentifier
-  }
-): Effect.Effect<
+export const findTeamspaceAndDocument = (params: {
+  readonly teamspace: TeamspaceIdentifier
+  readonly document: DocumentIdentifier
+}): Effect.Effect<
   { client: HulyClient["Type"]; teamspace: HulyTeamspace; doc: HulyDocument },
   TeamspaceNotFoundError | DocumentNotFoundError | HulyClientError,
   HulyClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, teamspace } = yield* findTeamspace(params.teamspace)
 
     const doc = yield* findByNameOrId(
@@ -73,10 +66,7 @@ export const findTeamspaceAndDocument = (
     )
 
     if (doc === undefined) {
-      return yield* new DocumentNotFoundError({
-        identifier: params.document,
-        teamspace: params.teamspace
-      })
+      return yield* new DocumentNotFoundError({ identifier: params.document, teamspace: params.teamspace })
     }
 
     return { client, teamspace, doc }
@@ -92,43 +82,36 @@ const documentContentBlobExists = (
   client: HulyClient["Type"],
   contentRef: NonNullable<HulyDocument["content"]>
 ): Effect.Effect<boolean, HulyClientError> =>
-  client.findOne<Blob>(
-    core.class.Blob,
-    hulyQuery<Blob>({ _id: toRef<Blob>(contentRef) })
-  ).pipe(Effect.map((blob) => blob !== undefined))
+  client
+    .findOne<Blob>(core.class.Blob, hulyQuery<Blob>({ _id: toRef<Blob>(contentRef) }))
+    .pipe(Effect.map((blob) => blob !== undefined))
 
-export const fetchReadableDocumentContent = (
-  params: {
-    readonly client: HulyClient["Type"]
-    readonly doc: HulyDocument
-    readonly identifier: DocumentIdentifier
-    readonly format: MarkupFormat
-  }
-): Effect.Effect<string | undefined, HulyClientError | DocumentContentCorruptedError> => {
+export const fetchReadableDocumentContent = (params: {
+  readonly client: HulyClient["Type"]
+  readonly doc: HulyDocument
+  readonly identifier: DocumentIdentifier
+  readonly format: MarkupFormat
+}): Effect.Effect<string | undefined, HulyClientError | DocumentContentCorruptedError> => {
   if (!params.doc.content) {
     return Effect.succeed(undefined)
   }
   const contentRef = params.doc.content
 
-  return params.client.fetchMarkup(
-    params.doc._class,
-    params.doc._id,
-    documentContentAttr,
-    contentRef,
-    params.format
-  ).pipe(
-    Effect.flatMap((content) =>
-      content === ""
-        ? documentContentBlobExists(params.client, contentRef).pipe(
-          Effect.flatMap((exists) =>
-            exists
-              ? Effect.succeed(content)
-              : Effect.fail(
-                documentContentCorrupted(params.identifier, "Document.content references a missing markup blob.")
+  return params.client
+    .fetchMarkup(params.doc._class, params.doc._id, documentContentAttr, contentRef, params.format)
+    .pipe(
+      Effect.flatMap((content) =>
+        content === ""
+          ? documentContentBlobExists(params.client, contentRef).pipe(
+              Effect.flatMap((exists) =>
+                exists
+                  ? Effect.succeed(content)
+                  : Effect.fail(
+                      documentContentCorrupted(params.identifier, "Document.content references a missing markup blob.")
+                    )
               )
-          )
-        )
-        : Effect.succeed(content)
+            )
+          : Effect.succeed(content)
+      )
     )
-  )
 }

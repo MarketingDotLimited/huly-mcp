@@ -60,74 +60,49 @@ const Mcp2026RequestMetadataSchema = AnyRecordSchema.pipe(
 )
 
 const Mcp2026RequestParamsSchema = AnyRecordSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      _meta: Mcp2026RequestMetadataSchema
-    })
-  )
+  Schema.extend(Schema.Struct({ _meta: Mcp2026RequestMetadataSchema }))
 )
 type Mcp2026RequestParams = Schema.Schema.Type<typeof Mcp2026RequestParamsSchema>
 
 const NonEmptyProtocolStringSchema = Schema.String.pipe(Schema.nonEmptyString())
 const ToolCallParamsSchema = Mcp2026RequestParamsSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      name: NonEmptyProtocolStringSchema
-    })
-  )
+  Schema.extend(Schema.Struct({ name: NonEmptyProtocolStringSchema }))
 )
 const ResourceReadParamsSchema = Mcp2026RequestParamsSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      uri: NonEmptyProtocolStringSchema
-    })
-  )
+  Schema.extend(Schema.Struct({ uri: NonEmptyProtocolStringSchema }))
 )
 type ToolCallParams = Schema.Schema.Type<typeof ToolCallParamsSchema>
 type ResourceReadParams = Schema.Schema.Type<typeof ResourceReadParamsSchema>
 
 type HeaderValidation =
+  | (HeaderValidationBase & { readonly kind: "other"; readonly params: Mcp2026RequestParams })
   | (HeaderValidationBase & {
-    readonly kind: "other"
-    readonly params: Mcp2026RequestParams
-  })
+      readonly kind: "tools/call"
+      readonly request: JsonRpcRequest & { readonly method: "tools/call" }
+      readonly params: ToolCallParams
+    })
   | (HeaderValidationBase & {
-    readonly kind: "tools/call"
-    readonly request: JsonRpcRequest & { readonly method: "tools/call" }
-    readonly params: ToolCallParams
-  })
-  | (HeaderValidationBase & {
-    readonly kind: "resources/read"
-    readonly request: JsonRpcRequest & { readonly method: "resources/read" }
-    readonly params: ResourceReadParams
-  })
+      readonly kind: "resources/read"
+      readonly request: JsonRpcRequest & { readonly method: "resources/read" }
+      readonly params: ResourceReadParams
+    })
 
 type Mcp2026RequestParamsParseResult =
   | { readonly _tag: "success"; readonly params: Mcp2026RequestParams }
   | { readonly _tag: "error"; readonly error: JsonRpcErrorObject }
 
 const Mcp2026RequestParamsWithMetaSchema = AnyRecordSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      _meta: AnyRecordSchema
-    })
-  )
+  Schema.extend(Schema.Struct({ _meta: AnyRecordSchema }))
 )
 const Mcp2026ProtocolMetadataSchema = Schema.Struct({
   [PROTOCOL_VERSION_META_KEY]: Schema.Literal(MCP_2026_PROTOCOL_VERSION)
 })
-const Mcp2026ClientInfoMetadataSchema = Schema.Struct({
-  [CLIENT_INFO_META_KEY]: AnyRecordSchema
-})
+const Mcp2026ClientInfoMetadataSchema = Schema.Struct({ [CLIENT_INFO_META_KEY]: AnyRecordSchema })
 
 const requestMethodSchema = Schema.Struct({ method: Schema.optional(Schema.Unknown) })
 
 const lightweightMetaProtocolSchema = Schema.Struct({
-  params: Schema.Struct({
-    _meta: Schema.Struct({
-      [PROTOCOL_VERSION_META_KEY]: Schema.String
-    })
-  })
+  params: Schema.Struct({ _meta: Schema.Struct({ [PROTOCOL_VERSION_META_KEY]: Schema.String }) })
 })
 
 const firstHeader = (value: string | ReadonlyArray<string> | undefined): string | undefined => {
@@ -174,8 +149,7 @@ const parseJsonRpcRequestId = (body: unknown): string | number | null => {
 
 const metaProtocolVersion = (body: unknown): string | undefined => {
   try {
-    return Schema.decodeUnknownSync(lightweightMetaProtocolSchema)(body)
-      .params._meta[PROTOCOL_VERSION_META_KEY]
+    return Schema.decodeUnknownSync(lightweightMetaProtocolSchema)(body).params._meta[PROTOCOL_VERSION_META_KEY]
   } catch {
     return undefined
   }
@@ -200,9 +174,9 @@ const declaresLegacyProtocolVersion = (req: Request): boolean => {
 // Explicit 2026 metadata and future-only discovery still enter strict validation,
 // where a conflicting protocol header is rejected.
 export const shouldDispatchMcp2026Request = (req: Request): boolean =>
-  (firstHeader(req.headers["mcp-method"]) !== undefined && !declaresLegacyProtocolVersion(req))
-  || metaProtocolVersion(req.body) === MCP_2026_PROTOCOL_VERSION
-  || bodyMethod(req.body) === "server/discover"
+  (firstHeader(req.headers["mcp-method"]) !== undefined && !declaresLegacyProtocolVersion(req)) ||
+  metaProtocolVersion(req.body) === MCP_2026_PROTOCOL_VERSION ||
+  bodyMethod(req.body) === "server/discover"
 
 const jsonRpcError = (
   id: string | number | null,
@@ -237,7 +211,7 @@ const parseJsonRpcRequest = (body: unknown): JsonRpcRequest | JsonRpcErrorObject
 
   const request = parseJsonRpcRequestEnvelope(body)
   if (request.jsonrpc !== "2.0") {
-    return { code: ErrorCode.InvalidRequest, message: "Request body must include jsonrpc: \"2.0\"" }
+    return { code: ErrorCode.InvalidRequest, message: 'Request body must include jsonrpc: "2.0"' }
   }
   if (typeof request.method !== "string" || request.method === "") {
     return { code: ErrorCode.InvalidRequest, message: "Request body must include a non-empty method" }
@@ -277,12 +251,10 @@ export const parseHeaderValidatedRequest = (req: Request): HeaderValidation | Js
     return jsonRpcError(requestId, protocolHeader.code, protocolHeader.message, protocolHeader.data)
   }
   if (protocolHeader !== MCP_2026_PROTOCOL_VERSION) {
-    return jsonRpcError(
-      requestId,
-      UNSUPPORTED_PROTOCOL_VERSION,
-      "Unsupported protocol version",
-      { supported: [MCP_2026_PROTOCOL_VERSION], requested: protocolHeader }
-    )
+    return jsonRpcError(requestId, UNSUPPORTED_PROTOCOL_VERSION, "Unsupported protocol version", {
+      supported: [MCP_2026_PROTOCOL_VERSION],
+      requested: protocolHeader
+    })
   }
 
   const methodHeader = requiredStringHeader(req, "Mcp-Method")
@@ -331,16 +303,10 @@ const parseNamedRequest = (
     if (nameHeader !== toolCallParams.right.name) {
       return {
         code: HEADER_MISMATCH,
-        message:
-          `Header mismatch: Mcp-Name header value '${nameHeader}' does not match body value '${toolCallParams.right.name}'`
+        message: `Header mismatch: Mcp-Name header value '${nameHeader}' does not match body value '${toolCallParams.right.name}'`
       }
     }
-    return {
-      kind: "tools/call",
-      request: { ...request, method },
-      params: toolCallParams.right,
-      id: request.id ?? null
-    }
+    return { kind: "tools/call", request: { ...request, method }, params: toolCallParams.right, id: request.id ?? null }
   }
 
   const resourceReadParams = Schema.decodeUnknownEither(ResourceReadParamsSchema)(params)
@@ -350,8 +316,7 @@ const parseNamedRequest = (
   if (nameHeader !== resourceReadParams.right.uri) {
     return {
       code: HEADER_MISMATCH,
-      message:
-        `Header mismatch: Mcp-Name header value '${nameHeader}' does not match body value '${resourceReadParams.right.uri}'`
+      message: `Header mismatch: Mcp-Name header value '${nameHeader}' does not match body value '${resourceReadParams.right.uri}'`
     }
   }
   return {

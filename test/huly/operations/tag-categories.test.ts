@@ -49,7 +49,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const findAllImpl: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown) => {
     if (_class === tags.class.TagCategory) {
       const q = query as Record<string, unknown>
-      const filtered = categories.filter(c => !q.targetClass || c.targetClass === q.targetClass)
+      const filtered = categories.filter((c) => !q.targetClass || c.targetClass === q.targetClass)
       return Effect.succeed(toFindResult(filtered))
     }
     return Effect.succeed(toFindResult([]))
@@ -58,9 +58,10 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === tags.class.TagCategory) {
       const q = query as Record<string, unknown>
-      const found = categories.find(c =>
-        (q._id && c._id === q._id)
-        || (q.label && c.label === q.label && (!q.targetClass || c.targetClass === q.targetClass))
+      const found = categories.find(
+        (c) =>
+          (q._id && c._id === q._id) ||
+          (q.label && c.label === q.label && (!q.targetClass || c.targetClass === q.targetClass))
       )
       return Effect.succeed(found)
     }
@@ -80,23 +81,24 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     return Effect.succeed((id ?? "new-cat-id") as Ref<Doc>)
   }) as HulyClientOperations["createDoc"]
 
-  const updateDocImpl: HulyClientOperations["updateDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown, operations: unknown) => {
-      if (config.captureUpdateDoc) {
-        config.captureUpdateDoc.operations = operations as Record<string, unknown>
-      }
-      return Effect.succeed({} as never)
+  const updateDocImpl: HulyClientOperations["updateDoc"] = ((
+    _class: unknown,
+    _space: unknown,
+    _objectId: unknown,
+    operations: unknown
+  ) => {
+    if (config.captureUpdateDoc) {
+      config.captureUpdateDoc.operations = operations as Record<string, unknown>
     }
-  ) as HulyClientOperations["updateDoc"]
+    return Effect.succeed({} as never)
+  }) as HulyClientOperations["updateDoc"]
 
-  const removeDocImpl: HulyClientOperations["removeDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown) => {
-      if (config.captureRemoveDoc) {
-        config.captureRemoveDoc.called = true
-      }
-      return Effect.succeed({} as never)
+  const removeDocImpl: HulyClientOperations["removeDoc"] = ((_class: unknown, _space: unknown, _objectId: unknown) => {
+    if (config.captureRemoveDoc) {
+      config.captureRemoveDoc.called = true
     }
-  ) as HulyClientOperations["removeDoc"]
+    return Effect.succeed({} as never)
+  }) as HulyClientOperations["removeDoc"]
 
   return HulyClient.testLayer({
     findAll: findAllImpl,
@@ -109,7 +111,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
 
 describe("listTagCategories", () => {
   it.effect("returns categories", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const categories = [
         makeTagCategory({ _id: "c-1" as Ref<HulyTagCategory>, label: "Priority" }),
         makeTagCategory({ _id: "c-2" as Ref<HulyTagCategory>, label: "Type" })
@@ -122,19 +124,21 @@ describe("listTagCategories", () => {
       expect(result).toHaveLength(2)
       expect(assertAt(result, 0).label).toBe("Priority")
       expect(assertAt(result, 1).label).toBe("Type")
-    }))
+    })
+  )
 
   it.effect("returns empty array when no categories", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ categories: [] })
 
       const result = yield* listTagCategories({}).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("filters by targetClass", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const categories = [
         makeTagCategory({ _id: "c-1" as Ref<HulyTagCategory>, label: "Issues", targetClass: tracker.class.Issue }),
         makeTagCategory({
@@ -150,28 +154,30 @@ describe("listTagCategories", () => {
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).label).toBe("Issues")
-    }))
+    })
+  )
 })
 
 describe("resolveTagCategoryRef", () => {
   it.effect("resolves an explicit category by id before trying label lookup", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const category = makeTagCategory({ _id: "cat-by-id" as Ref<HulyTagCategory>, label: "By Id" })
       const testLayer = createTestLayerWithMocks({ categories: [category] })
 
-      const result = yield* Effect.gen(function*() {
+      const result = yield* Effect.gen(function* () {
         const client = yield* HulyClient
         return yield* resolveTagCategoryRef(client, "tracker:class:Issue", "cat-by-id")
       }).pipe(Effect.provide(testLayer))
 
       expect(result).toBe("cat-by-id")
-    }))
+    })
+  )
 
   it.effect("uses fallback category when no default category exists", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ categories: [] })
 
-      const result = yield* Effect.gen(function*() {
+      const result = yield* Effect.gen(function* () {
         const client = yield* HulyClient
         return yield* resolveTagCategoryRef(
           client,
@@ -182,30 +188,29 @@ describe("resolveTagCategoryRef", () => {
       }).pipe(Effect.provide(testLayer))
 
       expect(result).toBe("fallback-category")
-    }))
+    })
+  )
 
   it.effect("uses Huly no-category when no explicit, default, or fallback category exists", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ categories: [] })
 
-      const result = yield* Effect.gen(function*() {
+      const result = yield* Effect.gen(function* () {
         const client = yield* HulyClient
         return yield* resolveTagCategoryRef(client, "tracker:class:Issue", undefined)
       }).pipe(Effect.provide(testLayer))
 
       expect(result).toBe(tags.category.NoCategory)
-    }))
+    })
+  )
 })
 
 describe("createTagCategory", () => {
   it.effect("creates new category", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureCreateDoc: MockConfig["captureCreateDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        categories: [],
-        captureCreateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ categories: [], captureCreateDoc })
 
       const result = yield* createTagCategory({ label: "Priority" }).pipe(Effect.provide(testLayer))
 
@@ -213,17 +218,15 @@ describe("createTagCategory", () => {
       expect(result.created).toBe(true)
       expect(captureCreateDoc.attributes?.label).toBe("Priority")
       expect(captureCreateDoc.attributes?.default).toBe(false)
-    }))
+    })
+  )
 
   it.effect("returns existing category if label matches", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const existing = makeTagCategory({ _id: "existing-1" as Ref<HulyTagCategory>, label: "Priority" })
       const captureCreateDoc: MockConfig["captureCreateDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        categories: [existing],
-        captureCreateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ categories: [existing], captureCreateDoc })
 
       const result = yield* createTagCategory({ label: "Priority" }).pipe(Effect.provide(testLayer))
 
@@ -231,161 +234,145 @@ describe("createTagCategory", () => {
       expect(result.label).toBe("Priority")
       expect(result.created).toBe(false)
       expect(captureCreateDoc.attributes).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("creates with default flag", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureCreateDoc: MockConfig["captureCreateDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        categories: [],
-        captureCreateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ categories: [], captureCreateDoc })
 
       const result = yield* createTagCategory({ label: "Main", default: true }).pipe(Effect.provide(testLayer))
 
       expect(result.created).toBe(true)
       expect(captureCreateDoc.attributes?.default).toBe(true)
-    }))
+    })
+  )
 
   it.effect("creates with explicit targetClass", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureCreateDoc: MockConfig["captureCreateDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        categories: [],
-        captureCreateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ categories: [], captureCreateDoc })
 
-      const result = yield* createTagCategory({
-        label: "HR Skills",
-        targetClass: "recruit:mixin:Candidate"
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* createTagCategory({ label: "HR Skills", targetClass: "recruit:mixin:Candidate" }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.created).toBe(true)
       expect(captureCreateDoc.attributes?.targetClass).toBe("recruit:mixin:Candidate")
-    }))
+    })
+  )
 })
 
 describe("updateTagCategory", () => {
   it.effect("updates label", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cat = makeTagCategory({ label: "Old Name" })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        categories: [cat],
-        captureUpdateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ categories: [cat], captureUpdateDoc })
 
-      const result = yield* updateTagCategory({
-        category: tagCategoryIdentifier("Old Name"),
-        label: "New Name"
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* updateTagCategory({ category: tagCategoryIdentifier("Old Name"), label: "New Name" }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.label).toBe("New Name")
-    }))
+    })
+  )
 
   it.effect("updates default flag", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cat = makeTagCategory({ label: "Test" })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        categories: [cat],
-        captureUpdateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ categories: [cat], captureUpdateDoc })
 
-      const result = yield* updateTagCategory({
-        category: tagCategoryIdentifier("Test"),
-        default: true
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* updateTagCategory({ category: tagCategoryIdentifier("Test"), default: true }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.default).toBe(true)
-    }))
+    })
+  )
 
   it.effect("fails when no fields provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cat = makeTagCategory({ label: "Test" })
 
       const testLayer = createTestLayerWithMocks({ categories: [cat] })
 
       const error = yield* Effect.flip(
-        updateTagCategory({
-          category: tagCategoryIdentifier("Test")
-        }).pipe(Effect.provide(testLayer))
+        updateTagCategory({ category: tagCategoryIdentifier("Test") }).pipe(Effect.provide(testLayer))
       )
 
       expect(error._tag).toBe("NoUpdateFieldsError")
-    }))
+    })
+  )
 
   it.effect("returns TagCategoryNotFoundError for nonexistent category", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ categories: [] })
 
       const error = yield* Effect.flip(
-        updateTagCategory({
-          category: tagCategoryIdentifier("nonexistent"),
-          label: "new"
-        }).pipe(Effect.provide(testLayer))
+        updateTagCategory({ category: tagCategoryIdentifier("nonexistent"), label: "new" }).pipe(
+          Effect.provide(testLayer)
+        )
       )
 
       expect(error._tag).toBe("TagCategoryNotFoundError")
       expect((error as TagCategoryNotFoundError).identifier).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("deleteTagCategory", () => {
   it.effect("deletes category by label", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cat = makeTagCategory({ _id: "c-1" as Ref<HulyTagCategory>, label: "to-delete" })
       const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        categories: [cat],
-        captureRemoveDoc
-      })
+      const testLayer = createTestLayerWithMocks({ categories: [cat], captureRemoveDoc })
 
-      const result = yield* deleteTagCategory({
-        category: tagCategoryIdentifier("to-delete")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* deleteTagCategory({ category: tagCategoryIdentifier("to-delete") }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.id).toBe("c-1")
       expect(result.deleted).toBe(true)
       expect(captureRemoveDoc.called).toBe(true)
-    }))
+    })
+  )
 
   it.effect("deletes category by ID", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cat = makeTagCategory({ _id: "cat-abc" as Ref<HulyTagCategory>, label: "my-cat" })
       const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        categories: [cat],
-        captureRemoveDoc
-      })
+      const testLayer = createTestLayerWithMocks({ categories: [cat], captureRemoveDoc })
 
-      const result = yield* deleteTagCategory({
-        category: tagCategoryIdentifier("cat-abc")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* deleteTagCategory({ category: tagCategoryIdentifier("cat-abc") }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.id).toBe("cat-abc")
       expect(result.deleted).toBe(true)
       expect(captureRemoveDoc.called).toBe(true)
-    }))
+    })
+  )
 
   it.effect("returns TagCategoryNotFoundError for nonexistent category", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ categories: [] })
 
       const error = yield* Effect.flip(
-        deleteTagCategory({
-          category: tagCategoryIdentifier("nonexistent")
-        }).pipe(Effect.provide(testLayer))
+        deleteTagCategory({ category: tagCategoryIdentifier("nonexistent") }).pipe(Effect.provide(testLayer))
       )
 
       expect(error._tag).toBe("TagCategoryNotFoundError")
-    }))
+    })
+  )
 })

@@ -60,11 +60,12 @@ const templateAwareClient = (
   messageTemplates: ReadonlyArray<HulyMessageTemplate> = []
 ) => {
   const findAllImpl = (_class: Ref<Class<Doc>>) => {
-    const docs: Array<Doc> = _class === templates.class.TemplateCategory
-      ? [...categories]
-      : _class === templates.class.MessageTemplate
-      ? [...messageTemplates]
-      : []
+    const docs: Array<Doc> =
+      _class === templates.class.TemplateCategory
+        ? [...categories]
+        : _class === templates.class.MessageTemplate
+          ? [...messageTemplates]
+          : []
 
     return Effect.succeed(toFindResult(docs))
   }
@@ -75,25 +76,19 @@ const templateAwareClient = (
   const findOne: HulyClientOperations["findOne"] = (_class, query, options) =>
     Effect.map(findAll(_class, query, options), (result) => result.at(0))
 
-  return HulyClient.testLayer({
-    findAll,
-    findOne
-  })
+  return HulyClient.testLayer({ findAll, findOne })
 }
 
 const buildClients = (
   categories: ReadonlyArray<HulyTemplateCategory>,
   messageTemplates: ReadonlyArray<HulyMessageTemplate> = []
 ) =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const context = yield* Layer.build(
       Layer.merge(templateAwareClient(categories, messageTemplates), HulyStorageClient.testLayer({}))
     ).pipe(Effect.scoped)
 
-    return {
-      hulyClient: Context.get(context, HulyClient),
-      storageClient: Context.get(context, HulyStorageClient)
-    }
+    return { hulyClient: Context.get(context, HulyClient), storageClient: Context.get(context, HulyStorageClient) }
   })
 
 const telemetry: TelemetryOperations = createNoopTelemetry()
@@ -133,7 +128,7 @@ describe("message template MCP tools", () => {
   })
 
   it.effect("serializes a successful category list response", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const clients = yield* buildClients([category("cat-sales", "Sales")])
       const result = yield* Effect.promise(() =>
         toolRegistry.handleToolCall(
@@ -157,16 +152,16 @@ describe("message template MCP tools", () => {
         }
       ])
       expect(JSON.parse(result?.content[0]?.text ?? "null")).toEqual(result?.structuredContent?.result)
-    }))
+    })
+  )
 
   it.effect("serializes a successful render response", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const sales = category("cat-sales", "Sales")
-      const clients = yield* buildClients([
-        sales
-      ], [
-        messageTemplate("tmpl-sales-welcome", "Welcome", sales, "Hello ${field-owner}, meet ${field-company}.")
-      ])
+      const clients = yield* buildClients(
+        [sales],
+        [messageTemplate("tmpl-sales-welcome", "Welcome", sales, "Hello ${field-owner}, meet ${field-company}.")]
+      )
       const result = yield* Effect.promise(() =>
         toolRegistry.handleToolCall(
           makeToolName("render_message_template"),
@@ -192,10 +187,11 @@ describe("message template MCP tools", () => {
         unusedValueFields: ["field-unused"]
       })
       expect(JSON.parse(result?.content[0]?.text ?? "null")).toEqual(result?.structuredContent?.result)
-    }))
+    })
+  )
 
   it.effect("maps not-found template locator errors to invalid params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const clients = yield* buildClients([])
       const result = yield* Effect.promise(() =>
         toolRegistry.handleToolCall(
@@ -209,5 +205,6 @@ describe("message template MCP tools", () => {
       expect(result?.isError).toBe(true)
       expect(result?._meta?.errorCode).toBe(McpErrorCode.InvalidParams)
       expect(result?.content[0]?.text).toContain("Message template 'missing' not found")
-    }))
+    })
+  )
 })

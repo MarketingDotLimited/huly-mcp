@@ -203,7 +203,7 @@ const createLayer = (config?: {
   readonly captures?: Captures
 }) => {
   const project = config?.project ?? makeProject()
-  const projectType = config?.projectType === null ? undefined : config?.projectType ?? makeProjectType()
+  const projectType = config?.projectType === null ? undefined : (config?.projectType ?? makeProjectType())
   const taskTypes = config?.taskTypes ?? defaultTaskTypes()
   const statuses = config?.statuses ?? defaultStatuses()
   const modelStatuses = config?.modelStatuses ?? []
@@ -247,9 +247,10 @@ const createLayer = (config?: {
       const identifier = (query as { readonly identifier?: string }).identifier
       const projectMatch = identifier === project.identifier ? project : undefined
       const opts = options as { readonly lookup?: { readonly type?: unknown } } | undefined
-      const projectResult = projectMatch !== undefined && opts?.lookup?.type !== undefined
-        ? { ...projectMatch, $lookup: { type: projectType } }
-        : projectMatch
+      const projectResult =
+        projectMatch !== undefined && opts?.lookup?.type !== undefined
+          ? { ...projectMatch, $lookup: { type: projectType } }
+          : projectMatch
       return Effect.succeed(projectResult)
     }
     if (_class === task.class.ProjectType) {
@@ -258,15 +259,11 @@ const createLayer = (config?: {
     }
     if (_class === tracker.class.Issue) {
       const q = query as { readonly identifier?: string; readonly number?: number; readonly space?: unknown }
-      const issue = issues.find((candidate) =>
-        (q.identifier !== undefined && candidate.identifier === q.identifier)
-        || (q.number !== undefined && candidate.number === q.number)
-        || (
-          q.space !== undefined
-          && candidate.space === q.space
-          && q.identifier === undefined
-          && q.number === undefined
-        )
+      const issue = issues.find(
+        (candidate) =>
+          (q.identifier !== undefined && candidate.identifier === q.identifier) ||
+          (q.number !== undefined && candidate.number === q.number) ||
+          (q.space !== undefined && candidate.space === q.space && q.identifier === undefined && q.number === undefined)
       )
       return Effect.succeed(issue)
     }
@@ -301,7 +298,7 @@ const createLayer = (config?: {
 
 describe("issue write task type support", () => {
   it.effect("creates an issue with a custom task type and status from that task type workflow", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
 
       const result = yield* createIssue({
@@ -314,10 +311,11 @@ describe("issue write task type support", () => {
       expect(result.identifier).toBe("TEST-2")
       expect(assertAt(captures.addCollections, 0).attributes.kind).toBe(bugTaskTypeId)
       expect(assertAt(captures.addCollections, 0).attributes.status).toBe(bugReviewStatusId)
-    }))
+    })
+  )
 
   it.effect("uses model-resolved status names for task type status validation when status lookup fails", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
       const diagnostics = yield* makeDiagnosticsScope
 
@@ -327,13 +325,7 @@ describe("issue write task type support", () => {
         taskType: TaskTypeRefSchema.make("Bug"),
         status: statusName("Confirm")
       }).pipe(
-        Effect.provide(
-          createLayer({
-            captures,
-            failStatusLookup: true,
-            modelStatuses: defaultStatuses()
-          })
-        ),
+        Effect.provide(createLayer({ captures, failStatusLookup: true, modelStatuses: defaultStatuses() })),
         Effect.provideService(Diagnostics, diagnostics.service)
       )
       const warnings = yield* diagnostics.drainWarnings
@@ -341,10 +333,11 @@ describe("issue write task type support", () => {
       expect(assertAt(captures.addCollections, 0).attributes.kind).toBe(bugTaskTypeId)
       expect(assertAt(captures.addCollections, 0).attributes.status).toBe(bugReviewStatusId)
       expect(warnings).toEqual([])
-    }))
+    })
+  )
 
   it.effect("resolves a task type linked by project type parent even when missing from the tasks list", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
 
       yield* createIssue({
@@ -352,19 +345,17 @@ describe("issue write task type support", () => {
         title: "Parent-linked bug",
         taskType: TaskTypeRefSchema.make("Bug")
       }).pipe(
-        Effect.provide(createLayer({
-          captures,
-          projectType: makeProjectType({ tasks: [issueTaskTypeId] })
-        })),
+        Effect.provide(createLayer({ captures, projectType: makeProjectType({ tasks: [issueTaskTypeId] }) })),
         withDiagnostics
       )
 
       expect(assertAt(captures.addCollections, 0).attributes.kind).toBe(bugTaskTypeId)
       expect(assertAt(captures.addCollections, 0).attributes.status).toBe(bugOpenStatusId)
-    }))
+    })
+  )
 
   it.effect("uses the task type default status when the project default belongs to another task type", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
 
       yield* createIssue({
@@ -375,10 +366,11 @@ describe("issue write task type support", () => {
 
       expect(assertAt(captures.addCollections, 0).attributes.kind).toBe(bugTaskTypeId)
       expect(assertAt(captures.addCollections, 0).attributes.status).toBe(bugOpenStatusId)
-    }))
+    })
+  )
 
   it.effect("preserves the project default when it belongs to the selected task type", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
 
       yield* createIssue({
@@ -386,18 +378,16 @@ describe("issue write task type support", () => {
         title: "Bug with project default",
         taskType: TaskTypeRefSchema.make("Bug")
       }).pipe(
-        Effect.provide(createLayer({
-          captures,
-          project: makeProject({ defaultIssueStatus: bugReviewStatusId })
-        })),
+        Effect.provide(createLayer({ captures, project: makeProject({ defaultIssueStatus: bugReviewStatusId }) })),
         withDiagnostics
       )
 
       expect(assertAt(captures.addCollections, 0).attributes.status).toBe(bugReviewStatusId)
-    }))
+    })
+  )
 
   it.effect("rejects a status that exists in the project but not on the selected task type", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
       const result = yield* Effect.either(
         createIssue({
@@ -415,10 +405,11 @@ describe("issue write task type support", () => {
       }
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
-    }))
+    })
+  )
 
   it.effect("rejects an unknown task type before incrementing the project sequence", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
       const result = yield* Effect.either(
         createIssue({
@@ -436,10 +427,11 @@ describe("issue write task type support", () => {
       }
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
-    }))
+    })
+  )
 
   it.effect("rejects task type when the project does not expose workflow data", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
       const result = yield* Effect.either(
         createIssue({
@@ -455,10 +447,11 @@ describe("issue write task type support", () => {
       }
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
-    }))
+    })
+  )
 
   it.effect("rejects ambiguous task type names within the project workflow", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
       const result = yield* Effect.either(
         createIssue({
@@ -467,10 +460,7 @@ describe("issue write task type support", () => {
           taskType: TaskTypeRefSchema.make("Bug")
         }).pipe(
           Effect.provide(
-            createLayer({
-              captures,
-              projectType: makeProjectType({ tasks: [bugTaskTypeId, externalBugTaskTypeId] })
-            })
+            createLayer({ captures, projectType: makeProjectType({ tasks: [bugTaskTypeId, externalBugTaskTypeId] }) })
           ),
           withDiagnostics
         )
@@ -482,10 +472,11 @@ describe("issue write task type support", () => {
       }
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
-    }))
+    })
+  )
 
   it.effect("rejects task type when the project workflow has no configured task types", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
       const result = yield* Effect.either(
         createIssue({
@@ -504,10 +495,11 @@ describe("issue write task type support", () => {
       }
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
-    }))
+    })
+  )
 
   it.effect("rejects task type when neither current nor default status can be chosen", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
       const result = yield* Effect.either(
         createIssue({
@@ -520,13 +512,7 @@ describe("issue write task type support", () => {
             createLayer({
               captures,
               projectType: makeProjectType({ tasks: [noStatusTaskTypeId] }),
-              taskTypes: [
-                makeTaskType({
-                  _id: noStatusTaskTypeId,
-                  name: "No Status",
-                  statuses: []
-                })
-              ]
+              taskTypes: [makeTaskType({ _id: noStatusTaskTypeId, name: "No Status", statuses: [] })]
             })
           ),
           withDiagnostics
@@ -539,10 +525,11 @@ describe("issue write task type support", () => {
       }
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
-    }))
+    })
+  )
 
   it.effect("reports raw configured status IDs when parsed task type status metadata is unavailable", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const client = yield* HulyClient
       const project = makeProject()
       const projectType = makeProjectType({ tasks: [noStatusTaskTypeId] })
@@ -559,13 +546,18 @@ describe("issue write task type support", () => {
       )
 
       expect(error.message).toContain(`Valid statuses for this task type: ${orphanStatusId}`)
-    }).pipe(Effect.provide(createLayer({
-      projectType: makeProjectType({ tasks: [noStatusTaskTypeId] }),
-      taskTypes: [makeTaskType({ _id: noStatusTaskTypeId, name: "No Status", statuses: [orphanStatusId] })]
-    }))))
+    }).pipe(
+      Effect.provide(
+        createLayer({
+          projectType: makeProjectType({ tasks: [noStatusTaskTypeId] }),
+          taskTypes: [makeTaskType({ _id: noStatusTaskTypeId, name: "No Status", statuses: [orphanStatusId] })]
+        })
+      )
+    )
+  )
 
   it.effect("rejects a project status before incrementing the project sequence", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
       const result = yield* Effect.either(
         createIssue({
@@ -578,10 +570,11 @@ describe("issue write task type support", () => {
       expect(result._tag).toBe("Left")
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
-    }))
+    })
+  )
 
   it.effect("rejects an unknown parent issue before incrementing the project sequence", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
       const result = yield* Effect.either(
         createIssue({
@@ -594,10 +587,11 @@ describe("issue write task type support", () => {
       expect(result._tag).toBe("Left")
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
-    }))
+    })
+  )
 
   it.effect("rejects an unknown assignee before incrementing the project sequence", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
       const result = yield* Effect.either(
         createIssue({
@@ -610,10 +604,11 @@ describe("issue write task type support", () => {
       expect(result._tag).toBe("Left")
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
-    }))
+    })
+  )
 
   it.effect("updates task type and preserves the current status when it remains valid", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
       const issue = makeIssue({ kind: issueTaskTypeId, status: bugOpenStatusId })
 
@@ -626,10 +621,11 @@ describe("issue write task type support", () => {
       const issueUpdate = captures.updates.find((update) => update.classId === String(tracker.class.Issue))
       expect(result.updated).toBe(true)
       expect(issueUpdate?.operations).toEqual({ kind: bugTaskTypeId })
-    }))
+    })
+  )
 
   it.effect("updates task type and chooses a valid default when the current status is invalid", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
       const issue = makeIssue({ kind: issueTaskTypeId, status: issueOpenStatusId })
 
@@ -641,5 +637,6 @@ describe("issue write task type support", () => {
 
       const issueUpdate = captures.updates.find((update) => update.classId === String(tracker.class.Issue))
       expect(issueUpdate?.operations).toEqual({ kind: bugTaskTypeId, status: bugOpenStatusId })
-    }))
+    })
+  )
 })

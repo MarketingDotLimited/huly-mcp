@@ -41,23 +41,23 @@ const mockCreateWorkspace = mockFn<(name: string, region?: string) => Promise<Wo
 const mockDeleteWorkspace = mockFn<() => Promise<void>>()
 const mockGetUserProfile = mockFn<(personUuid?: PersonUuid) => Promise<PersonWithProfile | null>>()
 const mockSetMyProfile = mockFn<(profile: Record<string, unknown>) => Promise<void>>()
-const mockCreateAccessLink = mockFn<
-  (
-    role: AccountRole,
-    options?: {
-      firstName?: string
-      lastName?: string
-      navigateUrl?: string
-      spaces?: Array<string>
-      notBefore?: number
-      expiration?: number
-      personalized?: boolean
-    }
-  ) => Promise<string>
->()
-const mockUpdateAllowReadOnlyGuests = mockFn<
-  (v: boolean) => Promise<{ guestPerson: Person; guestSocialIds: Array<SocialId> } | undefined>
->()
+const mockCreateAccessLink =
+  mockFn<
+    (
+      role: AccountRole,
+      options?: {
+        firstName?: string
+        lastName?: string
+        navigateUrl?: string
+        spaces?: Array<string>
+        notBefore?: number
+        expiration?: number
+        personalized?: boolean
+      }
+    ) => Promise<string>
+  >()
+const mockUpdateAllowReadOnlyGuests =
+  mockFn<(v: boolean) => Promise<{ guestPerson: Person; guestSocialIds: Array<SocialId> } | undefined>>()
 const mockUpdateAllowGuestSignUp = mockFn<(v: boolean) => Promise<void>>()
 const mockGetRegionInfo = mockFn<() => Promise<Array<RegionInfo>>>()
 
@@ -131,10 +131,8 @@ describe("WorkspaceClient.layer (real layer)", () => {
   })
 
   it.effect("constructs layer and getWorkspaceMembers delegates to AccountClient", () =>
-    Effect.gen(function*() {
-      const mockMembers: Array<WorkspaceMemberInfo> = [
-        { person: "p1" as AccountUuid, role: AccountRole.User }
-      ]
+    Effect.gen(function* () {
+      const mockMembers: Array<WorkspaceMemberInfo> = [{ person: "p1" as AccountUuid, role: AccountRole.User }]
       mockGetWorkspaceMembers.mockResolvedValue(mockMembers)
 
       const client = yield* WorkspaceClient
@@ -142,10 +140,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
       expect(result).toEqual(mockMembers)
       expect(mockGetWorkspaceMembers.mock.calls).toHaveLength(1)
-    }).pipe(Effect.provide(liveLayer)))
+    }).pipe(Effect.provide(liveLayer))
+  )
 
   it.effect("getPersonInfo delegates to AccountClient", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const personInfo = asPersonInfo({ name: "Alice", socialIds: [] })
       mockGetPersonInfo.mockResolvedValue(personInfo)
 
@@ -154,20 +153,22 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
       expect(result).toEqual(personInfo)
       expect(mockGetPersonInfo.mock.calls).toContainEqual(["person-1"])
-    }).pipe(Effect.provide(liveLayer)))
+    }).pipe(Effect.provide(liveLayer))
+  )
 
   it.effect("updateWorkspaceRole delegates to AccountClient", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       mockUpdateWorkspaceRole.mockResolvedValue(undefined)
 
       const client = yield* WorkspaceClient
       yield* client.updateWorkspaceRole("acc-1", AccountRole.Maintainer)
 
       expect(mockUpdateWorkspaceRole.mock.calls).toContainEqual(["acc-1", AccountRole.Maintainer])
-    }).pipe(Effect.provide(liveLayer)))
+    }).pipe(Effect.provide(liveLayer))
+  )
 
   it.effect("getWorkspaceInfo delegates to AccountClient", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const wsInfo = asWsInfo({ uuid: "ws-1", name: "Test" })
       mockGetWorkspaceInfo.mockResolvedValue(wsInfo)
 
@@ -176,10 +177,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
       expect(result).toEqual(wsInfo)
       expect(mockGetWorkspaceInfo.mock.calls).toContainEqual([true])
-    }).pipe(Effect.provide(liveLayer)))
+    }).pipe(Effect.provide(liveLayer))
+  )
 
   it.effect("getWorkspaceInfo without arg delegates correctly", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const wsInfo = asWsInfo({ uuid: "ws-2", name: "Test2" })
       mockGetWorkspaceInfo.mockResolvedValue(wsInfo)
 
@@ -188,10 +190,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
       expect(result).toEqual(wsInfo)
       expect(mockGetWorkspaceInfo.mock.calls).toContainEqual([undefined])
-    }).pipe(Effect.provide(liveLayer)))
+    }).pipe(Effect.provide(liveLayer))
+  )
 
   it.effect("getUserWorkspaces delegates to AccountClient", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const workspaces = [{ uuid: "ws-1" }] as Array<WorkspaceInfoWithStatus>
       mockGetUserWorkspaces.mockResolvedValue(workspaces)
 
@@ -200,10 +203,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
       expect(result).toEqual(workspaces)
       expect(mockGetUserWorkspaces.mock.calls).toHaveLength(1)
-    }).pipe(Effect.provide(liveLayer)))
+    }).pipe(Effect.provide(liveLayer))
+  )
 
   it.effect("createWorkspace delegates to AccountClient", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const loginInfo = asLoginInfo({ workspace: "new-ws", workspaceUrl: "new-ws-url" })
       mockCreateWorkspace.mockResolvedValue(loginInfo)
 
@@ -212,20 +216,22 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
       expect(result).toEqual(loginInfo)
       expect(mockCreateWorkspace.mock.calls).toContainEqual(["My Workspace", "us-east"])
-    }).pipe(Effect.provide(liveLayer)))
+    }).pipe(Effect.provide(liveLayer))
+  )
 
   it.effect("deleteWorkspace delegates to AccountClient", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       mockDeleteWorkspace.mockResolvedValue(undefined)
 
       const client = yield* WorkspaceClient
       yield* client.deleteWorkspace()
 
       expect(mockDeleteWorkspace.mock.calls).toHaveLength(1)
-    }).pipe(Effect.provide(liveLayer)))
+    }).pipe(Effect.provide(liveLayer))
+  )
 
   it.effect("getUserProfile delegates to AccountClient", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const profile = asProfile({ uuid: "p1", firstName: "John" })
       mockGetUserProfile.mockResolvedValue(profile)
 
@@ -234,10 +240,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
       expect(result).toEqual(profile)
       expect(mockGetUserProfile.mock.calls).toContainEqual(["person-uuid"])
-    }).pipe(Effect.provide(liveLayer)))
+    }).pipe(Effect.provide(liveLayer))
+  )
 
   it.effect("getUserProfile without arg delegates correctly", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       mockGetUserProfile.mockResolvedValue(null)
 
       const client = yield* WorkspaceClient
@@ -245,20 +252,22 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
       expect(result).toBeNull()
       expect(mockGetUserProfile.mock.calls).toContainEqual([undefined])
-    }).pipe(Effect.provide(liveLayer)))
+    }).pipe(Effect.provide(liveLayer))
+  )
 
   it.effect("setMyProfile delegates to AccountClient", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       mockSetMyProfile.mockResolvedValue(undefined)
 
       const client = yield* WorkspaceClient
       yield* client.setMyProfile({ bio: "dev" })
 
       expect(mockSetMyProfile.mock.calls).toContainEqual([{ bio: "dev" }])
-    }).pipe(Effect.provide(liveLayer)))
+    }).pipe(Effect.provide(liveLayer))
+  )
 
   it.effect("createAccessLink delegates to AccountClient", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       mockCreateAccessLink.mockResolvedValue("https://huly.test/invite")
 
       const client = yield* WorkspaceClient
@@ -272,17 +281,13 @@ describe("WorkspaceClient.layer (real layer)", () => {
       expect(result).toBe("https://huly.test/invite")
       expect(mockCreateAccessLink.mock.calls).toContainEqual([
         AccountRole.Guest,
-        {
-          spaces: ["space-1", "space-2"],
-          personalized: false,
-          notBefore: 1,
-          expiration: 2
-        }
+        { spaces: ["space-1", "space-2"], personalized: false, notBefore: 1, expiration: 2 }
       ])
-    }).pipe(Effect.provide(liveLayer)))
+    }).pipe(Effect.provide(liveLayer))
+  )
 
   it.effect("createAccessLink forwards the personalization name and navigation fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       mockCreateAccessLink.mockResolvedValue("https://huly.test/named")
 
       const client = yield* WorkspaceClient
@@ -294,16 +299,13 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
       expect(mockCreateAccessLink.mock.calls).toContainEqual([
         AccountRole.Guest,
-        {
-          firstName: "Ada",
-          lastName: "Lovelace",
-          navigateUrl: "https://huly.test/board"
-        }
+        { firstName: "Ada", lastName: "Lovelace", navigateUrl: "https://huly.test/board" }
       ])
-    }).pipe(Effect.provide(liveLayer)))
+    }).pipe(Effect.provide(liveLayer))
+  )
 
   it.effect("updateAllowReadOnlyGuests delegates to AccountClient", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       mockUpdateAllowReadOnlyGuests.mockResolvedValue(undefined)
 
       const client = yield* WorkspaceClient
@@ -311,20 +313,22 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
       expect(result).toBeUndefined()
       expect(mockUpdateAllowReadOnlyGuests.mock.calls).toContainEqual([true])
-    }).pipe(Effect.provide(liveLayer)))
+    }).pipe(Effect.provide(liveLayer))
+  )
 
   it.effect("updateAllowGuestSignUp delegates to AccountClient", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       mockUpdateAllowGuestSignUp.mockResolvedValue(undefined)
 
       const client = yield* WorkspaceClient
       yield* client.updateAllowGuestSignUp(false)
 
       expect(mockUpdateAllowGuestSignUp.mock.calls).toContainEqual([false])
-    }).pipe(Effect.provide(liveLayer)))
+    }).pipe(Effect.provide(liveLayer))
+  )
 
   it.effect("getRegionInfo delegates to AccountClient", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const regions: Array<RegionInfo> = [{ region: "us-east", name: "US East" }]
       mockGetRegionInfo.mockResolvedValue(regions)
 
@@ -333,11 +337,12 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
       expect(result).toEqual(regions)
       expect(mockGetRegionInfo.mock.calls).toHaveLength(1)
-    }).pipe(Effect.provide(liveLayer)))
+    }).pipe(Effect.provide(liveLayer))
+  )
 
   describe("error handling (withClient)", () => {
     it.effect("wraps operation rejection as HulyConnectionError", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         mockGetWorkspaceMembers.mockRejectedValue(new Error("network failure"))
 
         const client = yield* WorkspaceClient
@@ -346,10 +351,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toContain("Failed to get workspace members")
         expect(error.message).toContain("network failure")
-      }).pipe(Effect.provide(liveLayer)))
+      }).pipe(Effect.provide(liveLayer))
+    )
 
     it.effect("wraps getPersonInfo rejection as HulyConnectionError", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         mockGetPersonInfo.mockRejectedValue(new Error("person lookup failed"))
 
         const client = yield* WorkspaceClient
@@ -357,10 +363,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toContain("Failed to get person info")
-      }).pipe(Effect.provide(liveLayer)))
+      }).pipe(Effect.provide(liveLayer))
+    )
 
     it.effect("wraps updateWorkspaceRole rejection", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         mockUpdateWorkspaceRole.mockRejectedValue(new Error("role update error"))
 
         const client = yield* WorkspaceClient
@@ -368,10 +375,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toContain("Failed to update workspace role")
-      }).pipe(Effect.provide(liveLayer)))
+      }).pipe(Effect.provide(liveLayer))
+    )
 
     it.effect("wraps getWorkspaceInfo rejection", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         mockGetWorkspaceInfo.mockRejectedValue(new Error("ws info error"))
 
         const client = yield* WorkspaceClient
@@ -379,10 +387,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toContain("Failed to get workspace info")
-      }).pipe(Effect.provide(liveLayer)))
+      }).pipe(Effect.provide(liveLayer))
+    )
 
     it.effect("wraps getUserWorkspaces rejection", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         mockGetUserWorkspaces.mockRejectedValue(new Error("list error"))
 
         const client = yield* WorkspaceClient
@@ -390,10 +399,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toContain("Failed to get user workspaces")
-      }).pipe(Effect.provide(liveLayer)))
+      }).pipe(Effect.provide(liveLayer))
+    )
 
     it.effect("wraps createWorkspace rejection", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         mockCreateWorkspace.mockRejectedValue(new Error("create error"))
 
         const client = yield* WorkspaceClient
@@ -401,10 +411,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toContain("Failed to create workspace")
-      }).pipe(Effect.provide(liveLayer)))
+      }).pipe(Effect.provide(liveLayer))
+    )
 
     it.effect("wraps deleteWorkspace rejection", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         mockDeleteWorkspace.mockRejectedValue(new Error("delete error"))
 
         const client = yield* WorkspaceClient
@@ -412,10 +423,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toContain("Failed to delete workspace")
-      }).pipe(Effect.provide(liveLayer)))
+      }).pipe(Effect.provide(liveLayer))
+    )
 
     it.effect("wraps getUserProfile rejection", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         mockGetUserProfile.mockRejectedValue(new Error("profile error"))
 
         const client = yield* WorkspaceClient
@@ -423,10 +435,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toContain("Failed to get user profile")
-      }).pipe(Effect.provide(liveLayer)))
+      }).pipe(Effect.provide(liveLayer))
+    )
 
     it.effect("wraps setMyProfile rejection", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         mockSetMyProfile.mockRejectedValue(new Error("set profile error"))
 
         const client = yield* WorkspaceClient
@@ -434,10 +447,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toContain("Failed to set my profile")
-      }).pipe(Effect.provide(liveLayer)))
+      }).pipe(Effect.provide(liveLayer))
+    )
 
     it.effect("wraps createAccessLink rejection", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         mockCreateAccessLink.mockRejectedValue(new Error("link error"))
 
         const client = yield* WorkspaceClient
@@ -445,10 +459,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toContain("Failed to create access link")
-      }).pipe(Effect.provide(liveLayer)))
+      }).pipe(Effect.provide(liveLayer))
+    )
 
     it.effect("wraps updateAllowReadOnlyGuests rejection", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         mockUpdateAllowReadOnlyGuests.mockRejectedValue(new Error("guest error"))
 
         const client = yield* WorkspaceClient
@@ -456,10 +471,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toContain("Failed to update read-only guest setting")
-      }).pipe(Effect.provide(liveLayer)))
+      }).pipe(Effect.provide(liveLayer))
+    )
 
     it.effect("wraps updateAllowGuestSignUp rejection", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         mockUpdateAllowGuestSignUp.mockRejectedValue(new Error("signup error"))
 
         const client = yield* WorkspaceClient
@@ -467,10 +483,11 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toContain("Failed to update guest sign-up setting")
-      }).pipe(Effect.provide(liveLayer)))
+      }).pipe(Effect.provide(liveLayer))
+    )
 
     it.effect("wraps getRegionInfo rejection", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         mockGetRegionInfo.mockRejectedValue(new Error("region error"))
 
         const client = yield* WorkspaceClient
@@ -478,16 +495,15 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toContain("Failed to get region info")
-      }).pipe(Effect.provide(liveLayer)))
+      }).pipe(Effect.provide(liveLayer))
+    )
   })
 })
 
 describe("WorkspaceClient.testLayer", () => {
   it.effect("provides all default operations", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
 
       expect(client.getWorkspaceMembers).toBeDefined()
       expect(client.getPersonInfo).toBeDefined()
@@ -501,123 +517,110 @@ describe("WorkspaceClient.testLayer", () => {
       expect(client.updateAllowReadOnlyGuests).toBeDefined()
       expect(client.updateAllowGuestSignUp).toBeDefined()
       expect(client.getRegionInfo).toBeDefined()
-    }))
+    })
+  )
 
   it.effect("default getWorkspaceMembers returns empty array", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const result = yield* client.getWorkspaceMembers()
       expect(result).toEqual([])
-    }))
+    })
+  )
 
   it.effect("default getUserWorkspaces returns empty array", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const result = yield* client.getUserWorkspaces()
       expect(result).toEqual([])
-    }))
+    })
+  )
 
   it.effect("default getUserProfile returns null", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const result = yield* client.getUserProfile()
       expect(result).toBeNull()
-    }))
+    })
+  )
 
   it.effect("default getRegionInfo returns empty array", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const result = yield* client.getRegionInfo()
       expect(result).toEqual([])
-    }))
+    })
+  )
 
   it.effect("default getPersonInfo dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.getPersonInfo("p" as PersonUuid))
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("default updateWorkspaceRole dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.updateWorkspaceRole("acc", AccountRole.User))
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("default getWorkspaceInfo dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.getWorkspaceInfo())
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("default createWorkspace dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.createWorkspace("ws"))
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("default deleteWorkspace dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.deleteWorkspace())
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("default setMyProfile dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.setMyProfile({}))
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("default updateAllowReadOnlyGuests dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.updateAllowReadOnlyGuests(true))
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("default updateAllowGuestSignUp dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.updateAllowGuestSignUp(true))
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("overrides merge with defaults", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const customMembers = [{ person: "p1" }] as Array<WorkspaceMemberInfo>
       const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({
-          getWorkspaceMembers: () => Effect.succeed(customMembers)
-        }))
+        Effect.provide(WorkspaceClient.testLayer({ getWorkspaceMembers: () => Effect.succeed(customMembers) }))
       )
 
       const members = yield* client.getWorkspaceMembers()
@@ -626,25 +629,29 @@ describe("WorkspaceClient.testLayer", () => {
       // Other defaults still work
       const profile = yield* client.getUserProfile()
       expect(profile).toBeNull()
-    }))
+    })
+  )
 
   it.effect("can mock operation to return error", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({
-          getWorkspaceMembers: () => Effect.fail(new HulyConnectionError({ message: "mock error" }))
-        }))
+        Effect.provide(
+          WorkspaceClient.testLayer({
+            getWorkspaceMembers: () => Effect.fail(new HulyConnectionError({ message: "mock error" }))
+          })
+        )
       )
 
       const error = yield* Effect.flip(client.getWorkspaceMembers())
       expect(error._tag).toBe("HulyConnectionError")
       expect(error.message).toBe("mock error")
-    }))
+    })
+  )
 })
 
 describe("WorkspaceClientError type", () => {
   it.effect("is union of HulyConnectionError and HulyAuthError", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const handleError = (error: WorkspaceClientError): string => {
         switch (error._tag) {
           case "HulyConnectionError":
@@ -666,5 +673,6 @@ describe("WorkspaceClientError type", () => {
         failureKind: "timeout"
       })
       expect(handleError(unavailableErr)).toBe("Unavailable: https://huly.app")
-    }))
+    })
+  )
 })

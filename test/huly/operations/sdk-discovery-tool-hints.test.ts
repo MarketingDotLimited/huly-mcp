@@ -21,29 +21,27 @@ const readLedger = (): SdkParityLedger =>
   // Test JSON boundary: this fixture is immediately validated by expectations below.
   JSON.parse(readFileSync("plans/sdk-parity-ledger.json", "utf-8")) as SdkParityLedger
 
-const findLedgerGroup = (
-  ledger: SdkParityLedger,
-  packageName: string,
-  exportName: string
-): LedgerGroup | undefined =>
+const findLedgerGroup = (ledger: SdkParityLedger, packageName: string, exportName: string): LedgerGroup | undefined =>
   ledger.groups.find((group) => group.package === packageName && group.exports.includes(exportName))
 
 describe("firstClassToolHints", () => {
   it.effect("references only example tool names that exist in the registry", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const registeredNames = new Set(toolRegistry.definitions.map((tool) => tool.name))
-      const referenced = [...firstClassToolHints.values()]
-        .flatMap((hints) => hints.flatMap((hint) => hint.exampleTools))
+      const referenced = [...firstClassToolHints.values()].flatMap((hints) =>
+        hints.flatMap((hint) => hint.exampleTools)
+      )
 
       // Guard against a vacuous pass if the hint table is ever emptied.
       expect(referenced.length).toBeGreaterThan(0)
 
       const missing = referenced.filter((name) => !registeredNames.has(name))
       expect(missing).toEqual([])
-    }))
+    })
+  )
 
   it.effect("keeps runtime parity routing constants aligned with the sdk parity ledger", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const ledger = readLedger()
       const registeredNames = new Set(toolRegistry.definitions.map((tool) => tool.name))
 
@@ -62,5 +60,6 @@ describe("firstClassToolHints", () => {
           expect(row.hint.backlogIssue).toBe(92)
         }
       }
-    }))
+    })
+  )
 })

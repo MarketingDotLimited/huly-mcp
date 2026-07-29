@@ -46,25 +46,16 @@ const issueTargetClass = TagTargetClass.make(String(issueClassRef))
 export const listLabels = (
   params: ListLabelsParams
 ): Effect.Effect<Array<TagElementSummary>, ListLabelsError, HulyClient> =>
-  Effect.gen(function*() {
-    const result = yield* listTags({
-      targetClass: issueTargetClass,
-      category: params.category,
-      limit: params.limit
-    })
+  Effect.gen(function* () {
+    const result = yield* listTags({ targetClass: issueTargetClass, category: params.category, limit: params.limit })
 
-    return result.map(e => ({
-      id: e.id,
-      title: e.title,
-      color: e.color,
-      category: e.category
-    }))
+    return result.map((e) => ({ id: e.id, title: e.title, color: e.color, category: e.category }))
   })
 
 export const createLabel = (
   params: CreateLabelParams
 ): Effect.Effect<CreateLabelResult, CreateLabelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const result = yield* ensureTagElement({
       targetClass: issueTargetClass,
       titleOrId: params.title,
@@ -80,10 +71,10 @@ export const createLabel = (
 export const updateLabel = (
   params: UpdateLabelParams
 ): Effect.Effect<UpdateLabelResult, UpdateLabelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_label", params, UPDATE_LABEL_FIELDS)
 
-    type UpdateLabelField = typeof UPDATE_LABEL_FIELDS[number]
+    type UpdateLabelField = (typeof UPDATE_LABEL_FIELDS)[number]
     type UpdateLabelEntries = {
       readonly [Field in UpdateLabelField]: UpdateTagParams[Field]
     }
@@ -92,11 +83,7 @@ export const updateLabel = (
       color: params.color,
       description: params.description
     } satisfies UpdateLabelEntries
-    const result = yield* updateTag({
-      targetClass: issueTargetClass,
-      tag: params.label,
-      ...updateEntries
-    })
+    const result = yield* updateTag({ targetClass: issueTargetClass, tag: params.label, ...updateEntries })
 
     return { id: result.id, updated: result.updated }
   })
@@ -104,11 +91,8 @@ export const updateLabel = (
 export const deleteLabel = (
   params: DeleteLabelParams
 ): Effect.Effect<DeleteLabelResult, DeleteLabelError, HulyClient> =>
-  Effect.gen(function*() {
-    const result = yield* deleteTag({
-      targetClass: issueTargetClass,
-      tag: params.label
-    })
+  Effect.gen(function* () {
+    const result = yield* deleteTag({ targetClass: issueTargetClass, tag: params.label })
 
     return { id: result.id, deleted: result.deleted }
   })
@@ -116,32 +100,23 @@ export const deleteLabel = (
 export const removeIssueLabel = (
   params: RemoveLabelParams
 ): Effect.Effect<RemoveLabelResult, RemoveIssueLabelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, issue, project } = yield* findProjectAndIssue(params)
 
     const labelTitle = params.label.trim()
 
     const tagRefs = yield* client.findAll<TagReference>(
       tags.class.TagReference,
-      hulyQuery<TagReference>({
-        attachedTo: issue._id,
-        attachedToClass: tracker.class.Issue
-      })
+      hulyQuery<TagReference>({ attachedTo: issue._id, attachedToClass: tracker.class.Issue })
     )
 
-    const matchingRef = tagRefs.find(
-      r => r.title.toLowerCase() === labelTitle.toLowerCase()
-    )
+    const matchingRef = tagRefs.find((r) => r.title.toLowerCase() === labelTitle.toLowerCase())
 
     if (matchingRef === undefined) {
       return yield* new TagNotFoundError({ identifier: labelTitle })
     }
 
-    yield* client.removeDoc(
-      tags.class.TagReference,
-      project._id,
-      matchingRef._id
-    )
+    yield* client.removeDoc(tags.class.TagReference, project._id, matchingRef._id)
 
     return { identifier: IssueIdentifier.make(issue.identifier), labelRemoved: true }
   })

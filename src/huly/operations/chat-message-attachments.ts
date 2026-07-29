@@ -71,11 +71,7 @@ const dmMessageDisplay = (messageId: MessageId, dmId: ChannelId): NonEmptyString
 const threadReplyDisplay = (replyId: ThreadReplyId, messageId: MessageId, channelName: string): NonEmptyString =>
   NonEmptyString.make(`thread reply '${replyId}' on message '${messageId}' in channel '${channelName}'`)
 
-const targetCoordinates = (
-  space: Ref<Space>,
-  objectId: Ref<Doc>,
-  objectClass: Ref<Class<Doc>>
-) => ({
+const targetCoordinates = (space: Ref<Space>, objectId: Ref<Doc>, objectClass: Ref<Class<Doc>>) => ({
   space,
   objectId,
   objectClass,
@@ -88,7 +84,7 @@ const targetCoordinates = (
 const resolveChannelMessageTarget = (
   target: Extract<ChatMessageAttachmentTarget, { readonly kind: "channel_message" }>
 ): Effect.Effect<ResolvedChatAttachmentTarget, HulyDomainError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { channel, client, message } = yield* findChannelMessage(target)
     const messageId = MessageId.make(message._id)
     const coordinates = targetCoordinates(
@@ -119,7 +115,7 @@ const resolveChannelMessageTarget = (
 const resolveDmMessageTarget = (
   target: Extract<ChatMessageAttachmentTarget, { readonly kind: "dm_message" }>
 ): Effect.Effect<ResolvedChatAttachmentTarget, HulyDomainError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, dm, message } = yield* findDirectMessageMessage(target)
     const messageId = MessageId.make(message._id)
     const dmId = ChannelId.make(dm._id)
@@ -150,7 +146,7 @@ const resolveDmMessageTarget = (
 const resolveThreadReplyTarget = (
   target: Extract<ChatMessageAttachmentTarget, { readonly kind: "thread_reply" }>
 ): Effect.Effect<ResolvedChatAttachmentTarget, HulyDomainError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { channel, client, message } = yield* findChannelMessage(target)
     const reply = yield* findThreadReply(client, channel, message, target.replyId)
     const messageId = MessageId.make(message._id)
@@ -194,20 +190,14 @@ const resolveChatAttachmentTarget = (
   }
 }
 
-const scopedAttachmentNotFound = (
-  target: ResolvedChatAttachmentTarget,
-  attachmentId: AttachmentId
-) =>
-  new ChatMessageAttachmentNotFoundError({
-    target: target.target.display,
-    attachmentId
-  })
+const scopedAttachmentNotFound = (target: ResolvedChatAttachmentTarget, attachmentId: AttachmentId) =>
+  new ChatMessageAttachmentNotFoundError({ target: target.target.display, attachmentId })
 
 const removeChatAttachment = (
   target: ResolvedChatAttachmentTarget,
   attachmentId: AttachmentId
 ): Effect.Effect<void, HulyDomainError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const media = yield* findAttachmentForScope(target.client, attachmentId, chatMessageScope(target)).pipe(
       Effect.catchTag("AttachmentNotFoundError", () => scopedAttachmentNotFound(target, attachmentId))
     )
@@ -228,7 +218,7 @@ const removeChatAttachment = (
 export const listChatMessageAttachments = (
   params: ListChatMessageAttachmentsParams
 ): Effect.Effect<ListChatMessageAttachmentsResult, HulyDomainError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveChatAttachmentTarget(params.target)
     const page = yield* listAttachmentPageForScope(target.client, chatMessageScope(target), params.limit)
     return { target: target.target, attachments: page.attachments, total: page.total }
@@ -237,7 +227,7 @@ export const listChatMessageAttachments = (
 export const getChatMessageAttachment = (
   params: GetChatMessageAttachmentParams
 ): Effect.Effect<GetChatMessageAttachmentResult, HulyDomainError, HulyClient | HulyStorageClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const storageClient = yield* HulyStorageClient
     const target = yield* resolveChatAttachmentTarget(params.target)
     const attachmentResult = yield* getAttachmentForScope(
@@ -245,16 +235,14 @@ export const getChatMessageAttachment = (
       storageClient,
       params.attachmentId,
       chatMessageScope(target)
-    ).pipe(
-      Effect.catchTag("AttachmentNotFoundError", () => scopedAttachmentNotFound(target, params.attachmentId))
-    )
+    ).pipe(Effect.catchTag("AttachmentNotFoundError", () => scopedAttachmentNotFound(target, params.attachmentId)))
     return { target: target.target, attachment: attachmentResult }
   })
 
 export const addChatMessageAttachment = (
   params: AddChatMessageAttachmentParams
 ): Effect.Effect<AddChatMessageAttachmentResult, HulyDomainError, HulyClient | HulyStorageClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveChatAttachmentTarget(params.target)
     const result = yield* uploadAndAttach(params, {
       spaceRef: target.space,
@@ -263,25 +251,15 @@ export const addChatMessageAttachment = (
       attachmentClassRef: attachment.class.Attachment,
       collection: target.collection
     })
-    return {
-      target: target.target,
-      attachmentId: result.attachmentId,
-      blobId: result.blobId,
-      url: result.url
-    }
+    return { target: target.target, attachmentId: result.attachmentId, blobId: result.blobId, url: result.url }
   })
 
 export const updateChatMessageAttachment = (
   params: UpdateChatMessageAttachmentParams
 ): Effect.Effect<UpdateChatMessageAttachmentResult, HulyDomainError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveChatAttachmentTarget(params.target)
-    yield* updateAttachmentForScope(
-      target.client,
-      params.attachmentId,
-      params,
-      chatMessageScope(target)
-    ).pipe(
+    yield* updateAttachmentForScope(target.client, params.attachmentId, params, chatMessageScope(target)).pipe(
       Effect.catchTag("AttachmentNotFoundError", () => scopedAttachmentNotFound(target, params.attachmentId))
     )
     return { target: target.target, attachmentId: params.attachmentId, updated: true }
@@ -290,7 +268,7 @@ export const updateChatMessageAttachment = (
 export const deleteChatMessageAttachment = (
   params: DeleteChatMessageAttachmentParams
 ): Effect.Effect<DeleteChatMessageAttachmentResult, HulyDomainError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveChatAttachmentTarget(params.target)
     yield* removeChatAttachment(target, params.attachmentId)
     return { target: target.target, attachmentId: params.attachmentId, deleted: true }

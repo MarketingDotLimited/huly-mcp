@@ -63,7 +63,7 @@ const asNotifData = (v: unknown) => v as HulyInboxNotification["data"]
 
 describe("config - testLayerToken connectionTimeout explicit (line 172)", () => {
   it.effect("uses provided connectionTimeout instead of default", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const layer = HulyConfigService.testLayerToken({
         url: "https://test.huly.app",
         token: "tok",
@@ -78,20 +78,18 @@ describe("config - testLayerToken connectionTimeout explicit (line 172)", () => 
       if (config.auth._tag === "token") {
         expect(Redacted.value(config.auth.token)).toBe("tok")
       }
-    }))
+    })
+  )
 
   it.effect("falls back to DEFAULT_TIMEOUT when omitted", () =>
-    Effect.gen(function*() {
-      const layer = HulyConfigService.testLayerToken({
-        url: "https://test.huly.app",
-        token: "tok",
-        workspace: "ws"
-      })
+    Effect.gen(function* () {
+      const layer = HulyConfigService.testLayerToken({ url: "https://test.huly.app", token: "tok", workspace: "ws" })
 
       const config = yield* HulyConfigService.pipe(Effect.provide(layer))
 
       expect(config.connectionTimeout).toBe(HulyConfigService.DEFAULT_TIMEOUT)
-    }))
+    })
+  )
 })
 
 // ============================================================
@@ -100,17 +98,15 @@ describe("config - testLayerToken connectionTimeout explicit (line 172)", () => 
 
 describe("UploadFileParamsSchema - no source validation (storage.ts lines 25-26)", () => {
   it.effect("rejects when no filePath, fileUrl, or data provided", () =>
-    Effect.gen(function*() {
-      const result = yield* parseUploadFileParams({
-        filename: "test.txt",
-        contentType: "text/plain"
-      }).pipe(Effect.flip)
+    Effect.gen(function* () {
+      const result = yield* parseUploadFileParams({ filename: "test.txt", contentType: "text/plain" }).pipe(Effect.flip)
 
       expect(String(result)).toContain("Must provide filePath, fileUrl, or data")
-    }))
+    })
+  )
 
   it.effect("accepts when filePath is provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseUploadFileParams({
         filename: "test.txt",
         contentType: "text/plain",
@@ -118,7 +114,8 @@ describe("UploadFileParamsSchema - no source validation (storage.ts lines 25-26)
       })
 
       expect(result.filePath).toBe("/tmp/test.txt")
-    }))
+    })
+  )
 })
 
 // ============================================================
@@ -127,7 +124,7 @@ describe("UploadFileParamsSchema - no source validation (storage.ts lines 25-26)
 
 describe("AddAttachmentParamsSchema - hasFileSource falsy (attachments.ts lines 144-145)", () => {
   it.effect("rejects AddAttachmentParams when no file source", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseAddAttachmentParams({
         objectId: "obj-1",
         objectClass: "tracker:class:Issue",
@@ -137,10 +134,11 @@ describe("AddAttachmentParamsSchema - hasFileSource falsy (attachments.ts lines 
       }).pipe(Effect.flip)
 
       expect(String(result)).toContain("Must provide filePath, fileUrl, or data")
-    }))
+    })
+  )
 
   it.effect("rejects AddIssueAttachmentParams when no file source", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseAddIssueAttachmentParams({
         project: "PROJ",
         identifier: "PROJ-1",
@@ -149,10 +147,11 @@ describe("AddAttachmentParamsSchema - hasFileSource falsy (attachments.ts lines 
       }).pipe(Effect.flip)
 
       expect(String(result)).toContain("Must provide filePath, fileUrl, or data")
-    }))
+    })
+  )
 
   it.effect("rejects AddDocumentAttachmentParams when no file source", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseAddDocumentAttachmentParams({
         teamspace: "My Docs",
         document: "My Doc",
@@ -161,7 +160,8 @@ describe("AddAttachmentParamsSchema - hasFileSource falsy (attachments.ts lines 
       }).pipe(Effect.flip)
 
       expect(String(result)).toContain("Must provide filePath, fileUrl, or data")
-    }))
+    })
+  )
 })
 
 // ============================================================
@@ -170,16 +170,13 @@ describe("AddAttachmentParamsSchema - hasFileSource falsy (attachments.ts lines 
 // ============================================================
 
 describe("buildSocialIdToPersonNameMap - person resolved (channels.ts line 159)", () => {
-  const createChannelTestLayer = (config: {
-    socialIdentities: Array<SocialIdentity>
-    persons: Array<Person>
-  }) => {
+  const createChannelTestLayer = (config: { socialIdentities: Array<SocialIdentity>; persons: Array<Person> }) => {
     const findAllImpl: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown) => {
       if (_class === contact.class.SocialIdentity) {
         const q = query as { _id?: { $in?: Array<PersonId> } }
         const ids = q._id?.$in
         if (ids) {
-          const filtered = config.socialIdentities.filter(si => ids.includes(si._id))
+          const filtered = config.socialIdentities.filter((si) => ids.includes(si._id))
           return Effect.succeed(toFindResult(filtered))
         }
         return Effect.succeed(toFindResult(config.socialIdentities))
@@ -188,7 +185,7 @@ describe("buildSocialIdToPersonNameMap - person resolved (channels.ts line 159)"
         const q = query as { _id?: { $in?: Array<Ref<Person>> } }
         const personIds = q._id?.$in
         if (personIds) {
-          const filtered = config.persons.filter(p => personIds.includes(p._id))
+          const filtered = config.persons.filter((p) => personIds.includes(p._id))
           return Effect.succeed(toFindResult(filtered))
         }
         return Effect.succeed(toFindResult(config.persons))
@@ -200,7 +197,7 @@ describe("buildSocialIdToPersonNameMap - person resolved (channels.ts line 159)"
   }
 
   it.effect("resolves person names from socialIdentity IDs", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const client = yield* HulyClient
       const socialId = "social-alice" as PersonId
 
@@ -211,37 +208,42 @@ describe("buildSocialIdToPersonNameMap - person resolved (channels.ts line 159)"
     }).pipe(
       Effect.provide(
         createChannelTestLayer({
-          socialIdentities: [{
-            _id: "social-alice" as SocialIdentity["_id"],
-            _class: contact.class.SocialIdentity,
-            space: "space-1" as Ref<Space>,
-            attachedTo: "person-alice" as Ref<Person>,
-            attachedToClass: contact.class.Person,
-            collection: "socialIds",
-            type: SocialIdType.HULY,
-            value: "alice@example.com",
-            key: "huly:alice@example.com",
-            modifiedBy: "user-1" as PersonId,
-            modifiedOn: 0
-          }],
-          persons: [asPerson({
-            _id: "person-alice" as Ref<Person>,
-            _class: contact.class.Person,
-            space: "space-1" as Ref<Space>,
-            name: "Alice Smith",
-            modifiedBy: "user-1" as PersonId,
-            modifiedOn: 0,
-            createdBy: "user-1" as PersonId,
-            createdOn: 0
-          })]
+          socialIdentities: [
+            {
+              _id: "social-alice" as SocialIdentity["_id"],
+              _class: contact.class.SocialIdentity,
+              space: "space-1" as Ref<Space>,
+              attachedTo: "person-alice" as Ref<Person>,
+              attachedToClass: contact.class.Person,
+              collection: "socialIds",
+              type: SocialIdType.HULY,
+              value: "alice@example.com",
+              key: "huly:alice@example.com",
+              modifiedBy: "user-1" as PersonId,
+              modifiedOn: 0
+            }
+          ],
+          persons: [
+            asPerson({
+              _id: "person-alice" as Ref<Person>,
+              _class: contact.class.Person,
+              space: "space-1" as Ref<Space>,
+              name: "Alice Smith",
+              modifiedBy: "user-1" as PersonId,
+              modifiedOn: 0,
+              createdBy: "user-1" as PersonId,
+              createdOn: 0
+            })
+          ]
         })
       )
-    ))
+    )
+  )
 })
 
 describe("channels - buildAccountUuidToNameMap emp.personUuid truthy (line 187)", () => {
   it.effect("resolves member names in listDirectMessages via buildAccountUuidToNameMap", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const dm: HulyDirectMessage = {
         _id: "dm-1" as Ref<HulyDirectMessage>,
         _class: chunter.class.DirectMessage,
@@ -302,7 +304,8 @@ describe("channels - buildAccountUuidToNameMap emp.personUuid truthy (line 187)"
       expect(result.conversations).toHaveLength(1)
       expect(assertAt(result.conversations, 0).participants).toContain("Alice")
       expect(assertAt(result.conversations, 0).participants).toContain("Bob")
-    }))
+    })
+  )
 })
 
 // ============================================================
@@ -316,7 +319,7 @@ describe("listTeamspaces - description || undefined branches (documents.ts line 
         const q = query as Record<string, unknown>
         let filtered = [...teamspaces]
         if (q.archived !== undefined) {
-          filtered = filtered.filter(ts => ts.archived === q.archived)
+          filtered = filtered.filter((ts) => ts.archived === q.archived)
         }
         return Effect.succeed(toFindResult(filtered))
       }
@@ -343,24 +346,26 @@ describe("listTeamspaces - description || undefined branches (documents.ts line 
     })
 
   it.effect("maps truthy description to its value", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const ts = makeTeamspace({ description: "Has description" })
       const testLayer = createDocTestLayer([ts])
 
       const result = yield* listTeamspaces({}).pipe(Effect.provide(testLayer))
 
       expect(assertAt(result.teamspaces, 0).description).toBe("Has description")
-    }))
+    })
+  )
 
   it.effect("maps falsy description to undefined", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const ts = makeTeamspace({ description: "" })
       const testLayer = createDocTestLayer([ts])
 
       const result = yield* listTeamspaces({}).pipe(Effect.provide(testLayer))
 
       expect(assertAt(result.teamspaces, 0).description).toBeUndefined()
-    }))
+    })
+  )
 })
 
 // ============================================================
@@ -411,27 +416,28 @@ describe("getIssueTemplate - assignee/component lookup false branches (issue-tem
     persons?: Array<Person>
     components?: Array<HulyComponent>
   }) => {
-    const findAllImpl: HulyClientOperations["findAll"] =
-      (() => Effect.succeed(toFindResult([]))) as HulyClientOperations["findAll"]
+    const findAllImpl: HulyClientOperations["findAll"] = (() =>
+      Effect.succeed(toFindResult([]))) as HulyClientOperations["findAll"]
 
     const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
       if (_class === tracker.class.Project) {
         const q = query as Record<string, unknown>
-        const found = config.projects.find(p => p.identifier === q.identifier)
+        const found = config.projects.find((p) => p.identifier === q.identifier)
         return Effect.succeed(found)
       }
       if (_class === tracker.class.IssueTemplate) {
         const q = query as Record<string, unknown>
-        const found = config.templates.find(t =>
-          (q._id && t._id === q._id && (!q.space || t.space === q.space))
-          || (q.title && t.title === q.title && (!q.space || t.space === q.space))
+        const found = config.templates.find(
+          (t) =>
+            (q._id && t._id === q._id && (!q.space || t.space === q.space)) ||
+            (q.title && t.title === q.title && (!q.space || t.space === q.space))
         )
         return Effect.succeed(found)
       }
       if (_class === contact.class.Person) {
         const q = query as Record<string, unknown>
         if (q._id) {
-          const found = (config.persons ?? []).find(p => p._id === q._id)
+          const found = (config.persons ?? []).find((p) => p._id === q._id)
           return Effect.succeed(found)
         }
         return Effect.succeed(undefined)
@@ -439,7 +445,7 @@ describe("getIssueTemplate - assignee/component lookup false branches (issue-tem
       if (_class === tracker.class.Component) {
         const q = query as Record<string, unknown>
         if (q._id) {
-          const found = (config.components ?? []).find(c => c._id === q._id)
+          const found = (config.components ?? []).find((c) => c._id === q._id)
           return Effect.succeed(found)
         }
         return Effect.succeed(undefined)
@@ -451,16 +457,10 @@ describe("getIssueTemplate - assignee/component lookup false branches (issue-tem
   }
 
   it.effect("returns undefined assignee when assignee ref exists but person not found in DB", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject()
-      const template = makeTemplate({
-        assignee: "nonexistent-person" as Ref<Person>
-      })
-      const testLayer = createIssueTemplateTestLayer({
-        projects: [project],
-        templates: [template],
-        persons: []
-      })
+      const template = makeTemplate({ assignee: "nonexistent-person" as Ref<Person> })
+      const testLayer = createIssueTemplateTestLayer({ projects: [project], templates: [template], persons: [] })
 
       const result = yield* getIssueTemplate({
         project: projectIdentifier("TEST"),
@@ -468,19 +468,14 @@ describe("getIssueTemplate - assignee/component lookup false branches (issue-tem
       }).pipe(Effect.provide(testLayer))
 
       expect(result.assignee).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("returns undefined component when component ref exists but component not found in DB", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject()
-      const template = makeTemplate({
-        component: "nonexistent-comp" as Ref<HulyComponent>
-      })
-      const testLayer = createIssueTemplateTestLayer({
-        projects: [project],
-        templates: [template],
-        components: []
-      })
+      const template = makeTemplate({ component: "nonexistent-comp" as Ref<HulyComponent> })
+      const testLayer = createIssueTemplateTestLayer({ projects: [project], templates: [template], components: [] })
 
       const result = yield* getIssueTemplate({
         project: projectIdentifier("TEST"),
@@ -488,7 +483,8 @@ describe("getIssueTemplate - assignee/component lookup false branches (issue-tem
       }).pipe(Effect.provide(testLayer))
 
       expect(result.component).toBeUndefined()
-    }))
+    })
+  )
 })
 
 // ============================================================
@@ -520,7 +516,7 @@ describe("getNotification - notif.data truthy branch (notifications.ts line 207)
     const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
       if (_class === notification.class.InboxNotification) {
         const q = query as { _id?: Ref<HulyInboxNotification> }
-        const found = notifications.find(n => n._id === q._id)
+        const found = notifications.find((n) => n._id === q._id)
         return Effect.succeed(found)
       }
       return Effect.succeed(undefined)
@@ -530,10 +526,8 @@ describe("getNotification - notif.data truthy branch (notifications.ts line 207)
   }
 
   it.effect("returns data when notif.data is truthy", () =>
-    Effect.gen(function*() {
-      const notif = makeNotification({
-        data: asNotifData({ key: "value" })
-      } as Partial<HulyInboxNotification>)
+    Effect.gen(function* () {
+      const notif = makeNotification({ data: asNotifData({ key: "value" }) } as Partial<HulyInboxNotification>)
       const testLayer = createNotifTestLayer([notif])
 
       const result = yield* getNotification({ notificationId: notificationBrandId("notif-1") }).pipe(
@@ -541,10 +535,11 @@ describe("getNotification - notif.data truthy branch (notifications.ts line 207)
       )
 
       expect(result.data).toEqual({ key: "value" })
-    }))
+    })
+  )
 
   it.effect("returns undefined data when notif.data is falsy", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const notif = makeNotification()
       const testLayer = createNotifTestLayer([notif])
 
@@ -553,7 +548,8 @@ describe("getNotification - notif.data truthy branch (notifications.ts line 207)
       )
 
       expect(result.data).toBeUndefined()
-    }))
+    })
+  )
 })
 
 // ============================================================
@@ -577,34 +573,28 @@ describe("listWorkspaces - ws.region defined branch (workspace.ts line 143)", ()
   })
 
   it.effect("maps ws.region to RegionId when defined", () =>
-    Effect.gen(function*() {
-      const workspaces = [
-        mkWorkspaceInfo({ uuid: "ws-1" as WorkspaceInfoWithStatus["uuid"], region: "eu-west" })
-      ]
-      const testLayer = WorkspaceClient.testLayer({
-        getUserWorkspaces: () => Effect.succeed(workspaces)
-      })
+    Effect.gen(function* () {
+      const workspaces = [mkWorkspaceInfo({ uuid: "ws-1" as WorkspaceInfoWithStatus["uuid"], region: "eu-west" })]
+      const testLayer = WorkspaceClient.testLayer({ getUserWorkspaces: () => Effect.succeed(workspaces) })
 
       const result = yield* listWorkspaces({}).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).region).toBe("eu-west")
-    }))
+    })
+  )
 
   it.effect("maps ws.region to undefined when not defined", () =>
-    Effect.gen(function*() {
-      const workspaces = [
-        mkWorkspaceInfo({ uuid: "ws-1" as WorkspaceInfoWithStatus["uuid"] })
-      ]
-      const testLayer = WorkspaceClient.testLayer({
-        getUserWorkspaces: () => Effect.succeed(workspaces)
-      })
+    Effect.gen(function* () {
+      const workspaces = [mkWorkspaceInfo({ uuid: "ws-1" as WorkspaceInfoWithStatus["uuid"] })]
+      const testLayer = WorkspaceClient.testLayer({ getUserWorkspaces: () => Effect.succeed(workspaces) })
 
       const result = yield* listWorkspaces({}).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).region).toBeUndefined()
-    }))
+    })
+  )
 })
 
 // ============================================================
@@ -613,7 +603,7 @@ describe("listWorkspaces - ws.region defined branch (workspace.ts line 143)", ()
 
 describe("listChannels - includeArchived true (channels.ts line 209 true branch)", () => {
   it.effect("includes archived channels when includeArchived is true", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const archivedChannel: HulyChannel = {
         _id: "ch-archived" as Ref<HulyChannel>,
         _class: chunter.class.Channel,
@@ -653,7 +643,7 @@ describe("listChannels - includeArchived true (channels.ts line 209 true branch)
           const q = query as Record<string, unknown>
           let channels = [archivedChannel, activeChannel]
           if (q.archived !== undefined) {
-            channels = channels.filter(c => c.archived === q.archived)
+            channels = channels.filter((c) => c.archived === q.archived)
           }
           return Effect.succeed(toFindResult(channels))
         }
@@ -665,5 +655,6 @@ describe("listChannels - includeArchived true (channels.ts line 209 true branch)
       const result = yield* listChannels({ includeArchived: true }).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(2)
-    }))
+    })
+  )
 })

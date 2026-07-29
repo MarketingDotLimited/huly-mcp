@@ -162,60 +162,69 @@ const makeLayer = (config?: {
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
-  const fetchMarkup: HulyClientOperations["fetchMarkup"] =
-    ((_class: unknown, _id: unknown, _attr: unknown, ref: unknown) =>
-      Effect.succeed(ref === "room-desc" ? "Room description" : "Meeting notes")) as HulyClientOperations["fetchMarkup"]
+  const fetchMarkup: HulyClientOperations["fetchMarkup"] = ((
+    _class: unknown,
+    _id: unknown,
+    _attr: unknown,
+    ref: unknown
+  ) =>
+    Effect.succeed(ref === "room-desc" ? "Room description" : "Meeting notes")) as HulyClientOperations["fetchMarkup"]
 
   return HulyClient.testLayer({ fetchMarkup, findAll, findOne })
 }
 
 describe("virtual office operations", () => {
   it.effect("lists floors and rooms with enum strings", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const floors = yield* listOfficeFloors({}).pipe(Effect.provide(makeLayer()))
       const rooms = yield* listOfficeRooms({}).pipe(Effect.provide(makeLayer()))
 
       expect(assertAt(floors, 0).name).toBe("Main")
       expect(assertAt(rooms, 0).type).toBe("video")
       expect(assertAt(rooms, 0).access).toBe("open")
-    }))
+    })
+  )
 
   it.effect("omits optional floor and room counters when Huly leaves them unset", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const floors = yield* listOfficeFloors({}).pipe(
         Effect.provide(makeLayer({ floors: [makeFloor({ modifiedOn: undefined })] }))
       )
       const rooms = yield* listOfficeRooms({}).pipe(
-        Effect.provide(makeLayer({
-          rooms: [makeRoom({ meetings: undefined, messages: undefined, modifiedOn: undefined })]
-        }))
+        Effect.provide(
+          makeLayer({ rooms: [makeRoom({ meetings: undefined, messages: undefined, modifiedOn: undefined })] })
+        )
       )
 
       expect(assertAt(floors, 0).modifiedOn).toBeUndefined()
       expect(assertAt(rooms, 0).meetings).toBeUndefined()
       expect(assertAt(rooms, 0).messages).toBeUndefined()
       expect(assertAt(rooms, 0).modifiedOn).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("gets a floor and maps alternate room enum values", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const floor = yield* getOfficeFloor({ floorId: floorId("floor-1") }).pipe(Effect.provide(makeLayer()))
       const rooms = yield* listOfficeRooms({ floorId: floorId("floor-1") }).pipe(
-        Effect.provide(makeLayer({
-          rooms: [
-            makeRoom({ _id: "room-2" as Ref<Room>, type: RoomType.Audio, access: RoomAccess.Knock }),
-            makeRoom({ _id: "room-3" as Ref<Room>, type: RoomType.Reception, access: RoomAccess.DND })
-          ]
-        }))
+        Effect.provide(
+          makeLayer({
+            rooms: [
+              makeRoom({ _id: "room-2" as Ref<Room>, type: RoomType.Audio, access: RoomAccess.Knock }),
+              makeRoom({ _id: "room-3" as Ref<Room>, type: RoomType.Reception, access: RoomAccess.DND })
+            ]
+          })
+        )
       )
 
       expect(floor.name).toBe("Main")
       expect(rooms.map((room) => room.type)).toEqual(["audio", "reception"])
       expect(rooms.map((room) => room.access)).toEqual(["knock", "dnd"])
-    }))
+    })
+  )
 
   it.effect("fails for missing floors and rooms", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const floorError = yield* Effect.flip(
         getOfficeFloor({ floorId: floorId("missing-floor") }).pipe(Effect.provide(makeLayer({ floors: [] })))
       )
@@ -225,34 +234,38 @@ describe("virtual office operations", () => {
 
       expect(floorError._tag).toBe("FloorNotFoundError")
       expect(roomError._tag).toBe("RoomNotFoundError")
-    }))
+    })
+  )
 
   it.effect("gets room description", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const room = yield* getOfficeRoom({ roomId: roomId("room-1") }).pipe(Effect.provide(makeLayer()))
 
       expect(room.description).toBe("Room description")
-    }))
+    })
+  )
 
   it.effect("does not fetch room markup when description is empty", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const room = yield* getOfficeRoom({ roomId: roomId("room-1") }).pipe(
         Effect.provide(makeLayer({ rooms: [makeRoom({ description: null })] }))
       )
 
       expect(room.description).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("lists offices with assigned person names", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const offices = yield* listOffices({}).pipe(Effect.provide(makeLayer()))
 
       expect(assertAt(offices, 0).personId).toBe("person-1")
       expect(assertAt(offices, 0).personName).toBe("Alice")
-    }))
+    })
+  )
 
   it.effect("gets offices and handles unassigned offices", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const assigned = yield* getOffice({ roomId: roomId("office-1") }).pipe(Effect.provide(makeLayer()))
       const unassignedOffice = makeOffice({ person: null, description: null })
       const unresolvedPersonOffice = makeOffice({ person: "person-1" as Ref<Person>, description: null })
@@ -277,19 +290,21 @@ describe("virtual office operations", () => {
       expect(assertAt(unresolvedPersonList, 0).personId).toBe("person-1")
       expect(assertAt(unresolvedPersonList, 0).personName).toBeUndefined()
       expect(assertAt(unnamedList, 0).name).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("fails for missing offices", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         getOffice({ roomId: roomId("missing-office") }).pipe(Effect.provide(makeLayer({ offices: [] })))
       )
 
       expect(error._tag).toBe("RoomNotFoundError")
-    }))
+    })
+  )
 
   it.effect("handles empty active room discovery", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const activeRooms = yield* listActiveRoomInfo({}).pipe(Effect.provide(makeLayer({ roomInfos: [] })))
       const participants = yield* listActiveRoomParticipants({ roomId: roomId("room-1") }).pipe(
         Effect.provide(makeLayer({ participants: [] }))
@@ -297,98 +312,119 @@ describe("virtual office operations", () => {
 
       expect(activeRooms).toEqual([])
       expect(participants).toEqual([])
-    }))
+    })
+  )
 
   it.effect("maps active room and participant info", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const activeRooms = yield* listActiveRoomInfo({}).pipe(
-        Effect.provide(makeLayer({
-          roomInfos: [{
-            _id: "info-1" as Ref<RoomInfo>,
-            _class: love.class.RoomInfo,
-            space: "transient" as Ref<Space>,
-            modifiedOn: 1,
-            createdOn: 1,
-            createdBy: "user" as HulyPersonId,
-            room: "room-1" as Ref<Room>,
-            isOffice: false,
-            persons: ["person-1" as Ref<Person>]
-          } as RoomInfo]
-        }))
+        Effect.provide(
+          makeLayer({
+            roomInfos: [
+              {
+                _id: "info-1" as Ref<RoomInfo>,
+                _class: love.class.RoomInfo,
+                space: "transient" as Ref<Space>,
+                modifiedOn: 1,
+                createdOn: 1,
+                createdBy: "user" as HulyPersonId,
+                room: "room-1" as Ref<Room>,
+                isOffice: false,
+                persons: ["person-1" as Ref<Person>]
+              } as RoomInfo
+            ]
+          })
+        )
       )
       const participants = yield* listActiveRoomParticipants({}).pipe(
-        Effect.provide(makeLayer({
-          participants: [{
-            _id: "participant-1" as Ref<ParticipantInfo>,
-            _class: love.class.ParticipantInfo,
-            space: "transient" as Ref<Space>,
-            modifiedOn: 1,
-            createdOn: 1,
-            createdBy: "user" as HulyPersonId,
-            name: "Alice",
-            person: "person-1" as Ref<Person>,
-            room: "room-1" as Ref<Room>,
-            x: 3,
-            y: 4,
-            sessionId: "session-1",
-            account: "00000000-0000-4000-8000-000000000001" as HulyPersonId
-          } as unknown as ParticipantInfo]
-        }))
+        Effect.provide(
+          makeLayer({
+            participants: [
+              {
+                _id: "participant-1" as Ref<ParticipantInfo>,
+                _class: love.class.ParticipantInfo,
+                space: "transient" as Ref<Space>,
+                modifiedOn: 1,
+                createdOn: 1,
+                createdBy: "user" as HulyPersonId,
+                name: "Alice",
+                person: "person-1" as Ref<Person>,
+                room: "room-1" as Ref<Room>,
+                x: 3,
+                y: 4,
+                sessionId: "session-1",
+                account: "00000000-0000-4000-8000-000000000001" as HulyPersonId
+              } as unknown as ParticipantInfo
+            ]
+          })
+        )
       )
       const anonymousParticipants = yield* listActiveRoomParticipants({ roomId: roomId("room-1") }).pipe(
-        Effect.provide(makeLayer({
-          participants: [{
-            _id: "participant-2" as Ref<ParticipantInfo>,
-            _class: love.class.ParticipantInfo,
-            space: "transient" as Ref<Space>,
-            modifiedOn: 1,
-            createdOn: 1,
-            createdBy: "user" as HulyPersonId,
-            name: "Guest",
-            person: "person-2" as Ref<Person>,
-            room: "room-1" as Ref<Room>,
-            x: 5,
-            y: 6,
-            sessionId: null,
-            account: null
-          } as ParticipantInfo]
-        }))
+        Effect.provide(
+          makeLayer({
+            participants: [
+              {
+                _id: "participant-2" as Ref<ParticipantInfo>,
+                _class: love.class.ParticipantInfo,
+                space: "transient" as Ref<Space>,
+                modifiedOn: 1,
+                createdOn: 1,
+                createdBy: "user" as HulyPersonId,
+                name: "Guest",
+                person: "person-2" as Ref<Person>,
+                room: "room-1" as Ref<Room>,
+                x: 5,
+                y: 6,
+                sessionId: null,
+                account: null
+              } as ParticipantInfo
+            ]
+          })
+        )
       )
       const missingRoomInfo = yield* listActiveRoomInfo({}).pipe(
-        Effect.provide(makeLayer({
-          rooms: [],
-          roomInfos: [{
-            _id: "info-2" as Ref<RoomInfo>,
-            _class: love.class.RoomInfo,
-            space: "transient" as Ref<Space>,
-            modifiedOn: 1,
-            createdOn: 1,
-            createdBy: "user" as HulyPersonId,
-            room: "room-1" as Ref<Room>,
-            isOffice: false,
-            persons: []
-          } as unknown as RoomInfo]
-        }))
+        Effect.provide(
+          makeLayer({
+            rooms: [],
+            roomInfos: [
+              {
+                _id: "info-2" as Ref<RoomInfo>,
+                _class: love.class.RoomInfo,
+                space: "transient" as Ref<Space>,
+                modifiedOn: 1,
+                createdOn: 1,
+                createdBy: "user" as HulyPersonId,
+                room: "room-1" as Ref<Room>,
+                isOffice: false,
+                persons: []
+              } as unknown as RoomInfo
+            ]
+          })
+        )
       )
       const missingRoomParticipants = yield* listActiveRoomParticipants({}).pipe(
-        Effect.provide(makeLayer({
-          rooms: [],
-          participants: [{
-            _id: "participant-3" as Ref<ParticipantInfo>,
-            _class: love.class.ParticipantInfo,
-            space: "transient" as Ref<Space>,
-            modifiedOn: 1,
-            createdOn: 1,
-            createdBy: "user" as HulyPersonId,
-            name: "No Room",
-            person: "person-1" as Ref<Person>,
-            room: "room-1" as Ref<Room>,
-            x: 0,
-            y: 0,
-            sessionId: null,
-            account: null
-          } as ParticipantInfo]
-        }))
+        Effect.provide(
+          makeLayer({
+            rooms: [],
+            participants: [
+              {
+                _id: "participant-3" as Ref<ParticipantInfo>,
+                _class: love.class.ParticipantInfo,
+                space: "transient" as Ref<Space>,
+                modifiedOn: 1,
+                createdOn: 1,
+                createdBy: "user" as HulyPersonId,
+                name: "No Room",
+                person: "person-1" as Ref<Person>,
+                room: "room-1" as Ref<Room>,
+                x: 0,
+                y: 0,
+                sessionId: null,
+                account: null
+              } as ParticipantInfo
+            ]
+          })
+        )
       )
 
       expect(assertAt(activeRooms, 0).roomName).toBe("Focus")
@@ -398,10 +434,11 @@ describe("virtual office operations", () => {
       expect(assertAt(anonymousParticipants, 0).account).toBeUndefined()
       expect(assertAt(missingRoomInfo, 0).roomName).toBeUndefined()
       expect(assertAt(missingRoomParticipants, 0).roomName).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("lists and gets meeting minutes", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const list = yield* listMeetingMinutes({}).pipe(Effect.provide(makeLayer()))
       const details = yield* getMeetingMinutes({ meetingMinutesId: minutesId("minutes-1") }).pipe(
         Effect.provide(makeLayer())
@@ -409,10 +446,11 @@ describe("virtual office operations", () => {
 
       expect(assertAt(list, 0).status).toBe("active")
       expect(details.description).toBe("Meeting notes")
-    }))
+    })
+  )
 
   it.effect("filters meeting minutes, maps finished status, and handles empty descriptions", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const fromList = yield* listMeetingMinutes({ attachedToId: DocId.make("room-1"), from: Timestamp.make(50) }).pipe(
         Effect.provide(makeLayer({ minutes: [makeMinutes({ status: MeetingStatus.Finished })] }))
       )
@@ -424,10 +462,11 @@ describe("virtual office operations", () => {
       expect(assertAt(fromList, 0).status).toBe("finished")
       expect(assertAt(toList, 0).meetingEnd).toBe(200)
       expect(details.description).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("fails for missing meeting minutes", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         getMeetingMinutes({ meetingMinutesId: minutesId("missing-minutes") }).pipe(
           Effect.provide(makeLayer({ minutes: [] }))
@@ -435,30 +474,36 @@ describe("virtual office operations", () => {
       )
 
       expect(error._tag).toBe("MeetingMinutesNotFoundError")
-    }))
+    })
+  )
 
   it.effect("lists device preferences and office defaults", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const preferences = yield* listDevicePreferences({}).pipe(
-        Effect.provide(makeLayer({
-          preferences: [{
-            _id: "pref-1" as Ref<DevicesPreference>,
-            _class: love.class.DevicesPreference,
-            space: "preference:space" as Ref<Space>,
-            modifiedOn: 1,
-            createdOn: 1,
-            createdBy: "user" as HulyPersonId,
-            attachedTo: "user" as Ref<DevicesPreference>,
-            blurRadius: 8,
-            camEnabled: true,
-            micEnabled: false,
-            noiseCancellation: true
-          } as unknown as DevicesPreference]
-        }))
+        Effect.provide(
+          makeLayer({
+            preferences: [
+              {
+                _id: "pref-1" as Ref<DevicesPreference>,
+                _class: love.class.DevicesPreference,
+                space: "preference:space" as Ref<Space>,
+                modifiedOn: 1,
+                createdOn: 1,
+                createdBy: "user" as HulyPersonId,
+                attachedTo: "user" as Ref<DevicesPreference>,
+                blurRadius: 8,
+                camEnabled: true,
+                micEnabled: false,
+                noiseCancellation: true
+              } as unknown as DevicesPreference
+            ]
+          })
+        )
       )
       const defaults = yield* listOfficeDefaults({}).pipe(Effect.provide(makeLayer()))
 
       expect(assertAt(preferences, 0).noiseCancellation).toBe(true)
       expect(assertAt(defaults, 0).startWithTranscription).toBe(true)
-    }))
+    })
+  )
 })

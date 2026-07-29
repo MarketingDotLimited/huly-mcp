@@ -20,16 +20,9 @@ import { hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 import { attachTagReference, ensureTagElement } from "./tags-shared.js"
 
-type AddLabelError =
-  | HulyClientError
-  | TagCategoryNotFoundError
-  | ProjectNotFoundError
-  | IssueNotFoundError
+type AddLabelError = HulyClientError | TagCategoryNotFoundError | ProjectNotFoundError | IssueNotFoundError
 
-type MoveIssueError =
-  | HulyClientError
-  | ProjectNotFoundError
-  | IssueNotFoundError
+type MoveIssueError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
 
 const issueTargetClass = TagTargetClass.make(String(tracker.class.Issue))
 
@@ -41,10 +34,8 @@ const issueTargetClass = TagTargetClass.make(String(tracker.class.Issue))
  *
  * Idempotent: adding the same label twice is a no-op.
  */
-export const addLabel = (
-  params: AddLabelParams
-): Effect.Effect<AddLabelResult, AddLabelError, HulyClient> =>
-  Effect.gen(function*() {
+export const addLabel = (params: AddLabelParams): Effect.Effect<AddLabelResult, AddLabelError, HulyClient> =>
+  Effect.gen(function* () {
     const { issue, project } = yield* findProjectAndIssue(params)
     const labelTitle = params.label.trim()
     const tag = yield* ensureTagElement({
@@ -66,55 +57,43 @@ export const addLabel = (
     return { identifier: IssueIdentifier.make(issue.identifier), labelAdded: result.attached }
   })
 
-export const moveIssue = (
-  params: MoveIssueParams
-): Effect.Effect<MoveIssueResult, MoveIssueError, HulyClient> =>
-  Effect.gen(function*() {
+export const moveIssue = (params: MoveIssueParams): Effect.Effect<MoveIssueResult, MoveIssueError, HulyClient> =>
+  Effect.gen(function* () {
     const { client, issue, project } = yield* findProjectAndIssue(params)
 
     const oldParentIsIssue = hasConcreteIssueParent(issue)
 
     type MoveTarget =
+      | { readonly _tag: "TopLevel"; readonly parent: ReturnType<typeof topLevelIssueParent> }
       | {
-        readonly _tag: "TopLevel"
-        readonly parent: ReturnType<typeof topLevelIssueParent>
-      }
-      | {
-        readonly _tag: "Child"
-        readonly identifier: IssueIdentifier
-        readonly issue: HulyIssue
-        readonly parent: ReturnType<typeof topLevelIssueParent>
-      }
-    const newParentParam = params.newParent
-    const target: MoveTarget = newParentParam !== null
-      ? yield* Effect.gen(function*() {
-        const parentIssue = yield* findIssueInProject(client, project, newParentParam)
-        return {
-          _tag: "Child" as const,
-          identifier: IssueIdentifier.make(parentIssue.identifier),
-          issue: parentIssue,
-          parent: childIssueParent(parentIssue, project._id)
+          readonly _tag: "Child"
+          readonly identifier: IssueIdentifier
+          readonly issue: HulyIssue
+          readonly parent: ReturnType<typeof topLevelIssueParent>
         }
-      })
-      : {
-        _tag: "TopLevel",
-        parent: topLevelIssueParent()
-      }
+    const newParentParam = params.newParent
+    const target: MoveTarget =
+      newParentParam !== null
+        ? yield* Effect.gen(function* () {
+            const parentIssue = yield* findIssueInProject(client, project, newParentParam)
+            return {
+              _tag: "Child" as const,
+              identifier: IssueIdentifier.make(parentIssue.identifier),
+              issue: parentIssue,
+              parent: childIssueParent(parentIssue, project._id)
+            }
+          })
+        : { _tag: "TopLevel", parent: topLevelIssueParent() }
 
     if (target._tag === "Child") {
       yield* attachIssueChild(client, project._id, issue._id, target.issue, {})
     } else {
-      yield* client.updateDoc(
-        tracker.class.Issue,
-        project._id,
-        issue._id,
-        {
-          attachedTo: toRef<HulyIssue>(target.parent.attachedTo),
-          attachedToClass: target.parent.attachedToClass,
-          collection: target.parent.collection,
-          parents: target.parent.parents
-        }
-      )
+      yield* client.updateDoc(tracker.class.Issue, project._id, issue._id, {
+        attachedTo: toRef<HulyIssue>(target.parent.attachedTo),
+        attachedToClass: target.parent.attachedToClass,
+        collection: target.parent.collection,
+        parents: target.parent.parents
+      })
     }
 
     // Update subIssues count on old parent (decrement) if it was an issue
@@ -134,10 +113,7 @@ export const moveIssue = (
       yield* updateDescendantParents(client, project._id, issue, target.parent.parents)
     }
 
-    const result: MoveIssueResult = {
-      identifier: IssueIdentifier.make(issue.identifier),
-      moved: true
-    }
+    const result: MoveIssueResult = { identifier: IssueIdentifier.make(issue.identifier), moved: true }
     if (target._tag === "Child") {
       return { ...result, newParent: target.identifier }
     }
@@ -150,7 +126,7 @@ const updateDescendantParents = (
   parentIssue: HulyIssue,
   parentNewParents: Array<IssueParentInfo>
 ): Effect.Effect<void, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const thisParentInfo: IssueParentInfo = {
       parentId: parentIssue._id,
       identifier: parentIssue.identifier,
@@ -163,12 +139,7 @@ const updateDescendantParents = (
     )
     for (const child of children) {
       const childNewParents = [...parentNewParents, thisParentInfo]
-      yield* client.updateDoc(
-        tracker.class.Issue,
-        spaceId,
-        child._id,
-        { parents: childNewParents }
-      )
+      yield* client.updateDoc(tracker.class.Issue, spaceId, child._id, { parents: childNewParents })
       if (child.subIssues > 0) {
         yield* updateDescendantParents(client, spaceId, child, childNewParents)
       }

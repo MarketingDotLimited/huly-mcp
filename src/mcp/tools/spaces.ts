@@ -57,8 +57,7 @@ export const spaceTools = [
   defineTool(
     {
       name: "list_spaces",
-      description:
-        `List generic Huly spaces across modules. When includeArchived is omitted, includeArchived=${DEFAULT_INCLUDE_ARCHIVED}. Returns raw space id, class, type, privacy, archived, autoJoin, member count, and owner count so module-specific tools can reuse the result.`,
+      description: `List generic Huly spaces across modules. When includeArchived is omitted, includeArchived=${DEFAULT_INCLUDE_ARCHIVED}. Returns raw space id, class, type, privacy, archived, autoJoin, member count, and owner count so module-specific tools can reuse the result.`,
       category: CATEGORY,
       inputSchema: listSpacesParamsJsonSchema,
       resultSchema: ListSpacesResultSchema

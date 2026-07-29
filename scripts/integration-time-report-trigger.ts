@@ -19,15 +19,8 @@ const CliArgsSchema = Schema.Struct({
   estimateHours: Schema.NumberFromString.pipe(Schema.compose(PositiveTimeHours)),
   reportHours: Schema.NumberFromString.pipe(Schema.compose(PositiveTimeHours))
 })
-const TimeAggregateStateSchema = Schema.Struct({
-  reportedTime: TimeHours,
-  remainingTime: TimeHours,
-  reports: Count
-})
-const TimeReportStateSchema = Schema.Struct({
-  ...TimeAggregateStateSchema.fields,
-  employee: Schema.NullOr(PersonId)
-})
+const TimeAggregateStateSchema = Schema.Struct({ reportedTime: TimeHours, remainingTime: TimeHours, reports: Count })
+const TimeReportStateSchema = Schema.Struct({ ...TimeAggregateStateSchema.fields, employee: Schema.NullOr(PersonId) })
 const TriggerCheckResultSchema = Schema.Struct({
   employee: PersonId,
   afterCreate: TimeAggregateStateSchema,
@@ -94,16 +87,13 @@ const readState = async (args: CliArgs): Promise<TimeReportState> => {
 const closeEnough = (actual: TimeHours, expected: TimeHours): boolean =>
   Math.abs(actual - expected) < Number.EPSILON * FLOAT_TOLERANCE_MULTIPLIER
 
-const waitForState = async (
-  args: CliArgs,
-  expected: TimeAggregateState
-): Promise<TimeReportState> => {
+const waitForState = async (args: CliArgs, expected: TimeAggregateState): Promise<TimeReportState> => {
   for (let attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
     const state = await readState(args)
     if (
-      closeEnough(state.reportedTime, expected.reportedTime)
-      && closeEnough(state.remainingTime, expected.remainingTime)
-      && state.reports === expected.reports
+      closeEnough(state.reportedTime, expected.reportedTime) &&
+      closeEnough(state.remainingTime, expected.remainingTime) &&
+      state.reports === expected.reports
     ) {
       return state
     }

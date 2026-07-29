@@ -29,12 +29,8 @@ export * from "./chat-message-attachment-results.js"
 
 const ChannelMessageTargetSchema = Schema.Struct({
   kind: Schema.Literal("channel_message"),
-  channel: ChannelIdentifier.annotations({
-    description: "Channel name or ID containing the message."
-  }),
-  messageId: MessageId.annotations({
-    description: "Channel message ID."
-  })
+  channel: ChannelIdentifier.annotations({ description: "Channel name or ID containing the message." }),
+  messageId: MessageId.annotations({ description: "Channel message ID." })
 })
 
 const DmMessageTargetSchema = Schema.Struct({
@@ -42,22 +38,14 @@ const DmMessageTargetSchema = Schema.Struct({
   dm: DirectMessageIdentifier.annotations({
     description: "Direct-message conversation: either the DM `_id` or a one-to-one participant display name."
   }),
-  messageId: MessageId.annotations({
-    description: "Direct-message message ID."
-  })
+  messageId: MessageId.annotations({ description: "Direct-message message ID." })
 })
 
 const ThreadReplyTargetSchema = Schema.Struct({
   kind: Schema.Literal("thread_reply"),
-  channel: ChannelIdentifier.annotations({
-    description: "Channel name or ID containing the parent message."
-  }),
-  messageId: MessageId.annotations({
-    description: "Parent channel message ID."
-  }),
-  replyId: ThreadReplyId.annotations({
-    description: "Thread reply ID."
-  })
+  channel: ChannelIdentifier.annotations({ description: "Channel name or ID containing the parent message." }),
+  messageId: MessageId.annotations({ description: "Parent channel message ID." }),
+  replyId: ThreadReplyId.annotations({ description: "Thread reply ID." })
 })
 
 const ChatMessageAttachmentTargetSchema = Schema.Union(
@@ -71,50 +59,36 @@ const ChatMessageAttachmentFileFields = {
   filename: AttachmentFileName.annotations({
     description: "Name of the file to attach to the chat message or thread reply."
   }),
-  contentType: MimeType.annotations({
-    description: "MIME type of the file, such as image/png or application/pdf."
-  }),
-  filePath: Schema.optional(LocalFilePath.annotations({
-    description: UPLOAD_FILE_PATH_DESCRIPTION
-  })),
-  fileUrl: Schema.optional(UrlString.annotations({
-    description: UPLOAD_FILE_URL_DESCRIPTION
-  })),
-  data: Schema.optional(Base64FileData.annotations({
-    description: UPLOAD_BASE64_DATA_DESCRIPTION
-  })),
-  description: Schema.optional(AttachmentDescription.annotations({
-    description: "Optional attachment description."
-  })),
-  pinned: Schema.optional(Schema.Boolean.annotations({
-    description: "Whether the attachment should be pinned."
-  }))
+  contentType: MimeType.annotations({ description: "MIME type of the file, such as image/png or application/pdf." }),
+  filePath: Schema.optional(LocalFilePath.annotations({ description: UPLOAD_FILE_PATH_DESCRIPTION })),
+  fileUrl: Schema.optional(UrlString.annotations({ description: UPLOAD_FILE_URL_DESCRIPTION })),
+  data: Schema.optional(Base64FileData.annotations({ description: UPLOAD_BASE64_DATA_DESCRIPTION })),
+  description: Schema.optional(AttachmentDescription.annotations({ description: "Optional attachment description." })),
+  pinned: Schema.optional(Schema.Boolean.annotations({ description: "Whether the attachment should be pinned." }))
 } as const
 
 const CHAT_MESSAGE_ATTACHMENT_FILE_SOURCE_FIELDS = ["filePath", "fileUrl", "data"] as const
-const chatMessageAttachmentExactlyOneFileSourceMessage = `Provide exactly one of ${
-  CHAT_MESSAGE_ATTACHMENT_FILE_SOURCE_FIELDS.join(", ")
-}.`
+const chatMessageAttachmentExactlyOneFileSourceMessage = `Provide exactly one of ${CHAT_MESSAGE_ATTACHMENT_FILE_SOURCE_FIELDS.join(
+  ", "
+)}.`
 const requireExactlyOneAttachmentFileSource = (params: {
   readonly filePath?: unknown
   readonly fileUrl?: unknown
   readonly data?: unknown
 }) =>
-  CHAT_MESSAGE_ATTACHMENT_FILE_SOURCE_FIELDS.filter((field) => params[field] !== undefined).length === 1
-  || chatMessageAttachmentExactlyOneFileSourceMessage
+  CHAT_MESSAGE_ATTACHMENT_FILE_SOURCE_FIELDS.filter((field) => params[field] !== undefined).length === 1 ||
+  chatMessageAttachmentExactlyOneFileSourceMessage
 
 const ListChatMessageAttachmentsParamsSchema = Schema.Struct({
   target: ChatMessageAttachmentTargetSchema,
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of attachments to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of attachments to return (default: ${DEFAULT_LIMIT}).` })
+  )
 }).annotations({
   title: "ListChatMessageAttachmentsParams",
   description: "Parameters for listing files attached directly to a Huly chat message or thread reply."
 })
-export type ListChatMessageAttachmentsParams = Schema.Schema.Type<
-  typeof ListChatMessageAttachmentsParamsSchema
->
+export type ListChatMessageAttachmentsParams = Schema.Schema.Type<typeof ListChatMessageAttachmentsParamsSchema>
 
 const GetChatMessageAttachmentParamsSchema = Schema.Struct({
   target: ChatMessageAttachmentTargetSchema,
@@ -130,13 +104,12 @@ export type GetChatMessageAttachmentParams = Schema.Schema.Type<typeof GetChatMe
 const AddChatMessageAttachmentParamsSchema = Schema.Struct({
   target: ChatMessageAttachmentTargetSchema,
   ...ChatMessageAttachmentFileFields
-}).pipe(
-  Schema.filter(requireExactlyOneAttachmentFileSource)
-).annotations({
-  title: "AddChatMessageAttachmentParams",
-  description:
-    `Parameters for adding a file to a Huly chat message or thread reply. ${chatMessageAttachmentExactlyOneFileSourceMessage}`
 })
+  .pipe(Schema.filter(requireExactlyOneAttachmentFileSource))
+  .annotations({
+    title: "AddChatMessageAttachmentParams",
+    description: `Parameters for adding a file to a Huly chat message or thread reply. ${chatMessageAttachmentExactlyOneFileSourceMessage}`
+  })
 export type AddChatMessageAttachmentParams = Schema.Schema.Type<typeof AddChatMessageAttachmentParamsSchema>
 
 const UPDATE_CHAT_MESSAGE_ATTACHMENT_FIELDS = UPDATE_ATTACHMENT_FIELDS
@@ -147,28 +120,24 @@ const UpdateChatMessageAttachmentParamsSchema = Schema.Struct({
     description: "Attachment ID. Must belong directly to the resolved chat message target."
   }),
   description: Schema.optional(
-    Schema.NullOr(AttachmentDescription).annotations({
-      description: "New description; use null to clear it."
-    })
+    Schema.NullOr(AttachmentDescription).annotations({ description: "New description; use null to clear it." })
   ),
-  pinned: Schema.optional(Schema.Boolean.annotations({
-    description: "Pin or unpin the attachment."
-  }))
-}).pipe(
-  Schema.filter((params) =>
-    hasAtLeastOneDefined(params, UPDATE_CHAT_MESSAGE_ATTACHMENT_FIELDS)
-      ? undefined
-      : atLeastOneUpdateFieldMessage(UPDATE_CHAT_MESSAGE_ATTACHMENT_FIELDS)
-  )
-).annotations({
-  title: "UpdateChatMessageAttachmentParams",
-  description: `Parameters for updating chat message attachment metadata. ${
-    atLeastOneUpdateFieldMessage(UPDATE_CHAT_MESSAGE_ATTACHMENT_FIELDS)
-  }`
+  pinned: Schema.optional(Schema.Boolean.annotations({ description: "Pin or unpin the attachment." }))
 })
-export type UpdateChatMessageAttachmentParams = Schema.Schema.Type<
-  typeof UpdateChatMessageAttachmentParamsSchema
->
+  .pipe(
+    Schema.filter((params) =>
+      hasAtLeastOneDefined(params, UPDATE_CHAT_MESSAGE_ATTACHMENT_FIELDS)
+        ? undefined
+        : atLeastOneUpdateFieldMessage(UPDATE_CHAT_MESSAGE_ATTACHMENT_FIELDS)
+    )
+  )
+  .annotations({
+    title: "UpdateChatMessageAttachmentParams",
+    description: `Parameters for updating chat message attachment metadata. ${atLeastOneUpdateFieldMessage(
+      UPDATE_CHAT_MESSAGE_ATTACHMENT_FIELDS
+    )}`
+  })
+export type UpdateChatMessageAttachmentParams = Schema.Schema.Type<typeof UpdateChatMessageAttachmentParamsSchema>
 assertUpdateFields<UpdateChatMessageAttachmentParams>()(
   ["target", "attachmentId"],
   UPDATE_CHAT_MESSAGE_ATTACHMENT_FIELDS
@@ -178,9 +147,7 @@ const DeleteChatMessageAttachmentParamsSchema = GetChatMessageAttachmentParamsSc
   title: "DeleteChatMessageAttachmentParams",
   description: "Parameters for permanently deleting a file attached directly to a Huly chat message or thread reply."
 })
-export type DeleteChatMessageAttachmentParams = Schema.Schema.Type<
-  typeof DeleteChatMessageAttachmentParamsSchema
->
+export type DeleteChatMessageAttachmentParams = Schema.Schema.Type<typeof DeleteChatMessageAttachmentParamsSchema>
 
 type PropertyKeyOfUnion<T> = T extends T ? keyof T : never
 

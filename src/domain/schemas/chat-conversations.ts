@@ -23,10 +23,7 @@ export const ChannelMemberIdentifier = Schema.Union(AccountUuid, PersonRefInput)
     "Workspace channel member to resolve. Accepts a Huly account UUID directly, an exact email address, or an exact person display name."
 })
 export type ChannelMemberIdentifier = Schema.Schema.Type<typeof ChannelMemberIdentifier>
-export const ChannelMemberSummarySchema = Schema.Struct({
-  accountUuid: AccountUuid,
-  name: Schema.optional(PersonName)
-})
+export const ChannelMemberSummarySchema = Schema.Struct({ accountUuid: AccountUuid, name: Schema.optional(PersonName) })
 export type ChannelMemberSummary = Schema.Schema.Type<typeof ChannelMemberSummarySchema>
 export const ListChannelMembersResultSchema = Schema.Struct({
   channelId: ChannelId,
@@ -64,23 +61,18 @@ export const ConversationStateResultSchema = Schema.Struct({
 export type ConversationStateResult = Schema.Schema.Type<typeof ConversationStateResultSchema>
 
 export const ListChannelMembersParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({
-    description: "Channel name or ID whose members should be listed."
-  })
-}).annotations({
-  title: "ListChannelMembersParams",
-  description: "Parameters for listing channel members."
-})
+  channel: ChannelIdentifier.annotations({ description: "Channel name or ID whose members should be listed." })
+}).annotations({ title: "ListChannelMembersParams", description: "Parameters for listing channel members." })
 export type ListChannelMembersParams = Schema.Schema.Type<typeof ListChannelMembersParamsSchema>
 
 export const ChannelMemberMutationParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({
-    description: "Channel name or ID whose members should change."
-  }),
-  members: Schema.Array(ChannelMemberIdentifier).pipe(Schema.minItems(1)).annotations({
-    description:
-      "Members to add or remove. Each entry may be an account UUID, exact email address, or exact person display name."
-  })
+  channel: ChannelIdentifier.annotations({ description: "Channel name or ID whose members should change." }),
+  members: Schema.Array(ChannelMemberIdentifier)
+    .pipe(Schema.minItems(1))
+    .annotations({
+      description:
+        "Members to add or remove. Each entry may be an account UUID, exact email address, or exact person display name."
+    })
 }).annotations({
   title: "ChannelMemberMutationParams",
   description: "Parameters for adding or removing channel members."
@@ -88,20 +80,17 @@ export const ChannelMemberMutationParamsSchema = Schema.Struct({
 export type ChannelMemberMutationParams = Schema.Schema.Type<typeof ChannelMemberMutationParamsSchema>
 
 export const ChannelLifecycleParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({
-    description: "Channel name or ID whose archive state should change."
-  })
-}).annotations({
-  title: "ChannelLifecycleParams",
-  description: "Parameters for archiving or unarchiving a channel."
-})
+  channel: ChannelIdentifier.annotations({ description: "Channel name or ID whose archive state should change." })
+}).annotations({ title: "ChannelLifecycleParams", description: "Parameters for archiving or unarchiving a channel." })
 export type ChannelLifecycleParams = Schema.Schema.Type<typeof ChannelLifecycleParamsSchema>
 
 export const CreateGroupDirectMessageParamsSchema = Schema.Struct({
-  people: Schema.Array(PersonRefInput).pipe(Schema.minItems(GroupDirectMessageMinimumOtherPeople)).annotations({
-    description:
-      "At least two other workspace members to include in a group DM. Each entry accepts an exact email address or exact person display name. The authenticated account is included automatically."
-  })
+  people: Schema.Array(PersonRefInput)
+    .pipe(Schema.minItems(GroupDirectMessageMinimumOtherPeople))
+    .annotations({
+      description:
+        "At least two other workspace members to include in a group DM. Each entry accepts an exact email address or exact person display name. The authenticated account is included automatically."
+    })
 }).annotations({
   title: "CreateGroupDirectMessageParams",
   description: "Parameters for creating or resolving a group direct-message conversation by exact participant set."
@@ -109,13 +98,15 @@ export const CreateGroupDirectMessageParamsSchema = Schema.Struct({
 export type CreateGroupDirectMessageParams = Schema.Schema.Type<typeof CreateGroupDirectMessageParamsSchema>
 
 const ConversationTargetSchema = Schema.Struct({
-  channel: Schema.optional(ChannelIdentifier.annotations({
-    description: "Channel name or ID. Provide exactly one of channel or dm."
-  })),
-  dm: Schema.optional(DirectMessageIdentifier.annotations({
-    description:
-      "Direct-message conversation ID, or a one-to-one participant display name. Provide exactly one of channel or dm."
-  }))
+  channel: Schema.optional(
+    ChannelIdentifier.annotations({ description: "Channel name or ID. Provide exactly one of channel or dm." })
+  ),
+  dm: Schema.optional(
+    DirectMessageIdentifier.annotations({
+      description:
+        "Direct-message conversation ID, or a one-to-one participant display name. Provide exactly one of channel or dm."
+    })
+  )
 }).pipe(
   Schema.filter((params) => {
     if (params.channel === undefined && params.dm === undefined) {

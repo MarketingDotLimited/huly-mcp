@@ -44,10 +44,11 @@ describe("tag schemas", () => {
     Effect.sync(() => {
       expect(tagWeightSdkParity).toBe(true)
       expect(schemaProperty(attachTagParamsJsonSchema, "weight").enum).toEqual([...TAG_WEIGHT_VALUES])
-    }))
+    })
+  )
 
   it.effect("rejects a tag weight outside the current SDK union", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         parseAttachTagParams({
           object: {
@@ -63,10 +64,11 @@ describe("tag schemas", () => {
       )
 
       expect(error._tag).toBe("ParseError")
-    }))
+    })
+  )
 
   it.effect("accepts the highest Huly palette color index", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const parsed = yield* parseCreateTagParams({
         color: MAX_COLOR_INDEX,
         targetClass: "tracker:class:Issue",
@@ -75,10 +77,11 @@ describe("tag schemas", () => {
 
       expect(parsed.color).toBe(MAX_COLOR_INDEX)
       expect(schemaProperty(createTagParamsJsonSchema, "color").maximum).toBe(MAX_COLOR_INDEX)
-    }))
+    })
+  )
 
   it.effect("rejects color indexes outside the Huly palette", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         parseCreateTagParams({
           color: MAX_COLOR_INDEX + 1,
@@ -88,20 +91,18 @@ describe("tag schemas", () => {
       )
 
       expect(error._tag).toBe("ParseError")
-    }))
+    })
+  )
 
   it.effect("rejects negative color indexes", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
-        parseCreateTagParams({
-          color: -1,
-          targetClass: "tracker:class:Issue",
-          title: "negative-color"
-        })
+        parseCreateTagParams({ color: -1, targetClass: "tracker:class:Issue", title: "negative-color" })
       )
 
       expect(error._tag).toBe("ParseError")
-    }))
+    })
+  )
 
   it.effect("derives update-tag at-least-one fields from the update field schema", () =>
     Effect.sync(() => {
@@ -113,5 +114,6 @@ describe("tag schemas", () => {
       for (const field of UPDATE_TAG_FIELDS) {
         expect(updateTagParamsJsonSchema.properties?.[field]).toBeDefined()
       }
-    }))
+    })
+  )
 })

@@ -84,10 +84,7 @@ const attachmentDoc = (id: string, attachedTo: Ref<Doc>): HulyAttachment => ({
   createdOn: 1
 })
 
-const attachments = [
-  attachmentDoc("att-1", message._id),
-  attachmentDoc("att-foreign", toRef<Doc>("other-message"))
-]
+const attachments = [attachmentDoc("att-1", message._id), attachmentDoc("att-foreign", toRef<Doc>("other-message"))]
 
 const matchesQuery = (doc: Doc, query: DocumentQuery<Doc>): boolean =>
   Object.entries(query).every(([key, value]) => Reflect.get(doc, key) === value)
@@ -96,10 +93,10 @@ const docsForClass = (classRef: Ref<Class<Doc>>): ReadonlyArray<Doc> =>
   classRef === chunter.class.Channel
     ? [channel]
     : classRef === chunter.class.ChatMessage
-    ? [message]
-    : classRef === attachment.class.Attachment
-    ? attachments
-    : []
+      ? [message]
+      : classRef === attachment.class.Attachment
+        ? attachments
+        : []
 
 const hulyClient: HulyClientOperations = {
   getAccountUuid: () => account,
@@ -107,8 +104,9 @@ const hulyClient: HulyClientOperations = {
   markupUrlConfig: testMarkupUrlConfig,
   workbenchUrlConfig: testWorkbenchUrlConfig,
   findAll: <T extends Doc>(classRef: Ref<Class<T>>, query: DocumentQuery<T>, options?: FindOptions<T>) => {
-    const docs = docsForClass(classRef as Ref<Class<Doc>>)
-      .filter((doc) => matchesQuery(doc, query as DocumentQuery<Doc>))
+    const docs = docsForClass(classRef as Ref<Class<Doc>>).filter((doc) =>
+      matchesQuery(doc, query as DocumentQuery<Doc>)
+    )
     const limited = options?.limit === undefined ? docs : docs.slice(0, options.limit)
     return Effect.succeed(toFindResult(limited as unknown as Array<T>, docs.length))
   },
@@ -206,7 +204,7 @@ const structuredResult = (result: { readonly structuredContent?: { readonly resu
 
 describe("channel MCP tools", () => {
   it.effect("registers chat message attachment tools in channel tool order and tools/list", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const names = channelTools.map((tool) => tool.name)
       const expected = [
         "list_chat_message_attachments",
@@ -223,16 +221,14 @@ describe("channel MCP tools", () => {
       expect(expected.map((name) => names.indexOf(name))).toEqual(
         expected.map((_name, index) => names.indexOf(assertAt(expected, 0)) + index)
       )
-    }))
+    })
+  )
 
   it.effect("serializes successful chat message attachment responses for all wrappers", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const listResult = yield* Effect.promise(() =>
         findChannelTool("list_chat_message_attachments").handler(
-          {
-            target: { kind: "channel_message", channel: "general", messageId: "msg-1" },
-            limit: 10
-          },
+          { target: { kind: "channel_message", channel: "general", messageId: "msg-1" }, limit: 10 },
           hulyClient,
           storageClient
         )
@@ -252,10 +248,7 @@ describe("channel MCP tools", () => {
 
       const getResult = yield* Effect.promise(() =>
         findChannelTool("get_chat_message_attachment").handler(
-          {
-            target: { kind: "channel_message", channel: "general", messageId: "msg-1" },
-            attachmentId: "att-1"
-          },
+          { target: { kind: "channel_message", channel: "general", messageId: "msg-1" }, attachmentId: "att-1" },
           hulyClient,
           storageClient
         )
@@ -330,16 +323,14 @@ describe("channel MCP tools", () => {
         attachmentId: addedAttachmentId,
         deleted: true
       })
-    }))
+    })
+  )
 
   it.effect("maps scoped chat attachment misses to invalid params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.promise(() =>
         findChannelTool("get_chat_message_attachment").handler(
-          {
-            target: { kind: "channel_message", channel: "general", messageId: "msg-1" },
-            attachmentId: "att-foreign"
-          },
+          { target: { kind: "channel_message", channel: "general", messageId: "msg-1" }, attachmentId: "att-foreign" },
           hulyClient,
           storageClient
         )
@@ -348,5 +339,6 @@ describe("channel MCP tools", () => {
       expect(result.isError).toBe(true)
       expect(result._meta?.errorCode).toBe(McpErrorCode.InvalidParams)
       expect(result.content[0].text).toContain("Attachment 'att-foreign' not found on channel message")
-    }))
+    })
+  )
 })

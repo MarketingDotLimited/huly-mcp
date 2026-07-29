@@ -44,93 +44,93 @@ import { normalizeDrivePath } from "../../src/huly/operations/drive-path.js"
 
 describe("drive schemas", () => {
   it.effect("normalizes POSIX-like paths without filesystem access", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(normalizeDrivePath("Specs/./API.md")).toEqual({ path: "/Specs/API.md", segments: ["Specs", "API.md"] })
       expect(normalizeDrivePath("/Specs/../Readme.md")).toEqual({ path: "/Readme.md", segments: ["Readme.md"] })
       expect(normalizeDrivePath("/")).toEqual({ path: "/", segments: [] })
-    }))
+    })
+  )
 
   it.effect("requires exactly one upload source", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const accepted = yield* parseUploadDriveFileParams({
         drive: "Docs",
         path: "/Specs/API.md",
         contentType: "text/markdown",
         filePath: "/tmp/API.md"
       })
-      const missing = yield* Effect.either(parseUploadDriveFileParams({
-        drive: "Docs",
-        path: "/Specs/API.md",
-        contentType: "text/markdown"
-      }))
-      const conflicting = yield* Effect.either(parseUploadDriveFileParams({
-        drive: "Docs",
-        path: "/Specs/API.md",
-        contentType: "text/markdown",
-        filePath: "/tmp/API.md",
-        data: "SGVsbG8="
-      }))
+      const missing = yield* Effect.either(
+        parseUploadDriveFileParams({ drive: "Docs", path: "/Specs/API.md", contentType: "text/markdown" })
+      )
+      const conflicting = yield* Effect.either(
+        parseUploadDriveFileParams({
+          drive: "Docs",
+          path: "/Specs/API.md",
+          contentType: "text/markdown",
+          filePath: "/tmp/API.md",
+          data: "SGVsbG8="
+        })
+      )
 
       expect(accepted.createParents).toBeUndefined()
       expect(missing._tag).toBe("Left")
       expect(conflicting._tag).toBe("Left")
-    }))
+    })
+  )
 
   it.effect("rejects path separators in Drive item titles", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const accepted = yield* Schema.decodeUnknown(DriveItemTitle)("API.md")
       const rejected = yield* Effect.either(Schema.decodeUnknown(DriveItemTitle)("Specs/API.md"))
 
       expect(accepted).toBe("API.md")
       expect(rejected._tag).toBe("Left")
-    }))
+    })
+  )
 
   it.effect("rejects ambiguous get item locators", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const missing = yield* Effect.either(parseGetDriveItemParams({ drive: "Docs" }))
-      const ambiguous = yield* Effect.either(parseGetDriveItemParams({
-        drive: "Docs",
-        path: "/Specs",
-        itemId: "folder-1"
-      }))
+      const ambiguous = yield* Effect.either(
+        parseGetDriveItemParams({ drive: "Docs", path: "/Specs", itemId: "folder-1" })
+      )
 
       expect(missing._tag).toBe("Left")
       expect(ambiguous._tag).toBe("Left")
-    }))
+    })
+  )
 
   it.effect("requires valid item locators and upload sources for core file operations", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const moveAccepted = yield* parseMoveDriveItemParams({
         drive: "Docs",
         path: "/Specs/API.md",
         targetFolderPath: "/Archive"
       })
-      const moveMissingTarget = yield* Effect.either(parseMoveDriveItemParams({
-        drive: "Docs",
-        path: "/Specs/API.md"
-      }))
-      const moveMissingLocator = yield* Effect.either(parseMoveDriveItemParams({
-        drive: "Docs",
-        targetFolderPath: "/Archive"
-      }))
-      const moveAmbiguousLocator = yield* Effect.either(parseMoveDriveItemParams({
-        drive: "Docs",
-        path: "/Specs/API.md",
-        itemId: "file-api",
-        targetFolderPath: "/Archive"
-      }))
-      const versionMissingSource = yield* Effect.either(parseUploadDriveFileVersionParams({
-        drive: "Docs",
-        file: "/Specs/API.md",
-        contentType: "text/markdown"
-      }))
-      const versionConflictingSource = yield* Effect.either(parseUploadDriveFileVersionParams({
-        drive: "Docs",
-        file: "/Specs/API.md",
-        contentType: "text/markdown",
-        filePath: "/tmp/API.md",
-        data: "SGVsbG8="
-      }))
+      const moveMissingTarget = yield* Effect.either(parseMoveDriveItemParams({ drive: "Docs", path: "/Specs/API.md" }))
+      const moveMissingLocator = yield* Effect.either(
+        parseMoveDriveItemParams({ drive: "Docs", targetFolderPath: "/Archive" })
+      )
+      const moveAmbiguousLocator = yield* Effect.either(
+        parseMoveDriveItemParams({
+          drive: "Docs",
+          path: "/Specs/API.md",
+          itemId: "file-api",
+          targetFolderPath: "/Archive"
+        })
+      )
+      const versionMissingSource = yield* Effect.either(
+        parseUploadDriveFileVersionParams({ drive: "Docs", file: "/Specs/API.md", contentType: "text/markdown" })
+      )
+      const versionConflictingSource = yield* Effect.either(
+        parseUploadDriveFileVersionParams({
+          drive: "Docs",
+          file: "/Specs/API.md",
+          contentType: "text/markdown",
+          filePath: "/tmp/API.md",
+          data: "SGVsbG8="
+        })
+      )
 
       expect(moveAccepted.targetFolderPath).toBe("/Archive")
       expect(moveMissingTarget._tag).toBe("Left")
@@ -138,14 +138,12 @@ describe("drive schemas", () => {
       expect(moveAmbiguousLocator._tag).toBe("Left")
       expect(versionMissingSource._tag).toBe("Left")
       expect(versionConflictingSource._tag).toBe("Left")
-    }))
+    })
+  )
 
   it.effect("requires exactly one Drive file locator for comments and activity", () =>
-    Effect.gen(function*() {
-      const listAccepted = yield* parseListDriveFileCommentsParams({
-        drive: "Docs",
-        filePath: "/Specs/API.md"
-      })
+    Effect.gen(function* () {
+      const listAccepted = yield* parseListDriveFileCommentsParams({ drive: "Docs", filePath: "/Specs/API.md" })
       const addAccepted = yield* parseAddDriveFileCommentParams({
         drive: "Docs",
         fileId: "file-api",
@@ -162,16 +160,11 @@ describe("drive schemas", () => {
         fileId: "file-api",
         commentId: "comment-1"
       })
-      const activityAccepted = yield* parseListDriveFileActivityParams({
-        drive: "Docs",
-        filePath: "/Specs/API.md"
-      })
+      const activityAccepted = yield* parseListDriveFileActivityParams({ drive: "Docs", filePath: "/Specs/API.md" })
       const missing = yield* Effect.either(parseListDriveFileCommentsParams({ drive: "Docs" }))
-      const ambiguous = yield* Effect.either(parseListDriveFileActivityParams({
-        drive: "Docs",
-        filePath: "/Specs/API.md",
-        fileId: "file-api"
-      }))
+      const ambiguous = yield* Effect.either(
+        parseListDriveFileActivityParams({ drive: "Docs", filePath: "/Specs/API.md", fileId: "file-api" })
+      )
 
       expect(listAccepted.filePath).toBe("/Specs/API.md")
       expect(addAccepted.fileId).toBe("file-api")
@@ -180,10 +173,11 @@ describe("drive schemas", () => {
       expect(activityAccepted.filePath).toBe("/Specs/API.md")
       expect(missing._tag).toBe("Left")
       expect(ambiguous._tag).toBe("Left")
-    }))
+    })
+  )
 
   it.effect("validates Drive administration params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const updateMissingField = yield* Effect.either(parseUpdateDriveParams({ drive: "Docs" }))
       const updateAccepted = yield* parseUpdateDriveParams({ drive: "Docs", autoJoin: true })
       const memberMissing = yield* Effect.either(parseDriveMemberMutationParams({ drive: "Docs", members: [] }))
@@ -202,44 +196,25 @@ describe("drive schemas", () => {
       expect(memberMissing._tag).toBe("Left")
       expect(memberAccepted.members).toEqual(["00000000-0000-4000-8000-000000000001"])
       expect(ownersAccepted.ensureMembers).toBe(false)
-    }))
+    })
+  )
 
   it.effect("rejects root paths for item mutations", () =>
-    Effect.gen(function*() {
-      const moveRoot = yield* Effect.either(parseMoveDriveItemParams({
-        drive: "Docs",
-        path: "/",
-        targetFolderPath: "/Archive"
-      }))
-      const renameRoot = yield* Effect.either(parseRenameDriveItemParams({
-        drive: "Docs",
-        path: "/",
-        title: "Root"
-      }))
-      const deleteRoot = yield* Effect.either(parseDeleteDriveItemParams({
-        drive: "Docs",
-        path: "/"
-      }))
-      const deleteRootId = yield* Effect.either(parseDeleteDriveItemParams({
-        drive: "Docs",
-        itemId: "drive:ids:Root"
-      }))
-      const renameMissingLocator = yield* Effect.either(parseRenameDriveItemParams({
-        drive: "Docs",
-        title: "Root"
-      }))
-      const renameAmbiguousLocator = yield* Effect.either(parseRenameDriveItemParams({
-        drive: "Docs",
-        path: "/Specs",
-        itemId: "folder-specs",
-        title: "Specs"
-      }))
+    Effect.gen(function* () {
+      const moveRoot = yield* Effect.either(
+        parseMoveDriveItemParams({ drive: "Docs", path: "/", targetFolderPath: "/Archive" })
+      )
+      const renameRoot = yield* Effect.either(parseRenameDriveItemParams({ drive: "Docs", path: "/", title: "Root" }))
+      const deleteRoot = yield* Effect.either(parseDeleteDriveItemParams({ drive: "Docs", path: "/" }))
+      const deleteRootId = yield* Effect.either(parseDeleteDriveItemParams({ drive: "Docs", itemId: "drive:ids:Root" }))
+      const renameMissingLocator = yield* Effect.either(parseRenameDriveItemParams({ drive: "Docs", title: "Root" }))
+      const renameAmbiguousLocator = yield* Effect.either(
+        parseRenameDriveItemParams({ drive: "Docs", path: "/Specs", itemId: "folder-specs", title: "Specs" })
+      )
       const deleteMissingLocator = yield* Effect.either(parseDeleteDriveItemParams({ drive: "Docs" }))
-      const deleteAmbiguousLocator = yield* Effect.either(parseDeleteDriveItemParams({
-        drive: "Docs",
-        path: "/Specs",
-        itemId: "folder-specs"
-      }))
+      const deleteAmbiguousLocator = yield* Effect.either(
+        parseDeleteDriveItemParams({ drive: "Docs", path: "/Specs", itemId: "folder-specs" })
+      )
 
       expect(moveRoot._tag).toBe("Left")
       expect(renameRoot._tag).toBe("Left")
@@ -249,10 +224,11 @@ describe("drive schemas", () => {
       expect(renameAmbiguousLocator._tag).toBe("Left")
       expect(deleteMissingLocator._tag).toBe("Left")
       expect(deleteAmbiguousLocator._tag).toBe("Left")
-    }))
+    })
+  )
 
   it.effect("encodes branded outputs for core file operations", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const file = {
         id: "file-api",
         driveId: "drive-1",
@@ -307,10 +283,11 @@ describe("drive schemas", () => {
       expect(moved.toPath).toBe("/Specs/API.md")
       expect(renamed.renamed).toBe(true)
       expect(deleted.deletedVersions).toBe(2)
-    }))
+    })
+  )
 
   it.effect("encodes branded outputs for Drive file comments and activity", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const file = yield* Schema.decodeUnknown(DriveItemSummarySchema)({
         id: "file-api",
         driveId: "drive-1",
@@ -352,13 +329,15 @@ describe("drive schemas", () => {
       })
       const decodedActivity = yield* Schema.decodeUnknown(ListDriveFileActivityResultSchema)({
         file,
-        activity: [{
-          id: "activity-1",
-          objectId: "file-api",
-          objectClass: "drive:class:File",
-          modifiedBy: "person-1",
-          modifiedOn: 2
-        }],
+        activity: [
+          {
+            id: "activity-1",
+            objectId: "file-api",
+            objectClass: "drive:class:File",
+            modifiedBy: "person-1",
+            modifiedOn: 2
+          }
+        ],
         total: 1
       })
       const listComments = yield* Schema.encode(ListDriveFileCommentsResultSchema)(decodedListComments)
@@ -372,10 +351,11 @@ describe("drive schemas", () => {
       expect(updated.updated).toBe(true)
       expect(deleted.deleted).toBe(true)
       expect(assertAt(activity.activity, 0).objectId).toBe("file-api")
-    }))
+    })
+  )
 
   it.effect("encodes branded outputs for Drive administration operations", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const drive = yield* Schema.decodeUnknown(DriveSummarySchema)({
         id: "drive-1",
         name: "Docs",
@@ -410,7 +390,8 @@ describe("drive schemas", () => {
       expect(deleted.deleted).toBe(true)
       expect(members.members).toEqual(["00000000-0000-4000-8000-000000000001"])
       expect(owners.owners).toEqual(["00000000-0000-4000-8000-000000000002"])
-    }))
+    })
+  )
 
   it("exposes source alternatives in upload JSON schema", () => {
     expect(JSON.stringify(uploadDriveFileParamsJsonSchema)).toContain("filePath")

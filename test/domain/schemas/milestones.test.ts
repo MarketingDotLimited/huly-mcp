@@ -36,49 +36,44 @@ const expectJsonSchemaObject = (schema: unknown): JsonSchemaObject => {
 describe("Milestone Schemas", () => {
   describe("MilestoneStatusSchema", () => {
     it.effect("accepts all valid statuses", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         for (const status of MilestoneStatusValues) {
           const result = yield* Schema.decodeUnknown(MilestoneStatusSchema)(status)
           expect(result).toBe(status)
         }
-      }))
+      })
+    )
 
     it.effect("rejects invalid status", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          Schema.decodeUnknown(MilestoneStatusSchema)("invalid")
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(Schema.decodeUnknown(MilestoneStatusSchema)("invalid"))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects empty string", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          Schema.decodeUnknown(MilestoneStatusSchema)("")
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(Schema.decodeUnknown(MilestoneStatusSchema)(""))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
   })
 
   describe("MilestoneSummarySchema", () => {
     it.effect("parses minimal milestone summary", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseMilestoneSummary({
           id: "milestone-1",
           label: "Sprint 1",
           status: "planned",
           targetDate: 1706500000000
         })
-        expect(result).toEqual({
-          id: "milestone-1",
-          label: "Sprint 1",
-          status: "planned",
-          targetDate: 1706500000000
-        })
-      }))
+        expect(result).toEqual({ id: "milestone-1", label: "Sprint 1", status: "planned", targetDate: 1706500000000 })
+      })
+    )
 
     it.effect("parses with modifiedOn", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseMilestoneSummary({
           id: "milestone-1",
           label: "Sprint 1",
@@ -87,63 +82,49 @@ describe("Milestone Schemas", () => {
           modifiedOn: 1706400000000
         })
         expect(result.modifiedOn).toBe(1706400000000)
-      }))
+      })
+    )
 
     it.effect("rejects missing id", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseMilestoneSummary({
-            label: "Sprint 1",
-            status: "planned",
-            targetDate: 1706500000000
-          })
+          parseMilestoneSummary({ label: "Sprint 1", status: "planned", targetDate: 1706500000000 })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects empty id", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseMilestoneSummary({
-            id: "  ",
-            label: "Sprint 1",
-            status: "planned",
-            targetDate: 1706500000000
-          })
+          parseMilestoneSummary({ id: "  ", label: "Sprint 1", status: "planned", targetDate: 1706500000000 })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects invalid status", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseMilestoneSummary({
-            id: "milestone-1",
-            label: "Sprint 1",
-            status: "invalid",
-            targetDate: 1706500000000
-          })
+          parseMilestoneSummary({ id: "milestone-1", label: "Sprint 1", status: "invalid", targetDate: 1706500000000 })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects negative targetDate", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseMilestoneSummary({
-            id: "milestone-1",
-            label: "Sprint 1",
-            status: "planned",
-            targetDate: -1
-          })
+          parseMilestoneSummary({ id: "milestone-1", label: "Sprint 1", status: "planned", targetDate: -1 })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
   })
 
   describe("MilestoneSchema", () => {
     it.effect("parses minimal milestone", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseMilestone({
           id: "milestone-1",
           label: "Sprint 1",
@@ -156,10 +137,11 @@ describe("Milestone Schemas", () => {
         expect(result.status).toBe("planned")
         expect(result.targetDate).toBe(1706500000000)
         expect(result.project).toBe("HULY")
-      }))
+      })
+    )
 
     it.effect("parses full milestone", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseMilestone({
           id: "milestone-1",
           label: "Sprint 1",
@@ -178,10 +160,11 @@ describe("Milestone Schemas", () => {
         expect(result.project).toBe("HULY")
         expect(result.modifiedOn).toBe(1706400000000)
         expect(result.createdOn).toBe(1706300000000)
-      }))
+      })
+    )
 
     it.effect("description is optional", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseMilestone({
           id: "milestone-1",
           label: "Sprint 1",
@@ -190,10 +173,11 @@ describe("Milestone Schemas", () => {
           project: "HULY"
         })
         expect(result.description).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("rejects empty project", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
           parseMilestone({
             id: "milestone-1",
@@ -204,132 +188,119 @@ describe("Milestone Schemas", () => {
           })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
   })
 
   describe("ListMilestonesParamsSchema", () => {
     it.effect("parses minimal params", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseListMilestonesParams({ project: "HULY" })
         expect(result).toEqual({ project: "HULY" })
-      }))
+      })
+    )
 
     it.effect("parses with limit", () =>
-      Effect.gen(function*() {
-        const result = yield* parseListMilestonesParams({
-          project: "HULY",
-          limit: 25
-        })
+      Effect.gen(function* () {
+        const result = yield* parseListMilestonesParams({ project: "HULY", limit: 25 })
         expect(result.project).toBe("HULY")
         expect(result.limit).toBe(25)
-      }))
+      })
+    )
 
     it.effect("rejects empty project", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseListMilestonesParams({ project: "  " })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseListMilestonesParams({ project: "  " }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects missing project", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseListMilestonesParams({})
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseListMilestonesParams({}))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects negative limit", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseListMilestonesParams({ project: "HULY", limit: -1 })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseListMilestonesParams({ project: "HULY", limit: -1 }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects zero limit", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseListMilestonesParams({ project: "HULY", limit: 0 })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseListMilestonesParams({ project: "HULY", limit: 0 }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects non-integer limit", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseListMilestonesParams({ project: "HULY", limit: 10.5 })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseListMilestonesParams({ project: "HULY", limit: 10.5 }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects limit over 200", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseListMilestonesParams({ project: "HULY", limit: 201 })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseListMilestonesParams({ project: "HULY", limit: 201 }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("trims project whitespace", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseListMilestonesParams({ project: "  HULY  " })
         expect(result.project).toBe("HULY")
-      }))
+      })
+    )
   })
 
   describe("GetMilestoneParamsSchema", () => {
     it.effect("parses valid params", () =>
-      Effect.gen(function*() {
-        const result = yield* parseGetMilestoneParams({
-          project: "HULY",
-          milestone: "Sprint 1"
-        })
+      Effect.gen(function* () {
+        const result = yield* parseGetMilestoneParams({ project: "HULY", milestone: "Sprint 1" })
         expect(result.project).toBe("HULY")
         expect(result.milestone).toBe("Sprint 1")
-      }))
+      })
+    )
 
     it.effect("parses with milestone ID", () =>
-      Effect.gen(function*() {
-        const result = yield* parseGetMilestoneParams({
-          project: "HULY",
-          milestone: "6789abcd"
-        })
+      Effect.gen(function* () {
+        const result = yield* parseGetMilestoneParams({ project: "HULY", milestone: "6789abcd" })
         expect(result.project).toBe("HULY")
         expect(result.milestone).toBe("6789abcd")
-      }))
+      })
+    )
 
     it.effect("rejects missing milestone", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseGetMilestoneParams({ project: "HULY" })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseGetMilestoneParams({ project: "HULY" }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects empty milestone", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseGetMilestoneParams({ project: "HULY", milestone: "  " })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseGetMilestoneParams({ project: "HULY", milestone: "  " }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("trims both fields", () =>
-      Effect.gen(function*() {
-        const result = yield* parseGetMilestoneParams({
-          project: "  HULY  ",
-          milestone: "  Sprint 1  "
-        })
+      Effect.gen(function* () {
+        const result = yield* parseGetMilestoneParams({ project: "  HULY  ", milestone: "  Sprint 1  " })
         expect(result.project).toBe("HULY")
         expect(result.milestone).toBe("Sprint 1")
-      }))
+      })
+    )
   })
 
   describe("CreateMilestoneParamsSchema", () => {
     it.effect("parses minimal params", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseCreateMilestoneParams({
           project: "HULY",
           label: "Sprint 1",
@@ -338,10 +309,11 @@ describe("Milestone Schemas", () => {
         expect(result.project).toBe("HULY")
         expect(result.label).toBe("Sprint 1")
         expect(result.targetDate).toBe(1706500000000)
-      }))
+      })
+    )
 
     it.effect("parses with description", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseCreateMilestoneParams({
           project: "HULY",
           label: "Sprint 1",
@@ -352,63 +324,48 @@ describe("Milestone Schemas", () => {
         expect(result.label).toBe("Sprint 1")
         expect(result.description).toBe("First sprint of Q1")
         expect(result.targetDate).toBe(1706500000000)
-      }))
+      })
+    )
 
     it.effect("rejects empty label", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseCreateMilestoneParams({
-            project: "HULY",
-            label: "  ",
-            targetDate: 1706500000000
-          })
+          parseCreateMilestoneParams({ project: "HULY", label: "  ", targetDate: 1706500000000 })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects missing targetDate", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseCreateMilestoneParams({
-            project: "HULY",
-            label: "Sprint 1"
-          })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseCreateMilestoneParams({ project: "HULY", label: "Sprint 1" }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects negative targetDate", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseCreateMilestoneParams({
-            project: "HULY",
-            label: "Sprint 1",
-            targetDate: -1
-          })
+          parseCreateMilestoneParams({ project: "HULY", label: "Sprint 1", targetDate: -1 })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects non-integer targetDate", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseCreateMilestoneParams({
-            project: "HULY",
-            label: "Sprint 1",
-            targetDate: 1706500000000.5
-          })
+          parseCreateMilestoneParams({ project: "HULY", label: "Sprint 1", targetDate: 1706500000000.5 })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
   })
 
   describe("UpdateMilestoneParamsSchema", () => {
     it.effect("rejects minimal params and advertises update-field requirement in JSON Schema", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(parseUpdateMilestoneParams({
-          project: "HULY",
-          milestone: "Sprint 1"
-        }))
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseUpdateMilestoneParams({ project: "HULY", milestone: "Sprint 1" }))
         expect(error._tag).toBe("ParseError")
 
         const schema = expectJsonSchemaObject(updateMilestoneParamsJsonSchema)
@@ -420,20 +377,22 @@ describe("Milestone Schemas", () => {
             { required: ["status"] }
           ])
         )
-      }))
+      })
+    )
 
     it.effect("parses with label update", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseUpdateMilestoneParams({
           project: "HULY",
           milestone: "Sprint 1",
           label: "Sprint 1 - Updated"
         })
         expect(result.label).toBe("Sprint 1 - Updated")
-      }))
+      })
+    )
 
     it.effect("parses with description update", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseUpdateMilestoneParams({
           project: "HULY",
           milestone: "Sprint 1",
@@ -442,10 +401,11 @@ describe("Milestone Schemas", () => {
         expect(result.project).toBe("HULY")
         expect(result.milestone).toBe("Sprint 1")
         expect(result.description).toBe("Updated description")
-      }))
+      })
+    )
 
     it.effect("parses with targetDate update", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseUpdateMilestoneParams({
           project: "HULY",
           milestone: "Sprint 1",
@@ -454,10 +414,11 @@ describe("Milestone Schemas", () => {
         expect(result.project).toBe("HULY")
         expect(result.milestone).toBe("Sprint 1")
         expect(result.targetDate).toBe(1706600000000)
-      }))
+      })
+    )
 
     it.effect("parses with status update", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseUpdateMilestoneParams({
           project: "HULY",
           milestone: "Sprint 1",
@@ -466,10 +427,11 @@ describe("Milestone Schemas", () => {
         expect(result.project).toBe("HULY")
         expect(result.milestone).toBe("Sprint 1")
         expect(result.status).toBe("completed")
-      }))
+      })
+    )
 
     it.effect("parses with all updates", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseUpdateMilestoneParams({
           project: "HULY",
           milestone: "Sprint 1",
@@ -482,36 +444,31 @@ describe("Milestone Schemas", () => {
         expect(result.description).toBe("Completed sprint")
         expect(result.targetDate).toBe(1706700000000)
         expect(result.status).toBe("completed")
-      }))
+      })
+    )
 
     it.effect("rejects invalid status", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseUpdateMilestoneParams({
-            project: "HULY",
-            milestone: "Sprint 1",
-            status: "invalid"
-          })
+          parseUpdateMilestoneParams({ project: "HULY", milestone: "Sprint 1", status: "invalid" })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects empty label update", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseUpdateMilestoneParams({
-            project: "HULY",
-            milestone: "Sprint 1",
-            label: "  "
-          })
+          parseUpdateMilestoneParams({ project: "HULY", milestone: "Sprint 1", label: "  " })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
   })
 
   describe("SetIssueMilestoneParamsSchema", () => {
     it.effect("parses with milestone assignment", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseSetIssueMilestoneParams({
           project: "HULY",
           identifier: "HULY-123",
@@ -520,43 +477,34 @@ describe("Milestone Schemas", () => {
         expect(result.project).toBe("HULY")
         expect(result.identifier).toBe("HULY-123")
         expect(result.milestone).toBe("Sprint 1")
-      }))
+      })
+    )
 
     it.effect("parses with null to clear milestone", () =>
-      Effect.gen(function*() {
-        const result = yield* parseSetIssueMilestoneParams({
-          project: "HULY",
-          identifier: "HULY-123",
-          milestone: null
-        })
+      Effect.gen(function* () {
+        const result = yield* parseSetIssueMilestoneParams({ project: "HULY", identifier: "HULY-123", milestone: null })
         expect(result.milestone).toBeNull()
-      }))
+      })
+    )
 
     it.effect("rejects missing milestone field", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseSetIssueMilestoneParams({
-            project: "HULY",
-            identifier: "HULY-123"
-          })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSetIssueMilestoneParams({ project: "HULY", identifier: "HULY-123" }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects empty identifier", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(
-          parseSetIssueMilestoneParams({
-            project: "HULY",
-            identifier: "  ",
-            milestone: "Sprint 1"
-          })
+          parseSetIssueMilestoneParams({ project: "HULY", identifier: "  ", milestone: "Sprint 1" })
         )
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("trims identifier and project", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* parseSetIssueMilestoneParams({
           project: "  HULY  ",
           identifier: "  HULY-123  ",
@@ -564,73 +512,67 @@ describe("Milestone Schemas", () => {
         })
         expect(result.project).toBe("HULY")
         expect(result.identifier).toBe("HULY-123")
-      }))
+      })
+    )
   })
 
   describe("DeleteMilestoneParamsSchema", () => {
     it.effect("parses valid params", () =>
-      Effect.gen(function*() {
-        const result = yield* parseDeleteMilestoneParams({
-          project: "HULY",
-          milestone: "Sprint 1"
-        })
+      Effect.gen(function* () {
+        const result = yield* parseDeleteMilestoneParams({ project: "HULY", milestone: "Sprint 1" })
         expect(result.project).toBe("HULY")
         expect(result.milestone).toBe("Sprint 1")
-      }))
+      })
+    )
 
     it.effect("rejects empty project", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseDeleteMilestoneParams({
-            project: "  ",
-            milestone: "Sprint 1"
-          })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseDeleteMilestoneParams({ project: "  ", milestone: "Sprint 1" }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
 
     it.effect("rejects empty milestone", () =>
-      Effect.gen(function*() {
-        const error = yield* Effect.flip(
-          parseDeleteMilestoneParams({
-            project: "HULY",
-            milestone: "  "
-          })
-        )
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseDeleteMilestoneParams({ project: "HULY", milestone: "  " }))
         expect(error._tag).toBe("ParseError")
-      }))
+      })
+    )
   })
 
   describe("JSON Schema Generation", () => {
     it.effect("generates JSON Schema for ListMilestonesParams", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const schema = listMilestonesParamsJsonSchema as JsonSchemaObject
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
         expect(schema.properties).toHaveProperty("limit")
-      }))
+      })
+    )
 
     it.effect("generates JSON Schema for GetMilestoneParams", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const schema = getMilestoneParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
         expect(schema.required).toContain("milestone")
-      }))
+      })
+    )
 
     it.effect("generates JSON Schema for CreateMilestoneParams", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const schema = createMilestoneParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
         expect(schema.required).toContain("label")
         expect(schema.required).toContain("targetDate")
         expect(schema.properties).toHaveProperty("description")
-      }))
+      })
+    )
 
     it.effect("generates JSON Schema for UpdateMilestoneParams", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const schema = updateMilestoneParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -639,27 +581,30 @@ describe("Milestone Schemas", () => {
         expect(schema.properties).toHaveProperty("description")
         expect(schema.properties).toHaveProperty("targetDate")
         expect(schema.properties).toHaveProperty("status")
-      }))
+      })
+    )
 
     it.effect("generates JSON Schema for SetIssueMilestoneParams", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const schema = setIssueMilestoneParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
         expect(schema.required).toContain("identifier")
         expect(schema.required).toContain("milestone")
-      }))
+      })
+    )
 
     it.effect("generates JSON Schema for DeleteMilestoneParams", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const schema = deleteMilestoneParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
         expect(schema.required).toContain("milestone")
-      }))
+      })
+    )
 
     it.effect("all JSON schemas use draft-07", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const schemas = [
           listMilestonesParamsJsonSchema,
           getMilestoneParamsJsonSchema,
@@ -672,10 +617,11 @@ describe("Milestone Schemas", () => {
         for (const schema of schemas) {
           expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         }
-      }))
+      })
+    )
 
     it.effect("all JSON schemas have additionalProperties false", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         // eslint-disable-next-line no-restricted-syntax -- tuple type doesn't overlap with Array<Record<string, unknown>>
         const schemas = [
           listMilestonesParamsJsonSchema,
@@ -689,6 +635,7 @@ describe("Milestone Schemas", () => {
         for (const schema of schemas) {
           expect(schema.additionalProperties).toBe(false)
         }
-      }))
+      })
+    )
   })
 })

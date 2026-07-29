@@ -19,12 +19,10 @@ export class RecruitingVacancyNotFoundError extends Schema.TaggedError<Recruitin
   }
 }
 
-export class RecruitingVacancyIdentifierAmbiguousError
-  extends Schema.TaggedError<RecruitingVacancyIdentifierAmbiguousError>()(
-    "RecruitingVacancyIdentifierAmbiguousError",
-    { identifier: VacancyIdentifier, matches: Count }
-  )
-{
+export class RecruitingVacancyIdentifierAmbiguousError extends Schema.TaggedError<RecruitingVacancyIdentifierAmbiguousError>()(
+  "RecruitingVacancyIdentifierAmbiguousError",
+  { identifier: VacancyIdentifier, matches: Count }
+) {
   override get message(): string {
     return `Recruiting vacancy identifier '${this.identifier}' matched ${this.matches} vacancies; use the vacancy ID`
   }
@@ -57,12 +55,10 @@ export class RecruitingApplicantNotFoundError extends Schema.TaggedError<Recruit
   }
 }
 
-export class RecruitingApplicantIdentifierAmbiguousError
-  extends Schema.TaggedError<RecruitingApplicantIdentifierAmbiguousError>()(
-    "RecruitingApplicantIdentifierAmbiguousError",
-    { identifier: ApplicantIdentifier, matches: Count }
-  )
-{
+export class RecruitingApplicantIdentifierAmbiguousError extends Schema.TaggedError<RecruitingApplicantIdentifierAmbiguousError>()(
+  "RecruitingApplicantIdentifierAmbiguousError",
+  { identifier: ApplicantIdentifier, matches: Count }
+) {
   override get message(): string {
     return `Recruiting applicant identifier '${this.identifier}' matched ${this.matches} applicants; pass vacancy or candidate`
   }
@@ -86,12 +82,10 @@ export class RecruitingReviewNotFoundError extends Schema.TaggedError<Recruiting
   }
 }
 
-export class RecruitingReviewIdentifierAmbiguousError
-  extends Schema.TaggedError<RecruitingReviewIdentifierAmbiguousError>()(
-    "RecruitingReviewIdentifierAmbiguousError",
-    { identifier: ReviewIdentifier, matches: Count }
-  )
-{
+export class RecruitingReviewIdentifierAmbiguousError extends Schema.TaggedError<RecruitingReviewIdentifierAmbiguousError>()(
+  "RecruitingReviewIdentifierAmbiguousError",
+  { identifier: ReviewIdentifier, matches: Count }
+) {
   override get message(): string {
     return `Recruiting review identifier '${this.identifier}' matched ${this.matches} reviews; use the review ID`
   }
@@ -106,12 +100,10 @@ export class RecruitingOpinionNotFoundError extends Schema.TaggedError<Recruitin
   }
 }
 
-export class RecruitingOpinionIdentifierAmbiguousError
-  extends Schema.TaggedError<RecruitingOpinionIdentifierAmbiguousError>()(
-    "RecruitingOpinionIdentifierAmbiguousError",
-    { identifier: OpinionIdentifier, matches: Count }
-  )
-{
+export class RecruitingOpinionIdentifierAmbiguousError extends Schema.TaggedError<RecruitingOpinionIdentifierAmbiguousError>()(
+  "RecruitingOpinionIdentifierAmbiguousError",
+  { identifier: OpinionIdentifier, matches: Count }
+) {
   override get message(): string {
     return `Recruiting opinion identifier '${this.identifier}' matched ${this.matches} opinions; pass review`
   }

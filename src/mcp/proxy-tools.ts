@@ -54,22 +54,14 @@ const SearchToolsParamsSchema = Schema.Struct({
   query: ToolSearchQuery,
   limit: Schema.optionalWith(SearchToolLimit, { exact: true })
 })
-const ToolNameParamsSchema = Schema.Struct({
-  toolName: ToolName
-})
+const ToolNameParamsSchema = Schema.Struct({ toolName: ToolName })
 export const InvokeToolParamsSchema = Schema.Struct({
   toolName: ToolName,
   arguments: Schema.optionalWith(Schema.Unknown, { exact: true })
 })
 
-const ProxyToolCategorySchema = Schema.Struct({
-  name: ToolCategory,
-  description: ToolDescription,
-  toolCount: Count
-})
-const ListToolCategoriesResultSchema = Schema.Struct({
-  categories: Schema.Array(ProxyToolCategorySchema)
-})
+const ProxyToolCategorySchema = Schema.Struct({ name: ToolCategory, description: ToolDescription, toolCount: Count })
+const ListToolCategoriesResultSchema = Schema.Struct({ categories: Schema.Array(ProxyToolCategorySchema) })
 const ToolSearchMatchBaseSchema = Schema.Struct({
   name: ToolName,
   category: ToolCategory,
@@ -78,12 +70,8 @@ const ToolSearchMatchBaseSchema = Schema.Struct({
   optionalParams: Schema.Array(ToolParameterName)
 })
 const ToolSearchMatchSchema = Schema.Union(
-  ToolSearchMatchBaseSchema.pipe(
-    Schema.extend(Schema.Struct({ parameterSummaryStatus: Schema.Literal("available") }))
-  ),
-  ToolSearchMatchBaseSchema.pipe(
-    Schema.extend(Schema.Struct({ parameterSummaryStatus: Schema.Literal("empty") }))
-  ),
+  ToolSearchMatchBaseSchema.pipe(Schema.extend(Schema.Struct({ parameterSummaryStatus: Schema.Literal("available") }))),
+  ToolSearchMatchBaseSchema.pipe(Schema.extend(Schema.Struct({ parameterSummaryStatus: Schema.Literal("empty") }))),
   ToolSearchMatchBaseSchema.pipe(
     Schema.extend(
       Schema.Struct({
@@ -93,9 +81,7 @@ const ToolSearchMatchSchema = Schema.Union(
     )
   )
 )
-const SearchToolsResultSchema = Schema.Struct({
-  matches: Schema.Array(ToolSearchMatchSchema)
-})
+const SearchToolsResultSchema = Schema.Struct({ matches: Schema.Array(ToolSearchMatchSchema) })
 const ToolAnnotationsSchema = Schema.Struct({
   title: Schema.optionalWith(Schema.NonEmptyTrimmedString, { exact: true }),
   readOnlyHint: Schema.optionalWith(Schema.Boolean, { exact: true }),
@@ -158,11 +144,7 @@ const toolNameInputSchema = {
 const invokeToolInputSchema = {
   type: "object",
   properties: {
-    toolName: {
-      type: "string",
-      minLength: 1,
-      description: "Exact Huly tool name to invoke through the proxy."
-    },
+    toolName: { type: "string", minLength: 1, description: "Exact Huly tool name to invoke through the proxy." },
     arguments: {
       description: "Arguments object for the target Huly tool. Use {} when the target tool accepts no parameters."
     }

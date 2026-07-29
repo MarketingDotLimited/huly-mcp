@@ -41,17 +41,19 @@ export const FilteredViewVisibilitySchema = Schema.Literal("own", "shared", "all
 export type FilteredViewVisibility = Schema.Schema.Type<typeof FilteredViewVisibilitySchema>
 
 export const ListFilteredViewsParamsSchema = Schema.Struct({
-  attachedTo: Schema.optional(NonEmptyString.annotations({
-    description:
-      "Optional raw Huly app/resource string to scope saved filtered views, for example board:app:Board. Omit to list saved views across modules."
-  })),
+  attachedTo: Schema.optional(
+    NonEmptyString.annotations({
+      description:
+        "Optional raw Huly app/resource string to scope saved filtered views, for example board:app:Board. Omit to list saved views across modules."
+    })
+  ),
   visibility: Schema.optional(FilteredViewVisibilitySchema),
-  nameSearch: Schema.optional(Schema.String.annotations({
-    description: "Optional saved view name substring search."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of saved filtered views to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  nameSearch: Schema.optional(Schema.String.annotations({ description: "Optional saved view name substring search." })),
+  limit: Schema.optional(
+    LimitParam.annotations({
+      description: `Maximum number of saved filtered views to return (default: ${DEFAULT_LIMIT}).`
+    })
+  )
 }).annotations({
   title: "ListFilteredViewsParams",
   description:
@@ -60,31 +62,32 @@ export const ListFilteredViewsParamsSchema = Schema.Struct({
 export type ListFilteredViewsParams = Schema.Schema.Type<typeof ListFilteredViewsParamsSchema>
 
 export const GetFilteredViewParamsSchema = Schema.Struct({
-  filteredView: FilteredViewIdentifier.annotations({
-    description: "FilteredView _id or exact saved view name."
-  }),
-  attachedTo: Schema.optional(NonEmptyString.annotations({
-    description:
-      "Optional raw Huly app/resource string to disambiguate exact-name matches, for example board:app:Board."
-  }))
-}).annotations({
-  title: "GetFilteredViewParams",
-  description: "Read one saved filtered view by _id or exact name."
-})
+  filteredView: FilteredViewIdentifier.annotations({ description: "FilteredView _id or exact saved view name." }),
+  attachedTo: Schema.optional(
+    NonEmptyString.annotations({
+      description:
+        "Optional raw Huly app/resource string to disambiguate exact-name matches, for example board:app:Board."
+    })
+  )
+}).annotations({ title: "GetFilteredViewParams", description: "Read one saved filtered view by _id or exact name." })
 export type GetFilteredViewParams = Schema.Schema.Type<typeof GetFilteredViewParamsSchema>
 
 export const ListViewletsParamsSchema = Schema.Struct({
-  attachTo: Schema.optional(ObjectClassName.annotations({
-    description:
-      "Optional Huly class id that the viewlet renders, for example board:class:Card. Use list_huly_classes when you need class ids."
-  })),
-  viewlet: Schema.optional(ViewletIdentifier.annotations({
-    description:
-      "Optional Viewlet _id, exact title, exact variant, or descriptor _id. Descriptor _id matches may return multiple viewlets; omit to list all matching viewlets."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of viewlets to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  attachTo: Schema.optional(
+    ObjectClassName.annotations({
+      description:
+        "Optional Huly class id that the viewlet renders, for example board:class:Card. Use list_huly_classes when you need class ids."
+    })
+  ),
+  viewlet: Schema.optional(
+    ViewletIdentifier.annotations({
+      description:
+        "Optional Viewlet _id, exact title, exact variant, or descriptor _id. Descriptor _id matches may return multiple viewlets; omit to list all matching viewlets."
+    })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of viewlets to return (default: ${DEFAULT_LIMIT}).` })
+  )
 }).annotations({
   title: "ListViewletsParams",
   description:
@@ -161,10 +164,7 @@ export const ViewletSummarySchema = Schema.Struct({
 })
 export type ViewletSummary = Schema.Schema.Type<typeof ViewletSummarySchema>
 
-export const ListViewletsResultSchema = Schema.Struct({
-  viewlets: Schema.Array(ViewletSummarySchema),
-  total: Count
-})
+export const ListViewletsResultSchema = Schema.Struct({ viewlets: Schema.Array(ViewletSummarySchema), total: Count })
 export type ListViewletsResult = Schema.Schema.Type<typeof ListViewletsResultSchema>
 
 export const listFilteredViewsParamsJsonSchema = JSONSchema.make(ListFilteredViewsParamsSchema)

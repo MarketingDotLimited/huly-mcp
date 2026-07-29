@@ -20,36 +20,47 @@ export type SpacePreferenceId = Schema.Schema.Type<typeof SpacePreferenceId>
 const spaceResolverOptionsRequireSpace = "includeArchived, class, and type can only be provided when space is provided."
 
 export const ListSpacePreferencesParamsSchema = Schema.Struct({
-  space: Schema.optional(SpaceIdentifier.annotations({
-    description:
-      "Optional space _id or exact space name whose low-level SpacePreference record should be listed. Resolution tries _id first, then exact name."
-  })),
-  includeArchived: Schema.optional(Schema.Boolean.annotations({
-    description:
-      "Allow matching archived spaces by exact name when space is provided. ID lookup can return archived spaces."
-  })),
-  class: Schema.optional(SpaceClassFilter.annotations({
-    description: "Optional raw Huly space class ID used to disambiguate exact-name lookup when space is provided."
-  })),
-  type: Schema.optional(SpaceTypeId.annotations({
-    description: "Optional raw Huly SpaceType _id used to disambiguate exact-name lookup when space is provided."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of space preferences to return (default: ${DEFAULT_LIMIT}).`
-  }))
-}).pipe(
-  Schema.filter((params) =>
-    params.space !== undefined || (
-        params.includeArchived === undefined && params.class === undefined && params.type === undefined
-      )
-      ? undefined
-      : spaceResolverOptionsRequireSpace
+  space: Schema.optional(
+    SpaceIdentifier.annotations({
+      description:
+        "Optional space _id or exact space name whose low-level SpacePreference record should be listed. Resolution tries _id first, then exact name."
+    })
+  ),
+  includeArchived: Schema.optional(
+    Schema.Boolean.annotations({
+      description:
+        "Allow matching archived spaces by exact name when space is provided. ID lookup can return archived spaces."
+    })
+  ),
+  class: Schema.optional(
+    SpaceClassFilter.annotations({
+      description: "Optional raw Huly space class ID used to disambiguate exact-name lookup when space is provided."
+    })
+  ),
+  type: Schema.optional(
+    SpaceTypeId.annotations({
+      description: "Optional raw Huly SpaceType _id used to disambiguate exact-name lookup when space is provided."
+    })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({
+      description: `Maximum number of space preferences to return (default: ${DEFAULT_LIMIT}).`
+    })
   )
-).annotations({
-  title: "ListSpacePreferencesParams",
-  description:
-    "List low-level Huly SpacePreference records. These records are generic space-attached preference markers; module-specific preference payloads remain exposed through module-specific tools."
 })
+  .pipe(
+    Schema.filter((params) =>
+      params.space !== undefined ||
+      (params.includeArchived === undefined && params.class === undefined && params.type === undefined)
+        ? undefined
+        : spaceResolverOptionsRequireSpace
+    )
+  )
+  .annotations({
+    title: "ListSpacePreferencesParams",
+    description:
+      "List low-level Huly SpacePreference records. These records are generic space-attached preference markers; module-specific preference payloads remain exposed through module-specific tools."
+  })
 export type ListSpacePreferencesParams = Schema.Schema.Type<typeof ListSpacePreferencesParamsSchema>
 
 export const GetSpacePreferenceParamsSchema = Schema.Struct({
@@ -57,15 +68,19 @@ export const GetSpacePreferenceParamsSchema = Schema.Struct({
     description:
       "Space _id or exact space name whose low-level SpacePreference record should be read. Resolution tries _id first, then exact name."
   }),
-  includeArchived: Schema.optional(Schema.Boolean.annotations({
-    description: "Allow matching archived spaces by exact name. ID lookup can return archived spaces."
-  })),
-  class: Schema.optional(SpaceClassFilter.annotations({
-    description: "Optional raw Huly space class ID used to disambiguate exact-name lookup."
-  })),
-  type: Schema.optional(SpaceTypeId.annotations({
-    description: "Optional raw Huly SpaceType _id used to disambiguate exact-name lookup."
-  }))
+  includeArchived: Schema.optional(
+    Schema.Boolean.annotations({
+      description: "Allow matching archived spaces by exact name. ID lookup can return archived spaces."
+    })
+  ),
+  class: Schema.optional(
+    SpaceClassFilter.annotations({
+      description: "Optional raw Huly space class ID used to disambiguate exact-name lookup."
+    })
+  ),
+  type: Schema.optional(
+    SpaceTypeId.annotations({ description: "Optional raw Huly SpaceType _id used to disambiguate exact-name lookup." })
+  )
 }).annotations({
   title: "GetSpacePreferenceParams",
   description:
@@ -75,13 +90,9 @@ export type GetSpacePreferenceParams = Schema.Schema.Type<typeof GetSpacePrefere
 
 export const SpacePreferenceSchema = Schema.Struct({
   preferenceId: SpacePreferenceId,
-  attachedTo: SpaceId.annotations({
-    description: "Raw Huly space ID stored in SpacePreference.attachedTo."
-  }),
+  attachedTo: SpaceId.annotations({ description: "Raw Huly space ID stored in SpacePreference.attachedTo." }),
   attachedSpace: optionalOutput(SpaceSummarySchema),
-  class: ObjectClassName.annotations({
-    description: "Raw Huly class ID for the returned preference document."
-  })
+  class: ObjectClassName.annotations({ description: "Raw Huly class ID for the returned preference document." })
 }).annotations({
   title: "SpacePreference",
   description:
@@ -96,15 +107,8 @@ export const ListSpacePreferencesResultSchema = Schema.Struct({
 export type ListSpacePreferencesResult = Schema.Schema.Type<typeof ListSpacePreferencesResultSchema>
 
 export const GetSpacePreferenceResultSchema = Schema.Union(
-  Schema.Struct({
-    present: Schema.Literal(true),
-    preference: SpacePreferenceSchema
-  }),
-  Schema.Struct({
-    present: Schema.Literal(false),
-    attachedTo: SpaceId,
-    attachedSpace: SpaceSummarySchema
-  })
+  Schema.Struct({ present: Schema.Literal(true), preference: SpacePreferenceSchema }),
+  Schema.Struct({ present: Schema.Literal(false), attachedTo: SpaceId, attachedSpace: SpaceSummarySchema })
 )
 export type GetSpacePreferenceResult = Schema.Schema.Type<typeof GetSpacePreferenceResultSchema>
 

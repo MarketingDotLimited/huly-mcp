@@ -44,7 +44,7 @@ const toCategoryDetail = (
   client: HulyClient["Type"],
   category: HulyInventoryCategory
 ): Effect.Effect<InventoryCategoryDetail, InventoryError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const summary = yield* toCategorySummary(client, category)
     return {
       ...summary,
@@ -56,27 +56,26 @@ const toCategoryDetail = (
 export const listInventoryCategories = (
   params: ListInventoryCategoriesParams
 ): Effect.Effect<ListInventoryCategoriesResult, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit)
-    const query: StrictDocumentQuery<HulyInventoryCategory> = params.parentCategory === undefined
-      ? {}
-      : yield* Effect.map(
-        resolveCategoryParent(client, params.parentCategory),
-        (parent): StrictDocumentQuery<HulyInventoryCategory> => ({ attachedTo: parent.id })
-      )
+    const query: StrictDocumentQuery<HulyInventoryCategory> =
+      params.parentCategory === undefined
+        ? {}
+        : yield* Effect.map(
+            resolveCategoryParent(client, params.parentCategory),
+            (parent): StrictDocumentQuery<HulyInventoryCategory> => ({ attachedTo: parent.id })
+          )
     const categories = yield* findAllCategories(client, query)
     const filtered = categories.filter((category) => matchesText(category.name, params.query))
-    const summaries = yield* Effect.all(
-      filtered.slice(0, limit).map((category) => toCategorySummary(client, category))
-    )
+    const summaries = yield* Effect.all(filtered.slice(0, limit).map((category) => toCategorySummary(client, category)))
     return { categories: summaries, total: listTotal(filtered.length) }
   })
 
 export const getInventoryCategory = (
   params: GetInventoryCategoryParams
 ): Effect.Effect<InventoryCategoryDetail, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const category = yield* resolveCategory(client, params.category, params.parentCategory)
     return yield* toCategoryDetail(client, category)
@@ -85,7 +84,7 @@ export const getInventoryCategory = (
 export const createInventoryCategory = (
   params: CreateInventoryCategoryParams
 ): Effect.Effect<InventoryCreatedResult, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const parent = yield* resolveCategoryParent(client, params.parentCategory)
     yield* ensureCategoryNameAvailable(client, parent.id, params.name)
@@ -106,13 +105,14 @@ export const createInventoryCategory = (
 export const updateInventoryCategory = (
   params: UpdateInventoryCategoryParams
 ): Effect.Effect<InventoryUpdatedResult, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_inventory_category", params, UPDATE_INVENTORY_CATEGORY_FIELDS)
     const client = yield* HulyClient
     const category = yield* resolveCategory(client, params.category, params.parentCategory)
-    const newParent = params.newParentCategory === undefined
-      ? undefined
-      : yield* resolveCategoryParent(client, params.newParentCategory)
+    const newParent =
+      params.newParentCategory === undefined
+        ? undefined
+        : yield* resolveCategoryParent(client, params.newParentCategory)
     const destinationParent = newParent?.id ?? toRef<HulyInventoryCategory>(category.attachedTo)
     if (newParent !== undefined) {
       if (newParent.id === category._id || (yield* isDescendantCategory(client, category, newParent.id))) {
@@ -124,11 +124,9 @@ export const updateInventoryCategory = (
     yield* ensureCategoryNameAvailable(client, destinationParent, params.name ?? category.name, category._id)
     const entries: ReadonlyArray<DocumentUpdate<HulyInventoryCategory>> = [
       params.name === undefined ? {} : { name: params.name },
-      newParent === undefined ? {} : {
-        attachedTo: newParent.id,
-        attachedToClass: inventory.class.Category,
-        collection: CATEGORIES_COLLECTION
-      }
+      newParent === undefined
+        ? {}
+        : { attachedTo: newParent.id, attachedToClass: inventory.class.Category, collection: CATEGORIES_COLLECTION }
     ]
     const update = mergeUpdateEntries(entries)
     if (newParent === undefined) {
@@ -152,14 +150,13 @@ export const updateInventoryCategory = (
 export const deleteInventoryCategory = (
   params: DeleteInventoryCategoryParams
 ): Effect.Effect<InventoryDeletedResult, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const category = yield* resolveCategory(client, params.category, params.parentCategory)
     const counts = yield* categoryCounts(client, category)
     if (counts.childCategories > 0 || counts.products > 0) {
       return yield* new InventoryNotEmptyError({
-        message:
-          `Inventory category '${category.name}' is not empty: ${counts.childCategories} child categories, ${counts.products} products`
+        message: `Inventory category '${category.name}' is not empty: ${counts.childCategories} child categories, ${counts.products} products`
       })
     }
     const removeCollection = requireRemoveCollection(client)

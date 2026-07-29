@@ -17,9 +17,12 @@ type TimeReportToolName = (typeof TIME_REPORT_TOOL_NAMES)[number]
 
 describe("time tool contracts", () => {
   it.effect("documents Huly hour semantics in time-report descriptions and schemas", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const findTimeTool = (name: TimeReportToolName) =>
-        assertExists(timeTools.find((tool) => tool.name === name), `Expected time tool '${name}'.`)
+        assertExists(
+          timeTools.find((tool) => tool.name === name),
+          `Expected time tool '${name}'.`
+        )
       const logTimeTool = findTimeTool("log_time")
       const timeReportTools = TIME_REPORT_TOOL_NAMES.map(findTimeTool)
       const reportReadTools = timeReportTools.filter((tool) => tool.name !== logTimeTool.name)
@@ -37,5 +40,6 @@ describe("time tool contracts", () => {
         expect(outputContract).toContain(HOURS_EXAMPLES)
         expect(outputContract).toContain(WORK_DAY_EXAMPLE)
       }
-    }))
+    })
+  )
 })

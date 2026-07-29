@@ -218,15 +218,8 @@ interface Captures {
     readonly collection: string
     readonly operations: Record<string, unknown>
   }>
-  readonly removedDocs: Array<{
-    readonly class: string
-    readonly id: string
-  }>
-  readonly uploadedMarkup: Array<{
-    readonly id: string
-    readonly markup: string
-    readonly format: string
-  }>
+  readonly removedDocs: Array<{ readonly class: string; readonly id: string }>
+  readonly uploadedMarkup: Array<{ readonly id: string; readonly markup: string; readonly format: string }>
 }
 
 interface RecruitingData {
@@ -257,11 +250,7 @@ interface RecruitingData {
   readonly sequenceUpdateResult?: TxResult
 }
 
-const baseDoc = <T extends Doc>(
-  id: Ref<T>,
-  _class: Ref<Class<T>>,
-  space: Ref<Space> = spaceRef("space")
-) => ({
+const baseDoc = <T extends Doc>(id: Ref<T>, _class: Ref<Class<T>>, space: Ref<Space> = spaceRef("space")) => ({
   _id: id,
   _class,
   space,
@@ -481,27 +470,29 @@ const makeActivityMessage = (overrides: Partial<ActivityMessage> = {}): Activity
 })
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- SDK fixture builder
-const makeProject = (overrides: Partial<Project> = {}): Project => ({
-  ...baseDoc(docRef<Project>("project-huly"), tracker.class.Project, core.space.Workspace),
-  name: "Huly",
-  identifier: "HULY",
-  sequence: 1,
-  defaultIssueStatus: docRef("status-issue"),
-  defaultTimeReportDay: "CurrentWorkDay",
-  ...overrides
-} as Project)
+const makeProject = (overrides: Partial<Project> = {}): Project =>
+  ({
+    ...baseDoc(docRef<Project>("project-huly"), tracker.class.Project, core.space.Workspace),
+    name: "Huly",
+    identifier: "HULY",
+    sequence: 1,
+    defaultIssueStatus: docRef("status-issue"),
+    defaultTimeReportDay: "CurrentWorkDay",
+    ...overrides
+  }) as Project
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- SDK fixture builder
-const makeIssue = (overrides: Partial<Issue> = {}): Issue => ({
-  ...baseDoc(docRef<Issue>("issue-1"), tracker.class.Issue, docRef<Project>("project-huly")),
-  attachedTo: docRef<Issue>("issue-1"),
-  attachedToClass: tracker.class.Issue,
-  collection: "issues",
-  title: "Related recruiting issue",
-  identifier: "HULY-1",
-  number: 1,
-  ...overrides
-} as Issue)
+const makeIssue = (overrides: Partial<Issue> = {}): Issue =>
+  ({
+    ...baseDoc(docRef<Issue>("issue-1"), tracker.class.Issue, docRef<Project>("project-huly")),
+    attachedTo: docRef<Issue>("issue-1"),
+    attachedToClass: tracker.class.Issue,
+    collection: "issues",
+    title: "Related recruiting issue",
+    identifier: "HULY-1",
+    number: 1,
+    ...overrides
+  }) as Issue
 
 const makeTagCategory = (): TagCategory => ({
   ...baseDoc(skillCategoryRef, tags.class.TagCategory),
@@ -585,14 +576,15 @@ const matchesQuery = <T extends Doc>(doc: T, query: DocumentQuery<T>): boolean =
 
 const applySort = <T extends Doc>(docs: ReadonlyArray<T>, options: FindOptions<T> | undefined): Array<T> => {
   const sort = readQuery(options).sort
-  const sorted = typeof sort !== "object" || sort === null
-    ? [...docs]
-    : (() => {
-      const rankSort = readQuery(sort).rank
-      return rankSort === undefined
-        ? [...docs]
-        : [...docs].sort((left, right) => String(readDoc(right).rank).localeCompare(String(readDoc(left).rank)))
-    })()
+  const sorted =
+    typeof sort !== "object" || sort === null
+      ? [...docs]
+      : (() => {
+          const rankSort = readQuery(sort).rank
+          return rankSort === undefined
+            ? [...docs]
+            : [...docs].sort((left, right) => String(readDoc(right).rank).localeCompare(String(readDoc(left).rank)))
+        })()
   const limit = readQuery(options).limit
   return typeof limit === "number" ? sorted.slice(0, limit) : sorted
 }
@@ -693,18 +685,25 @@ const createRecruitingLayer = (data: RecruitingData, captures = createCaptures()
   }
 
   const findAll: HulyClientOperations["findAll"] = (_class, query, options) =>
-    Effect.succeed(findResult(applySort(docsForClass(_class).filter((doc) => matchesQuery(doc, query)), options)))
+    Effect.succeed(
+      findResult(
+        applySort(
+          docsForClass(_class).filter((doc) => matchesQuery(doc, query)),
+          options
+        )
+      )
+    )
 
   const findOne: HulyClientOperations["findOne"] = (_class, query, options) =>
-    Effect.succeed(applySort(docsForClass(_class).filter((doc) => matchesQuery(doc, query)), options)[0])
+    Effect.succeed(
+      applySort(
+        docsForClass(_class).filter((doc) => matchesQuery(doc, query)),
+        options
+      )[0]
+    )
 
   const updateDoc: HulyClientOperations["updateDoc"] = (_class, _space, objectId, operations, retrieve) => {
-    captures.updatedDocs.push({
-      class: String(_class),
-      id: String(objectId),
-      operations,
-      retrieve
-    })
+    captures.updatedDocs.push({ class: String(_class), id: String(objectId), operations, retrieve })
     if (String(_class) === String(core.class.Sequence)) {
       const sequence = sequences.find((candidate) => String(candidate._id) === String(objectId))
       if (sequence !== undefined) {
@@ -729,18 +728,15 @@ const createRecruitingLayer = (data: RecruitingData, captures = createCaptures()
       const issue = issues.find((candidate) => String(candidate._id) === String(objectId))
       if (issue !== undefined) {
         const operationDoc = readDoc(operations)
-        const pushDoc = typeof operationDoc.$push === "object" && operationDoc.$push !== null
-          ? readDoc(operationDoc.$push)
-          : {}
-        const pullDoc = typeof operationDoc.$pull === "object" && operationDoc.$pull !== null
-          ? readDoc(operationDoc.$pull)
-          : {}
+        const pushDoc =
+          typeof operationDoc.$push === "object" && operationDoc.$push !== null ? readDoc(operationDoc.$push) : {}
+        const pullDoc =
+          typeof operationDoc.$pull === "object" && operationDoc.$pull !== null ? readDoc(operationDoc.$pull) : {}
         if (isRelatedDocument(pushDoc.relations)) {
           issue.relations = [...(issue.relations ?? []), pushDoc.relations]
         }
-        const pulledRelation = typeof pullDoc.relations === "object" && pullDoc.relations !== null
-          ? readDoc(pullDoc.relations)
-          : {}
+        const pulledRelation =
+          typeof pullDoc.relations === "object" && pullDoc.relations !== null ? readDoc(pullDoc.relations) : {}
         if ("_id" in pulledRelation) {
           issue.relations = (issue.relations ?? []).filter(
             (relation) => String(relation._id) !== String(pulledRelation._id)
@@ -760,9 +756,10 @@ const createRecruitingLayer = (data: RecruitingData, captures = createCaptures()
   ) => {
     captures.createdDocs.push({ class: String(_class), id: id === undefined ? undefined : String(id), attributes })
     if (String(_class) === String(tags.class.TagElement) && id !== undefined) {
-      tagElements.push(
-        { ...baseDoc(id as unknown as Ref<TagElement>, tags.class.TagElement), ...attributes } as unknown as TagElement
-      )
+      tagElements.push({
+        ...baseDoc(id as unknown as Ref<TagElement>, tags.class.TagElement),
+        ...attributes
+      } as unknown as TagElement)
     }
     return Effect.succeed(id ?? docRef<T>("created-doc"))
   }
@@ -914,11 +911,12 @@ const createRecruitingLayer = (data: RecruitingData, captures = createCaptures()
       collection,
       operations
     })
-    const mutableDocs = String(_class) === String(recruitIds.class.Review)
-      ? reviews
-      : String(_class) === String(recruitIds.class.Opinion)
-      ? opinions
-      : []
+    const mutableDocs =
+      String(_class) === String(recruitIds.class.Review)
+        ? reviews
+        : String(_class) === String(recruitIds.class.Opinion)
+          ? opinions
+          : []
     const doc = mutableDocs.find((candidate) => String(candidate._id) === String(objectId))
     if (doc !== undefined) Object.assign(doc, operations)
     return Effect.succeed(attachedTo)
@@ -972,7 +970,7 @@ const storageLayer = HulyStorageClient.testLayer({
 
 describe("Recruiting Operations", () => {
   it.effect("resolves vacancies by identifier and detects ambiguous names", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const duplicate = makeVacancy({ _id: docRef("vacancy-2"), number: 2 })
       const { layer } = createRecruitingLayer({ vacancies: [makeVacancy(), duplicate] })
 
@@ -1014,10 +1012,11 @@ describe("Recruiting Operations", () => {
         )
       )
       expect(missing).toBeInstanceOf(RecruitingVacancyNotFoundError)
-    }))
+    })
+  )
 
   it.effect("lists vacancy workflow data, reads rich details, filters, and updates nullable fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const organization = makeOrganization()
       const vacancy = makeVacancy({
         fullDescription: docRef("markup-ref") as Vacancy["fullDescription"],
@@ -1102,11 +1101,7 @@ describe("Recruiting Operations", () => {
       }).pipe(Effect.provide(layer))
       expect(capturedMarkupReferenceNodes(captures.uploadedMarkup.at(-1)?.markup)[0]).toMatchObject({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "HULY-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
       expect(captures.updatedDocs.at(-1)?.operations).toMatchObject({ fullDescription: "markup-ref" })
 
@@ -1120,15 +1115,13 @@ describe("Recruiting Operations", () => {
       expect(captures.updatedDocs.at(-1)?.operations).toEqual({
         fullDescription: null,
         location: "",
-        $unset: {
-          company: "",
-          dueTo: ""
-        }
+        $unset: { company: "", dueTo: "" }
       })
-    }))
+    })
+  )
 
   it.effect("omits sparse vacancy detail fields and uses vacancy creation/update defaults", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const organization = makeOrganization()
       const { autoJoin: _autoJoin, shortDescription: _shortDescription, ...sparseTypeBase } = makeVacancyType()
       const sparseType: ProjectType = sparseTypeBase
@@ -1138,10 +1131,7 @@ describe("Recruiting Operations", () => {
         comments: _comments,
         createdOn: _createdOn,
         ...sparseVacancyBase
-      } = makeVacancy({
-        description: "",
-        company: docRef("missing-org")
-      })
+      } = makeVacancy({ description: "", company: docRef("missing-org") })
       const sparseVacancy: Vacancy = sparseVacancyBase
       const { captures, layer } = createRecruitingLayer({
         organizations: [organization],
@@ -1160,10 +1150,7 @@ describe("Recruiting Operations", () => {
       expect(detail.attachments).toBeUndefined()
       expect(detail.createdOn).toBeUndefined()
 
-      const created = yield* createRecruitingVacancy({
-        name: "SRE",
-        company: "Acme"
-      }).pipe(Effect.provide(layer))
+      const created = yield* createRecruitingVacancy({ name: "SRE", company: "Acme" }).pipe(Effect.provide(layer))
       expect(created.vacancy.archived).toBe(false)
       expect(captures.createdDocs[0]?.attributes).toMatchObject({
         description: "",
@@ -1178,10 +1165,11 @@ describe("Recruiting Operations", () => {
         name: "Backend Platform Engineer"
       }).pipe(Effect.provide(layer))
       expect(captures.updatedDocs.at(-1)?.operations).toEqual({ name: "Backend Platform Engineer" })
-    }))
+    })
+  )
 
   it.effect("reports vacancy model errors for missing types, statuses, and sequences", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const missingType = yield* Effect.flip(
         createRecruitingVacancy({ name: "No Type" }).pipe(
           Effect.provide(createRecruitingLayer({ vacancyTypes: [] }).layer)
@@ -1211,10 +1199,11 @@ describe("Recruiting Operations", () => {
         )
       )
       expect(malformedSequence).toBeInstanceOf(RecruitingModelMissingError)
-    }))
+    })
+  )
 
   it.effect("reports vacancy type lookup errors and status fallback categories", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const customStatusRef = statusRef("status-custom-category")
       const missingStatusRef = statusRef("status-missing-doc")
       const { layer } = createRecruitingLayer({
@@ -1252,24 +1241,21 @@ describe("Recruiting Operations", () => {
       const missingModelType = yield* Effect.flip(
         getRecruitingVacancy({ vacancy: VacancyIdentifier.make("VCN-1") }).pipe(
           Effect.provide(
-            createRecruitingLayer({
-              vacancies: [makeVacancy({ type: docRef("missing-type") })],
-              vacancyTypes: []
-            }).layer
+            createRecruitingLayer({ vacancies: [makeVacancy({ type: docRef("missing-type") })], vacancyTypes: [] })
+              .layer
           ),
           withDiagnostics
         )
       )
       expect(missingModelType).toBeInstanceOf(RecruitingModelMissingError)
 
-      const noDefaultStatus = yield* Effect.flip(
-        resolveDefaultRecruitingStatus([], VacancyIdentifier.make("VCN-1"))
-      )
+      const noDefaultStatus = yield* Effect.flip(resolveDefaultRecruitingStatus([], VacancyIdentifier.make("VCN-1")))
       expect(noDefaultStatus).toBeInstanceOf(InvalidStatusError)
-    }))
+    })
+  )
 
   it.effect("creates vacancies with sequence increment, markup upload, owner defaults, and type-data mixin", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { captures, layer } = createRecruitingLayer({
         sequences: [makeSequence("seq-vacancy", recruitIds.class.Vacancy, 41)]
       })
@@ -1295,14 +1281,12 @@ describe("Recruiting Operations", () => {
         members: [accountUuid],
         owners: [accountUuid]
       })
-      expect(assertAt(captures.createdMixins, 0)).toMatchObject({
-        mixin: String(vacancyTypeDataRef),
-        attributes: {}
-      })
-    }))
+      expect(assertAt(captures.createdMixins, 0)).toMatchObject({ mixin: String(vacancyTypeDataRef), attributes: {} })
+    })
+  )
 
   it.effect("creates vacancy full descriptions with native references", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { captures, layer } = createRecruitingLayer({
         sequences: [makeSequence("seq-vacancy", recruitIds.class.Vacancy, 41)]
       })
@@ -1315,17 +1299,14 @@ describe("Recruiting Operations", () => {
 
       expect(capturedMarkupReferenceNodes(captures.uploadedMarkup[0]?.markup)[0]).toMatchObject({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "HULY-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
       expect(captures.createdDocs[0]?.attributes.fullDescription).toBe("markup-ref")
-    }))
+    })
+  )
 
   it.effect("archives and unarchives vacancies", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { captures, layer } = createRecruitingLayer({})
 
       const archived = yield* archiveRecruitingVacancy({ vacancy: VacancyIdentifier.make("VCN-1") }).pipe(
@@ -1339,10 +1320,11 @@ describe("Recruiting Operations", () => {
       expect(unarchived.vacancy.archived).toBe(false)
       expect(captures.updatedDocs.map((update) => update.operations)).toContainEqual({ archived: true })
       expect(captures.updatedDocs.map((update) => update.operations)).toContainEqual({ archived: false })
-    }))
+    })
+  )
 
   it.effect("lists vacancies with archive filtering", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { layer } = createRecruitingLayer({
         vacancies: [makeVacancy(), makeVacancy({ _id: docRef("vacancy-2"), number: 2, archived: true })]
       })
@@ -1351,10 +1333,11 @@ describe("Recruiting Operations", () => {
 
       expect(result.total).toBe(1)
       expect(result.vacancies[0]?.identifier).toBe("VCN-1")
-    }))
+    })
+  )
 
   it.effect("creates and updates candidate profile mixins", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const person = makePerson("person-2", "Grace Hopper")
       const created = createRecruitingLayer({ candidates: [], people: [person] })
 
@@ -1383,22 +1366,18 @@ describe("Recruiting Operations", () => {
         id: "person-1",
         attributes: { source: "Inbound", onsite: true }
       })
-    }))
+    })
+  )
 
   it.effect("lists candidates by query and resolves candidates by id and email", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const ada = makePerson("person-1", "Ada Lovelace")
       const grace = makePerson("person-2", "Grace Hopper")
       const {
         applications: _graceApplications,
         reviews: _graceReviews,
         ...graceCandidateBase
-      } = makeCandidate({
-        _id: grace._id,
-        name: grace.name,
-        title: "Compiler Engineer",
-        source: "Inbound"
-      })
+      } = makeCandidate({ _id: grace._id, name: grace.name, title: "Compiler Engineer", source: "Inbound" })
       const graceCandidate: Candidate = graceCandidateBase
       const { layer } = createRecruitingLayer({
         candidates: [makeCandidate(), graceCandidate],
@@ -1420,10 +1399,11 @@ describe("Recruiting Operations", () => {
       )
       expect(byId.id).toBe("person-1")
       expect(byEmail.id).toBe("person-1")
-    }))
+    })
+  )
 
   it.effect("omits empty candidate profile fields and reports missing candidate mixins", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const {
         applications: _minimalApplications,
         createdOn: _minimalCreatedOn,
@@ -1453,10 +1433,11 @@ describe("Recruiting Operations", () => {
         )
       )
       expect(missing).toBeInstanceOf(RecruitingCandidateNotFoundError)
-    }))
+    })
+  )
 
   it.effect("returns candidate refs without email when no channel exists and reports missing people", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const noEmailLayer = createRecruitingLayer({ channels: [] })
       const candidate = yield* getRecruitingCandidate({ candidate: CandidateIdentifier.make("Ada Lovelace") }).pipe(
         Effect.provide(noEmailLayer.layer)
@@ -1469,10 +1450,11 @@ describe("Recruiting Operations", () => {
         )
       )
       expect(missingPerson).toBeInstanceOf(PersonNotFoundError)
-    }))
+    })
+  )
 
   it.effect("returns candidate detail with email and skills", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { layer } = createRecruitingLayer({})
 
       const candidate = yield* getRecruitingCandidate({ candidate: CandidateIdentifier.make("Ada Lovelace") }).pipe(
@@ -1482,23 +1464,20 @@ describe("Recruiting Operations", () => {
       expect(candidate.email).toBe("ada@example.com")
       expect(candidate.skills.map((skill) => skill.title)).toEqual(["Python"])
       expect(candidate.remote).toBe(true)
-    }))
+    })
+  )
 
   it.effect("filters skills, lists candidate skills, and handles idempotent attach/detach", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const attachedLayer = createRecruitingLayer({})
 
       const filteredSkills = yield* listRecruitingSkills({
         category: TagCategoryIdentifier.make("Skills"),
         titleSearch: "Py"
       }).pipe(Effect.provide(attachedLayer.layer))
-      expect(filteredSkills.skills).toEqual([{
-        id: "skill-python",
-        title: "Python",
-        color: 3,
-        category: skillCategoryRef,
-        refCount: 1
-      }])
+      expect(filteredSkills.skills).toEqual([
+        { id: "skill-python", title: "Python", color: 3, category: skillCategoryRef, refCount: 1 }
+      ])
 
       const candidateSkills = yield* listRecruitingCandidateSkills({
         candidate: CandidateIdentifier.make("Ada Lovelace")
@@ -1521,31 +1500,24 @@ describe("Recruiting Operations", () => {
       expect(notDetached.detached).toBe(false)
       expect(notDetached.detachedCount).toBe(0)
 
-      const noCountSkill = yield* listRecruitingSkills({
-        titleSearch: "Rust"
-      }).pipe(
+      const noCountSkill = yield* listRecruitingSkills({ titleSearch: "Rust" }).pipe(
         Effect.provide(
           createRecruitingLayer({
-            tagElements: [(() => {
-              const { refCount: _refCount, ...rust } = makeTagElement({
-                _id: docRef("skill-rust"),
-                title: "Rust"
-              })
-              return rust
-            })()]
+            tagElements: [
+              (() => {
+                const { refCount: _refCount, ...rust } = makeTagElement({ _id: docRef("skill-rust"), title: "Rust" })
+                return rust
+              })()
+            ]
           }).layer
         )
       )
-      expect(noCountSkill.skills).toEqual([{
-        id: "skill-rust",
-        title: "Rust",
-        color: 3,
-        category: skillCategoryRef
-      }])
-    }))
+      expect(noCountSkill.skills).toEqual([{ id: "skill-rust", title: "Rust", color: 3, category: skillCategoryRef }])
+    })
+  )
 
   it.effect("lists, adds, and removes candidate skills through tag helpers", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { captures, layer } = createRecruitingLayer({ tagElements: [] })
 
       const before = yield* listRecruitingSkills({}).pipe(Effect.provide(layer))
@@ -1574,10 +1546,11 @@ describe("Recruiting Operations", () => {
 
       expect(removed.detached).toBe(true)
       expect(captures.removedDocs[0]?.class).toBe(String(tags.class.TagReference))
-    }))
+    })
+  )
 
   it.effect("creates applicants with default status and assignee, and validates status and assignee inputs", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const ada = makePerson("person-1", "Ada Lovelace")
       const recruiter = makePerson("person-2", "Recruiter One")
       const { captures, layer } = createRecruitingLayer({
@@ -1634,10 +1607,11 @@ describe("Recruiting Operations", () => {
       )
       expect(nonEmployeeAssignee).toBeInstanceOf(PersonNotAnEmployeeError)
       expect(nonEmployeeLayer.captures.createdMixins).toEqual([])
-    }))
+    })
+  )
 
   it.effect("creates applicants and rejects duplicate vacancy/candidate pairs", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { captures, layer } = createRecruitingLayer({
         applicants: [],
         sequences: [makeSequence("seq-applicant", recruitIds.class.Applicant, 6)]
@@ -1672,26 +1646,24 @@ describe("Recruiting Operations", () => {
         }).pipe(Effect.provide(layer), withDiagnostics)
       )
       expect(duplicate).toBeInstanceOf(RecruitingDuplicateApplicantError)
-    }))
+    })
+  )
 
   it.effect("returns applicant detail fields and filters applicants by vacancy, candidate, and status", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const ada = makePerson("person-1", "Ada Lovelace")
       const recruiter = makePerson("person-2", "Recruiter One")
-      const applicant = makeApplicant({
-        assignee: recruiter._id,
-        startDate: 1701000000000,
-        dueDate: 1702000000000
-      })
+      const applicant = makeApplicant({ assignee: recruiter._id, startDate: 1701000000000, dueDate: 1702000000000 })
       const { layer } = createRecruitingLayer({
         applicants: [applicant],
         channels: [makeChannel(ada), makeChannel(recruiter, "recruiter@example.com")],
         people: [ada, recruiter]
       })
 
-      const detail = yield* getRecruitingApplicant({
-        applicant: ApplicantIdentifier.make("applicant-1")
-      }).pipe(Effect.provide(layer), withDiagnostics)
+      const detail = yield* getRecruitingApplicant({ applicant: ApplicantIdentifier.make("applicant-1") }).pipe(
+        Effect.provide(layer),
+        withDiagnostics
+      )
       expect(detail.assignee).toEqual({ id: "person-2", name: "Recruiter One", email: "recruiter@example.com" })
       expect(detail.startDate).toBe(1701000000000)
       expect(detail.dueDate).toBe(1702000000000)
@@ -1704,34 +1676,36 @@ describe("Recruiting Operations", () => {
       }).pipe(Effect.provide(layer), withDiagnostics)
       expect(listed.applicants.map((item) => item.identifier)).toEqual(["APP-1"])
 
-      const staleAssignee = yield* getRecruitingApplicant({
-        applicant: ApplicantIdentifier.make("APP-1")
-      }).pipe(
+      const staleAssignee = yield* getRecruitingApplicant({ applicant: ApplicantIdentifier.make("APP-1") }).pipe(
         Effect.provide(
           createRecruitingLayer({
-            applicants: [(() => {
-              const { createdOn: _applicantCreatedOn, ...applicant } = makeApplicant({
-                assignee: personRef("missing-person")
-              })
-              return applicant
-            })()]
+            applicants: [
+              (() => {
+                const { createdOn: _applicantCreatedOn, ...applicant } = makeApplicant({
+                  assignee: personRef("missing-person")
+                })
+                return applicant
+              })()
+            ]
           }).layer
         ),
         withDiagnostics
       )
       expect(staleAssignee.assignee).toBeUndefined()
       expect(staleAssignee.createdOn).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("finds status-filtered applicants beyond the default page when no vacancy disambiguates status", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const activeApplicants = Array.from({ length: 50 }, (_, index) =>
         makeApplicant({
           _id: docRef(`applicant-active-${index}`),
           number: index + 1,
           identifier: `APP-${index + 1}`,
           status: activeStatusRef
-        }))
+        })
+      )
       const offerApplicant = makeApplicant({
         _id: docRef("applicant-offer"),
         number: 99,
@@ -1746,10 +1720,11 @@ describe("Recruiting Operations", () => {
       )
 
       expect(listed.applicants.map((applicant) => applicant.identifier)).toEqual(["APP-99"])
-    }))
+    })
+  )
 
   it.effect("updates applicants with assignees and reports missing referenced model data", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { captures, layer } = createRecruitingLayer({})
 
       const updated = yield* updateRecruitingApplicant({
@@ -1770,10 +1745,7 @@ describe("Recruiting Operations", () => {
         updateRecruitingApplicant({
           applicant: ApplicantIdentifier.make("APP-1"),
           assignee: PersonName.make("Ada Lovelace")
-        }).pipe(
-          Effect.provide(createRecruitingLayer({ employees: [] }).layer),
-          withDiagnostics
-        )
+        }).pipe(Effect.provide(createRecruitingLayer({ employees: [] }).layer), withDiagnostics)
       )
       expect(nonEmployeeUpdate).toBeInstanceOf(PersonNotAnEmployeeError)
 
@@ -1805,10 +1777,11 @@ describe("Recruiting Operations", () => {
         )
       )
       expect(unknownStatus).toBeInstanceOf(RecruitingModelMissingError)
-    }))
+    })
+  )
 
   it.effect("honors applicant raw-id disambiguators and reports missing removeCollection support", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const grace = makePerson("person-2", "Grace Hopper")
       const secondVacancy = makeVacancy({ _id: docRef("vacancy-2"), number: 2, name: "Frontend Engineer" })
       const { layer } = createRecruitingLayer({
@@ -1854,10 +1827,11 @@ describe("Recruiting Operations", () => {
         )
       )
       expect(unsupportedDelete).toBeInstanceOf(RecruitingMutationUnsupportedError)
-    }))
+    })
+  )
 
   it.effect("lists applicants, resolves ambiguous applicant numbers, updates, and deletes", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const second = makeApplicant({
         _id: docRef("applicant-2"),
         space: docRef("vacancy-2"),
@@ -1916,10 +1890,11 @@ describe("Recruiting Operations", () => {
         attachedTo: "person-1",
         collection: "applications"
       })
-    }))
+    })
+  )
 
   it.effect("lists and gets read-only applicant matches", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { layer } = createRecruitingLayer({})
 
       const listed = yield* listRecruitingApplicantMatches({
@@ -1927,16 +1902,18 @@ describe("Recruiting Operations", () => {
         complete: true,
         query: "fit"
       }).pipe(Effect.provide(layer))
-      expect(listed.matches).toEqual([{
-        id: "match-1",
-        candidate: { id: "person-1", name: "Ada Lovelace", email: "ada@example.com" },
-        complete: true,
-        vacancy: "Backend Engineer"
-      }])
+      expect(listed.matches).toEqual([
+        {
+          id: "match-1",
+          candidate: { id: "person-1", name: "Ada Lovelace", email: "ada@example.com" },
+          complete: true,
+          vacancy: "Backend Engineer"
+        }
+      ])
 
-      const detail = yield* getRecruitingApplicantMatch({
-        match: ApplicantMatchIdentifier.make("match-1")
-      }).pipe(Effect.provide(layer))
+      const detail = yield* getRecruitingApplicantMatch({ match: ApplicantMatchIdentifier.make("match-1") }).pipe(
+        Effect.provide(layer)
+      )
       expect(detail.summary).toBe("Strong fit")
       expect(detail.response).toContain("Generated match response")
 
@@ -1946,10 +1923,11 @@ describe("Recruiting Operations", () => {
         )
       )
       expect(missing).toBeInstanceOf(RecruitingApplicantMatchNotFoundError)
-    }))
+    })
+  )
 
   it.effect("handles applicant-match sparse output and missing linked candidates", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const sparseMatch = makeApplicantMatch({ summary: "", response: "" })
       const { createdOn: _matchCreatedOn, ...matchWithoutCreatedOn } = sparseMatch
       const { layer } = createRecruitingLayer({ applicantMatches: [matchWithoutCreatedOn] })
@@ -1960,9 +1938,9 @@ describe("Recruiting Operations", () => {
       const filteredOut = yield* listRecruitingApplicantMatches({ query: "not-a-fit" }).pipe(Effect.provide(layer))
       expect(filteredOut.matches).toEqual([])
 
-      const detail = yield* getRecruitingApplicantMatch({
-        match: ApplicantMatchIdentifier.make("match-1")
-      }).pipe(Effect.provide(layer))
+      const detail = yield* getRecruitingApplicantMatch({ match: ApplicantMatchIdentifier.make("match-1") }).pipe(
+        Effect.provide(layer)
+      )
       expect(detail).not.toHaveProperty("summary")
       expect(detail).not.toHaveProperty("response")
       expect(detail).not.toHaveProperty("createdOn")
@@ -1973,10 +1951,11 @@ describe("Recruiting Operations", () => {
         )
       )
       expect(missingCandidate).toBeInstanceOf(RecruitingModelMissingError)
-    }))
+    })
+  )
 
   it.effect("lists, reads, creates, updates, and deletes recruiting reviews", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { captures, layer } = createRecruitingLayer({
         candidates: [],
         reviews: [makeReview()],
@@ -2056,15 +2035,12 @@ describe("Recruiting Operations", () => {
         id: "review-1",
         collection: "reviews"
       })
-    }))
+    })
+  )
 
   it.effect("handles sparse review detail, default create values, and direct review updates", () =>
-    Effect.gen(function*() {
-      const sparseReview = makeReview({
-        description: "",
-        verdict: "",
-        participants: []
-      })
+    Effect.gen(function* () {
+      const sparseReview = makeReview({ description: "", verdict: "", participants: [] })
       const {
         application: _reviewApplication,
         company: _reviewCompany,
@@ -2119,15 +2095,12 @@ describe("Recruiting Operations", () => {
         description:
           "See [HULY-1](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-1&label=HULY-1)."
       }).pipe(Effect.provide(layer))
-      expect(capturedMarkupReferenceNodes(String(captures.addedCollections.at(-1)?.attributes.description))[0])
-        .toMatchObject({
-          type: "reference",
-          attrs: {
-            id: "issue-1",
-            objectclass: "tracker:class:Issue",
-            label: "HULY-1"
-          }
-        })
+      expect(
+        capturedMarkupReferenceNodes(String(captures.addedCollections.at(-1)?.attributes.description))[0]
+      ).toMatchObject({
+        type: "reference",
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
+      })
 
       yield* updateRecruitingReview({
         review: ReviewIdentifier.make("RVE-1"),
@@ -2149,16 +2122,14 @@ describe("Recruiting Operations", () => {
       })
       expect(captures.updatedCollections.at(-1)?.operations).not.toHaveProperty("$unset")
 
-      yield* updateRecruitingReview({
-        review: ReviewIdentifier.make("RVE-1"),
-        verdict: "Final"
-      }).pipe(Effect.provide(layer))
+      yield* updateRecruitingReview({ review: ReviewIdentifier.make("RVE-1"), verdict: "Final" }).pipe(
+        Effect.provide(layer)
+      )
       expect(captures.updatedCollections.at(-1)?.operations).toEqual({ verdict: "Final" })
 
-      yield* updateRecruitingReview({
-        review: ReviewIdentifier.make("RVE-1"),
-        description: "Description only"
-      }).pipe(Effect.provide(layer))
+      yield* updateRecruitingReview({ review: ReviewIdentifier.make("RVE-1"), description: "Description only" }).pipe(
+        Effect.provide(layer)
+      )
       expect(captures.updatedCollections.at(-1)?.operations).toHaveProperty("description")
 
       yield* updateRecruitingReview({
@@ -2166,26 +2137,20 @@ describe("Recruiting Operations", () => {
         description:
           "See [HULY-1](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-1&label=HULY-1)."
       }).pipe(Effect.provide(layer))
-      expect(capturedMarkupReferenceNodes(String(captures.updatedCollections.at(-1)?.operations.description))[0])
-        .toMatchObject({
-          type: "reference",
-          attrs: {
-            id: "issue-1",
-            objectclass: "tracker:class:Issue",
-            label: "HULY-1"
-          }
-        })
-    }))
+      expect(
+        capturedMarkupReferenceNodes(String(captures.updatedCollections.at(-1)?.operations.description))[0]
+      ).toMatchObject({
+        type: "reference",
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
+      })
+    })
+  )
 
   it.effect("reports review model gaps, locator mismatches, and unsupported deletes", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const linkedMissingDetail = yield* getRecruitingReview({ review: ReviewIdentifier.make("RVE-1") }).pipe(
         Effect.provide(
-          createRecruitingLayer({
-            applicants: [],
-            organizations: [],
-            reviews: [makeReview({ verdict: "Hire" })]
-          }).layer
+          createRecruitingLayer({ applicants: [], organizations: [], reviews: [makeReview({ verdict: "Hire" })] }).layer
         ),
         withDiagnostics
       )
@@ -2202,14 +2167,7 @@ describe("Recruiting Operations", () => {
       expect(missingCandidate).toBeInstanceOf(RecruitingModelMissingError)
 
       const applicationScoped = createRecruitingLayer({
-        applicants: [
-          makeApplicant(),
-          makeApplicant({
-            _id: docRef("applicant-2"),
-            identifier: "APP-2",
-            number: 2
-          })
-        ],
+        applicants: [makeApplicant(), makeApplicant({ _id: docRef("applicant-2"), identifier: "APP-2", number: 2 })],
         reviews: [makeReview()]
       }).layer
       const rawIdWithApplication = yield* getRecruitingReview({
@@ -2233,10 +2191,7 @@ describe("Recruiting Operations", () => {
         }).pipe(
           Effect.provide(
             createRecruitingLayer({
-              people: [
-                makePerson("person-1", "Ada Lovelace"),
-                makePerson("person-2", "Grace Hopper")
-              ],
+              people: [makePerson("person-1", "Ada Lovelace"), makePerson("person-2", "Grace Hopper")],
               reviews: [makeReview()]
             }).layer
           ),
@@ -2259,16 +2214,15 @@ describe("Recruiting Operations", () => {
         )
       )
       expect(unsupportedDelete).toBeInstanceOf(RecruitingMutationUnsupportedError)
-    }))
+    })
+  )
 
   it.effect("reports review ambiguity and unsupported collection updates", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const ambiguous = yield* Effect.flip(
         getRecruitingReview({ review: ReviewIdentifier.make("Technical Interview") }).pipe(
           Effect.provide(
-            createRecruitingLayer({
-              reviews: [makeReview(), makeReview({ _id: docRef("review-2"), number: 2 })]
-            }).layer
+            createRecruitingLayer({ reviews: [makeReview(), makeReview({ _id: docRef("review-2"), number: 2 })] }).layer
           ),
           withDiagnostics
         )
@@ -2276,16 +2230,16 @@ describe("Recruiting Operations", () => {
       expect(ambiguous).toBeInstanceOf(RecruitingReviewIdentifierAmbiguousError)
 
       const unsupported = yield* Effect.flip(
-        updateRecruitingReview({
-          review: ReviewIdentifier.make("RVE-1"),
-          title: "No Update Collection"
-        }).pipe(Effect.provide(createRecruitingLayer({ updateCollectionAvailable: false }).layer))
+        updateRecruitingReview({ review: ReviewIdentifier.make("RVE-1"), title: "No Update Collection" }).pipe(
+          Effect.provide(createRecruitingLayer({ updateCollectionAvailable: false }).layer)
+        )
       )
       expect(unsupported).toBeInstanceOf(RecruitingMutationUnsupportedError)
-    }))
+    })
+  )
 
   it.effect("lists, reads, creates, updates, and deletes recruiting opinions", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { captures, layer } = createRecruitingLayer({
         opinions: [makeOpinion()],
         sequences: [makeSequence("seq-opinion", recruitIds.class.Opinion, 6)]
@@ -2315,10 +2269,7 @@ describe("Recruiting Operations", () => {
         attachedTo: "review-1",
         collection: "opinions"
       })
-      expect(captures.addedCollections.at(-1)?.attributes).toMatchObject({
-        number: 7,
-        value: "Hire"
-      })
+      expect(captures.addedCollections.at(-1)?.attributes).toMatchObject({ number: 7, value: "Hire" })
 
       const updated = yield* updateRecruitingOpinion({
         opinion: OpinionIdentifier.make("OPE-1"),
@@ -2327,10 +2278,7 @@ describe("Recruiting Operations", () => {
         description: null
       }).pipe(Effect.provide(layer))
       expect(updated.opinion.value).toBe("Strong hire")
-      expect(captures.updatedCollections.at(-1)?.operations).toEqual({
-        value: "Strong hire",
-        description: ""
-      })
+      expect(captures.updatedCollections.at(-1)?.operations).toEqual({ value: "Strong hire", description: "" })
 
       const deleted = yield* deleteRecruitingOpinion({
         opinion: OpinionIdentifier.make("OPE-1"),
@@ -2342,10 +2290,11 @@ describe("Recruiting Operations", () => {
         id: "opinion-1",
         collection: "opinions"
       })
-    }))
+    })
+  )
 
   it.effect("handles sparse opinions, raw-id opinion lookup, and non-clear updates", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const sparseOpinion = makeOpinion({ description: "" })
       const {
         attachments: _opinionAttachments,
@@ -2382,15 +2331,12 @@ describe("Recruiting Operations", () => {
         description:
           "See [HULY-1](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-1&label=HULY-1)."
       }).pipe(Effect.provide(layer))
-      expect(capturedMarkupReferenceNodes(String(captures.addedCollections.at(-1)?.attributes.description))[0])
-        .toMatchObject({
-          type: "reference",
-          attrs: {
-            id: "issue-1",
-            objectclass: "tracker:class:Issue",
-            label: "HULY-1"
-          }
-        })
+      expect(
+        capturedMarkupReferenceNodes(String(captures.addedCollections.at(-1)?.attributes.description))[0]
+      ).toMatchObject({
+        type: "reference",
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
+      })
 
       yield* updateRecruitingOpinion({
         opinion: OpinionIdentifier.make("OPE-1"),
@@ -2403,31 +2349,28 @@ describe("Recruiting Operations", () => {
         description:
           "See [HULY-1](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-1&label=HULY-1)."
       }).pipe(Effect.provide(layer))
-      expect(capturedMarkupReferenceNodes(String(captures.updatedCollections.at(-1)?.operations.description))[0])
-        .toMatchObject({
-          type: "reference",
-          attrs: {
-            id: "issue-1",
-            objectclass: "tracker:class:Issue",
-            label: "HULY-1"
-          }
-        })
+      expect(
+        capturedMarkupReferenceNodes(String(captures.updatedCollections.at(-1)?.operations.description))[0]
+      ).toMatchObject({
+        type: "reference",
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
+      })
 
-      yield* updateRecruitingOpinion({
-        opinion: OpinionIdentifier.make("OPE-1"),
-        value: "Value only"
-      }).pipe(Effect.provide(layer))
+      yield* updateRecruitingOpinion({ opinion: OpinionIdentifier.make("OPE-1"), value: "Value only" }).pipe(
+        Effect.provide(layer)
+      )
       expect(captures.updatedCollections.at(-1)?.operations).toEqual({ value: "Value only" })
 
-      const deleted = yield* deleteRecruitingOpinion({
-        opinion: OpinionIdentifier.make("OPE-1")
-      }).pipe(Effect.provide(layer))
+      const deleted = yield* deleteRecruitingOpinion({ opinion: OpinionIdentifier.make("OPE-1") }).pipe(
+        Effect.provide(layer)
+      )
       expect(deleted.opinion.id).toBe("opinion-1")
       expect(deleted.deleted).toBe(true)
-    }))
+    })
+  )
 
   it.effect("reports opinion raw-id misses, review mismatches, and unsupported deletes", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const missingRawId = yield* Effect.flip(
         getRecruitingOpinion({ opinion: OpinionIdentifier.make("missing-opinion") }).pipe(
           Effect.provide(createRecruitingLayer({ opinions: [makeOpinion()] }).layer)
@@ -2456,32 +2399,31 @@ describe("Recruiting Operations", () => {
         )
       )
       expect(unsupportedDelete).toBeInstanceOf(RecruitingMutationUnsupportedError)
-    }))
+    })
+  )
 
   it.effect("reports opinion ambiguity and unsupported collection updates", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const ambiguous = yield* Effect.flip(
         getRecruitingOpinion({ opinion: OpinionIdentifier.make("OPE-1") }).pipe(
           Effect.provide(
-            createRecruitingLayer({
-              opinions: [makeOpinion(), makeOpinion({ _id: docRef("opinion-2") })]
-            }).layer
+            createRecruitingLayer({ opinions: [makeOpinion(), makeOpinion({ _id: docRef("opinion-2") })] }).layer
           )
         )
       )
       expect(ambiguous).toBeInstanceOf(RecruitingOpinionIdentifierAmbiguousError)
 
       const unsupported = yield* Effect.flip(
-        updateRecruitingOpinion({
-          opinion: OpinionIdentifier.make("OPE-1"),
-          value: "No Update Collection"
-        }).pipe(Effect.provide(createRecruitingLayer({ updateCollectionAvailable: false }).layer))
+        updateRecruitingOpinion({ opinion: OpinionIdentifier.make("OPE-1"), value: "No Update Collection" }).pipe(
+          Effect.provide(createRecruitingLayer({ updateCollectionAvailable: false }).layer)
+        )
       )
       expect(unsupported).toBeInstanceOf(RecruitingMutationUnsupportedError)
-    }))
+    })
+  )
 
   it.effect("resolves every recruiting media target through friendly locators", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { layer } = createRecruitingLayer({})
 
       const vacancy = yield* listRecruitingComments({
@@ -2508,11 +2450,7 @@ describe("Recruiting Operations", () => {
         target: { kind: "opinion", opinion: OpinionIdentifier.make("OPE-1") }
       }).pipe(Effect.provide(layer), withDiagnostics)
       const opinionWithReview = yield* listRecruitingComments({
-        target: {
-          kind: "opinion",
-          opinion: OpinionIdentifier.make("OPE-1"),
-          review: ReviewIdentifier.make("RVE-1")
-        }
+        target: { kind: "opinion", opinion: OpinionIdentifier.make("OPE-1"), review: ReviewIdentifier.make("RVE-1") }
       }).pipe(Effect.provide(layer), withDiagnostics)
 
       expect(vacancy.target.kind).toBe("vacancy")
@@ -2527,10 +2465,11 @@ describe("Recruiting Operations", () => {
       expect(opinion.target.kind).toBe("opinion")
       expect(opinion.target.id).toBe("opinion-1")
       expect(opinionWithReview.target.id).toBe("opinion-1")
-    }))
+    })
+  )
 
   it.effect("lists, adds, updates, deletes, and target-scopes recruiting comments", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const foreign = makeComment({
         _id: docRef("comment-foreign"),
         attachedTo: docRef<Candidate>("person-1"),
@@ -2543,10 +2482,10 @@ describe("Recruiting Operations", () => {
       expect(listed.total).toBe(1)
       expect(listed.comments[0]?.body).toBe("Initial comment")
 
-      const added = yield* addRecruitingComment({
-        target,
-        body: NonEmptyString.make("Added recruiting note")
-      }).pipe(Effect.provide(layer), withDiagnostics)
+      const added = yield* addRecruitingComment({ target, body: NonEmptyString.make("Added recruiting note") }).pipe(
+        Effect.provide(layer),
+        withDiagnostics
+      )
       expect(added.target.id).toBe("vacancy-1")
       expect(captures.addedCollections.at(-1)).toMatchObject({
         class: String(chunter.class.ChatMessage),
@@ -2560,20 +2499,14 @@ describe("Recruiting Operations", () => {
         body: NonEmptyString.make("Updated recruiting note")
       }).pipe(Effect.provide(layer), withDiagnostics)
       expect(updated.updated).toBe(true)
-      expect(captures.updatedDocs.at(-1)).toMatchObject({
-        class: String(chunter.class.ChatMessage),
-        id: "comment-1"
-      })
+      expect(captures.updatedDocs.at(-1)).toMatchObject({ class: String(chunter.class.ChatMessage), id: "comment-1" })
 
-      const deleted = yield* deleteRecruitingComment({
-        target,
-        commentId: CommentId.make("comment-1")
-      }).pipe(Effect.provide(layer), withDiagnostics)
+      const deleted = yield* deleteRecruitingComment({ target, commentId: CommentId.make("comment-1") }).pipe(
+        Effect.provide(layer),
+        withDiagnostics
+      )
       expect(deleted.deleted).toBe(true)
-      expect(captures.removedDocs.at(-1)).toMatchObject({
-        class: String(chunter.class.ChatMessage),
-        id: "comment-1"
-      })
+      expect(captures.removedDocs.at(-1)).toMatchObject({ class: String(chunter.class.ChatMessage), id: "comment-1" })
 
       const scopedMiss = yield* Effect.flip(
         updateRecruitingComment({
@@ -2585,16 +2518,17 @@ describe("Recruiting Operations", () => {
       expect(scopedMiss).toBeInstanceOf(RecruitingCommentNotFoundError)
 
       const deleteScopedMiss = yield* Effect.flip(
-        deleteRecruitingComment({
-          target,
-          commentId: CommentId.make("comment-foreign")
-        }).pipe(Effect.provide(layer), withDiagnostics)
+        deleteRecruitingComment({ target, commentId: CommentId.make("comment-foreign") }).pipe(
+          Effect.provide(layer),
+          withDiagnostics
+        )
       )
       expect(deleteScopedMiss).toBeInstanceOf(RecruitingCommentNotFoundError)
-    }))
+    })
+  )
 
   it.effect("lists, gets, adds, updates, deletes, and target-scopes recruiting attachments", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const foreign = makeAttachment({
         _id: docRef("attachment-foreign"),
         attachedTo: docRef<Candidate>("person-1"),
@@ -2608,10 +2542,10 @@ describe("Recruiting Operations", () => {
       expect(listed.total).toBe(1)
       expect(listed.attachments[0]?.name).toBe("resume.txt")
 
-      const read = yield* getRecruitingAttachment({
-        target,
-        attachmentId: AttachmentId.make("attachment-1")
-      }).pipe(Effect.provide(testLayer), withDiagnostics)
+      const read = yield* getRecruitingAttachment({ target, attachmentId: AttachmentId.make("attachment-1") }).pipe(
+        Effect.provide(testLayer),
+        withDiagnostics
+      )
       expect(read.attachment.url).toBe("https://test.huly.io/files?workspace=test&file=blob-1")
 
       const added = yield* addRecruitingAttachment({
@@ -2636,10 +2570,7 @@ describe("Recruiting Operations", () => {
         pinned: true
       }).pipe(Effect.provide(testLayer), withDiagnostics)
       expect(updated.updated).toBe(true)
-      expect(captures.updatedDocs.at(-1)?.operations).toMatchObject({
-        description: "Updated resume",
-        pinned: true
-      })
+      expect(captures.updatedDocs.at(-1)?.operations).toMatchObject({ description: "Updated resume", pinned: true })
 
       const deleted = yield* deleteRecruitingAttachment({
         target,
@@ -2654,10 +2585,10 @@ describe("Recruiting Operations", () => {
       })
 
       const scopedMiss = yield* Effect.flip(
-        getRecruitingAttachment({
-          target,
-          attachmentId: AttachmentId.make("attachment-foreign")
-        }).pipe(Effect.provide(testLayer), withDiagnostics)
+        getRecruitingAttachment({ target, attachmentId: AttachmentId.make("attachment-foreign") }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
       )
       expect(scopedMiss).toBeInstanceOf(RecruitingAttachmentNotFoundError)
 
@@ -2671,32 +2602,27 @@ describe("Recruiting Operations", () => {
       expect(updateScopedMiss).toBeInstanceOf(RecruitingAttachmentNotFoundError)
 
       const deleteScopedMiss = yield* Effect.flip(
-        deleteRecruitingAttachment({
-          target,
-          attachmentId: AttachmentId.make("attachment-foreign")
-        }).pipe(Effect.provide(testLayer), withDiagnostics)
+        deleteRecruitingAttachment({ target, attachmentId: AttachmentId.make("attachment-foreign") }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
       )
       expect(deleteScopedMiss).toBeInstanceOf(RecruitingAttachmentNotFoundError)
 
       const unsupported = yield* Effect.flip(
-        deleteRecruitingAttachment({
-          target,
-          attachmentId: AttachmentId.make("attachment-1")
-        }).pipe(
+        deleteRecruitingAttachment({ target, attachmentId: AttachmentId.make("attachment-1") }).pipe(
           Effect.provide(
-            createRecruitingLayer({
-              attachments: [makeAttachment()],
-              removeCollectionAvailable: false
-            }).layer
+            createRecruitingLayer({ attachments: [makeAttachment()], removeCollectionAvailable: false }).layer
           ),
           withDiagnostics
         )
       )
       expect(unsupported).toBeInstanceOf(RecruitingMutationUnsupportedError)
-    }))
+    })
+  )
 
   it.effect("lists recruiting activity for supported target kinds", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const messages = [
         makeActivityMessage(),
         makeActivityMessage({
@@ -2734,21 +2660,16 @@ describe("Recruiting Operations", () => {
       expect(candidate.activity.map((message) => message.id)).toEqual(["activity-candidate"])
       expect(applicant.activity.map((message) => message.id)).toEqual(["activity-applicant"])
       expect(review.activity.map((message) => message.id)).toEqual(["activity-review"])
-    }))
+    })
+  )
 
   it.effect("adds, lists, removes, and idempotently reuses recruiting related issue refs", () =>
-    Effect.gen(function*() {
-      const { captures, layer } = createRecruitingLayer({
-        issues: [makeIssue()],
-        projects: [makeProject()]
-      })
+    Effect.gen(function* () {
+      const { captures, layer } = createRecruitingLayer({ issues: [makeIssue()], projects: [makeProject()] })
       const target = { kind: "vacancy" as const, vacancy: VacancyIdentifier.make("VCN-1") }
       const issue = IssueIdentifier.make("HULY-1")
 
-      const added = yield* addRecruitingRelatedIssue({ target, issue }).pipe(
-        Effect.provide(layer),
-        withDiagnostics
-      )
+      const added = yield* addRecruitingRelatedIssue({ target, issue }).pipe(Effect.provide(layer), withDiagnostics)
       expect(added.created).toBe(true)
       expect(added.existing).toBe(false)
       expect(added.issueId).toBe("issue-1")
@@ -2758,17 +2679,11 @@ describe("Recruiting Operations", () => {
         operations: { $push: { relations: { _id: "vacancy-1", _class: String(recruitIds.class.Vacancy) } } }
       })
 
-      const existing = yield* addRecruitingRelatedIssue({ target, issue }).pipe(
-        Effect.provide(layer),
-        withDiagnostics
-      )
+      const existing = yield* addRecruitingRelatedIssue({ target, issue }).pipe(Effect.provide(layer), withDiagnostics)
       expect(existing.created).toBe(false)
       expect(existing.existing).toBe(true)
 
-      const listed = yield* listRecruitingRelatedIssues({ target }).pipe(
-        Effect.provide(layer),
-        withDiagnostics
-      )
+      const listed = yield* listRecruitingRelatedIssues({ target }).pipe(Effect.provide(layer), withDiagnostics)
       expect(listed.total).toBe(1)
       expect(listed.relatedIssues[0]?.issue.display).toBe("HULY-1")
 
@@ -2789,45 +2704,39 @@ describe("Recruiting Operations", () => {
         withDiagnostics
       )
       expect(removedAgain.deleted).toBe(false)
-    }))
+    })
+  )
 
   it.effect("lists existing recruiting related issue refs and validates unscoped issue locators", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const target = { kind: "vacancy" as const, vacancy: VacancyIdentifier.make("VCN-1") }
       const project = ProjectIdentifier.make("HULY")
       const issue = IssueIdentifier.make("1")
       const existing = createRecruitingLayer({
-        issues: [
-          makeIssue({
-            relations: [makeRelatedDocEntry("vacancy-1", recruitIds.class.Vacancy)]
-          })
-        ],
+        issues: [makeIssue({ relations: [makeRelatedDocEntry("vacancy-1", recruitIds.class.Vacancy)] })],
         projects: [makeProject()]
       })
 
-      const listed = yield* listRecruitingRelatedIssues({
-        target,
-        limit: 5
-      }).pipe(Effect.provide(existing.layer), withDiagnostics)
+      const listed = yield* listRecruitingRelatedIssues({ target, limit: 5 }).pipe(
+        Effect.provide(existing.layer),
+        withDiagnostics
+      )
       expect(listed.total).toBe(1)
       expect(listed.relatedIssues[0]?.issue.id).toBe("issue-1")
 
-      const removed = yield* removeRecruitingRelatedIssue({
-        target,
-        project,
-        issue
-      }).pipe(Effect.provide(existing.layer), withDiagnostics)
+      const removed = yield* removeRecruitingRelatedIssue({ target, project, issue }).pipe(
+        Effect.provide(existing.layer),
+        withDiagnostics
+      )
       expect(removed.deleted).toBe(true)
 
       const invalidIssueLocator = yield* Effect.flip(
-        removeRecruitingRelatedIssue({
-          target,
-          issue
-        }).pipe(Effect.provide(existing.layer), withDiagnostics)
+        removeRecruitingRelatedIssue({ target, issue }).pipe(Effect.provide(existing.layer), withDiagnostics)
       )
       expect(invalidIssueLocator).toBeInstanceOf(RecruitingIssueLocatorInvalidError)
       if (invalidIssueLocator._tag === "RecruitingIssueLocatorInvalidError") {
         expect(invalidIssueLocator.issue).toBe("1")
       }
-    }))
+    })
+  )
 })

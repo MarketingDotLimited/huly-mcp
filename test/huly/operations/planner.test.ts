@@ -170,9 +170,7 @@ const makePersonalCalendar = (overrides?: Partial<HulyCalendar>): HulyCalendar =
   }
 }
 
-const makeExternalCalendar = (
-  overrides?: Partial<HulyExternalCalendar>
-): HulyExternalCalendar => ({
+const makeExternalCalendar = (overrides?: Partial<HulyExternalCalendar>): HulyExternalCalendar => ({
   ...makePersonalCalendar(),
   _id: toRef<HulyExternalCalendar>(NonEmptyString.make("external-calendar-1")),
   _class: calendar.class.ExternalCalendar,
@@ -243,15 +241,8 @@ interface Captures {
     readonly attributes: Record<string, unknown>
     readonly id?: string | undefined
   }
-  updateDoc?: {
-    readonly classId: string
-    readonly objectId: string
-    readonly operations: Record<string, unknown>
-  }
-  removeDoc?: {
-    readonly classId: string
-    readonly objectId: string
-  }
+  updateDoc?: { readonly classId: string; readonly objectId: string; readonly operations: Record<string, unknown> }
+  removeDoc?: { readonly classId: string; readonly objectId: string }
   removeCollection?: {
     readonly classId: string
     readonly objectId: string
@@ -259,14 +250,8 @@ interface Captures {
     readonly attachedToClass: string
     readonly collection: string
   }
-  uploadMarkup?: {
-    readonly objectId: string
-    readonly markup: string
-  }
-  updateMarkup?: {
-    readonly objectId: string
-    readonly markup: string
-  }
+  uploadMarkup?: { readonly objectId: string; readonly markup: string }
+  updateMarkup?: { readonly objectId: string; readonly markup: string }
 }
 
 interface TestConfig {
@@ -295,10 +280,7 @@ const createLayer = (config: TestConfig) => {
   const withTodoLookup = (todo: HulyToDo): HulyToDo => {
     const issue = issues.find((i) => i._id === todo.attachedTo)
     const person = persons.find((p) => p._id === todo.user)
-    return asTodo({
-      ...todo,
-      $lookup: { attachedTo: issue, user: person }
-    })
+    return asTodo({ ...todo, $lookup: { attachedTo: issue, user: person } })
   }
 
   const matchesDoneOn = (actual: number | null, expected: unknown): boolean => {
@@ -328,10 +310,11 @@ const createLayer = (config: TestConfig) => {
     if (_class === tracker.class.Project) return Effect.succeed(projects.find((p) => p.identifier === q.identifier))
     if (_class === tracker.class.Issue) {
       return Effect.succeed(
-        issues.find((i) =>
-          (q._id !== undefined && i._id === q._id)
-          || (q.identifier !== undefined && i.identifier === q.identifier && i.space === q.space)
-          || (q.number !== undefined && i.number === q.number && i.space === q.space)
+        issues.find(
+          (i) =>
+            (q._id !== undefined && i._id === q._id) ||
+            (q.identifier !== undefined && i.identifier === q.identifier && i.space === q.space) ||
+            (q.number !== undefined && i.number === q.number && i.space === q.space)
         )
       )
     }
@@ -345,11 +328,12 @@ const createLayer = (config: TestConfig) => {
     }
     if (_class === calendar.class.Calendar) {
       return Effect.succeed(
-        calendars.find((candidate) =>
-          (q._id === undefined || candidate._id === q._id)
-          && (q.user === undefined || candidate.user === q.user)
-          && (q.hidden === undefined || candidate.hidden === q.hidden)
-          && matchesAccess(candidate.access, q.access)
+        calendars.find(
+          (candidate) =>
+            (q._id === undefined || candidate._id === q._id) &&
+            (q.user === undefined || candidate.user === q.user) &&
+            (q.hidden === undefined || candidate.hidden === q.hidden) &&
+            matchesAccess(candidate.access, q.access)
         )
       )
     }
@@ -366,16 +350,17 @@ const createLayer = (config: TestConfig) => {
   const findAll: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown, options: unknown) => {
     const q = query as Record<string, unknown>
     if (_class === time.class.ToDo) {
-      const filtered = todos.filter((todo) =>
-        (q._id === undefined || todo._id === q._id)
-        && (q.user === undefined || todo.user === q.user)
-        && (q.title === undefined || todo.title === q.title)
-        && (q.attachedTo === undefined || todo.attachedTo === q.attachedTo)
-        && (q.attachedToClass === undefined || todo.attachedToClass === q.attachedToClass)
-        && (q.priority === undefined || todo.priority === q.priority)
-        && (q.visibility === undefined || todo.visibility === q.visibility)
-        && matchesRange(todo.dueDate, q.dueDate)
-        && matchesDoneOn(todo.doneOn, q.doneOn)
+      const filtered = todos.filter(
+        (todo) =>
+          (q._id === undefined || todo._id === q._id) &&
+          (q.user === undefined || todo.user === q.user) &&
+          (q.title === undefined || todo.title === q.title) &&
+          (q.attachedTo === undefined || todo.attachedTo === q.attachedTo) &&
+          (q.attachedToClass === undefined || todo.attachedToClass === q.attachedToClass) &&
+          (q.priority === undefined || todo.priority === q.priority) &&
+          (q.visibility === undefined || todo.visibility === q.visibility) &&
+          matchesRange(todo.dueDate, q.dueDate) &&
+          matchesDoneOn(todo.doneOn, q.doneOn)
       )
       const limit =
         typeof options === "object" && options !== null && "limit" in options && typeof options.limit === "number"
@@ -389,16 +374,17 @@ const createLayer = (config: TestConfig) => {
     }
     if (_class === contact.class.Channel) return Effect.succeed(toFindResult([] as Array<Doc>))
     if (_class === calendar.class.Calendar) {
-      const filtered = calendars.filter((candidate) =>
-        (q.user === undefined || candidate.user === q.user)
-        && (q.hidden === undefined || candidate.hidden === q.hidden)
-        && matchesAccess(candidate.access, q.access)
+      const filtered = calendars.filter(
+        (candidate) =>
+          (q.user === undefined || candidate.user === q.user) &&
+          (q.hidden === undefined || candidate.hidden === q.hidden) &&
+          matchesAccess(candidate.access, q.access)
       )
       return Effect.succeed(toFindResult(filtered))
     }
     if (_class === time.class.WorkSlot) {
-      const filtered = workSlots.filter((slot) =>
-        (q.attachedTo === undefined || slot.attachedTo === q.attachedTo) && matchesRange(slot.date, q.date)
+      const filtered = workSlots.filter(
+        (slot) => (q.attachedTo === undefined || slot.attachedTo === q.attachedTo) && matchesRange(slot.date, q.date)
       )
       return Effect.succeed(toFindResult(filtered as Array<Doc>))
     }
@@ -428,24 +414,25 @@ const createLayer = (config: TestConfig) => {
     return Effect.succeed(toRef<Doc>(String(id ?? "created-id")))
   }) as HulyClientOperations["addCollection"]
 
-  const updateDoc: HulyClientOperations["updateDoc"] =
-    ((classId: unknown, _space: unknown, objectId: unknown, ops: unknown) => {
-      if (config.captures !== undefined) {
-        config.captures.updateDoc = {
-          classId: String(classId),
-          objectId: String(objectId),
-          operations: ops as Record<string, unknown>
-        }
+  const updateDoc: HulyClientOperations["updateDoc"] = ((
+    classId: unknown,
+    _space: unknown,
+    objectId: unknown,
+    ops: unknown
+  ) => {
+    if (config.captures !== undefined) {
+      config.captures.updateDoc = {
+        classId: String(classId),
+        objectId: String(objectId),
+        operations: ops as Record<string, unknown>
       }
-      return Effect.succeed({} as never)
-    }) as HulyClientOperations["updateDoc"]
+    }
+    return Effect.succeed({} as never)
+  }) as HulyClientOperations["updateDoc"]
 
   const removeDoc: HulyClientOperations["removeDoc"] = ((classId: unknown, _space: unknown, objectId: unknown) => {
     if (config.captures !== undefined) {
-      config.captures.removeDoc = {
-        classId: String(classId),
-        objectId: String(objectId)
-      }
+      config.captures.removeDoc = { classId: String(classId), objectId: String(objectId) }
     }
     return Effect.succeed({} as never)
   }) as HulyClientOperations["removeDoc"]
@@ -483,13 +470,17 @@ const createLayer = (config: TestConfig) => {
     return Effect.succeed("markup-ref" as MarkupRef)
   }
 
-  const updateMarkup: HulyClientOperations["updateMarkup"] =
-    ((_class: unknown, objectId: unknown, _attr: unknown, markup: unknown) => {
-      if (config.captures !== undefined) {
-        config.captures.updateMarkup = { objectId: String(objectId), markup: String(markup) }
-      }
-      return Effect.succeed(undefined)
-    }) as HulyClientOperations["updateMarkup"]
+  const updateMarkup: HulyClientOperations["updateMarkup"] = ((
+    _class: unknown,
+    objectId: unknown,
+    _attr: unknown,
+    markup: unknown
+  ) => {
+    if (config.captures !== undefined) {
+      config.captures.updateMarkup = { objectId: String(objectId), markup: String(markup) }
+    }
+    return Effect.succeed(undefined)
+  }) as HulyClientOperations["updateMarkup"]
 
   return HulyClient.testLayer({
     getAccountUuid: () => "00000000-0000-4000-8000-000000000001" as AccountUuid,
@@ -512,7 +503,7 @@ describe("planner operations", () => {
   })
 
   it.effect("lists ToDos with stable priority and owner fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
       const result = yield* listTodos({ titleSearch: "planner" }).pipe(
         Effect.provide(createLayer({ todos: [makeTodo()], persons: [makePerson()], captures }))
@@ -521,10 +512,11 @@ describe("planner operations", () => {
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).priority).toBe("high")
       expect(assertAt(result, 0).owner.id).toBe("employee-1")
-    }))
+    })
+  )
 
   it.effect("lists with owner, issue, due, priority, visibility, and title filters", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject()
       const issue = makeIssue()
       const todo = makeTodo({
@@ -548,21 +540,24 @@ describe("planner operations", () => {
         visibility: "freeBusy",
         limit: 5
       }).pipe(
-        Effect.provide(createLayer({
-          projects: [project],
-          issues: [issue],
-          todos: [todo, makeTodo({ _id: "todo-2" as Ref<HulyToDo>, title: todoTitle("Other task") })],
-          persons: [makePerson()],
-          employees: [makeEmployee()],
-          captures: {}
-        }))
+        Effect.provide(
+          createLayer({
+            projects: [project],
+            issues: [issue],
+            todos: [todo, makeTodo({ _id: "todo-2" as Ref<HulyToDo>, title: todoTitle("Other task") })],
+            persons: [makePerson()],
+            employees: [makeEmployee()],
+            captures: {}
+          })
+        )
       )
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).title).toBe("Needle task")
       expect(assertAt(result, 0).priority).toBe("medium")
       expect(assertAt(result, 0).visibility).toBe("freeBusy")
-    }))
+    })
+  )
 
   it("builds one-sided due date list filters", () => {
     const fromOnly = queryFromListFilters(undefined, undefined, { dueFrom: Timestamp.make(1_700_000_000_000) })
@@ -573,16 +568,17 @@ describe("planner operations", () => {
   })
 
   it.effect("returns an empty list when title search filters all rows", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listTodos({ titleSearch: "missing" }).pipe(
         Effect.provide(createLayer({ todos: [makeTodo()], captures: {} }))
       )
 
       expect(result).toEqual([])
-    }))
+    })
+  )
 
   it.effect("creates a personal ToDo attached to the planner inbox", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
       const result = yield* createTodo({ title: todoTitle("Personal task") }).pipe(
         Effect.provide(createLayer({ captures, employees: [makeEmployee()] }))
@@ -593,10 +589,11 @@ describe("planner operations", () => {
       expect(captures.addCollection?.attachedTo).toBe(time.ids.NotAttached)
       expect(captures.addCollection?.attributes.title).toBe("Personal task")
       expect(captures.addCollection?.attributes.visibility).toBe("private")
-    }))
+    })
+  )
 
   it.effect("creates a personal ToDo with uploaded markdown and due date", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
 
       yield* createTodo({
@@ -615,10 +612,11 @@ describe("planner operations", () => {
       expect(captures.addCollection?.attributes.description).toBe("markup-ref")
       expect(captures.addCollection?.attributes.dueDate).toBe(123)
       expect(captures.addCollection?.attributes.priority).toBe(ToDoPriority.Low)
-    }))
+    })
+  )
 
   it.effect("creates a personal ToDo description with native references", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
 
       yield* createTodo({
@@ -629,17 +627,14 @@ describe("planner operations", () => {
 
       expect(capturedMarkupReferenceNodes(captures.uploadMarkup?.markup)[0]).toMatchObject({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "HULY-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
       expect(captures.addCollection?.attributes.description).toBe("markup-ref")
-    }))
+    })
+  )
 
   it.effect("creates a personal ToDo without uploading blank markdown", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
 
       yield* createTodo({ title: todoTitle("Blank body task"), description: "   " }).pipe(
@@ -648,10 +643,11 @@ describe("planner operations", () => {
 
       expect(captures.uploadMarkup).toBeUndefined()
       expect(captures.addCollection?.attributes.description).toBe("")
-    }))
+    })
+  )
 
   it.effect("creates an issue-attached ProjectToDo", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
       const project = makeProject()
       const issue = makeIssue()
@@ -666,10 +662,11 @@ describe("planner operations", () => {
       expect(captures.addCollection?.classId).toBe(time.class.ProjectToDo)
       expect(captures.addCollection?.attachedTo).toBe(issue._id)
       expect(captures.addCollection?.attributes.visibility).toBe("public")
-    }))
+    })
+  )
 
   it.effect("creates an issue-attached ProjectToDo with due date", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
       const project = makeProject()
       const issue = makeIssue()
@@ -683,10 +680,11 @@ describe("planner operations", () => {
       )
 
       expect(captures.addCollection?.attributes.dueDate).toBe(123)
-    }))
+    })
+  )
 
   it.effect("creates an issue-attached ProjectToDo description with native references", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
       const project = makeProject()
       const issue = makeIssue()
@@ -702,17 +700,14 @@ describe("planner operations", () => {
 
       expect(capturedMarkupReferenceNodes(captures.uploadMarkup?.markup)[0]).toMatchObject({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "HULY-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
       expect(captures.addCollection?.classId).toBe(time.class.ProjectToDo)
-    }))
+    })
+  )
 
   it.effect("gets a ToDo detail with fetched description and issue attachment summary", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const issue = makeIssue()
       const todo = makeTodo({
         attachedTo: issue._id,
@@ -729,57 +724,48 @@ describe("planner operations", () => {
       expect(result.attachedTo.type).toBe("issue")
       expect(result.attachedTo.type === "issue" ? result.attachedTo.identifier : undefined).toBe("HULY-94")
       expect(result.visibility).toBe("public")
-    }))
+    })
+  )
 
   it.effect("gets a ToDo detail without optional description or createdOn", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* getTodo({
         locator: { title: todoTitle("Completed task"), attachedTo: { type: "none" }, completionState: "all" }
       }).pipe(
-        Effect.provide(createLayer({
-          todos: [
-            asTodo({
-              ...makeTodo({
-                title: todoTitle("Completed task"),
-                description: "",
-                doneOn: Timestamp.make(123)
-              }),
-              createdOn: undefined
-            })
-          ],
-          captures: {}
-        }))
+        Effect.provide(
+          createLayer({
+            todos: [
+              asTodo({
+                ...makeTodo({ title: todoTitle("Completed task"), description: "", doneOn: Timestamp.make(123) }),
+                createdOn: undefined
+              })
+            ],
+            captures: {}
+          })
+        )
       )
 
       expect(result.description).toBeUndefined()
       expect(result.createdOn).toBeUndefined()
       expect(result.attachedTo.type).toBe("none")
-    }))
+    })
+  )
 
   it.effect("gets a ToDo detail with attached space", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* getTodo({ locator: { todoId: todoId("todo-1") } }).pipe(
-        Effect.provide(createLayer({
-          todos: [
-            asTodo({
-              ...makeTodo(),
-              attachedSpace: "space-2" as Ref<Space>
-            })
-          ],
-          captures: {}
-        }))
+        Effect.provide(
+          createLayer({ todos: [asTodo({ ...makeTodo(), attachedSpace: "space-2" as Ref<Space> })], captures: {} })
+        )
       )
 
       expect(result.attachedSpace).toBe("space-2")
-    }))
+    })
+  )
 
   it("summarizes runtime string count fields and owner email", () => {
     const result = todoSummary(
-      asTodo({
-        ...makeTodo(),
-        workslots: "3",
-        labels: "2"
-      }),
+      asTodo({ ...makeTodo(), workslots: "3", labels: "2" }),
       new Map([[toRef<Person>("employee-1"), Email.make("jane@example.test")]])
     )
 
@@ -789,7 +775,7 @@ describe("planner operations", () => {
   })
 
   it.effect("gets a ToDo by issue locator", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject()
       const issue = makeIssue()
       const todo = makeTodo({
@@ -806,10 +792,11 @@ describe("planner operations", () => {
       }).pipe(Effect.provide(createLayer({ projects: [project], issues: [issue], todos: [todo], captures: {} })))
 
       expect(result.id).toBe("todo-1")
-    }))
+    })
+  )
 
   it.effect("gets a ToDo by issue locator without title", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject()
       const issue = makeIssue()
       const todo = makeTodo({
@@ -819,100 +806,101 @@ describe("planner operations", () => {
       })
 
       const result = yield* getTodo({
-        locator: {
-          issue: { project: projectIdentifier("HULY"), identifier: issueIdentifier("94") }
-        }
+        locator: { issue: { project: projectIdentifier("HULY"), identifier: issueIdentifier("94") } }
       }).pipe(Effect.provide(createLayer({ projects: [project], issues: [issue], todos: [todo], captures: {} })))
 
       expect(result.id).toBe("todo-1")
-    }))
+    })
+  )
 
   it.effect("gets a ToDo by title and owner locator", () =>
-    Effect.gen(function*() {
-      const result = yield* getTodo({
-        locator: {
-          title: todoTitle("Owned task"),
-          owner: "employee-1"
-        }
-      }).pipe(
-        Effect.provide(createLayer({
-          todos: [makeTodo({ title: todoTitle("Owned task") })],
-          employees: [makeEmployee()],
-          captures: {}
-        }))
+    Effect.gen(function* () {
+      const result = yield* getTodo({ locator: { title: todoTitle("Owned task"), owner: "employee-1" } }).pipe(
+        Effect.provide(
+          createLayer({
+            todos: [makeTodo({ title: todoTitle("Owned task") })],
+            employees: [makeEmployee()],
+            captures: {}
+          })
+        )
       )
 
       expect(result.id).toBe("todo-1")
-    }))
+    })
+  )
 
   it.effect("lists unknown attachment summaries and completed filters", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listTodos({ completionState: "completed" }).pipe(
-        Effect.provide(createLayer({
-          todos: [
-            makeTodo({
-              attachedTo: "external-1" as Ref<Doc>,
-              attachedToClass: "external:class:Thing" as Ref<Class<Doc>>,
-              doneOn: Timestamp.make(100)
-            })
-          ],
-          captures: {}
-        }))
+        Effect.provide(
+          createLayer({
+            todos: [
+              makeTodo({
+                attachedTo: "external-1" as Ref<Doc>,
+                attachedToClass: "external:class:Thing" as Ref<Class<Doc>>,
+                doneOn: Timestamp.make(100)
+              })
+            ],
+            captures: {}
+          })
+        )
       )
 
       expect(assertAt(result, 0).attachedTo.type).toBe("unknown")
       expect(assertAt(result, 0).doneOn).toBe(100)
-    }))
+    })
+  )
 
   it.effect("uses non-empty output fallbacks for legacy blank titles", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const issue = makeIssue({ title: "" })
       const result = yield* listTodos({}).pipe(
-        Effect.provide(createLayer({
-          issues: [issue],
-          todos: [
-            makeTodo({
-              title: "   ",
-              attachedTo: issue._id,
-              attachedToClass: tracker.class.Issue
-            })
-          ],
-          captures: {}
-        }))
+        Effect.provide(
+          createLayer({
+            issues: [issue],
+            todos: [makeTodo({ title: "   ", attachedTo: issue._id, attachedToClass: tracker.class.Issue })],
+            captures: {}
+          })
+        )
       )
 
       expect(assertAt(result, 0).title).toBe("Untitled ToDo")
       expect(assertAt(result, 0).attachedTo).toMatchObject({ type: "issue", title: todoTitle("HULY-94") })
-    }))
+    })
+  )
 
   it.effect("returns an ambiguous locator error for duplicate title matches", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         getTodo({ locator: { title: todoTitle("Duplicate") } }).pipe(
-          Effect.provide(createLayer({
-            todos: [
-              makeTodo({ _id: "todo-1" as Ref<HulyToDo>, title: todoTitle("Duplicate") }),
-              makeTodo({ _id: "todo-2" as Ref<HulyToDo>, title: todoTitle("Duplicate") })
-            ],
-            captures: {}
-          }))
+          Effect.provide(
+            createLayer({
+              todos: [
+                makeTodo({ _id: "todo-1" as Ref<HulyToDo>, title: todoTitle("Duplicate") }),
+                makeTodo({ _id: "todo-2" as Ref<HulyToDo>, title: todoTitle("Duplicate") })
+              ],
+              captures: {}
+            })
+          )
         )
       )
 
       expect(error._tag).toBe("TodoIdentifierAmbiguousError")
-    }))
+    })
+  )
 
   it.effect("returns not found for missing raw ToDo IDs", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         getTodo({ locator: { todoId: todoId("missing") } }).pipe(Effect.provide(createLayer({ captures: {} })))
       )
 
       expect(error._tag).toBe("TodoNotFoundError")
-    }))
+    })
+  )
 
   it.effect("returns not found for missing title locators", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         getTodo({ locator: { title: todoTitle("Missing title") } }).pipe(
           Effect.provide(createLayer({ todos: [makeTodo({ title: todoTitle("Other title") })], captures: {} }))
@@ -920,10 +908,11 @@ describe("planner operations", () => {
       )
 
       expect(error._tag).toBe("TodoNotFoundError")
-    }))
+    })
+  )
 
   it.effect("returns owner resolution errors for missing and non-employee people", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const missing = yield* Effect.flip(
         createTodo({ title: todoTitle("Missing owner"), owner: "Missing Person" }).pipe(
           Effect.provide(createLayer({ captures: {} }))
@@ -941,10 +930,11 @@ describe("planner operations", () => {
       expect(missing._tag).toBe("PersonNotFoundError")
       expect(notEmployee._tag).toBe("PersonNotAnEmployeeError")
       expect(unaffiliatedAccount._tag).toBe("PersonNotAnEmployeeError")
-    }))
+    })
+  )
 
   it.effect("updates direct fields and clears due date", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
 
       yield* updateTodo({
@@ -959,10 +949,11 @@ describe("planner operations", () => {
       expect(captures.updateDoc?.operations.priority).toBe(ToDoPriority.Urgent)
       expect(captures.updateDoc?.operations.visibility).toBe("public")
       expect(captures.updateDoc?.operations.$unset).toEqual({ dueDate: "" })
-    }))
+    })
+  )
 
   it.effect("updates due date to a concrete value and owner by raw employee id", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
 
       yield* updateTodo({
@@ -970,19 +961,22 @@ describe("planner operations", () => {
         owner: "employee-2",
         dueDate: Timestamp.make(456)
       }).pipe(
-        Effect.provide(createLayer({
-          todos: [makeTodo()],
-          employees: [makeEmployee({ _id: "employee-2" as Ref<Employee> })],
-          captures
-        }))
+        Effect.provide(
+          createLayer({
+            todos: [makeTodo()],
+            employees: [makeEmployee({ _id: "employee-2" as Ref<Employee> })],
+            captures
+          })
+        )
       )
 
       expect(captures.updateDoc?.operations.user).toBe("employee-2")
       expect(captures.updateDoc?.operations.dueDate).toBe(456)
-    }))
+    })
+  )
 
   it.effect("updates ToDo owner and markdown description", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
 
       yield* updateTodo({
@@ -990,12 +984,14 @@ describe("planner operations", () => {
         owner: "Jane Developer",
         description: "Updated body"
       }).pipe(
-        Effect.provide(createLayer({
-          todos: [makeTodo({ description: "markup-ref" })],
-          persons: [makePerson()],
-          employees: [makeEmployee()],
-          captures
-        }))
+        Effect.provide(
+          createLayer({
+            todos: [makeTodo({ description: "markup-ref" })],
+            persons: [makePerson()],
+            employees: [makeEmployee()],
+            captures
+          })
+        )
       )
 
       expect(capturedMarkupChildNodes(captures.updateMarkup?.markup)).toContainEqual({
@@ -1004,10 +1000,11 @@ describe("planner operations", () => {
         marks: []
       })
       expect(captures.updateDoc?.operations.user).toBe("employee-1")
-    }))
+    })
+  )
 
   it.effect("updates existing ToDo description with native references", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
 
       yield* updateTodo({
@@ -1018,17 +1015,14 @@ describe("planner operations", () => {
 
       expect(capturedMarkupReferenceNodes(captures.updateMarkup?.markup)[0]).toMatchObject({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "HULY-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
       expect(captures.updateDoc).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("uploads description during update when no description ref exists", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
 
       yield* updateTodo({ locator: { todoId: todoId("todo-1") }, description: "New body" }).pipe(
@@ -1041,10 +1035,11 @@ describe("planner operations", () => {
         marks: []
       })
       expect(captures.updateDoc?.operations.description).toBe("markup-ref")
-    }))
+    })
+  )
 
   it.effect("uploads missing ToDo description with native references during update", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
 
       yield* updateTodo({
@@ -1055,17 +1050,14 @@ describe("planner operations", () => {
 
       expect(capturedMarkupReferenceNodes(captures.uploadMarkup?.markup)[0]).toMatchObject({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "HULY-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
       expect(captures.updateDoc?.operations.description).toBe("markup-ref")
-    }))
+    })
+  )
 
   it.effect("clears description to an empty string", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
 
       yield* updateTodo({ locator: { todoId: todoId("todo-1") }, description: null }).pipe(
@@ -1073,10 +1065,11 @@ describe("planner operations", () => {
       )
 
       expect(captures.updateDoc?.operations.description).toBe("")
-    }))
+    })
+  )
 
   it.effect("updates only an existing markdown description without a document update", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
 
       yield* updateTodo({ locator: { todoId: todoId("todo-1") }, description: "Only markup" }).pipe(
@@ -1089,10 +1082,11 @@ describe("planner operations", () => {
         marks: []
       })
       expect(captures.updateDoc).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("completes a ToDo with explicit doneOn", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
 
       yield* completeTodo({ locator: { todoId: todoId("todo-1") }, doneOn: Timestamp.make(123) }).pipe(
@@ -1101,10 +1095,11 @@ describe("planner operations", () => {
 
       expect(captures.updateDoc?.objectId).toBe("todo-1")
       expect(captures.updateDoc?.operations.doneOn).toBe(123)
-    }))
+    })
+  )
 
   it.effect("completes a ToDo using the Effect clock when doneOn is omitted", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
 
       yield* TestClock.adjust("123 millis")
@@ -1113,10 +1108,11 @@ describe("planner operations", () => {
       )
 
       expect(captures.updateDoc?.operations.doneOn).toBe(123)
-    }))
+    })
+  )
 
   it.effect("reopens a completed ToDo", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
 
       yield* reopenTodo({ locator: { todoId: todoId("todo-1") } }).pipe(
@@ -1124,10 +1120,11 @@ describe("planner operations", () => {
       )
 
       expect(captures.updateDoc?.operations.doneOn).toBeNull()
-    }))
+    })
+  )
 
   it.effect("reopens a completed ToDo by human locator without requiring completionState", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
 
       yield* reopenTodo({ locator: { title: todoTitle("Completed by title") } }).pipe(
@@ -1141,10 +1138,11 @@ describe("planner operations", () => {
 
       expect(captures.updateDoc?.objectId).toBe("todo-1")
       expect(captures.updateDoc?.operations.doneOn).toBeNull()
-    }))
+    })
+  )
 
   it.effect("schedules a Planner-native work slot for the authenticated employee", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
       const socialIdentity = makeSocialIdentity()
       const personalCalendar = makePersonalCalendar()
@@ -1154,13 +1152,15 @@ describe("planner operations", () => {
         date: Timestamp.make(1_800_000_000_000),
         dueDate: Timestamp.make(1_800_003_600_000)
       }).pipe(
-        Effect.provide(createLayer({
-          todos: [makeTodo({ description: "markup-ref" })],
-          employees: [makeEmployee()],
-          socialIdentities: [socialIdentity],
-          calendars: [personalCalendar],
-          captures
-        }))
+        Effect.provide(
+          createLayer({
+            todos: [makeTodo({ description: "markup-ref" })],
+            employees: [makeEmployee()],
+            socialIdentities: [socialIdentity],
+            calendars: [personalCalendar],
+            captures
+          })
+        )
       )
 
       expect(captures.addCollection?.classId).toBe(time.class.WorkSlot)
@@ -1176,28 +1176,29 @@ describe("planner operations", () => {
       expect(captures.addCollection?.attributes.blockTime).toBe(true)
       expect(captures.addCollection?.attributes.eventId).toEqual(expect.any(String))
       expect(captures.addCollection?.attributes.eventId).not.toBe("")
-    }))
+    })
+  )
 
   it.effect("schedules on a writable external default calendar", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
       const socialIdentity = makeSocialIdentity()
-      const externalCalendar = makeExternalCalendar({
-        access: AccessLevel.Writer
-      })
+      const externalCalendar = makeExternalCalendar({ access: AccessLevel.Writer })
 
       yield* scheduleTodo({
         locator: { todoId: todoId("todo-1") },
         date: Timestamp.make(1_800_000_000_000),
         dueDate: Timestamp.make(1_800_003_600_000)
       }).pipe(
-        Effect.provide(createLayer({
-          todos: [makeTodo()],
-          employees: [makeEmployee()],
-          socialIdentities: [socialIdentity],
-          calendars: [externalCalendar],
-          captures
-        }))
+        Effect.provide(
+          createLayer({
+            todos: [makeTodo()],
+            employees: [makeEmployee()],
+            socialIdentities: [socialIdentity],
+            calendars: [externalCalendar],
+            captures
+          })
+        )
       )
 
       expect(captures.addCollection?.space).toBe(calendar.space.Calendar)
@@ -1205,10 +1206,11 @@ describe("planner operations", () => {
       expect(captures.addCollection?.attributes.user).toBe(socialIdentity._id)
       expect(captures.addCollection?.attributes.participants).toEqual([socialIdentity.attachedTo])
       expect(captures.addCollection?.attributes.blockTime).toBe(true)
-    }))
+    })
+  )
 
   it.effect("fails scheduling when the authenticated primary social identity is unavailable", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
       const error = yield* Effect.flip(
         scheduleTodo({
@@ -1221,10 +1223,11 @@ describe("planner operations", () => {
       expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
       expect(error).toMatchObject({ prerequisite: "primary social identity" })
       expect(captures.addCollection).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("maps malformed primary social identity data to a typed prerequisite failure", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
       const malformedIdentity = makeSocialIdentity({ attachedTo: personRef("") })
       const error = yield* Effect.flip(
@@ -1232,22 +1235,17 @@ describe("planner operations", () => {
           locator: { todoId: todoId("todo-1") },
           date: Timestamp.make(1_800_000_000_000),
           dueDate: Timestamp.make(1_800_003_600_000)
-        }).pipe(
-          Effect.provide(createLayer({
-            todos: [makeTodo()],
-            socialIdentities: [malformedIdentity],
-            captures
-          }))
-        )
+        }).pipe(Effect.provide(createLayer({ todos: [makeTodo()], socialIdentities: [malformedIdentity], captures })))
       )
 
       expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
       expect(error).toMatchObject({ prerequisite: "primary social identity" })
       expect(captures.addCollection).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("fails scheduling when the primary social identity has no employee", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
       const error = yield* Effect.flip(
         scheduleTodo({
@@ -1255,21 +1253,18 @@ describe("planner operations", () => {
           date: Timestamp.make(1_800_000_000_000),
           dueDate: Timestamp.make(1_800_003_600_000)
         }).pipe(
-          Effect.provide(createLayer({
-            todos: [makeTodo()],
-            socialIdentities: [makeSocialIdentity()],
-            captures
-          }))
+          Effect.provide(createLayer({ todos: [makeTodo()], socialIdentities: [makeSocialIdentity()], captures }))
         )
       )
 
       expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
       expect(error).toMatchObject({ prerequisite: "employee identity" })
       expect(captures.addCollection).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("maps an inactive employee to a typed prerequisite failure", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
       const error = yield* Effect.flip(
         scheduleTodo({
@@ -1277,22 +1272,25 @@ describe("planner operations", () => {
           date: Timestamp.make(1_800_000_000_000),
           dueDate: Timestamp.make(1_800_003_600_000)
         }).pipe(
-          Effect.provide(createLayer({
-            todos: [makeTodo()],
-            employees: [makeEmployee({ active: false })],
-            socialIdentities: [makeSocialIdentity()],
-            captures
-          }))
+          Effect.provide(
+            createLayer({
+              todos: [makeTodo()],
+              employees: [makeEmployee({ active: false })],
+              socialIdentities: [makeSocialIdentity()],
+              captures
+            })
+          )
         )
       )
 
       expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
       expect(error).toMatchObject({ prerequisite: "employee identity" })
       expect(captures.addCollection).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("fails scheduling when the authenticated user has no writable personal calendar", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
       const error = yield* Effect.flip(
         scheduleTodo({
@@ -1300,22 +1298,25 @@ describe("planner operations", () => {
           date: Timestamp.make(1_800_000_000_000),
           dueDate: Timestamp.make(1_800_003_600_000)
         }).pipe(
-          Effect.provide(createLayer({
-            todos: [makeTodo()],
-            employees: [makeEmployee()],
-            socialIdentities: [makeSocialIdentity()],
-            captures
-          }))
+          Effect.provide(
+            createLayer({
+              todos: [makeTodo()],
+              employees: [makeEmployee()],
+              socialIdentities: [makeSocialIdentity()],
+              captures
+            })
+          )
         )
       )
 
       expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
       expect(error).toMatchObject({ prerequisite: "personal calendar" })
       expect(captures.addCollection).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("rejects read-only personal calendars", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       for (const access of [AccessLevel.Reader, AccessLevel.FreeBusyReader]) {
         const captures: Captures = {}
         const error = yield* Effect.flip(
@@ -1324,13 +1325,15 @@ describe("planner operations", () => {
             date: Timestamp.make(1_800_000_000_000),
             dueDate: Timestamp.make(1_800_003_600_000)
           }).pipe(
-            Effect.provide(createLayer({
-              todos: [makeTodo()],
-              employees: [makeEmployee()],
-              socialIdentities: [makeSocialIdentity()],
-              calendars: [makePersonalCalendar({ access })],
-              captures
-            }))
+            Effect.provide(
+              createLayer({
+                todos: [makeTodo()],
+                employees: [makeEmployee()],
+                socialIdentities: [makeSocialIdentity()],
+                calendars: [makePersonalCalendar({ access })],
+                captures
+              })
+            )
           )
         )
 
@@ -1338,37 +1341,39 @@ describe("planner operations", () => {
         expect(error).toMatchObject({ prerequisite: "personal calendar" })
         expect(captures.addCollection).toBeUndefined()
       }
-    }))
+    })
+  )
 
   it.effect("maps malformed personal calendar data to a typed prerequisite failure", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
-      const malformedCalendar = makePersonalCalendar({
-        _class: toClassRef<HulyCalendar>("malformed-calendar-class")
-      })
+      const malformedCalendar = makePersonalCalendar({ _class: toClassRef<HulyCalendar>("malformed-calendar-class") })
       const error = yield* Effect.flip(
         scheduleTodo({
           locator: { todoId: todoId("todo-1") },
           date: Timestamp.make(1_800_000_000_000),
           dueDate: Timestamp.make(1_800_003_600_000)
         }).pipe(
-          Effect.provide(createLayer({
-            todos: [makeTodo()],
-            employees: [makeEmployee()],
-            socialIdentities: [makeSocialIdentity()],
-            calendars: [malformedCalendar],
-            captures
-          }))
+          Effect.provide(
+            createLayer({
+              todos: [makeTodo()],
+              employees: [makeEmployee()],
+              socialIdentities: [makeSocialIdentity()],
+              calendars: [malformedCalendar],
+              captures
+            })
+          )
         )
       )
 
       expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
       expect(error).toMatchObject({ prerequisite: "personal calendar" })
       expect(captures.addCollection).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("deletes a ToDo by raw locator", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
 
       yield* deleteTodo({ locator: { todoId: todoId("todo-1") } }).pipe(
@@ -1377,25 +1382,24 @@ describe("planner operations", () => {
 
       expect(captures.removeDoc?.classId).toBe(time.class.ToDo)
       expect(captures.removeDoc?.objectId).toBe("todo-1")
-    }))
+    })
+  )
 
   it.effect("removes issue-attached ToDos directly and updates the parent issue counter", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
       const issue = makeIssue()
 
       yield* deleteTodo({ locator: { todoId: todoId("todo-1") } }).pipe(
-        Effect.provide(createLayer({
-          issues: [issue],
-          todos: [
-            makeTodo({
-              attachedTo: issue._id,
-              attachedToClass: tracker.class.Issue,
-              attachedSpace: issue.space
-            })
-          ],
-          captures
-        }))
+        Effect.provide(
+          createLayer({
+            issues: [issue],
+            todos: [
+              makeTodo({ attachedTo: issue._id, attachedToClass: tracker.class.Issue, attachedSpace: issue.space })
+            ],
+            captures
+          })
+        )
       )
 
       expect(captures.removeDoc?.classId).toBe(time.class.ProjectToDo)
@@ -1404,10 +1408,11 @@ describe("planner operations", () => {
       expect(captures.updateDoc?.classId).toBe(tracker.class.Issue)
       expect(captures.updateDoc?.objectId).toBe("issue-1")
       expect(captures.updateDoc?.operations).toEqual({ $inc: { todos: -1 } })
-    }))
+    })
+  )
 
   it.effect("unschedules one existing work slot by ID", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
       const result = yield* unscheduleTodo({ workSlotId: WorkSlotId.make("slot-1") }).pipe(
         Effect.provide(createLayer({ workSlots: [makeWorkSlot()], captures }))
@@ -1420,10 +1425,11 @@ describe("planner operations", () => {
       expect(captures.removeCollection?.attachedToClass).toBe(time.class.ToDo)
       expect(captures.removeCollection?.collection).toBe("workslots")
       expect(captures.updateDoc).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("falls back to direct work slot removal when collection removal is unavailable", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
       const result = yield* unscheduleTodo({ workSlotId: WorkSlotId.make("slot-1") }).pipe(
         Effect.provide(createLayer({ workSlots: [makeWorkSlot()], captures, removeCollectionAvailable: false }))
@@ -1435,19 +1441,21 @@ describe("planner operations", () => {
       expect(captures.updateDoc?.classId).toBe(time.class.ToDo)
       expect(captures.updateDoc?.objectId).toBe("todo-1")
       expect(captures.updateDoc?.operations).toEqual({ $inc: { workslots: -1 } })
-    }))
+    })
+  )
 
   it.effect("returns a work-slot not found error", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         unscheduleTodo({ workSlotId: WorkSlotId.make("missing") }).pipe(Effect.provide(createLayer({ captures: {} })))
       )
 
       expect(error._tag).toBe("TodoWorkSlotNotFoundError")
-    }))
+    })
+  )
 
   it.effect("unschedules all slots by ToDo locator", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = {}
       const result = yield* unscheduleTodo({ locator: { todoId: todoId("todo-1") }, scope: "all" }).pipe(
         Effect.provide(createLayer({ todos: [makeTodo()], workSlots: [makeWorkSlot()], captures }))
@@ -1455,10 +1463,11 @@ describe("planner operations", () => {
 
       expect(result.todoId).toBe("todo-1")
       expect(result.removed).toBe(1)
-    }))
+    })
+  )
 
   it.effect("unschedules future slots by ToDo locator", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* unscheduleTodo({
         locator: { todoId: todoId("todo-1") },
         scope: "future",
@@ -1466,26 +1475,27 @@ describe("planner operations", () => {
       }).pipe(Effect.provide(createLayer({ todos: [makeTodo()], workSlots: [makeWorkSlot()], captures: {} })))
 
       expect(result.removed).toBe(1)
-    }))
+    })
+  )
 
   it.effect("unschedules future slots using the current clock when from is omitted", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       yield* TestClock.adjust("75 millis")
-      const result = yield* unscheduleTodo({
-        locator: { todoId: todoId("todo-1") },
-        scope: "future"
-      }).pipe(
-        Effect.provide(createLayer({
-          todos: [makeTodo()],
-          workSlots: [
-            makeWorkSlot({ _id: "slot-past" as Ref<HulyWorkSlot>, date: Timestamp.make(50) }),
-            makeWorkSlot({ _id: "slot-future" as Ref<HulyWorkSlot>, date: Timestamp.make(100) })
-          ],
-          captures: {}
-        }))
+      const result = yield* unscheduleTodo({ locator: { todoId: todoId("todo-1") }, scope: "future" }).pipe(
+        Effect.provide(
+          createLayer({
+            todos: [makeTodo()],
+            workSlots: [
+              makeWorkSlot({ _id: "slot-past" as Ref<HulyWorkSlot>, date: Timestamp.make(50) }),
+              makeWorkSlot({ _id: "slot-future" as Ref<HulyWorkSlot>, date: Timestamp.make(100) })
+            ],
+            captures: {}
+          })
+        )
       )
 
       expect(result.todoId).toBe("todo-1")
       expect(result.removed).toBe(1)
-    }))
+    })
+  )
 })

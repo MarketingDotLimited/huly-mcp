@@ -17,14 +17,8 @@ const core = require("@hcengineering/core") as typeof import("@hcengineering/cor
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports, no-restricted-syntax -- CJS interop boundary: text does not expose stable ESM runtime named exports under tsx.
 const text = require("@hcengineering/text") as typeof import("@hcengineering/text")
 
-const CliArgsSchema = Schema.Struct({
-  cardSpace: CardSpaceIdentifier,
-  card: CardIdentifier,
-  body: NonEmptyString
-})
-const ResultSchema = Schema.Struct({
-  commentId: CommentId
-})
+const CliArgsSchema = Schema.Struct({ cardSpace: CardSpaceIdentifier, card: CardIdentifier, body: NonEmptyString })
+const ResultSchema = Schema.Struct({ commentId: CommentId })
 const IntegrationOperation = Schema.Literal(
   "add-comment",
   "close-client",
@@ -36,17 +30,12 @@ const IntegrationOperation = Schema.Literal(
 type CliArgs = Schema.Schema.Type<typeof CliArgsSchema>
 type IntegrationOperation = Schema.Schema.Type<typeof IntegrationOperation>
 
-class CliInputError extends Schema.TaggedError<CliInputError>()("CliInputError", {
+class CliInputError extends Schema.TaggedError<CliInputError>()("CliInputError", { cause: Schema.Defect }) {}
+
+class IntegrationOperationError extends Schema.TaggedError<IntegrationOperationError>()("IntegrationOperationError", {
+  operation: IntegrationOperation,
   cause: Schema.Defect
 }) {}
-
-class IntegrationOperationError extends Schema.TaggedError<IntegrationOperationError>()(
-  "IntegrationOperationError",
-  {
-    operation: IntegrationOperation,
-    cause: Schema.Defect
-  }
-) {}
 
 class IntegrationCardSpaceNotFoundError extends Schema.TaggedError<IntegrationCardSpaceNotFoundError>()(
   "IntegrationCardSpaceNotFoundError",
@@ -55,10 +44,7 @@ class IntegrationCardSpaceNotFoundError extends Schema.TaggedError<IntegrationCa
 
 class IntegrationCardNotFoundError extends Schema.TaggedError<IntegrationCardNotFoundError>()(
   "IntegrationCardNotFoundError",
-  {
-    cardSpace: CardSpaceIdentifier,
-    card: CardIdentifier
-  }
+  { cardSpace: CardSpaceIdentifier, card: CardIdentifier }
 ) {}
 
 const NODE_ARGV_OFFSET = 2
@@ -67,26 +53,19 @@ const integrationOperation = <A>(
   operation: IntegrationOperation,
   run: () => PromiseLike<A>
 ): Effect.Effect<A, IntegrationOperationError> =>
-  Effect.tryPromise({
-    try: run,
-    catch: (cause) => new IntegrationOperationError({ operation, cause })
-  })
+  Effect.tryPromise({ try: run, catch: (cause) => new IntegrationOperationError({ operation, cause }) })
 
 const parseCliArgs = (): Effect.Effect<CliArgs, CliInputError> =>
   Effect.try({
     try: () =>
       parseArgs({
         args: process.argv.slice(NODE_ARGV_OFFSET),
-        options: {
-          cardSpace: { type: "string" },
-          card: { type: "string" },
-          body: { type: "string" }
-        }
+        options: { cardSpace: { type: "string" }, card: { type: "string" }, body: { type: "string" } }
       }).values,
     catch: (cause) => new CliInputError({ cause })
   }).pipe(
     Effect.flatMap(Schema.decodeUnknown(CliArgsSchema)),
-    Effect.mapError((cause) => cause instanceof CliInputError ? cause : new CliInputError({ cause }))
+    Effect.mapError((cause) => (cause instanceof CliInputError ? cause : new CliInputError({ cause })))
   )
 
 const findCardSpace = (
@@ -99,11 +78,11 @@ const findCardSpace = (
       (await client.findOne<HulyCardSpace>(
         cardPlugin.class.CardSpace,
         hulyQuery<HulyCardSpace>({ name: identifier })
+      )) ??
+      (await client.findOne<HulyCardSpace>(
+        cardPlugin.class.CardSpace,
+        hulyQuery<HulyCardSpace>({ _id: toRef<HulyCardSpace>(identifier) })
       ))
-        ?? await client.findOne<HulyCardSpace>(
-          cardPlugin.class.CardSpace,
-          hulyQuery<HulyCardSpace>({ _id: toRef<HulyCardSpace>(identifier) })
-        )
   ).pipe(
     Effect.flatMap((cardSpace) =>
       cardSpace === undefined
@@ -122,18 +101,12 @@ const findCard = (
     async () =>
       (await client.findOne<HulyCard>(
         cardPlugin.class.Card,
-        hulyQuery<HulyCard>({
-          space: cardSpace._id,
-          title: args.card
-        })
+        hulyQuery<HulyCard>({ space: cardSpace._id, title: args.card })
+      )) ??
+      (await client.findOne<HulyCard>(
+        cardPlugin.class.Card,
+        hulyQuery<HulyCard>({ space: cardSpace._id, _id: toRef<HulyCard>(args.card) })
       ))
-        ?? await client.findOne<HulyCard>(
-          cardPlugin.class.Card,
-          hulyQuery<HulyCard>({
-            space: cardSpace._id,
-            _id: toRef<HulyCard>(args.card)
-          })
-        )
   ).pipe(
     Effect.flatMap((card) =>
       card === undefined
@@ -149,37 +122,29 @@ const addNativeComment = (
   CommentId,
   IntegrationCardNotFoundError | IntegrationCardSpaceNotFoundError | IntegrationOperationError
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const cardSpace = yield* findCardSpace(client, args.cardSpace)
     const card = yield* findCard(client, cardSpace, args)
     const commentId: Ref<ChatMessage> = core.generateId()
     const message = text.jsonToMarkup({
       type: text.MarkupNodeType.doc,
-      content: [{
-        type: text.MarkupNodeType.paragraph,
-        content: [{
-          type: text.MarkupNodeType.text,
-          text: args.body
-        }]
-      }]
+      content: [{ type: text.MarkupNodeType.paragraph, content: [{ type: text.MarkupNodeType.text, text: args.body }] }]
     })
-    yield* integrationOperation(
-      "add-comment",
-      () =>
-        client.addCollection(
-          chunter.class.ChatMessage,
-          card.space,
-          card._id,
-          card._class,
-          "comments",
-          { message },
-          commentId
-        )
+    yield* integrationOperation("add-comment", () =>
+      client.addCollection(
+        chunter.class.ChatMessage,
+        card.space,
+        card._id,
+        card._class,
+        "comments",
+        { message },
+        commentId
+      )
     )
     return CommentId.make(commentId)
   })
 
-const main = Effect.gen(function*() {
+const main = Effect.gen(function* () {
   const args = yield* parseCliArgs()
   return yield* Effect.acquireUseRelease(
     integrationOperation("connect-client", connectIntegrationHuly),

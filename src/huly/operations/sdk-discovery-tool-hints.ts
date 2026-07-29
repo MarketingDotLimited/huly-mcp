@@ -25,10 +25,7 @@ const toolHint = (category: string, exampleTools: ReadonlyArray<string>): HulyCl
 export const firstClassToolHints = new Map<string, ReadonlyArray<HulyClassToolHint>>([
   [String(tracker.class.Project), [toolHint("projects", ["list_projects", "get_project", "create_project"])]],
   [String(tracker.class.Issue), [toolHint("issues", ["list_issues", "get_issue", "create_issue"])]],
-  [
-    String(documentPlugin.class.Teamspace),
-    [toolHint("documents", ["list_teamspaces", "create_teamspace"])]
-  ],
+  [String(documentPlugin.class.Teamspace), [toolHint("documents", ["list_teamspaces", "create_teamspace"])]],
   [
     String(documentPlugin.class.Document),
     [toolHint("documents", ["list_documents", "get_document", "create_document"])]
@@ -73,10 +70,7 @@ export const firstClassToolHints = new Map<string, ReadonlyArray<HulyClassToolHi
 const SDK_DISCOVERY_PHASE_2_BACKLOG_ISSUE = 92
 const issue92 = HulyBacklogIssueNumber.make(SDK_DISCOVERY_PHASE_2_BACKLOG_ISSUE)
 
-const covered = (
-  safestMcpTools: ReadonlyArray<string>,
-  rationale: string
-): HulyClassRoutingHint => ({
+const covered = (safestMcpTools: ReadonlyArray<string>, rationale: string): HulyClassRoutingHint => ({
   status: "covered",
   safestMcpTools: safestMcpTools.map((tool) => HulyMcpToolName.make(tool)),
   rationale: NonEmptyString.make(rationale)

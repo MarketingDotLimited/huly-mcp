@@ -35,8 +35,9 @@ export const commentTools = [
   defineTool(
     {
       name: "add_comment",
-      description: "Add a comment to a Huly issue. Comment body supports markdown formatting. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
+      description:
+        "Add a comment to a Huly issue. Comment body supports markdown formatting. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
       category: CATEGORY,
       inputSchema: addCommentParamsJsonSchema,
       resultSchema: AddCommentResultSchema
@@ -47,8 +48,9 @@ export const commentTools = [
   defineTool(
     {
       name: "update_comment",
-      description: "Update an existing comment on a Huly issue. Comment body supports markdown formatting. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
+      description:
+        "Update an existing comment on a Huly issue. Comment body supports markdown formatting. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
       category: CATEGORY,
       inputSchema: updateCommentParamsJsonSchema,
       resultSchema: UpdateCommentResultSchema

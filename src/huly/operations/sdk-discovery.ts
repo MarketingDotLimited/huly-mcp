@@ -53,7 +53,7 @@ const batchResolveClassLabels = (
   client: HulyClient["Type"],
   classIds: ReadonlyArray<ObjectClassName>
 ): Effect.Effect<Map<ObjectClassName, NonEmptyString>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (classIds.length === 0) return new Map()
 
     const uniqueIds = [...new Set(classIds)]
@@ -64,10 +64,7 @@ const batchResolveClassLabels = (
 
     const modelEntries = classes.map((cls) => {
       const classId = ObjectClassName.make(String(cls._id))
-      const label = Either.getOrElse(
-        decodeHulyModelLabelTail(cls.label),
-        () => NonEmptyString.make(String(cls._id))
-      )
+      const label = Either.getOrElse(decodeHulyModelLabelTail(cls.label), () => NonEmptyString.make(String(cls._id)))
       return [classId, label] as const
     })
     const modelLabels = new Map<ObjectClassName, NonEmptyString>(modelEntries)
@@ -93,9 +90,7 @@ const ownerLabelOrId = (
   return label
 }
 
-const countAttributesByClass = (
-  attributes: ReadonlyArray<AnyAttribute>
-): Map<ObjectClassName, number> => {
+const countAttributesByClass = (attributes: ReadonlyArray<AnyAttribute>): Map<ObjectClassName, number> => {
   const grouped = Arr.groupBy(attributes, (attr) => String(attr.attributeOf))
   return new Map(
     Object.entries(grouped).map(([ownerClassId, group]) => [ObjectClassName.make(ownerClassId), group.length] as const)
@@ -112,11 +107,7 @@ const fetchClasses = (
     ...(params.domain === undefined ? {} : { domain: params.domain })
   }
 
-  return client.findAll<MetadataClassDoc>(
-    classRef,
-    hulyQuery(query),
-    { sort: { _id: SortingOrder.Ascending } }
-  )
+  return client.findAll<MetadataClassDoc>(classRef, hulyQuery(query), { sort: { _id: SortingOrder.Ascending } })
 }
 
 const fetchAttributes = (
@@ -128,18 +119,16 @@ const fetchAttributes = (
     ...((params.customOnly ?? DEFAULT_CUSTOM_FIELDS_ONLY) ? { isCustom: true } : {})
   }
 
-  return client.findAll<AnyAttribute>(
-    core.class.Attribute,
-    hulyQuery(query),
-    { sort: { name: SortingOrder.Ascending } }
-  )
+  return client.findAll<AnyAttribute>(core.class.Attribute, hulyQuery(query), {
+    sort: { name: SortingOrder.Ascending }
+  })
 }
 
 const resolveClass = (
   client: HulyClient["Type"],
   classId: ObjectClassName
 ): Effect.Effect<MetadataClassDoc, SdkDiscoveryError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const cls = yield* client.findOne<MetadataClassDoc>(
       classRef,
       hulyQuery<MetadataClassDoc>({ _id: toRef<MetadataClassDoc>(classId) })
@@ -156,7 +145,7 @@ const loadAncestorDocs = (
   resolved: ReadonlyMap<string, MetadataClassDoc>,
   depth: number
 ): Effect.Effect<ReadonlyMap<string, MetadataClassDoc>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const pending = [...new Set(frontier)].filter((id) => !resolved.has(id))
     if (pending.length === 0 || depth >= MAX_ANCESTOR_DEPTH) return resolved
 
@@ -176,7 +165,7 @@ const resolveAncestors = (
   client: HulyClient["Type"],
   cls: MetadataClassDoc
 ): Effect.Effect<ReadonlyArray<MetadataClassDoc>, SdkDiscoveryError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     // Phase 1: breadth-first batch-load every reachable ancestor in one findAll per depth level,
     // rather than a sequential findOne per ancestor.
     const docs = yield* loadAncestorDocs(client, directAncestorRefs(cls).map(String), new Map(), 0)
@@ -189,7 +178,7 @@ const resolveAncestors = (
       visited: ReadonlySet<string>,
       depth: number
     ): Effect.Effect<ReadonlyArray<MetadataClassDoc>, SdkDiscoveryError> =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         if (nextRefs.length === 0 || depth >= MAX_ANCESTOR_DEPTH) return []
 
         const [next, ...tail] = nextRefs
@@ -219,15 +208,15 @@ const attributesForClasses = (
   classIds.length === 0
     ? Effect.succeed([])
     : client.findAll<AnyAttribute>(
-      core.class.Attribute,
-      hulyQuery<AnyAttribute>({ attributeOf: { $in: classIds.map(toRef<Class<Obj>>) } }),
-      { sort: { name: SortingOrder.Ascending } }
-    )
+        core.class.Attribute,
+        hulyQuery<AnyAttribute>({ attributeOf: { $in: classIds.map(toRef<Class<Obj>>) } }),
+        { sort: { name: SortingOrder.Ascending } }
+      )
 
 export const listHulyClasses = (
   params: ListHulyClassesParams
 ): Effect.Effect<ListHulyClassesResult, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit ?? SDK_DISCOVERY_DEFAULT_LIMIT)
     const query = Option.fromNullable(params.query)
@@ -242,7 +231,10 @@ export const listHulyClasses = (
     // Count attributes only for the classes that survive filtering and the limit, rather than
     // loading the entire attribute model on every call.
     const attributeCounts = countAttributesByClass(
-      yield* attributesForClasses(client, matched.map((summary) => summary.classId))
+      yield* attributesForClasses(
+        client,
+        matched.map((summary) => summary.classId)
+      )
     )
     const summaries = matched.map((summary) => ({
       ...summary,
@@ -255,7 +247,7 @@ export const listHulyClasses = (
 export const getHulyClass = (
   params: GetHulyClassParams
 ): Effect.Effect<GetHulyClassResult, SdkDiscoveryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const includeInheritedAttributes = params.includeInheritedAttributes ?? DEFAULT_INCLUDE_INHERITED_ATTRIBUTES
     const cls = yield* resolveClass(client, params.class)
@@ -273,10 +265,7 @@ export const getHulyClass = (
     return {
       class: toClassSummary(cls, attributeCounts.get(params.class) ?? 0),
       ancestors: ancestors.map((ancestor) =>
-        toClassSummary(
-          ancestor,
-          attributeCounts.get(ObjectClassName.make(String(ancestor._id))) ?? 0
-        )
+        toClassSummary(ancestor, attributeCounts.get(ObjectClassName.make(String(ancestor._id))) ?? 0)
       ),
       attributes: rawAttributes.map((attr) => {
         const ownerClassId = ObjectClassName.make(String(attr.attributeOf))
@@ -288,7 +277,7 @@ export const getHulyClass = (
 export const listHulyAttributes = (
   params: ListHulyAttributesParams
 ): Effect.Effect<ListHulyAttributesResult, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit ?? SDK_DISCOVERY_DEFAULT_LIMIT)
     const query = Option.fromNullable(params.query)
@@ -310,7 +299,7 @@ export const listHulyAttributes = (
 export const listHulyEnums = (
   params: ListHulyEnumsParams
 ): Effect.Effect<ListHulyEnumsResult, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit ?? SDK_DISCOVERY_DEFAULT_LIMIT)
     const queryText = Option.fromNullable(params.query)
@@ -318,11 +307,9 @@ export const listHulyEnums = (
       ...(params.enum === undefined ? {} : { _id: toRef<HulyEnum>(params.enum) })
     }
 
-    const rawEnums = yield* client.findAll<HulyEnum>(
-      core.class.Enum,
-      hulyQuery(query),
-      { sort: { name: SortingOrder.Ascending } }
-    )
+    const rawEnums = yield* client.findAll<HulyEnum>(core.class.Enum, hulyQuery(query), {
+      sort: { name: SortingOrder.Ascending }
+    })
 
     const enums = rawEnums
       .map(toEnumSummary)

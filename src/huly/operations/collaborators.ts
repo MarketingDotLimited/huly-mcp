@@ -61,29 +61,22 @@ interface ResolvedObjectTarget {
   readonly space: Ref<Space>
 }
 
-const resolveRawTarget = (
-  params: { readonly objectId: string; readonly objectClass: string }
-): Effect.Effect<ResolvedObjectTarget, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+const resolveRawTarget = (params: {
+  readonly objectId: string
+  readonly objectClass: string
+}): Effect.Effect<ResolvedObjectTarget, HulyClientError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const objectClass = toClassRef<Doc>(params.objectClass)
-    const doc = yield* client.findOne<Doc>(
-      objectClass,
-      hulyQuery<Doc>({ _id: toRef<Doc>(params.objectId) })
-    )
+    const doc = yield* client.findOne<Doc>(objectClass, hulyQuery<Doc>({ _id: toRef<Doc>(params.objectId) }))
 
-    return {
-      client,
-      objectId: toRef<Doc>(params.objectId),
-      objectClass,
-      space: doc?.space ?? core.space.Workspace
-    }
+    return { client, objectId: toRef<Doc>(params.objectId), objectClass, space: doc?.space ?? core.space.Workspace }
   })
 
 const resolveObjectTarget = (
-  params: ListObjectCollaboratorsParams | AddObjectCollaboratorParams | RemoveObjectCollaboratorParams
+  params: ListObjectCollaboratorsParams | AddObjectCollaboratorParams
 ): Effect.Effect<ResolvedObjectTarget, ResolveTargetError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (params.objectId !== undefined && params.objectClass !== undefined) {
       return yield* resolveRawTarget({ objectId: params.objectId, objectClass: params.objectClass })
     }
@@ -111,14 +104,9 @@ const resolveMember = (
   client: HulyClient["Type"],
   member: CollaboratorMemberInput
 ): Effect.Effect<HulyAccountUuid, ResolveMemberError> =>
-  Schema.is(AccountUuid)(member)
-    ? Effect.succeed(toAccountUuid(member))
-    : resolveEmployeeAccountUuid(client, member)
+  Schema.is(AccountUuid)(member) ? Effect.succeed(toAccountUuid(member)) : resolveEmployeeAccountUuid(client, member)
 
-const toObjectCollaborator = (
-  collaborator: HulyCollaborator,
-  target: ResolvedObjectTarget
-): ObjectCollaborator => ({
+const toObjectCollaborator = (collaborator: HulyCollaborator, target: ResolvedObjectTarget): ObjectCollaborator => ({
   id: CollaboratorId.make(collaborator._id),
   objectId: DocId.make(target.objectId),
   objectClass: ObjectClassName.make(target.objectClass),
@@ -128,24 +116,21 @@ const toObjectCollaborator = (
 export const listObjectCollaborators = (
   params: ListObjectCollaboratorsParams
 ): Effect.Effect<Array<ObjectCollaborator>, ListObjectCollaboratorsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveObjectTarget(params)
     const limit = clampLimit(params.limit)
     const collaborators = yield* target.client.findAll<HulyCollaborator>(
       core.class.Collaborator,
-      hulyQuery<HulyCollaborator>({
-        attachedTo: target.objectId,
-        attachedToClass: target.objectClass
-      }),
+      hulyQuery<HulyCollaborator>({ attachedTo: target.objectId, attachedToClass: target.objectClass }),
       { limit }
     )
-    return collaborators.map(collaborator => toObjectCollaborator(collaborator, target))
+    return collaborators.map((collaborator) => toObjectCollaborator(collaborator, target))
   })
 
 export const addObjectCollaborator = (
   params: AddObjectCollaboratorParams
 ): Effect.Effect<AddObjectCollaboratorResult, AddObjectCollaboratorError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveObjectTarget(params)
     const accountUuid = yield* resolveMember(target.client, params.member)
 
@@ -191,7 +176,7 @@ export const addObjectCollaborator = (
 export const removeObjectCollaborator = (
   params: RemoveObjectCollaboratorParams
 ): Effect.Effect<RemoveObjectCollaboratorResult, RemoveObjectCollaboratorError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveObjectTarget(params)
     const accountUuid = yield* resolveMember(target.client, params.member)
 

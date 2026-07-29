@@ -65,14 +65,15 @@ const buildUpdateTagOperations = (
   client: HulyClient["Type"],
   params: UpdateTagParams
 ): Effect.Effect<DocumentUpdate<HulyTagElement>, HulyClientError | TagCategoryNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     type UpdateTagEntries = {
       readonly [Field in UpdateTagField]: DirectUpdateEntry<UpdateTagField, DocumentUpdate<HulyTagElement>, Field>
     }
     const updateEntries = {
-      category: params.category === undefined
-        ? {}
-        : { category: yield* resolveTagCategoryRef(client, params.targetClass, params.category) },
+      category:
+        params.category === undefined
+          ? {}
+          : { category: yield* resolveTagCategoryRef(client, params.targetClass, params.category) },
       color: params.color === undefined ? {} : { color: params.color },
       description: params.description === undefined ? {} : { description: clearTextAsEmptyString(params.description) },
       title: params.title === undefined ? {} : { title: params.title }
@@ -81,41 +82,32 @@ const buildUpdateTagOperations = (
     return mergeUpdateEntries(Object.values(updateEntries))
   })
 
-export const listTags = (
-  params: ListTagsParams
-): Effect.Effect<Array<TagSummary>, ListTagsError, HulyClient> =>
-  Effect.gen(function*() {
+export const listTags = (params: ListTagsParams): Effect.Effect<Array<TagSummary>, ListTagsError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit)
-    const categoryFilter = params.category === undefined
-      ? {}
-      : { category: yield* resolveTagCategoryRef(client, params.targetClass, params.category) }
+    const categoryFilter =
+      params.category === undefined
+        ? {}
+        : { category: yield* resolveTagCategoryRef(client, params.targetClass, params.category) }
     const titleSearch = params.titleSearch?.trim() ?? ""
-    const titleFilter = titleSearch === ""
-      ? {}
-      : { title: { $like: `%${escapeLikeWildcards(titleSearch)}%` } }
+    const titleFilter = titleSearch === "" ? {} : { title: { $like: `%${escapeLikeWildcards(titleSearch)}%` } }
     const query: StrictDocumentQuery<HulyTagElement> = {
       targetClass: toTargetClassRef(params.targetClass),
       ...categoryFilter,
       ...titleFilter
     }
 
-    const elements = yield* client.findAll<HulyTagElement>(
-      tags.class.TagElement,
-      hulyQuery(query),
-      {
-        limit,
-        sort: { modifiedOn: SortingOrder.Descending }
-      }
-    )
+    const elements = yield* client.findAll<HulyTagElement>(tags.class.TagElement, hulyQuery(query), {
+      limit,
+      sort: { modifiedOn: SortingOrder.Descending }
+    })
 
     return elements.map(toTagSummary)
   })
 
-export const createTag = (
-  params: CreateTagParams
-): Effect.Effect<CreateTagResult, CreateTagError, HulyClient> =>
-  Effect.gen(function*() {
+export const createTag = (params: CreateTagParams): Effect.Effect<CreateTagResult, CreateTagError, HulyClient> =>
+  Effect.gen(function* () {
     const tag = yield* ensureTagElement({
       targetClass: params.targetClass,
       titleOrId: params.title,
@@ -132,38 +124,25 @@ export const createTag = (
     }
   })
 
-export const updateTag = (
-  params: UpdateTagParams
-): Effect.Effect<UpdateTagResult, UpdateTagError, HulyClient> =>
-  Effect.gen(function*() {
+export const updateTag = (params: UpdateTagParams): Effect.Effect<UpdateTagResult, UpdateTagError, HulyClient> =>
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_tag", params, UPDATE_TAG_FIELDS)
 
     const client = yield* HulyClient
     const tag = yield* findTagElementOrFail(client, params.targetClass, params.tag)
     const updateOps = yield* buildUpdateTagOperations(client, params)
 
-    yield* client.updateDoc(
-      tags.class.TagElement,
-      toRef<Space>(core.space.Workspace),
-      tag._id,
-      updateOps
-    )
+    yield* client.updateDoc(tags.class.TagElement, toRef<Space>(core.space.Workspace), tag._id, updateOps)
 
     return { id: TagElementId.make(tag._id), updated: true }
   })
 
-export const deleteTag = (
-  params: DeleteTagParams
-): Effect.Effect<DeleteTagResult, DeleteTagError, HulyClient> =>
-  Effect.gen(function*() {
+export const deleteTag = (params: DeleteTagParams): Effect.Effect<DeleteTagResult, DeleteTagError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const tag = yield* findTagElementOrFail(client, params.targetClass, params.tag)
 
-    yield* client.removeDoc(
-      tags.class.TagElement,
-      toRef<Space>(core.space.Workspace),
-      tag._id
-    )
+    yield* client.removeDoc(tags.class.TagElement, toRef<Space>(core.space.Workspace), tag._id)
 
     return { id: TagElementId.make(tag._id), deleted: true }
   })
@@ -171,16 +150,14 @@ export const deleteTag = (
 export const listAttachedTags = (
   params: ListAttachedTagsParams
 ): Effect.Effect<Array<AttachedTagSummary>, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const tagRefs = yield* listTagReferencesForObject(client, params)
     return tagRefs.map(toAttachedTagSummary)
   })
 
-export const attachTag = (
-  params: AttachTagParams
-): Effect.Effect<AttachTagResult, TagReferenceError, HulyClient> =>
-  Effect.gen(function*() {
+export const attachTag = (params: AttachTagParams): Effect.Effect<AttachTagResult, TagReferenceError, HulyClient> =>
+  Effect.gen(function* () {
     const tag = yield* ensureTagElement({
       targetClass: params.targetClass,
       titleOrId: params.tag,
@@ -198,10 +175,8 @@ export const attachTag = (
     })
   })
 
-export const detachTag = (
-  params: DetachTagParams
-): Effect.Effect<DetachTagResult, TagReferenceError, HulyClient> =>
-  Effect.gen(function*() {
+export const detachTag = (params: DetachTagParams): Effect.Effect<DetachTagResult, TagReferenceError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const tag = toResolvedTagElement(yield* findTagElementOrFail(client, params.targetClass, params.tag), false)
 

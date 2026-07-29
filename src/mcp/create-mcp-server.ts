@@ -49,10 +49,7 @@ export const createMcpServer = (
     getHulyContext,
     undefined,
     undefined,
-    {
-      ...exposureOptions,
-      currentClientInfo
-    },
+    { ...exposureOptions, currentClientInfo },
     toolCallNoticeProvider,
     serverInstructions
   )

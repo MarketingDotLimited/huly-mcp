@@ -44,24 +44,25 @@ export const toActivityMessage = (
   operation: ActivityRecordInvalidError["operation"],
   recordIndex: Count
 ): Effect.Effect<ActivityMessage, ActivityRecordInvalidError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const invalidRecord = (details: string) =>
       new ActivityRecordInvalidError({ operation, recordIndex, details: NonEmptyString.make(details) })
     const msg = yield* Schema.decodeUnknown(HulyActivityRecordSchema)(value).pipe(
       Effect.mapError((parseError) => invalidRecord(parseError.message))
     )
     const message = msg.message
-    const markdownBody = message === undefined || message === null
-      ? undefined
-      : yield* Effect.try({
-        try: () => ActivityMarkdown.make(markupToMarkdownString(message, markupUrlConfig)),
-        catch: (cause) =>
-          invalidRecord(
-            `message markup could not be converted to Markdown: ${
-              cause instanceof Error ? cause.message : "unsupported markup"
-            }`
-          )
-      })
+    const markdownBody =
+      message === undefined || message === null
+        ? undefined
+        : yield* Effect.try({
+            try: () => ActivityMarkdown.make(markupToMarkdownString(message, markupUrlConfig)),
+            catch: (cause) =>
+              invalidRecord(
+                `message markup could not be converted to Markdown: ${
+                  cause instanceof Error ? cause.message : "unsupported markup"
+                }`
+              )
+          })
     const isReference = msg._class === ObjectClassName.make(activity.class.ActivityReference)
     const isDocUpdate = msg._class === ObjectClassName.make(activity.class.DocUpdateMessage)
 
@@ -97,15 +98,11 @@ export const toActivityMessages = (
   markupUrlConfig: HulyClient["Type"]["markupUrlConfig"],
   operation: ActivityRecordInvalidError["operation"]
 ): Effect.Effect<Array<ActivityMessage>, ActivityRecordInvalidError> =>
-  Effect.forEach(
-    values,
-    (value, recordIndex) => toActivityMessage(value, markupUrlConfig, operation, Count.make(recordIndex))
+  Effect.forEach(values, (value, recordIndex) =>
+    toActivityMessage(value, markupUrlConfig, operation, Count.make(recordIndex))
   )
 
-export const findActivityMessage = (
-  client: HulyClient["Type"],
-  messageId: ActivityMessageId
-) =>
+export const findActivityMessage = (client: HulyClient["Type"], messageId: ActivityMessageId) =>
   findOneOrFail(
     client,
     activity.class.ActivityMessage,

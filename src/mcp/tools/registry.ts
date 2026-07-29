@@ -96,12 +96,8 @@ interface ToolOperationSuccessBase {
   readonly result: unknown
   readonly warnings: ReadonlyArray<ToolWarning>
 }
-export type ToolOperationSuccess =
-  & ToolOperationSuccessBase
-  & (
-    | { readonly image?: never }
-    | { readonly image: McpImageContent }
-  )
+export type ToolOperationSuccess = ToolOperationSuccessBase &
+  ({ readonly image?: never } | { readonly image: McpImageContent })
 
 class ToolParseFailure extends Data.TaggedError("ToolParseFailure")<{
   readonly cause: Cause.Cause<ParseResult.ParseError>
@@ -113,20 +109,14 @@ class ToolDomainFailure extends Data.TaggedError("ToolDomainFailure")<{
   readonly warnings: ReadonlyArray<ToolWarning>
 }> {}
 
-class ToolProvisionFailure extends Data.TaggedError("ToolProvisionFailure")<{
-  readonly error: HulyDomainError
-}> {}
+class ToolProvisionFailure extends Data.TaggedError("ToolProvisionFailure")<{ readonly error: HulyDomainError }> {}
 
 class ToolOutputFailure extends Data.TaggedError("ToolOutputFailure")<{
   readonly toolName: string
   readonly warnings: ReadonlyArray<ToolWarning>
 }> {}
 
-type ToolOperationFailure =
-  | ToolDomainFailure
-  | ToolOutputFailure
-  | ToolParseFailure
-  | ToolProvisionFailure
+type ToolOperationFailure = ToolDomainFailure | ToolOutputFailure | ToolParseFailure | ToolProvisionFailure
 
 interface RegisteredOperation<Name extends string = string> extends ToolDefinition<Name> {
   readonly execute: (
@@ -150,8 +140,8 @@ export const createUnexpectedArgumentsError = (toolName: string): McpToolRespons
   )
 
 export const isEmptyArgumentsObject = (args: unknown): boolean =>
-  args === undefined
-  || (typeof args === "object" && args !== null && !Array.isArray(args) && Object.keys(args).length === 0)
+  args === undefined ||
+  (typeof args === "object" && args !== null && !Array.isArray(args) && Object.keys(args).length === 0)
 
 interface ToolInputSchema {
   readonly properties?: Record<string, unknown>
@@ -199,26 +189,24 @@ const isEmptyStructUnionSchema = (schema: ToolInputSchema): boolean => {
   const variants = unionVariants(schema)
   const types = new Set(variants.map((variant) => variant.type))
 
-  return variants.length === EMPTY_EFFECT_STRUCT_VARIANT_COUNT
-    && isEmptySchemaVariant(schema)
-    && variants.every(isEmptySchemaVariant)
-    && types.has("object")
-    && types.has("array")
+  return (
+    variants.length === EMPTY_EFFECT_STRUCT_VARIANT_COUNT &&
+    isEmptySchemaVariant(schema) &&
+    variants.every(isEmptySchemaVariant) &&
+    types.has("object") &&
+    types.has("array")
+  )
 }
 
 export const requiresArgumentsObject = (tool: ToolDefinition): boolean =>
-  isToolInputSchema(tool.inputSchema)
-  && (
-    hasRequiredFields(tool.inputSchema)
-    || unionVariants(tool.inputSchema).some(hasRequiredFields)
-  )
+  isToolInputSchema(tool.inputSchema) &&
+  (hasRequiredFields(tool.inputSchema) || unionVariants(tool.inputSchema).some(hasRequiredFields))
 
 export const isNoArgumentTool = (tool: ToolDefinition): boolean =>
-  isToolInputSchema(tool.inputSchema) && !requiresArgumentsObject(tool)
-  && (
-    (!hasDeclaredProperties(tool.inputSchema) && tool.inputSchema.additionalProperties === false)
-    || isEmptyStructUnionSchema(tool.inputSchema)
-  )
+  isToolInputSchema(tool.inputSchema) &&
+  !requiresArgumentsObject(tool) &&
+  ((!hasDeclaredProperties(tool.inputSchema) && tool.inputSchema.additionalProperties === false) ||
+    isEmptyStructUnionSchema(tool.inputSchema))
 
 const encodeOutput = (schema: Schema.Schema.AnyNoContext, result: unknown): unknown =>
   Schema.encodeUnknownSync(schema)(result)
@@ -278,52 +266,49 @@ const provideWorkspaceClient: ProvideServices<WorkspaceClient> = (args) => (effe
     ? Either.right(effect.pipe(Effect.provideService(WorkspaceClient, args.workspaceClient)))
     : Either.left(new HulyError({ message: "WorkspaceClient not available" }))
 
-const createOperationExecutor = <P, Svc, R>(
-  toolName: string,
-  provide: ProvideServices<Svc>,
-  parse: (input: unknown) => Effect.Effect<P, ParseResult.ParseError>,
-  operation: (params: P) => Effect.Effect<R, HulyDomainError, Svc | Diagnostics>,
-  encode: (result: unknown) => unknown,
-  presentImage?: ((result: R) => { readonly result: unknown; readonly image: McpImageContent }) | undefined
-): RegisteredOperation["execute"] =>
-(args, hulyClient, storageClient, workspaceClient) =>
-  Effect.gen(function*() {
-    const parseResult = yield* Effect.exit(parse(args))
+const createOperationExecutor =
+  <P, Svc, R>(
+    toolName: string,
+    provide: ProvideServices<Svc>,
+    parse: (input: unknown) => Effect.Effect<P, ParseResult.ParseError>,
+    operation: (params: P) => Effect.Effect<R, HulyDomainError, Svc | Diagnostics>,
+    encode: (result: unknown) => unknown,
+    presentImage?: (result: R) => { readonly result: unknown; readonly image: McpImageContent }
+  ): RegisteredOperation["execute"] =>
+  (args, hulyClient, storageClient, workspaceClient) =>
+    Effect.gen(function* () {
+      const parseResult = yield* Effect.exit(parse(args))
 
-    if (Exit.isFailure(parseResult)) {
-      return yield* new ToolParseFailure({ cause: parseResult.cause, toolName })
-    }
+      if (Exit.isFailure(parseResult)) {
+        return yield* new ToolParseFailure({ cause: parseResult.cause, toolName })
+      }
 
-    const diagnosticsScope = yield* makeDiagnosticsScope
-    const provided = provide({
-      hulyClient,
-      storageClient,
-      workspaceClient
-    })(operation(parseResult.value))
+      const diagnosticsScope = yield* makeDiagnosticsScope
+      const provided = provide({ hulyClient, storageClient, workspaceClient })(operation(parseResult.value))
 
-    if (Either.isLeft(provided)) {
-      return yield* new ToolProvisionFailure({ error: provided.left })
-    }
+      if (Either.isLeft(provided)) {
+        return yield* new ToolProvisionFailure({ error: provided.left })
+      }
 
-    const operationResult = yield* Effect.exit(
-      provided.right.pipe(Effect.provideService(Diagnostics, diagnosticsScope.service))
-    )
-    const warnings = yield* diagnosticsScope.drainWarnings
+      const operationResult = yield* Effect.exit(
+        provided.right.pipe(Effect.provideService(Diagnostics, diagnosticsScope.service))
+      )
+      const warnings = yield* diagnosticsScope.drainWarnings
 
-    if (Exit.isFailure(operationResult)) {
-      return yield* new ToolDomainFailure({ cause: operationResult.cause, warnings })
-    }
+      if (Exit.isFailure(operationResult)) {
+        return yield* new ToolDomainFailure({ cause: operationResult.cause, warnings })
+      }
 
-    const presentation = presentImage?.(operationResult.value)
-    const output = yield* Effect.try({
-      try: () => encode(presentation === undefined ? operationResult.value : presentation.result),
-      catch: () => new ToolOutputFailure({ toolName, warnings })
+      const presentation = presentImage?.(operationResult.value)
+      const output = yield* Effect.try({
+        try: () => encode(presentation === undefined ? operationResult.value : presentation.result),
+        catch: () => new ToolOutputFailure({ toolName, warnings })
+      })
+
+      return presentation === undefined
+        ? { result: output, warnings }
+        : { result: output, warnings, image: presentation.image }
     })
-
-    return presentation === undefined
-      ? { result: output, warnings }
-      : { result: output, warnings, image: presentation.image }
-  })
 
 const operationFailureToMcp = (failure: ToolOperationFailure): McpToolResponse => {
   switch (failure._tag) {
@@ -346,9 +331,7 @@ const operationSuccessToMcp = (success: ToolOperationSuccess): McpToolResponse =
     ? createSuccessResponse(success.result, success.warnings)
     : createImageSuccessResponse(success.result, success.image, success.warnings)
 
-const firstFailureMessage = <E extends { readonly message: string }>(
-  cause: Cause.Cause<E>
-): string | undefined => {
+const firstFailureMessage = <E extends { readonly message: string }>(cause: Cause.Cause<E>): string | undefined => {
   if (Cause.isFailType(cause)) return cause.error.message
   const firstFailure = Chunk.toArray(Cause.failures(cause))[0]
   return firstFailure?.message
@@ -378,12 +361,9 @@ const createHandler =
   (operation: RegisteredOperation): RegisteredTool["handler"] =>
   async (args, hulyClient, storageClient, workspaceClient) => {
     return await Effect.runPromise(
-      operation.execute(args, hulyClient, storageClient, workspaceClient).pipe(
-        Effect.match({
-          onFailure: operationFailureToMcp,
-          onSuccess: operationSuccessToMcp
-        })
-      )
+      operation
+        .execute(args, hulyClient, storageClient, workspaceClient)
+        .pipe(Effect.match({ onFailure: operationFailureToMcp, onSuccess: operationSuccessToMcp }))
     )
   }
 
@@ -396,20 +376,12 @@ const defineProvidedTool = <const Name extends string, P, Svc, S extends ResultS
   const definition = stripResultSchema(spec)
   const registeredOperation: RegisteredOperation<Name> = {
     ...definition,
-    execute: createOperationExecutor(
-      spec.name,
-      provide,
-      parse,
-      operation,
-      (result) => encodeOutput(spec.resultSchema, result)
+    execute: createOperationExecutor(spec.name, provide, parse, operation, (result) =>
+      encodeOutput(spec.resultSchema, result)
     )
   }
 
-  return {
-    ...definition,
-    operation: registeredOperation,
-    handler: createHandler(registeredOperation)
-  }
+  return { ...definition, operation: registeredOperation, handler: createHandler(registeredOperation) }
 }
 
 interface ImageToolPresentation<Output> {
@@ -437,11 +409,7 @@ const defineProvidedImageTool = <const Name extends string, P, Svc, S extends Re
     )
   }
 
-  return {
-    ...definition,
-    operation: registeredOperation,
-    handler: createHandler(registeredOperation)
-  }
+  return { ...definition, operation: registeredOperation, handler: createHandler(registeredOperation) }
 }
 
 export const defineTool = <const Name extends string, P, S extends ResultSchema>(
@@ -467,9 +435,7 @@ export const defineCombinedTool = <const Name extends string, P, S extends Resul
 export const defineCombinedImageTool = <const Name extends string, P, S extends ResultSchema, R>(
   spec: ToolSpec<Name, S>,
   parse: (input: unknown) => Effect.Effect<P, ParseResult.ParseError>,
-  operation: (
-    params: P
-  ) => Effect.Effect<R, HulyDomainError, HulyClient | HulyStorageClient | Diagnostics>,
+  operation: (params: P) => Effect.Effect<R, HulyDomainError, HulyClient | HulyStorageClient | Diagnostics>,
   present: (result: R) => ImageToolPresentation<SchemaResult<S>>
 ): RegisteredTool<Name> => defineProvidedImageTool(spec, provideCombinedClient, parse, operation, present)
 
@@ -482,10 +448,4 @@ export const defineWorkspaceTool = <const Name extends string, P, S extends Resu
 export const defineNoParamsWorkspaceTool = <const Name extends string, S extends ResultSchema>(
   spec: Omit<ToolSpec<Name, S>, "inputSchema"> & { readonly inputSchema: object },
   operation: () => Effect.Effect<SchemaResult<S>, HulyDomainError, WorkspaceClient | Diagnostics>
-): RegisteredTool<Name> =>
-  defineProvidedTool(
-    spec,
-    provideWorkspaceClient,
-    () => Effect.succeed(undefined),
-    operation
-  )
+): RegisteredTool<Name> => defineProvidedTool(spec, provideWorkspaceClient, () => Effect.succeed(undefined), operation)

@@ -18,38 +18,22 @@ describe("toClientCompatibleInputSchema", () => {
     const schema: McpInputSchema = {
       type: "object",
       required: ["project"],
-      properties: {
-        project: { type: "string" }
-      },
+      properties: { project: { type: "string" } },
       oneOf: [
         {
           required: ["issueIdentifier"],
-          properties: {
-            issueIdentifier: { type: "string" }
-          },
-          $defs: {
-            IssueIdentifier: { type: "string" }
-          },
+          properties: { issueIdentifier: { type: "string" } },
+          $defs: { IssueIdentifier: { type: "string" } },
           anyOf: [
             {
               required: ["document"],
-              properties: {
-                document: { type: "string" }
-              },
-              $defs: {
-                DocumentIdentifier: { type: "string" }
-              }
+              properties: { document: { type: "string" } },
+              $defs: { DocumentIdentifier: { type: "string" } }
             }
           ]
         }
       ],
-      allOf: [
-        {
-          properties: {
-            limit: { type: "integer" }
-          }
-        }
-      ]
+      allOf: [{ properties: { limit: { type: "integer" } } }]
     }
 
     const sanitized = toClientCompatibleInputSchema(schema)
@@ -78,17 +62,13 @@ describe("toClientCompatibleInputSchema", () => {
         {
           type: "object",
           required: ["personId"],
-          properties: {
-            personId: { type: "string" }
-          },
+          properties: { personId: { type: "string" } },
           additionalProperties: false
         },
         {
           type: "object",
           required: ["email"],
-          properties: {
-            email: { type: "string", format: "email" }
-          },
+          properties: { email: { type: "string", format: "email" } },
           additionalProperties: false
         }
       ],
@@ -107,18 +87,7 @@ describe("toClientCompatibleInputSchema", () => {
   })
 
   it("ignores non-object composition branches", () => {
-    const schema = {
-      anyOf: [
-        {
-          type: "object",
-          properties: {
-            project: { type: "string" }
-          }
-        },
-        "not-a-schema",
-        null
-      ]
-    }
+    const schema = { anyOf: [{ type: "object", properties: { project: { type: "string" } } }, "not-a-schema", null] }
 
     const sanitized = toClientCompatibleInputSchema(schema)
     const properties = expectRecord(sanitized.properties)

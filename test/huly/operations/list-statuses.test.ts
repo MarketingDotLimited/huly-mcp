@@ -54,7 +54,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown, options?: unknown) => {
     if (_class === tracker.class.Project) {
       const q = query as Record<string, unknown>
-      const found = projects.find(p => q.identifier ? p.identifier === q.identifier : false)
+      const found = projects.find((p) => (q.identifier ? p.identifier === q.identifier : false))
       if (found && options) {
         const opts = options as { lookup?: Record<string, unknown> }
         if (opts.lookup?.type === task.class.ProjectType && config.projectType) {
@@ -66,15 +66,12 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
-  return HulyClient.testLayer({
-    findAll: findAllImpl,
-    findOne: findOneImpl
-  })
+  return HulyClient.testLayer({ findAll: findAllImpl, findOne: findOneImpl })
 }
 
 describe("listStatuses", () => {
   it.effect("returns statuses with category and isDefault fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST", defaultIssueStatus: "status-1" as Ref<Status> })
       const projectType = asProjectType({
         statuses: [
@@ -91,11 +88,7 @@ describe("listStatuses", () => {
         { _id: "status-4" as Ref<Status>, name: "Custom", category: "task:statusCategory:Custom" }
       ]
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        statuses,
-        projectType
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], statuses, projectType })
 
       const result = yield* listStatuses({ project: projectIdentifier("TEST") }).pipe(
         Effect.provide(testLayer),
@@ -105,32 +98,30 @@ describe("listStatuses", () => {
       expect(result.total).toBe(4)
       expect(result.statuses).toHaveLength(4)
 
-      const todo = result.statuses.find(s => s.name === "Todo")
+      const todo = result.statuses.find((s) => s.name === "Todo")
       expect(todo).toBeDefined()
       expect(todo?.category).toBe("unknown")
       expect(todo?.isDefault).toBe(true)
 
-      const done = result.statuses.find(s => s.name === "Done")
+      const done = result.statuses.find((s) => s.name === "Done")
       expect(done?.category).toBe("Won")
       expect(done?.isDefault).toBe(false)
 
-      const cancelled = result.statuses.find(s => s.name === "Cancelled")
+      const cancelled = result.statuses.find((s) => s.name === "Cancelled")
       expect(cancelled?.category).toBe("Lost")
       expect(cancelled?.isDefault).toBe(false)
 
-      const custom = result.statuses.find(s => s.name === "Custom")
+      const custom = result.statuses.find((s) => s.name === "Custom")
       expect(custom?.category).toBe("unknown")
-    }))
+    })
+  )
 
   it.effect("returns empty array when project has no statuses", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "EMPTY" })
       const projectType = asProjectType({ statuses: [] })
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        projectType
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], projectType })
 
       const result = yield* listStatuses({ project: projectIdentifier("EMPTY") }).pipe(
         Effect.provide(testLayer),
@@ -139,10 +130,11 @@ describe("listStatuses", () => {
 
       expect(result.total).toBe(0)
       expect(result.statuses).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("fails with ProjectNotFoundError for unknown project", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ projects: [] })
 
       const result = yield* listStatuses({ project: projectIdentifier("NOPE") }).pipe(
@@ -152,5 +144,6 @@ describe("listStatuses", () => {
       )
 
       expect(result._tag).toBe("ProjectNotFoundError")
-    }))
+    })
+  )
 })

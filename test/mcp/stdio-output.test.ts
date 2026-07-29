@@ -16,9 +16,11 @@ interface ConsoleProbe {
 
 const createConsoleProbe = (): ConsoleProbe => {
   const calls: Array<ConsoleCall> = []
-  const writer = (method: ConsoleMethodName) => (...data: ReadonlyArray<unknown>): void => {
-    calls.push({ method, data })
-  }
+  const writer =
+    (method: ConsoleMethodName) =>
+    (...data: ReadonlyArray<unknown>): void => {
+      calls.push({ method, data })
+    }
 
   return {
     calls,

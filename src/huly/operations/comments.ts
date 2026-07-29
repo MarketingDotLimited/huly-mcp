@@ -22,49 +22,30 @@ import { toRef } from "./sdk-boundary.js"
 import { chunter, tracker } from "../huly-plugins.js"
 import { markdownToMarkupString, optionalMarkupToMarkdown } from "./markup.js"
 
-type ListCommentsError =
-  | HulyClientError
-  | HulyConnectionError
-  | ProjectNotFoundError
-  | IssueNotFoundError
+type ListCommentsError = HulyClientError | HulyConnectionError | ProjectNotFoundError | IssueNotFoundError
 
-type AddCommentError =
-  | HulyClientError
-  | ProjectNotFoundError
-  | IssueNotFoundError
+type AddCommentError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
 
-type UpdateCommentError =
-  | HulyClientError
-  | ProjectNotFoundError
-  | IssueNotFoundError
-  | CommentNotFoundError
+type UpdateCommentError = HulyClientError | ProjectNotFoundError | IssueNotFoundError | CommentNotFoundError
 
-type DeleteCommentError =
-  | HulyClientError
-  | ProjectNotFoundError
-  | IssueNotFoundError
-  | CommentNotFoundError
+type DeleteCommentError = HulyClientError | ProjectNotFoundError | IssueNotFoundError | CommentNotFoundError
 
 // --- Helpers ---
 
-const findProjectAndIssue = (
-  params: { project: string; issueIdentifier: string }
-) => findProjectAndIssueShared({ project: params.project, identifier: params.issueIdentifier })
+const findProjectAndIssue = (params: { project: string; issueIdentifier: string }) =>
+  findProjectAndIssueShared({ project: params.project, identifier: params.issueIdentifier })
 
 const findComment = (params: { project: string; issueIdentifier: string; commentId: string }) =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, issue, project } = yield* findProjectAndIssue({
       project: params.project,
       issueIdentifier: params.issueIdentifier
     })
 
-    const comment = yield* client.findOne<ChatMessage>(
-      chunter.class.ChatMessage,
-      {
-        _id: toRef<ChatMessage>(params.commentId),
-        attachedTo: issue._id
-      }
-    )
+    const comment = yield* client.findOne<ChatMessage>(chunter.class.ChatMessage, {
+      _id: toRef<ChatMessage>(params.commentId),
+      attachedTo: issue._id
+    })
 
     if (comment === undefined) {
       return yield* new CommentNotFoundError({
@@ -86,7 +67,7 @@ const findComment = (params: { project: string; issueIdentifier: string; comment
 export const listComments = (
   params: ListCommentsParams
 ): Effect.Effect<Array<Comment>, ListCommentsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, issue } = yield* findProjectAndIssue({
       project: params.project,
       issueIdentifier: params.issueIdentifier
@@ -97,16 +78,8 @@ export const listComments = (
 
     const messages = yield* client.findAll<ChatMessage>(
       chunter.class.ChatMessage,
-      {
-        attachedTo: issue._id,
-        attachedToClass: tracker.class.Issue
-      },
-      {
-        limit,
-        sort: {
-          createdOn: SortingOrder.Ascending
-        }
-      }
+      { attachedTo: issue._id, attachedToClass: tracker.class.Issue },
+      { limit, sort: { createdOn: SortingOrder.Ascending } }
     )
 
     // Spread: Schema.decodeUnknown returns readonly array; return type requires mutable
@@ -120,11 +93,12 @@ export const listComments = (
         editedOn: msg.editedOn
       }))
     ).pipe(
-      Effect.mapError((parseError) =>
-        new HulyConnectionError({
-          message: `listComments response failed schema validation: ${parseError.message}`,
-          cause: parseError
-        })
+      Effect.mapError(
+        (parseError) =>
+          new HulyConnectionError({
+            message: `listComments response failed schema validation: ${parseError.message}`,
+            cause: parseError
+          })
       )
     )
 
@@ -134,10 +108,8 @@ export const listComments = (
 /**
  * Add a comment to an issue.
  */
-export const addComment = (
-  params: AddCommentParams
-): Effect.Effect<AddCommentResult, AddCommentError, HulyClient> =>
-  Effect.gen(function*() {
+export const addComment = (params: AddCommentParams): Effect.Effect<AddCommentResult, AddCommentError, HulyClient> =>
+  Effect.gen(function* () {
     const { client, issue, project } = yield* findProjectAndIssue({
       project: params.project,
       issueIdentifier: params.issueIdentifier
@@ -146,9 +118,7 @@ export const addComment = (
 
     const commentId: Ref<ChatMessage> = generateId()
 
-    const commentData: AttachedData<ChatMessage> = {
-      message: markdownToMarkupString(params.body, markupUrlConfig)
-    }
+    const commentData: AttachedData<ChatMessage> = { message: markdownToMarkupString(params.body, markupUrlConfig) }
 
     yield* client.addCollection(
       chunter.class.ChatMessage,
@@ -160,10 +130,7 @@ export const addComment = (
       commentId
     )
 
-    return {
-      commentId: CommentId.make(commentId),
-      issueIdentifier: IssueIdentifier.make(issue.identifier)
-    }
+    return { commentId: CommentId.make(commentId), issueIdentifier: IssueIdentifier.make(issue.identifier) }
   })
 
 /**
@@ -172,7 +139,7 @@ export const addComment = (
 export const updateComment = (
   params: UpdateCommentParams
 ): Effect.Effect<UpdateCommentResult, UpdateCommentError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, comment, issue, project } = yield* findComment(params)
     const markupUrlConfig = client.markupUrlConfig
 
@@ -187,17 +154,9 @@ export const updateComment = (
     }
 
     const now = yield* Clock.currentTimeMillis
-    const updateOps: DocumentUpdate<ChatMessage> = {
-      message: newMarkup,
-      editedOn: now
-    }
+    const updateOps: DocumentUpdate<ChatMessage> = { message: newMarkup, editedOn: now }
 
-    yield* client.updateDoc(
-      chunter.class.ChatMessage,
-      project._id,
-      comment._id,
-      updateOps
-    )
+    yield* client.updateDoc(chunter.class.ChatMessage, project._id, comment._id, updateOps)
 
     return {
       commentId: CommentId.make(params.commentId),
@@ -212,14 +171,10 @@ export const updateComment = (
 export const deleteComment = (
   params: DeleteCommentParams
 ): Effect.Effect<DeleteCommentResult, DeleteCommentError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, comment, issue, project } = yield* findComment(params)
 
-    yield* client.removeDoc(
-      chunter.class.ChatMessage,
-      project._id,
-      comment._id
-    )
+    yield* client.removeDoc(chunter.class.ChatMessage, project._id, comment._id)
 
     return {
       commentId: CommentId.make(params.commentId),

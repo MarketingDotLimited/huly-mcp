@@ -26,19 +26,13 @@ export const withJsonSchemaPropertyDescriptions = (
       Object.entries(properties).map(([key, value]) => {
         const description = descriptions[key]
         const property = parseJsonSchemaRecord(value)
-        return [
-          key,
-          description === undefined || property === undefined ? value : { ...property, description }
-        ]
+        return [key, description === undefined || property === undefined ? value : { ...property, description }]
       })
     )
   }
 }
 
-export const withExactlyOneRequired = <K extends string>(
-  schema: object,
-  fields: ReadonlyArray<K>
-): object => ({
+export const withExactlyOneRequired = <K extends string>(schema: object, fields: ReadonlyArray<K>): object => ({
   ...schema,
   oneOf: fields.map((field) => ({ required: [field] }))
 })

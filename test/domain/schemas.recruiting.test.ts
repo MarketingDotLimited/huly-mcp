@@ -29,13 +29,14 @@ import {
 
 describe("Recruiting Schemas", () => {
   it.effect("rejects empty vacancy locators", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(parseGetRecruitingVacancyParams({ vacancy: "" }))
       expect(error._tag).toBe("ParseError")
-    }))
+    })
+  )
 
   it.effect("normalizes vacancy numeric locators", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const bare = yield* parseGetRecruitingVacancyParams({ vacancy: "1" })
       const prefixed = yield* parseGetRecruitingVacancyParams({ vacancy: "vcn-2" })
       const exactName = yield* parseGetRecruitingVacancyParams({ vacancy: "Backend Engineer" })
@@ -43,19 +44,21 @@ describe("Recruiting Schemas", () => {
       expect(bare.vacancy).toBe("VCN-1")
       expect(prefixed.vacancy).toBe("VCN-2")
       expect(exactName.vacancy).toBe("Backend Engineer")
-    }))
+    })
+  )
 
   it.effect("normalizes applicant numeric locators", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const bare = yield* parseGetRecruitingApplicantParams({ applicant: "3" })
       const prefixed = yield* parseGetRecruitingApplicantParams({ applicant: "app-4" })
 
       expect(bare.applicant).toBe("APP-3")
       expect(prefixed.applicant).toBe("APP-4")
-    }))
+    })
+  )
 
   it.effect("normalizes review and opinion numeric locators", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const bareReview = yield* parseGetRecruitingReviewParams({ review: "5" })
       const prefixedReview = yield* parseGetRecruitingReviewParams({ review: "rve-6" })
       const exactTitle = yield* parseGetRecruitingReviewParams({ review: "Technical Interview" })
@@ -67,10 +70,11 @@ describe("Recruiting Schemas", () => {
       expect(exactTitle.review).toBe("Technical Interview")
       expect(bareOpinion.opinion).toBe("OPE-7")
       expect(prefixedOpinion.opinion).toBe("OPE-8")
-    }))
+    })
+  )
 
   it.effect("validates recruiting media target support by surface", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const emptyTarget = yield* Effect.flip(
         parseListRecruitingCommentsParams({ target: { kind: "vacancy", vacancy: "" } })
       )
@@ -88,10 +92,11 @@ describe("Recruiting Schemas", () => {
       expect(reviewAttachments._tag).toBe("ParseError")
       expect(opinionActivity._tag).toBe("ParseError")
       expect(reviewRelatedIssues._tag).toBe("ParseError")
-    }))
+    })
+  )
 
   it.effect("normalizes nested recruiting media target identifiers", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const applicant = yield* parseListRecruitingCommentsParams({
         target: { kind: "applicant", applicant: "7", vacancy: "2" }
       })
@@ -105,10 +110,11 @@ describe("Recruiting Schemas", () => {
       expect(applicant.target).toEqual({ kind: "applicant", applicant: "APP-7", vacancy: "VCN-2" })
       expect(review.target).toEqual({ kind: "review", review: "RVE-5", application: "APP-3" })
       expect(opinion.target).toEqual({ kind: "opinion", opinion: "OPE-6", review: "RVE-5" })
-    }))
+    })
+  )
 
   it.effect("requires exactly one recruiting attachment source", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const missing = yield* Effect.flip(
         parseAddRecruitingAttachmentParams({
           target: { kind: "vacancy", vacancy: "VCN-1" },
@@ -135,10 +141,11 @@ describe("Recruiting Schemas", () => {
       expect(missing._tag).toBe("ParseError")
       expect(multiple._tag).toBe("ParseError")
       expect(parsed.data).toBe("cmVzdW1l")
-    }))
+    })
+  )
 
   it.effect("rejects no-op recruiting attachment updates", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         parseUpdateRecruitingAttachmentParams({
           target: { kind: "candidate", candidate: "ada@example.com" },
@@ -146,26 +153,29 @@ describe("Recruiting Schemas", () => {
         })
       )
       expect(error._tag).toBe("ParseError")
-    }))
+    })
+  )
 
   it.effect("accepts recruiting attachment updates with mutable fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseUpdateRecruitingAttachmentParams({
         target: { kind: "candidate", candidate: "ada@example.com" },
         attachmentId: "attachment-1",
         pinned: false
       })
       expect(result.pinned).toBe(false)
-    }))
+    })
+  )
 
   it.effect("rejects vacancy updates with no mutable fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(parseUpdateRecruitingVacancyParams({ vacancy: "VCN-1" }))
       expect(error._tag).toBe("ParseError")
-    }))
+    })
+  )
 
   it.effect("accepts nullable vacancy clear fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseUpdateRecruitingVacancyParams({
         vacancy: "VCN-1",
         fullDescription: null,
@@ -178,74 +188,74 @@ describe("Recruiting Schemas", () => {
       expect(result.company).toBeNull()
       expect(result.location).toBeNull()
       expect(result.dueTo).toBeNull()
-    }))
+    })
+  )
 
   it.effect("rejects empty vacancy text fields", () =>
-    Effect.gen(function*() {
-      const createError = yield* Effect.flip(parseCreateRecruitingVacancyParams({
-        name: "Backend Engineer",
-        shortDescription: ""
-      }))
-      const updateError = yield* Effect.flip(parseUpdateRecruitingVacancyParams({
-        vacancy: "VCN-1",
-        location: ""
-      }))
+    Effect.gen(function* () {
+      const createError = yield* Effect.flip(
+        parseCreateRecruitingVacancyParams({ name: "Backend Engineer", shortDescription: "" })
+      )
+      const updateError = yield* Effect.flip(parseUpdateRecruitingVacancyParams({ vacancy: "VCN-1", location: "" }))
 
       expect(createError._tag).toBe("ParseError")
       expect(updateError._tag).toBe("ParseError")
-    }))
+    })
+  )
 
   it.effect("rejects candidate profile writes with no profile fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(parseSetRecruitingCandidateProfileParams({ candidate: "Ada Lovelace" }))
       expect(error._tag).toBe("ParseError")
-    }))
+    })
+  )
 
   it.effect("accepts candidate profile writes with a mutable field", () =>
-    Effect.gen(function*() {
-      const result = yield* parseSetRecruitingCandidateProfileParams({
-        candidate: "Ada Lovelace",
-        title: "Engineer"
-      })
+    Effect.gen(function* () {
+      const result = yield* parseSetRecruitingCandidateProfileParams({ candidate: "Ada Lovelace", title: "Engineer" })
       expect(result.title).toBe("Engineer")
-    }))
+    })
+  )
 
   it.effect("rejects empty candidate and skill search text", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const candidateError = yield* Effect.flip(parseListRecruitingCandidatesParams({ query: "" }))
       const skillError = yield* Effect.flip(parseListRecruitingSkillsParams({ titleSearch: "   " }))
 
       expect(candidateError._tag).toBe("ParseError")
       expect(skillError._tag).toBe("ParseError")
-    }))
+    })
+  )
 
   it.effect("rejects empty candidate profile text", () =>
-    Effect.gen(function*() {
-      const error = yield* Effect.flip(parseSetRecruitingCandidateProfileParams({
-        candidate: "Ada Lovelace",
-        title: ""
-      }))
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        parseSetRecruitingCandidateProfileParams({ candidate: "Ada Lovelace", title: "" })
+      )
 
       expect(error._tag).toBe("ParseError")
-    }))
+    })
+  )
 
   it.effect("rejects applicant updates with no mutable fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(parseUpdateRecruitingApplicantParams({ applicant: "APP-1" }))
       expect(error._tag).toBe("ParseError")
-    }))
+    })
+  )
 
   it.effect("rejects review and opinion updates with no mutable fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const review = yield* Effect.flip(parseUpdateRecruitingReviewParams({ review: "RVE-1" }))
       const opinion = yield* Effect.flip(parseUpdateRecruitingOpinionParams({ opinion: "OPE-1" }))
 
       expect(review._tag).toBe("ParseError")
       expect(opinion._tag).toBe("ParseError")
-    }))
+    })
+  )
 
   it.effect("accepts nullable review and opinion clear fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const review = yield* parseUpdateRecruitingReviewParams({
         review: "RVE-1",
         description: null,
@@ -254,10 +264,7 @@ describe("Recruiting Schemas", () => {
         company: null,
         location: null
       })
-      const opinion = yield* parseUpdateRecruitingOpinionParams({
-        opinion: "OPE-1",
-        description: null
-      })
+      const opinion = yield* parseUpdateRecruitingOpinionParams({ opinion: "OPE-1", description: null })
 
       expect(review.description).toBeNull()
       expect(review.verdict).toBeNull()
@@ -265,10 +272,11 @@ describe("Recruiting Schemas", () => {
       expect(review.company).toBeNull()
       expect(review.location).toBeNull()
       expect(opinion.description).toBeNull()
-    }))
+    })
+  )
 
   it.effect("accepts nullable applicant clear fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseUpdateRecruitingApplicantParams({
         applicant: "APP-1",
         assignee: null,
@@ -279,5 +287,6 @@ describe("Recruiting Schemas", () => {
       expect(result.assignee).toBeNull()
       expect(result.startDate).toBeNull()
       expect(result.dueDate).toBeNull()
-    }))
+    })
+  )
 })

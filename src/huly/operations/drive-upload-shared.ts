@@ -17,12 +17,4 @@ export const makeFileVersionData = (
   contentType: string,
   lastModified: number,
   version: number
-): AttachedData<FileVersion> => ({
-  title,
-  file: blobId,
-  size,
-  type: contentType,
-  lastModified,
-  metadata: {},
-  version
-})
+): AttachedData<FileVersion> => ({ title, file: blobId, size, type: contentType, lastModified, metadata: {}, version })

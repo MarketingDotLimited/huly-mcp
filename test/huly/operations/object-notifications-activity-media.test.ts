@@ -135,313 +135,329 @@ const makeCapture = (): Capture => ({
   uploads: []
 })
 
-const makeActivityMessage = (overrides?: Partial<HulyActivityMessage>): HulyActivityMessage => ({
-  _id: "msg-1" as Ref<HulyActivityMessage>,
-  _class: activity.class.ActivityMessage,
-  space: SPACE_ID,
-  attachedTo: "issue-1" as Ref<Doc>,
-  attachedToClass: tracker.class.Issue,
-  collection: "activity",
-  modifiedBy: PERSON_ID,
-  modifiedOn: 1706500000000,
-  isPinned: false,
-  replies: 0,
-  reactions: 0,
-  ...overrides
-} as HulyActivityMessage)
+const makeActivityMessage = (overrides?: Partial<HulyActivityMessage>): HulyActivityMessage =>
+  ({
+    _id: "msg-1" as Ref<HulyActivityMessage>,
+    _class: activity.class.ActivityMessage,
+    space: SPACE_ID,
+    attachedTo: "issue-1" as Ref<Doc>,
+    attachedToClass: tracker.class.Issue,
+    collection: "activity",
+    modifiedBy: PERSON_ID,
+    modifiedOn: 1706500000000,
+    isPinned: false,
+    replies: 0,
+    reactions: 0,
+    ...overrides
+  }) as HulyActivityMessage
 
-const makeThreadMessage = (overrides?: Partial<HulyThreadMessage>): HulyThreadMessage => ({
-  _id: "reply-1" as Ref<HulyThreadMessage>,
-  _class: chunter.class.ThreadMessage,
-  space: SPACE_ID,
-  attachedTo: "msg-1" as Ref<HulyActivityMessage>,
-  attachedToClass: activity.class.ActivityMessage,
-  collection: "replies",
-  message: "reply body",
-  attachments: 0,
-  objectId: "issue-1" as Ref<Doc>,
-  objectClass: tracker.class.Issue,
-  modifiedBy: PERSON_ID,
-  modifiedOn: 1706500001000,
-  createdBy: PERSON_ID,
-  createdOn: 1706500001000,
-  ...overrides
-} as HulyThreadMessage)
+const makeThreadMessage = (overrides?: Partial<HulyThreadMessage>): HulyThreadMessage =>
+  ({
+    _id: "reply-1" as Ref<HulyThreadMessage>,
+    _class: chunter.class.ThreadMessage,
+    space: SPACE_ID,
+    attachedTo: "msg-1" as Ref<HulyActivityMessage>,
+    attachedToClass: activity.class.ActivityMessage,
+    collection: "replies",
+    message: "reply body",
+    attachments: 0,
+    objectId: "issue-1" as Ref<Doc>,
+    objectClass: tracker.class.Issue,
+    modifiedBy: PERSON_ID,
+    modifiedOn: 1706500001000,
+    createdBy: PERSON_ID,
+    createdOn: 1706500001000,
+    ...overrides
+  }) as HulyThreadMessage
 
-const makeFilter = (overrides?: Partial<HulyActivityMessagesFilter>): HulyActivityMessagesFilter => ({
-  _id: "filter-1" as Ref<HulyActivityMessagesFilter>,
-  _class: activity.class.ActivityMessagesFilter,
-  space: SPACE_ID,
-  label: "Updates" as HulyActivityMessagesFilter["label"],
-  position: 1,
-  modifiedBy: PERSON_ID,
-  modifiedOn: 0,
-  createdBy: PERSON_ID,
-  createdOn: 0,
-  ...overrides
-} as HulyActivityMessagesFilter)
+const makeFilter = (overrides?: Partial<HulyActivityMessagesFilter>): HulyActivityMessagesFilter =>
+  ({
+    _id: "filter-1" as Ref<HulyActivityMessagesFilter>,
+    _class: activity.class.ActivityMessagesFilter,
+    space: SPACE_ID,
+    label: "Updates" as HulyActivityMessagesFilter["label"],
+    position: 1,
+    modifiedBy: PERSON_ID,
+    modifiedOn: 0,
+    createdBy: PERSON_ID,
+    createdOn: 0,
+    ...overrides
+  }) as HulyActivityMessagesFilter
 
-const makeReference = (overrides?: Partial<HulyActivityReference>): HulyActivityReference => ({
-  _id: "ref-1" as Ref<HulyActivityReference>,
-  _class: activity.class.ActivityReference,
-  space: SPACE_ID,
-  attachedTo: "issue-1" as Ref<Doc>,
-  attachedToClass: tracker.class.Issue,
-  collection: "activity",
-  srcDocId: "issue-1" as Ref<Doc>,
-  srcDocClass: tracker.class.Issue,
-  attachedDocId: "doc-1" as Ref<Doc>,
-  attachedDocClass: documentPlugin.class.Document,
-  message: "linked",
-  modifiedBy: PERSON_ID,
-  modifiedOn: 1706500002000,
-  createdBy: PERSON_ID,
-  createdOn: 1706500002000,
-  ...overrides
-} as HulyActivityReference)
+const makeReference = (overrides?: Partial<HulyActivityReference>): HulyActivityReference =>
+  ({
+    _id: "ref-1" as Ref<HulyActivityReference>,
+    _class: activity.class.ActivityReference,
+    space: SPACE_ID,
+    attachedTo: "issue-1" as Ref<Doc>,
+    attachedToClass: tracker.class.Issue,
+    collection: "activity",
+    srcDocId: "issue-1" as Ref<Doc>,
+    srcDocClass: tracker.class.Issue,
+    attachedDocId: "doc-1" as Ref<Doc>,
+    attachedDocClass: documentPlugin.class.Document,
+    message: "linked",
+    modifiedBy: PERSON_ID,
+    modifiedOn: 1706500002000,
+    createdBy: PERSON_ID,
+    createdOn: 1706500002000,
+    ...overrides
+  }) as HulyActivityReference
 
-const makeAttachment = (overrides?: Partial<HulyAttachment>): HulyAttachment => ({
-  _id: "att-1" as Ref<HulyAttachment>,
-  _class: attachment.class.Attachment,
-  space: SPACE_ID,
-  name: "file.txt",
-  file: "blob-1" as HulyAttachment["file"],
-  type: "text/plain",
-  size: 12,
-  lastModified: 0,
-  pinned: false,
-  collection: "attachments",
-  attachedTo: "issue-1" as Ref<Doc>,
-  attachedToClass: tracker.class.Issue,
-  modifiedBy: PERSON_ID,
-  modifiedOn: 0,
-  createdBy: PERSON_ID,
-  createdOn: 0,
-  ...overrides
-} as HulyAttachment)
+const makeAttachment = (overrides?: Partial<HulyAttachment>): HulyAttachment =>
+  ({
+    _id: "att-1" as Ref<HulyAttachment>,
+    _class: attachment.class.Attachment,
+    space: SPACE_ID,
+    name: "file.txt",
+    file: "blob-1" as HulyAttachment["file"],
+    type: "text/plain",
+    size: 12,
+    lastModified: 0,
+    pinned: false,
+    collection: "attachments",
+    attachedTo: "issue-1" as Ref<Doc>,
+    attachedToClass: tracker.class.Issue,
+    modifiedBy: PERSON_ID,
+    modifiedOn: 0,
+    createdBy: PERSON_ID,
+    createdOn: 0,
+    ...overrides
+  }) as HulyAttachment
 
-const makeSavedAttachment = (overrides?: Partial<HulySavedAttachment>): HulySavedAttachment => ({
-  _id: "saved-att-1" as Ref<HulySavedAttachment>,
-  _class: attachment.class.SavedAttachments,
-  space: SPACE_ID,
-  attachedTo: "att-1" as Ref<HulyAttachment>,
-  modifiedBy: PERSON_ID,
-  modifiedOn: 0,
-  createdBy: PERSON_ID,
-  createdOn: 0,
-  ...overrides
-} as HulySavedAttachment)
+const makeSavedAttachment = (overrides?: Partial<HulySavedAttachment>): HulySavedAttachment =>
+  ({
+    _id: "saved-att-1" as Ref<HulySavedAttachment>,
+    _class: attachment.class.SavedAttachments,
+    space: SPACE_ID,
+    attachedTo: "att-1" as Ref<HulyAttachment>,
+    modifiedBy: PERSON_ID,
+    modifiedOn: 0,
+    createdBy: PERSON_ID,
+    createdOn: 0,
+    ...overrides
+  }) as HulySavedAttachment
 
-const makeDrawing = (overrides?: Partial<HulyDrawing>): HulyDrawing => ({
-  _id: "drawing-1" as Ref<HulyDrawing>,
-  _class: attachment.class.Drawing,
-  space: SPACE_ID,
-  parent: "issue-1" as Ref<Doc>,
-  parentClass: tracker.class.Issue,
-  content: "shape-data",
-  modifiedBy: PERSON_ID,
-  modifiedOn: 1706500003000,
-  createdBy: PERSON_ID,
-  createdOn: 1706500003000,
-  ...overrides
-} as HulyDrawing)
+const makeDrawing = (overrides?: Partial<HulyDrawing>): HulyDrawing =>
+  ({
+    _id: "drawing-1" as Ref<HulyDrawing>,
+    _class: attachment.class.Drawing,
+    space: SPACE_ID,
+    parent: "issue-1" as Ref<Doc>,
+    parentClass: tracker.class.Issue,
+    content: "shape-data",
+    modifiedBy: PERSON_ID,
+    modifiedOn: 1706500003000,
+    createdBy: PERSON_ID,
+    createdOn: 1706500003000,
+    ...overrides
+  }) as HulyDrawing
 
-const makeProject = (overrides?: Partial<HulyProject>): HulyProject => ({
-  _id: "project-1" as Ref<HulyProject>,
-  _class: tracker.class.Project,
-  space: SPACE_ID,
-  identifier: "TEST",
-  name: "Test Project",
-  sequence: 1,
-  defaultIssueStatus: "status-1" as Ref<Doc>,
-  defaultTimeReportDay: TimeReportDayType.CurrentWorkDay,
-  modifiedBy: PERSON_ID,
-  modifiedOn: 0,
-  createdBy: PERSON_ID,
-  createdOn: 0,
-  ...overrides
-} as HulyProject)
+const makeProject = (overrides?: Partial<HulyProject>): HulyProject =>
+  ({
+    _id: "project-1" as Ref<HulyProject>,
+    _class: tracker.class.Project,
+    space: SPACE_ID,
+    identifier: "TEST",
+    name: "Test Project",
+    sequence: 1,
+    defaultIssueStatus: "status-1" as Ref<Doc>,
+    defaultTimeReportDay: TimeReportDayType.CurrentWorkDay,
+    modifiedBy: PERSON_ID,
+    modifiedOn: 0,
+    createdBy: PERSON_ID,
+    createdOn: 0,
+    ...overrides
+  }) as HulyProject
 
-const makeIssue = (overrides?: Partial<HulyIssue>): HulyIssue => ({
-  _id: "issue-1" as Ref<HulyIssue>,
-  _class: tracker.class.Issue,
-  space: "project-1" as Ref<HulyProject>,
-  identifier: "TEST-1",
-  title: "Test Issue",
-  description: null,
-  status: "status-1" as Ref<Doc>,
-  priority: IssuePriority.Medium,
-  assignee: null,
-  kind: "task-type-1" as Ref<TaskType>,
-  number: 1,
-  dueDate: null,
-  rank: "0|aaa",
-  attachedTo: "no-parent" as Ref<HulyIssue>,
-  attachedToClass: tracker.class.Issue,
-  collection: "subIssues",
-  component: null,
-  subIssues: 0,
-  parents: [],
-  estimation: 0,
-  remainingTime: 0,
-  reportedTime: 0,
-  reports: 0,
-  childInfo: [],
-  modifiedBy: PERSON_ID,
-  modifiedOn: 0,
-  createdBy: PERSON_ID,
-  createdOn: 0,
-  ...overrides
-} as HulyIssue)
+const makeIssue = (overrides?: Partial<HulyIssue>): HulyIssue =>
+  ({
+    _id: "issue-1" as Ref<HulyIssue>,
+    _class: tracker.class.Issue,
+    space: "project-1" as Ref<HulyProject>,
+    identifier: "TEST-1",
+    title: "Test Issue",
+    description: null,
+    status: "status-1" as Ref<Doc>,
+    priority: IssuePriority.Medium,
+    assignee: null,
+    kind: "task-type-1" as Ref<TaskType>,
+    number: 1,
+    dueDate: null,
+    rank: "0|aaa",
+    attachedTo: "no-parent" as Ref<HulyIssue>,
+    attachedToClass: tracker.class.Issue,
+    collection: "subIssues",
+    component: null,
+    subIssues: 0,
+    parents: [],
+    estimation: 0,
+    remainingTime: 0,
+    reportedTime: 0,
+    reports: 0,
+    childInfo: [],
+    modifiedBy: PERSON_ID,
+    modifiedOn: 0,
+    createdBy: PERSON_ID,
+    createdOn: 0,
+    ...overrides
+  }) as HulyIssue
 
-const makeTeamspace = (overrides?: Partial<HulyTeamspace>): HulyTeamspace => ({
-  _id: "teamspace-1" as Ref<HulyTeamspace>,
-  _class: documentPlugin.class.Teamspace,
-  space: SPACE_ID,
-  name: "Engineering",
-  description: "",
-  private: false,
-  archived: false,
-  icon: documentPlugin.icon.Teamspace,
-  type: documentPlugin.spaceType.DefaultTeamspaceType,
-  members: [],
-  modifiedBy: PERSON_ID,
-  modifiedOn: 0,
-  createdBy: PERSON_ID,
-  createdOn: 0,
-  ...overrides
-} as HulyTeamspace)
+const makeTeamspace = (overrides?: Partial<HulyTeamspace>): HulyTeamspace =>
+  ({
+    _id: "teamspace-1" as Ref<HulyTeamspace>,
+    _class: documentPlugin.class.Teamspace,
+    space: SPACE_ID,
+    name: "Engineering",
+    description: "",
+    private: false,
+    archived: false,
+    icon: documentPlugin.icon.Teamspace,
+    type: documentPlugin.spaceType.DefaultTeamspaceType,
+    members: [],
+    modifiedBy: PERSON_ID,
+    modifiedOn: 0,
+    createdBy: PERSON_ID,
+    createdOn: 0,
+    ...overrides
+  }) as HulyTeamspace
 
-const makeDocument = (overrides?: Partial<HulyDocument>): HulyDocument => ({
-  _id: "doc-1" as Ref<HulyDocument>,
-  _class: documentPlugin.class.Document,
-  space: "teamspace-1" as Ref<HulyTeamspace>,
-  title: "Spec",
-  content: null,
-  parent: documentPlugin.ids.NoParent,
-  rank: "0|aaa",
-  modifiedBy: PERSON_ID,
-  modifiedOn: 0,
-  createdBy: PERSON_ID,
-  createdOn: 0,
-  ...overrides
-} as HulyDocument)
+const makeDocument = (overrides?: Partial<HulyDocument>): HulyDocument =>
+  ({
+    _id: "doc-1" as Ref<HulyDocument>,
+    _class: documentPlugin.class.Document,
+    space: "teamspace-1" as Ref<HulyTeamspace>,
+    title: "Spec",
+    content: null,
+    parent: documentPlugin.ids.NoParent,
+    rank: "0|aaa",
+    modifiedBy: PERSON_ID,
+    modifiedOn: 0,
+    createdBy: PERSON_ID,
+    createdOn: 0,
+    ...overrides
+  }) as HulyDocument
 
-const makeCollaborator = (overrides?: Partial<HulyCollaborator>): HulyCollaborator => ({
-  _id: "collab-1" as Ref<HulyCollaborator>,
-  _class: core.class.Collaborator,
-  space: SPACE_ID,
-  attachedTo: "issue-1" as Ref<Doc>,
-  attachedToClass: tracker.class.Issue,
-  collection: "collaborators",
-  collaborator: ACCOUNT_UUID,
-  modifiedBy: PERSON_ID,
-  modifiedOn: 0,
-  createdBy: PERSON_ID,
-  createdOn: 0,
-  ...overrides
-} as HulyCollaborator)
+const makeCollaborator = (overrides?: Partial<HulyCollaborator>): HulyCollaborator =>
+  ({
+    _id: "collab-1" as Ref<HulyCollaborator>,
+    _class: core.class.Collaborator,
+    space: SPACE_ID,
+    attachedTo: "issue-1" as Ref<Doc>,
+    attachedToClass: tracker.class.Issue,
+    collection: "collaborators",
+    collaborator: ACCOUNT_UUID,
+    modifiedBy: PERSON_ID,
+    modifiedOn: 0,
+    createdBy: PERSON_ID,
+    createdOn: 0,
+    ...overrides
+  }) as HulyCollaborator
 
-const makeNotificationContext = (overrides?: Partial<HulyDocNotifyContext>): HulyDocNotifyContext => ({
-  _id: "ctx-1" as Ref<HulyDocNotifyContext>,
-  _class: notification.class.DocNotifyContext,
-  space: SPACE_ID,
-  user: ACCOUNT_UUID as HulyDocNotifyContext["user"],
-  objectId: "issue-1" as Ref<Doc>,
-  objectClass: tracker.class.Issue,
-  objectSpace: SPACE_ID,
-  isPinned: false,
-  hidden: false,
-  lastViewedTimestamp: 0,
-  lastUpdateTimestamp: 1,
-  modifiedBy: PERSON_ID,
-  modifiedOn: 1,
-  createdBy: PERSON_ID,
-  createdOn: 0,
-  ...overrides
-} as HulyDocNotifyContext)
+const makeNotificationContext = (overrides?: Partial<HulyDocNotifyContext>): HulyDocNotifyContext =>
+  ({
+    _id: "ctx-1" as Ref<HulyDocNotifyContext>,
+    _class: notification.class.DocNotifyContext,
+    space: SPACE_ID,
+    user: ACCOUNT_UUID as HulyDocNotifyContext["user"],
+    objectId: "issue-1" as Ref<Doc>,
+    objectClass: tracker.class.Issue,
+    objectSpace: SPACE_ID,
+    isPinned: false,
+    hidden: false,
+    lastViewedTimestamp: 0,
+    lastUpdateTimestamp: 1,
+    modifiedBy: PERSON_ID,
+    modifiedOn: 1,
+    createdBy: PERSON_ID,
+    createdOn: 0,
+    ...overrides
+  }) as HulyDocNotifyContext
 
-const makeInboxNotification = (overrides?: Partial<HulyInboxNotification>): HulyInboxNotification => ({
-  _id: "notif-1" as Ref<HulyInboxNotification>,
-  _class: notification.class.InboxNotification,
-  space: SPACE_ID,
-  user: ACCOUNT_UUID as HulyInboxNotification["user"],
-  isViewed: false,
-  archived: false,
-  objectId: "issue-1" as Ref<Doc>,
-  objectClass: tracker.class.Issue,
-  docNotifyContext: "ctx-1" as Ref<HulyDocNotifyContext>,
-  title: "Title" as HulyInboxNotification["title"],
-  body: "Body" as HulyInboxNotification["body"],
-  data: undefined,
-  createdOn: 1,
-  modifiedOn: 1,
-  modifiedBy: PERSON_ID,
-  createdBy: PERSON_ID,
-  ...overrides
-} as HulyInboxNotification)
+const makeInboxNotification = (overrides?: Partial<HulyInboxNotification>): HulyInboxNotification =>
+  ({
+    _id: "notif-1" as Ref<HulyInboxNotification>,
+    _class: notification.class.InboxNotification,
+    space: SPACE_ID,
+    user: ACCOUNT_UUID as HulyInboxNotification["user"],
+    isViewed: false,
+    archived: false,
+    objectId: "issue-1" as Ref<Doc>,
+    objectClass: tracker.class.Issue,
+    docNotifyContext: "ctx-1" as Ref<HulyDocNotifyContext>,
+    title: "Title" as HulyInboxNotification["title"],
+    body: "Body" as HulyInboxNotification["body"],
+    data: undefined,
+    createdOn: 1,
+    modifiedOn: 1,
+    modifiedBy: PERSON_ID,
+    createdBy: PERSON_ID,
+    ...overrides
+  }) as HulyInboxNotification
 
-const makeProvider = (overrides?: Partial<NotificationProvider>): NotificationProvider => ({
-  _id: "provider-1" as Ref<NotificationProvider>,
-  _class: notification.class.NotificationProvider,
-  space: SPACE_ID,
-  label: "Inbox" as NotificationProvider["label"],
-  description: "Workspace inbox" as NotificationProvider["description"],
-  defaultEnabled: true,
-  canDisable: true,
-  order: 1,
-  modifiedBy: PERSON_ID,
-  modifiedOn: 0,
-  createdBy: PERSON_ID,
-  createdOn: 0,
-  ...overrides
-} as NotificationProvider)
+const makeProvider = (overrides?: Partial<NotificationProvider>): NotificationProvider =>
+  ({
+    _id: "provider-1" as Ref<NotificationProvider>,
+    _class: notification.class.NotificationProvider,
+    space: SPACE_ID,
+    label: "Inbox" as NotificationProvider["label"],
+    description: "Workspace inbox" as NotificationProvider["description"],
+    defaultEnabled: true,
+    canDisable: true,
+    order: 1,
+    modifiedBy: PERSON_ID,
+    modifiedOn: 0,
+    createdBy: PERSON_ID,
+    createdOn: 0,
+    ...overrides
+  }) as NotificationProvider
 
-const makeType = (overrides?: Partial<HulyNotificationType>): HulyNotificationType => ({
-  _id: "type-1" as Ref<HulyNotificationType>,
-  _class: notification.class.NotificationType,
-  space: SPACE_ID,
-  label: "Assigned" as HulyNotificationType["label"],
-  generated: false,
-  hidden: false,
-  defaultEnabled: true,
-  group: "group-1" as Ref<Doc>,
-  objectClass: tracker.class.Issue,
-  modifiedBy: PERSON_ID,
-  modifiedOn: 0,
-  createdBy: PERSON_ID,
-  createdOn: 0,
-  ...overrides
-} as HulyNotificationType)
+const makeType = (overrides?: Partial<HulyNotificationType>): HulyNotificationType =>
+  ({
+    _id: "type-1" as Ref<HulyNotificationType>,
+    _class: notification.class.NotificationType,
+    space: SPACE_ID,
+    label: "Assigned" as HulyNotificationType["label"],
+    generated: false,
+    hidden: false,
+    defaultEnabled: true,
+    group: "group-1" as Ref<Doc>,
+    objectClass: tracker.class.Issue,
+    modifiedBy: PERSON_ID,
+    modifiedOn: 0,
+    createdBy: PERSON_ID,
+    createdOn: 0,
+    ...overrides
+  }) as HulyNotificationType
 
-const makeProviderSetting = (
-  overrides?: Partial<HulyNotificationProviderSetting>
-): HulyNotificationProviderSetting => ({
-  _id: "provider-setting-1" as Ref<HulyNotificationProviderSetting>,
-  _class: notification.class.NotificationProviderSetting,
-  space: SPACE_ID,
-  attachedTo: "provider-1" as Ref<NotificationProvider>,
-  enabled: true,
-  modifiedBy: PERSON_ID,
-  modifiedOn: 0,
-  createdBy: PERSON_ID,
-  createdOn: 0,
-  ...overrides
-} as HulyNotificationProviderSetting)
+const makeProviderSetting = (overrides?: Partial<HulyNotificationProviderSetting>): HulyNotificationProviderSetting =>
+  ({
+    _id: "provider-setting-1" as Ref<HulyNotificationProviderSetting>,
+    _class: notification.class.NotificationProviderSetting,
+    space: SPACE_ID,
+    attachedTo: "provider-1" as Ref<NotificationProvider>,
+    enabled: true,
+    modifiedBy: PERSON_ID,
+    modifiedOn: 0,
+    createdBy: PERSON_ID,
+    createdOn: 0,
+    ...overrides
+  }) as HulyNotificationProviderSetting
 
-const makeTypeSetting = (overrides?: Partial<HulyNotificationTypeSetting>): HulyNotificationTypeSetting => ({
-  _id: "type-setting-1" as Ref<HulyNotificationTypeSetting>,
-  _class: notification.class.NotificationTypeSetting,
-  space: SPACE_ID,
-  attachedTo: "provider-1" as Ref<NotificationProvider>,
-  type: "type-1" as Ref<HulyNotificationType>,
-  enabled: true,
-  modifiedBy: PERSON_ID,
-  modifiedOn: 0,
-  createdBy: PERSON_ID,
-  createdOn: 0,
-  ...overrides
-} as HulyNotificationTypeSetting)
+const makeTypeSetting = (overrides?: Partial<HulyNotificationTypeSetting>): HulyNotificationTypeSetting =>
+  ({
+    _id: "type-setting-1" as Ref<HulyNotificationTypeSetting>,
+    _class: notification.class.NotificationTypeSetting,
+    space: SPACE_ID,
+    attachedTo: "provider-1" as Ref<NotificationProvider>,
+    type: "type-1" as Ref<HulyNotificationType>,
+    enabled: true,
+    modifiedBy: PERSON_ID,
+    modifiedOn: 0,
+    createdBy: PERSON_ID,
+    createdOn: 0,
+    ...overrides
+  }) as HulyNotificationTypeSetting
 
 interface FixtureConfig {
   readonly activityMessages?: ReadonlyArray<HulyActivityMessage>
@@ -526,17 +542,25 @@ const testLayer = (config: FixtureConfig = {}) => {
     return Effect.succeed(id as Ref<Doc>)
   }) as HulyClientOperations["addCollection"]
 
-  const createDoc: HulyClientOperations["createDoc"] =
-    ((_class: unknown, _space: unknown, attributes: unknown, id: unknown) => {
-      capture.createDocs.push({ _class, attributes, id })
-      return Effect.succeed(id as Ref<Doc>)
-    }) as HulyClientOperations["createDoc"]
+  const createDoc: HulyClientOperations["createDoc"] = ((
+    _class: unknown,
+    _space: unknown,
+    attributes: unknown,
+    id: unknown
+  ) => {
+    capture.createDocs.push({ _class, attributes, id })
+    return Effect.succeed(id as Ref<Doc>)
+  }) as HulyClientOperations["createDoc"]
 
-  const updateDoc: HulyClientOperations["updateDoc"] =
-    ((_class: unknown, _space: unknown, objectId: unknown, operations: unknown) => {
-      capture.updateDocs.push({ _class, objectId, operations })
-      return Effect.succeed({} as never)
-    }) as HulyClientOperations["updateDoc"]
+  const updateDoc: HulyClientOperations["updateDoc"] = ((
+    _class: unknown,
+    _space: unknown,
+    objectId: unknown,
+    operations: unknown
+  ) => {
+    capture.updateDocs.push({ _class, objectId, operations })
+    return Effect.succeed({} as never)
+  }) as HulyClientOperations["updateDoc"]
 
   const removeDoc: HulyClientOperations["removeDoc"] = ((_class: unknown, _space: unknown, objectId: unknown) => {
     capture.removeDocs.push({ _class, objectId })
@@ -582,15 +606,12 @@ const testLayer = (config: FixtureConfig = {}) => {
     ? baseClientOps
     : { ...baseClientOps, removeCollection }
 
-  return Layer.merge(
-    HulyClient.testLayer(clientOps),
-    HulyStorageClient.testLayer({ uploadFile })
-  )
+  return Layer.merge(HulyClient.testLayer(clientOps), HulyStorageClient.testLayer({ uploadFile }))
 }
 
 describe("activity message operations", () => {
   it.effect("gets, pins, lists filters/references/replies, and mutates replies", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const capture = makeCapture()
       const layer = testLayer({
         capture,
@@ -603,10 +624,9 @@ describe("activity message operations", () => {
       const message = yield* getActivityMessage({ messageId: activityMessageId("msg-1") }).pipe(Effect.provide(layer))
       expect(message.messageClass).toBe("activity:class:ActivityMessage")
 
-      const pinResult = yield* pinActivityMessage({
-        messageId: activityMessageId("msg-1"),
-        pinned: true
-      }).pipe(Effect.provide(layer))
+      const pinResult = yield* pinActivityMessage({ messageId: activityMessageId("msg-1"), pinned: true }).pipe(
+        Effect.provide(layer)
+      )
       expect(pinResult.pinned).toBe(true)
       expect(assertAt(capture.updateDocs, 0).operations).toEqual({ isPinned: true })
 
@@ -623,17 +643,15 @@ describe("activity message operations", () => {
       const replies = yield* listActivityReplies({ messageId: activityMessageId("msg-1") }).pipe(Effect.provide(layer))
       expect(assertAt(replies, 0).id).toBe("reply-1")
 
-      const added = yield* addActivityReply({
-        messageId: activityMessageId("msg-1"),
-        body: "hello"
-      }).pipe(Effect.provide(layer))
+      const added = yield* addActivityReply({ messageId: activityMessageId("msg-1"), body: "hello" }).pipe(
+        Effect.provide(layer)
+      )
       expect(added.messageId).toBe("msg-1")
       expect(assertAt(capture.addCollections, 0)._class).toBe(chunter.class.ThreadMessage)
 
-      const updated = yield* updateActivityReply({
-        replyId: activityMessageId("reply-1"),
-        body: "edited"
-      }).pipe(Effect.provide(layer))
+      const updated = yield* updateActivityReply({ replyId: activityMessageId("reply-1"), body: "edited" }).pipe(
+        Effect.provide(layer)
+      )
       expect(updated.updated).toBe(true)
       expect(assertAt(capture.updateDocs, 1)._class).toBe(chunter.class.ThreadMessage)
 
@@ -645,23 +663,22 @@ describe("activity message operations", () => {
       expect(assertAt(capture.removeCollections, 0).attachedTo).toBe("msg-1")
       expect(assertAt(capture.removeCollections, 0).attachedToClass).toBe(activity.class.ActivityMessage)
       expect(assertAt(capture.removeCollections, 0).collection).toBe("replies")
-    }))
+    })
+  )
 
   it.effect("returns idempotently when pin state already matches and reports missing replies", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const layer = testLayer({ activityMessages: [makeActivityMessage({ isPinned: true })] })
 
-      const pinned = yield* pinActivityMessage({
-        messageId: activityMessageId("msg-1"),
-        pinned: true
-      }).pipe(Effect.provide(layer))
+      const pinned = yield* pinActivityMessage({ messageId: activityMessageId("msg-1"), pinned: true }).pipe(
+        Effect.provide(layer)
+      )
       expect(pinned.pinned).toBe(true)
 
       const updateError = yield* Effect.flip(
-        updateActivityReply({
-          replyId: activityMessageId("missing-reply"),
-          body: "missing"
-        }).pipe(Effect.provide(layer))
+        updateActivityReply({ replyId: activityMessageId("missing-reply"), body: "missing" }).pipe(
+          Effect.provide(layer)
+        )
       )
       expect(updateError._tag).toBe("ActivityMessageNotFoundError")
 
@@ -669,22 +686,20 @@ describe("activity message operations", () => {
         deleteActivityReply({ replyId: activityMessageId("missing-reply") }).pipe(Effect.provide(layer))
       )
       expect(deleteError._tag).toBe("ActivityMessageNotFoundError")
-    }))
+    })
+  )
 
   it.effect("covers activity reference direction and optional field branches", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const layer = testLayer({
         activityMessages: [makeActivityMessage({ isPinned: undefined as never })],
         filters: [makeFilter({ label: { key: "activity.filter" } as never })],
-        references: [
-          makeReference({ attachedDocId: undefined as never, attachedDocClass: undefined as never })
-        ]
+        references: [makeReference({ attachedDocId: undefined as never, attachedDocClass: undefined as never })]
       })
 
-      const alreadyUnpinned = yield* pinActivityMessage({
-        messageId: activityMessageId("msg-1"),
-        pinned: false
-      }).pipe(Effect.provide(layer))
+      const alreadyUnpinned = yield* pinActivityMessage({ messageId: activityMessageId("msg-1"), pinned: false }).pipe(
+        Effect.provide(layer)
+      )
       expect(alreadyUnpinned.pinned).toBe(false)
 
       const filters = yield* listActivityFilters({}).pipe(Effect.provide(layer))
@@ -708,10 +723,11 @@ describe("activity message operations", () => {
         getActivityMessage({ messageId: activityMessageId("missing-message") }).pipe(Effect.provide(layer))
       )
       expect(missingMessage._tag).toBe("ActivityMessageNotFoundError")
-    }))
+    })
+  )
 
   it.effect("maps update and reference message optional fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const updateMessage = makeActivityMessage({
         _id: "update-msg" as Ref<HulyActivityMessage>,
         _class: activity.class.DocUpdateMessage,
@@ -742,12 +758,13 @@ describe("activity message operations", () => {
       )
       expect(reference.srcDocId).toBe("issue-1")
       expect(reference.attachedDocId).toBe("doc-1")
-    }))
+    })
+  )
 })
 
 describe("attachment media, saved attachment, and drawing operations", () => {
   it.effect("selects attachment subclasses when uploading", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const capture = makeCapture()
       const layer = testLayer({ capture })
       const baseParams = {
@@ -763,16 +780,17 @@ describe("attachment media, saved attachment, and drawing operations", () => {
       yield* addAttachment({ ...baseParams, kind: "embedding" }).pipe(Effect.provide(layer))
       yield* addAttachment({ ...baseParams, kind: "photo" }).pipe(Effect.provide(layer))
 
-      expect(capture.addCollections.map(call => call._class)).toEqual([
+      expect(capture.addCollections.map((call) => call._class)).toEqual([
         attachment.class.Attachment,
         attachment.class.Embedding,
         attachment.class.Photo
       ])
       expect(capture.uploads).toHaveLength(3)
-    }))
+    })
+  )
 
   it.effect("saves, unsaves, lists saved attachments, and manages drawings", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const capture = makeCapture()
       const layer = testLayer({
         capture,
@@ -803,19 +821,21 @@ describe("attachment media, saved attachment, and drawing operations", () => {
       expect(drawing.parentId).toBe("issue-1")
 
       const optionalDrawing = yield* getDrawing({ drawingId: drawingBrandId("drawing-optional") }).pipe(
-        Effect.provide(testLayer({
-          drawings: [
-            makeDrawing({
-              _id: "drawing-optional" as Ref<HulyDrawing>,
+        Effect.provide(
+          testLayer({
+            drawings: [
+              makeDrawing({
+                _id: "drawing-optional" as Ref<HulyDrawing>,
 
-              content: undefined as unknown as string,
+                content: undefined as unknown as string,
 
-              modifiedOn: undefined as unknown as number,
+                modifiedOn: undefined as unknown as number,
 
-              createdOn: undefined as unknown as number
-            })
-          ]
-        }))
+                createdOn: undefined as unknown as number
+              })
+            ]
+          })
+        )
       )
       expect(optionalDrawing.content).toBeUndefined()
       expect(optionalDrawing.modifiedOn).toBeUndefined()
@@ -830,20 +850,20 @@ describe("attachment media, saved attachment, and drawing operations", () => {
       expect(created.drawingId).toBeTruthy()
       expect(assertAt(capture.createDocs, 0)._class).toBe(attachment.class.Drawing)
 
-      const updated = yield* updateDrawing({
-        drawingId: drawingBrandId("drawing-1"),
-        content: null
-      }).pipe(Effect.provide(layer))
+      const updated = yield* updateDrawing({ drawingId: drawingBrandId("drawing-1"), content: null }).pipe(
+        Effect.provide(layer)
+      )
       expect(updated.updated).toBe(true)
       expect(assertAt(capture.updateDocs, 0).operations).toEqual({ content: "" })
 
       const deleted = yield* deleteDrawing({ drawingId: drawingBrandId("drawing-1") }).pipe(Effect.provide(layer))
       expect(deleted.deleted).toBe(true)
       expect(assertAt(capture.removeDocs, 1)._class).toBe(attachment.class.Drawing)
-    }))
+    })
+  )
 
   it.effect("creates saved attachments/drawings and reports missing saved attachments or drawings", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const capture = makeCapture()
       const layer = testLayer({ capture, attachments: [makeAttachment()] })
 
@@ -885,10 +905,11 @@ describe("attachment media, saved attachment, and drawing operations", () => {
         deleteDrawing({ drawingId: drawingBrandId("missing-drawing") }).pipe(Effect.provide(layer))
       )
       expect(deleteError._tag).toBe("DrawingNotFoundError")
-    }))
+    })
+  )
 
   it.effect("reports missing attachments and updates drawings with non-null content", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const capture = makeCapture()
       const layer = testLayer({ capture, drawings: [makeDrawing()] })
 
@@ -903,12 +924,13 @@ describe("attachment media, saved attachment, and drawing operations", () => {
       }).pipe(Effect.provide(layer))
       expect(updated.updated).toBe(true)
       expect(assertAt(capture.updateDocs, 0).operations).toEqual({ content: drawingContent("updated-shape") })
-    }))
+    })
+  )
 })
 
 describe("object collaborator operations", () => {
   it.effect("lists issue/document collaborators and adds/removes raw target collaborators", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const capture = makeCapture()
       const layer = testLayer({
         capture,
@@ -953,10 +975,11 @@ describe("object collaborator operations", () => {
       }).pipe(Effect.provide(layer))
       expect(removed.removed).toBe(true)
       expect(assertAt(capture.removeCollections, 0)._class).toBe(core.class.Collaborator)
-    }))
+    })
+  )
 
   it.effect("returns idempotent collaborator results and reports missing removeCollection support", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const existingLayer = testLayer({ collaborators: [makeCollaborator()] })
 
       const alreadyAdded = yield* addObjectCollaborator({
@@ -981,18 +1004,20 @@ describe("object collaborator operations", () => {
         }).pipe(Effect.provide(testLayer({ collaborators: [makeCollaborator()], omitRemoveCollection: true })))
       )
       expect(removeError._tag).toBe("HulyError")
-    }))
+    })
+  )
 
   it.effect("dies on invalid collaborator target shapes that bypass schema parsing", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const exit = yield* Effect.exit(listObjectCollaborators({} as never).pipe(Effect.provide(testLayer())))
       expect(exit._tag).toBe("Failure")
-    }))
+    })
+  )
 })
 
 describe("notification preference operations", () => {
   it.effect("lists providers/types, updates type settings, archives contexts, and manages subscriptions", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const diagnostics = yield* makeDiagnosticsScope
       const capture = makeCapture()
       const layer = testLayer({
@@ -1015,9 +1040,10 @@ describe("notification preference operations", () => {
       )
       expect(assertAt(providers, 0).label).toBe("Inbox")
 
-      const types = yield* listNotificationTypes({
-        objectClass: objectClassName("tracker:class:Issue")
-      }).pipe(Effect.provide(layer), Effect.provideService(Diagnostics, diagnostics.service))
+      const types = yield* listNotificationTypes({ objectClass: objectClassName("tracker:class:Issue") }).pipe(
+        Effect.provide(layer),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
       expect(assertAt(types, 0).group).toBe("group-1")
 
       const typeSetting = yield* updateNotificationTypeSetting({
@@ -1028,18 +1054,20 @@ describe("notification preference operations", () => {
       expect(typeSetting.updated).toBe(true)
       expect(typeSetting.created).toBe(false)
 
-      const archived = yield* archiveNotificationContext({
-        contextId: notificationContextId("ctx-1")
-      }).pipe(Effect.provide(layer))
+      const archived = yield* archiveNotificationContext({ contextId: notificationContextId("ctx-1") }).pipe(
+        Effect.provide(layer)
+      )
       expect(archived.count).toBe(2)
 
-      const unarchived = yield* unarchiveNotificationContext({
-        contextId: notificationContextId("ctx-1")
-      }).pipe(Effect.provide(testLayer({
-        capture,
-        contexts: [makeNotificationContext()],
-        inboxNotifications: [makeInboxNotification({ archived: true })]
-      })))
+      const unarchived = yield* unarchiveNotificationContext({ contextId: notificationContextId("ctx-1") }).pipe(
+        Effect.provide(
+          testLayer({
+            capture,
+            contexts: [makeNotificationContext()],
+            inboxNotifications: [makeInboxNotification({ archived: true })]
+          })
+        )
+      )
       expect(unarchived.archived).toBe(false)
 
       const subscribed = yield* subscribeToObjectNotifications({
@@ -1056,10 +1084,11 @@ describe("notification preference operations", () => {
       }).pipe(Effect.provide(layer))
       expect(unsubscribed.changed).toBe(true)
       expect(capture.removeCollections.at(-1)?._class).toBe(core.class.Collaborator)
-    }))
+    })
+  )
 
   it.effect("creates type settings, returns idempotent subscriptions, and reports non-configurable providers", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const diagnostics = yield* makeDiagnosticsScope
       const capture = makeCapture()
       const createLayer = testLayer({
@@ -1125,28 +1154,24 @@ describe("notification preference operations", () => {
         }).pipe(Effect.provide(testLayer({ collaborators: [makeCollaborator()], omitRemoveCollection: true })))
       )
       expect(unsubscribeError._tag).toBe("HulyError")
-    }))
+    })
+  )
 
   it.effect("covers notification type no-op and target resolution branches", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const diagnostics = yield* makeDiagnosticsScope
       const noOp = yield* updateNotificationTypeSetting({
         providerId: notificationProviderId("provider-1"),
         typeId: notificationTypeId("type-1"),
         enabled: true
       }).pipe(
-        Effect.provide(testLayer({
-          notificationTypes: [makeType()],
-          typeSettings: [makeTypeSetting()]
-        })),
+        Effect.provide(testLayer({ notificationTypes: [makeType()], typeSettings: [makeTypeSetting()] })),
         Effect.provideService(Diagnostics, diagnostics.service)
       )
       expect(noOp.updated).toBe(false)
 
       const allTypes = yield* listNotificationTypes({ includeHidden: true }).pipe(
-        Effect.provide(testLayer({
-          notificationTypes: [makeType({ hidden: true })]
-        })),
+        Effect.provide(testLayer({ notificationTypes: [makeType({ hidden: true })] })),
         Effect.provideService(Diagnostics, diagnostics.service)
       )
       expect(assertAt(allTypes, 0).hidden).toBe(true)
@@ -1164,10 +1189,11 @@ describe("notification preference operations", () => {
         }).pipe(Effect.provide(testLayer()))
       )
       expect(missingTarget._tag).toBe("HulyError")
-    }))
+    })
+  )
 
   it.effect("maps optional notification provider and type fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const diagnostics = yield* makeDiagnosticsScope
       const layer = testLayer({
         providers: [
@@ -1205,5 +1231,6 @@ describe("notification preference operations", () => {
       expect(assertAt(types, 0).label).toBeUndefined()
       expect(assertAt(types, 0).attachedToClass).toBe("document:class:Document")
       expect(assertAt(types, 0).onlyOwn).toBe(true)
-    }))
+    })
+  )
 })

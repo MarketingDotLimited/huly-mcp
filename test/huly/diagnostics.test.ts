@@ -4,14 +4,13 @@ import { expect } from "vitest"
 
 import { makeDiagnosticsScope } from "../../src/huly/diagnostics.js"
 
-const captureLogs = <A>(effect: Effect.Effect<A>): Effect.Effect<{
+const captureLogs = <A>(
+  effect: Effect.Effect<A>
+): Effect.Effect<{
   readonly result: A
-  readonly logs: ReadonlyArray<{
-    readonly level: string
-    readonly value: unknown
-  }>
+  readonly logs: ReadonlyArray<{ readonly level: string; readonly value: unknown }>
 }> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const consoleService = yield* Effect.console
     const logs: Array<{ readonly level: string; readonly value: unknown }> = []
     const capture = (level: string) => (value: unknown) => {
@@ -23,11 +22,7 @@ const captureLogs = <A>(effect: Effect.Effect<A>): Effect.Effect<{
       Logger.withMinimumLogLevel(LogLevel.Info),
       Effect.withConsole({
         ...consoleService,
-        unsafe: {
-          ...consoleService.unsafe,
-          info: capture("info"),
-          warn: capture("warn")
-        }
+        unsafe: { ...consoleService.unsafe, info: capture("info"), warn: capture("warn") }
       })
     )
     return { result, logs }
@@ -35,34 +30,32 @@ const captureLogs = <A>(effect: Effect.Effect<A>): Effect.Effect<{
 
 describe("Diagnostics", () => {
   it.effect("warnAgent accumulates a tool warning and writes an operator warning log", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const scope = yield* makeDiagnosticsScope
-      const warning = {
-        code: "status_metadata_unresolved" as const,
-        message: "Status metadata was degraded."
-      }
+      const warning = { code: "status_metadata_unresolved" as const, message: "Status metadata was degraded." }
 
       const { logs } = yield* captureLogs(scope.service.warnAgent(warning))
       const warnings = yield* scope.drainWarnings
 
       expect(warnings).toEqual([warning])
-      expect(logs).toEqual([{
-        level: "warn",
-        value: "Agent-visible tool warning [status_metadata_unresolved]: Status metadata was degraded."
-      }])
-    }))
+      expect(logs).toEqual([
+        {
+          level: "warn",
+          value: "Agent-visible tool warning [status_metadata_unresolved]: Status metadata was degraded."
+        }
+      ])
+    })
+  )
 
   it.effect("trail writes an operator log without accumulating tool warnings", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const scope = yield* makeDiagnosticsScope
 
       const { logs } = yield* captureLogs(scope.service.trail("metadata recovered from model"))
       const warnings = yield* scope.drainWarnings
 
       expect(warnings).toEqual([])
-      expect(logs).toEqual([{
-        level: "info",
-        value: "Diagnostic trail: metadata recovered from model"
-      }])
-    }))
+      expect(logs).toEqual([{ level: "info", value: "Diagnostic trail: metadata recovered from model" }])
+    })
+  )
 })

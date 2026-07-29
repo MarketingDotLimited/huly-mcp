@@ -119,13 +119,16 @@ const isBlockedIpv4Address = ([a, b, c]: readonly [number, number, number, numbe
 }
 
 const normalizeUrlHostname = (hostname: string): string =>
-  hostname.toLowerCase().replace(/^\[(.*)\]$/, "$1").replace(/\.+$/, "")
+  hostname
+    .toLowerCase()
+    .replace(/^\[(.*)\]$/, "$1")
+    .replace(/\.+$/, "")
 
 const mappedIpv4Prefix = "::ffff:"
 
 const ipv4FromMappedIpv6 = (hostname: string): readonly [number, number, number, number] | null =>
   hostname.startsWith(mappedIpv4Prefix)
-    ? parseIpv4Address(hostname.slice(mappedIpv4Prefix.length)) ?? ipv4FromMappedIpv6Hextets(hostname)
+    ? (parseIpv4Address(hostname.slice(mappedIpv4Prefix.length)) ?? ipv4FromMappedIpv6Hextets(hostname))
     : null
 
 const ipv4FromMappedIpv6Hextets = (hostname: string): readonly [number, number, number, number] | null => {
@@ -140,12 +143,7 @@ const ipv4FromMappedIpv6Hextets = (hostname: string): readonly [number, number, 
 
   const high = Number.parseInt(highText, 16)
   const low = Number.parseInt(lowText, 16)
-  return [
-    Math.floor(high / BYTE_BASE),
-    high % BYTE_BASE,
-    Math.floor(low / BYTE_BASE),
-    low % BYTE_BASE
-  ]
+  return [Math.floor(high / BYTE_BASE), high % BYTE_BASE, Math.floor(low / BYTE_BASE), low % BYTE_BASE]
 }
 
 const parseIpv6Hextet = (value: string): number | null => {
@@ -196,9 +194,7 @@ const parseIpv6Hextets = (hostname: string): Ipv6Hextets | null => {
   const leftText = assertAt(compressedParts, 0)
 
   const left = parseIpv6Side(leftText)
-  const right = compressedParts.length === 2
-    ? parseIpv6Side(assertAt(compressedParts, 1))
-    : []
+  const right = compressedParts.length === 2 ? parseIpv6Side(assertAt(compressedParts, 1)) : []
   if (left === null || right === null) {
     return null
   }
@@ -255,13 +251,10 @@ const requestFirstSuccessfulAddress = async (
   try {
     return await dependencies.requestUrl(url, address)
   } catch (error) {
-    return requestFirstSuccessfulAddress(
-      url,
-      dependencies,
-      addresses,
-      index + 1,
-      [...failures, `${address.address}: ${String(error)}`]
-    )
+    return requestFirstSuccessfulAddress(url, dependencies, addresses, index + 1, [
+      ...failures,
+      `${address.address}: ${String(error)}`
+    ])
   }
 }
 
@@ -294,12 +287,7 @@ const isBlockedIpv6Address = (hostname: string): boolean => {
 const isSupportedAddressFamily = (family: number): family is 4 | 6 => family === 4 || family === 6
 
 const toResolvedAddress = (address: LookupAddress): ResolvedAddress | null =>
-  isSupportedAddressFamily(address.family)
-    ? {
-      address: address.address,
-      family: address.family
-    }
-    : null
+  isSupportedAddressFamily(address.family) ? { address: address.address, family: address.family } : null
 
 const resolveHostname = async (hostname: string): Promise<ReadonlyArray<ResolvedAddress>> => {
   const addresses = await dnsLookup(hostname, { all: true, order: "verbatim" })
@@ -326,15 +314,17 @@ const isBlockedResolvedAddress = (address: ResolvedAddress): boolean => {
   return isBlockedIpv6Address(normalizedAddress)
 }
 
-const makePinnedLookup = (address: ResolvedAddress): LookupFunction => (_hostname, options, callback) => {
-  /* v8 ignore start -- Node always invokes the pinned lookup with { all: true }; the single-address callback form is unused */
-  if (options.all !== true) {
-    callback(null, address.address, address.family)
-    return
+const makePinnedLookup =
+  (address: ResolvedAddress): LookupFunction =>
+  (_hostname, options, callback) => {
+    /* v8 ignore start -- Node always invokes the pinned lookup with { all: true }; the single-address callback form is unused */
+    if (options.all !== true) {
+      callback(null, address.address, address.family)
+      return
+    }
+    /* v8 ignore stop */
+    callback(null, [address])
   }
-  /* v8 ignore stop */
-  callback(null, [address])
-}
 
 const responseTooLargeError = (receivedBytes: number, maxBytes: number): Error =>
   new Error(`Response exceeded maximum file size (${receivedBytes} bytes > ${maxBytes} bytes)`)
@@ -359,11 +349,7 @@ export const requestUrl = (url: URL, address: ResolvedAddress, maxBytes = MAX_FI
     }
     const request = (url.protocol === "http:" ? http : https).request(
       url,
-      {
-        lookup: makePinnedLookup(address),
-        signal: controller.signal,
-        timeout: FETCH_TIMEOUT_MS
-      },
+      { lookup: makePinnedLookup(address), signal: controller.signal, timeout: FETCH_TIMEOUT_MS },
       (response) => {
         /* v8 ignore start -- Node always sets statusCode on a parsed response */
         const statusCode = response.statusCode ?? 0
@@ -422,17 +408,18 @@ export const requestUrl = (url: URL, address: ResolvedAddress, maxBytes = MAX_FI
       rejectOnce(error)
     })
     /* v8 ignore start -- abort listener fires only on the 30s fetch timeout (integration-tested) */
-    controller.signal.addEventListener("abort", () => {
-      request.destroy(new Error("Request timed out"))
-    }, { once: true })
+    controller.signal.addEventListener(
+      "abort",
+      () => {
+        request.destroy(new Error("Request timed out"))
+      },
+      { once: true }
+    )
     /* v8 ignore stop */
     request.end()
   })
 
-const defaultFetchFromUrlDependencies: FetchFromUrlDependencies = {
-  requestUrl,
-  resolveHostname
-}
+const defaultFetchFromUrlDependencies: FetchFromUrlDependencies = { requestUrl, resolveHostname }
 
 /**
  * Check if URL points to a potentially dangerous internal address.
@@ -495,9 +482,5 @@ export const fetchFromUrl = (
 
       return requestFirstSuccessfulAddress(url, dependencies, addresses)
     },
-    catch: (e) =>
-      new FileFetchError({
-        fileUrl,
-        reason: String(e)
-      })
+    catch: (e) => new FileFetchError({ fileUrl, reason: String(e) })
   })

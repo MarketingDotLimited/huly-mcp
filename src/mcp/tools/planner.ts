@@ -48,8 +48,7 @@ export const plannerTools = [
   defineTool(
     {
       name: "list_todos",
-      description:
-        `List Huly Planner ToDos. Empty input returns up to ${DEFAULT_LIMIT} ToDos in planner order with all completion states. Use owner, issue, title, due date, priority, visibility, or completion filters to narrow results.`,
+      description: `List Huly Planner ToDos. Empty input returns up to ${DEFAULT_LIMIT} ToDos in planner order with all completion states. Use owner, issue, title, due date, priority, visibility, or completion filters to narrow results.`,
       category: CATEGORY,
       inputSchema: listTodosParamsJsonSchema,
       resultSchema: ListTodosResultSchema
@@ -73,8 +72,8 @@ export const plannerTools = [
     {
       name: "create_todo",
       description:
-        "Create a Planner ToDo. Omit attachedTo for a personal ToDo, or pass attachedTo.type=issue with project and identifier for an issue action item. Omit owner to use the authenticated user. Description supports markdown. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
+        "Create a Planner ToDo. Omit attachedTo for a personal ToDo, or pass attachedTo.type=issue with project and identifier for an issue action item. Omit owner to use the authenticated user. Description supports markdown. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
       category: CATEGORY,
       inputSchema: createTodoParamsJsonSchema,
       resultSchema: CreateTodoResultSchema
@@ -86,8 +85,8 @@ export const plannerTools = [
     {
       name: "update_todo",
       description:
-        "Update a Planner ToDo by human locator or raw todoId. Supports title, markdown description, owner, dueDate including null to clear, priority, and visibility. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
+        "Update a Planner ToDo by human locator or raw todoId. Supports title, markdown description, owner, dueDate including null to clear, priority, and visibility. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
       category: CATEGORY,
       inputSchema: updateTodoParamsJsonSchema,
       resultSchema: UpdateTodoResultSchema

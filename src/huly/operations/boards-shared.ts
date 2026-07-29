@@ -37,10 +37,7 @@ import { findStatusDocs, resolveByStatusRef, uniqueStatusRefs, workflowStatusFro
 import { hulyQuery, type StrictDocumentQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
-type BoardResolverError =
-  | HulyClientError
-  | BoardNotFoundError
-  | BoardIdentifierAmbiguousError
+type BoardResolverError = HulyClientError | BoardNotFoundError | BoardIdentifierAmbiguousError
 
 export type BoardModelError =
   | HulyClientError
@@ -58,10 +55,7 @@ type BoardEmployeeError =
   | PersonNotFoundError
   | PersonNotAnEmployeeError
 
-export type BoardCardResolverError =
-  | HulyClientError
-  | BoardCardNotFoundError
-  | BoardCardIdentifierAmbiguousError
+export type BoardCardResolverError = HulyClientError | BoardCardNotFoundError | BoardCardIdentifierAmbiguousError
 
 type BoardRemoveCollectionError = BoardMutationUnsupportedError
 
@@ -89,23 +83,19 @@ interface BoardWorkflowStatus {
 export const boardSpace: (boardId: Ref<HulyBoard>) => Ref<Space> = toRef
 
 const uniqueRefs = <T extends Doc>(refs: ReadonlyArray<Ref<T>>): Array<Ref<T>> =>
-  refs.reduce<Array<Ref<T>>>(
-    (unique, ref) => unique.includes(ref) ? unique : [...unique, ref],
-    []
-  )
+  refs.reduce<Array<Ref<T>>>((unique, ref) => (unique.includes(ref) ? unique : [...unique, ref]), [])
 
 export const cardIdentifierFromNumber = (number: number): string => `CARD-${number}`
 
 const isBoardProjectType = (projectType: ProjectType): boolean =>
-  projectType.descriptor === board.descriptors.BoardType
-  && projectType.targetClass === board.class.Board
+  projectType.descriptor === board.descriptors.BoardType && projectType.targetClass === board.class.Board
 
 const resolveBoard = (
   client: HulyClient["Type"],
   identifier: BoardRef,
   options: { readonly includeArchived?: boolean } = {}
 ): Effect.Effect<HulyBoard, BoardResolverError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const includeArchived = options.includeArchived ?? true
     const baseQuery: StrictDocumentQuery<HulyBoard> = includeArchived ? {} : { archived: false }
     const idMatches = yield* client.findAll<HulyBoard>(
@@ -129,7 +119,7 @@ export const resolveBoardFromContext = (
   identifier: BoardRef,
   options?: { readonly includeArchived?: boolean }
 ): Effect.Effect<ResolvedBoard, BoardResolverError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const resolved = yield* resolveBoard(client, identifier, options)
     return { board: resolved, client }
@@ -142,13 +132,16 @@ export const resolveBoardProjectType = (
   ProjectType,
   HulyClientError | BoardProjectTypeNotFoundError | BoardProjectTypeIdentifierAmbiguousError
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const projectTypes = yield* client.findAll<ProjectType>(task.class.ProjectType, hulyQuery<ProjectType>({}))
-    const matches = projectTypeRef === undefined
-      ? projectTypes.filter(isBoardProjectType)
-      : projectTypes.filter((projectType) =>
-        isBoardProjectType(projectType) && (projectType._id === projectTypeRef || projectType.name === projectTypeRef)
-      )
+    const matches =
+      projectTypeRef === undefined
+        ? projectTypes.filter(isBoardProjectType)
+        : projectTypes.filter(
+            (projectType) =>
+              isBoardProjectType(projectType) &&
+              (projectType._id === projectTypeRef || projectType.name === projectTypeRef)
+          )
 
     if (isSingle(matches)) return matches[0]
     const identifier = projectTypeRef ?? String(board.descriptors.BoardType)
@@ -160,7 +153,7 @@ export const getBoardProjectType = (
   client: HulyClient["Type"],
   resolvedBoard: HulyBoard
 ): Effect.Effect<ProjectType, HulyClientError | BoardProjectTypeNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const projectType = yield* client.findOne<ProjectType>(
       task.class.ProjectType,
       hulyQuery<ProjectType>({ _id: resolvedBoard.type })
@@ -169,22 +162,22 @@ export const getBoardProjectType = (
     return yield* new BoardProjectTypeNotFoundError({ identifier: String(resolvedBoard.type) })
   })
 
-const mergeTaskTypes = (
-  first: ReadonlyArray<TaskType>,
-  second: ReadonlyArray<TaskType>
-): Array<TaskType> => [...new Map([...first, ...second].map((taskType) => [taskType._id, taskType] as const)).values()]
+const mergeTaskTypes = (first: ReadonlyArray<TaskType>, second: ReadonlyArray<TaskType>): Array<TaskType> => [
+  ...new Map([...first, ...second].map((taskType) => [taskType._id, taskType] as const)).values()
+]
 
 export const getBoardTaskTypes = (
   client: HulyClient["Type"],
   projectType: ProjectType
 ): Effect.Effect<ReadonlyArray<TaskType>, HulyClientError> =>
-  Effect.gen(function*() {
-    const byIds = projectType.tasks.length === 0
-      ? []
-      : yield* client.findAll<TaskType>(
-        task.class.TaskType,
-        hulyQuery<TaskType>({ _id: { $in: [...projectType.tasks] } })
-      )
+  Effect.gen(function* () {
+    const byIds =
+      projectType.tasks.length === 0
+        ? []
+        : yield* client.findAll<TaskType>(
+            task.class.TaskType,
+            hulyQuery<TaskType>({ _id: { $in: [...projectType.tasks] } })
+          )
     const byParent = yield* client.findAll<TaskType>(
       task.class.TaskType,
       hulyQuery<TaskType>({ parent: projectType._id })
@@ -193,9 +186,9 @@ export const getBoardTaskTypes = (
   })
 
 const isBoardCardTaskType = (taskType: TaskType): boolean =>
-  taskType._id === board.taskType.Card
-  || taskType.ofClass === board.class.Card
-  || taskType.targetClass === board.class.Card
+  taskType._id === board.taskType.Card ||
+  taskType.ofClass === board.class.Card ||
+  taskType.targetClass === board.class.Card
 
 export const resolveBoardTaskType = (
   client: HulyClient["Type"],
@@ -203,14 +196,14 @@ export const resolveBoardTaskType = (
   projectType: ProjectType,
   taskTypeRef: string | undefined
 ): Effect.Effect<TaskType, HulyClientError | BoardTaskTypeNotFoundError | BoardTaskTypeIdentifierAmbiguousError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const taskTypes = yield* getBoardTaskTypes(client, projectType)
-    const matches = taskTypeRef === undefined
-      ? taskTypes.filter(isBoardCardTaskType)
-      : taskTypes.filter((taskType) => taskType._id === taskTypeRef || taskType.name === taskTypeRef)
-    const fallbackMatches = taskTypeRef === undefined && matches.length === 0 && taskTypes.length === 1
-      ? taskTypes
-      : matches
+    const matches =
+      taskTypeRef === undefined
+        ? taskTypes.filter(isBoardCardTaskType)
+        : taskTypes.filter((taskType) => taskType._id === taskTypeRef || taskType.name === taskTypeRef)
+    const fallbackMatches =
+      taskTypeRef === undefined && matches.length === 0 && taskTypes.length === 1 ? taskTypes : matches
 
     if (isSingle(fallbackMatches)) return fallbackMatches[0]
     const identifier = taskTypeRef ?? "default board card task type"
@@ -224,10 +217,7 @@ export const resolveBoardTaskType = (
     })
   })
 
-const orderedStatusIdsForTaskType = (
-  projectType: ProjectType,
-  taskType: TaskType
-): Array<Ref<Status>> => {
+const orderedStatusIdsForTaskType = (projectType: ProjectType, taskType: TaskType): Array<Ref<Status>> => {
   if (taskType.statuses.length > 0) return uniqueStatusRefs(taskType.statuses)
   const scoped = projectType.statuses.filter((status) => status.taskType === taskType._id).map((status) => status._id)
   return uniqueStatusRefs(scoped.length > 0 ? scoped : projectType.statuses.map((status) => status._id))
@@ -240,7 +230,7 @@ const getBoardWorkflowStatuses = (
   projectType: ProjectType,
   taskType: TaskType
 ): Effect.Effect<ReadonlyArray<BoardWorkflowStatus>, HulyClientError, Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const statusIds = orderedStatusIdsForTaskType(projectType, taskType)
     const statusDocs = statusIds.length === 0 ? [] : yield* findStatusDocs(client, statusIds)
     return resolveByStatusRef(
@@ -262,11 +252,12 @@ export const resolveBoardStatus = (
   HulyClientError | BoardStatusNotFoundError | BoardStatusIdentifierAmbiguousError,
   Diagnostics
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const statuses = yield* getBoardWorkflowStatuses(client, projectType, taskType)
-    const matches = statusRef === undefined
-      ? statuses.slice(0, 1)
-      : statuses.filter((status) => status.id === statusRef || status.name === statusRef)
+    const matches =
+      statusRef === undefined
+        ? statuses.slice(0, 1)
+        : statuses.filter((status) => status.id === statusRef || status.name === statusRef)
 
     if (isSingle(matches)) return matches[0]
     const identifier = statusRef ?? "default board card status"
@@ -278,9 +269,7 @@ export const resolveBoardStatus = (
     })
   })
 
-const TxIncResult = Schema.Struct({
-  object: Schema.Struct({ sequence: Schema.Number })
-})
+const TxIncResult = Schema.Struct({ object: Schema.Struct({ sequence: Schema.Number }) })
 
 const extractSequence = (txResult: unknown): number | undefined => {
   const decoded = Schema.decodeUnknownOption(TxIncResult)(txResult)
@@ -290,7 +279,7 @@ const extractSequence = (txResult: unknown): number | undefined => {
 export const incrementBoardCardSequence = (
   client: HulyClient["Type"]
 ): Effect.Effect<number, HulyClientError | BoardModelSequenceMissingError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const sequence = yield* client.findOne<Sequence>(
       core.class.Sequence,
       hulyQuery<Sequence>({ attachedTo: board.class.Card })
@@ -311,7 +300,7 @@ export const resolveEmployeeRef = (
   client: HulyClient["Type"],
   identifier: NonEmptyString
 ): Effect.Effect<Ref<Employee>, BoardEmployeeError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<Employee>(
       contact.mixin.Employee,
       hulyQuery<Employee>({ _id: toRef<Employee>(identifier) })
@@ -340,13 +329,10 @@ export const employeeNamesById = (
   client: HulyClient["Type"],
   employees: ReadonlyArray<Ref<Employee>>
 ): Effect.Effect<Map<Ref<Employee>, string>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const unique = uniqueRefs(employees)
     if (unique.length === 0) return new Map()
-    const docs = yield* client.findAll<Employee>(
-      contact.mixin.Employee,
-      hulyQuery<Employee>({ _id: { $in: unique } })
-    )
+    const docs = yield* client.findAll<Employee>(contact.mixin.Employee, hulyQuery<Employee>({ _id: { $in: unique } }))
     return new Map(docs.map((employee) => [employee._id, employee.name]))
   })
 
@@ -365,12 +351,8 @@ export const boardCardActiveQuery = (
   ...(includeArchived ? {} : { isArchived: { $ne: true } })
 })
 
-export const cardStatusName = (
-  statuses: ReadonlyMap<Ref<Status>, string>,
-  card: HulyBoardCard
-): string => statuses.get(card.status) ?? workflowStatusFromRef(card.status).name
+export const cardStatusName = (statuses: ReadonlyMap<Ref<Status>, string>, card: HulyBoardCard): string =>
+  statuses.get(card.status) ?? workflowStatusFromRef(card.status).name
 
-export const taskTypeName = (
-  taskTypes: ReadonlyMap<Ref<TaskType>, string>,
-  card: HulyBoardCard
-): string => taskTypes.get(card.kind) ?? String(card.kind)
+export const taskTypeName = (taskTypes: ReadonlyMap<Ref<TaskType>, string>, card: HulyBoardCard): string =>
+  taskTypes.get(card.kind) ?? String(card.kind)

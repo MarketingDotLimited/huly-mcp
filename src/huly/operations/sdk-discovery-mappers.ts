@@ -33,7 +33,7 @@ type JsonMap = Readonly<Record<string, unknown>>
 const decodeSdkRecord = (value: unknown): JsonMap => {
   // Huly model docs carry dynamic fields not fully represented in generated TypeScript declarations.
   // eslint-disable-next-line no-restricted-syntax -- SDK boundary cast contained in one adapter
-  return typeof value === "object" && value !== null ? value as JsonMap : { value }
+  return typeof value === "object" && value !== null ? (value as JsonMap) : { value }
 }
 
 const labelOrDefault = (value: unknown, fallback: NonEmptyString): NonEmptyString =>
@@ -78,26 +78,20 @@ export const classSearchText = (summary: HulyClassSummary): string =>
     ...stringOptionValues(Option.fromNullable(summary.domain)),
     ...stringOptionValues(Option.fromNullable(summary.shortLabel)),
     ...stringOptionValues(Option.fromNullable(summary.pluralLabel))
-  ].join(" ").toLowerCase()
+  ]
+    .join(" ")
+    .toLowerCase()
 
 export const directAncestorRefs = (cls: MetadataClassDoc): ReadonlyArray<DirectAncestorRef> => {
-  const extended: ReadonlyArray<DirectAncestorRef> = cls.extends === undefined
-    ? []
-    : Array.isArray(cls.extends)
-    ? cls.extends
-    : [cls.extends]
+  const extended: ReadonlyArray<DirectAncestorRef> =
+    cls.extends === undefined ? [] : Array.isArray(cls.extends) ? cls.extends : [cls.extends]
   return [...extended, ...(cls.implements ?? [])].reduce<{
     readonly refs: ReadonlyArray<DirectAncestorRef>
     readonly seen: ReadonlySet<string>
   }>(
     (state, ref) => {
       const key = String(ref)
-      return state.seen.has(key)
-        ? state
-        : {
-          refs: [...state.refs, ref],
-          seen: new Set([...state.seen, key])
-        }
+      return state.seen.has(key) ? state : { refs: [...state.refs, ref], seen: new Set([...state.seen, key]) }
     },
     { refs: [], seen: new Set([String(cls._id)]) }
   ).refs
@@ -115,10 +109,7 @@ const pluralLabelField = (pluralLabel: Option.Option<NonEmptyString>) =>
 const typeClassIdField = (classId: Option.Option<ObjectClassName>) =>
   Option.isSome(classId) ? { classId: classId.value } : {}
 
-export const toClassSummary = (
-  cls: MetadataClassDoc,
-  attributesCount?: number
-): HulyClassSummary => {
+export const toClassSummary = (cls: MetadataClassDoc, attributesCount?: number): HulyClassSummary => {
   const record = decodeSdkRecord(cls)
   const classId = ObjectClassName.make(String(cls._id))
   const shortLabel = nonEmptyLabelOption(cls.shortLabel)
@@ -184,7 +175,9 @@ export const attributeSearchText = (attr: HulyAttributeSummary): string =>
     ...("refTo" in attr.type ? [attr.type.refTo] : []),
     ...("enumId" in attr.type ? [attr.type.enumId] : []),
     ...("collectionOf" in attr.type ? [attr.type.collectionOf] : [])
-  ].join(" ").toLowerCase()
+  ]
+    .join(" ")
+    .toLowerCase()
 
 export const toAttributeSummary = (
   attr: AnyAttribute,

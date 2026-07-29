@@ -46,13 +46,11 @@ interface ResolvedConversation {
   readonly objectSpace: Ref<Space>
 }
 
-const resolveConversation = (
-  params: {
-    readonly channel?: SetConversationStarredParams["channel"]
-    readonly dm?: SetConversationStarredParams["dm"]
-  }
-): Effect.Effect<ResolvedConversation, ConversationStateError, HulyClient> =>
-  Effect.gen(function*() {
+const resolveConversation = (params: {
+  readonly channel?: SetConversationStarredParams["channel"]
+  readonly dm?: SetConversationStarredParams["dm"]
+}): Effect.Effect<ResolvedConversation, ConversationStateError, HulyClient> =>
+  Effect.gen(function* () {
     if (params.channel !== undefined) {
       const { channel } = yield* findChannel(params.channel)
       return {
@@ -81,7 +79,7 @@ const resolveConversation = (
 const findCurrentPersonSpace = (
   client: HulyClient["Type"]
 ): Effect.Effect<PersonSpace, HulyClientError | NotificationPersonSpaceNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const user = client.getAccountUuid()
     const employee = yield* client.findOne<HulyEmployee>(
       contact.mixin.Employee,
@@ -122,7 +120,7 @@ const createConversationContext = (
   { readonly id: Ref<HulyDocNotifyContext>; readonly space: Ref<Space> },
   HulyClientError | NotificationPersonSpaceNotFoundError
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const personSpace = yield* findCurrentPersonSpace(client)
     const contextId: Ref<HulyDocNotifyContext> = generateId()
     const contextSpace = toRef<Space>(personSpace._id)
@@ -135,12 +133,7 @@ const createConversationContext = (
       hidden: false
     }
 
-    yield* client.createDoc(
-      notification.class.DocNotifyContext,
-      contextSpace,
-      contextData,
-      contextId
-    )
+    yield* client.createDoc(notification.class.DocNotifyContext, contextSpace, contextData, contextId)
     return { id: contextId, space: contextSpace }
   })
 
@@ -149,12 +142,7 @@ const updateContext = (
   context: HulyDocNotifyContext,
   operations: DocumentUpdate<HulyDocNotifyContext>
 ): Effect.Effect<void, HulyClientError> =>
-  client.updateDoc(
-    notification.class.DocNotifyContext,
-    context.space,
-    context._id,
-    operations
-  ).pipe(Effect.asVoid)
+  client.updateDoc(notification.class.DocNotifyContext, context.space, context._id, operations).pipe(Effect.asVoid)
 
 const stateResult = (
   conversation: ResolvedConversation,
@@ -176,12 +164,11 @@ const setConversationState = (
     readonly channel?: SetConversationStarredParams["channel"]
     readonly dm?: SetConversationStarredParams["dm"]
   },
-  target: { readonly field: "isPinned"; readonly value: boolean } | {
-    readonly field: "hidden"
-    readonly value: boolean
-  }
+  target:
+    | { readonly field: "isPinned"; readonly value: boolean }
+    | { readonly field: "hidden"; readonly value: boolean }
 ): Effect.Effect<ConversationStateResult, ConversationStateError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const conversation = yield* resolveConversation(params)
     const context = yield* findConversationContext(client, conversation)
@@ -189,12 +176,9 @@ const setConversationState = (
     if (context === undefined) {
       const createdContext = yield* createConversationContext(client, conversation)
       if (target.value) {
-        yield* client.updateDoc(
-          notification.class.DocNotifyContext,
-          createdContext.space,
-          createdContext.id,
-          { [target.field]: true }
-        )
+        yield* client.updateDoc(notification.class.DocNotifyContext, createdContext.space, createdContext.id, {
+          [target.field]: true
+        })
       }
       return stateResult(
         conversation,

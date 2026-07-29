@@ -152,18 +152,20 @@ const createFixtureLayer = (config: FixtureConfig) => {
     if (_class === tags.class.TagElement) {
       const titleLike = (q.title as { readonly $like?: string } | undefined)?.$like
       const titleNeedle = titleLike === undefined ? undefined : titleLike.replace(/^%|%$/g, "")
-      const filtered = tagElements.filter((tag) =>
-        (!q.targetClass || tag.targetClass === q.targetClass)
-        && (!q.category || tag.category === q.category)
-        && (titleNeedle === undefined || tag.title.includes(titleNeedle))
+      const filtered = tagElements.filter(
+        (tag) =>
+          (!q.targetClass || tag.targetClass === q.targetClass) &&
+          (!q.category || tag.category === q.category) &&
+          (titleNeedle === undefined || tag.title.includes(titleNeedle))
       )
       return Effect.succeed(toFindResult(filtered))
     }
     if (_class === tags.class.TagReference) {
-      const filtered = tagReferences.filter((tagRef) =>
-        (!q.attachedTo || tagRef.attachedTo === q.attachedTo)
-        && (!q.attachedToClass || tagRef.attachedToClass === q.attachedToClass)
-        && (!q.collection || tagRef.collection === q.collection)
+      const filtered = tagReferences.filter(
+        (tagRef) =>
+          (!q.attachedTo || tagRef.attachedTo === q.attachedTo) &&
+          (!q.attachedToClass || tagRef.attachedToClass === q.attachedToClass) &&
+          (!q.collection || tagRef.collection === q.collection)
       )
       return Effect.succeed(toFindResult(filtered))
     }
@@ -173,20 +175,20 @@ const createFixtureLayer = (config: FixtureConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     const q = query as Record<string, unknown>
     if (_class === tags.class.TagElement) {
-      const found = tagElements.find((tag) =>
-        (!q.targetClass || tag.targetClass === q.targetClass)
-        && ((q._id && tag._id === q._id) || (q.title && tag.title === q.title))
+      const found = tagElements.find(
+        (tag) =>
+          (!q.targetClass || tag.targetClass === q.targetClass) &&
+          ((q._id && tag._id === q._id) || (q.title && tag.title === q.title))
       )
       return Effect.succeed(found)
     }
     if (_class === tags.class.TagCategory) {
-      const found = tagCategories.find((category) =>
-        (!q.targetClass || category.targetClass === q.targetClass)
-        && (
-          (q._id && category._id === q._id)
-          || (q.label && category.label === q.label)
-          || (q.default === true && category.default)
-        )
+      const found = tagCategories.find(
+        (category) =>
+          (!q.targetClass || category.targetClass === q.targetClass) &&
+          ((q._id && category._id === q._id) ||
+            (q.label && category.label === q.label) ||
+            (q.default === true && category.default))
       )
       return Effect.succeed(found)
     }
@@ -232,11 +234,7 @@ const createFixtureLayer = (config: FixtureConfig) => {
     return Effect.succeed(toRef<TagReference>("new-tagref-id"))
   }) as HulyClientOperations["addCollection"]
 
-  const removeDocImpl: HulyClientOperations["removeDoc"] = ((
-    _class: unknown,
-    space: unknown,
-    objectId: unknown
-  ) => {
+  const removeDocImpl: HulyClientOperations["removeDoc"] = ((_class: unknown, space: unknown, objectId: unknown) => {
     config.captures?.removeDocs.push({ classId: String(_class), space, objectId })
     return Effect.succeed({})
   }) as HulyClientOperations["removeDoc"]
@@ -251,16 +249,11 @@ const createFixtureLayer = (config: FixtureConfig) => {
   })
 }
 
-const emptyCaptures = (): Captures => ({
-  addCollections: [],
-  createDocs: [],
-  removeDocs: [],
-  updateDocs: []
-})
+const emptyCaptures = (): Captures => ({ addCollections: [], createDocs: [], removeDocs: [], updateDocs: [] })
 
 describe("listTags", () => {
   it.effect("lists tag definitions for the requested target class", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tagsForIssues = [
         makeTagElement({ _id: toRef<HulyTagElement>("tag-bug"), title: "bug", refCount: 3 }),
         makeTagElement({ _id: toRef<HulyTagElement>("tag-feature"), title: "feature", color: 2 })
@@ -280,10 +273,11 @@ describe("listTags", () => {
 
       expect(result.map((tag) => tag.title)).toEqual(["bug", "feature"])
       expect(assertAt(result, 0).refCount).toBe(3)
-    }))
+    })
+  )
 
   it.effect("resolves category labels before listing", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const category = makeTagCategory({ _id: toRef<HulyTagCategory>("cat-priority"), label: "Priority" })
       const testLayer = createFixtureLayer({
         tagCategories: [category],
@@ -293,16 +287,16 @@ describe("listTags", () => {
         ]
       })
 
-      const result = yield* listTags({
-        targetClass: TARGET_CLASS,
-        category: tagCategoryIdentifier("Priority")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* listTags({ targetClass: TARGET_CLASS, category: tagCategoryIdentifier("Priority") }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.map((tag) => tag.title)).toEqual(["p0"])
-    }))
+    })
+  )
 
   it.effect("filters by a title substring when titleSearch is provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createFixtureLayer({
         tagElements: [
           makeTagElement({ _id: toRef<HulyTagElement>("tag-bug"), title: "bug" }),
@@ -311,44 +305,36 @@ describe("listTags", () => {
         ]
       })
 
-      const result = yield* listTags({
-        targetClass: TARGET_CLASS,
-        titleSearch: "bug"
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* listTags({ targetClass: TARGET_CLASS, titleSearch: "bug" }).pipe(Effect.provide(testLayer))
 
       expect(result.map((tag) => tag.title).sort()).toEqual(["bug", "debug-helper"])
-    }))
+    })
+  )
 })
 
 describe("createTag", () => {
   it.effect("returns an existing tag definition without creating a duplicate", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
       const testLayer = createFixtureLayer({
         captures,
         tagElements: [makeTagElement({ _id: toRef<HulyTagElement>("tag-existing"), title: "bug" })]
       })
 
-      const result = yield* createTag({
-        targetClass: TARGET_CLASS,
-        title: tagIdentifier("bug")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* createTag({ targetClass: TARGET_CLASS, title: tagIdentifier("bug") }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result).toMatchObject({ id: "tag-existing", title: "bug", created: false })
       expect(captures.createDocs).toEqual([])
-    }))
+    })
+  )
 
   it.effect("creates a tag definition with the target class default category", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
-      const defaultCategory = makeTagCategory({
-        _id: toRef<HulyTagCategory>("cat-default"),
-        default: true
-      })
-      const testLayer = createFixtureLayer({
-        captures,
-        tagCategories: [defaultCategory]
-      })
+      const defaultCategory = makeTagCategory({ _id: toRef<HulyTagCategory>("cat-default"), default: true })
+      const testLayer = createFixtureLayer({ captures, tagCategories: [defaultCategory] })
 
       const result = yield* createTag({
         targetClass: TARGET_CLASS,
@@ -364,12 +350,13 @@ describe("createTag", () => {
         targetClass: "tracker:class:Issue",
         title: "needs-review"
       })
-    }))
+    })
+  )
 })
 
 describe("updateTag", () => {
   it.effect("updates fields and resolves a category label", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
       const category = makeTagCategory({ _id: toRef<HulyTagCategory>("cat-updated"), label: "Updated" })
       const testLayer = createFixtureLayer({
@@ -394,30 +381,28 @@ describe("updateTag", () => {
         description: "User-visible defect",
         title: "defect"
       })
-    }))
+    })
+  )
 
   it.effect("clears description when set to null", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
       const testLayer = createFixtureLayer({
         captures,
         tagElements: [makeTagElement({ _id: toRef<HulyTagElement>("tag-1"), description: "Old description" })]
       })
 
-      yield* updateTag({
-        targetClass: TARGET_CLASS,
-        tag: tagIdentifier("bug"),
-        description: null
-      }).pipe(Effect.provide(testLayer))
+      yield* updateTag({ targetClass: TARGET_CLASS, tag: tagIdentifier("bug"), description: null }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(assertAt(captures.updateDocs, 0).operations).toMatchObject({ description: "" })
-    }))
+    })
+  )
 
   it.effect("fails when a requested category does not exist", () =>
-    Effect.gen(function*() {
-      const testLayer = createFixtureLayer({
-        tagElements: [makeTagElement({ _id: toRef<HulyTagElement>("tag-1") })]
-      })
+    Effect.gen(function* () {
+      const testLayer = createFixtureLayer({ tagElements: [makeTagElement({ _id: toRef<HulyTagElement>("tag-1") })] })
 
       const exit = yield* updateTag({
         targetClass: TARGET_CLASS,
@@ -429,33 +414,34 @@ describe("updateTag", () => {
       if (exit._tag === "Failure") {
         expect(exit.cause.toString()).toContain("TagCategoryNotFound")
       }
-    }))
+    })
+  )
 })
 
 describe("deleteTag", () => {
   it.effect("deletes a tag definition by title", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
       const testLayer = createFixtureLayer({
         captures,
         tagElements: [makeTagElement({ _id: toRef<HulyTagElement>("tag-delete") })]
       })
 
-      const result = yield* deleteTag({
-        targetClass: TARGET_CLASS,
-        tag: tagIdentifier("bug")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* deleteTag({ targetClass: TARGET_CLASS, tag: tagIdentifier("bug") }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result).toEqual({ id: "tag-delete", deleted: true })
       expect(captures.removeDocs).toEqual([
         { classId: String(tags.class.TagElement), objectId: "tag-delete", space: "core:space:Workspace" }
       ])
-    }))
+    })
+  )
 })
 
 describe("attached tag references", () => {
   it.effect("lists references attached to one object collection", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createFixtureLayer({
         tagReferences: [
           makeTagReference({ _id: toRef<TagReference>("ref-1"), title: "bug", weight: 6 }),
@@ -474,13 +460,12 @@ describe("attached tag references", () => {
         space: spaceBrandId("project-1")
       }).pipe(Effect.provide(testLayer))
 
-      expect(result).toEqual([
-        { color: 1, id: "ref-1", tag: "tag-1", title: "bug", weight: 6 }
-      ])
-    }))
+      expect(result).toEqual([{ color: 1, id: "ref-1", tag: "tag-1", title: "bug", weight: 6 }])
+    })
+  )
 
   it.effect("attaches an existing tag idempotently when a reference already exists", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
       const tag = makeTagElement({ _id: toRef<HulyTagElement>("tag-1"), title: "bug" })
       const testLayer = createFixtureLayer({
@@ -502,10 +487,11 @@ describe("attached tag references", () => {
 
       expect(result).toEqual({ attached: false, id: "tagref-1", tag: "tag-1", title: "bug" })
       expect(captures.addCollections).toEqual([])
-    }))
+    })
+  )
 
   it.effect("creates a missing tag definition and attaches a weighted reference", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
       const category = makeTagCategory({
         _id: toRef<HulyTagCategory>("cat-skills"),
@@ -546,10 +532,11 @@ describe("attached tag references", () => {
         title: "TypeScript",
         weight: 8
       })
-    }))
+    })
+  )
 
   it.effect("detaches all matching references and ignores other tags", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
       const tag = makeTagElement({ _id: toRef<HulyTagElement>("tag-1"), title: "bug" })
       const testLayer = createFixtureLayer({
@@ -579,10 +566,11 @@ describe("attached tag references", () => {
 
       expect(result).toEqual({ detached: true, detachedCount: 2 })
       expect(captures.removeDocs.map((call) => call.objectId)).toEqual(["ref-1", "ref-2"])
-    }))
+    })
+  )
 
   it.effect("reports not detached when the tag is valid but not attached", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
       const testLayer = createFixtureLayer({
         captures,
@@ -602,10 +590,11 @@ describe("attached tag references", () => {
 
       expect(result).toEqual({ detached: false, detachedCount: 0 })
       expect(captures.removeDocs).toEqual([])
-    }))
+    })
+  )
 
   it.effect("fails attach when the requested category is unknown", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createFixtureLayer({})
 
       const exit = yield* attachTag({
@@ -624,10 +613,11 @@ describe("attached tag references", () => {
       if (exit._tag === "Failure") {
         expect(exit.cause.toString()).toContain("TagCategoryNotFound")
       }
-    }))
+    })
+  )
 
   it.effect("fails detach when the tag definition is unknown", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createFixtureLayer({})
 
       const exit = yield* detachTag({
@@ -645,5 +635,6 @@ describe("attached tag references", () => {
       if (exit._tag === "Failure") {
         expect(exit.cause.toString()).toContain("TagNotFound")
       }
-    }))
+    })
+  )
 })

@@ -71,28 +71,17 @@ export { createGroupDirectMessage } from "./direct-message-conversations.js"
 
 type ListChannelsError = HulyClientError
 
-type GetChannelError =
-  | HulyClientError
-  | ChannelNotFoundError
+type GetChannelError = HulyClientError | ChannelNotFoundError
 
 type CreateChannelError = HulyClientError
 
-type UpdateChannelError =
-  | HulyClientError
-  | NoUpdateFieldsError
-  | ChannelNotFoundError
+type UpdateChannelError = HulyClientError | NoUpdateFieldsError | ChannelNotFoundError
 
-type DeleteChannelError =
-  | HulyClientError
-  | ChannelNotFoundError
+type DeleteChannelError = HulyClientError | ChannelNotFoundError
 
-type ListChannelMessagesError =
-  | HulyClientError
-  | ChannelNotFoundError
+type ListChannelMessagesError = HulyClientError | ChannelNotFoundError
 
-type SendChannelMessageError =
-  | HulyClientError
-  | ChannelNotFoundError
+type SendChannelMessageError = HulyClientError | ChannelNotFoundError
 
 type ListDirectMessagesError = HulyClientError
 
@@ -101,9 +90,8 @@ type ListDirectMessagesError = HulyClientError
 // SDK: SocialIdentityRef = Ref<SocialIdentity> & PersonId. PersonId lacks the Ref<> phantom brand (__ref).
 // Brands are erased at runtime; both are plain strings, so the cast is safe but no single-step path exists.
 /* eslint-disable no-restricted-syntax -- PersonId → SocialIdentityRef: brands erased at runtime; both are plain strings */
-const personIdsAsSocialIdentityRefs = (
-  ids: Array<PersonId>
-): Array<SocialIdentityRef> => ids as Array<SocialIdentityRef>
+const personIdsAsSocialIdentityRefs = (ids: Array<PersonId>): Array<SocialIdentityRef> =>
+  ids as Array<SocialIdentityRef>
 /* eslint-enable no-restricted-syntax */
 
 // --- Helpers ---
@@ -119,25 +107,21 @@ export const buildSocialIdToPersonNameMap = (
   client: HulyClient["Type"],
   socialIds: Array<PersonId>
 ): Effect.Effect<ReadonlyMap<PersonId, PersonName>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (socialIds.length === 0) {
       return new Map<PersonId, PersonName>()
     }
 
-    const socialIdentities = yield* client.findAll<SocialIdentity>(
-      contact.class.SocialIdentity,
-      { _id: { $in: personIdsAsSocialIdentityRefs(socialIds) } }
-    )
+    const socialIdentities = yield* client.findAll<SocialIdentity>(contact.class.SocialIdentity, {
+      _id: { $in: personIdsAsSocialIdentityRefs(socialIds) }
+    })
 
     if (socialIdentities.length === 0) {
       return new Map<PersonId, PersonName>()
     }
 
     const personRefs = [...new Set(socialIdentities.map((si) => si.attachedTo))]
-    const persons = yield* client.findAll<Person>(
-      contact.class.Person,
-      { _id: { $in: personRefs } }
-    )
+    const persons = yield* client.findAll<Person>(contact.class.Person, { _id: { $in: personRefs } })
 
     const personById = new Map(persons.map((p) => [p._id, p]))
     const result = new Map<PersonId, PersonName>()
@@ -160,15 +144,12 @@ const buildAccountUuidToNameMap = (
   client: HulyClient["Type"],
   accountUuids: Array<HulyAccountUuid>
 ): Effect.Effect<ReadonlyMap<HulyAccountUuid, PersonName>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (accountUuids.length === 0) {
       return new Map<HulyAccountUuid, PersonName>()
     }
 
-    const employees = yield* client.findAll<HulyEmployee>(
-      contact.mixin.Employee,
-      { personUuid: { $in: accountUuids } }
-    )
+    const employees = yield* client.findAll<HulyEmployee>(contact.mixin.Employee, { personUuid: { $in: accountUuids } })
 
     const result = new Map<HulyAccountUuid, PersonName>()
     for (const emp of employees) {
@@ -195,7 +176,7 @@ const buildAccountUuidToNameMap = (
 export const listChannels = (
   params: ListChannelsParams
 ): Effect.Effect<Array<ChannelSummary>, ListChannelsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const query: DocumentQuery<HulyChannel> = {}
@@ -217,16 +198,10 @@ export const listChannels = (
 
     const limit = clampLimit(params.limit)
 
-    const channels = yield* client.findAll<HulyChannel>(
-      chunter.class.Channel,
-      query,
-      {
-        limit,
-        sort: {
-          name: SortingOrder.Ascending
-        }
-      }
-    )
+    const channels = yield* client.findAll<HulyChannel>(chunter.class.Channel, query, {
+      limit,
+      sort: { name: SortingOrder.Ascending }
+    })
 
     const summaries: Array<ChannelSummary> = channels.map((ch) => ({
       id: ChannelId.make(ch._id),
@@ -245,20 +220,17 @@ export const listChannels = (
 /**
  * Get a single channel with full details.
  */
-export const getChannel = (
-  params: GetChannelParams
-): Effect.Effect<Channel, GetChannelError, HulyClient> =>
-  Effect.gen(function*() {
+export const getChannel = (params: GetChannelParams): Effect.Effect<Channel, GetChannelError, HulyClient> =>
+  Effect.gen(function* () {
     const { channel, client } = yield* findChannel(params.channel)
 
-    const memberNames = channel.members.length > 0
-      ? yield* Effect.gen(function*() {
-        const accountUuidToName = yield* buildAccountUuidToNameMap(client, channel.members)
-        return channel.members
-          .map((m) => accountUuidToName.get(m))
-          .filter((n) => n !== undefined)
-      })
-      : undefined
+    const memberNames =
+      channel.members.length > 0
+        ? yield* Effect.gen(function* () {
+            const accountUuidToName = yield* buildAccountUuidToNameMap(client, channel.members)
+            return channel.members.map((m) => accountUuidToName.get(m)).filter((n) => n !== undefined)
+          })
+        : undefined
 
     const result: Channel = {
       id: ChannelId.make(channel._id),
@@ -284,7 +256,7 @@ export const getChannel = (
 export const createChannel = (
   params: CreateChannelParams
 ): Effect.Effect<CreateChannelResult, CreateChannelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const channelId: Ref<HulyChannel> = generateId()
@@ -299,12 +271,7 @@ export const createChannel = (
       owners: [client.getAccountUuid()]
     }
 
-    yield* client.createDoc(
-      chunter.class.Channel,
-      toRef<Space>(channelId),
-      channelData,
-      channelId
-    )
+    yield* client.createDoc(chunter.class.Channel, toRef<Space>(channelId), channelData, channelId)
 
     return { id: ChannelId.make(channelId), name: ChannelName.make(params.name) }
   })
@@ -317,32 +284,24 @@ export const createChannel = (
 export const updateChannel = (
   params: UpdateChannelParams
 ): Effect.Effect<UpdateChannelResult, UpdateChannelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_channel", params, UPDATE_CHANNEL_FIELDS)
 
     const { channel, client } = yield* findChannel(params.channel)
 
-    type UpdateChannelField = typeof UPDATE_CHANNEL_FIELDS[number]
+    type UpdateChannelField = (typeof UPDATE_CHANNEL_FIELDS)[number]
     type UpdateChannelEntries = {
       readonly name: DirectUpdateEntry<UpdateChannelField, DocumentUpdate<HulyChannel>, "name">
       readonly topic: DirectOrUnsetUpdateEntry<UpdateChannelField, DocumentUpdate<HulyChannel>, "topic">
     }
     const updateEntries = {
       name: params.name === undefined ? {} : { name: params.name },
-      topic: params.topic === undefined
-        ? {}
-        : params.topic === null
-        ? { $unset: { topic: "" } }
-        : { topic: params.topic }
+      topic:
+        params.topic === undefined ? {} : params.topic === null ? { $unset: { topic: "" } } : { topic: params.topic }
     } satisfies UpdateChannelEntries
     const updateOps: DocumentUpdate<HulyChannel> = mergeUpdateEntries(Object.values(updateEntries))
 
-    yield* client.updateDoc(
-      chunter.class.Channel,
-      toRef<Space>(channel._id),
-      channel._id,
-      updateOps
-    )
+    yield* client.updateDoc(chunter.class.Channel, toRef<Space>(channel._id), channel._id, updateOps)
 
     return { id: ChannelId.make(channel._id), updated: true }
   })
@@ -355,14 +314,10 @@ export const updateChannel = (
 export const deleteChannel = (
   params: DeleteChannelParams
 ): Effect.Effect<DeleteChannelResult, DeleteChannelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { channel, client } = yield* findChannel(params.channel)
 
-    yield* client.removeDoc(
-      chunter.class.Channel,
-      toRef<Space>(channel._id),
-      channel._id
-    )
+    yield* client.removeDoc(chunter.class.Channel, toRef<Space>(channel._id), channel._id)
 
     return { id: ChannelId.make(channel._id), deleted: true }
   })
@@ -376,7 +331,7 @@ export const deleteChannel = (
 export const listChannelMessages = (
   params: ListChannelMessagesParams
 ): Effect.Effect<ListChannelMessagesResult, ListChannelMessagesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { channel, client } = yield* findChannel(params.channel)
     const markupUrlConfig = client.markupUrlConfig
 
@@ -384,25 +339,13 @@ export const listChannelMessages = (
 
     const messages = yield* client.findAll<ChatMessage>(
       chunter.class.ChatMessage,
-      {
-        space: channel._id
-      },
-      {
-        limit,
-        sort: {
-          createdOn: SortingOrder.Descending
-        }
-      }
+      { space: channel._id },
+      { limit, sort: { createdOn: SortingOrder.Descending } }
     )
 
     const total = messages.total
 
-    const uniqueSocialIds = [
-      ...new Set(
-        messages
-          .map((msg) => msg.modifiedBy)
-      )
-    ]
+    const uniqueSocialIds = [...new Set(messages.map((msg) => msg.modifiedBy))]
 
     const socialIdToName = yield* buildSocialIdToPersonNameMap(client, uniqueSocialIds)
 
@@ -432,17 +375,14 @@ export const listChannelMessages = (
 export const sendChannelMessage = (
   params: SendChannelMessageParams
 ): Effect.Effect<SendChannelMessageResult, SendChannelMessageError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { channel, client } = yield* findChannel(params.channel)
     const markupUrlConfig = client.markupUrlConfig
 
     const messageId: Ref<ChatMessage> = generateId()
     const markup = markdownToMarkupString(params.body, markupUrlConfig)
 
-    const messageData: AttachedData<ChatMessage> = {
-      message: markup,
-      attachments: 0
-    }
+    const messageData: AttachedData<ChatMessage> = { message: markup, attachments: 0 }
 
     yield* client.addCollection(
       chunter.class.ChatMessage,
@@ -466,7 +406,7 @@ export const sendChannelMessage = (
 export const listDirectMessages = (
   params: ListDirectMessagesParams
 ): Effect.Effect<ListDirectMessagesResult, ListDirectMessagesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const limit = clampLimit(params.limit)
@@ -474,29 +414,18 @@ export const listDirectMessages = (
     const dms = yield* client.findAll<HulyDirectMessage>(
       chunter.class.DirectMessage,
       { members: client.getAccountUuid() },
-      {
-        limit,
-        sort: {
-          modifiedOn: SortingOrder.Descending
-        }
-      }
+      { limit, sort: { modifiedOn: SortingOrder.Descending } }
     )
 
     const total = dms.total
 
     // DirectMessage.members is typed as AccountUuid[] in @hcengineering/chunter (extends Space)
-    const uniqueAccountUuids = [
-      ...new Set(
-        dms.flatMap((dm) => dm.members)
-      )
-    ]
+    const uniqueAccountUuids = [...new Set(dms.flatMap((dm) => dm.members))]
 
     const accountUuidToName = yield* buildAccountUuidToNameMap(client, uniqueAccountUuids)
 
     const summaries: Array<DirectMessageSummary> = dms.map((dm) => {
-      const participants = dm.members
-        .map((m) => accountUuidToName.get(m))
-        .filter((n) => n !== undefined)
+      const participants = dm.members.map((m) => accountUuidToName.get(m)).filter((n) => n !== undefined)
 
       const participantIds = dm.members.map((m) => AccountUuid.make(m))
 

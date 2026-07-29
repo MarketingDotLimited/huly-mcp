@@ -43,7 +43,7 @@ type MemberListMutation = (
   resolvedMembers: ReadonlyArray<HulyAccountUuid>
 ) => ReadonlyArray<HulyAccountUuid>
 
-type UpdateDriveField = typeof UPDATE_DRIVE_FIELDS[number]
+type UpdateDriveField = (typeof UPDATE_DRIVE_FIELDS)[number]
 
 type UpdateDriveEntries = {
   readonly [Field in UpdateDriveField]: DirectUpdateEntry<UpdateDriveField, DocumentUpdate<DriveSpace>, Field>
@@ -60,18 +60,13 @@ const resolveInitialMembers = (
   { readonly members: ReadonlyArray<HulyAccountUuid>; readonly owners: ReadonlyArray<HulyAccountUuid> },
   DriveOperationError
 > =>
-  Effect.gen(function*() {
-    const owners = params.owners === undefined
-      ? currentAccountMemberList(client)
-      : yield* resolveMembers(client, params.owners)
-    const baseMembers = params.members === undefined
-      ? currentAccountMemberList(client)
-      : yield* resolveMembers(client, params.members)
+  Effect.gen(function* () {
+    const owners =
+      params.owners === undefined ? currentAccountMemberList(client) : yield* resolveMembers(client, params.owners)
+    const baseMembers =
+      params.members === undefined ? currentAccountMemberList(client) : yield* resolveMembers(client, params.members)
 
-    return {
-      members: mergeUniqueSortedAccountUuids(baseMembers, owners),
-      owners: sortStrings(owners)
-    }
+    return { members: mergeUniqueSortedAccountUuids(baseMembers, owners), owners: sortStrings(owners) }
   })
 
 const buildUpdateDriveOperations = (params: UpdateDriveParams): DocumentUpdate<DriveSpace> => {
@@ -93,16 +88,16 @@ const updateDriveDoc = (
 ): Effect.Effect<void, DriveOperationError> =>
   client.updateDoc(drive.class.Drive, core.space.Space, driveSpace._id, operations).pipe(Effect.asVoid)
 
-const withDriveUpdates = (
-  driveSpace: DriveSpace,
-  operations: DocumentUpdate<DriveSpace>
-): DriveSpace => ({ ...driveSpace, ...operations })
+const withDriveUpdates = (driveSpace: DriveSpace, operations: DocumentUpdate<DriveSpace>): DriveSpace => ({
+  ...driveSpace,
+  ...operations
+})
 
 const mutateDriveMembers = (
   params: DriveMemberMutationParams,
   mutateMembers: MemberListMutation
 ): Effect.Effect<DriveMemberMutationResult, DriveOperationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const driveSpace = yield* resolveDrive(client, params.drive)
     const resolvedMembers = yield* resolveMembers(client, params.members)
@@ -134,7 +129,7 @@ const findDriveChildren = (
   { readonly folders: ReadonlyArray<Folder>; readonly files: ReadonlyArray<File> },
   DriveOperationError
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const folders = yield* client.findAll<Folder>(drive.class.Folder, hulyQuery<Folder>({ space: driveSpace._id }))
     const files = yield* client.findAll<File>(drive.class.File, hulyQuery<File>({ space: driveSpace._id }))
     return { folders, files }
@@ -143,7 +138,7 @@ const findDriveChildren = (
 export const createDrive = (
   params: CreateDriveParams
 ): Effect.Effect<CreateDriveResult, DriveOperationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const existing = yield* client.findOne<DriveSpace>(
       drive.class.Drive,
@@ -187,7 +182,7 @@ export const createDrive = (
 export const updateDrive = (
   params: UpdateDriveParams
 ): Effect.Effect<UpdateDriveResult, DriveOperationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_drive", params, UPDATE_DRIVE_FIELDS)
     const client = yield* HulyClient
     const driveSpace = yield* resolveDrive(client, params.drive)
@@ -200,7 +195,7 @@ export const updateDrive = (
 export const deleteDrive = (
   params: DeleteDriveParams
 ): Effect.Effect<DeleteDriveResult, DriveOperationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const driveSpace = yield* resolveDrive(client, params.drive)
     const children = yield* findDriveChildren(client, driveSpace)
@@ -233,7 +228,7 @@ export const removeDriveMembers = (
 export const setDriveOwners = (
   params: SetDriveOwnersParams
 ): Effect.Effect<SetDriveOwnersResult, DriveOperationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const driveSpace = yield* resolveDrive(client, params.drive)
     const owners = (yield* resolveMembers(client, params.owners)).map(toAccountUuid)
@@ -244,17 +239,10 @@ export const setDriveOwners = (
     const currentOwners = sortStrings(driveSpace.owners ?? []).map(toAccountUuid)
     const changedOwners = !arraysEqual(currentOwners, owners)
     const changedMembers = !arraysEqual(sortStrings(driveSpace.members), nextMembers)
-    const updatedDrive: DriveSpace = {
-      ...driveSpace,
-      owners,
-      members: nextMembers
-    }
+    const updatedDrive: DriveSpace = { ...driveSpace, owners, members: nextMembers }
 
     if (changedOwners || changedMembers) {
-      yield* updateDriveDoc(client, driveSpace, {
-        owners,
-        ...(changedMembers ? { members: nextMembers } : {})
-      })
+      yield* updateDriveDoc(client, driveSpace, { owners, ...(changedMembers ? { members: nextMembers } : {}) })
     }
 
     return {

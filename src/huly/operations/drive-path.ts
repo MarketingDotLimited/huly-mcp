@@ -15,18 +15,12 @@ export const normalizeDrivePath = (input: string): NormalizedDrivePath => {
     return [...acc, rawSegment]
   }, [])
 
-  return {
-    path: segments.length === 0 ? "/" : `/${segments.join("/")}`,
-    segments
-  }
+  return { path: segments.length === 0 ? "/" : `/${segments.join("/")}`, segments }
 }
 
 export const parentPathOf = (path: NormalizedDrivePath): NormalizedDrivePath => {
   const parentSegments = path.segments.slice(0, DROP_LAST_SEGMENT)
-  return {
-    path: parentSegments.length === 0 ? "/" : `/${parentSegments.join("/")}`,
-    segments: parentSegments
-  }
+  return { path: parentSegments.length === 0 ? "/" : `/${parentSegments.join("/")}`, segments: parentSegments }
 }
 
 export const childPath = (parentPath: string, title: string): string =>

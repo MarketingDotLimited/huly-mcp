@@ -52,7 +52,7 @@ const markupBlobRef = (value: string): MarkupBlobRef => value as MarkupBlobRef
 // The test Huly port receives already-decoded query/update objects from operation code.
 // This narrows unknown port payloads to inspect captured fields without changing behavior.
 const recordFromPort = (value: unknown): Record<string, unknown> => value as Record<string, unknown>
-const arrayFromPort = (value: unknown): ReadonlyArray<unknown> => Array.isArray(value) ? value : []
+const arrayFromPort = (value: unknown): ReadonlyArray<unknown> => (Array.isArray(value) ? value : [])
 const idInFilter = (value: unknown): ReadonlyArray<unknown> =>
   value === undefined ? [] : arrayFromPort(recordFromPort(value).$in)
 const userId: PersonId = personId("user-1")
@@ -189,10 +189,11 @@ const testLayer = (captures: Captures = {}, fixtures: TestFixtures = {}) => {
   const findAll: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown) => {
     const q = recordFromPort(query)
     if (_class === documentPlugin.class.DocumentSnapshot) {
-      const filtered = snapshots.filter((snapshot) =>
-        q.attachedTo === snapshot.attachedTo
-        && (q.title === undefined || q.title === snapshot.title)
-        && (q.createdOn === undefined || q.createdOn === snapshot.createdOn)
+      const filtered = snapshots.filter(
+        (snapshot) =>
+          q.attachedTo === snapshot.attachedTo &&
+          (q.title === undefined || q.title === snapshot.title) &&
+          (q.createdOn === undefined || q.createdOn === snapshot.createdOn)
       )
       return Effect.succeed(toFindResult(filtered))
     }
@@ -212,11 +213,13 @@ const testLayer = (captures: Captures = {}, fixtures: TestFixtures = {}) => {
       return Effect.succeed(toFindResult([space]))
     }
     if (_class === tracker.class.RelatedIssueTarget) {
-      const filtered = relatedTargets.filter((target) =>
-        (q["rule.kind"] === undefined || q["rule.kind"] === target.rule.kind)
-        && (q["rule.space"] === undefined || target.rule.kind === "spaceRule" && q["rule.space"] === target.rule.space)
-        && (q["rule.ofClass"] === undefined
-          || target.rule.kind === "classRule" && q["rule.ofClass"] === target.rule.ofClass)
+      const filtered = relatedTargets.filter(
+        (target) =>
+          (q["rule.kind"] === undefined || q["rule.kind"] === target.rule.kind) &&
+          (q["rule.space"] === undefined ||
+            (target.rule.kind === "spaceRule" && q["rule.space"] === target.rule.space)) &&
+          (q["rule.ofClass"] === undefined ||
+            (target.rule.kind === "classRule" && q["rule.ofClass"] === target.rule.ofClass))
       )
       return Effect.succeed(toFindResult(filtered))
     }
@@ -234,10 +237,11 @@ const testLayer = (captures: Captures = {}, fixtures: TestFixtures = {}) => {
     }
     if (_class === documentPlugin.class.DocumentSnapshot) {
       return Effect.succeed(
-        snapshots.find((snapshot) =>
-          q.attachedTo === snapshot.attachedTo
-          && (q._id === undefined || q._id === snapshot._id)
-          && (q.title === undefined || q.title === snapshot.title)
+        snapshots.find(
+          (snapshot) =>
+            q.attachedTo === snapshot.attachedTo &&
+            (q._id === undefined || q._id === snapshot._id) &&
+            (q.title === undefined || q.title === snapshot.title)
         )
       )
     }
@@ -249,12 +253,13 @@ const testLayer = (captures: Captures = {}, fixtures: TestFixtures = {}) => {
     }
     if (_class === tracker.class.RelatedIssueTarget) {
       return Effect.succeed(
-        relatedTargets.find((target) =>
-          (q["rule.kind"] === undefined || q["rule.kind"] === target.rule.kind)
-          && (q["rule.space"] === undefined
-            || target.rule.kind === "spaceRule" && q["rule.space"] === target.rule.space)
-          && (q["rule.ofClass"] === undefined
-            || target.rule.kind === "classRule" && q["rule.ofClass"] === target.rule.ofClass)
+        relatedTargets.find(
+          (target) =>
+            (q["rule.kind"] === undefined || q["rule.kind"] === target.rule.kind) &&
+            (q["rule.space"] === undefined ||
+              (target.rule.kind === "spaceRule" && q["rule.space"] === target.rule.space)) &&
+            (q["rule.ofClass"] === undefined ||
+              (target.rule.kind === "classRule" && q["rule.ofClass"] === target.rule.ofClass))
         )
       )
     }
@@ -274,13 +279,17 @@ const testLayer = (captures: Captures = {}, fixtures: TestFixtures = {}) => {
   }) as HulyClientOperations["createDoc"]
 
   // See findAll above: the implementation captures the generic update document payload.
-  const updateDoc: HulyClientOperations["updateDoc"] =
-    ((_class: unknown, _space: unknown, _id: unknown, operations: unknown) => {
-      if (captures.updateDoc !== undefined) {
-        captures.updateDoc.operations = recordFromPort(operations)
-      }
-      return Effect.succeed({} as never)
-    }) as HulyClientOperations["updateDoc"]
+  const updateDoc: HulyClientOperations["updateDoc"] = ((
+    _class: unknown,
+    _space: unknown,
+    _id: unknown,
+    operations: unknown
+  ) => {
+    if (captures.updateDoc !== undefined) {
+      captures.updateDoc.operations = recordFromPort(operations)
+    }
+    return Effect.succeed({} as never)
+  }) as HulyClientOperations["updateDoc"]
 
   const removeDoc: HulyClientOperations["removeDoc"] = ((_class: unknown, docSpace: unknown, id: unknown) => {
     if (captures.removeDoc !== undefined) {
@@ -302,7 +311,7 @@ const testLayer = (captures: Captures = {}, fixtures: TestFixtures = {}) => {
 
 describe("issue #102 operations", () => {
   it.effect("lists and gets document snapshots with markdown only on get", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const listed = yield* listDocumentSnapshots({
         document: DocumentIdentifier.make("Spec"),
         teamspace: TeamspaceIdentifier.make("Docs")
@@ -320,11 +329,7 @@ describe("issue #102 operations", () => {
       const listedWithoutCreatedOn = yield* listDocumentSnapshots({
         document: DocumentIdentifier.make("Spec"),
         teamspace: TeamspaceIdentifier.make("Docs")
-      }).pipe(
-        Effect.provide(testLayer({}, {
-          snapshots: [snapshotWithoutCreatedOn]
-        }))
-      )
+      }).pipe(Effect.provide(testLayer({}, { snapshots: [snapshotWithoutCreatedOn] })))
       expect(listedWithoutCreatedOn.snapshots[0]?.createdOn).toBeUndefined()
 
       const got = yield* getDocumentSnapshot({
@@ -333,10 +338,11 @@ describe("issue #102 operations", () => {
         teamspace: TeamspaceIdentifier.make("Docs")
       }).pipe(Effect.provide(testLayer()))
       expect(got.markdown).toBe("# Snapshot")
-    }))
+    })
+  )
 
   it.effect("resolves document snapshots by title and createdOn and reports ambiguous or missing matches", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const byTitle = yield* getDocumentSnapshot({
         document: DocumentIdentifier.make("Spec"),
         snapshot: DocumentSnapshotIdentifier.make("Before release"),
@@ -379,10 +385,11 @@ describe("issue #102 operations", () => {
         }).pipe(Effect.provide(testLayer()))
       )
       expect(Exit.isFailure(missing)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("lists and upserts project target preferences using Effect clock", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const listedAll = yield* listProjectTargetPreferences({}).pipe(Effect.provide(testLayer()))
       expect(listedAll.total).toBe(1)
 
@@ -409,9 +416,9 @@ describe("issue #102 operations", () => {
         usedOn: 123
       })
 
-      const preserved = yield* upsertProjectTargetPreference({
-        project: ProjectIdentifier.make("PRJ")
-      }).pipe(Effect.provide(testLayer({ updateDoc: {} })))
+      const preserved = yield* upsertProjectTargetPreference({ project: ProjectIdentifier.make("PRJ") }).pipe(
+        Effect.provide(testLayer({ updateDoc: {} }))
+      )
       expect(preserved.preference.props).toEqual([{ key: "github:repo", value: "repo-1" }])
 
       const mixedPreference = makePreference({
@@ -428,10 +435,11 @@ describe("issue #102 operations", () => {
         { key: "view", value: "expanded" },
         { key: "github:repo", value: "repo-2" }
       ])
-    }))
+    })
+  )
 
   it.effect("creates project target preferences when none exists", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       yield* TestClock.adjust("456 millis")
       const captures: Captures = { createDoc: {} }
       const upserted = yield* upsertProjectTargetPreference({
@@ -452,13 +460,9 @@ describe("issue #102 operations", () => {
       )
       expect(empty).toEqual({ preferences: [], total: 0 })
 
-      const { props: _props, ...preferenceWithoutProps } = makePreference({
-        attachedTo: ref("missing-project")
-      })
+      const { props: _props, ...preferenceWithoutProps } = makePreference({ attachedTo: ref("missing-project") })
       const unlinked = yield* listProjectTargetPreferences({}).pipe(
-        Effect.provide(testLayer({}, {
-          preference: preferenceWithoutProps
-        }))
+        Effect.provide(testLayer({}, { preference: preferenceWithoutProps }))
       )
       expect(assertAt(unlinked.preferences, 0)).toMatchObject({
         attachedTo: "missing-project",
@@ -467,14 +471,15 @@ describe("issue #102 operations", () => {
       })
       expect(unlinked.preferences[0]?.project).toBeUndefined()
 
-      const createdWithoutProps = yield* upsertProjectTargetPreference({
-        project: ProjectIdentifier.make("PRJ")
-      }).pipe(Effect.provide(testLayer({}, { preference: undefined })))
+      const createdWithoutProps = yield* upsertProjectTargetPreference({ project: ProjectIdentifier.make("PRJ") }).pipe(
+        Effect.provide(testLayer({}, { preference: undefined }))
+      )
       expect(createdWithoutProps.preference.props).toEqual([])
-    }))
+    })
+  )
 
   it.effect("creates a related issue spaceRule but refuses to create a missing classRule", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures: Captures = { createDoc: {} }
       const created = yield* setRelatedIssueTarget({
         space: SpaceIdentifier.make("space-1"),
@@ -495,45 +500,32 @@ describe("issue #102 operations", () => {
         }).pipe(Effect.provide(testLayer()))
       )
       expect(Exit.isFailure(classRuleExit)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("lists, updates, and deletes related issue targets", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const spaceTarget = makeRelatedSpaceTarget()
       const classTarget = makeRelatedClassTarget()
-      const rawTarget = makeRelatedClassTarget({
-        _id: ref("related-class-target-2"),
-        target: ref("missing-project")
-      })
-      const nullSpaceTarget = makeRelatedSpaceTarget({
-        _id: ref("related-target-2"),
-        target: null
-      })
+      const rawTarget = makeRelatedClassTarget({ _id: ref("related-class-target-2"), target: ref("missing-project") })
+      const nullSpaceTarget = makeRelatedSpaceTarget({ _id: ref("related-target-2"), target: null })
       const missingSpaceMetadataTarget = makeRelatedSpaceTarget({
         _id: ref("related-target-3"),
         rule: { kind: "spaceRule", space: ref("missing-space") }
       })
 
       const invalidFilter = yield* Effect.exit(
-        parseListRelatedIssueTargetsParams({
-          objectClass: "document:class:Document",
-          space: "space-1"
-        })
+        parseListRelatedIssueTargetsParams({ objectClass: "document:class:Document", space: "space-1" })
       )
       expect(Exit.isFailure(invalidFilter)).toBe(true)
 
       const validUnfiltered = yield* parseListRelatedIssueTargetsParams({})
       expect(validUnfiltered).toEqual({})
 
-      const validSpaceLocator = yield* parseSetRelatedIssueTargetParams({
-        space: "space-1",
-        targetProject: null
-      })
+      const validSpaceLocator = yield* parseSetRelatedIssueTargetParams({ space: "space-1", targetProject: null })
       expect(validSpaceLocator).toEqual({ space: "space-1", targetProject: null })
 
-      const missingSetLocator = yield* Effect.exit(
-        parseSetRelatedIssueTargetParams({ targetProject: null })
-      )
+      const missingSetLocator = yield* Effect.exit(parseSetRelatedIssueTargetParams({ targetProject: null }))
       expect(Exit.isFailure(missingSetLocator)).toBe(true)
 
       const invalidSetLocator = yield* Effect.exit(
@@ -558,10 +550,7 @@ describe("issue #102 operations", () => {
         Effect.provide(testLayer({}, { relatedTargets: [nullSpaceTarget, rawTarget, missingSpaceMetadataTarget] }))
       )
       expect(listedAll.targets.map((target) => target.targetProject)).toEqual([null, "missing-project", "PRJ"])
-      expect(listedAll.targets[2]?.rule).toEqual({
-        kind: "spaceRule",
-        spaceId: "missing-space"
-      })
+      expect(listedAll.targets[2]?.rule).toEqual({ kind: "spaceRule", spaceId: "missing-space" })
 
       const listedSpace = yield* listRelatedIssueTargets({ space: SpaceIdentifier.make("space-1") }).pipe(
         Effect.provide(testLayer({}, { relatedTargets: [spaceTarget, classTarget] }))
@@ -600,10 +589,9 @@ describe("issue #102 operations", () => {
       expect(captures.removeDoc).toMatchObject({ id: "related-target-1", space: "space-1" })
 
       const missingDelete = yield* Effect.exit(
-        deleteRelatedIssueSpaceTarget({ space: SpaceIdentifier.make("space-1") }).pipe(
-          Effect.provide(testLayer())
-        )
+        deleteRelatedIssueSpaceTarget({ space: SpaceIdentifier.make("space-1") }).pipe(Effect.provide(testLayer()))
       )
       expect(Exit.isFailure(missingDelete)).toBe(true)
-    }))
+    })
+  )
 })

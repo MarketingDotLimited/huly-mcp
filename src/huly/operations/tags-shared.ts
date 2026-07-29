@@ -84,10 +84,7 @@ export const toResolvedTagElement = (tag: HulyTagElement, created: boolean): Res
   created
 })
 
-const createdResolvedTagElement = (
-  id: Ref<HulyTagElement>,
-  data: Data<HulyTagElement>
-): ResolvedTagElement => ({
+const createdResolvedTagElement = (id: Ref<HulyTagElement>, data: Data<HulyTagElement>): ResolvedTagElement => ({
   id,
   title: data.title,
   targetClass: data.targetClass,
@@ -115,24 +112,18 @@ const findTagElementByIdOrTitle = (
   targetClass: string,
   idOrTitle: string
 ): Effect.Effect<HulyTagElement | undefined, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const targetClassRef = toTargetClassRef(targetClass)
 
     const byId = yield* client.findOne<HulyTagElement>(
       tags.class.TagElement,
-      hulyQuery<HulyTagElement>({
-        _id: toTagElementRef(idOrTitle),
-        targetClass: targetClassRef
-      })
+      hulyQuery<HulyTagElement>({ _id: toTagElementRef(idOrTitle), targetClass: targetClassRef })
     )
     if (byId !== undefined) return byId
 
     return yield* client.findOne<HulyTagElement>(
       tags.class.TagElement,
-      hulyQuery<HulyTagElement>({
-        title: idOrTitle,
-        targetClass: targetClassRef
-      })
+      hulyQuery<HulyTagElement>({ title: idOrTitle, targetClass: targetClassRef })
     )
   })
 
@@ -141,7 +132,7 @@ export const findTagElementOrFail = (
   targetClass: string,
   idOrTitle: string
 ): Effect.Effect<HulyTagElement, TagNotFoundError | HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const tag = yield* findTagElementByIdOrTitle(client, targetClass, idOrTitle)
     if (tag === undefined) {
       return yield* new TagNotFoundError({ identifier: idOrTitle })
@@ -155,10 +146,7 @@ const findDefaultCategory = (
 ): Effect.Effect<HulyTagCategory | undefined, HulyClientError> =>
   client.findOne<HulyTagCategory>(
     tags.class.TagCategory,
-    hulyQuery<HulyTagCategory>({
-      targetClass: toTargetClassRef(targetClass),
-      default: true
-    })
+    hulyQuery<HulyTagCategory>({ targetClass: toTargetClassRef(targetClass), default: true })
   )
 
 const findTagCategoryByIdOrLabelForTarget = (
@@ -166,24 +154,18 @@ const findTagCategoryByIdOrLabelForTarget = (
   targetClass: string,
   idOrLabel: string
 ): Effect.Effect<HulyTagCategory | undefined, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const targetClassRef = toTargetClassRef(targetClass)
 
     const byId = yield* client.findOne<HulyTagCategory>(
       tags.class.TagCategory,
-      hulyQuery<HulyTagCategory>({
-        _id: toTagCategoryRef(idOrLabel),
-        targetClass: targetClassRef
-      })
+      hulyQuery<HulyTagCategory>({ _id: toTagCategoryRef(idOrLabel), targetClass: targetClassRef })
     )
     if (byId !== undefined) return byId
 
     return yield* client.findOne<HulyTagCategory>(
       tags.class.TagCategory,
-      hulyQuery<HulyTagCategory>({
-        label: idOrLabel,
-        targetClass: targetClassRef
-      })
+      hulyQuery<HulyTagCategory>({ label: idOrLabel, targetClass: targetClassRef })
     )
   })
 
@@ -193,7 +175,7 @@ export const resolveTagCategoryRef = (
   category: string | undefined,
   fallbackCategory?: Ref<HulyTagCategory>
 ): Effect.Effect<Ref<HulyTagCategory>, TagCategoryNotFoundError | HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (category !== undefined) {
       const resolved = yield* findTagCategoryByIdOrLabelForTarget(client, targetClass, category)
       if (resolved === undefined) {
@@ -209,7 +191,7 @@ export const resolveTagCategoryRef = (
 export const ensureTagElement = (
   params: EnsureTagElementParams
 ): Effect.Effect<ResolvedTagElement, CreateTagError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const targetClassRef = toTargetClassRef(params.targetClass)
     const existing = yield* findTagElementByIdOrTitle(client, params.targetClass, params.titleOrId)
@@ -228,12 +210,7 @@ export const ensureTagElement = (
       category
     }
 
-    yield* client.createDoc(
-      tags.class.TagElement,
-      toRef<Space>(core.space.Workspace),
-      tagData,
-      tagId
-    )
+    yield* client.createDoc(tags.class.TagElement, toRef<Space>(core.space.Workspace), tagData, tagId)
 
     return createdResolvedTagElement(tagId, tagData)
   })
@@ -242,7 +219,7 @@ export const listTagReferencesForObject = (
   client: HulyClient["Type"],
   params: RawTagObjectLocator
 ): Effect.Effect<Array<TagReference>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const query: StrictDocumentQuery<TagReference> = {
       attachedTo: toDocRef(params.objectId),
       attachedToClass: toTargetClassRef(params.objectClass),
@@ -250,17 +227,15 @@ export const listTagReferencesForObject = (
       collection: params.collection
     }
 
-    return yield* client.findAll<TagReference>(
-      tags.class.TagReference,
-      hulyQuery(query),
-      { sort: { modifiedOn: SortingOrder.Descending } }
-    )
+    return yield* client.findAll<TagReference>(tags.class.TagReference, hulyQuery(query), {
+      sort: { modifiedOn: SortingOrder.Descending }
+    })
   })
 
 export const attachTagReference = (
   params: AttachTagReferenceParams
 ): Effect.Effect<AttachTagResult, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const existingRefs = yield* listTagReferencesForObject(client, {
       objectId: params.objectId,
@@ -269,12 +244,10 @@ export const attachTagReference = (
       collection: params.collection
     })
     const tagTitle = params.tag.title.trim().toLowerCase()
-    const existing = existingRefs.find((tagRef) =>
-      tagRef.tag === params.tag.id
-      || (
-        params.matchTitleCaseInsensitive === true
-        && tagRef.title.trim().toLowerCase() === tagTitle
-      )
+    const existing = existingRefs.find(
+      (tagRef) =>
+        tagRef.tag === params.tag.id ||
+        (params.matchTitleCaseInsensitive === true && tagRef.title.trim().toLowerCase() === tagTitle)
     )
 
     if (existing !== undefined) {
@@ -286,18 +259,10 @@ export const attachTagReference = (
       }
     }
 
-    const attributes: AttachedData<TagReference> = params.weight === undefined
-      ? {
-        title: params.tag.title,
-        color: params.tag.color,
-        tag: params.tag.id
-      }
-      : {
-        title: params.tag.title,
-        color: params.tag.color,
-        tag: params.tag.id,
-        weight: params.weight
-      }
+    const attributes: AttachedData<TagReference> =
+      params.weight === undefined
+        ? { title: params.tag.title, color: params.tag.color, tag: params.tag.id }
+        : { title: params.tag.title, color: params.tag.color, tag: params.tag.id, weight: params.weight }
 
     const tagReferenceId = yield* client.addCollection(
       tags.class.TagReference,
@@ -319,7 +284,7 @@ export const attachTagReference = (
 export const detachTagReference = (
   params: DetachTagReferenceParams
 ): Effect.Effect<DetachTagResult, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const existingRefs = yield* listTagReferencesForObject(client, {
       objectId: params.objectId,
@@ -330,15 +295,8 @@ export const detachTagReference = (
     const matchingRefs = existingRefs.filter((tagRef) => tagRef.tag === params.tag.id)
 
     for (const tagRef of matchingRefs) {
-      yield* client.removeDoc(
-        tags.class.TagReference,
-        toSpaceRef(params.space),
-        toTagReferenceRef(tagRef._id)
-      )
+      yield* client.removeDoc(tags.class.TagReference, toSpaceRef(params.space), toTagReferenceRef(tagRef._id))
     }
 
-    return {
-      detached: matchingRefs.length > 0,
-      detachedCount: Count.make(matchingRefs.length)
-    }
+    return { detached: matchingRefs.length > 0, detachedCount: Count.make(matchingRefs.length) }
   })

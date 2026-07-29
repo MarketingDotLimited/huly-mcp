@@ -6,7 +6,7 @@ import {
   REQUIRED_HULY_CONFIG_HEADERS
 } from "./huly-config-constants.js"
 
-type HulyConfigHeader = typeof HULY_CONFIG_HEADERS[number]
+type HulyConfigHeader = (typeof HULY_CONFIG_HEADERS)[number]
 const HeaderValueSchema = Schema.Union(Schema.String, Schema.Array(Schema.String), Schema.Undefined)
 const HeaderRecordSchema = Schema.Record({ key: Schema.String, value: HeaderValueSchema })
 type HeaderValue = Schema.Schema.Type<typeof HeaderValueSchema>
@@ -81,13 +81,7 @@ const sanitizeUrl = (value: unknown, configured: boolean): SanitizedUrlContext =
     if (url.protocol !== "http:" && url.protocol !== "https:") {
       return { configured: true, valid: false }
     }
-    return {
-      configured: true,
-      valid: true,
-      origin: url.origin,
-      host: url.host,
-      protocol: url.protocol
-    }
+    return { configured: true, valid: true, origin: url.origin, host: url.host, protocol: url.protocol }
   } catch {
     return { configured: true, valid: false }
   }
@@ -121,84 +115,42 @@ const sanitizeTimeout = (
   }
 
   if (typeof value !== "string") {
-    return {
-      configured: true,
-      valid: false,
-      defaultMs: DEFAULT_HULY_CONNECTION_TIMEOUT,
-      source: "invalid"
-    }
+    return { configured: true, valid: false, defaultMs: DEFAULT_HULY_CONNECTION_TIMEOUT, source: "invalid" }
   }
 
   const parsed = parsePositiveInteger(value)
   if (parsed === undefined) {
-    return {
-      configured: true,
-      valid: false,
-      defaultMs: DEFAULT_HULY_CONNECTION_TIMEOUT,
-      source: "invalid"
-    }
+    return { configured: true, valid: false, defaultMs: DEFAULT_HULY_CONNECTION_TIMEOUT, source: "invalid" }
   }
 
-  return {
-    configured: true,
-    valid: true,
-    valueMs: parsed,
-    defaultMs: DEFAULT_HULY_CONNECTION_TIMEOUT,
-    source
-  }
+  return { configured: true, valid: true, valueMs: parsed, defaultMs: DEFAULT_HULY_CONNECTION_TIMEOUT, source }
 }
 
 const envFlag = (env: NodeJS.ProcessEnv, name: string): boolean => env[name] !== undefined
 
 const lazyEnvsEnabled = (env: NodeJS.ProcessEnv): boolean => env["LAZY_ENVS"]?.toLowerCase() === "true"
 
-const sanitizeAuthFromEnv = (
-  env: NodeJS.ProcessEnv
-): SanitizedHulyRuntimeConfigContext["auth"] => {
+const sanitizeAuthFromEnv = (env: NodeJS.ProcessEnv): SanitizedHulyRuntimeConfigContext["auth"] => {
   const tokenConfigured = envFlag(env, "HULY_TOKEN")
   const emailConfigured = envFlag(env, "HULY_EMAIL")
   const passwordConfigured = envFlag(env, "HULY_PASSWORD")
 
   if (tokenConfigured) {
-    return {
-      method: "token",
-      source: "env",
-      tokenConfigured,
-      emailConfigured,
-      passwordConfigured
-    }
+    return { method: "token", source: "env", tokenConfigured, emailConfigured, passwordConfigured }
   }
 
   if (emailConfigured && passwordConfigured) {
-    return {
-      method: "password",
-      source: "env",
-      tokenConfigured,
-      emailConfigured,
-      passwordConfigured
-    }
+    return { method: "password", source: "env", tokenConfigured, emailConfigured, passwordConfigured }
   }
 
-  return {
-    method: "unknown",
-    source: "none",
-    tokenConfigured,
-    emailConfigured,
-    passwordConfigured
-  }
+  return { method: "unknown", source: "none", tokenConfigured, emailConfigured, passwordConfigured }
 }
 
-export const sanitizeHulyRuntimeConfigFromEnv = (
-  env: NodeJS.ProcessEnv
-): SanitizedHulyRuntimeConfigContext => ({
+export const sanitizeHulyRuntimeConfigFromEnv = (env: NodeJS.ProcessEnv): SanitizedHulyRuntimeConfigContext => ({
   huly: {
     url: sanitizeUrl(env["HULY_URL"], envFlag(env, "HULY_URL")),
     workspace: sanitizeWorkspace(env["HULY_WORKSPACE"], envFlag(env, "HULY_WORKSPACE")),
-    connectionTimeout: sanitizeTimeout(
-      env["HULY_CONNECTION_TIMEOUT"],
-      envFlag(env, "HULY_CONNECTION_TIMEOUT"),
-      "env"
-    )
+    connectionTimeout: sanitizeTimeout(env["HULY_CONNECTION_TIMEOUT"], envFlag(env, "HULY_CONNECTION_TIMEOUT"), "env")
   },
   auth: sanitizeAuthFromEnv(env),
   configSources: {
@@ -241,9 +193,9 @@ const normalizeHeaderEntry = ([rawName, value]: readonly [string, HeaderValue]):
   value
 ]
 
-const toHulyConfigHeaderEntry = (
-  [name, value]: readonly [string, HeaderValue]
-): readonly [HulyConfigHeader, HeaderValue] | undefined => isHulyConfigHeader(name) ? [name, value] : undefined
+const toHulyConfigHeaderEntry = ([name, value]: readonly [string, HeaderValue]):
+  | readonly [HulyConfigHeader, HeaderValue]
+  | undefined => (isHulyConfigHeader(name) ? [name, value] : undefined)
 
 const isDefinedHeaderEntry = (
   entry: readonly [HulyConfigHeader, HeaderValue] | undefined
@@ -259,7 +211,7 @@ const inspectHeaders = (headers: unknown): HeaderInspection => {
   const supportedEntries = entries.map(toHulyConfigHeaderEntry).filter(isDefinedHeaderEntry)
   const values = new Map<HulyConfigHeader, HeaderValue>(supportedEntries)
   const unsupportedHulyHeaders = entries
-    .flatMap(([name]) => isHulyConfigHeader(name) ? [] : [name])
+    .flatMap(([name]) => (isHulyConfigHeader(name) ? [] : [name]))
     .filter((name, index, names) => names.indexOf(name) === index)
     .sort()
 
@@ -281,9 +233,7 @@ const inspectHeaders = (headers: unknown): HeaderInspection => {
   }
 }
 
-const sanitizeAuthFromHeaders = (
-  inspection: HeaderInspection
-): SanitizedHulyRuntimeConfigContext["auth"] => ({
+const sanitizeAuthFromHeaders = (inspection: HeaderInspection): SanitizedHulyRuntimeConfigContext["auth"] => ({
   method: inspection.hulyToken ? "token" : "unknown",
   source: inspection.hulyToken ? "header" : "none",
   tokenConfigured: inspection.hulyToken,
@@ -308,13 +258,7 @@ export const sanitizeHulyRuntimeConfigFromHeaders = (
   }
 
   if (!inspection.present) {
-    return {
-      ...envContext,
-      configSources: {
-        ...envContext.configSources,
-        headers: headerSources
-      }
-    }
+    return { ...envContext, configSources: { ...envContext.configSources, headers: headerSources } }
   }
 
   return {
@@ -328,9 +272,6 @@ export const sanitizeHulyRuntimeConfigFromHeaders = (
       )
     },
     auth: sanitizeAuthFromHeaders(inspection),
-    configSources: {
-      env: envContext.configSources.env,
-      headers: headerSources
-    }
+    configSources: { env: envContext.configSources.env, headers: headerSources }
   }
 }

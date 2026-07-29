@@ -285,9 +285,9 @@ export const contactTools = [
     {
       name: "update_organization",
       description:
-        "Update fields on an existing organization identified by ID or exact name when that name is unique. Only provided fields are modified. Description supports markdown for CRM notes / revenue summaries / context. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT
-        + " Pass null to clear city or description. If multiple organizations share the same name, use the organization ID.",
+        "Update fields on an existing organization identified by ID or exact name when that name is unique. Only provided fields are modified. Description supports markdown for CRM notes / revenue summaries / context. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT +
+        " Pass null to clear city or description. If multiple organizations share the same name, use the organization ID.",
       category: CATEGORY,
       inputSchema: updateOrganizationParamsJsonSchema,
       resultSchema: UpdateOrganizationResultSchema

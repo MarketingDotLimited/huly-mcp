@@ -16,10 +16,7 @@ export const findChannelsForOwner = <Owner extends ChannelOwner>(
 ): Effect.Effect<Array<Channel>, HulyClientError> =>
   client.findAll<Channel>(
     contact.class.Channel,
-    hulyQuery<Channel>({
-      attachedTo: owner.id,
-      attachedToClass: owner.ownerClass
-    })
+    hulyQuery<Channel>({ attachedTo: owner.id, attachedToClass: owner.ownerClass })
   )
 
 export const findExactChannels = <Owner extends ChannelOwner>(
@@ -46,11 +43,7 @@ export const findChannelByIdForOwner = <Owner extends ChannelOwner>(
   Effect.map(
     client.findOne<Channel>(
       contact.class.Channel,
-      hulyQuery<Channel>({
-        _id: toRef<Channel>(channelId),
-        attachedTo: owner.id,
-        attachedToClass: owner.ownerClass
-      })
+      hulyQuery<Channel>({ _id: toRef<Channel>(channelId), attachedTo: owner.id, attachedToClass: owner.ownerClass })
     ),
     Option.fromNullable
   )

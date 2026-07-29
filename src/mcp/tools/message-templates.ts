@@ -71,12 +71,7 @@ export const messageTemplateTools = [
       category: CATEGORY,
       inputSchema: renderMessageTemplateParamsJsonSchema,
       resultSchema: RenderMessageTemplateResultSchema,
-      annotations: {
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-        readOnlyHint: true
-      }
+      annotations: { destructiveHint: false, idempotentHint: true, openWorldHint: false, readOnlyHint: true }
     },
     parseRenderMessageTemplateParams,
     renderMessageTemplate

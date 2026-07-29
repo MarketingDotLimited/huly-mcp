@@ -62,13 +62,7 @@ describe("generic association locator properties", () => {
   it("GenericObjectLocatorSchema rejects cross-kind field subsets under strict decoding", () => {
     fc.assert(
       fc.property(locatorArbitrary, (locator) => {
-        const poisonedLocator = {
-          ...locator,
-          issue: "HULY-1",
-          document: "Doc",
-          card: "Card",
-          unexpected: "extra"
-        }
+        const poisonedLocator = { ...locator, issue: "HULY-1", document: "Doc", card: "Card", unexpected: "extra" }
 
         expect(decodeSucceeds(GenericObjectLocatorSchema, poisonedLocator)).toBe(false)
       }),
@@ -80,8 +74,9 @@ describe("generic association locator properties", () => {
     fc.assert(
       fc.property(locatorArbitrary, fc.constantFrom("association", "source", "target"), (locator, field) => {
         expect(decodeSucceeds(ListRelationsParamsSchema, {})).toBe(false)
-        expect(decodeSucceeds(ListRelationsParamsSchema, { [field]: field === "association" ? "Dependency" : locator }))
-          .toBe(true)
+        expect(
+          decodeSucceeds(ListRelationsParamsSchema, { [field]: field === "association" ? "Dependency" : locator })
+        ).toBe(true)
       }),
       propertyTestParameters
     )

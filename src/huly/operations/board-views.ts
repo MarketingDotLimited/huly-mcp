@@ -106,7 +106,7 @@ const resolveMenuPages = (
   pages: ReadonlyArray<MenuPage>,
   identifier: BoardMenuPageIdentifier | undefined
 ): Effect.Effect<Array<MenuPage>, BoardMenuPageError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (identifier === undefined) return [...pages]
     const value = String(identifier)
     const pageId = boardMenuPageAliases.get(value.toLowerCase()) ?? value
@@ -124,7 +124,7 @@ const resolveSavedView = (
   savedViews: ReadonlyArray<FilteredView>,
   identifier: BoardSavedViewIdentifier
 ): Effect.Effect<FilteredView, BoardSavedViewError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const value = String(identifier)
     const byId = savedViews.filter((savedView) => savedView._id === value)
     const byIdMatch = byId[0]
@@ -142,13 +142,13 @@ const resolveViewlets = (
   viewlets: ReadonlyArray<Viewlet>,
   identifier: BoardViewletIdentifier | undefined
 ): Effect.Effect<Array<Viewlet>, BoardViewletError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (identifier === undefined) return [...viewlets]
     const value = String(identifier)
     const byId = viewlets.filter((item) => item._id === value)
     if (byId.length > 0) return byId
-    const matches = viewlets.filter((item) =>
-      item.title === value || item.variant === value || item.descriptor === value
+    const matches = viewlets.filter(
+      (item) => item.title === value || item.variant === value || item.descriptor === value
     )
     if (matches.length === 1) return matches
     if (matches.length > 1) {
@@ -195,7 +195,7 @@ const toViewletSummary = (
 export const listBoardMenuPages = (
   params: ListBoardMenuPagesParams
 ): Effect.Effect<ListBoardMenuPagesResult, BoardMenuPageError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const pages = yield* client.findAllInModel<MenuPage>(board.class.MenuPage, hulyQuery<MenuPage>({}))
     const resolved = yield* resolveMenuPages(pages, params.page)
@@ -206,7 +206,7 @@ export const listBoardMenuPages = (
 export const listBoardSavedViews = (
   params: ListBoardSavedViewsParams
 ): Effect.Effect<ListBoardSavedViewsResult, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const account = client.getAccountUuid()
     const nameSearch = params.nameSearch?.trim() ?? ""
@@ -214,11 +214,10 @@ export const listBoardSavedViews = (
       attachedTo: boardApp,
       ...(nameSearch === "" ? {} : { name: { $like: `%${escapeLikeWildcards(nameSearch)}%` } })
     }
-    const savedViews = yield* client.findAll<FilteredView>(
-      view.class.FilteredView,
-      hulyQuery(query),
-      { sort: { modifiedOn: SortingOrder.Descending }, total: true }
-    )
+    const savedViews = yield* client.findAll<FilteredView>(view.class.FilteredView, hulyQuery(query), {
+      sort: { modifiedOn: SortingOrder.Descending },
+      total: true
+    })
     const visible = filterByVisibility(savedViews, params.visibility, account)
     const limited = visible.slice(0, clampLimit(params.limit))
     return {
@@ -230,7 +229,7 @@ export const listBoardSavedViews = (
 export const getBoardSavedView = (
   params: GetBoardSavedViewParams
 ): Effect.Effect<BoardSavedViewDetail, BoardSavedViewError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const savedViews = yield* client.findAll<FilteredView>(
       view.class.FilteredView,
@@ -243,7 +242,7 @@ export const getBoardSavedView = (
 export const listBoardViewlets = (
   params: ListBoardViewletsParams
 ): Effect.Effect<ListBoardViewletsResult, BoardViewletError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const allViewlets = yield* client.findAllInModel<Viewlet>(
       view.class.Viewlet,
@@ -252,18 +251,20 @@ export const listBoardViewlets = (
     const resolved = yield* resolveViewlets(allViewlets, params.viewlet)
     const limited = resolved.slice(0, clampLimit(params.limit))
     const descriptorIds = [...new Set(limited.map((item) => item.descriptor))]
-    const descriptors = descriptorIds.length === 0
-      ? []
-      : yield* client.findAllInModel<ViewletDescriptor>(
-        view.class.ViewletDescriptor,
-        hulyQuery<ViewletDescriptor>({ _id: { $in: descriptorIds } })
-      )
-    const preferences = limited.length === 0
-      ? []
-      : yield* client.findAll<ViewletPreference>(
-        view.class.ViewletPreference,
-        hulyQuery<ViewletPreference>({ attachedTo: { $in: limited.map((item) => item._id) } })
-      )
+    const descriptors =
+      descriptorIds.length === 0
+        ? []
+        : yield* client.findAllInModel<ViewletDescriptor>(
+            view.class.ViewletDescriptor,
+            hulyQuery<ViewletDescriptor>({ _id: { $in: descriptorIds } })
+          )
+    const preferences =
+      limited.length === 0
+        ? []
+        : yield* client.findAll<ViewletPreference>(
+            view.class.ViewletPreference,
+            hulyQuery<ViewletPreference>({ attachedTo: { $in: limited.map((item) => item._id) } })
+          )
     const descriptorsById = new Map(descriptors.map((descriptor) => [descriptor._id, descriptor]))
     const preferencesFor = (viewletId: Viewlet["_id"]) =>
       preferences.filter((preference) => preference.attachedTo === viewletId)
@@ -277,7 +278,7 @@ export const listBoardViewlets = (
   })
 
 export const getBoardCommonPreference = (): Effect.Effect<BoardCommonPreferenceResult, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const preference = yield* client.findOne<CommonBoardPreference>(
       board.class.CommonBoardPreference,

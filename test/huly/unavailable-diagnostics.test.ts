@@ -14,10 +14,13 @@ describe("unavailable Huly diagnostics", () => {
   })
 
   it("classifies only allow-listed connection details", () => {
-    expect(classifyHulyUnavailableFailure(Object.assign(new Error("hidden secret"), { code: "ECONNREFUSED" })))
-      .toEqual(["refused", "ECONNREFUSED"])
-    expect(classifyHulyUnavailableFailure(new Error("gateway returned 503 for token=secret")))
-      .toEqual(["http_unavailable", undefined])
+    expect(classifyHulyUnavailableFailure(Object.assign(new Error("hidden secret"), { code: "ECONNREFUSED" }))).toEqual(
+      ["refused", "ECONNREFUSED"]
+    )
+    expect(classifyHulyUnavailableFailure(new Error("gateway returned 503 for token=secret"))).toEqual([
+      "http_unavailable",
+      undefined
+    ])
   })
 
   it("classifies each safe failure category without retaining backend text", () => {
@@ -25,10 +28,14 @@ describe("unavailable Huly diagnostics", () => {
     expect(classifyHulyUnavailableFailure(new Error("TLS certificate failed"))).toEqual(["tls", undefined])
     expect(classifyHulyUnavailableFailure(new Error("getaddrinfo failed"))).toEqual(["dns", undefined])
     expect(classifyHulyUnavailableFailure(new Error("unexpected token=secret"))).toEqual(["unknown", undefined])
-    expect(classifyHulyUnavailableFailure(Object.assign(new Error("hidden"), { code: "ENOTFOUND" })))
-      .toEqual(["dns", "ENOTFOUND"])
-    expect(classifyHulyUnavailableFailure(Object.assign(new Error("hidden"), { code: "EUNKNOWN" })))
-      .toEqual(["unknown", undefined])
+    expect(classifyHulyUnavailableFailure(Object.assign(new Error("hidden"), { code: "ENOTFOUND" }))).toEqual([
+      "dns",
+      "ENOTFOUND"
+    ])
+    expect(classifyHulyUnavailableFailure(Object.assign(new Error("hidden"), { code: "EUNKNOWN" }))).toEqual([
+      "unknown",
+      undefined
+    ])
   })
 
   it("rejects empty endpoint values", () => {

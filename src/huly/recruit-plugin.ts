@@ -31,17 +31,11 @@ export const recruitIds = {
     Candidate: recruitMixinRef<Candidate>("recruit:mixin:Candidate"),
     DefaultVacancyTypeData: recruitMixinRef<Vacancy>("recruit:mixin:DefaultVacancyTypeData")
   },
-  template: {
-    DefaultVacancy: recruitDocRef<Doc>("recruit:template:DefaultVacancy")
-  },
+  template: { DefaultVacancy: recruitDocRef<Doc>("recruit:template:DefaultVacancy") },
   descriptors: {
     Application: recruitDocRef<Doc>("recruit:descriptors:Application"),
     VacancyType: recruitDocRef<Doc>("recruit:descriptors:VacancyType")
   },
-  taskTypes: {
-    Applicant: recruitDocRef<Doc>("recruit:taskTypes:Applicant")
-  },
-  attribute: {
-    State: recruitDocRef<Doc>("recruit:attribute:State")
-  }
+  taskTypes: { Applicant: recruitDocRef<Doc>("recruit:taskTypes:Applicant") },
+  attribute: { State: recruitDocRef<Doc>("recruit:attribute:State") }
 } as const

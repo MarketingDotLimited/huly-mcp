@@ -52,12 +52,7 @@ export const LeadIdentifier = Schema.transformOrFail(Schema.String, CanonicalLea
       : ParseResult.fail(new ParseResult.Type(ast, input, "Expected lead identifier like 'LEAD-1'"))
   },
   encode: ParseResult.succeed
-}).annotations({
-  jsonSchema: {
-    type: "string",
-    pattern: "^LEAD-[0-9]+$"
-  }
-})
+}).annotations({ jsonSchema: { type: "string", pattern: "^LEAD-[0-9]+$" } })
 export type LeadIdentifier = Schema.Schema.Type<typeof LeadIdentifier>
 
 // --- Output Schemas ---
@@ -67,10 +62,7 @@ export const FunnelSummarySchema = Schema.Struct({
   name: Schema.String,
   description: Schema.optional(Schema.String),
   archived: Schema.Boolean
-}).annotations({
-  title: "FunnelSummary",
-  description: "Sales funnel summary"
-})
+}).annotations({ title: "FunnelSummary", description: "Sales funnel summary" })
 
 export type FunnelSummary = Schema.Schema.Type<typeof FunnelSummarySchema>
 
@@ -81,10 +73,7 @@ export const LeadSummarySchema = Schema.Struct({
   assignee: Schema.optional(PersonName),
   customer: Schema.optional(Schema.String),
   modifiedOn: Schema.optional(Timestamp)
-}).annotations({
-  title: "LeadSummary",
-  description: "Lead summary for list operations"
-})
+}).annotations({ title: "LeadSummary", description: "Lead summary for list operations" })
 
 export type LeadSummary = Schema.Schema.Type<typeof LeadSummarySchema>
 
@@ -99,28 +88,22 @@ export const LeadDetailSchema = Schema.Struct({
   funnelName: Schema.String,
   modifiedOn: Schema.optional(Timestamp),
   createdOn: Schema.optional(Timestamp)
-}).annotations({
-  title: "LeadDetail",
-  description: "Full lead with all fields"
-})
+}).annotations({ title: "LeadDetail", description: "Full lead with all fields" })
 
 export type LeadDetail = Schema.Schema.Type<typeof LeadDetailSchema>
 
 // --- Param Schemas ---
 
 export const ListFunnelsParamsSchema = Schema.Struct({
-  includeArchived: Schema.optional(Schema.Boolean.annotations({
-    description: `Include archived funnels in results (default: ${DEFAULT_INCLUDE_ARCHIVED}, showing only active)`
-  })),
-  limit: Schema.optional(
-    LimitParam.annotations({
-      description: `Maximum number of funnels to return (default: ${DEFAULT_LIMIT})`
+  includeArchived: Schema.optional(
+    Schema.Boolean.annotations({
+      description: `Include archived funnels in results (default: ${DEFAULT_INCLUDE_ARCHIVED}, showing only active)`
     })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of funnels to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({
-  title: "ListFunnelsParams",
-  description: "Parameters for listing funnels"
-})
+}).annotations({ title: "ListFunnelsParams", description: "Parameters for listing funnels" })
 
 export type ListFunnelsParams = Schema.Schema.Type<typeof ListFunnelsParamsSchema>
 
@@ -128,19 +111,13 @@ const ListLeadsParamsBase = Schema.Struct({
   funnel: FunnelReference.annotations({
     description: "Funnel ID returned by list_funnels, or funnel name for convenience lookup."
   }),
-  status: Schema.optional(StatusName.annotations({
-    description: "Filter by status name"
-  })),
-  assignee: Schema.optional(PersonRefInput.annotations({
-    description: "Filter by assignee email or display name"
-  })),
-  titleSearch: Schema.optional(Schema.String.annotations({
-    description: "Search leads by title substring (case-insensitive)"
-  })),
+  status: Schema.optional(StatusName.annotations({ description: "Filter by status name" })),
+  assignee: Schema.optional(PersonRefInput.annotations({ description: "Filter by assignee email or display name" })),
+  titleSearch: Schema.optional(
+    Schema.String.annotations({ description: "Search leads by title substring (case-insensitive)" })
+  ),
   limit: Schema.optional(
-    LimitParam.annotations({
-      description: `Maximum number of leads to return (default: ${DEFAULT_LIMIT})`
-    })
+    LimitParam.annotations({ description: `Maximum number of leads to return (default: ${DEFAULT_LIMIT})` })
   )
 })
 
@@ -155,13 +132,8 @@ export const GetLeadParamsSchema = Schema.Struct({
   funnel: FunnelReference.annotations({
     description: "Funnel ID returned by list_funnels, or funnel name for convenience lookup."
   }),
-  identifier: LeadIdentifier.annotations({
-    description: "Lead identifier (e.g., 'LEAD-1')"
-  })
-}).annotations({
-  title: "GetLeadParams",
-  description: "Parameters for getting a single lead"
-})
+  identifier: LeadIdentifier.annotations({ description: "Lead identifier (e.g., 'LEAD-1')" })
+}).annotations({ title: "GetLeadParams", description: "Parameters for getting a single lead" })
 
 export type GetLeadParams = Schema.Schema.Type<typeof GetLeadParamsSchema>
 
@@ -176,10 +148,7 @@ export const parseListLeadsParams = Schema.decodeUnknown(ListLeadsParamsSchema)
 export const parseGetLeadParams = Schema.decodeUnknown(GetLeadParamsSchema)
 export const parseLeadDetail = Schema.decodeUnknown(LeadDetailSchema)
 export const parseLeadSummary = Schema.decodeUnknown(LeadSummarySchema)
-export const ListFunnelsResultSchema = Schema.Struct({
-  funnels: Schema.Array(FunnelSummarySchema),
-  total: ListTotal
-})
+export const ListFunnelsResultSchema = Schema.Struct({ funnels: Schema.Array(FunnelSummarySchema), total: ListTotal })
 export type ListFunnelsResult = Schema.Schema.Type<typeof ListFunnelsResultSchema>
 
 export const ListLeadsResultSchema = Schema.Array(LeadSummarySchema)

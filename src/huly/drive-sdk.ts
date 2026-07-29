@@ -60,9 +60,7 @@ export const drive = {
     Folder: toClassRef<Folder>("drive:class:Folder"),
     Resource: toClassRef<Resource>("drive:class:Resource")
   },
-  ids: {
-    Root: toRef<Folder>("drive:ids:Root")
-  },
+  ids: { Root: toRef<Folder>("drive:ids:Root") },
   permission: {
     CreateFile: "drive:permission:CreateFile",
     UpdateFile: "drive:permission:UpdateFile",
@@ -71,9 +69,7 @@ export const drive = {
     UpdateFolder: "drive:permission:UpdateFolder",
     RemoveFolder: "drive:permission:RemoveFolder"
   },
-  spaceType: {
-    DefaultDrive: "drive:spaceType:DefaultDrive"
-  }
+  spaceType: { DefaultDrive: "drive:spaceType:DefaultDrive" }
 } as const
 
 export const computeChildPath = (parent: Folder | undefined): ReadonlyArray<Ref<Folder>> =>

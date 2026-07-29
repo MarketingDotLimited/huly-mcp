@@ -17,7 +17,7 @@ export const findThreadReply = (
   message: ChatMessage,
   replyId: ThreadReplyId
 ): Effect.Effect<HulyThreadMessage, ThreadReplyNotFoundError | HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const reply = yield* client.findOne<HulyThreadMessage>(
       chunter.class.ThreadMessage,
       hulyQuery<HulyThreadMessage>({
@@ -28,10 +28,7 @@ export const findThreadReply = (
     )
 
     if (reply === undefined) {
-      return yield* new ThreadReplyNotFoundError({
-        replyId,
-        messageId: message._id
-      })
+      return yield* new ThreadReplyNotFoundError({ replyId, messageId: message._id })
     }
 
     return reply
@@ -41,7 +38,7 @@ export const removeThreadReply = (
   client: HulyClient["Type"],
   reply: HulyThreadMessage
 ): Effect.Effect<void, RemoveThreadReplyError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const removeCollection = client.removeCollection
     if (removeCollection === undefined) {
       return yield* new HulyError({ message: "Huly client does not support removeCollection" })

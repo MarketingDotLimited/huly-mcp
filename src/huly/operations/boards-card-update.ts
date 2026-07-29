@@ -35,11 +35,12 @@ export const buildCardUpdate = (
   card: HulyBoardCard,
   params: UpdateBoardCardParams
 ): Effect.Effect<DocumentUpdate<HulyBoardCard>, BoardCardWriteError, Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const projectType = params.status === undefined ? undefined : yield* getBoardProjectType(client, resolvedBoard)
-    const kind = projectType === undefined
-      ? undefined
-      : yield* resolveBoardTaskType(client, resolvedBoard, projectType, String(card.kind))
+    const kind =
+      projectType === undefined
+        ? undefined
+        : yield* resolveBoardTaskType(client, resolvedBoard, projectType, String(card.kind))
     type Entries = {
       readonly [K in Field]: Effect.Effect<
         DirectUpdateEntry<Field, DocumentUpdate<HulyBoardCard>, K>,
@@ -50,31 +51,30 @@ export const buildCardUpdate = (
     const entries = {
       title: Effect.succeed(params.title === undefined ? {} : { title: params.title }),
       description: Effect.succeed(
-        params.description === undefined ? {} : {
-          description: descriptionFromMarkdown(params.description ?? "", client.markupUrlConfig)
-        }
+        params.description === undefined
+          ? {}
+          : { description: descriptionFromMarkdown(params.description ?? "", client.markupUrlConfig) }
       ),
-      status: params.status === undefined || projectType === undefined || kind === undefined
-        ? Effect.succeed({})
-        : Effect.map(
-          resolveBoardStatus(client, resolvedBoard, projectType, kind, params.status),
-          (status) => ({ status: status.id })
-        ),
-      assignee: params.assignee === undefined
-        ? Effect.succeed({})
-        : params.assignee === null
-        ? Effect.succeed({ assignee: null })
-        : Effect.map(
-          resolveEmployeeRef(client, params.assignee),
-          (assignee) => ({ assignee: toRef<Person>(assignee) })
-        ),
-      members: Effect.gen(function*() {
+      status:
+        params.status === undefined || projectType === undefined || kind === undefined
+          ? Effect.succeed({})
+          : Effect.map(resolveBoardStatus(client, resolvedBoard, projectType, kind, params.status), (status) => ({
+              status: status.id
+            })),
+      assignee:
+        params.assignee === undefined
+          ? Effect.succeed({})
+          : params.assignee === null
+            ? Effect.succeed({ assignee: null })
+            : Effect.map(resolveEmployeeRef(client, params.assignee), (assignee) => ({
+                assignee: toRef<Person>(assignee)
+              })),
+      members: Effect.gen(function* () {
         if (params.members !== undefined) return { members: [...(yield* resolveEmployeeRefs(client, params.members))] }
         const current = card.members ?? []
         const add = params.addMembers === undefined ? [] : yield* resolveEmployeeRefs(client, params.addMembers)
-        const remove = params.removeMembers === undefined
-          ? []
-          : yield* resolveEmployeeRefs(client, params.removeMembers)
+        const remove =
+          params.removeMembers === undefined ? [] : yield* resolveEmployeeRefs(client, params.removeMembers)
         if (add.length === 0 && remove.length === 0) return {}
         const afterRemove = current.filter((member) => !remove.includes(member))
         const next = [...afterRemove, ...add.filter((member) => !afterRemove.includes(member))]

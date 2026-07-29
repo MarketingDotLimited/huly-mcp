@@ -8,6 +8,4 @@ const decodeCustomFieldDateValue = Schema.decodeUnknown(CustomFieldDateValueSche
 export const parseCustomFieldDateValue = (
   input: string
 ): Effect.Effect<CustomFieldDateTimestamp, InvalidCustomFieldDateValueError> =>
-  decodeCustomFieldDateValue(input).pipe(
-    Effect.mapError(() => new InvalidCustomFieldDateValueError({ value: input }))
-  )
+  decodeCustomFieldDateValue(input).pipe(Effect.mapError(() => new InvalidCustomFieldDateValueError({ value: input })))

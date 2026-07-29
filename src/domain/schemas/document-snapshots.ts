@@ -30,16 +30,10 @@ export const DocumentMarkdown = Schema.String.pipe(Schema.brand("DocumentMarkdow
 export type DocumentMarkdown = Schema.Schema.Type<typeof DocumentMarkdown>
 
 export const ListDocumentSnapshotsParamsSchema = Schema.Struct({
-  teamspace: TeamspaceIdentifier.annotations({
-    description: "Document teamspace name or ID."
-  }),
-  document: DocumentIdentifier.annotations({
-    description: "Document title or ID within the teamspace."
-  }),
+  teamspace: TeamspaceIdentifier.annotations({ description: "Document teamspace name or ID." }),
+  document: DocumentIdentifier.annotations({ description: "Document title or ID within the teamspace." }),
   limit: Schema.optional(
-    LimitParam.annotations({
-      description: `Maximum number of snapshots to return (default: ${DEFAULT_LIMIT}).`
-    })
+    LimitParam.annotations({ description: `Maximum number of snapshots to return (default: ${DEFAULT_LIMIT}).` })
   )
 }).annotations({
   title: "ListDocumentSnapshotsParams",
@@ -48,12 +42,8 @@ export const ListDocumentSnapshotsParamsSchema = Schema.Struct({
 export type ListDocumentSnapshotsParams = Schema.Schema.Type<typeof ListDocumentSnapshotsParamsSchema>
 
 export const GetDocumentSnapshotParamsSchema = Schema.Struct({
-  teamspace: TeamspaceIdentifier.annotations({
-    description: "Document teamspace name or ID."
-  }),
-  document: DocumentIdentifier.annotations({
-    description: "Document title or ID within the teamspace."
-  }),
+  teamspace: TeamspaceIdentifier.annotations({ description: "Document teamspace name or ID." }),
+  document: DocumentIdentifier.annotations({ description: "Document title or ID within the teamspace." }),
   snapshot: DocumentSnapshotIdentifier.annotations({
     description:
       "Snapshot ID, exact snapshot title, or exact createdOn timestamp in milliseconds. Use list_document_snapshots first when unsure."

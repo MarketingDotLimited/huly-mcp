@@ -659,7 +659,7 @@ await server.connect(transport)
 - Integration tests cover happy path + error cases
 - Effect patterns followed (consult effect-solutions before implementing)
 - Code compiles without TypeScript errors
-- Effect Language Service shows no diagnostics
+- `pnpm typecheck:effect` reports no Effect language-service diagnostics
 
 ### Quality Metrics
 - Test coverage >80% for domain operations

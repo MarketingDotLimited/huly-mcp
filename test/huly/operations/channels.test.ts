@@ -226,7 +226,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     }
     if (_class === chunter.class.ChatMessage) {
       const q = query as Record<string, unknown>
-      const filtered = messages.filter(m => m.space === q.space)
+      const filtered = messages.filter((m) => m.space === q.space)
       const opts = options as { sort?: Record<string, number> } | undefined
       let result = [...filtered]
       if (opts?.sort?.createdOn !== undefined) {
@@ -237,9 +237,8 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     }
     if (_class === chunter.class.ThreadMessage) {
       const q = query as { attachedTo?: Ref<ActivityMessage>; space?: Ref<Space> }
-      const filtered = threadMessages.filter(m =>
-        (!q.attachedTo || m.attachedTo === q.attachedTo)
-        && (!q.space || m.space === q.space)
+      const filtered = threadMessages.filter(
+        (m) => (!q.attachedTo || m.attachedTo === q.attachedTo) && (!q.space || m.space === q.space)
       )
       const opts = options as { sort?: Record<string, number> } | undefined
       let result = [...filtered]
@@ -266,7 +265,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     if (_class === contact.class.Person) {
       const q = query as { _id?: { $in?: Array<Ref<Person>> } }
       if (q._id?.$in) {
-        const filtered = persons.filter(p => q._id!.$in!.includes(p._id))
+        const filtered = persons.filter((p) => q._id!.$in!.includes(p._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(persons))
@@ -274,7 +273,9 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     if (_class === contact.mixin.Employee) {
       const q = query as { personUuid?: { $in?: Array<AccountUuid> } }
       if (q.personUuid?.$in) {
-        const filtered = employees.filter(e => e.personUuid !== undefined && q.personUuid!.$in!.includes(e.personUuid))
+        const filtered = employees.filter(
+          (e) => e.personUuid !== undefined && q.personUuid!.$in!.includes(e.personUuid)
+        )
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(employees))
@@ -282,7 +283,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     if (_class === contact.class.SocialIdentity) {
       const q = query as { _id?: { $in?: Array<PersonId> } }
       if (q._id?.$in) {
-        const filtered = socialIdentities.filter(si => q._id!.$in!.includes(si._id))
+        const filtered = socialIdentities.filter((si) => q._id!.$in!.includes(si._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(socialIdentities))
@@ -293,26 +294,21 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === chunter.class.Channel) {
       const q = query as Record<string, unknown>
-      const found = channels.find(c =>
-        (q.name && c.name === q.name)
-        || (q._id && c._id === q._id)
-      )
+      const found = channels.find((c) => (q.name && c.name === q.name) || (q._id && c._id === q._id))
       return Effect.succeed(found)
     }
     if (_class === chunter.class.ChatMessage) {
       const q = query as { _id?: Ref<ChatMessage>; space?: Ref<Space> }
-      const found = messages.find(m =>
-        (!q._id || m._id === q._id)
-        && (!q.space || m.space === q.space)
-      )
+      const found = messages.find((m) => (!q._id || m._id === q._id) && (!q.space || m.space === q.space))
       return Effect.succeed(found)
     }
     if (_class === chunter.class.ThreadMessage) {
       const q = query as { _id?: Ref<HulyThreadMessage>; attachedTo?: Ref<ActivityMessage>; space?: Ref<Space> }
-      const found = threadMessages.find(m =>
-        (!q._id || m._id === q._id)
-        && (!q.attachedTo || m.attachedTo === q.attachedTo)
-        && (!q.space || m.space === q.space)
+      const found = threadMessages.find(
+        (m) =>
+          (!q._id || m._id === q._id) &&
+          (!q.attachedTo || m.attachedTo === q.attachedTo) &&
+          (!q.space || m.space === q.space)
       )
       return Effect.succeed(found)
     }
@@ -332,14 +328,17 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     return Effect.succeed((id ?? "new-channel-id") as Ref<Doc>)
   }) as HulyClientOperations["createDoc"]
 
-  const updateDocImpl: HulyClientOperations["updateDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown, operations: unknown) => {
-      if (config.captureUpdateDoc) {
-        config.captureUpdateDoc.operations = operations as Record<string, unknown>
-      }
-      return Effect.succeed({})
+  const updateDocImpl: HulyClientOperations["updateDoc"] = ((
+    _class: unknown,
+    _space: unknown,
+    _objectId: unknown,
+    operations: unknown
+  ) => {
+    if (config.captureUpdateDoc) {
+      config.captureUpdateDoc.operations = operations as Record<string, unknown>
     }
-  ) as HulyClientOperations["updateDoc"]
+    return Effect.succeed({})
+  }) as HulyClientOperations["updateDoc"]
 
   const addCollectionImpl: HulyClientOperations["addCollection"] = ((
     _class: unknown,
@@ -357,14 +356,12 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     return Effect.succeed((id ?? "new-msg-id") as Ref<Doc>)
   }) as HulyClientOperations["addCollection"]
 
-  const removeDocImpl: HulyClientOperations["removeDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown) => {
-      if (config.captureRemoveDoc) {
-        config.captureRemoveDoc.called = true
-      }
-      return Effect.succeed({})
+  const removeDocImpl: HulyClientOperations["removeDoc"] = ((_class: unknown, _space: unknown, _objectId: unknown) => {
+    if (config.captureRemoveDoc) {
+      config.captureRemoveDoc.called = true
     }
-  ) as HulyClientOperations["removeDoc"]
+    return Effect.succeed({})
+  }) as HulyClientOperations["removeDoc"]
 
   const removeCollectionImpl: NonNullable<HulyClientOperations["removeCollection"]> = <
     T extends Doc,
@@ -401,7 +398,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
 
 describe("listChannels", () => {
   it.effect("returns channels sorted by name", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channels = [
         makeChannel({ _id: "ch-2" as Ref<HulyChannel>, name: "zebra" }),
         makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "alpha" })
@@ -414,66 +411,59 @@ describe("listChannels", () => {
       expect(result).toHaveLength(2)
       expect(assertAt(result, 0).name).toBe("alpha")
       expect(assertAt(result, 1).name).toBe("zebra")
-    }))
+    })
+  )
 
   it.effect("excludes archived channels by default", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureQuery: MockConfig["captureChannelQuery"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        channels: [],
-        captureChannelQuery: captureQuery
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [], captureChannelQuery: captureQuery })
 
       yield* listChannels({}).pipe(Effect.provide(testLayer))
 
       expect(captureQuery.query?.archived).toBe(false)
-    }))
+    })
+  )
 
   it.effect("includes archived channels when requested", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureQuery: MockConfig["captureChannelQuery"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        channels: [],
-        captureChannelQuery: captureQuery
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [], captureChannelQuery: captureQuery })
 
       yield* listChannels({ includeArchived: true }).pipe(Effect.provide(testLayer))
 
       expect(captureQuery.query?.archived).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("uses default limit of 50", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureQuery: MockConfig["captureChannelQuery"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        channels: [],
-        captureChannelQuery: captureQuery
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [], captureChannelQuery: captureQuery })
 
       yield* listChannels({}).pipe(Effect.provide(testLayer))
 
       expect(captureQuery.options?.limit).toBe(50)
-    }))
+    })
+  )
 
   it.effect("enforces max limit of 200", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureQuery: MockConfig["captureChannelQuery"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        channels: [],
-        captureChannelQuery: captureQuery
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [], captureChannelQuery: captureQuery })
 
       yield* listChannels({ limit: 500 }).pipe(Effect.provide(testLayer))
 
       expect(captureQuery.options?.limit).toBe(200)
-    }))
+    })
+  )
 
   it.effect("maps channel fields correctly", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({
         _id: "ch-1" as Ref<HulyChannel>,
         name: "general",
@@ -499,12 +489,13 @@ describe("listChannels", () => {
         messages: 42,
         modifiedOn: 1706500000000
       })
-    }))
+    })
+  )
 })
 
 describe("getChannel", () => {
   it.effect("returns channel by name", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({
         _id: "ch-1" as Ref<HulyChannel>,
         name: "development",
@@ -531,14 +522,12 @@ describe("getChannel", () => {
       expect(result.messages).toBe(10)
       expect(result.modifiedOn).toBe(1706500000000)
       expect(result.createdOn).toBe(1706400000000)
-    }))
+    })
+  )
 
   it.effect("returns channel by ID", () =>
-    Effect.gen(function*() {
-      const channel = makeChannel({
-        _id: "ch-special-id" as Ref<HulyChannel>,
-        name: "random"
-      })
+    Effect.gen(function* () {
+      const channel = makeChannel({ _id: "ch-special-id" as Ref<HulyChannel>, name: "random" })
 
       const testLayer = createTestLayerWithMocks({ channels: [channel] })
 
@@ -546,10 +535,11 @@ describe("getChannel", () => {
 
       expect(result.id).toBe("ch-special-id")
       expect(result.name).toBe("random")
-    }))
+    })
+  )
 
   it.effect("returns ChannelNotFoundError when channel doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ channels: [] })
 
       const error = yield* Effect.flip(
@@ -558,10 +548,11 @@ describe("getChannel", () => {
 
       expect(error._tag).toBe("ChannelNotFoundError")
       expect((error as ChannelNotFoundError).identifier).toBe("nonexistent")
-    }))
+    })
+  )
 
   it.effect("resolves member names", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({
         _id: "ch-1" as Ref<HulyChannel>,
         name: "team",
@@ -588,12 +579,13 @@ describe("getChannel", () => {
       const result = yield* getChannel({ channel: channelIdentifier("team") }).pipe(Effect.provide(testLayer))
 
       expect(result.members).toEqual(["Alice", "Bob"])
-    }))
+    })
+  )
 })
 
 describe("createChannel", () => {
   it.effect("creates channel with minimal params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureCreateDoc: MockConfig["captureCreateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ captureCreateDoc })
@@ -606,76 +598,76 @@ describe("createChannel", () => {
       expect(captureCreateDoc.attributes?.archived).toBe(false)
       expect(captureCreateDoc.attributes?.members).toEqual(["00000000-0000-4000-8000-000000000000"])
       expect(captureCreateDoc.attributes?.owners).toEqual(["00000000-0000-4000-8000-000000000000"])
-    }))
+    })
+  )
 
   it.effect("creates channel with topic and private flag", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureCreateDoc: MockConfig["captureCreateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ captureCreateDoc })
 
-      const result = yield* createChannel({
-        name: "private-channel",
-        topic: "Secret discussions",
-        private: true
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* createChannel({ name: "private-channel", topic: "Secret discussions", private: true }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.name).toBe("private-channel")
       expect(captureCreateDoc.attributes?.topic).toBe("Secret discussions")
       expect(captureCreateDoc.attributes?.private).toBe(true)
-    }))
+    })
+  )
 })
 
 describe("updateChannel", () => {
   it.effect("updates channel name", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "old-name" })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ channels: [channel], captureUpdateDoc })
 
-      const result = yield* updateChannel({
-        channel: channelIdentifier("old-name"),
-        name: "new-name"
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* updateChannel({ channel: channelIdentifier("old-name"), name: "new-name" }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.id).toBe("ch-1")
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.name).toBe("new-name")
-    }))
+    })
+  )
 
   it.effect("updates channel topic", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ channels: [channel], captureUpdateDoc })
 
-      const result = yield* updateChannel({
-        channel: channelIdentifier("general"),
-        topic: "New topic"
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* updateChannel({ channel: channelIdentifier("general"), topic: "New topic" }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.id).toBe("ch-1")
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.topic).toBe("New topic")
-    }))
+    })
+  )
 
   it.effect("clears channel topic with unset when set to null", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general", topic: "Old topic" })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      yield* updateChannel({
-        channel: channelIdentifier("general"),
-        topic: null
-      }).pipe(Effect.provide(createTestLayerWithMocks({ channels: [channel], captureUpdateDoc })))
+      yield* updateChannel({ channel: channelIdentifier("general"), topic: null }).pipe(
+        Effect.provide(createTestLayerWithMocks({ channels: [channel], captureUpdateDoc }))
+      )
 
       expect(captureUpdateDoc.operations).toEqual({ $unset: { topic: "" } })
-    }))
+    })
+  )
 
   it.effect("fails when no fields provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
 
       const testLayer = createTestLayerWithMocks({ channels: [channel] })
@@ -685,10 +677,11 @@ describe("updateChannel", () => {
       )
 
       expect(error._tag).toBe("NoUpdateFieldsError")
-    }))
+    })
+  )
 
   it.effect("returns ChannelNotFoundError when channel doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ channels: [] })
 
       const error = yield* Effect.flip(
@@ -697,12 +690,13 @@ describe("updateChannel", () => {
 
       expect(error._tag).toBe("ChannelNotFoundError")
       expect((error as ChannelNotFoundError).identifier).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("deleteChannel", () => {
   it.effect("deletes channel", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "to-delete" })
       const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
 
@@ -713,10 +707,11 @@ describe("deleteChannel", () => {
       expect(result.id).toBe("ch-1")
       expect(result.deleted).toBe(true)
       expect(captureRemoveDoc.called).toBe(true)
-    }))
+    })
+  )
 
   it.effect("returns ChannelNotFoundError when channel doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ channels: [] })
 
       const error = yield* Effect.flip(
@@ -724,24 +719,17 @@ describe("deleteChannel", () => {
       )
 
       expect(error._tag).toBe("ChannelNotFoundError")
-    }))
+    })
+  )
 })
 
 describe("listChannelMessages", () => {
   it.effect("returns messages sorted by creation date descending", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
       const messages = [
-        makeChatMessage({
-          _id: "msg-1" as Ref<ChatMessage>,
-          space: "ch-1" as Ref<Space>,
-          createdOn: 1000
-        }),
-        makeChatMessage({
-          _id: "msg-2" as Ref<ChatMessage>,
-          space: "ch-1" as Ref<Space>,
-          createdOn: 2000
-        })
+        makeChatMessage({ _id: "msg-1" as Ref<ChatMessage>, space: "ch-1" as Ref<Space>, createdOn: 1000 }),
+        makeChatMessage({ _id: "msg-2" as Ref<ChatMessage>, space: "ch-1" as Ref<Space>, createdOn: 2000 })
       ]
 
       const testLayer = createTestLayerWithMocks({ channels: [channel], messages })
@@ -753,10 +741,11 @@ describe("listChannelMessages", () => {
       expect(result.messages).toHaveLength(2)
       expect(assertAt(result.messages, 0).id).toBe("msg-2")
       expect(assertAt(result.messages, 1).id).toBe("msg-1")
-    }))
+    })
+  )
 
   it.effect("resolves sender names via buildSocialIdToPersonNameMap", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
       const messages = [
         makeChatMessage({
@@ -793,12 +782,7 @@ describe("listChannelMessages", () => {
         })
       ]
 
-      const testLayer = createTestLayerWithMocks({
-        channels: [channel],
-        messages,
-        persons,
-        socialIdentities
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [channel], messages, persons, socialIdentities })
 
       const result = yield* listChannelMessages({ channel: channelIdentifier("general") }).pipe(
         Effect.provide(testLayer)
@@ -812,10 +796,11 @@ describe("listChannelMessages", () => {
       expect(assertAt(result.messages, 1).senderId).toBe("social-bob")
       expect(assertAt(result.messages, 2).sender).toBe("Alice Smith")
       expect(assertAt(result.messages, 2).senderId).toBe("social-alice")
-    }))
+    })
+  )
 
   it.effect("returns ChannelNotFoundError when channel doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ channels: [] })
 
       const error = yield* Effect.flip(
@@ -823,28 +808,29 @@ describe("listChannelMessages", () => {
       )
 
       expect(error._tag).toBe("ChannelNotFoundError")
-    }))
+    })
+  )
 })
 
 describe("sendChannelMessage", () => {
   it.effect("sends message to channel", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
       const testLayer = createTestLayerWithMocks({ channels: [channel], captureAddCollection })
 
-      const result = yield* sendChannelMessage({
-        channel: channelIdentifier("general"),
-        body: "Hello world!"
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* sendChannelMessage({ channel: channelIdentifier("general"), body: "Hello world!" }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.channelId).toBe("ch-1")
       expect(captureAddCollection.attributes).toBeDefined()
-    }))
+    })
+  )
 
   it.effect("preserves native references when sending a channel message", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
@@ -852,22 +838,18 @@ describe("sendChannelMessage", () => {
 
       yield* sendChannelMessage({
         channel: channelIdentifier("general"),
-        body:
-          "See [TEST-1](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-1&label=TEST-1)."
+        body: "See [TEST-1](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-1&label=TEST-1)."
       }).pipe(Effect.provide(testLayer))
 
       expect(capturedMarkupReferenceNodes(String(captureAddCollection.attributes?.message))).toContainEqual({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "TEST-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "TEST-1" }
       })
-    }))
+    })
+  )
 
   it.effect("returns ChannelNotFoundError when channel doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ channels: [] })
 
       const error = yield* Effect.flip(
@@ -875,24 +857,18 @@ describe("sendChannelMessage", () => {
       )
 
       expect(error._tag).toBe("ChannelNotFoundError")
-    }))
+    })
+  )
 })
 
 describe("updateChannelMessage", () => {
   it.effect("updates channel message", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
-      const message = makeChatMessage({
-        _id: "msg-1" as Ref<ChatMessage>,
-        space: "ch-1" as Ref<Space>
-      })
+      const message = makeChatMessage({ _id: "msg-1" as Ref<ChatMessage>, space: "ch-1" as Ref<Space> })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        channels: [channel],
-        messages: [message],
-        captureUpdateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [channel], messages: [message], captureUpdateDoc })
 
       const result = yield* updateChannelMessage({
         channel: channelIdentifier("general"),
@@ -903,48 +879,35 @@ describe("updateChannelMessage", () => {
       expect(result.id).toBe("msg-1")
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations).toBeDefined()
-    }))
+    })
+  )
 
   it.effect("preserves native references when updating a channel message", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
-      const message = makeChatMessage({
-        _id: "msg-1" as Ref<ChatMessage>,
-        space: "ch-1" as Ref<Space>
-      })
+      const message = makeChatMessage({ _id: "msg-1" as Ref<ChatMessage>, space: "ch-1" as Ref<Space> })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        channels: [channel],
-        messages: [message],
-        captureUpdateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [channel], messages: [message], captureUpdateDoc })
 
       yield* updateChannelMessage({
         channel: channelIdentifier("general"),
         messageId: messageBrandId("msg-1"),
-        body:
-          "See [TEST-2](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-2&label=TEST-2)."
+        body: "See [TEST-2](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-2&label=TEST-2)."
       }).pipe(Effect.provide(testLayer))
 
       expect(capturedMarkupReferenceNodes(String(captureUpdateDoc.operations?.message))).toContainEqual({
         type: "reference",
-        attrs: {
-          id: "issue-2",
-          objectclass: "tracker:class:Issue",
-          label: "TEST-2"
-        }
+        attrs: { id: "issue-2", objectclass: "tracker:class:Issue", label: "TEST-2" }
       })
-    }))
+    })
+  )
 
   it.effect("returns MessageNotFoundError when message doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
 
-      const testLayer = createTestLayerWithMocks({
-        channels: [channel],
-        messages: []
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [channel], messages: [] })
 
       const error = yield* Effect.flip(
         updateChannelMessage({
@@ -956,10 +919,11 @@ describe("updateChannelMessage", () => {
 
       expect(error._tag).toBe("MessageNotFoundError")
       expect((error as MessageNotFoundError).messageId).toBe("nonexistent")
-    }))
+    })
+  )
 
   it.effect("returns ChannelNotFoundError when channel doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ channels: [] })
 
       const error = yield* Effect.flip(
@@ -971,24 +935,18 @@ describe("updateChannelMessage", () => {
       )
 
       expect(error._tag).toBe("ChannelNotFoundError")
-    }))
+    })
+  )
 })
 
 describe("deleteChannelMessage", () => {
   it.effect("deletes channel message", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
-      const message = makeChatMessage({
-        _id: "msg-1" as Ref<ChatMessage>,
-        space: "ch-1" as Ref<Space>
-      })
+      const message = makeChatMessage({ _id: "msg-1" as Ref<ChatMessage>, space: "ch-1" as Ref<Space> })
       const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        channels: [channel],
-        messages: [message],
-        captureRemoveDoc
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [channel], messages: [message], captureRemoveDoc })
 
       const result = yield* deleteChannelMessage({
         channel: channelIdentifier("general"),
@@ -998,31 +956,29 @@ describe("deleteChannelMessage", () => {
       expect(result.id).toBe("msg-1")
       expect(result.deleted).toBe(true)
       expect(captureRemoveDoc.called).toBe(true)
-    }))
+    })
+  )
 
   it.effect("returns MessageNotFoundError when message doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
 
-      const testLayer = createTestLayerWithMocks({
-        channels: [channel],
-        messages: []
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [channel], messages: [] })
 
       const error = yield* Effect.flip(
-        deleteChannelMessage({
-          channel: channelIdentifier("general"),
-          messageId: messageBrandId("nonexistent")
-        }).pipe(Effect.provide(testLayer))
+        deleteChannelMessage({ channel: channelIdentifier("general"), messageId: messageBrandId("nonexistent") }).pipe(
+          Effect.provide(testLayer)
+        )
       )
 
       expect(error._tag).toBe("MessageNotFoundError")
-    }))
+    })
+  )
 })
 
 describe("listDirectMessages", () => {
   it.effect("returns DM conversations sorted by modification date descending", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const dms = [
         makeDirectMessage({
           _id: "dm-1" as Ref<DirectMessage>,
@@ -1049,10 +1005,11 @@ describe("listDirectMessages", () => {
       expect(result.conversations).toHaveLength(2)
       expect(assertAt(result.conversations, 0).id).toBe("dm-2")
       expect(assertAt(result.conversations, 1).id).toBe("dm-1")
-    }))
+    })
+  )
 
   it.effect("resolves participant names", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const dm = makeDirectMessage({
         _id: "dm-1" as Ref<DirectMessage>,
         members: [
@@ -1082,10 +1039,11 @@ describe("listDirectMessages", () => {
         "00000000-0000-4000-8000-000000000000",
         "00000000-0000-4000-8000-000000000002"
       ])
-    }))
+    })
+  )
 
   it.effect("returns no conversations and skips name resolution when there are no DMs", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       // With no DMs, the deduped account-uuid list is empty, exercising the
       // early-return in buildAccountUuidToNameMap.
       const testLayer = createTestLayerWithMocks({ directMessages: [] })
@@ -1093,10 +1051,11 @@ describe("listDirectMessages", () => {
       const result = yield* listDirectMessages({}).pipe(Effect.provide(testLayer))
 
       expect(result.conversations).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("only returns DM conversations containing the authenticated account", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const ownDm = makeDirectMessage({
         _id: "dm-own" as Ref<DirectMessage>,
         members: [
@@ -1117,17 +1076,15 @@ describe("listDirectMessages", () => {
 
       expect(result.conversations).toHaveLength(1)
       expect(assertAt(result.conversations, 0).id).toBe("dm-own")
-    }))
+    })
+  )
 })
 
 describe("listThreadReplies", () => {
   it.effect("returns thread replies sorted by creation date ascending", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
-      const parentMsg = makeChatMessage({
-        _id: "msg-1" as Ref<ChatMessage>,
-        space: "ch-1" as Ref<Space>
-      })
+      const parentMsg = makeChatMessage({ _id: "msg-1" as Ref<ChatMessage>, space: "ch-1" as Ref<Space> })
       const threadMsgs = [
         makeThreadMessage({
           _id: "reply-2" as Ref<HulyThreadMessage>,
@@ -1172,58 +1129,49 @@ describe("listThreadReplies", () => {
       expect(assertAt(result.replies, 1).senderId).toBe("user-2")
       expect(assertAt(result.replies, 1).createdOn).toBe(2000)
       expect(assertAt(result.replies, 1).modifiedOn).toBe(2500)
-    }))
+    })
+  )
 
   it.effect("returns MessageNotFoundError when message doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
 
-      const testLayer = createTestLayerWithMocks({
-        channels: [channel],
-        messages: []
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [channel], messages: [] })
 
       const error = yield* Effect.flip(
-        listThreadReplies({
-          channel: channelIdentifier("general"),
-          messageId: messageBrandId("nonexistent")
-        }).pipe(Effect.provide(testLayer))
+        listThreadReplies({ channel: channelIdentifier("general"), messageId: messageBrandId("nonexistent") }).pipe(
+          Effect.provide(testLayer)
+        )
       )
 
       expect(error._tag).toBe("MessageNotFoundError")
       expect((error as MessageNotFoundError).messageId).toBe("nonexistent")
-    }))
+    })
+  )
 
   it.effect("returns ChannelNotFoundError when channel doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ channels: [] })
 
       const error = yield* Effect.flip(
-        listThreadReplies({
-          channel: channelIdentifier("nonexistent"),
-          messageId: messageBrandId("msg-1")
-        }).pipe(Effect.provide(testLayer))
+        listThreadReplies({ channel: channelIdentifier("nonexistent"), messageId: messageBrandId("msg-1") }).pipe(
+          Effect.provide(testLayer)
+        )
       )
 
       expect(error._tag).toBe("ChannelNotFoundError")
-    }))
+    })
+  )
 })
 
 describe("addThreadReply", () => {
   it.effect("adds reply to message thread", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
-      const parentMsg = makeChatMessage({
-        _id: "msg-1" as Ref<ChatMessage>,
-        space: "ch-1" as Ref<Space>
-      })
+      const parentMsg = makeChatMessage({ _id: "msg-1" as Ref<ChatMessage>, space: "ch-1" as Ref<Space> })
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        channels: [channel],
-        messages: [parentMsg],
-        captureAddCollection
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [channel], messages: [parentMsg], captureAddCollection })
 
       const result = yield* addThreadReply({
         channel: channelIdentifier("general"),
@@ -1234,48 +1182,35 @@ describe("addThreadReply", () => {
       expect(result.messageId).toBe("msg-1")
       expect(result.channelId).toBe("ch-1")
       expect(captureAddCollection.attributes).toBeDefined()
-    }))
+    })
+  )
 
   it.effect("preserves native references when adding a thread reply", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
-      const parentMsg = makeChatMessage({
-        _id: "msg-1" as Ref<ChatMessage>,
-        space: "ch-1" as Ref<Space>
-      })
+      const parentMsg = makeChatMessage({ _id: "msg-1" as Ref<ChatMessage>, space: "ch-1" as Ref<Space> })
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        channels: [channel],
-        messages: [parentMsg],
-        captureAddCollection
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [channel], messages: [parentMsg], captureAddCollection })
 
       yield* addThreadReply({
         channel: channelIdentifier("general"),
         messageId: messageBrandId("msg-1"),
-        body:
-          "See [TEST-3](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-3&label=TEST-3)."
+        body: "See [TEST-3](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-3&label=TEST-3)."
       }).pipe(Effect.provide(testLayer))
 
       expect(capturedMarkupReferenceNodes(String(captureAddCollection.attributes?.message))).toContainEqual({
         type: "reference",
-        attrs: {
-          id: "issue-3",
-          objectclass: "tracker:class:Issue",
-          label: "TEST-3"
-        }
+        attrs: { id: "issue-3", objectclass: "tracker:class:Issue", label: "TEST-3" }
       })
-    }))
+    })
+  )
 
   it.effect("returns MessageNotFoundError when message doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
 
-      const testLayer = createTestLayerWithMocks({
-        channels: [channel],
-        messages: []
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [channel], messages: [] })
 
       const error = yield* Effect.flip(
         addThreadReply({
@@ -1286,17 +1221,15 @@ describe("addThreadReply", () => {
       )
 
       expect(error._tag).toBe("MessageNotFoundError")
-    }))
+    })
+  )
 })
 
 describe("updateThreadReply", () => {
   it.effect("updates thread reply", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
-      const parentMsg = makeChatMessage({
-        _id: "msg-1" as Ref<ChatMessage>,
-        space: "ch-1" as Ref<Space>
-      })
+      const parentMsg = makeChatMessage({ _id: "msg-1" as Ref<ChatMessage>, space: "ch-1" as Ref<Space> })
       const reply = makeThreadMessage({
         _id: "reply-1" as Ref<HulyThreadMessage>,
         space: "ch-1" as Ref<Space>,
@@ -1321,15 +1254,13 @@ describe("updateThreadReply", () => {
       expect(result.id).toBe("reply-1")
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations).toBeDefined()
-    }))
+    })
+  )
 
   it.effect("preserves native references when updating a thread reply", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
-      const parentMsg = makeChatMessage({
-        _id: "msg-1" as Ref<ChatMessage>,
-        space: "ch-1" as Ref<Space>
-      })
+      const parentMsg = makeChatMessage({ _id: "msg-1" as Ref<ChatMessage>, space: "ch-1" as Ref<Space> })
       const reply = makeThreadMessage({
         _id: "reply-1" as Ref<HulyThreadMessage>,
         space: "ch-1" as Ref<Space>,
@@ -1348,33 +1279,22 @@ describe("updateThreadReply", () => {
         channel: channelIdentifier("general"),
         messageId: messageBrandId("msg-1"),
         replyId: threadReplyId("reply-1"),
-        body:
-          "See [TEST-4](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-4&label=TEST-4)."
+        body: "See [TEST-4](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-4&label=TEST-4)."
       }).pipe(Effect.provide(testLayer))
 
       expect(capturedMarkupReferenceNodes(String(captureUpdateDoc.operations?.message))).toContainEqual({
         type: "reference",
-        attrs: {
-          id: "issue-4",
-          objectclass: "tracker:class:Issue",
-          label: "TEST-4"
-        }
+        attrs: { id: "issue-4", objectclass: "tracker:class:Issue", label: "TEST-4" }
       })
-    }))
+    })
+  )
 
   it.effect("returns ThreadReplyNotFoundError when reply doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
-      const parentMsg = makeChatMessage({
-        _id: "msg-1" as Ref<ChatMessage>,
-        space: "ch-1" as Ref<Space>
-      })
+      const parentMsg = makeChatMessage({ _id: "msg-1" as Ref<ChatMessage>, space: "ch-1" as Ref<Space> })
 
-      const testLayer = createTestLayerWithMocks({
-        channels: [channel],
-        messages: [parentMsg],
-        threadMessages: []
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [channel], messages: [parentMsg], threadMessages: [] })
 
       const error = yield* Effect.flip(
         updateThreadReply({
@@ -1387,17 +1307,15 @@ describe("updateThreadReply", () => {
 
       expect(error._tag).toBe("ThreadReplyNotFoundError")
       expect((error as ThreadReplyNotFoundError).replyId).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("deleteThreadReply", () => {
   it.effect("deletes thread reply", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
-      const parentMsg = makeChatMessage({
-        _id: "msg-1" as Ref<ChatMessage>,
-        space: "ch-1" as Ref<Space>
-      })
+      const parentMsg = makeChatMessage({ _id: "msg-1" as Ref<ChatMessage>, space: "ch-1" as Ref<Space> })
       const reply = makeThreadMessage({
         _id: "reply-1" as Ref<HulyThreadMessage>,
         space: "ch-1" as Ref<Space>,
@@ -1429,15 +1347,13 @@ describe("deleteThreadReply", () => {
       expect(captureRemoveCollection.attachedTo).toBe("msg-1")
       expect(captureRemoveCollection.attachedToClass).toBe(chunter.class.ChatMessage)
       expect(captureRemoveCollection.collection).toBe("replies")
-    }))
+    })
+  )
 
   it.effect("fails when collection deletion is unavailable", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
-      const parentMsg = makeChatMessage({
-        _id: "msg-1" as Ref<ChatMessage>,
-        space: "ch-1" as Ref<Space>
-      })
+      const parentMsg = makeChatMessage({ _id: "msg-1" as Ref<ChatMessage>, space: "ch-1" as Ref<Space> })
       const reply = makeThreadMessage({
         _id: "reply-1" as Ref<HulyThreadMessage>,
         space: "ch-1" as Ref<Space>,
@@ -1461,21 +1377,15 @@ describe("deleteThreadReply", () => {
 
       expect(error._tag).toBe("HulyError")
       expect(error.message).toBe("Huly client does not support removeCollection")
-    }))
+    })
+  )
 
   it.effect("returns ThreadReplyNotFoundError when reply doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
-      const parentMsg = makeChatMessage({
-        _id: "msg-1" as Ref<ChatMessage>,
-        space: "ch-1" as Ref<Space>
-      })
+      const parentMsg = makeChatMessage({ _id: "msg-1" as Ref<ChatMessage>, space: "ch-1" as Ref<Space> })
 
-      const testLayer = createTestLayerWithMocks({
-        channels: [channel],
-        messages: [parentMsg],
-        threadMessages: []
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [channel], messages: [parentMsg], threadMessages: [] })
 
       const error = yield* Effect.flip(
         deleteThreadReply({
@@ -1486,5 +1396,6 @@ describe("deleteThreadReply", () => {
       )
 
       expect(error._tag).toBe("ThreadReplyNotFoundError")
-    }))
+    })
+  )
 })

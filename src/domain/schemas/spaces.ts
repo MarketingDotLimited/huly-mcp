@@ -48,10 +48,7 @@ const HulyOutputName = Schema.String.annotations({
   description: "Display name as stored by Huly; system records can use an empty string."
 })
 
-export const SpaceRoleAssignmentSchema = Schema.Struct({
-  roleId: RoleId,
-  members: Schema.Array(AccountUuid)
-})
+export const SpaceRoleAssignmentSchema = Schema.Struct({ roleId: RoleId, members: Schema.Array(AccountUuid) })
 export type SpaceRoleAssignment = Schema.Schema.Type<typeof SpaceRoleAssignmentSchema>
 export const DEFAULT_SPACE_OWNER_ENSURE_MEMBERS = true
 
@@ -133,24 +130,24 @@ export const SpaceTypeDetailSchema = Schema.Struct({
 export type SpaceTypeDetail = Schema.Schema.Type<typeof SpaceTypeDetailSchema>
 
 export const ListSpacesParamsSchema = Schema.Struct({
-  includeArchived: Schema.optional(Schema.Boolean.annotations({
-    description:
-      `Include archived spaces in results. Defaults to ${DEFAULT_INCLUDE_ARCHIVED}, so only active/non-archived spaces are returned.`
-  })),
-  class: Schema.optional(SpaceClassFilter.annotations({
-    description:
-      "Optional raw Huly space class ID to filter results, for example 'tracker:class:Project' or 'document:class:Teamspace'."
-  })),
-  type: Schema.optional(SpaceTypeId.annotations({
-    description: "Optional raw Huly SpaceType _id to filter typed spaces."
-  })),
+  includeArchived: Schema.optional(
+    Schema.Boolean.annotations({
+      description: `Include archived spaces in results. Defaults to ${DEFAULT_INCLUDE_ARCHIVED}, so only active/non-archived spaces are returned.`
+    })
+  ),
+  class: Schema.optional(
+    SpaceClassFilter.annotations({
+      description:
+        "Optional raw Huly space class ID to filter results, for example 'tracker:class:Project' or 'document:class:Teamspace'."
+    })
+  ),
+  type: Schema.optional(
+    SpaceTypeId.annotations({ description: "Optional raw Huly SpaceType _id to filter typed spaces." })
+  ),
   limit: Schema.optional(LimitParam.annotations({ description: limitDescription("spaces") }))
 })
 export type ListSpacesParams = Schema.Schema.Type<typeof ListSpacesParamsSchema>
-export const ListSpacesResultSchema = Schema.Struct({
-  spaces: Schema.Array(SpaceSummarySchema),
-  total: ListTotal
-})
+export const ListSpacesResultSchema = Schema.Struct({ spaces: Schema.Array(SpaceSummarySchema), total: ListTotal })
 export type ListSpacesResult = Schema.Schema.Type<typeof ListSpacesResultSchema>
 
 export const GetSpaceParamsSchema = Schema.Struct({
@@ -158,23 +155,28 @@ export const GetSpaceParamsSchema = Schema.Struct({
     description:
       "Space _id or exact space name. Resolution tries _id first, then exact name. Duplicate names require class and/or type narrowing."
   }),
-  includeArchived: Schema.optional(Schema.Boolean.annotations({
-    description:
-      `Allow matching archived spaces by exact name. Defaults to ${DEFAULT_INCLUDE_ARCHIVED} for name lookup. ID lookup can return archived spaces.`
-  })),
-  class: Schema.optional(SpaceClassFilter.annotations({
-    description: "Optional raw Huly space class ID used to disambiguate exact-name lookup."
-  })),
-  type: Schema.optional(SpaceTypeId.annotations({
-    description: "Optional raw Huly SpaceType _id used to disambiguate exact-name lookup."
-  }))
+  includeArchived: Schema.optional(
+    Schema.Boolean.annotations({
+      description: `Allow matching archived spaces by exact name. Defaults to ${DEFAULT_INCLUDE_ARCHIVED} for name lookup. ID lookup can return archived spaces.`
+    })
+  ),
+  class: Schema.optional(
+    SpaceClassFilter.annotations({
+      description: "Optional raw Huly space class ID used to disambiguate exact-name lookup."
+    })
+  ),
+  type: Schema.optional(
+    SpaceTypeId.annotations({ description: "Optional raw Huly SpaceType _id used to disambiguate exact-name lookup." })
+  )
 })
 export type GetSpaceParams = Schema.Schema.Type<typeof GetSpaceParamsSchema>
 
 export const ListSpaceTypesParamsSchema = Schema.Struct({
-  targetClass: Schema.optional(SpaceClassFilter.annotations({
-    description: "Optional raw Huly target space class ID to filter configured space types."
-  })),
+  targetClass: Schema.optional(
+    SpaceClassFilter.annotations({
+      description: "Optional raw Huly target space class ID to filter configured space types."
+    })
+  ),
   limit: Schema.optional(LimitParam.annotations({ description: limitDescription("space types") }))
 })
 export type ListSpaceTypesParams = Schema.Schema.Type<typeof ListSpaceTypesParamsSchema>
@@ -192,15 +194,17 @@ export const GetSpaceTypeParamsSchema = Schema.Struct({
 export type GetSpaceTypeParams = Schema.Schema.Type<typeof GetSpaceTypeParamsSchema>
 
 export const ListSpacePermissionsParamsSchema = Schema.Struct({
-  scope: Schema.optional(SpacePermissionScopeSchema.annotations({
-    description: "Filter permissions by Huly scope: space or workspace."
-  })),
-  objectClass: Schema.optional(SpaceClassFilter.annotations({
-    description: "Filter permissions bound to this raw Huly object class ID."
-  })),
-  search: Schema.optional(NonEmptyString.annotations({
-    description: "Case-insensitive substring search across permission id, label, and description."
-  })),
+  scope: Schema.optional(
+    SpacePermissionScopeSchema.annotations({ description: "Filter permissions by Huly scope: space or workspace." })
+  ),
+  objectClass: Schema.optional(
+    SpaceClassFilter.annotations({ description: "Filter permissions bound to this raw Huly object class ID." })
+  ),
+  search: Schema.optional(
+    NonEmptyString.annotations({
+      description: "Case-insensitive substring search across permission id, label, and description."
+    })
+  ),
   limit: Schema.optional(LimitParam.annotations({ description: limitDescription("permissions") }))
 })
 export type ListSpacePermissionsParams = Schema.Schema.Type<typeof ListSpacePermissionsParamsSchema>
@@ -217,12 +221,14 @@ export const UpdateSpaceParamsSchema = Schema.Struct({
     description:
       "Space _id or exact space name to update. Use class/type narrowing if the name is shared by multiple spaces."
   }),
-  class: Schema.optional(SpaceClassFilter.annotations({
-    description: "Optional raw Huly space class ID used to disambiguate exact-name lookup."
-  })),
-  type: Schema.optional(SpaceTypeId.annotations({
-    description: "Optional raw Huly SpaceType _id used to disambiguate exact-name lookup."
-  })),
+  class: Schema.optional(
+    SpaceClassFilter.annotations({
+      description: "Optional raw Huly space class ID used to disambiguate exact-name lookup."
+    })
+  ),
+  type: Schema.optional(
+    SpaceTypeId.annotations({ description: "Optional raw Huly SpaceType _id used to disambiguate exact-name lookup." })
+  ),
   name: Schema.optional(NonEmptyString.annotations({ description: "New space display name." })),
   description: Schema.optional(clearableText("New plain-text description.")),
   private: Schema.optional(Schema.Boolean.annotations({ description: "Whether the space is private." })),
@@ -232,17 +238,12 @@ export const UpdateSpaceParamsSchema = Schema.Struct({
   )
 }).pipe(
   Schema.filter((params) =>
-    hasAtLeastOneDefined(params, UPDATE_SPACE_FIELDS)
-      ? undefined
-      : atLeastOneUpdateFieldMessage(UPDATE_SPACE_FIELDS)
+    hasAtLeastOneDefined(params, UPDATE_SPACE_FIELDS) ? undefined : atLeastOneUpdateFieldMessage(UPDATE_SPACE_FIELDS)
   )
 )
 export type UpdateSpaceParams = Schema.Schema.Type<typeof UpdateSpaceParamsSchema>
 assertUpdateFields<UpdateSpaceParams>()(["space", "class", "type"], UPDATE_SPACE_FIELDS)
-export const UpdateSpaceResultSchema = Schema.Struct({
-  id: SpaceId,
-  updated: Schema.Boolean
-})
+export const UpdateSpaceResultSchema = Schema.Struct({ id: SpaceId, updated: Schema.Boolean })
 export type UpdateSpaceResult = Schema.Schema.Type<typeof UpdateSpaceResultSchema>
 
 export const SpaceMemberMutationParamsSchema = Schema.Struct({
@@ -250,16 +251,20 @@ export const SpaceMemberMutationParamsSchema = Schema.Struct({
     description:
       "Space _id or exact space name whose members should change. Use class/type narrowing if the name is shared by multiple spaces."
   }),
-  class: Schema.optional(SpaceClassFilter.annotations({
-    description: "Optional raw Huly space class ID used to disambiguate exact-name lookup."
-  })),
-  type: Schema.optional(SpaceTypeId.annotations({
-    description: "Optional raw Huly SpaceType _id used to disambiguate exact-name lookup."
-  })),
-  members: Schema.Array(SpaceMemberIdentifierSchema).pipe(Schema.minItems(1)).annotations({
-    description:
-      "Members to add or remove. Each entry may be an account UUID, exact email address, or exact person name."
-  })
+  class: Schema.optional(
+    SpaceClassFilter.annotations({
+      description: "Optional raw Huly space class ID used to disambiguate exact-name lookup."
+    })
+  ),
+  type: Schema.optional(
+    SpaceTypeId.annotations({ description: "Optional raw Huly SpaceType _id used to disambiguate exact-name lookup." })
+  ),
+  members: Schema.Array(SpaceMemberIdentifierSchema)
+    .pipe(Schema.minItems(1))
+    .annotations({
+      description:
+        "Members to add or remove. Each entry may be an account UUID, exact email address, or exact person name."
+    })
 })
 export type SpaceMemberMutationParams = Schema.Schema.Type<typeof SpaceMemberMutationParamsSchema>
 export const SpaceMemberMutationResultSchema = Schema.Struct({
@@ -274,19 +279,23 @@ export const SetSpaceOwnersParamsSchema = Schema.Struct({
     description:
       "Space _id or exact space name whose owners should be replaced. Use class/type narrowing if the name is shared by multiple spaces."
   }),
-  class: Schema.optional(SpaceClassFilter.annotations({
-    description: "Optional raw Huly space class ID used to disambiguate exact-name lookup."
-  })),
-  type: Schema.optional(SpaceTypeId.annotations({
-    description: "Optional raw Huly SpaceType _id used to disambiguate exact-name lookup."
-  })),
+  class: Schema.optional(
+    SpaceClassFilter.annotations({
+      description: "Optional raw Huly space class ID used to disambiguate exact-name lookup."
+    })
+  ),
+  type: Schema.optional(
+    SpaceTypeId.annotations({ description: "Optional raw Huly SpaceType _id used to disambiguate exact-name lookup." })
+  ),
   owners: Schema.Array(SpaceMemberIdentifierSchema).annotations({
     description:
       "Replacement owner list. Each entry may be an account UUID, exact email address, or exact person name. Pass [] to clear owners."
   }),
-  ensureMembers: Schema.optional(Schema.Boolean.annotations({
-    description: `Also add each owner to members. Defaults to ${DEFAULT_SPACE_OWNER_ENSURE_MEMBERS}.`
-  }))
+  ensureMembers: Schema.optional(
+    Schema.Boolean.annotations({
+      description: `Also add each owner to members. Defaults to ${DEFAULT_SPACE_OWNER_ENSURE_MEMBERS}.`
+    })
+  )
 })
 export type SetSpaceOwnersParams = Schema.Schema.Type<typeof SetSpaceOwnersParamsSchema>
 export const SetSpaceOwnersResultSchema = Schema.Struct({
@@ -302,17 +311,21 @@ const SpaceRoleMemberMutationFields = {
     description:
       "Typed space _id or exact space name whose role assignment should change. The space must have a SpaceType."
   }),
-  class: Schema.optional(SpaceClassFilter.annotations({
-    description: "Optional raw Huly space class ID used to disambiguate exact-name lookup."
-  })),
-  type: Schema.optional(SpaceTypeId.annotations({
-    description: "Optional raw Huly SpaceType _id used to disambiguate exact-name lookup."
-  })),
+  class: Schema.optional(
+    SpaceClassFilter.annotations({
+      description: "Optional raw Huly space class ID used to disambiguate exact-name lookup."
+    })
+  ),
+  type: Schema.optional(
+    SpaceTypeId.annotations({ description: "Optional raw Huly SpaceType _id used to disambiguate exact-name lookup." })
+  ),
   role: SpaceRoleIdentifierSchema,
-  members: Schema.Array(SpaceMemberIdentifierSchema).pipe(Schema.minItems(1)).annotations({
-    description:
-      "Members to add or remove from this role. Each entry may be an account UUID, exact email address, or exact person name."
-  })
+  members: Schema.Array(SpaceMemberIdentifierSchema)
+    .pipe(Schema.minItems(1))
+    .annotations({
+      description:
+        "Members to add or remove from this role. Each entry may be an account UUID, exact email address, or exact person name."
+    })
 }
 
 export const SpaceRoleMemberMutationParamsSchema = Schema.Struct(SpaceRoleMemberMutationFields)

@@ -45,7 +45,7 @@ type MetadataLoadOperations<A> = {
 export const executeMetadataLoad = <A>(
   operations: MetadataLoadOperations<A>
 ): Effect.Effect<NotificationMetadataResult<A>, HulyClientError, Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const modelResult = yield* Effect.either(operations.loadModelRows())
     const modelRows = modelResult._tag === "Right" ? operations.parse(modelResult.right) : undefined
     if (modelRows !== undefined && modelRows.rows.length > 0) {
@@ -55,18 +55,11 @@ export const executeMetadataLoad = <A>(
 
     const parsedRemoteRows = operations.parse(yield* operations.loadRemoteRows())
     const failure = modelMetadataFailure(modelResult, modelRows)
-    yield* operations.warnFallback({
-      modelFailure: failure,
-      invalidRows: parsedRemoteRows.invalidRows
-    })
+    yield* operations.warnFallback({ modelFailure: failure, invalidRows: parsedRemoteRows.invalidRows })
     return { rows: parsedRemoteRows.rows, authoritative: false }
   })
 
-type MetadataIdOperations<
-  A extends { readonly _id: Identifier },
-  Identifier extends string,
-  E
-> = {
+type MetadataIdOperations<A extends { readonly _id: Identifier }, Identifier extends string, E> = {
   readonly loadModelRows: () => Effect.Effect<ReadonlyArray<unknown>, HulyClientError>
   readonly loadRemoteRows: () => Effect.Effect<ReadonlyArray<unknown>, HulyClientError>
   readonly parse: (rows: ReadonlyArray<unknown>) => ParsedRows<A>
@@ -78,14 +71,10 @@ type MetadataIdOperations<
   readonly trustedIdentifier: () => Identifier
 }
 
-export const executeMetadataIdRequirement = <
-  A extends { readonly _id: Identifier },
-  Identifier extends string,
-  E
->(
+export const executeMetadataIdRequirement = <A extends { readonly _id: Identifier }, Identifier extends string, E>(
   operations: MetadataIdOperations<A, Identifier, E>
 ): Effect.Effect<Identifier, HulyClientError | E, Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     // Model operations are local/in-memory. Decode the complete authoritative definition set here:
     // list limits are presentation concerns and must never make a valid update identifier disappear.
     const modelResult = yield* Effect.either(operations.loadModelRows())
@@ -99,10 +88,7 @@ export const executeMetadataIdRequirement = <
 
     const parsedRemoteRows = operations.parse(yield* operations.loadRemoteRows())
     const failure = modelMetadataFailure(modelResult, modelRows)
-    yield* operations.warnFallback({
-      modelFailure: failure,
-      invalidRows: parsedRemoteRows.invalidRows
-    })
+    yield* operations.warnFallback({ modelFailure: failure, invalidRows: parsedRemoteRows.invalidRows })
     const remoteIdentifier = operations.findIdentifier(parsedRemoteRows.rows)
     if (remoteIdentifier !== undefined) return remoteIdentifier
     yield* operations.warnTrustedIdentifier()

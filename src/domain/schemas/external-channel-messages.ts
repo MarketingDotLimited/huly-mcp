@@ -17,10 +17,11 @@ export const ListExternalChannelMessagesParamsSchema = Schema.Struct({
     description:
       "External channel name or Huly channel ID locator, such as a Gmail label/inbox name or Telegram chat name/id."
   }),
-  limit: Schema.optional(LimitParam.annotations({
-    description:
-      `Maximum number of external messages to return (default: ${DEFAULT_EXTERNAL_CHANNEL_MESSAGE_LIMIT}, max: 200).`
-  }))
+  limit: Schema.optional(
+    LimitParam.annotations({
+      description: `Maximum number of external messages to return (default: ${DEFAULT_EXTERNAL_CHANNEL_MESSAGE_LIMIT}, max: 200).`
+    })
+  )
 }).annotations({
   title: "ListExternalChannelMessagesParams",
   description: "Parameters for listing read-only Gmail or Telegram external channel messages."
@@ -37,27 +38,23 @@ export const ExternalChannelMessageId = NonEmptyString.pipe(Schema.brand("Extern
 })
 export type ExternalChannelMessageId = Schema.Schema.Type<typeof ExternalChannelMessageId>
 
-const ExternalChannelMessageSubject = NonEmptyString.pipe(
-  Schema.brand("ExternalChannelMessageSubject")
-).annotations({
+const ExternalChannelMessageSubject = NonEmptyString.pipe(Schema.brand("ExternalChannelMessageSubject")).annotations({
   identifier: "ExternalChannelMessageSubject",
   title: "ExternalChannelMessageSubject",
   description: "Non-empty external message subject. Omit the field when the provider has no subject value."
 })
 
-const ExternalChannelMessageSender = NonEmptyString.pipe(Schema.brand("ExternalChannelMessageSender"))
-  .annotations({
-    identifier: "ExternalChannelMessageSender",
-    title: "ExternalChannelMessageSender",
-    description: "Non-empty normalized external message sender label or address."
-  })
+const ExternalChannelMessageSender = NonEmptyString.pipe(Schema.brand("ExternalChannelMessageSender")).annotations({
+  identifier: "ExternalChannelMessageSender",
+  title: "ExternalChannelMessageSender",
+  description: "Non-empty normalized external message sender label or address."
+})
 
-const ExternalChannelMessageSenderId = NonEmptyString.pipe(Schema.brand("ExternalChannelMessageSenderId"))
-  .annotations({
-    identifier: "ExternalChannelMessageSenderId",
-    title: "ExternalChannelMessageSenderId",
-    description: "Non-empty opaque external provider sender ID."
-  })
+const ExternalChannelMessageSenderId = NonEmptyString.pipe(Schema.brand("ExternalChannelMessageSenderId")).annotations({
+  identifier: "ExternalChannelMessageSenderId",
+  title: "ExternalChannelMessageSenderId",
+  description: "Non-empty opaque external provider sender ID."
+})
 
 export const ExternalChannelMessageSummarySchema = Schema.Struct({
   id: ExternalChannelMessageId,

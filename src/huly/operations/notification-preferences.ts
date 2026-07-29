@@ -63,7 +63,7 @@ type ObjectNotificationSubscriptionError = HulyClientError | HulyError
 export const listNotificationProviders = (
   params: ListNotificationProvidersParams
 ): Effect.Effect<ReadonlyArray<NotificationProviderSummary>, HulyClientError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     return (yield* loadNotificationProviders(client, clampLimit(params.limit))).rows
   })
@@ -71,7 +71,7 @@ export const listNotificationProviders = (
 export const listNotificationTypes = (
   params: ListNotificationTypesParams
 ): Effect.Effect<ReadonlyArray<NotificationType>, HulyClientError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     return (yield* loadNotificationTypes(client, {
       ...(params.limit === undefined ? {} : { limit: params.limit }),
@@ -83,7 +83,7 @@ export const listNotificationTypes = (
 export const updateNotificationTypeSetting = (
   params: UpdateNotificationTypeSettingParams
 ): Effect.Effect<UpdateNotificationTypeSettingResult, UpdateNotificationTypeSettingError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     yield* requireNotificationProviderId(client, params.providerId)
     yield* requireNotificationTypeId(client, params.typeId)
@@ -108,12 +108,9 @@ export const updateNotificationTypeSetting = (
         }
       }
 
-      yield* client.updateDoc(
-        notification.class.NotificationTypeSetting,
-        existingSetting.space,
-        existingSetting._id,
-        { enabled: params.enabled }
-      )
+      yield* client.updateDoc(notification.class.NotificationTypeSetting, existingSetting.space, existingSetting._id, {
+        enabled: params.enabled
+      })
 
       return {
         providerId: NotificationProviderId.make(params.providerId),
@@ -126,9 +123,7 @@ export const updateNotificationTypeSetting = (
 
     const providerSetting = yield* client.findOne<HulyNotificationProviderSetting>(
       notification.class.NotificationProviderSetting,
-      hulyQuery<HulyNotificationProviderSetting>({
-        attachedTo: toRef<NotificationProvider>(params.providerId)
-      })
+      hulyQuery<HulyNotificationProviderSetting>({ attachedTo: toRef<NotificationProvider>(params.providerId) })
     )
 
     if (providerSetting === undefined) {
@@ -138,15 +133,11 @@ export const updateNotificationTypeSetting = (
       })
     }
 
-    yield* client.createDoc(
-      notification.class.NotificationTypeSetting,
-      providerSetting.space,
-      {
-        attachedTo: toRef<NotificationProvider>(params.providerId),
-        type: typeId,
-        enabled: params.enabled
-      }
-    )
+    yield* client.createDoc(notification.class.NotificationTypeSetting, providerSetting.space, {
+      attachedTo: toRef<NotificationProvider>(params.providerId),
+      type: typeId,
+      enabled: params.enabled
+    })
 
     return {
       providerId: NotificationProviderId.make(params.providerId),
@@ -158,34 +149,24 @@ export const updateNotificationTypeSetting = (
   })
 
 const setContextNotificationsArchived = (
-  params: ArchiveNotificationContextParams | UnarchiveNotificationContextParams,
+  params: ArchiveNotificationContextParams,
   archived: boolean
 ): Effect.Effect<ArchiveNotificationContextResult, ArchiveNotificationContextError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, context } = yield* findNotificationContext(params.contextId)
 
     const notifications = yield* client.findAll<HulyInboxNotification>(
       notification.class.InboxNotification,
-      hulyQuery<HulyInboxNotification>({
-        docNotifyContext: context._id,
-        archived: !archived
-      })
+      hulyQuery<HulyInboxNotification>({ docNotifyContext: context._id, archived: !archived })
     )
 
     for (const inboxNotification of notifications) {
-      yield* client.updateDoc(
-        notification.class.InboxNotification,
-        inboxNotification.space,
-        inboxNotification._id,
-        { archived }
-      )
+      yield* client.updateDoc(notification.class.InboxNotification, inboxNotification.space, inboxNotification._id, {
+        archived
+      })
     }
 
-    return {
-      contextId: NotificationContextId.make(context._id),
-      archived,
-      count: Count.make(notifications.length)
-    }
+    return { contextId: NotificationContextId.make(context._id), archived, count: Count.make(notifications.length) }
   })
 
 export const archiveNotificationContext = (
@@ -205,19 +186,16 @@ interface SubscriptionTarget {
 }
 
 const resolveSubscriptionTarget = (
-  params: SubscribeToObjectNotificationsParams | UnsubscribeFromObjectNotificationsParams
+  params: SubscribeToObjectNotificationsParams
 ): Effect.Effect<SubscriptionTarget, HulyClientError | HulyError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const objectId = toRef<Doc>(params.objectId)
     const objectClass = toClassRef<Doc>(params.objectClass)
     if (params.space !== undefined) {
       return { objectId, objectClass, space: toRef<Space>(params.space) }
     }
 
-    const doc = yield* (yield* HulyClient).findOne<Doc>(
-      objectClass,
-      hulyQuery<Doc>({ _id: objectId })
-    )
+    const doc = yield* (yield* HulyClient).findOne<Doc>(objectClass, hulyQuery<Doc>({ _id: objectId }))
     if (doc === undefined) {
       return yield* new HulyError({ message: `Object '${params.objectId}' of class '${params.objectClass}' not found` })
     }
@@ -227,7 +205,7 @@ const resolveSubscriptionTarget = (
 export const subscribeToObjectNotifications = (
   params: SubscribeToObjectNotificationsParams
 ): Effect.Effect<ObjectNotificationSubscriptionResult, ObjectNotificationSubscriptionError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const target = yield* resolveSubscriptionTarget(params)
     const accountUuid = client.getAccountUuid()
@@ -271,7 +249,7 @@ export const subscribeToObjectNotifications = (
 export const unsubscribeFromObjectNotifications = (
   params: UnsubscribeFromObjectNotificationsParams
 ): Effect.Effect<ObjectNotificationSubscriptionResult, ObjectNotificationSubscriptionError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const target = yield* resolveSubscriptionTarget(params)
     const accountUuid = client.getAccountUuid()

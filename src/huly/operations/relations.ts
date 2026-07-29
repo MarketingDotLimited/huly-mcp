@@ -27,10 +27,7 @@ import { findIssueInProject, findProject, findProjectAndIssue, parseIssueIdentif
 import { hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
-type RelationError =
-  | HulyClientError
-  | ProjectNotFoundError
-  | IssueNotFoundError
+type RelationError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
 
 const toIssueIdentifier = (value: string): IssueIdentifier => IssueIdentifier.make(value)
 const toIssueId = (value: string): IssueId => IssueId.make(value)
@@ -39,12 +36,7 @@ const toTeamspaceIdentifier = (value: string): TeamspaceIdentifier => TeamspaceI
 const toDocumentId = (value: string): DocumentId => DocumentId.make(value)
 
 const blockingIssueFindOptions = {
-  projection: {
-    _id: 1,
-    _class: 1,
-    identifier: 1,
-    blockedBy: 1
-  }
+  projection: { _id: 1, _class: 1, identifier: 1, blockedBy: 1 }
 } satisfies FindOptions<HulyIssue>
 
 const resolveTargetIssue = (
@@ -56,7 +48,7 @@ const resolveTargetIssue = (
   ProjectNotFoundError | IssueNotFoundError | HulyClientError,
   HulyClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { fullIdentifier } = parseIssueIdentifier(targetIssueStr, sourceProject.identifier)
     const match = fullIdentifier.match(/^([A-Z]+)-\d+$/i)
     const prefix = match?.[1]?.toUpperCase() ?? null
@@ -79,23 +71,20 @@ export const makeRelatedDocEntry = (id: string, _class: Ref<Class<Doc>>): Relate
 })
 
 export const hasRelationById = (arr: Array<RelatedDocument> | undefined, id: string): boolean =>
-  arr?.some(r => r._id === toRef<Doc>(id)) ?? false
+  arr?.some((r) => r._id === toRef<Doc>(id)) ?? false
 
 const makeRelatedDoc = (issue: HulyIssue): RelatedDocument => makeRelatedDocEntry(issue._id, tracker.class.Issue)
 
 export const addIssueRelation = (
   params: AddIssueRelationParams
 ): Effect.Effect<AddIssueRelationResult, RelationError, HulyClient> =>
-  Effect.gen(function*() {
-    const { client, issue: source, project } = yield* findProjectAndIssue({
-      project: params.project,
-      identifier: params.issueIdentifier
-    })
-    const { issue: target, project: targetProject } = yield* resolveTargetIssue(
+  Effect.gen(function* () {
+    const {
       client,
-      project,
-      params.targetIssue
-    )
+      issue: source,
+      project
+    } = yield* findProjectAndIssue({ project: params.project, identifier: params.issueIdentifier })
+    const { issue: target, project: targetProject } = yield* resolveTargetIssue(client, project, params.targetIssue)
 
     const result = {
       sourceIssue: toIssueIdentifier(source.identifier),
@@ -112,24 +101,18 @@ export const addIssueRelation = (
           return { ...result, added: false }
         }
         // "blocks": source blocks target. Huly stores this on the blocked issue's blockedBy array.
-        yield* client.updateDoc(
-          tracker.class.Issue,
-          targetProject._id,
-          target._id,
-          { $push: { blockedBy: makeRelatedDoc(source) } } as DocumentUpdate<HulyIssue>
-        )
+        yield* client.updateDoc(tracker.class.Issue, targetProject._id, target._id, {
+          $push: { blockedBy: makeRelatedDoc(source) }
+        } as DocumentUpdate<HulyIssue>)
         return { ...result, added: true }
       }
       case "is-blocked-by": {
         if (hasRelationById(source.blockedBy, target._id)) {
           return { ...result, added: false }
         }
-        yield* client.updateDoc(
-          tracker.class.Issue,
-          project._id,
-          source._id,
-          { $push: { blockedBy: makeRelatedDoc(target) } } as DocumentUpdate<HulyIssue>
-        )
+        yield* client.updateDoc(tracker.class.Issue, project._id, source._id, {
+          $push: { blockedBy: makeRelatedDoc(target) }
+        } as DocumentUpdate<HulyIssue>)
         return { ...result, added: true }
       }
       case "relates-to": {
@@ -137,18 +120,12 @@ export const addIssueRelation = (
           return { ...result, added: false }
         }
         // Bidirectional: push to both sides. Partial failure accepted — matches Huly UI behavior.
-        yield* client.updateDoc(
-          tracker.class.Issue,
-          project._id,
-          source._id,
-          { $push: { relations: makeRelatedDoc(target) } } as DocumentUpdate<HulyIssue>
-        )
-        yield* client.updateDoc(
-          tracker.class.Issue,
-          targetProject._id,
-          target._id,
-          { $push: { relations: makeRelatedDoc(source) } } as DocumentUpdate<HulyIssue>
-        )
+        yield* client.updateDoc(tracker.class.Issue, project._id, source._id, {
+          $push: { relations: makeRelatedDoc(target) }
+        } as DocumentUpdate<HulyIssue>)
+        yield* client.updateDoc(tracker.class.Issue, targetProject._id, target._id, {
+          $push: { relations: makeRelatedDoc(source) }
+        } as DocumentUpdate<HulyIssue>)
         return { ...result, added: true }
       }
     }
@@ -158,16 +135,13 @@ export const addIssueRelation = (
 export const removeIssueRelation = (
   params: RemoveIssueRelationParams
 ): Effect.Effect<RemoveIssueRelationResult, RelationError, HulyClient> =>
-  Effect.gen(function*() {
-    const { client, issue: source, project } = yield* findProjectAndIssue({
-      project: params.project,
-      identifier: params.issueIdentifier
-    })
-    const { issue: target, project: targetProject } = yield* resolveTargetIssue(
+  Effect.gen(function* () {
+    const {
       client,
-      project,
-      params.targetIssue
-    )
+      issue: source,
+      project
+    } = yield* findProjectAndIssue({ project: params.project, identifier: params.issueIdentifier })
+    const { issue: target, project: targetProject } = yield* resolveTargetIssue(client, project, params.targetIssue)
 
     const result = {
       sourceIssue: toIssueIdentifier(source.identifier),
@@ -181,24 +155,18 @@ export const removeIssueRelation = (
         if (!hasRelationById(target.blockedBy, source._id)) {
           return { ...result, removed: false }
         }
-        yield* client.updateDoc(
-          tracker.class.Issue,
-          targetProject._id,
-          target._id,
-          { $pull: { blockedBy: { _id: toRef<Doc>(source._id) } } } as DocumentUpdate<HulyIssue>
-        )
+        yield* client.updateDoc(tracker.class.Issue, targetProject._id, target._id, {
+          $pull: { blockedBy: { _id: toRef<Doc>(source._id) } }
+        } as DocumentUpdate<HulyIssue>)
         return { ...result, removed: true }
       }
       case "is-blocked-by": {
         if (!hasRelationById(source.blockedBy, target._id)) {
           return { ...result, removed: false }
         }
-        yield* client.updateDoc(
-          tracker.class.Issue,
-          project._id,
-          source._id,
-          { $pull: { blockedBy: { _id: toRef<Doc>(target._id) } } } as DocumentUpdate<HulyIssue>
-        )
+        yield* client.updateDoc(tracker.class.Issue, project._id, source._id, {
+          $pull: { blockedBy: { _id: toRef<Doc>(target._id) } }
+        } as DocumentUpdate<HulyIssue>)
         return { ...result, removed: true }
       }
       case "relates-to": {
@@ -206,18 +174,12 @@ export const removeIssueRelation = (
           return { ...result, removed: false }
         }
         // Bidirectional: pull from both sides. Partial failure accepted — matches Huly UI behavior.
-        yield* client.updateDoc(
-          tracker.class.Issue,
-          project._id,
-          source._id,
-          { $pull: { relations: { _id: toRef<Doc>(target._id) } } } as DocumentUpdate<HulyIssue>
-        )
-        yield* client.updateDoc(
-          tracker.class.Issue,
-          targetProject._id,
-          target._id,
-          { $pull: { relations: { _id: toRef<Doc>(source._id) } } } as DocumentUpdate<HulyIssue>
-        )
+        yield* client.updateDoc(tracker.class.Issue, project._id, source._id, {
+          $pull: { relations: { _id: toRef<Doc>(target._id) } }
+        } as DocumentUpdate<HulyIssue>)
+        yield* client.updateDoc(tracker.class.Issue, targetProject._id, target._id, {
+          $pull: { relations: { _id: toRef<Doc>(source._id) } }
+        } as DocumentUpdate<HulyIssue>)
         return { ...result, removed: true }
       }
     }
@@ -227,7 +189,7 @@ export const removeIssueRelation = (
 export const listIssueRelations = (
   params: ListIssueRelationsParams
 ): Effect.Effect<ListIssueRelationsResult, RelationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, issue } = yield* findProjectAndIssue({
       project: params.project,
       identifier: params.issueIdentifier
@@ -245,7 +207,7 @@ export const listIssueRelations = (
     }
 
     // Resolve issue refs (blockedBy are always issues; issueRelationsRefs are issue relations)
-    const allIssueIds = [...blockedByRefs, ...issueRelationsRefs].map(r => r._id)
+    const allIssueIds = [...blockedByRefs, ...issueRelationsRefs].map((r) => r._id)
     const idToIdentifier = new Map<string, string>()
 
     if (allIssueIds.length > 0) {
@@ -281,7 +243,7 @@ export const listIssueRelations = (
       blockingIssueFindOptions
     )
     const blocks = blockingIssueCandidates
-      .filter(candidate => candidate._id !== issue._id && hasRelationById(candidate.blockedBy, issue._id))
+      .filter((candidate) => candidate._id !== issue._id && hasRelationById(candidate.blockedBy, issue._id))
       .map(toIssueEntry)
 
     // Resolve document refs
@@ -290,12 +252,12 @@ export const listIssueRelations = (
       const toDocRef = toRef<HulyDocument>
       const docs = yield* client.findAll<HulyDocument>(
         documentPlugin.class.Document,
-        hulyQuery<HulyDocument>({ _id: { $in: docRelationsRefs.map(r => toDocRef(r._id)) } })
+        hulyQuery<HulyDocument>({ _id: { $in: docRelationsRefs.map((r) => toDocRef(r._id)) } })
       )
-      const docMap = new Map(docs.map(d => [String(d._id), d]))
+      const docMap = new Map(docs.map((d) => [String(d._id), d]))
 
       // Resolve teamspace names for the documents
-      const spaceIds = [...new Set(docs.map(d => d.space))]
+      const spaceIds = [...new Set(docs.map((d) => d.space))]
       const tsNameMap = new Map<string, string>()
       if (spaceIds.length > 0) {
         const teamspaces = yield* client.findAll<HulyTeamspace>(
@@ -320,10 +282,5 @@ export const listIssueRelations = (
       }
     }
 
-    return {
-      blockedBy: blockedByRefs.map(toEntry),
-      blocks,
-      relations: issueRelationsRefs.map(toEntry),
-      documents
-    }
+    return { blockedBy: blockedByRefs.map(toEntry), blocks, relations: issueRelationsRefs.map(toEntry), documents }
   })

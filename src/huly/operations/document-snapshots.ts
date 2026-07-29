@@ -26,19 +26,11 @@ import { findTeamspaceAndDocument } from "./documents-shared.js"
 import { clampLimit, hulyQuery, type StrictDocumentQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
-type DocumentSnapshotDoc = HulyDocumentSnapshot & {
-  readonly attachedTo: Ref<HulyDocument>
-}
+type DocumentSnapshotDoc = HulyDocumentSnapshot & { readonly attachedTo: Ref<HulyDocument> }
 
-type ListDocumentSnapshotsError =
-  | HulyClientError
-  | TeamspaceNotFoundError
-  | DocumentNotFoundError
+type ListDocumentSnapshotsError = HulyClientError | TeamspaceNotFoundError | DocumentNotFoundError
 
-type GetDocumentSnapshotError =
-  | ListDocumentSnapshotsError
-  | DocumentContentCorruptedError
-  | HulyError
+type GetDocumentSnapshotError = ListDocumentSnapshotsError | DocumentContentCorruptedError | HulyError
 
 const snapshotSummary = (
   snapshot: DocumentSnapshotDoc,
@@ -59,17 +51,14 @@ const snapshotResult = (
   doc: HulyDocument,
   teamspaceId: Ref<HulyTeamspace>,
   markdown: string
-): DocumentSnapshot => ({
-  ...snapshotSummary(snapshot, doc, teamspaceId),
-  markdown: DocumentMarkdown.make(markdown)
-})
+): DocumentSnapshot => ({ ...snapshotSummary(snapshot, doc, teamspaceId), markdown: DocumentMarkdown.make(markdown) })
 
 const findSnapshotByIdentifier = (
   client: HulyClient["Type"],
   doc: HulyDocument,
   identifier: GetDocumentSnapshotParams["snapshot"]
 ): Effect.Effect<DocumentSnapshotDoc, HulyClientError | HulyError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<DocumentSnapshotDoc>(
       documentPlugin.class.DocumentSnapshot,
       hulyQuery<DocumentSnapshotDoc>({ attachedTo: doc._id, _id: toRef<DocumentSnapshotDoc>(identifier) })
@@ -84,36 +73,32 @@ const findSnapshotByIdentifier = (
     if (isSingle(titleMatches)) return titleMatches[0]
     if (titleMatches.length > 1) {
       return yield* new HulyError({
-        message:
-          `Multiple snapshots on document '${doc.title}' have title '${identifier}'. Use the snapshotId from list_document_snapshots.`
+        message: `Multiple snapshots on document '${doc.title}' have title '${identifier}'. Use the snapshotId from list_document_snapshots.`
       })
     }
 
     const createdOn = Number(identifier)
     const dateMatches = Number.isSafeInteger(createdOn)
       ? yield* client.findAll<DocumentSnapshotDoc>(
-        documentPlugin.class.DocumentSnapshot,
-        hulyQuery<DocumentSnapshotDoc>({ attachedTo: doc._id, createdOn }),
-        { limit: 2 }
-      )
+          documentPlugin.class.DocumentSnapshot,
+          hulyQuery<DocumentSnapshotDoc>({ attachedTo: doc._id, createdOn }),
+          { limit: 2 }
+        )
       : []
     if (isSingle(dateMatches)) return dateMatches[0]
     if (dateMatches.length > 1) {
       return yield* new HulyError({
-        message:
-          `Multiple snapshots on document '${doc.title}' have createdOn '${identifier}'. Use the snapshotId from list_document_snapshots.`
+        message: `Multiple snapshots on document '${doc.title}' have createdOn '${identifier}'. Use the snapshotId from list_document_snapshots.`
       })
     }
 
-    return yield* new HulyError({
-      message: `Snapshot '${identifier}' was not found on document '${doc.title}'.`
-    })
+    return yield* new HulyError({ message: `Snapshot '${identifier}' was not found on document '${doc.title}'.` })
   })
 
 export const listDocumentSnapshots = (
   params: ListDocumentSnapshotsParams
 ): Effect.Effect<ListDocumentSnapshotsResult, ListDocumentSnapshotsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, doc, teamspace } = yield* findTeamspaceAndDocument(params)
     const limit = clampLimit(params.limit)
     const query: StrictDocumentQuery<DocumentSnapshotDoc> = { attachedTo: doc._id }
@@ -132,7 +117,7 @@ export const listDocumentSnapshots = (
 export const getDocumentSnapshot = (
   params: GetDocumentSnapshotParams
 ): Effect.Effect<GetDocumentSnapshotResult, GetDocumentSnapshotError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, doc, teamspace } = yield* findTeamspaceAndDocument(params)
     const snapshot = yield* findSnapshotByIdentifier(client, doc, params.snapshot)
     const markdown = yield* client.fetchMarkup(

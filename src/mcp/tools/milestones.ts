@@ -59,9 +59,10 @@ export const milestoneTools = [
   defineTool(
     {
       name: "create_milestone",
-      description: "Create a new milestone in a Huly project. Description supports markdown. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT
-        + " Returns the created milestone ID and label.",
+      description:
+        "Create a new milestone in a Huly project. Description supports markdown. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT +
+        " Returns the created milestone ID and label.",
       category: CATEGORY,
       inputSchema: createMilestoneParamsJsonSchema,
       resultSchema: CreateMilestoneResultSchema
@@ -73,8 +74,8 @@ export const milestoneTools = [
     {
       name: "update_milestone",
       description:
-        "Update fields on an existing Huly milestone. Only provided fields are modified. Description supports markdown. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
+        "Update fields on an existing Huly milestone. Only provided fields are modified. Description supports markdown. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
       category: CATEGORY,
       inputSchema: updateMilestoneParamsJsonSchema,
       resultSchema: UpdateMilestoneResultSchema

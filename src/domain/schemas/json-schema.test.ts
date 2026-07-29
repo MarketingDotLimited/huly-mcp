@@ -30,13 +30,7 @@ describe("JSON schema helpers", () => {
 
   it("adds configured property descriptions without inventing custom ones", () => {
     const jsonSchema = withJsonSchemaPropertyDescriptions(
-      {
-        type: "object",
-        properties: {
-          product: { type: "string" },
-          custom: { type: "string" }
-        }
-      },
+      { type: "object", properties: { product: { type: "string" }, custom: { type: "string" } } },
       { product: "Product locator." }
     )
 

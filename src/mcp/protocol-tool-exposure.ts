@@ -52,10 +52,7 @@ interface ListedToolSource {
 }
 
 const BUILTIN_TOOL_COUNT = 2
-const DEFAULT_HANDLER_EXPOSURE_CONFIG: ToolExposureConfig = {
-  configuredMode: "native",
-  proxyOutputStrict: false
-}
+const DEFAULT_HANDLER_EXPOSURE_CONFIG: ToolExposureConfig = { configuredMode: "native", proxyOutputStrict: false }
 
 const emptyToolRegistry: ToolRegistry = {
   tools: new Map<string, RegisteredTool>(),
@@ -71,10 +68,9 @@ const isObjectPropertyEntry = (entry: [string, unknown]): entry is [string, obje
 const objectProperties = (properties: Record<string, unknown> | undefined): Record<string, object> | undefined => {
   if (properties === undefined) return undefined
 
-  return Object.entries(properties).filter(isObjectPropertyEntry).reduce<Record<string, object>>(
-    (acc, [key, value]) => ({ ...acc, [key]: value }),
-    {}
-  )
+  return Object.entries(properties)
+    .filter(isObjectPropertyEntry)
+    .reduce<Record<string, object>>((acc, [key, value]) => ({ ...acc, [key]: value }), {})
 }
 
 const toProtocolObjectSchema = (schema: ProtocolObjectSchemaSource): ProtocolObjectSchema => {
@@ -118,14 +114,16 @@ export const resolveProtocolExposure = (
     ...(clientInfo === undefined ? {} : { clientInfo })
   })
   const proxyCandidateRegistry = resolveProxyCandidateRegistry(registries, options)
-  const visibleNativeRegistry = resolvedMode === "native"
-    ? registries.scopedNativeRegistry
-    : options.toolScopeFilteringActive && !options.exposureConfig.proxyOutputStrict
-    ? registries.scopedNativeRegistry
-    : emptyToolRegistry
-  const visibleToolCount = BUILTIN_TOOL_COUNT
-    + visibleNativeRegistry.definitions.length
-    + (resolvedMode === "proxy" ? proxyToolDefinitions.length : 0)
+  const visibleNativeRegistry =
+    resolvedMode === "native"
+      ? registries.scopedNativeRegistry
+      : options.toolScopeFilteringActive && !options.exposureConfig.proxyOutputStrict
+        ? registries.scopedNativeRegistry
+        : emptyToolRegistry
+  const visibleToolCount =
+    BUILTIN_TOOL_COUNT +
+    visibleNativeRegistry.definitions.length +
+    (resolvedMode === "proxy" ? proxyToolDefinitions.length : 0)
 
   return {
     context: {

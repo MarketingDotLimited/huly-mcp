@@ -76,44 +76,20 @@ const optionalTextOption = (
 ): Options.Options<ReadonlyArray<ParsedCliOption>> =>
   Options.text(name).pipe(
     Options.optional,
-    Options.map((value) =>
-      Option.match(value, {
-        onNone: () => emptyOptions,
-        onSome: (text) => [makeOption(text)]
-      })
-    )
+    Options.map((value) => Option.match(value, { onNone: () => emptyOptions, onSome: (text) => [makeOption(text)] }))
   )
 
-const booleanOption = (
-  name: "json" | "yes"
-): Options.Options<ReadonlyArray<ParsedCliOption>> =>
+const booleanOption = (name: "json" | "yes"): Options.Options<ReadonlyArray<ParsedCliOption>> =>
   Options.boolean(name, { negationNames: [`no-${name}`] }).pipe(
-    Options.map((value) => [{
-      _tag: "GlobalBooleanOption",
-      name,
-      value
-    }])
+    Options.map((value) => [{ _tag: "GlobalBooleanOption", name, value }])
   )
 
 const fieldTextOption = (optionName: string, field: FieldSpec): Options.Options<ReadonlyArray<ParsedCliOption>> =>
-  optionalTextOption(optionName, (value) => ({
-    _tag: "FieldOption",
-    fieldName: field.fieldName,
-    optionName,
-    value
-  }))
+  optionalTextOption(optionName, (value) => ({ _tag: "FieldOption", fieldName: field.fieldName, optionName, value }))
 
-const fieldBooleanOption = (
-  optionName: string,
-  field: FieldSpec
-): Options.Options<ReadonlyArray<ParsedCliOption>> =>
+const fieldBooleanOption = (optionName: string, field: FieldSpec): Options.Options<ReadonlyArray<ParsedCliOption>> =>
   Options.boolean(optionName, { negationNames: [`no-${optionName}`] }).pipe(
-    Options.map((value) => [{
-      _tag: "BooleanFieldOption",
-      fieldName: field.fieldName,
-      optionName,
-      value
-    }])
+    Options.map((value) => [{ _tag: "BooleanFieldOption", fieldName: field.fieldName, optionName, value }])
   )
 
 const fieldFileOption = (optionName: string, field: FieldSpec): Options.Options<ReadonlyArray<ParsedCliOption>> =>
@@ -125,11 +101,11 @@ const fieldFileOption = (optionName: string, field: FieldSpec): Options.Options<
   }))
 
 const fieldUsesBooleanOption = (rootSchema: object, field: FieldSpec): boolean =>
-  fieldAcceptsBoolean(rootSchema, field)
-  && !fieldAcceptsString(rootSchema, field)
-  && !fieldAcceptsNumber(rootSchema, field)
-  && !fieldAcceptsNull(rootSchema, field)
-  && !fieldAcceptsJson(rootSchema, field)
+  fieldAcceptsBoolean(rootSchema, field) &&
+  !fieldAcceptsString(rootSchema, field) &&
+  !fieldAcceptsNumber(rootSchema, field) &&
+  !fieldAcceptsNull(rootSchema, field) &&
+  !fieldAcceptsJson(rootSchema, field)
 
 const fieldOptions = (
   rootSchema: object,
@@ -158,17 +134,15 @@ const globalOptions: ReadonlyArray<Options.Options<ReadonlyArray<ParsedCliOption
   optionalTextOption("output", (value) => ({ _tag: "GlobalOption", name: "output", value }))
 ]
 
-const flattenOptions = (
-  parsed: ReadonlyArray<ReadonlyArray<ParsedCliOption>>
-): ReadonlyArray<ParsedCliOption> => parsed.flat()
+const flattenOptions = (parsed: ReadonlyArray<ReadonlyArray<ParsedCliOption>>): ReadonlyArray<ParsedCliOption> =>
+  parsed.flat()
 
 export const buildCliCommandConfig = (tool: ToolDefinition, spec: CliCommandSpec) => {
   const fields = collectFieldSpecs(tool.inputSchema)
   const fileInputFields = new Set(spec.behavior?.fileInput?.fields ?? [])
-  const options = Options.all([
-    ...globalOptions,
-    ...fieldOptions(tool.inputSchema, fields, fileInputFields)
-  ]).pipe(Options.map(flattenOptions))
+  const options = Options.all([...globalOptions, ...fieldOptions(tool.inputSchema, fields, fileInputFields)]).pipe(
+    Options.map(flattenOptions)
+  )
 
   return { options, positionals }
 }
@@ -185,15 +159,7 @@ export const parseCliCommandLine = (
   const config = buildCliCommandConfig(tool, spec)
   return Options.processCommandLine(config.options, raw, CliConfig.defaultConfig).pipe(
     Effect.flatMap(([error, rest, options]) =>
-      Option.match(error, {
-        onNone: () =>
-          Effect.succeed({
-            options,
-            positionals: rest,
-            raw
-          }),
-        onSome: Effect.fail
-      })
+      Option.match(error, { onNone: () => Effect.succeed({ options, positionals: rest, raw }), onSome: Effect.fail })
     )
   )
 }
@@ -203,19 +169,17 @@ export const parseGlobalCommandLine = (
 ): Effect.Effect<ReadonlyArray<ParsedCliOption>, unknown, NodeContext.NodeContext> =>
   Options.processCommandLine(buildGlobalOptionsConfig().options, raw, CliConfig.defaultConfig).pipe(
     Effect.flatMap(([error, , options]) =>
-      Option.match(error, {
-        onNone: () => Effect.succeed(options),
-        onSome: Effect.fail
-      })
+      Option.match(error, { onNone: () => Effect.succeed(options), onSome: Effect.fail })
     )
   )
 
 export const rawOptionPresent = (raw: ReadonlyArray<string>, optionName: string): boolean =>
-  raw.some((token) =>
-    token === `--${optionName}`
-    || token.startsWith(`--${optionName}=`)
-    || token === `--no-${optionName}`
-    || token.startsWith(`--no-${optionName}=`)
+  raw.some(
+    (token) =>
+      token === `--${optionName}` ||
+      token.startsWith(`--${optionName}=`) ||
+      token === `--no-${optionName}` ||
+      token.startsWith(`--no-${optionName}=`)
   )
 
 export const rawOptionInlineValue = (raw: ReadonlyArray<string>, optionName: string): string | undefined => {

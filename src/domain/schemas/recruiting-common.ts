@@ -26,13 +26,9 @@ export const StoredRecruitingText = Schema.String.annotations({
     "Free-form text already stored in Huly. Plain string is intentional because existing records may be empty."
 })
 
-const RecruitingArchivedFlag = Schema.Boolean.annotations({
-  description: "Whether the Recruiting object is archived."
-})
+const RecruitingArchivedFlag = Schema.Boolean.annotations({ description: "Whether the Recruiting object is archived." })
 
-const RecruitingPrivateFlag = Schema.Boolean.annotations({
-  description: "Whether the Recruiting object is private."
-})
+const RecruitingPrivateFlag = Schema.Boolean.annotations({ description: "Whether the Recruiting object is private." })
 
 const VacancyTypeDefaultFlag = Schema.Boolean.annotations({
   description: "Whether this vacancy type is Huly's default vacancy type."
@@ -62,9 +58,7 @@ const RecruitingWorkModeFlag = Schema.Boolean.annotations({
   description: "Candidate work-mode preference copied from Huly candidate profile data."
 })
 
-export const VacancyName = NonEmptyString.annotations({
-  description: "Non-empty Recruiting vacancy display name."
-})
+export const VacancyName = NonEmptyString.annotations({ description: "Non-empty Recruiting vacancy display name." })
 export type VacancyName = Schema.Schema.Type<typeof VacancyName>
 
 export const VacancyTypeName = NonEmptyString.annotations({
@@ -77,9 +71,7 @@ export const RecruitingCompanyName = NonEmptyString.annotations({
 })
 export type RecruitingCompanyName = Schema.Schema.Type<typeof RecruitingCompanyName>
 
-export const RecruitingSkillTitle = NonEmptyString.annotations({
-  description: "Non-empty Recruiting skill tag title."
-})
+export const RecruitingSkillTitle = NonEmptyString.annotations({ description: "Non-empty Recruiting skill tag title." })
 export type RecruitingSkillTitle = Schema.Schema.Type<typeof RecruitingSkillTitle>
 
 export const RecruitingSkillCategory = NonEmptyString.annotations({
@@ -87,14 +79,10 @@ export const RecruitingSkillCategory = NonEmptyString.annotations({
 })
 export type RecruitingSkillCategory = Schema.Schema.Type<typeof RecruitingSkillCategory>
 
-export const RecruitingReviewTitle = NonEmptyString.annotations({
-  description: "Non-empty Recruiting review title."
-})
+export const RecruitingReviewTitle = NonEmptyString.annotations({ description: "Non-empty Recruiting review title." })
 export type RecruitingReviewTitle = Schema.Schema.Type<typeof RecruitingReviewTitle>
 
-export const RecruitingOpinionValue = NonEmptyString.annotations({
-  description: "Non-empty Recruiting opinion value."
-})
+export const RecruitingOpinionValue = NonEmptyString.annotations({ description: "Non-empty Recruiting opinion value." })
 export type RecruitingOpinionValue = Schema.Schema.Type<typeof RecruitingOpinionValue>
 
 export const VacancyId = DocId.pipe(Schema.brand("VacancyId"))
@@ -112,10 +100,7 @@ export type ReviewId = Schema.Schema.Type<typeof ReviewId>
 export const OpinionId = DocId.pipe(Schema.brand("OpinionId"))
 export type OpinionId = Schema.Schema.Type<typeof OpinionId>
 
-const prefixedLocator = (
-  prefix: "APP" | "OPE" | "RVE" | "VCN",
-  expected: string
-) =>
+const prefixedLocator = (prefix: "APP" | "OPE" | "RVE" | "VCN", expected: string) =>
   Schema.transformOrFail(RawRecruitingLocatorInput, NonEmptyString, {
     strict: true,
     decode: (input, _options, ast) => {
@@ -127,24 +112,27 @@ const prefixedLocator = (
       return ParseResult.succeed(match === null ? trimmed : `${prefix}-${match[1]}`)
     },
     encode: ParseResult.succeed
-  }).annotations({
-    jsonSchema: { type: "string" }
-  })
+  }).annotations({ jsonSchema: { type: "string" } })
 
-export const VacancyIdentifier = prefixedLocator("VCN", "Expected vacancy ID, VCN-<number>, number, or exact name")
-  .pipe(Schema.brand("VacancyIdentifier"))
+export const VacancyIdentifier = prefixedLocator(
+  "VCN",
+  "Expected vacancy ID, VCN-<number>, number, or exact name"
+).pipe(Schema.brand("VacancyIdentifier"))
 export type VacancyIdentifier = Schema.Schema.Type<typeof VacancyIdentifier>
 
-export const ApplicantIdentifier = prefixedLocator("APP", "Expected applicant ID, APP-<number>, or number")
-  .pipe(Schema.brand("ApplicantIdentifier"))
+export const ApplicantIdentifier = prefixedLocator("APP", "Expected applicant ID, APP-<number>, or number").pipe(
+  Schema.brand("ApplicantIdentifier")
+)
 export type ApplicantIdentifier = Schema.Schema.Type<typeof ApplicantIdentifier>
 
-export const ReviewIdentifier = prefixedLocator("RVE", "Expected review ID, RVE-<number>, number, or exact title")
-  .pipe(Schema.brand("ReviewIdentifier"))
+export const ReviewIdentifier = prefixedLocator("RVE", "Expected review ID, RVE-<number>, number, or exact title").pipe(
+  Schema.brand("ReviewIdentifier")
+)
 export type ReviewIdentifier = Schema.Schema.Type<typeof ReviewIdentifier>
 
-export const OpinionIdentifier = prefixedLocator("OPE", "Expected opinion ID, OPE-<number>, or number")
-  .pipe(Schema.brand("OpinionIdentifier"))
+export const OpinionIdentifier = prefixedLocator("OPE", "Expected opinion ID, OPE-<number>, or number").pipe(
+  Schema.brand("OpinionIdentifier")
+)
 export type OpinionIdentifier = Schema.Schema.Type<typeof OpinionIdentifier>
 
 export const ApplicantMatchIdentifier = NonEmptyString.pipe(Schema.brand("ApplicantMatchIdentifier"))
@@ -158,20 +146,14 @@ export const VacancyRefSchema = Schema.Struct({
   identifier: VacancyIdentifier,
   name: VacancyName,
   archived: RecruitingArchivedFlag
-}).annotations({
-  title: "RecruitingVacancyRef",
-  description: "Stable Recruiting vacancy reference."
-})
+}).annotations({ title: "RecruitingVacancyRef", description: "Stable Recruiting vacancy reference." })
 export type VacancyRef = Schema.Schema.Type<typeof VacancyRefSchema>
 
 export const CandidateRefSchema = Schema.Struct({
   id: PersonId,
   name: PersonName,
   email: Schema.optional(StoredRecruitingText)
-}).annotations({
-  title: "RecruitingCandidateRef",
-  description: "Stable Recruiting candidate reference."
-})
+}).annotations({ title: "RecruitingCandidateRef", description: "Stable Recruiting candidate reference." })
 export type CandidateRef = Schema.Schema.Type<typeof CandidateRefSchema>
 
 export const ApplicantRefSchema = Schema.Struct({
@@ -180,10 +162,7 @@ export const ApplicantRefSchema = Schema.Struct({
   vacancy: VacancyRefSchema,
   candidate: CandidateRefSchema,
   status: StatusName
-}).annotations({
-  title: "RecruitingApplicantRef",
-  description: "Stable Recruiting applicant reference."
-})
+}).annotations({ title: "RecruitingApplicantRef", description: "Stable Recruiting applicant reference." })
 export type ApplicantRef = Schema.Schema.Type<typeof ApplicantRefSchema>
 
 export const ReviewRefSchema = Schema.Struct({
@@ -191,10 +170,7 @@ export const ReviewRefSchema = Schema.Struct({
   identifier: ReviewIdentifier,
   title: RecruitingReviewTitle,
   candidate: CandidateRefSchema
-}).annotations({
-  title: "RecruitingReviewRef",
-  description: "Stable Recruiting review reference."
-})
+}).annotations({ title: "RecruitingReviewRef", description: "Stable Recruiting review reference." })
 export type ReviewRef = Schema.Schema.Type<typeof ReviewRefSchema>
 
 export const OpinionRefSchema = Schema.Struct({
@@ -202,10 +178,7 @@ export const OpinionRefSchema = Schema.Struct({
   identifier: OpinionIdentifier,
   review: ReviewRefSchema,
   value: RecruitingOpinionValue
-}).annotations({
-  title: "RecruitingOpinionRef",
-  description: "Stable Recruiting opinion reference."
-})
+}).annotations({ title: "RecruitingOpinionRef", description: "Stable Recruiting opinion reference." })
 export type OpinionRef = Schema.Schema.Type<typeof OpinionRefSchema>
 
 export const ApplicantMatchRefSchema = Schema.Struct({
@@ -213,10 +186,7 @@ export const ApplicantMatchRefSchema = Schema.Struct({
   candidate: CandidateRefSchema,
   complete: ApplicantMatchCompleteFlag,
   vacancy: StoredRecruitingText
-}).annotations({
-  title: "RecruitingApplicantMatchRef",
-  description: "Stable Recruiting applicant-match reference."
-})
+}).annotations({ title: "RecruitingApplicantMatchRef", description: "Stable Recruiting applicant-match reference." })
 export type ApplicantMatchRef = Schema.Schema.Type<typeof ApplicantMatchRefSchema>
 
 export const VacancyTypeSummarySchema = Schema.Struct({
@@ -248,10 +218,7 @@ export const VacancyDetailSchema = Schema.Struct({
   shortDescription: Schema.optional(StoredRecruitingText),
   fullDescription: Schema.optional(StoredRecruitingText),
   type: VacancyTypeSummarySchema,
-  company: Schema.optional(Schema.Struct({
-    id: DocId,
-    name: RecruitingCompanyName
-  })),
+  company: Schema.optional(Schema.Struct({ id: DocId, name: RecruitingCompanyName })),
   location: Schema.optional(StoredRecruitingText),
   dueTo: Schema.optional(Timestamp),
   private: RecruitingPrivateFlag,
@@ -329,9 +296,7 @@ export const ListRecruitingApplicantsResultSchema = Schema.Struct({
 })
 export type ListRecruitingApplicantsResult = Schema.Schema.Type<typeof ListRecruitingApplicantsResultSchema>
 
-export const RecruitingVacancyMutationResultSchema = Schema.Struct({
-  vacancy: VacancyRefSchema
-})
+export const RecruitingVacancyMutationResultSchema = Schema.Struct({ vacancy: VacancyRefSchema })
 export type RecruitingVacancyMutationResult = Schema.Schema.Type<typeof RecruitingVacancyMutationResultSchema>
 
 export const RecruitingCandidateMutationResultSchema = Schema.Struct({
@@ -340,9 +305,7 @@ export const RecruitingCandidateMutationResultSchema = Schema.Struct({
 })
 export type RecruitingCandidateMutationResult = Schema.Schema.Type<typeof RecruitingCandidateMutationResultSchema>
 
-export const RecruitingApplicantMutationResultSchema = Schema.Struct({
-  applicant: ApplicantRefSchema
-})
+export const RecruitingApplicantMutationResultSchema = Schema.Struct({ applicant: ApplicantRefSchema })
 export type RecruitingApplicantMutationResult = Schema.Schema.Type<typeof RecruitingApplicantMutationResultSchema>
 
 export const RecruitingSkillAttachResultSchema = Schema.Struct({

@@ -13,14 +13,15 @@ When setting up a new project from this one, ALL of these components must be cop
 
 1. **Test coverage** (`vitest.config.ts`): v8 provider, 99% thresholds, `test:coverage` script. Requires `@vitest/coverage-v8` dev dep.
 2. **Code duplication** (`.jscpd.json` + `jscpd src` in lint script): threshold 2%, console reporter.
-3. **Circular dependency detection** (`madge --circular` in `circular` script, wired into `check-all`): catches import cycles.
-4. **Cyclomatic complexity** (`eslint.complexity.config.mjs` + `eslint-complexity-suppressions.json` + `complexity` script, wired into `check-all`): classic McCabe complexity capped at 8 for production TypeScript. Existing violations are tracked as removable bulk suppressions; run `pnpm complexity:prune` after reducing them.
+3. **Circular dependency detection** (`dpdm --exit-code circular:1` in `circular`, wired into `check-all`): catches import cycles while ignoring type-only dependencies.
+4. **Cyclomatic complexity** (`oxlint.complexity.json` + `oxlint-complexity-suppressions.json` + `scripts/check-oxlint-complexity.ts`, wired into `check-all`): Oxlint's classic McCabe complexity is capped at 8 for production TypeScript. Existing violations are tracked as removable per-file counts; run `pnpm complexity:prune` after reducing them.
 5. **Pre-commit hooks** (`.husky/pre-commit`): lint-staged + gitleaks secrets scanning.
-6. **check-all** (`pnpm check-all`): build + typecheck + circular + complexity + lint (eslint + jscpd) + test. Gate for all work.
+6. **check-all** (`pnpm check-all`): build + TypeScript 7 and Effect diagnostics + circular + complexity + lint (Oxlint + jscpd) + test. Gate for all work.
 7. **Effect testing** (`@effect/vitest`): Effect-aware test runner integration.
-8. **ESLint** (`@effect/eslint-plugin`, `eslint-plugin-functional`, `@effect/dprint`): formatting + lint.
-9. **Property test placement**: fast-check/property-based tests live in `*.property.test.ts` files only. ESLint must reject `fast-check` imports in ordinary `*.test.ts` files so generated tests stay discoverable and reviewable as a distinct test class.
-10. **Strict TypeScript baseline** (`tsconfig.json`): `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noImplicitOverride`, and `noFallthroughCasesInSwitch`.
+8. **Effect language-service diagnostics** (`effect-tsgo diagnostics --project tsconfig.json --strict --severity error,warning`): run through `@effect/tsgo` as part of `typecheck` without patching TypeScript; Effect errors and warnings fail the gate.
+9. **Oxc lint and formatting** (`.oxlintrc.json` + `oxlint-tsgolint` + `dprint.json` with `dprint-plugin-oxc`): type-aware Oxlint plus Oxc formatting through dprint, without the ESLint runtime. Project-only architectural rules live in `scripts/oxlint-project-plugin.mjs`.
+10. **Property test placement**: fast-check/property-based tests live in `*.property.test.ts` files only. Oxlint must reject `fast-check` imports in ordinary `*.test.ts` files so generated tests stay discoverable and reviewable as a distinct test class.
+11. **Strict TypeScript 7 baseline** (`@typescript/native` + `tsconfig.json`): project typechecking uses TypeScript 7 with `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, `noImplicitOverride`, and `noFallthroughCasesInSwitch`. The `typescript-compiler-api` alias is TypeScript 5 used only by the README AST generator because the native TypeScript 7 package does not expose the JavaScript compiler API.
 
 Missing any of these degrades the quality gate. Coverage and duplication detection are especially easy to forget.
 
@@ -175,9 +176,9 @@ After merging a worktree branch, verify the merge commit actually landed (`git l
 
 ## Formatting
 
-Formatting is handled by `@effect/dprint` via ESLint (included in `pnpm lint`).
+Formatting is handled by Oxc through `dprint-plugin-oxc` (included in `pnpm lint`).
 
-- `pnpm format` — auto-format files (dprint rules only)
+- `pnpm format` — auto-format TypeScript files with Oxc
 - `pnpm check-format` — check formatting without writing
 
 ## Publishing

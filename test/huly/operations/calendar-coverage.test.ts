@@ -199,13 +199,13 @@ const createTestLayer = (config: MockConfig) => {
     if (_class === calendar.class.Calendar) {
       if (!hasCalendar) return Effect.succeed(toFindResult([]))
       const q = query as Record<string, unknown>
-      return Effect.succeed(toFindResult(calendars.filter(cal => matchesCalendarQuery(cal, q))))
+      return Effect.succeed(toFindResult(calendars.filter((cal) => matchesCalendarQuery(cal, q))))
     }
     if (_class === contact.class.Person) {
       const q = query as Record<string, unknown>
       if (q._id && typeof q._id === "object" && "$in" in (q._id as Record<string, unknown>)) {
         const ids = assertExists((q._id as { readonly $in?: ReadonlyArray<string> }).$in)
-        const matched = persons.filter(p => ids.includes(p._id))
+        const matched = persons.filter((p) => ids.includes(p._id))
         return Effect.succeed(toFindResult(matched))
       }
       return Effect.succeed(toFindResult(persons))
@@ -214,7 +214,7 @@ const createTestLayer = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       if (q.value && typeof q.value === "object" && "$in" in (q.value as Record<string, unknown>)) {
         const emails = assertExists((q.value as { readonly $in?: ReadonlyArray<string> }).$in)
-        const matched = channels.filter(c => emails.includes(c.value))
+        const matched = channels.filter((c) => emails.includes(c.value))
         return Effect.succeed(toFindResult(matched))
       }
       return Effect.succeed(toFindResult(channels))
@@ -225,40 +225,40 @@ const createTestLayer = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === calendar.class.Event) {
       const q = query as Record<string, unknown>
-      const found = events.find(e => e.eventId === q.eventId)
+      const found = events.find((e) => e.eventId === q.eventId)
       return Effect.succeed(found)
     }
     if (_class === calendar.class.ReccuringEvent) {
       const q = query as Record<string, unknown>
-      const found = recurringEvents.find(e => e.eventId === q.eventId)
+      const found = recurringEvents.find((e) => e.eventId === q.eventId)
       return Effect.succeed(found)
     }
     if (_class === calendar.class.Calendar) {
       if (!hasCalendar) return Effect.succeed(undefined)
       const q = query as Record<string, unknown>
-      return Effect.succeed(calendars.find(cal => matchesCalendarQuery(cal, q)))
+      return Effect.succeed(calendars.find((cal) => matchesCalendarQuery(cal, q)))
     }
     if (_class === calendar.class.PrimaryCalendar) {
-      const primary = config.primaryCalendarId === undefined
-        ? undefined
-        : makePrimaryCalendar(config.primaryCalendarId)
+      const primary = config.primaryCalendarId === undefined ? undefined : makePrimaryCalendar(config.primaryCalendarId)
       return Effect.succeed(primary)
     }
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
-  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = (
-    () => Effect.succeed("")
-  ) as HulyClientOperations["fetchMarkup"]
+  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = (() =>
+    Effect.succeed("")) as HulyClientOperations["fetchMarkup"]
 
-  const updateDocImpl: HulyClientOperations["updateDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown, operations: unknown) => {
-      if (config.captureUpdateDoc) {
-        config.captureUpdateDoc.operations = operations as Record<string, unknown>
-      }
-      return Effect.succeed({} as never)
+  const updateDocImpl: HulyClientOperations["updateDoc"] = ((
+    _class: unknown,
+    _space: unknown,
+    _objectId: unknown,
+    operations: unknown
+  ) => {
+    if (config.captureUpdateDoc) {
+      config.captureUpdateDoc.operations = operations as Record<string, unknown>
     }
-  ) as HulyClientOperations["updateDoc"]
+    return Effect.succeed({} as never)
+  }) as HulyClientOperations["updateDoc"]
 
   const addCollectionImpl: HulyClientOperations["addCollection"] = ((
     _class: unknown,
@@ -303,19 +303,21 @@ const createTestLayer = (config: MockConfig) => {
 
 describe("createRecurringEvent - ruleToHulyRule with all optional fields", () => {
   it.effect("converts rule with endDate, count, interval", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const testLayer = createTestLayer({ captureAddCollection })
 
       yield* createRecurringEvent({
         title: calendarEventTitle("Recurring"),
         startDate: Timestamp.make(1700000000000),
-        rules: [{
-          freq: "WEEKLY",
-          endDate: Timestamp.make(1710000000000),
-          count: RecurrenceCount.make(10),
-          interval: RecurrenceInterval.make(2)
-        }]
+        rules: [
+          {
+            freq: "WEEKLY",
+            endDate: Timestamp.make(1710000000000),
+            count: RecurrenceCount.make(10),
+            interval: RecurrenceInterval.make(2)
+          }
+        ]
       }).pipe(Effect.provide(testLayer))
 
       const rules = captureAddCollection.attributes?.rules as Array<Record<string, unknown>>
@@ -324,24 +326,27 @@ describe("createRecurringEvent - ruleToHulyRule with all optional fields", () =>
       expect(assertAt(rules, 0).endDate).toBe(1710000000000)
       expect(assertAt(rules, 0).count).toBe(10)
       expect(assertAt(rules, 0).interval).toBe(2)
-    }))
+    })
+  )
 
   it.effect("converts rule with byDay, byMonthDay, byMonth, bySetPos, wkst", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const testLayer = createTestLayer({ captureAddCollection })
 
       yield* createRecurringEvent({
         title: calendarEventTitle("Complex Recurring"),
         startDate: Timestamp.make(1700000000000),
-        rules: [{
-          freq: "MONTHLY",
-          byDay: ["MO", "WE", "FR"],
-          byMonthDay: [MonthDayOrdinal.make(1), MonthDayOrdinal.make(15)],
-          byMonth: [MonthIndex.make(0), MonthIndex.make(5), MonthIndex.make(11)],
-          bySetPos: [SetPositionOrdinal.make(-1)],
-          wkst: "MO"
-        }]
+        rules: [
+          {
+            freq: "MONTHLY",
+            byDay: ["MO", "WE", "FR"],
+            byMonthDay: [MonthDayOrdinal.make(1), MonthDayOrdinal.make(15)],
+            byMonth: [MonthIndex.make(0), MonthIndex.make(5), MonthIndex.make(11)],
+            bySetPos: [SetPositionOrdinal.make(-1)],
+            wkst: "MO"
+          }
+        ]
       }).pipe(Effect.provide(testLayer))
 
       const rules = captureAddCollection.attributes?.rules as Array<Record<string, unknown>>
@@ -352,10 +357,11 @@ describe("createRecurringEvent - ruleToHulyRule with all optional fields", () =>
       expect(assertAt(rules, 0).byMonth).toEqual([0, 5, 11])
       expect(assertAt(rules, 0).bySetPos).toEqual([-1])
       expect(assertAt(rules, 0).wkst).toBe("MO")
-    }))
+    })
+  )
 
   it.effect("copies arrays (byDay, byMonthDay, byMonth, bySetPos) without shared references", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const testLayer = createTestLayer({ captureAddCollection })
 
@@ -363,26 +369,21 @@ describe("createRecurringEvent - ruleToHulyRule with all optional fields", () =>
       yield* createRecurringEvent({
         title: calendarEventTitle("Array Copy Test"),
         startDate: Timestamp.make(1700000000000),
-        rules: [{
-          freq: "WEEKLY",
-          byDay: originalByDay
-        }]
+        rules: [{ freq: "WEEKLY", byDay: originalByDay }]
       }).pipe(Effect.provide(testLayer))
 
       const rules = captureAddCollection.attributes?.rules as Array<Record<string, unknown>>
       const resultByDay = assertAt(rules, 0).byDay as Array<string>
       expect(resultByDay).toEqual(["TU", "TH"])
       expect(resultByDay).not.toBe(originalByDay)
-    }))
+    })
+  )
 
   it.effect("uses explicit calendarId when provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const explicitCalendar = makeCalendar({ _id: "recurring-calendar" as Ref<HulyCalendar>, name: "Recurring" })
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
-      const testLayer = createTestLayer({
-        calendars: [makeCalendar(), explicitCalendar],
-        captureAddCollection
-      })
+      const testLayer = createTestLayer({ calendars: [makeCalendar(), explicitCalendar], captureAddCollection })
 
       yield* createRecurringEvent({
         title: calendarEventTitle("Recurring With Calendar"),
@@ -392,10 +393,11 @@ describe("createRecurringEvent - ruleToHulyRule with all optional fields", () =>
       }).pipe(Effect.provide(testLayer))
 
       expect(captureAddCollection.attributes?.calendar).toBe("recurring-calendar")
-    }))
+    })
+  )
 
   it.effect("uses primary calendar preference when calendarId is omitted", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const defaultCalendar = makeCalendar({
         _id: "00000000-0000-4000-8000-000000000000_calendar" as Ref<HulyCalendar>,
         name: "Default"
@@ -415,14 +417,15 @@ describe("createRecurringEvent - ruleToHulyRule with all optional fields", () =>
       }).pipe(Effect.provide(testLayer))
 
       expect(captureAddCollection.attributes?.calendar).toBe("preferred-calendar")
-    }))
+    })
+  )
 })
 
 // --- createEvent coverage (lines 300-352) ---
 
 describe("createEvent - description and participants", () => {
   it.effect("creates event with description via resolveEventInputs", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const captureUploadMarkup: MockConfig["captureUploadMarkup"] = {}
       const testLayer = createTestLayer({ captureAddCollection, captureUploadMarkup })
@@ -436,10 +439,11 @@ describe("createEvent - description and participants", () => {
       expect(result.eventId).toBeDefined()
       expect(captureUploadMarkup.called).toBe(true)
       expect(captureAddCollection.attributes?.description).toBe("markup-ref-123")
-    }))
+    })
+  )
 
   it.effect("creates event with participants resolved from emails", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const person = makePerson({ _id: "person-1" as Ref<Person>, name: "Alice" })
       const channel = asChannel({
         _id: "channel-1" as Ref<Channel>,
@@ -456,11 +460,7 @@ describe("createEvent - description and participants", () => {
         createdOn: 0
       })
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
-      const testLayer = createTestLayer({
-        persons: [person],
-        channels: [channel],
-        captureAddCollection
-      })
+      const testLayer = createTestLayer({ persons: [person], channels: [channel], captureAddCollection })
 
       const result = yield* createEvent({
         title: calendarEventTitle("Event with Participants"),
@@ -472,10 +472,11 @@ describe("createEvent - description and participants", () => {
       const participants = captureAddCollection.attributes?.participants as Array<string>
       expect(participants).toHaveLength(1)
       expect(assertAt(participants, 0)).toBe("person-1")
-    }))
+    })
+  )
 
   it.effect("creates event with participants resolved from object email locators", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const person = makePerson({ _id: "person-1" as Ref<Person>, name: "Alice" })
       const channel = asChannel({
         _id: "channel-1" as Ref<Channel>,
@@ -492,11 +493,7 @@ describe("createEvent - description and participants", () => {
         createdOn: 0
       })
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
-      const testLayer = createTestLayer({
-        persons: [person],
-        channels: [channel],
-        captureAddCollection
-      })
+      const testLayer = createTestLayer({ persons: [person], channels: [channel], captureAddCollection })
 
       yield* createEvent({
         title: calendarEventTitle("Event with Object Participants"),
@@ -505,10 +502,11 @@ describe("createEvent - description and participants", () => {
       }).pipe(Effect.provide(testLayer))
 
       expect(captureAddCollection.attributes?.participants).toEqual(["person-1"])
-    }))
+    })
+  )
 
   it.effect("creates event with empty description (whitespace only) - no upload", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const captureUploadMarkup: MockConfig["captureUploadMarkup"] = {}
       const testLayer = createTestLayer({ captureAddCollection, captureUploadMarkup })
@@ -521,16 +519,14 @@ describe("createEvent - description and participants", () => {
 
       expect(captureUploadMarkup.called).not.toBe(true)
       expect(captureAddCollection.attributes?.description).not.toBe("markup-ref-123")
-    }))
+    })
+  )
 
   it.effect("uses explicit calendarId when provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const explicitCalendar = makeCalendar({ _id: "explicit-calendar" as Ref<HulyCalendar>, name: "Explicit" })
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
-      const testLayer = createTestLayer({
-        calendars: [makeCalendar(), explicitCalendar],
-        captureAddCollection
-      })
+      const testLayer = createTestLayer({ calendars: [makeCalendar(), explicitCalendar], captureAddCollection })
 
       yield* createEvent({
         title: calendarEventTitle("Event With Calendar"),
@@ -539,10 +535,11 @@ describe("createEvent - description and participants", () => {
       }).pipe(Effect.provide(testLayer))
 
       expect(captureAddCollection.attributes?.calendar).toBe("explicit-calendar")
-    }))
+    })
+  )
 
   it.effect("uses primary calendar preference when calendarId is omitted", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const defaultCalendar = makeCalendar({
         _id: "00000000-0000-4000-8000-000000000000_calendar" as Ref<HulyCalendar>,
         name: "Default"
@@ -561,10 +558,11 @@ describe("createEvent - description and participants", () => {
       }).pipe(Effect.provide(testLayer))
 
       expect(captureAddCollection.attributes?.calendar).toBe("preferred-calendar")
-    }))
+    })
+  )
 
   it.effect("rejects explicit calendarId for non-writable calendars", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const readonlyCalendar = makeCalendar({
         _id: "readonly-calendar" as Ref<HulyCalendar>,
         access: AccessLevel.Reader
@@ -581,10 +579,11 @@ describe("createEvent - description and participants", () => {
 
       expect(error._tag).toBe("CalendarNotAccessibleError")
       expect(error.message).toContain("readonly-calendar")
-    }))
+    })
+  )
 
   it.effect("fails when explicit calendarId is not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({ calendars: [makeCalendar()] })
 
       const error = yield* Effect.flip(
@@ -597,12 +596,13 @@ describe("createEvent - description and participants", () => {
 
       expect(error._tag).toBe("CalendarNotAccessibleError")
       expect(error.message).toContain("missing-calendar")
-    }))
+    })
+  )
 })
 
 describe("listCalendars", () => {
   it.effect("lists calendars and marks the primary calendar", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const primary = makeCalendar({
         _id: "00000000-0000-4000-8000-000000000000_calendar" as Ref<HulyCalendar>,
         name: "Personal"
@@ -620,15 +620,12 @@ describe("listCalendars", () => {
         name: "Personal",
         isPrimary: true
       })
-      expect(assertAt(result, 1)).toMatchObject({
-        calendarId: "team-calendar",
-        name: "Team",
-        isPrimary: false
-      })
-    }))
+      expect(assertAt(result, 1)).toMatchObject({ calendarId: "team-calendar", name: "Team", isPrimary: false })
+    })
+  )
 
   it.effect("defaults missing visibility to private", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const calendarWithoutVisibility = makeCalendar({
         _id: "no-visibility-calendar" as Ref<HulyCalendar>,
         // eslint-disable-next-line no-restricted-syntax -- malformed SDK data for coverage of defensive fallback
@@ -640,10 +637,11 @@ describe("listCalendars", () => {
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).visibility).toBe("private")
-    }))
+    })
+  )
 
   it.effect("drops a malformed writable calendar with unmapped access", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const malformed = makeCalendar({
         _id: "malformed-calendar" as Ref<HulyCalendar>,
         // eslint-disable-next-line no-restricted-syntax -- malformed SDK data for coverage of defensive fallback
@@ -658,29 +656,30 @@ describe("listCalendars", () => {
       const result = yield* listCalendars({}).pipe(Effect.provide(testLayer))
 
       expect(result).toEqual([])
-    }))
+    })
+  )
 })
 
 // --- updateEvent coverage (lines 354-437) ---
 
 describe("updateEvent - field update branches", () => {
   it.effect("updates date field", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1" })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const testLayer = createTestLayer({ events: [event], captureUpdateDoc })
 
-      const result = yield* updateEvent({
-        eventId: eventBrandId("evt-1"),
-        date: Timestamp.make(1800000000000)
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* updateEvent({ eventId: eventBrandId("evt-1"), date: Timestamp.make(1800000000000) }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.date).toBe(1800000000000)
-    }))
+    })
+  )
 
   it.effect("updates dueDate field", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1" })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const testLayer = createTestLayer({ events: [event], captureUpdateDoc })
@@ -692,55 +691,56 @@ describe("updateEvent - field update branches", () => {
 
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.dueDate).toBe(1800003600000)
-    }))
+    })
+  )
 
   it.effect("updates allDay field", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1", allDay: false })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const testLayer = createTestLayer({ events: [event], captureUpdateDoc })
 
-      const result = yield* updateEvent({
-        eventId: eventBrandId("evt-1"),
-        allDay: true
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* updateEvent({ eventId: eventBrandId("evt-1"), allDay: true }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.allDay).toBe(true)
-    }))
+    })
+  )
 
   it.effect("updates location field", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1" })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const testLayer = createTestLayer({ events: [event], captureUpdateDoc })
 
-      const result = yield* updateEvent({
-        eventId: eventBrandId("evt-1"),
-        location: "Building A, Room 101"
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* updateEvent({ eventId: eventBrandId("evt-1"), location: "Building A, Room 101" }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.location).toBe("Building A, Room 101")
-    }))
+    })
+  )
 
   it.effect("updates visibility field", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1" })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const testLayer = createTestLayer({ events: [event], captureUpdateDoc })
 
-      const result = yield* updateEvent({
-        eventId: eventBrandId("evt-1"),
-        visibility: "private"
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* updateEvent({ eventId: eventBrandId("evt-1"), visibility: "private" }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.visibility).toBe("private")
-    }))
+    })
+  )
 
   it.effect("updates multiple fields at once", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1" })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const testLayer = createTestLayer({ events: [event], captureUpdateDoc })
@@ -762,23 +762,17 @@ describe("updateEvent - field update branches", () => {
       expect(captureUpdateDoc.operations?.allDay).toBe(true)
       expect(captureUpdateDoc.operations?.location).toBe("New Place")
       expect(captureUpdateDoc.operations?.visibility).toBe("public")
-    }))
+    })
+  )
 })
 
 describe("updateEvent - description in-place only path (line 423, 427)", () => {
   it.effect("returns updated=true without calling updateDoc when only description is updated in place", () =>
-    Effect.gen(function*() {
-      const event = makeEvent({
-        eventId: "evt-1",
-        description: "existing-markup-ref" as HulyEvent["description"]
-      })
+    Effect.gen(function* () {
+      const event = makeEvent({ eventId: "evt-1", description: "existing-markup-ref" as HulyEvent["description"] })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const captureUpdateMarkup: MockConfig["captureUpdateMarkup"] = {}
-      const testLayer = createTestLayer({
-        events: [event],
-        captureUpdateDoc,
-        captureUpdateMarkup
-      })
+      const testLayer = createTestLayer({ events: [event], captureUpdateDoc, captureUpdateMarkup })
 
       const result = yield* updateEvent({
         eventId: eventBrandId("evt-1"),
@@ -789,21 +783,15 @@ describe("updateEvent - description in-place only path (line 423, 427)", () => {
       expect(captureUpdateMarkup.called).toBe(true)
       // updateDoc should NOT have been called since only markup was updated in place
       expect(captureUpdateDoc.operations).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("calls updateDoc when description is updated in place AND other fields change", () =>
-    Effect.gen(function*() {
-      const event = makeEvent({
-        eventId: "evt-1",
-        description: "existing-markup-ref" as HulyEvent["description"]
-      })
+    Effect.gen(function* () {
+      const event = makeEvent({ eventId: "evt-1", description: "existing-markup-ref" as HulyEvent["description"] })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const captureUpdateMarkup: MockConfig["captureUpdateMarkup"] = {}
-      const testLayer = createTestLayer({
-        events: [event],
-        captureUpdateDoc,
-        captureUpdateMarkup
-      })
+      const testLayer = createTestLayer({ events: [event], captureUpdateDoc, captureUpdateMarkup })
 
       const result = yield* updateEvent({
         eventId: eventBrandId("evt-1"),
@@ -816,14 +804,15 @@ describe("updateEvent - description in-place only path (line 423, 427)", () => {
       expect(captureUpdateDoc.operations?.title).toBe("Also new title")
       // description should not appear in updateOps since it was handled via updateMarkup
       expect(captureUpdateDoc.operations?.description).toBeUndefined()
-    }))
+    })
+  )
 })
 
 // --- listEvents from/to filter branches (lines 222, 226) ---
 
 describe("listEvents - from/to date filters", () => {
   it.effect("applies from filter when provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const events = [makeEvent({ eventId: "evt-1", date: Timestamp.make(1700100000000) })]
       const captureEventQuery: MockConfig["captureEventQuery"] = {}
       const testLayer = createTestLayer({ events, captureEventQuery })
@@ -833,10 +822,11 @@ describe("listEvents - from/to date filters", () => {
       expect(result).toHaveLength(1)
       expect(captureEventQuery.query?.date).toEqual({ $gte: 1700000000000 })
       expect(captureEventQuery.query?.dueDate).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("applies to filter when provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const events = [makeEvent({ eventId: "evt-1", dueDate: Timestamp.make(1700200000000) })]
       const captureEventQuery: MockConfig["captureEventQuery"] = {}
       const testLayer = createTestLayer({ events, captureEventQuery })
@@ -846,44 +836,43 @@ describe("listEvents - from/to date filters", () => {
       expect(result).toHaveLength(1)
       expect(captureEventQuery.query?.dueDate).toEqual({ $lte: 1700300000000 })
       expect(captureEventQuery.query?.date).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("applies both from and to filters", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const events = [makeEvent({ eventId: "evt-1" })]
       const testLayer = createTestLayer({ events })
 
-      const result = yield* listEvents({
-        from: Timestamp.make(1699000000000),
-        to: Timestamp.make(1701000000000)
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* listEvents({ from: Timestamp.make(1699000000000), to: Timestamp.make(1701000000000) }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result).toHaveLength(1)
-    }))
+    })
+  )
 })
 
 // --- getEvent externalParticipants (line 291) ---
 
 describe("getEvent - externalParticipants mapping", () => {
   it.effect("maps externalParticipants from event", () =>
-    Effect.gen(function*() {
-      const event = makeEvent({
-        eventId: "evt-1",
-        externalParticipants: ["ext@example.com", "guest@test.org"]
-      })
+    Effect.gen(function* () {
+      const event = makeEvent({ eventId: "evt-1", externalParticipants: ["ext@example.com", "guest@test.org"] })
       const testLayer = createTestLayer({ events: [event] })
 
       const result = yield* getEvent({ eventId: eventBrandId("evt-1") }).pipe(Effect.provide(testLayer))
 
       expect(result.externalParticipants).toEqual(["ext@example.com", "guest@test.org"])
-    }))
+    })
+  )
 })
 
 // --- resolveEventInputs: no calendar fallback (line 189) ---
 
 describe("createEvent - no listed calendar fallback", () => {
   it.effect("uses account-derived personal calendar ref when no writable calendar is listed", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const testLayer = createTestLayer({ captureAddCollection, hasCalendar: false })
 
@@ -894,14 +883,15 @@ describe("createEvent - no listed calendar fallback", () => {
 
       expect(result.eventId).toBeDefined()
       expect(captureAddCollection.attributes?.calendar).toBe("00000000-0000-4000-8000-000000000000_calendar")
-    }))
+    })
+  )
 })
 
 // --- findPersonsByEmails: empty emails and no matching persons (lines 128, 136) ---
 
 describe("createEvent - findPersonsByEmails edge cases", () => {
   it.effect("handles empty participants array (emails.length === 0)", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const testLayer = createTestLayer({ captureAddCollection })
 
@@ -912,16 +902,13 @@ describe("createEvent - findPersonsByEmails edge cases", () => {
       }).pipe(Effect.provide(testLayer))
 
       expect(captureAddCollection.attributes?.participants).toEqual([])
-    }))
+    })
+  )
 
   it.effect("fails when a participant locator cannot be resolved", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
-      const testLayer = createTestLayer({
-        captureAddCollection,
-        channels: [],
-        persons: []
-      })
+      const testLayer = createTestLayer({ captureAddCollection, channels: [], persons: [] })
 
       const error = yield* Effect.flip(
         createEvent({
@@ -933,14 +920,15 @@ describe("createEvent - findPersonsByEmails edge cases", () => {
 
       expect(error._tag).toBe("PersonNotFoundError")
       expect(captureAddCollection.attributes).toBeUndefined()
-    }))
+    })
+  )
 })
 
 // --- listEventInstances: participantMap.get fallback (line 622) ---
 
 describe("listEventInstances - participantMap fallback", () => {
   it.effect("falls back to empty array when participantMap has no entry for instance eventId", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const recurringEvent = makeRecurringEvent({ eventId: "recur-1" })
       const person = makePerson({ _id: "person-99" as Ref<Person>, name: "Unknown" })
       const instances = [
@@ -963,5 +951,6 @@ describe("listEventInstances - participantMap fallback", () => {
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).participants).toEqual([])
-    }))
+    })
+  )
 })

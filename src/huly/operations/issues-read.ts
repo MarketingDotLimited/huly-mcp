@@ -44,21 +44,12 @@ type ListIssuesError =
   | InvalidStatusError
   | ComponentNotFoundError
 
-type GetIssueError =
-  | HulyClientError
-  | HulyConnectionError
-  | ProjectNotFoundError
-  | IssueNotFoundError
+type GetIssueError = HulyClientError | HulyConnectionError | ProjectNotFoundError | IssueNotFoundError
 
-type IssueWithLookup = WithLookup<HulyIssue> & {
-  $lookup?: { assignee?: Person }
-}
+type IssueWithLookup = WithLookup<HulyIssue> & { $lookup?: { assignee?: Person } }
 
-const resolveStatusName = (
-  statuses: Array<WorkflowStatus>,
-  statusId: Ref<Status>
-): string => {
-  const statusDoc = statuses.find(s => s._id === statusId)
+const resolveStatusName = (statuses: Array<WorkflowStatus>, statusId: Ref<Status>): string => {
+  const statusDoc = statuses.find((s) => s._id === statusId)
   return statusDoc?.name ?? "Unknown"
 }
 
@@ -72,20 +63,16 @@ const requireKnownStatusCategories = (
 ): Effect.Effect<void, HulyConnectionError> =>
   hasUnknownStatusCategory(statuses)
     ? Effect.fail(
-      new HulyConnectionError({
-        message:
-          `Cannot filter project '${project}' issues by status category '${category}' because Huly did not return complete status category metadata. Use an exact status name instead.`
-      })
-    )
+        new HulyConnectionError({
+          message: `Cannot filter project '${project}' issues by status category '${category}' because Huly did not return complete status category metadata. Use an exact status name instead.`
+        })
+      )
     : Effect.void
 
 const statusIdsByCategory = (
   statuses: ReadonlyArray<WorkflowStatus>,
   category: IssueStatusCategoryFilter
-): Array<Ref<Status>> =>
-  statuses
-    .filter((status) => status.category === category)
-    .map((status) => status._id)
+): Array<Ref<Status>> => statuses.filter((status) => status.category === category).map((status) => status._id)
 
 /**
  * List issues with filters.
@@ -94,12 +81,10 @@ const statusIdsByCategory = (
 export const listIssues = (
   params: ListIssuesParams
 ): Effect.Effect<Array<IssueSummary>, ListIssuesError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, project, statuses } = yield* findProjectWithStatuses(params.project)
 
-    const query: StrictDocumentQuery<IssueWithLookup> = {
-      space: project._id
-    }
+    const query: StrictDocumentQuery<IssueWithLookup> = { space: project._id }
 
     if (params.statusCategory !== undefined) {
       yield* requireKnownStatusCategories(statuses, params.statusCategory, params.project)
@@ -174,19 +159,17 @@ export const listIssues = (
     }
 
     const labelFilter = params.label
-    const labelFilterContext = labelFilter === undefined
-      ? undefined
-      : {
-        index: yield* loadIssueLabelIndex(client, project._id),
-        label: labelFilter
-      }
-    const matchingIssueIds = labelFilterContext === undefined
-      ? undefined
-      : issueIdsMatchingLabel(labelFilterContext.index, labelFilterContext.label)
+    const labelFilterContext =
+      labelFilter === undefined
+        ? undefined
+        : { index: yield* loadIssueLabelIndex(client, project._id), label: labelFilter }
+    const matchingIssueIds =
+      labelFilterContext === undefined
+        ? undefined
+        : issueIdsMatchingLabel(labelFilterContext.index, labelFilterContext.label)
     if (matchingIssueIds?.length === 0) return []
-    const effectiveQuery: StrictDocumentQuery<IssueWithLookup> = matchingIssueIds === undefined
-      ? query
-      : { ...query, _id: { $in: matchingIssueIds } }
+    const effectiveQuery: StrictDocumentQuery<IssueWithLookup> =
+      matchingIssueIds === undefined ? query : { ...query, _id: { $in: matchingIssueIds } }
 
     const limit = clampLimit(params.limit)
 
@@ -194,25 +177,23 @@ export const listIssues = (
       tracker.class.Issue,
       hulyQuery(effectiveQuery),
       withLookup<IssueWithLookup>(
-        {
-          limit,
-          sort: {
-            modifiedOn: SortingOrder.Descending
-          }
-        },
+        { limit, sort: { modifiedOn: SortingOrder.Descending } },
         { assignee: contact.class.Person }
       )
     )
 
-    const labelIndex = labelFilterContext === undefined
-      ? yield* loadIssueLabelIndex(client, project._id, issues.map((issue) => issue._id))
-      : labelFilterContext.index
+    const labelIndex =
+      labelFilterContext === undefined
+        ? yield* loadIssueLabelIndex(
+            client,
+            project._id,
+            issues.map((issue) => issue._id)
+          )
+        : labelFilterContext.index
     const rawSummaries = issues.map((issue) => {
       const statusName = resolveStatusName(statuses, issue.status)
       const assigneeName = issue.$lookup?.assignee?.name
-      const directParent = issue.parents.length > 0
-        ? issue.parents[issue.parents.length - 1]
-        : undefined
+      const directParent = issue.parents.length > 0 ? issue.parents[issue.parents.length - 1] : undefined
 
       return {
         issueId: IssueId.make(issue._id),
@@ -230,11 +211,12 @@ export const listIssues = (
 
     // Spread: Schema.decodeUnknown returns readonly array; return type requires mutable
     const validated = yield* Schema.decodeUnknown(Schema.Array(IssueSummarySchema))(rawSummaries).pipe(
-      Effect.mapError((parseError) =>
-        new HulyConnectionError({
-          message: `listIssues response failed schema validation: ${parseError.message}`,
-          cause: parseError
-        })
+      Effect.mapError(
+        (parseError) =>
+          new HulyConnectionError({
+            message: `listIssues response failed schema validation: ${parseError.message}`,
+            cause: parseError
+          })
       )
     )
 
@@ -251,46 +233,36 @@ export const listIssues = (
  * - Status name
  * - All metadata
  */
-export const getIssue = (
-  params: GetIssueParams
-): Effect.Effect<Issue, GetIssueError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+export const getIssue = (params: GetIssueParams): Effect.Effect<Issue, GetIssueError, HulyClient | Diagnostics> =>
+  Effect.gen(function* () {
     const { client, project, statuses } = yield* findProjectWithStatuses(params.project)
 
     const { fullIdentifier, number } = parseIssueIdentifier(params.identifier, params.project)
 
-    const issue = (yield* client.findOne<HulyIssue>(
-      tracker.class.Issue,
-      hulyQuery<HulyIssue>({ space: project._id, identifier: fullIdentifier })
-    )) ?? (number !== null
-      ? yield* client.findOne<HulyIssue>(
+    const issue =
+      (yield* client.findOne<HulyIssue>(
         tracker.class.Issue,
-        hulyQuery<HulyIssue>({ space: project._id, number })
-      )
-      : undefined)
+        hulyQuery<HulyIssue>({ space: project._id, identifier: fullIdentifier })
+      )) ??
+      (number !== null
+        ? yield* client.findOne<HulyIssue>(tracker.class.Issue, hulyQuery<HulyIssue>({ space: project._id, number }))
+        : undefined)
     if (issue === undefined) {
       return yield* new IssueNotFoundError({ identifier: params.identifier, project: params.project })
     }
 
     const statusName = resolveStatusName(statuses, issue.status)
 
-    const person = issue.assignee !== null
-      ? yield* client.findOne<Person>(contact.class.Person, hulyQuery<Person>({ _id: issue.assignee }))
-      : undefined
+    const person =
+      issue.assignee !== null
+        ? yield* client.findOne<Person>(contact.class.Person, hulyQuery<Person>({ _id: issue.assignee }))
+        : undefined
 
     const description = issue.description
-      ? yield* client.fetchMarkup(
-        issue._class,
-        issue._id,
-        "description",
-        issue.description,
-        "markdown"
-      )
+      ? yield* client.fetchMarkup(issue._class, issue._id, "description", issue.description, "markdown")
       : undefined
 
-    const directParent = issue.parents.length > 0
-      ? issue.parents[issue.parents.length - 1]
-      : undefined
+    const directParent = issue.parents.length > 0 ? issue.parents[issue.parents.length - 1] : undefined
     const labelIndex = yield* loadIssueLabelIndex(client, project._id, [issue._id])
 
     return yield* parseIssue({
@@ -301,9 +273,7 @@ export const getIssue = (
       status: statusName,
       priority: priorityToString(issue.priority),
       assignee: person?.name,
-      assigneeRef: person
-        ? { id: person._id, name: person.name }
-        : undefined,
+      assigneeRef: person ? { id: person._id, name: person.name } : undefined,
       labels: labelsForIssue(labelIndex, issue._id),
       project: params.project,
       parentIssue: directParent?.identifier,
@@ -313,11 +283,12 @@ export const getIssue = (
       dueDate: issue.dueDate ?? undefined,
       estimation: issue.estimation > 0 ? issue.estimation : undefined
     }).pipe(
-      Effect.mapError((parseError) =>
-        new HulyConnectionError({
-          message: `getIssue response failed schema validation: ${parseError.message}`,
-          cause: parseError
-        })
+      Effect.mapError(
+        (parseError) =>
+          new HulyConnectionError({
+            message: `getIssue response failed schema validation: ${parseError.message}`,
+            cause: parseError
+          })
       )
     )
   })

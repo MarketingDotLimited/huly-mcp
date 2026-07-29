@@ -11,10 +11,7 @@ import { createDefaultMcpSdkServer } from "../../src/mcp/sdk-server.js"
 describe("default MCP SDK server", () => {
   const initialize = async (instructions?: HostedHulyMigrationInstructions): Promise<string | undefined> => {
     const server = createDefaultMcpSdkServer(instructions)
-    const client = new Client(
-      { name: "migration-warning-test", version: "1.0.0" },
-      { capabilities: {} }
-    )
+    const client = new Client({ name: "migration-warning-test", version: "1.0.0" }, { capabilities: {} })
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair()
 
     await server.connect(serverTransport)

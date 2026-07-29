@@ -6,12 +6,9 @@ import { Count } from "../../../src/domain/schemas/shared.js"
 import type { ToolOperationSuccess } from "../../../src/mcp/tools/registry.js"
 import type { CliGlobalOptions } from "./cli-options.js"
 
-export class CliRuntimeError extends Schema.TaggedError<CliRuntimeError>()(
-  "CliRuntimeError",
-  {
-    message: Schema.String
-  }
-) {}
+export class CliRuntimeError extends Schema.TaggedError<CliRuntimeError>()("CliRuntimeError", {
+  message: Schema.String
+}) {}
 
 const MAX_TABLE_COLUMNS = 6
 const MAX_CELL_LENGTH = 80
@@ -34,11 +31,13 @@ const truncate = (value: string): string =>
 const scalarKeys = (record: Record<string, unknown>): Array<string> =>
   Object.keys(record).filter((key) => {
     const value = record[key]
-    return value === null
-      || value === undefined
-      || typeof value === "string"
-      || typeof value === "number"
-      || typeof value === "boolean"
+    return (
+      value === null ||
+      value === undefined ||
+      typeof value === "string" ||
+      typeof value === "number" ||
+      typeof value === "boolean"
+    )
   })
 
 const renderTable = (rows: ReadonlyArray<Record<string, unknown>>): string => {
@@ -50,17 +49,12 @@ const renderTable = (rows: ReadonlyArray<Record<string, unknown>>): string => {
 
   const tableColumns = columns.map((column) => ({
     name: column,
-    width: Math.max(
-      column.length,
-      ...rows.map((row) => truncate(scalarText(row[column])).length)
-    )
+    width: Math.max(column.length, ...rows.map((row) => truncate(scalarText(row[column])).length))
   }))
   const line = tableColumns.map((column) => column.name.padEnd(column.width)).join("  ")
   const separator = tableColumns.map((column) => "-".repeat(column.width)).join("  ")
   const body = rows.map((row) =>
-    tableColumns
-      .map((column) => truncate(scalarText(row[column.name])).padEnd(column.width))
-      .join("  ")
+    tableColumns.map((column) => truncate(scalarText(row[column.name])).padEnd(column.width)).join("  ")
   )
   return [line, separator, ...body].join("\n")
 }
@@ -111,30 +105,26 @@ const imageDescriptor = (image: NonNullable<ToolOperationSuccess["image"]>) =>
     base64Length: Count.make(image.data.length)
   })
 
-export const renderOperationResult = (
-  success: ToolOperationSuccess,
-  globals: CliGlobalOptions
-): string => {
+export const renderOperationResult = (success: ToolOperationSuccess, globals: CliGlobalOptions): string => {
   if (globals.json) {
     return JSON.stringify(
       success.warnings.length === 0 && success.image === undefined
         ? success.result
         : {
-          result: success.result,
-          ...(success.image === undefined ? {} : { image: imageDescriptor(success.image) }),
-          ...(success.warnings.length === 0 ? {} : { warnings: success.warnings })
-        },
+            result: success.result,
+            ...(success.image === undefined ? {} : { image: imageDescriptor(success.image) }),
+            ...(success.warnings.length === 0 ? {} : { warnings: success.warnings })
+          },
       null,
       2
     )
   }
   const output = renderHuman(success.result)
-  const withImage = success.image === undefined
-    ? output
-    : `${output}\n\nImage: ${success.image.mimeType} (${success.image.data.length} base64 characters)`
-  return success.warnings.length === 0
-    ? withImage
-    : `${withImage}\n\nWarnings:\n${renderWarnings(success.warnings)}`
+  const withImage =
+    success.image === undefined
+      ? output
+      : `${output}\n\nImage: ${success.image.mimeType} (${success.image.data.length} base64 characters)`
+  return success.warnings.length === 0 ? withImage : `${withImage}\n\nWarnings:\n${renderWarnings(success.warnings)}`
 }
 
 export const renderOperationSuccess = (

@@ -38,9 +38,7 @@ interface Probe<Args extends Array<unknown>, Result> {
   readonly fn: (...args: Args) => Result
 }
 
-const createProbe = <Args extends Array<unknown>, Result>(
-  impl: (...args: Args) => Result
-): Probe<Args, Result> => {
+const createProbe = <Args extends Array<unknown>, Result>(impl: (...args: Args) => Result): Probe<Args, Result> => {
   const calls: Array<Args> = []
   return {
     calls,
@@ -55,10 +53,7 @@ const createVoidProbe = <Args extends Array<unknown>>(): Probe<Args, void> => cr
 
 const createMockTransportDependencies = (): {
   readonly dependencies: HttpTransportDependencies
-  readonly calls: {
-    readonly handleRequest: Array<[Request, Response, unknown]>
-    readonly close: Array<[]>
-  }
+  readonly calls: { readonly handleRequest: Array<[Request, Response, unknown]>; readonly close: Array<[]> }
 } => {
   const handleRequest = createProbe<[Request, Response, unknown], Promise<void>>(() => Promise.resolve())
   const close = createProbe<[], Promise<void>>(() => Promise.resolve())
@@ -67,16 +62,10 @@ const createMockTransportDependencies = (): {
     dependencies: {
       createTransport: () =>
         // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test fake implements transport methods used by createMcpHandlers
-        ({
-          close: close.fn,
-          handleRequest: handleRequest.fn
-        }) as never,
+        ({ close: close.fn, handleRequest: handleRequest.fn }) as never,
       writeError: createVoidProbe<[string]>().fn
     },
-    calls: {
-      handleRequest: handleRequest.calls,
-      close: close.calls
-    }
+    calls: { handleRequest: handleRequest.calls, close: close.calls }
   }
 }
 
@@ -86,11 +75,7 @@ const createMockExpressApp = () => {
     get: Record<string, (req: Request, res: Response) => Promise<void>>
     post: Record<string, (req: Request, res: Response) => Promise<void>>
     delete: Record<string, (req: Request, res: Response) => Promise<void>>
-  } = {
-    get: {},
-    post: {},
-    delete: {}
-  }
+  } = { get: {}, post: {}, delete: {} }
 
   const get = createProbe<[string, (req: Request, res: Response) => Promise<void>], void>((path, handler) => {
     routes.get[path] = handler
@@ -154,33 +139,29 @@ const createMockResponse = () => {
   return response
 }
 
-const getResponseCalls = (response: Response): {
+const getResponseCalls = (
+  response: Response
+): {
   status: Array<[number]>
   json: Array<[unknown]>
   setHeader: Array<[string, string]>
   on: Array<[string, (...args: Array<unknown>) => void]>
 } =>
   // eslint-disable-next-line no-restricted-syntax -- test probe metadata is attached to a structural fake
-  (response as unknown as {
-    __calls: {
-      status: Array<[number]>
-      json: Array<[unknown]>
-      setHeader: Array<[string, string]>
-      on: Array<[string, (...args: Array<unknown>) => void]>
+  (
+    response as unknown as {
+      __calls: {
+        status: Array<[number]>
+        json: Array<[unknown]>
+        setHeader: Array<[string, string]>
+        on: Array<[string, (...args: Array<unknown>) => void]>
+      }
     }
-  }).__calls
+  ).__calls
 
-const createMockRequest = (
-  body: unknown = {},
-  headers: Request["headers"] = {}
-): Request => {
+const createMockRequest = (body: unknown = {}, headers: Request["headers"] = {}): Request => {
   const on = createVoidProbe<[string, (...args: Array<unknown>) => void]>()
-  return mock<Request>({
-    body,
-    headers,
-    on: on.fn,
-    __calls: { on: on.calls }
-  })
+  return mock<Request>({ body, headers, on: on.fn, __calls: { on: on.calls } })
 }
 
 const modernMeta = {
@@ -198,20 +179,11 @@ const modernHeaders = (method: string, name?: string): Request["headers"] => ({
 
 const createMockProtocolHandlers = (): McpProtocolHandlers => ({
   listTools: () => Promise.resolve({ tools: [] }),
-  callTool: () =>
-    Promise.resolve({
-      content: [{ type: "text", text: "ok" }]
-    }),
+  callTool: () => Promise.resolve({ content: [{ type: "text", text: "ok" }] }),
   listResources: () => Promise.resolve({ resources: [] }),
   listResourceTemplates: () => ({ resourceTemplates: [] }),
   readResource: (request) =>
-    Promise.resolve({
-      contents: [{
-        uri: request.params.uri,
-        mimeType: "application/json",
-        text: "{}"
-      }]
-    }),
+    Promise.resolve({ contents: [{ uri: request.params.uri, mimeType: "application/json", text: "{}" }] }),
   serverDiscover: () => ({
     resultType: "complete",
     supportedVersions: ["2026-07-28"],
@@ -228,13 +200,7 @@ const expectUnauthorizedResponse = (response: Response): void => {
   const calls = getResponseCalls(response)
   expect(calls.status).toEqual([[401]])
   expect(calls.setHeader).toEqual([["WWW-Authenticate", "Bearer"]])
-  expect(calls.json).toEqual([[
-    {
-      jsonrpc: "2.0",
-      error: { code: -32000, message: "Unauthorized" },
-      id: null
-    }
-  ]])
+  expect(calls.json).toEqual([[{ jsonrpc: "2.0", error: { code: -32000, message: "Unauthorized" }, id: null }]])
 }
 
 describe("HTTP Transport", () => {
@@ -263,11 +229,7 @@ describe("HTTP Transport", () => {
         jsonrpc: "2.0",
         method: "initialize",
         id: 1,
-        params: {
-          protocolVersion: "2024-11-05",
-          capabilities: {},
-          clientInfo: { name: "test", version: "1.0" }
-        }
+        params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "test", version: "1.0" } }
       })
 
       const res = createMockResponse()
@@ -292,19 +254,21 @@ describe("HTTP Transport", () => {
       const calls = getResponseCalls(res)
       expect(transport.calls.handleRequest).toHaveLength(0)
       expect(calls.status).toEqual([[200]])
-      expect(calls.json).toEqual([[
-        {
-          jsonrpc: "2.0",
-          id: "discover",
-          result: {
-            resultType: "complete",
-            supportedVersions: ["2026-07-28"],
-            capabilities: { tools: {}, resources: {} },
-            serverInfo: { name: "huly-mcp", version: "0.0.0-test" },
-            instructions: expect.stringContaining("Hosted Huly is shutting down")
+      expect(calls.json).toEqual([
+        [
+          {
+            jsonrpc: "2.0",
+            id: "discover",
+            result: {
+              resultType: "complete",
+              supportedVersions: ["2026-07-28"],
+              capabilities: { tools: {}, resources: {} },
+              serverInfo: { name: "huly-mcp", version: "0.0.0-test" },
+              instructions: expect.stringContaining("Hosted Huly is shutting down")
+            }
           }
-        }
-      ]])
+        ]
+      ])
     })
 
     it("adds resultType and public cache hints to 2026 tools/list", async () => {
@@ -319,13 +283,9 @@ describe("HTTP Transport", () => {
         res
       )
 
-      expect(getResponseCalls(res).json).toEqual([[
-        {
-          jsonrpc: "2.0",
-          id: 1,
-          result: { tools: [], resultType: "complete", ttlMs: 300000, cacheScope: "public" }
-        }
-      ]])
+      expect(getResponseCalls(res).json).toEqual([
+        [{ jsonrpc: "2.0", id: 1, result: { tools: [], resultType: "complete", ttlMs: 300000, cacheScope: "public" } }]
+      ])
     })
 
     it("adds resultType to 2026 tools/call", async () => {
@@ -345,13 +305,9 @@ describe("HTTP Transport", () => {
         res
       )
 
-      expect(getResponseCalls(res).json).toEqual([[
-        {
-          jsonrpc: "2.0",
-          id: 2,
-          result: { content: [{ type: "text", text: "ok" }], resultType: "complete" }
-        }
-      ]])
+      expect(getResponseCalls(res).json).toEqual([
+        [{ jsonrpc: "2.0", id: 2, result: { content: [{ type: "text", text: "ok" }], resultType: "complete" } }]
+      ])
     })
 
     it("adds resultType and cache hints to 2026 resource list, template list, and read results", async () => {
@@ -387,32 +343,38 @@ describe("HTTP Transport", () => {
         readRes
       )
 
-      expect(getResponseCalls(listRes).json).toEqual([[
-        {
-          jsonrpc: "2.0",
-          id: 3,
-          result: { resources: [], resultType: "complete", ttlMs: 60000, cacheScope: "private" }
-        }
-      ]])
-      expect(getResponseCalls(templatesRes).json).toEqual([[
-        {
-          jsonrpc: "2.0",
-          id: 4,
-          result: { resourceTemplates: [], resultType: "complete", ttlMs: 300000, cacheScope: "public" }
-        }
-      ]])
-      expect(getResponseCalls(readRes).json).toEqual([[
-        {
-          jsonrpc: "2.0",
-          id: 5,
-          result: {
-            contents: [{ uri: "huly://projects/HULY", mimeType: "application/json", text: "{}" }],
-            resultType: "complete",
-            ttlMs: 60000,
-            cacheScope: "private"
+      expect(getResponseCalls(listRes).json).toEqual([
+        [
+          {
+            jsonrpc: "2.0",
+            id: 3,
+            result: { resources: [], resultType: "complete", ttlMs: 60000, cacheScope: "private" }
           }
-        }
-      ]])
+        ]
+      ])
+      expect(getResponseCalls(templatesRes).json).toEqual([
+        [
+          {
+            jsonrpc: "2.0",
+            id: 4,
+            result: { resourceTemplates: [], resultType: "complete", ttlMs: 300000, cacheScope: "public" }
+          }
+        ]
+      ])
+      expect(getResponseCalls(readRes).json).toEqual([
+        [
+          {
+            jsonrpc: "2.0",
+            id: 5,
+            result: {
+              contents: [{ uri: "huly://projects/HULY", mimeType: "application/json", text: "{}" }],
+              resultType: "complete",
+              ttlMs: 60000,
+              cacheScope: "private"
+            }
+          }
+        ]
+      ])
     })
 
     it("returns modern header validation errors for missing and mismatched 2026 headers", async () => {
@@ -424,10 +386,7 @@ describe("HTTP Transport", () => {
       await handlers.post(
         createMockRequest(
           { jsonrpc: "2.0", method: "tools/list", id: 6, params: { _meta: modernMeta } },
-          {
-            accept: "application/json, text/event-stream",
-            "mcp-protocol-version": "2026-07-28"
-          }
+          { accept: "application/json, text/event-stream", "mcp-protocol-version": "2026-07-28" }
         ),
         missingMethod
       )
@@ -482,10 +441,7 @@ describe("HTTP Transport", () => {
       const unknownMethod = createMockResponse()
 
       await handlers.post(
-        createMockRequest(
-          { jsonrpc: "2.0", method: "tools/list", id: 9, params: {} },
-          modernHeaders("tools/list")
-        ),
+        createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 9, params: {} }, modernHeaders("tools/list")),
         missingMeta
       )
       await handlers.post(
@@ -494,25 +450,14 @@ describe("HTTP Transport", () => {
             jsonrpc: "2.0",
             method: "server/discover",
             id: 10,
-            params: {
-              _meta: {
-                ...modernMeta,
-                "io.modelcontextprotocol/protocolVersion": "1900-01-01"
-              }
-            }
+            params: { _meta: { ...modernMeta, "io.modelcontextprotocol/protocolVersion": "1900-01-01" } }
           },
-          {
-            ...modernHeaders("server/discover"),
-            "mcp-protocol-version": "1900-01-01"
-          }
+          { ...modernHeaders("server/discover"), "mcp-protocol-version": "1900-01-01" }
         ),
         unsupported
       )
       await handlers.post(
-        createMockRequest(
-          [{ jsonrpc: "2.0", method: "tools/list", id: 11 }],
-          modernHeaders("tools/list")
-        ),
+        createMockRequest([{ jsonrpc: "2.0", method: "tools/list", id: 11 }], modernHeaders("tools/list")),
         invalidBody
       )
       await handlers.post(
@@ -533,16 +478,10 @@ describe("HTTP Transport", () => {
     })
 
     it("maps 2026 resource-not-found failures to invalid params", async () => {
-      const handlers = createMcpHandlers(
-        createMockMcpServer,
-        undefined,
-        undefined,
-        () => ({
-          ...createMockProtocolHandlers(),
-          readResource: () =>
-            Promise.reject(new McpError(-32002, "Resource not found", { uri: "huly://projects/NOPE" }))
-        })
-      )
+      const handlers = createMcpHandlers(createMockMcpServer, undefined, undefined, () => ({
+        ...createMockProtocolHandlers(),
+        readResource: () => Promise.reject(new McpError(-32002, "Resource not found", { uri: "huly://projects/NOPE" }))
+      }))
       const res = createMockResponse()
 
       await handlers.post(
@@ -568,12 +507,7 @@ describe("HTTP Transport", () => {
       const mockServer = createMockMcpServer()
       const transport = createMockTransportDependencies()
       const createProtocolHandlers = createProbe<[Request], McpProtocolHandlers>(modernHandlerFactory)
-      const handlers = createMcpHandlers(
-        () => mockServer,
-        transport.dependencies,
-        undefined,
-        createProtocolHandlers.fn
-      )
+      const handlers = createMcpHandlers(() => mockServer, transport.dependencies, undefined, createProtocolHandlers.fn)
       const req = createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 13 })
       const res = createMockResponse()
 
@@ -585,15 +519,10 @@ describe("HTTP Transport", () => {
     })
 
     it("maps thrown 2026 internal errors to HTTP 500", async () => {
-      const handlers = createMcpHandlers(
-        createMockMcpServer,
-        undefined,
-        undefined,
-        () => ({
-          ...createMockProtocolHandlers(),
-          callTool: () => Promise.reject(new McpError(ErrorCode.InternalError, "boom"))
-        })
-      )
+      const handlers = createMcpHandlers(createMockMcpServer, undefined, undefined, () => ({
+        ...createMockProtocolHandlers(),
+        callTool: () => Promise.reject(new McpError(ErrorCode.InternalError, "boom"))
+      }))
       const res = createMockResponse()
 
       await handlers.post(
@@ -619,12 +548,7 @@ describe("HTTP Transport", () => {
       const mockServer = createMockMcpServer()
       const transport = createMockTransportDependencies()
       const createProtocolHandlers = createProbe<[Request], McpProtocolHandlers>(modernHandlerFactory)
-      const handlers = createMcpHandlers(
-        () => mockServer,
-        transport.dependencies,
-        undefined,
-        createProtocolHandlers.fn
-      )
+      const handlers = createMcpHandlers(() => mockServer, transport.dependencies, undefined, createProtocolHandlers.fn)
       const req = createMockRequest(
         { jsonrpc: "2.0", method: "tools/list", id: 16 },
         { "mcp-protocol-version": "2026-07-28" }
@@ -649,13 +573,9 @@ describe("HTTP Transport", () => {
         res
       )
 
-      expect(getResponseCalls(res).json).toEqual([[
-        {
-          jsonrpc: "2.0",
-          id: 17,
-          result: { tools: [], resultType: "complete", ttlMs: 300000, cacheScope: "public" }
-        }
-      ]])
+      expect(getResponseCalls(res).json).toEqual([
+        [{ jsonrpc: "2.0", id: 17, result: { tools: [], resultType: "complete", ttlMs: 300000, cacheScope: "public" } }]
+      ])
     })
 
     it("should create fresh server for each request in stateless mode", async () => {
@@ -874,10 +794,7 @@ describe("HTTP Transport", () => {
       expect(calls.json).toContainEqual([
         expect.objectContaining({
           jsonrpc: "2.0",
-          error: expect.objectContaining({
-            code: -32000,
-            message: expect.stringContaining("Method not allowed")
-          })
+          error: expect.objectContaining({ code: -32000, message: expect.stringContaining("Method not allowed") })
         })
       ])
     })
@@ -896,10 +813,7 @@ describe("HTTP Transport", () => {
       expect(calls.json).toContainEqual([
         expect.objectContaining({
           jsonrpc: "2.0",
-          error: expect.objectContaining({
-            code: -32000,
-            message: expect.stringContaining("Method not allowed")
-          })
+          error: expect.objectContaining({ code: -32000, message: expect.stringContaining("Method not allowed") })
         })
       ])
     })
@@ -930,12 +844,7 @@ describe("HTTP Transport", () => {
       })
 
       // Any valid JSON-RPC request (tools/list in this case)
-      const req = createMockRequest({
-        jsonrpc: "2.0",
-        method: "tools/list",
-        id: 1,
-        params: {}
-      })
+      const req = createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 1, params: {} })
 
       const res = createMockResponse()
 
@@ -946,10 +855,7 @@ describe("HTTP Transport", () => {
       expect(calls.json).toContainEqual([
         expect.objectContaining({
           jsonrpc: "2.0",
-          error: expect.objectContaining({
-            code: -32603,
-            message: expect.stringContaining("Internal server error")
-          })
+          error: expect.objectContaining({ code: -32603, message: expect.stringContaining("Internal server error") })
         })
       ])
     })
@@ -959,36 +865,24 @@ describe("HTTP Transport", () => {
     it("should register POST, GET, DELETE handlers on /mcp", async () => {
       const { app, calls: appCalls } = createMockExpressApp()
       const closeProbe = createProbe<[((err?: Error) => void)?], void>((cb) => cb?.())
-      const mockHttp = mock<http.Server>({
-        close: closeProbe.fn
-      })
+      const mockHttp = mock<http.Server>({ close: closeProbe.fn })
       const createAppProbe = createProbe<[string], Express>(() => app)
-      const listenProbe = createProbe<[Express, number, string], Effect.Effect<http.Server, HttpTransportError>>(
-        () => Effect.succeed(mockHttp)
+      const listenProbe = createProbe<[Express, number, string], Effect.Effect<http.Server, HttpTransportError>>(() =>
+        Effect.succeed(mockHttp)
       )
 
-      const mockFactory: HttpServerFactory = {
-        createApp: createAppProbe.fn,
-        listen: listenProbe.fn
-      }
+      const mockFactory: HttpServerFactory = { createApp: createAppProbe.fn, listen: listenProbe.fn }
 
       const mockMcpServer = createMockMcpServer()
 
       // Run with scope and timeout to test resource management
-      const program = startHttpTransport(
-        { port: 3000, host: "127.0.0.1" },
-        () => mockMcpServer
-      ).pipe(
+      const program = startHttpTransport({ port: 3000, host: "127.0.0.1" }, () => mockMcpServer).pipe(
         Effect.scoped, // Provide Scope for acquireRelease
         Effect.timeout(10), // Timeout quickly for test
         Effect.ignore
       )
 
-      await Effect.runPromise(
-        program.pipe(
-          Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))
-        )
-      )
+      await Effect.runPromise(program.pipe(Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))))
 
       expect(createAppProbe.calls).toContainEqual(["127.0.0.1"])
       expect(listenProbe.calls).toContainEqual([app, 3000, "127.0.0.1"])
@@ -999,29 +893,16 @@ describe("HTTP Transport", () => {
 
     it("passes MCP auth token to registered route handlers", async () => {
       const { app, routes } = createMockExpressApp()
-      const mockHttp = mock<http.Server>({
-        close: createProbe<[((err?: Error) => void)?], void>((cb) => cb?.()).fn
-      })
-      const mockFactory: HttpServerFactory = {
-        createApp: () => app,
-        listen: () => Effect.succeed(mockHttp)
-      }
+      const mockHttp = mock<http.Server>({ close: createProbe<[((err?: Error) => void)?], void>((cb) => cb?.()).fn })
+      const mockFactory: HttpServerFactory = { createApp: () => app, listen: () => Effect.succeed(mockHttp) }
 
       const program = startHttpTransport(
         { port: 3000, host: "127.0.0.1", authToken: "server-secret" },
         createMockMcpServer,
         { writeError: () => {} }
-      ).pipe(
-        Effect.scoped,
-        Effect.timeout(10),
-        Effect.ignore
-      )
+      ).pipe(Effect.scoped, Effect.timeout(10), Effect.ignore)
 
-      await Effect.runPromise(
-        program.pipe(
-          Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))
-        )
-      )
+      await Effect.runPromise(program.pipe(Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))))
 
       const getMcpRoute = assertExists(routes.get["/mcp"], "Expected GET /mcp route")
 
@@ -1030,45 +911,30 @@ describe("HTTP Transport", () => {
       expectUnauthorizedResponse(unauthorizedRes)
 
       const authorizedRes = createMockResponse()
-      await getMcpRoute(
-        createMockRequest(undefined, { authorization: "Bearer server-secret" }),
-        authorizedRes
-      )
+      await getMcpRoute(createMockRequest(undefined, { authorization: "Bearer server-secret" }), authorizedRes)
       expect(getResponseCalls(authorizedRes).status).toEqual([[405]])
     })
 
     it("should close server when scope closes", async () => {
       const { app } = createMockExpressApp()
       const closeProbe = createProbe<[((err?: Error) => void)?], void>((cb) => cb?.())
-      const mockHttp = mock<http.Server>({
-        close: closeProbe.fn
-      })
+      const mockHttp = mock<http.Server>({ close: closeProbe.fn })
       const createAppProbe = createProbe<[string], Express>(() => app)
-      const listenProbe = createProbe<[Express, number, string], Effect.Effect<http.Server, HttpTransportError>>(
-        () => Effect.succeed(mockHttp)
+      const listenProbe = createProbe<[Express, number, string], Effect.Effect<http.Server, HttpTransportError>>(() =>
+        Effect.succeed(mockHttp)
       )
 
-      const mockFactory: HttpServerFactory = {
-        createApp: createAppProbe.fn,
-        listen: listenProbe.fn
-      }
+      const mockFactory: HttpServerFactory = { createApp: createAppProbe.fn, listen: listenProbe.fn }
 
       const mockMcpServer = createMockMcpServer()
 
-      const program = startHttpTransport(
-        { port: 3000, host: "127.0.0.1" },
-        () => mockMcpServer
-      ).pipe(
+      const program = startHttpTransport({ port: 3000, host: "127.0.0.1" }, () => mockMcpServer).pipe(
         Effect.scoped,
         Effect.timeout(10),
         Effect.ignore
       )
 
-      await Effect.runPromise(
-        program.pipe(
-          Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))
-        )
-      )
+      await Effect.runPromise(program.pipe(Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))))
 
       // Verify server was closed when scope ended
       expect(closeProbe.calls).toHaveLength(1)
@@ -1077,31 +943,18 @@ describe("HTTP Transport", () => {
     it("should fail if listen fails", async () => {
       const { app } = createMockExpressApp()
       const createAppProbe = createProbe<[string], Express>(() => app)
-      const listenProbe = createProbe<[Express, number, string], Effect.Effect<http.Server, HttpTransportError>>(
-        () =>
-          Effect.fail(
-            new HttpTransportError({
-              message: "Port already in use"
-            })
-          )
+      const listenProbe = createProbe<[Express, number, string], Effect.Effect<http.Server, HttpTransportError>>(() =>
+        Effect.fail(new HttpTransportError({ message: "Port already in use" }))
       )
 
-      const mockFactory: HttpServerFactory = {
-        createApp: createAppProbe.fn,
-        listen: listenProbe.fn
-      }
+      const mockFactory: HttpServerFactory = { createApp: createAppProbe.fn, listen: listenProbe.fn }
 
       const mockMcpServer = createMockMcpServer()
 
-      const program = startHttpTransport(
-        { port: 3000, host: "127.0.0.1" },
-        () => mockMcpServer
-      ).pipe(Effect.scoped)
+      const program = startHttpTransport({ port: 3000, host: "127.0.0.1" }, () => mockMcpServer).pipe(Effect.scoped)
 
       const result = await Effect.runPromiseExit(
-        program.pipe(
-          Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))
-        )
+        program.pipe(Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory)))
       )
 
       expect(Exit.isFailure(result)).toBe(true)
@@ -1114,13 +967,11 @@ describe("HTTP Transport", () => {
     it("should log to stderr and continue when server close fails during release", async () => {
       const { app } = createMockExpressApp()
       const closeProbe = createProbe<[((err?: Error) => void)?], void>((cb) => cb?.(new Error("close failed")))
-      const mockHttp = mock<http.Server>({
-        close: closeProbe.fn
-      })
+      const mockHttp = mock<http.Server>({ close: closeProbe.fn })
       const writeError = createProbe<[string], void>(() => undefined)
       const createAppProbe = createProbe<[string], Express>(() => app)
-      const listenProbe = createProbe<[Express, number, string], Effect.Effect<http.Server, HttpTransportError>>(
-        () => Effect.succeed(mockHttp)
+      const listenProbe = createProbe<[Express, number, string], Effect.Effect<http.Server, HttpTransportError>>(() =>
+        Effect.succeed(mockHttp)
       )
 
       const mockFactory: HttpServerFactory = {
@@ -1129,37 +980,26 @@ describe("HTTP Transport", () => {
         writeError: writeError.fn
       }
 
-      const program = startHttpTransport(
-        { port: 3000, host: "127.0.0.1" },
-        createMockMcpServer
-      ).pipe(
+      const program = startHttpTransport({ port: 3000, host: "127.0.0.1" }, createMockMcpServer).pipe(
         Effect.scoped,
         Effect.timeout(10),
         Effect.ignore
       )
 
-      await Effect.runPromise(
-        program.pipe(
-          Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))
-        )
-      )
+      await Effect.runPromise(program.pipe(Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))))
 
       expect(closeProbe.calls).toHaveLength(1)
-      const closeErrorCall = writeError.calls.find(
-        (call) => assertAt(call, 0).includes("Server close error")
-      )
+      const closeErrorCall = writeError.calls.find((call) => assertAt(call, 0).includes("Server close error"))
       expect(closeErrorCall).toBeDefined()
     })
 
     it("should shut down when SIGINT is received", async () => {
       const { app } = createMockExpressApp()
       const closeProbe = createProbe<[((err?: Error) => void)?], void>((cb) => cb?.())
-      const mockHttp = mock<http.Server>({
-        close: closeProbe.fn
-      })
+      const mockHttp = mock<http.Server>({ close: closeProbe.fn })
       const createAppProbe = createProbe<[string], Express>(() => app)
-      const listenProbe = createProbe<[Express, number, string], Effect.Effect<http.Server, HttpTransportError>>(
-        () => Effect.succeed(mockHttp)
+      const listenProbe = createProbe<[Express, number, string], Effect.Effect<http.Server, HttpTransportError>>(() =>
+        Effect.succeed(mockHttp)
       )
 
       const mockFactory: HttpServerFactory = {
@@ -1168,16 +1008,9 @@ describe("HTTP Transport", () => {
         writeError: createVoidProbe<[string]>().fn
       }
 
-      const program = startHttpTransport(
-        { port: 3000, host: "127.0.0.1" },
-        createMockMcpServer
-      ).pipe(Effect.scoped)
+      const program = startHttpTransport({ port: 3000, host: "127.0.0.1" }, createMockMcpServer).pipe(Effect.scoped)
 
-      const fiber = Effect.runFork(
-        program.pipe(
-          Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))
-        )
-      )
+      const fiber = Effect.runFork(program.pipe(Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))))
 
       // Give the program time to register signal handlers
       await new Promise((resolve) => setTimeout(resolve, 50))
@@ -1218,10 +1051,7 @@ describe("HTTP Transport", () => {
         on: createVoidProbe<[string, () => void]>().fn
       })
 
-      const req = mock<Request>({
-        body: { jsonrpc: "2.0", method: "tools/list", id: 1 },
-        on: reqOn.fn
-      })
+      const req = mock<Request>({ body: { jsonrpc: "2.0", method: "tools/list", id: 1 }, on: reqOn.fn })
 
       await handlers.post(req, res)
 
@@ -1239,10 +1069,7 @@ describe("HTTP Transport", () => {
       const writeError = createProbe<[string], void>(() => undefined)
       const transportClose = createProbe<[], Promise<void>>(() => Promise.reject(new Error("transport close boom")))
       const handleRequest = createProbe<[Request, Response, unknown], Promise<void>>(() => Promise.resolve())
-      const transport = {
-        close: transportClose.fn,
-        handleRequest: handleRequest.fn
-      }
+      const transport = { close: transportClose.fn, handleRequest: handleRequest.fn }
       const mockServer = createMockMcpServer()
       const handlers = createMcpHandlers(() => mockServer, {
         createTransport: () => {
@@ -1272,17 +1099,14 @@ describe("HTTP Transport", () => {
         on: createVoidProbe<[string, () => void]>().fn
       })
 
-      const req = mock<Request>({
-        body: { jsonrpc: "2.0", method: "tools/list", id: 1 },
-        on: reqOn.fn
-      })
+      const req = mock<Request>({ body: { jsonrpc: "2.0", method: "tools/list", id: 1 }, on: reqOn.fn })
       await handlers.post(req, res)
 
       assertAt(closeHandlers, 0)()
       await new Promise((resolve) => setTimeout(resolve, 10))
 
-      const transportCleanupCall = writeError.calls.find(
-        (call) => assertAt(call, 0).includes("Transport cleanup error")
+      const transportCleanupCall = writeError.calls.find((call) =>
+        assertAt(call, 0).includes("Transport cleanup error")
       )
       expect(transportCleanupCall).toBeDefined()
     })
@@ -1329,18 +1153,13 @@ describe("HTTP Transport", () => {
         on: createVoidProbe<[string, () => void]>().fn
       })
 
-      const req = mock<Request>({
-        body: { jsonrpc: "2.0", method: "tools/list", id: 1 },
-        on: reqOn.fn
-      })
+      const req = mock<Request>({ body: { jsonrpc: "2.0", method: "tools/list", id: 1 }, on: reqOn.fn })
       await handlers.post(req, res)
 
       assertAt(closeHandlers, 0)()
       await new Promise((resolve) => setTimeout(resolve, 10))
 
-      const serverCleanupCall = writeError.calls.find(
-        (call) => assertAt(call, 0).includes("Server cleanup error")
-      )
+      const serverCleanupCall = writeError.calls.find((call) => assertAt(call, 0).includes("Server cleanup error"))
       expect(serverCleanupCall).toBeDefined()
     })
   })
@@ -1359,14 +1178,12 @@ describe("HTTP Transport", () => {
         }).fn
       })
 
-      const program = Effect.gen(function*() {
+      const program = Effect.gen(function* () {
         const factory = yield* HttpServerFactoryService
         return yield* factory.listen(mockApp, 3000, "127.0.0.1")
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(HttpServerFactoryService.defaultLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(HttpServerFactoryService.defaultLayer)))
 
       expect(result).toBe(fakeHttp)
     })
@@ -1382,27 +1199,23 @@ describe("HTTP Transport", () => {
         }).fn
       })
 
-      const program = Effect.gen(function*() {
+      const program = Effect.gen(function* () {
         const factory = yield* HttpServerFactoryService
         return yield* factory.listen(mockApp, 3000, "127.0.0.1")
       })
 
-      const result = await Effect.runPromiseExit(
-        program.pipe(Effect.provide(HttpServerFactoryService.defaultLayer))
-      )
+      const result = await Effect.runPromiseExit(program.pipe(Effect.provide(HttpServerFactoryService.defaultLayer)))
 
       expect(Exit.isFailure(result)).toBe(true)
     })
 
     it("should call createMcpExpressApp via createApp", async () => {
-      const program = Effect.gen(function*() {
+      const program = Effect.gen(function* () {
         const factory = yield* HttpServerFactoryService
         return factory.createApp("127.0.0.1")
       })
 
-      const result = await Effect.runPromise(
-        program.pipe(Effect.provide(HttpServerFactoryService.defaultLayer))
-      )
+      const result = await Effect.runPromise(program.pipe(Effect.provide(HttpServerFactoryService.defaultLayer)))
 
       expect(result).toBeDefined()
       // Verify the returned object has Express-like route registration methods
@@ -1416,10 +1229,7 @@ describe("HTTP Transport", () => {
   describe("HttpTransportError", () => {
     it("should include message and optional cause", () => {
       const cause = new Error("underlying error")
-      const error = new HttpTransportError({
-        message: "HTTP transport failed",
-        cause
-      })
+      const error = new HttpTransportError({ message: "HTTP transport failed", cause })
 
       expect(error.message).toBe("HTTP transport failed")
       expect(error.cause).toBe(cause)
@@ -1437,11 +1247,10 @@ describe("2026 dispatcher validation errors", () => {
     params: { _meta: meta }
   })
 
-  const post = async (body: unknown, headers: Request["headers"]): Promise<{
-    status: number | undefined
-    id: unknown
-    error: { code: number; message: string } | undefined
-  }> => {
+  const post = async (
+    body: unknown,
+    headers: Request["headers"]
+  ): Promise<{ status: number | undefined; id: unknown; error: { code: number; message: string } | undefined }> => {
     const handlers = createMcpHandlers(createMockMcpServer, undefined, undefined, modernHandlerFactory)
     const res = createMockResponse()
     await handlers.post(createMockRequest(body, headers), res)
@@ -1450,12 +1259,7 @@ describe("2026 dispatcher validation errors", () => {
     return { status: calls.status[0]?.[0], id: json?.id, error: json?.error }
   }
 
-  const cases: ReadonlyArray<{
-    name: string
-    body: unknown
-    headers: Request["headers"]
-    message: string
-  }> = [
+  const cases: ReadonlyArray<{ name: string; body: unknown; headers: Request["headers"]; message: string }> = [
     {
       name: "rejects batch requests",
       body: [validBody("tools/list")],
@@ -1609,10 +1413,7 @@ describe("2026 dispatcher validation errors", () => {
   }
 
   it("preserves a valid request id when rejecting a malformed JSON-RPC envelope", async () => {
-    const result = await post(
-      { ...validBody("tools/list"), jsonrpc: "1.0", id: 123 },
-      modernHeaders("tools/list")
-    )
+    const result = await post({ ...validBody("tools/list"), jsonrpc: "1.0", id: 123 }, modernHeaders("tools/list"))
     expect(result.id).toBe(123)
     expect(result.error?.message).toContain("jsonrpc")
   })
@@ -1687,10 +1488,7 @@ describe("2026 dispatcher validation errors", () => {
   })
 
   it("treats a non-object params as empty (still requires _meta)", async () => {
-    const result = await post(
-      { jsonrpc: "2.0", method: "tools/list", id: 1 },
-      modernHeaders("tools/list")
-    )
+    const result = await post({ jsonrpc: "2.0", method: "tools/list", id: 1 }, modernHeaders("tools/list"))
     expect(result.error?.message).toContain("params._meta is required")
   })
 })
@@ -1848,10 +1646,7 @@ describe("2026 dispatcher null-id and routing branches", () => {
   })
 
   it("routes explicit 2026 metadata to strict validation despite a legacy version header", async () => {
-    const headers = {
-      ...modernHeaders("tools/list"),
-      "mcp-protocol-version": "2025-11-25"
-    }
+    const headers = { ...modernHeaders("tools/list"), "mcp-protocol-version": "2025-11-25" }
     const { json } = await postRaw(
       { jsonrpc: "2.0", method: "tools/list", id: 1, params: { _meta: modernMeta } },
       headers
@@ -1867,10 +1662,7 @@ describe("2026 dispatcher null-id and routing branches", () => {
   it("keeps future-only discovery on strict validation despite a legacy version header", async () => {
     const { json } = await postRaw(
       { jsonrpc: "2.0", method: "server/discover", id: 1, params: { _meta: modernMeta } },
-      {
-        ...modernHeaders("server/discover"),
-        "mcp-protocol-version": "2025-11-25"
-      }
+      { ...modernHeaders("server/discover"), "mcp-protocol-version": "2025-11-25" }
     )
 
     expect(json?.error).toMatchObject({
@@ -1886,10 +1678,7 @@ describe("2026 dispatcher null-id and routing branches", () => {
       modernHeaders("tools/call")
     )
 
-    expect(json?.error).toMatchObject({
-      code: -32001,
-      message: expect.stringContaining("does not match")
-    })
+    expect(json?.error).toMatchObject({ code: -32001, message: expect.stringContaining("does not match") })
   })
 
   it("does not dispatch a non-object request body", () => {

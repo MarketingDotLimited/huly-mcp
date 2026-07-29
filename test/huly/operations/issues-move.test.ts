@@ -46,9 +46,11 @@ interface UpdateCall {
   ops: Record<string, unknown>
 }
 
-const buildLayer = (
-  m: { issues: ReadonlyArray<HulyIssue>; projects?: ReadonlyArray<HulyProject>; updates?: Array<UpdateCall> }
-) => {
+const buildLayer = (m: {
+  issues: ReadonlyArray<HulyIssue>
+  projects?: ReadonlyArray<HulyProject>
+  updates?: Array<UpdateCall>
+}) => {
   const projects = m.projects ?? [makeProject()]
   const issues = m.issues
 
@@ -76,12 +78,7 @@ const buildLayer = (
     return Effect.succeed(toFindResult([]))
   }) as HulyClientOperations["findAll"]
 
-  const updateDocImpl: HulyClientOperations["updateDoc"] = ((
-    _c: unknown,
-    _s: unknown,
-    id: unknown,
-    ops: unknown
-  ) => {
+  const updateDocImpl: HulyClientOperations["updateDoc"] = ((_c: unknown, _s: unknown, id: unknown, ops: unknown) => {
     m.updates?.push({ id, ops: ops as Record<string, unknown> })
     return Effect.succeed({} as never)
   }) as HulyClientOperations["updateDoc"]
@@ -93,7 +90,7 @@ const PROJECT = projectIdentifier("TEST")
 
 describe("moveIssue — to a new parent", () => {
   it.effect("attaches a native top-level issue without decrementing the NoParent sentinel", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const updates: Array<UpdateCall> = []
       const issue = makeIssue("issue-1", "TEST-1")
       const parent = makeIssue("issue-9", "TEST-9")
@@ -111,10 +108,11 @@ describe("moveIssue — to a new parent", () => {
         collection: "subIssues"
       })
       expect(assertAt(updates, 1)).toEqual({ id: "issue-9", ops: { $inc: { subIssues: 1 } } })
-    }))
+    })
+  )
 
   it.effect("re-parents, adjusts both parents' counts, and re-threads one descendant", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const updates: Array<UpdateCall> = []
       const issue = makeIssue("issue-1", "TEST-1", {
         attachedTo: "old-parent" as Ref<HulyIssue>,
@@ -152,20 +150,19 @@ describe("moveIssue — to a new parent", () => {
         ]
       })
       expect(updates).toHaveLength(4)
-    }))
+    })
+  )
 
   it.effect("recurses through grandchildren", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const updates: Array<UpdateCall> = []
       const issue = makeIssue("issue-1", "TEST-1", { attachedToClass: tracker.class.Project, subIssues: 1 })
       const child = makeIssue("issue-2", "TEST-2", { attachedTo: "issue-1" as Ref<HulyIssue>, subIssues: 1 })
       const grandchild = makeIssue("issue-3", "TEST-3", { attachedTo: "issue-2" as Ref<HulyIssue> })
 
-      yield* moveIssue({
-        project: PROJECT,
-        identifier: issueIdentifier("TEST-1"),
-        newParent: null
-      }).pipe(Effect.provide(buildLayer({ issues: [issue, child, grandchild], updates })))
+      yield* moveIssue({ project: PROJECT, identifier: issueIdentifier("TEST-1"), newParent: null }).pipe(
+        Effect.provide(buildLayer({ issues: [issue, child, grandchild], updates }))
+      )
 
       const childUpdate = updates.find((u) => u.id === "issue-2")
       const grandchildUpdate = updates.find((u) => u.id === "issue-3")
@@ -178,12 +175,13 @@ describe("moveIssue — to a new parent", () => {
           { parentId: "issue-2", identifier: "TEST-2", parentTitle: "Issue TEST-2", space: PROJECT_ID }
         ]
       })
-    }))
+    })
+  )
 })
 
 describe("moveIssue — to top-level", () => {
   it.effect("detaches a sub-issue to NoParent and decrements the old parent", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const updates: Array<UpdateCall> = []
       const issue = makeIssue("issue-1", "TEST-1", {
         attachedTo: "old-parent" as Ref<HulyIssue>,
@@ -211,10 +209,11 @@ describe("moveIssue — to top-level", () => {
       // decrement the old issue parent; no increment because it is now top-level
       expect(assertAt(updates, 1)).toEqual({ id: "old-parent", ops: { $inc: { subIssues: -1 } } })
       expect(updates).toHaveLength(2)
-    }))
+    })
+  )
 
   it.effect("repairs a legacy project-attached top-level issue without changing child counts", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const updates: Array<UpdateCall> = []
       const issue = makeIssue("issue-1", "TEST-1", {
         attachedTo: PROJECT_ID as unknown as Ref<HulyIssue>,
@@ -222,11 +221,9 @@ describe("moveIssue — to top-level", () => {
         subIssues: 0
       })
 
-      yield* moveIssue({
-        project: PROJECT,
-        identifier: issueIdentifier("TEST-1"),
-        newParent: null
-      }).pipe(Effect.provide(buildLayer({ issues: [issue], updates })))
+      yield* moveIssue({ project: PROJECT, identifier: issueIdentifier("TEST-1"), newParent: null }).pipe(
+        Effect.provide(buildLayer({ issues: [issue], updates }))
+      )
 
       expect(updates).toHaveLength(1)
       expect(assertAt(updates, 0).ops).toEqual({
@@ -235,18 +232,17 @@ describe("moveIssue — to top-level", () => {
         collection: "subIssues",
         parents: []
       })
-    }))
+    })
+  )
 
   it.effect("keeps an already-native top-level issue detached without changing child counts", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const updates: Array<UpdateCall> = []
       const issue = makeIssue("issue-1", "TEST-1")
 
-      yield* moveIssue({
-        project: PROJECT,
-        identifier: issueIdentifier("TEST-1"),
-        newParent: null
-      }).pipe(Effect.provide(buildLayer({ issues: [issue], updates })))
+      yield* moveIssue({ project: PROJECT, identifier: issueIdentifier("TEST-1"), newParent: null }).pipe(
+        Effect.provide(buildLayer({ issues: [issue], updates }))
+      )
 
       expect(updates).toHaveLength(1)
       expect(assertAt(updates, 0).ops).toMatchObject({
@@ -254,35 +250,44 @@ describe("moveIssue — to top-level", () => {
         attachedToClass: tracker.class.Issue,
         collection: "subIssues"
       })
-    }))
+    })
+  )
 })
 
 describe("moveIssue — error branches", () => {
   it.effect("fails when the project is not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const err = yield* Effect.flip(
-        moveIssue({ project: projectIdentifier("NOPE"), identifier: issueIdentifier("TEST-1"), newParent: null })
-          .pipe(Effect.provide(buildLayer({ issues: [], projects: [] })))
+        moveIssue({ project: projectIdentifier("NOPE"), identifier: issueIdentifier("TEST-1"), newParent: null }).pipe(
+          Effect.provide(buildLayer({ issues: [], projects: [] }))
+        )
       )
       expect(err._tag).toBe("ProjectNotFoundError")
-    }))
+    })
+  )
 
   it.effect("fails when the issue is not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const err = yield* Effect.flip(
-        moveIssue({ project: PROJECT, identifier: issueIdentifier("TEST-404"), newParent: null })
-          .pipe(Effect.provide(buildLayer({ issues: [] })))
+        moveIssue({ project: PROJECT, identifier: issueIdentifier("TEST-404"), newParent: null }).pipe(
+          Effect.provide(buildLayer({ issues: [] }))
+        )
       )
       expect(err._tag).toBe("IssueNotFoundError")
-    }))
+    })
+  )
 
   it.effect("fails when the new parent issue is not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const issue = makeIssue("issue-1", "TEST-1")
       const err = yield* Effect.flip(
-        moveIssue({ project: PROJECT, identifier: issueIdentifier("TEST-1"), newParent: issueIdentifier("TEST-404") })
-          .pipe(Effect.provide(buildLayer({ issues: [issue] })))
+        moveIssue({
+          project: PROJECT,
+          identifier: issueIdentifier("TEST-1"),
+          newParent: issueIdentifier("TEST-404")
+        }).pipe(Effect.provide(buildLayer({ issues: [issue] })))
       )
       expect(err._tag).toBe("IssueNotFoundError")
-    }))
+    })
+  )
 })

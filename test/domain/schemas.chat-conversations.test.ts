@@ -14,14 +14,12 @@ const decodes = <A, I>(schema: Schema.Schema<A, I, never>, input: unknown): bool
 
 describe("chat conversation schemas", () => {
   it("accepts channel member identifiers as account UUID, email, and exact person name", () => {
-    expect(decodes(ChannelMemberMutationParamsSchema, {
-      channel: "general",
-      members: [
-        "00000000-0000-4000-8000-000000000010",
-        "member@example.com",
-        "Kerr,Shannon"
-      ]
-    })).toBe(true)
+    expect(
+      decodes(ChannelMemberMutationParamsSchema, {
+        channel: "general",
+        members: ["00000000-0000-4000-8000-000000000010", "member@example.com", "Kerr,Shannon"]
+      })
+    ).toBe(true)
   })
 
   it("rejects empty channel member mutation input", () => {
@@ -29,9 +27,7 @@ describe("chat conversation schemas", () => {
   })
 
   it("requires at least two people for group direct-message creation", () => {
-    expect(decodes(CreateGroupDirectMessageParamsSchema, {
-      people: ["one@example.com", "Two,Person"]
-    })).toBe(true)
+    expect(decodes(CreateGroupDirectMessageParamsSchema, { people: ["one@example.com", "Two,Person"] })).toBe(true)
     expect(decodes(CreateGroupDirectMessageParamsSchema, { people: ["one@example.com"] })).toBe(false)
   })
 

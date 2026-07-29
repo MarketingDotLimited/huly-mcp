@@ -408,10 +408,7 @@ describe("space domain errors", () => {
         }
       ]
     })
-    const spaceNotTyped = new SpaceNotTypedError({
-      id: SpaceId.make("space-1"),
-      name: NonEmptyString.make("General")
-    })
+    const spaceNotTyped = new SpaceNotTypedError({ id: SpaceId.make("space-1"), name: NonEmptyString.make("General") })
     const roleNotFound = new SpaceRoleNotFoundError({
       identifier: NonEmptyString.make("Admins"),
       spaceType: SpaceTypeId.make("space-type-1")
@@ -438,18 +435,19 @@ describe("space domain errors", () => {
 
 describe("space schemas", () => {
   it.effect("accepts update params with safe fields and rejects empty updates", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const valid = yield* parseUpdateSpaceParams({ space: "space-1", name: "Renamed" })
       const empty = yield* Effect.exit(parseUpdateSpaceParams({ space: "space-1" }))
 
       expect(valid).toMatchObject({ space: "space-1", name: "Renamed" })
       expect(exitCauseText(empty)).toContain("At least one update field must be provided")
-    }))
+    })
+  )
 })
 
 describe("spaces operations", () => {
   it.effect("listSpaces filters archived by default and includes archived when requested", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const active = makeSpace({ _id: toRef<Space>("active"), name: "Active" })
       const archived = makeSpace({ _id: toRef<Space>("archived"), name: "Archived", archived: true })
       const { owners: _owners, ...withoutOwners } = makeSpace({
@@ -464,10 +462,11 @@ describe("spaces operations", () => {
       expect(defaultResult.spaces.map((space) => space.id)).toEqual(["active", "without-owners"])
       expect(defaultResult.spaces.find((space) => space.id === "without-owners")?.ownersCount).toBe(0)
       expect(allResult.spaces.map((space) => space.id)).toEqual(["active", "archived", "without-owners"])
-    }))
+    })
+  )
 
   it.effect("getSpace resolves by id, resolves exact names, and rejects ambiguous names", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const first = makeSpace({ _id: toRef<Space>("space-a"), name: "Shared", _class: toRef("module:class:A") })
       const second = makeSpace({
         _id: toRef<Space>("space-b"),
@@ -495,29 +494,32 @@ describe("spaces operations", () => {
       expect(exitCauseText(ambiguous)).toContain("SpaceIdentifierAmbiguousError")
       expect(Exit.isFailure(missing)).toBe(true)
       expect(exitCauseText(missing)).toContain("SpaceNotFoundError")
-    }))
+    })
+  )
 
   it.effect("getSpace defaults missing owners to an empty array", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { owners: _owners, ...space } = makeSpace()
       const layer = createTestLayer({ spaces: [space] })
 
       const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(Effect.provide(layer), withDiagnostics)
 
       expect(result.owners).toEqual([])
-    }))
+    })
+  )
 
   it.effect("getSpace returns existing owners", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const layer = createTestLayer({ spaces: [makeSpace({ owners: [accountB] })] })
 
       const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(Effect.provide(layer), withDiagnostics)
 
       expect(result.owners).toEqual([accountB])
-    }))
+    })
+  )
 
   it.effect("getSpace exposes role assignment data when present", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { owners: _owners, ...space } = makeSpace({
         type: toRef<SpaceType>("space-type-1"),
         [core.class.Space]: {
@@ -530,10 +532,7 @@ describe("spaces operations", () => {
       const layer = createTestLayer({
         spaces: [space],
         spaceTypes: [makeSpaceType({ roles: 2 })],
-        roles: [
-          makeRole(),
-          makeRole({ _id: toRef<Role>("role-empty"), name: "Empty" })
-        ]
+        roles: [makeRole(), makeRole({ _id: toRef<Role>("role-empty"), name: "Empty" })]
       })
 
       const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(Effect.provide(layer), withDiagnostics)
@@ -544,37 +543,27 @@ describe("spaces operations", () => {
         { roleId: "role-admin", members: [accountA] },
         { roleId: "role-empty", members: [] }
       ])
-    }))
+    })
+  )
 
   it.effect("getSpace hides custom array fields when typed-space role assignments are empty", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { owners: _owners, ...space } = makeSpace({
         type: toRef<SpaceType>("space-type-1"),
-        [core.class.Space]: {
-          customTags: ["custom-a", "custom-b"]
-        }
+        [core.class.Space]: { customTags: ["custom-a", "custom-b"] }
       })
-      const layer = createTestLayer({
-        spaces: [space],
-        spaceTypes: [makeSpaceType()],
-        roles: [makeRole()]
-      })
+      const layer = createTestLayer({ spaces: [space], spaceTypes: [makeSpaceType()], roles: [makeRole()] })
 
       const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(Effect.provide(layer), withDiagnostics)
 
       expect(result.roleAssignments).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("getSpace returns no role assignments and no warnings when the typed-space mixin is absent", () =>
-    Effect.gen(function*() {
-      const { owners: _owners, ...space } = makeSpace({
-        type: toRef<SpaceType>("space-type-1")
-      })
-      const layer = createTestLayer({
-        spaces: [space],
-        spaceTypes: [makeSpaceType()],
-        roles: [makeRole()]
-      })
+    Effect.gen(function* () {
+      const { owners: _owners, ...space } = makeSpace({ type: toRef<SpaceType>("space-type-1") })
+      const layer = createTestLayer({ spaces: [space], spaceTypes: [makeSpaceType()], roles: [makeRole()] })
       const diagnostics = yield* makeDiagnosticsScope
 
       const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(
@@ -585,10 +574,11 @@ describe("spaces operations", () => {
 
       expect(result.roleAssignments).toBeUndefined()
       expect(warnings).toEqual([])
-    }))
+    })
+  )
 
   it.effect("getSpace drops malformed role assignment data and warns the agent", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const malformedMember = "not-an-account-uuid"
       const { owners: _owners, ...space } = makeSpace({
         type: toRef<SpaceType>("space-type-1"),
@@ -601,10 +591,7 @@ describe("spaces operations", () => {
       const layer = createTestLayer({
         spaces: [space],
         spaceTypes: [makeSpaceType({ roles: 2 })],
-        roles: [
-          makeRole(),
-          makeRole({ _id: toRef<Role>("role-viewer"), name: "Viewers" })
-        ]
+        roles: [makeRole(), makeRole({ _id: toRef<Role>("role-viewer"), name: "Viewers" })]
       })
       const diagnostics = yield* makeDiagnosticsScope
 
@@ -620,19 +607,16 @@ describe("spaces operations", () => {
       expect(assertAt(warnings, 0).message).toContain("role-viewer")
       expect(assertAt(warnings, 0).message).toContain("role-unknown")
       expect(assertAt(warnings, 0).message).toContain("malformed account UUID")
-    }))
+    })
+  )
 
   it.effect("getSpace drops a non-object role assignment mixin and warns the agent", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { owners: _owners, ...space } = makeSpace({
         type: toRef<SpaceType>("space-type-1"),
         [core.class.Space]: "not an assignment object"
       })
-      const layer = createTestLayer({
-        spaces: [space],
-        spaceTypes: [makeSpaceType()],
-        roles: [makeRole()]
-      })
+      const layer = createTestLayer({ spaces: [space], spaceTypes: [makeSpaceType()], roles: [makeRole()] })
       const diagnostics = yield* makeDiagnosticsScope
 
       const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(
@@ -645,10 +629,11 @@ describe("spaces operations", () => {
       expect(warnings).toHaveLength(1)
       expect(assertAt(warnings, 0).code).toBe("space_role_assignments_degraded")
       expect(assertAt(warnings, 0).message).toContain("role assignment mixin core:class:Space is not an object")
-    }))
+    })
+  )
 
   it.effect("listSpaces filters by raw class and type", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const typeA = toRef<SpaceType>("space-type-a")
       const typeB = toRef<SpaceType>("space-type-b")
       const first = makeSpace({ _id: toRef<Space>("space-a"), _class: toRef("module:class:A"), type: typeA })
@@ -662,10 +647,11 @@ describe("spaces operations", () => {
 
       expect(result.spaces.map((space) => space.id)).toEqual(["space-b"])
       expect(assertAt(result.spaces, 0).type).toBe("space-type-b")
-    }))
+    })
+  )
 
   it.effect("listSpaces requests and returns a counted SDK total", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureFindOptions: Array<FindOptions<Doc> | undefined> = []
       const layer = createTestLayer({ spaces: [makeSpace()], captureFindOptions, sdkTotal: 7 })
 
@@ -674,10 +660,11 @@ describe("spaces operations", () => {
       expect(result.spaces).toHaveLength(1)
       expect(result.total).toBe(7)
       expect(assertAt(captureFindOptions, 0)).toMatchObject({ total: true })
-    }))
+    })
+  )
 
   it.effect("listSpaceTypes and getSpaceType include descriptors, roles, and permissions", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const type = makeSpaceType({ members: [accountA], autoJoin: true, shortDescription: "Short type" })
       const descriptor = makeDescriptor()
       const role = makeRole()
@@ -707,10 +694,11 @@ describe("spaces operations", () => {
       })
       expect(detail.shortDescription).toBe("Short type")
       expect(assertAt(detail.availablePermissions, 0).id).toBe("permission-update")
-    }))
+    })
+  )
 
   it.effect("listSpaceTypes filters targetClass and handles missing descriptors", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const matching = makeSpaceType({ _id: toRef<SpaceType>("space-type-a"), targetClass: toRef("module:class:A") })
       const other = makeSpaceType({ _id: toRef<SpaceType>("space-type-b"), targetClass: toRef("module:class:B") })
       const layer = createTestLayer({ spaceTypes: [matching, other] })
@@ -728,10 +716,11 @@ describe("spaces operations", () => {
 
       const empty = yield* listSpaceTypes({}).pipe(Effect.provide(createTestLayer({ spaceTypes: [] })))
       expect(empty.spaceTypes).toEqual([])
-    }))
+    })
+  )
 
   it.effect("getSpaceType resolves empty metadata and reports missing or ambiguous names", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const typeA = makeSpaceType({ _id: toRef<SpaceType>("space-type-a"), name: "Shared Type" })
       const typeB = makeSpaceType({ _id: toRef<SpaceType>("space-type-b"), name: "Shared Type" })
       const layer = createTestLayer({ spaceTypes: [typeA, typeB] })
@@ -752,19 +741,21 @@ describe("spaces operations", () => {
       })
       expect(exitCauseText(missing)).toContain("SpaceTypeNotFoundError")
       expect(exitCauseText(ambiguous)).toContain("SpaceTypeIdentifierAmbiguousError")
-    }))
+    })
+  )
 
   it.effect("getSpaceType resolves by exact name when one name matches", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const layer = createTestLayer({ spaceTypes: [makeSpaceType({ name: "Named Type" })] })
 
       const detail = yield* getSpaceType({ spaceType: spaceTypeIdentifier("Named Type") }).pipe(Effect.provide(layer))
 
       expect(detail.id).toBe("space-type-1")
-    }))
+    })
+  )
 
   it.effect("listSpacePermissions filters by scope, objectClass, and search", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const updatePermission = makePermission()
       const workspacePermission = makePermission({
         _id: toRef<Permission>("permission-workspace"),
@@ -781,14 +772,12 @@ describe("spaces operations", () => {
 
       expect(result.permissions.map((permission) => permission.id)).toEqual(["permission-update"])
       expect(result.total).toBe(1)
-    }))
+    })
+  )
 
   it.effect("listSpacePermissions applies search before limit", () =>
-    Effect.gen(function*() {
-      const firstPermission = makePermission({
-        _id: toRef<Permission>("permission-first"),
-        label: intlString("Alpha")
-      })
+    Effect.gen(function* () {
+      const firstPermission = makePermission({ _id: toRef<Permission>("permission-first"), label: intlString("Alpha") })
       const matchingPermission = makePermission({
         _id: toRef<Permission>("permission-target"),
         label: intlString("Target permission")
@@ -799,10 +788,11 @@ describe("spaces operations", () => {
 
       expect(result.permissions.map((permission) => permission.id)).toEqual(["permission-target"])
       expect(result.total).toBe(1)
-    }))
+    })
+  )
 
   it.effect("listSpacePermissions handles unfiltered permissions without descriptions", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { description: _description, objectClass: _objectClass, ...permission } = makePermission()
       const result = yield* listSpacePermissions({}).pipe(
         Effect.provide(createTestLayer({ permissions: [permission] }))
@@ -813,10 +803,11 @@ describe("spaces operations", () => {
         description: undefined,
         objectClass: undefined
       })
-    }))
+    })
+  )
 
   it.effect("updateSpace sends only provided safe fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureUpdate: MockConfig["captureUpdate"] = {}
       const layer = createTestLayer({ spaces: [makeSpace()], captureUpdate })
 
@@ -826,10 +817,11 @@ describe("spaces operations", () => {
 
       expect(result.updated).toBe(true)
       expect(captureUpdate.operations).toEqual({ private: true, description: "" })
-    }))
+    })
+  )
 
   it.effect("updateSpace clears description when set to null", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureUpdate: MockConfig["captureUpdate"] = {}
 
       yield* updateSpace({ space: spaceIdentifier("space-1"), description: null }).pipe(
@@ -837,10 +829,11 @@ describe("spaces operations", () => {
       )
 
       expect(captureUpdate.operations).toEqual({ description: "" })
-    }))
+    })
+  )
 
   it.effect("updateSpace can send all safe metadata fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureUpdate: MockConfig["captureUpdate"] = {}
       const layer = createTestLayer({ spaces: [makeSpace()], captureUpdate })
 
@@ -866,10 +859,11 @@ describe("spaces operations", () => {
         Effect.provide(createTestLayer({ spaces: [makeSpace()], captureUpdate: nameOnlyUpdate }))
       )
       expect(nameOnlyUpdate.operations).toEqual({ name: "Name Only" })
-    }))
+    })
+  )
 
   it.effect("member mutations are idempotent, dedupe accounts, and preserve unrelated members", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAdd: MockConfig["captureUpdate"] = {}
       const baseSpace = makeSpace({ members: [accountA] })
       const layer = createTestLayer({
@@ -903,10 +897,11 @@ describe("spaces operations", () => {
       expect(removeNoop.members).toEqual([accountA])
       expect(removeNoop.changed).toBe(false)
       expect(addNoop.changed).toBe(false)
-    }))
+    })
+  )
 
   it.effect("removeSpaceMembers replaces members when accounts are present", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureUpdate: MockConfig["captureUpdate"] = {}
       const layer = createTestLayer({ spaces: [makeSpace({ members: [accountA, accountB] })], captureUpdate })
 
@@ -918,15 +913,13 @@ describe("spaces operations", () => {
       expect(result.members).toEqual([accountA])
       expect(result.changed).toBe(true)
       expect(captureUpdate.operations).toEqual({ members: [accountA] })
-    }))
+    })
+  )
 
   it.effect("setSpaceOwners replaces owners and ensures owners are members by default", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureUpdate: MockConfig["captureUpdate"] = {}
-      const layer = createTestLayer({
-        spaces: [makeSpace({ members: [accountA], owners: [accountA] })],
-        captureUpdate
-      })
+      const layer = createTestLayer({ spaces: [makeSpace({ members: [accountA], owners: [accountA] })], captureUpdate })
 
       const result = yield* setSpaceOwners({
         space: spaceIdentifier("space-1"),
@@ -936,10 +929,11 @@ describe("spaces operations", () => {
       expect(result.owners).toEqual([accountB])
       expect(result.members).toEqual([accountA, accountB])
       expect(captureUpdate.operations).toEqual({ owners: [accountB], members: [accountA, accountB] })
-    }))
+    })
+  )
 
   it.effect("setSpaceOwners can skip member enforcement and report no-op owner replacement", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const skipMembersUpdate: MockConfig["captureUpdate"] = {}
       const noChangeUpdate: MockConfig["captureUpdate"] = {}
       const { owners: _owners, ...spaceWithoutOwners } = makeSpace({ members: [accountA] })
@@ -948,18 +942,26 @@ describe("spaces operations", () => {
         space: spaceIdentifier("space-1"),
         owners: [spaceMemberIdentifier(accountB)],
         ensureMembers: false
-      }).pipe(Effect.provide(createTestLayer({
-        spaces: [makeSpace({ members: [accountA], owners: [accountA] })],
-        captureUpdate: skipMembersUpdate
-      })))
+      }).pipe(
+        Effect.provide(
+          createTestLayer({
+            spaces: [makeSpace({ members: [accountA], owners: [accountA] })],
+            captureUpdate: skipMembersUpdate
+          })
+        )
+      )
       const noChange = yield* setSpaceOwners({
         space: spaceIdentifier("space-1"),
         owners: [spaceMemberIdentifier(accountA)],
         ensureMembers: false
-      }).pipe(Effect.provide(createTestLayer({
-        spaces: [makeSpace({ members: [accountA], owners: [accountA] })],
-        captureUpdate: noChangeUpdate
-      })))
+      }).pipe(
+        Effect.provide(
+          createTestLayer({
+            spaces: [makeSpace({ members: [accountA], owners: [accountA] })],
+            captureUpdate: noChangeUpdate
+          })
+        )
+      )
       const missingOwners = yield* setSpaceOwners({
         space: spaceIdentifier("space-1"),
         owners: [spaceMemberIdentifier(accountA)],
@@ -971,17 +973,15 @@ describe("spaces operations", () => {
       expect(noChange.changed).toBe(false)
       expect(noChangeUpdate.operations).toBeUndefined()
       expect(missingOwners.owners).toEqual([accountA])
-    }))
+    })
+  )
 
   it.effect("setSpaceRoleMembers replaces only the targeted typed-space role assignment", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureMixin: MockConfig["captureMixin"] = {}
       const space = makeSpace({
         type: toRef<SpaceType>("space-type-1"),
-        [core.class.Space]: {
-          "role-admin": [accountA],
-          "role-viewer": [accountC]
-        }
+        [core.class.Space]: { "role-admin": [accountA], "role-viewer": [accountC] }
       })
       const layer = createTestLayer({
         spaces: [space],
@@ -1009,25 +1009,20 @@ describe("spaces operations", () => {
         mixin: core.class.Space,
         attributes: { "role-admin": [accountB], "role-viewer": [accountC] }
       })
-    }))
+    })
+  )
 
   it.effect("space role member mutations reject malformed existing role assignment storage before writing", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const unknownRoleMixin: MockConfig["captureMixin"] = {}
       const malformedMembersMixin: MockConfig["captureMixin"] = {}
       const unknownRoleStorage = makeSpace({
         type: toRef<SpaceType>("space-type-1"),
-        [core.class.Space]: {
-          "role-admin": [accountA],
-          "role-unknown": [accountB]
-        }
+        [core.class.Space]: { "role-admin": [accountA], "role-unknown": [accountB] }
       })
       const malformedMemberStorage = makeSpace({
         type: toRef<SpaceType>("space-type-1"),
-        [core.class.Space]: {
-          "role-admin": [accountA],
-          "role-viewer": ["not-an-account-uuid"]
-        }
+        [core.class.Space]: { "role-admin": [accountA], "role-viewer": ["not-an-account-uuid"] }
       })
 
       const unknownRoleError = yield* Effect.flip(
@@ -1035,15 +1030,16 @@ describe("spaces operations", () => {
           space: spaceIdentifier("space-1"),
           role: spaceRoleIdentifier("role-admin"),
           members: [spaceMemberIdentifier(accountB)]
-        }).pipe(Effect.provide(createTestLayer({
-          spaces: [unknownRoleStorage],
-          spaceTypes: [makeSpaceType({ roles: 2 })],
-          roles: [
-            makeRole(),
-            makeRole({ _id: toRef<Role>("role-viewer"), name: "Viewers" })
-          ],
-          captureMixin: unknownRoleMixin
-        })))
+        }).pipe(
+          Effect.provide(
+            createTestLayer({
+              spaces: [unknownRoleStorage],
+              spaceTypes: [makeSpaceType({ roles: 2 })],
+              roles: [makeRole(), makeRole({ _id: toRef<Role>("role-viewer"), name: "Viewers" })],
+              captureMixin: unknownRoleMixin
+            })
+          )
+        )
       )
 
       const malformedMembersError = yield* Effect.flip(
@@ -1051,15 +1047,16 @@ describe("spaces operations", () => {
           space: spaceIdentifier("space-1"),
           role: spaceRoleIdentifier("role-admin"),
           members: [spaceMemberIdentifier(accountB)]
-        }).pipe(Effect.provide(createTestLayer({
-          spaces: [malformedMemberStorage],
-          spaceTypes: [makeSpaceType({ roles: 2 })],
-          roles: [
-            makeRole(),
-            makeRole({ _id: toRef<Role>("role-viewer"), name: "Viewers" })
-          ],
-          captureMixin: malformedMembersMixin
-        })))
+        }).pipe(
+          Effect.provide(
+            createTestLayer({
+              spaces: [malformedMemberStorage],
+              spaceTypes: [makeSpaceType({ roles: 2 })],
+              roles: [makeRole(), makeRole({ _id: toRef<Role>("role-viewer"), name: "Viewers" })],
+              captureMixin: malformedMembersMixin
+            })
+          )
+        )
       )
 
       expect(unknownRoleError).toBeInstanceOf(SpaceRoleAssignmentsMalformedError)
@@ -1068,10 +1065,11 @@ describe("spaces operations", () => {
       expect(malformedMembersError).toBeInstanceOf(SpaceRoleAssignmentsMalformedError)
       expect(malformedMembersError.message).toContain("expected an object")
       expect(malformedMembersMixin.action).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("space role member mutations resolve roles by id and by exact name scoped to the space type", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const byIdMixin: MockConfig["captureMixin"] = {}
       const byNameMixin: MockConfig["captureMixin"] = {}
       const typedSpace = makeSpace({ type: toRef<SpaceType>("space-type-1") })
@@ -1086,31 +1084,40 @@ describe("spaces operations", () => {
         space: spaceIdentifier("space-1"),
         role: spaceRoleIdentifier("role-viewer"),
         members: [spaceMemberIdentifier(accountA)]
-      }).pipe(Effect.provide(createTestLayer({
-        spaces: [typedSpace],
-        spaceTypes: [makeSpaceType({ roles: 2 })],
-        roles: [adminForSpaceType, viewerForSpaceType],
-        captureMixin: byIdMixin
-      })))
+      }).pipe(
+        Effect.provide(
+          createTestLayer({
+            spaces: [typedSpace],
+            spaceTypes: [makeSpaceType({ roles: 2 })],
+            roles: [adminForSpaceType, viewerForSpaceType],
+            captureMixin: byIdMixin
+          })
+        )
+      )
       const byNameScopedToSpaceType = yield* addSpaceRoleMembers({
         space: spaceIdentifier("space-1"),
         role: spaceRoleIdentifier("Admins"),
         members: [spaceMemberIdentifier(accountA)]
-      }).pipe(Effect.provide(createTestLayer({
-        spaces: [typedSpace],
-        spaceTypes: [makeSpaceType()],
-        roles: [adminForOtherSpaceType, adminForSpaceType],
-        captureMixin: byNameMixin
-      })))
+      }).pipe(
+        Effect.provide(
+          createTestLayer({
+            spaces: [typedSpace],
+            spaceTypes: [makeSpaceType()],
+            roles: [adminForOtherSpaceType, adminForSpaceType],
+            captureMixin: byNameMixin
+          })
+        )
+      )
 
       expect(byId).toMatchObject({ roleId: "role-viewer", members: [accountA], changed: true })
       expect(byIdMixin).toMatchObject({ action: "create", attributes: { "role-viewer": [accountA] } })
       expect(byNameScopedToSpaceType).toMatchObject({ roleId: "role-admin", members: [accountA], changed: true })
       expect(byNameMixin).toMatchObject({ action: "create", attributes: { "role-admin": [accountA] } })
-    }))
+    })
+  )
 
   it.effect("space role member mutations resolve members by account UUID, exact email, and display name", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureMixin: MockConfig["captureMixin"] = {}
       const result = yield* setSpaceRoleMembers({
         space: spaceIdentifier("space-1"),
@@ -1120,85 +1127,91 @@ describe("spaces operations", () => {
           spaceMemberIdentifier("jane@example.com"),
           spaceMemberIdentifier("Doe,Jane")
         ]
-      }).pipe(Effect.provide(createTestLayer({
-        spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })],
-        spaceTypes: [makeSpaceType()],
-        roles: [makeRole()],
-        persons: [makePerson()],
-        channels: [makeChannel()],
-        employees: [makeEmployee()],
-        captureMixin
-      })))
+      }).pipe(
+        Effect.provide(
+          createTestLayer({
+            spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })],
+            spaceTypes: [makeSpaceType()],
+            roles: [makeRole()],
+            persons: [makePerson()],
+            channels: [makeChannel()],
+            employees: [makeEmployee()],
+            captureMixin
+          })
+        )
+      )
 
       expect(result).toMatchObject({ roleId: "role-admin", members: [accountA, accountB], changed: true })
-      expect(captureMixin).toMatchObject({
-        action: "create",
-        attributes: { "role-admin": [accountA, accountB] }
-      })
-    }))
+      expect(captureMixin).toMatchObject({ action: "create", attributes: { "role-admin": [accountA, accountB] } })
+    })
+  )
 
   it.effect("space role add and remove mutations are idempotent", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const addMixin: MockConfig["captureMixin"] = {}
       const createMixin: MockConfig["captureMixin"] = {}
       const removeMixin: MockConfig["captureMixin"] = {}
       const baseSpace = makeSpace({
         type: toRef<SpaceType>("space-type-1"),
-        [core.class.Space]: {
-          "role-admin": [accountA]
-        }
+        [core.class.Space]: { "role-admin": [accountA] }
       })
 
       const added = yield* addSpaceRoleMembers({
         space: spaceIdentifier("space-1"),
         role: spaceRoleIdentifier("role-admin"),
         members: [spaceMemberIdentifier(accountB), spaceMemberIdentifier(accountA)]
-      }).pipe(Effect.provide(createTestLayer({
-        spaces: [baseSpace],
-        spaceTypes: [makeSpaceType()],
-        roles: [makeRole()],
-        captureMixin: addMixin
-      })))
+      }).pipe(
+        Effect.provide(
+          createTestLayer({
+            spaces: [baseSpace],
+            spaceTypes: [makeSpaceType()],
+            roles: [makeRole()],
+            captureMixin: addMixin
+          })
+        )
+      )
       const created = yield* addSpaceRoleMembers({
         space: spaceIdentifier("space-1"),
         role: spaceRoleIdentifier("role-admin"),
         members: [spaceMemberIdentifier(accountA)]
-      }).pipe(Effect.provide(createTestLayer({
-        spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })],
-        spaceTypes: [makeSpaceType()],
-        roles: [makeRole()],
-        captureMixin: createMixin
-      })))
+      }).pipe(
+        Effect.provide(
+          createTestLayer({
+            spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })],
+            spaceTypes: [makeSpaceType()],
+            roles: [makeRole()],
+            captureMixin: createMixin
+          })
+        )
+      )
       const addNoop = yield* addSpaceRoleMembers({
         space: spaceIdentifier("space-1"),
         role: spaceRoleIdentifier("role-admin"),
         members: [spaceMemberIdentifier(accountA)]
-      }).pipe(Effect.provide(createTestLayer({
-        spaces: [baseSpace],
-        spaceTypes: [makeSpaceType()],
-        roles: [makeRole()]
-      })))
+      }).pipe(
+        Effect.provide(createTestLayer({ spaces: [baseSpace], spaceTypes: [makeSpaceType()], roles: [makeRole()] }))
+      )
       const removed = yield* removeSpaceRoleMembers({
         space: spaceIdentifier("space-1"),
         role: spaceRoleIdentifier("role-admin"),
         members: [spaceMemberIdentifier(accountA)]
       }).pipe(
-        Effect.provide(createTestLayer({
-          spaces: [baseSpace],
-          spaceTypes: [makeSpaceType()],
-          roles: [makeRole()],
-          captureMixin: removeMixin
-        }))
+        Effect.provide(
+          createTestLayer({
+            spaces: [baseSpace],
+            spaceTypes: [makeSpaceType()],
+            roles: [makeRole()],
+            captureMixin: removeMixin
+          })
+        )
       )
       const removeNoop = yield* removeSpaceRoleMembers({
         space: spaceIdentifier("space-1"),
         role: spaceRoleIdentifier("role-admin"),
         members: [spaceMemberIdentifier(accountC)]
-      }).pipe(Effect.provide(createTestLayer({
-        spaces: [baseSpace],
-        spaceTypes: [makeSpaceType()],
-        roles: [makeRole()]
-      })))
+      }).pipe(
+        Effect.provide(createTestLayer({ spaces: [baseSpace], spaceTypes: [makeSpaceType()], roles: [makeRole()] }))
+      )
 
       expect(added.members).toEqual([accountA, accountB])
       expect(addMixin).toMatchObject({ action: "update", attributes: { "role-admin": [accountA, accountB] } })
@@ -1208,70 +1221,78 @@ describe("spaces operations", () => {
       expect(removed.members).toEqual([])
       expect(removeMixin).toMatchObject({ action: "update", attributes: { "role-admin": [] } })
       expect(removeNoop.changed).toBe(false)
-    }))
+    })
+  )
 
-  it.effect("space role member mutations reject non-typed spaces and missing or ambiguous roles with typed errors", () =>
-    Effect.gen(function*() {
-      const nonTyped = yield* Effect.flip(
-        setSpaceRoleMembers({
-          space: spaceIdentifier("space-1"),
-          role: spaceRoleIdentifier("Admins"),
-          members: []
-        }).pipe(Effect.provide(createTestLayer({ spaces: [makeSpace()], roles: [makeRole()] })))
-      )
-      const missingRole = yield* Effect.flip(
-        addSpaceRoleMembers({
-          space: spaceIdentifier("space-1"),
-          role: spaceRoleIdentifier("Missing"),
-          members: [spaceMemberIdentifier(accountA)]
-        }).pipe(Effect.provide(createTestLayer({
-          spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })],
-          spaceTypes: [makeSpaceType()],
-          roles: [makeRole()]
-        })))
-      )
-      const missingSpaceType = yield* Effect.flip(
-        addSpaceRoleMembers({
-          space: spaceIdentifier("space-1"),
-          role: spaceRoleIdentifier("Admins"),
-          members: [spaceMemberIdentifier(accountA)]
-        }).pipe(Effect.provide(createTestLayer({
-          spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })],
-          roles: [makeRole()]
-        })))
-      )
-      const ambiguousRole = yield* Effect.flip(
-        addSpaceRoleMembers({
-          space: spaceIdentifier("space-1"),
-          role: spaceRoleIdentifier("Admins"),
-          members: [spaceMemberIdentifier(accountA)]
-        }).pipe(Effect.provide(createTestLayer({
-          spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })],
-          spaceTypes: [makeSpaceType()],
-          roles: [
-            makeRole({ _id: toRef<Role>("role-admin-a") }),
-            makeRole({ _id: toRef<Role>("role-admin-b") })
-          ]
-        })))
-      )
+  it.effect(
+    "space role member mutations reject non-typed spaces and missing or ambiguous roles with typed errors",
+    () =>
+      Effect.gen(function* () {
+        const nonTyped = yield* Effect.flip(
+          setSpaceRoleMembers({
+            space: spaceIdentifier("space-1"),
+            role: spaceRoleIdentifier("Admins"),
+            members: []
+          }).pipe(Effect.provide(createTestLayer({ spaces: [makeSpace()], roles: [makeRole()] })))
+        )
+        const missingRole = yield* Effect.flip(
+          addSpaceRoleMembers({
+            space: spaceIdentifier("space-1"),
+            role: spaceRoleIdentifier("Missing"),
+            members: [spaceMemberIdentifier(accountA)]
+          }).pipe(
+            Effect.provide(
+              createTestLayer({
+                spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })],
+                spaceTypes: [makeSpaceType()],
+                roles: [makeRole()]
+              })
+            )
+          )
+        )
+        const missingSpaceType = yield* Effect.flip(
+          addSpaceRoleMembers({
+            space: spaceIdentifier("space-1"),
+            role: spaceRoleIdentifier("Admins"),
+            members: [spaceMemberIdentifier(accountA)]
+          }).pipe(
+            Effect.provide(
+              createTestLayer({ spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })], roles: [makeRole()] })
+            )
+          )
+        )
+        const ambiguousRole = yield* Effect.flip(
+          addSpaceRoleMembers({
+            space: spaceIdentifier("space-1"),
+            role: spaceRoleIdentifier("Admins"),
+            members: [spaceMemberIdentifier(accountA)]
+          }).pipe(
+            Effect.provide(
+              createTestLayer({
+                spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })],
+                spaceTypes: [makeSpaceType()],
+                roles: [makeRole({ _id: toRef<Role>("role-admin-a") }), makeRole({ _id: toRef<Role>("role-admin-b") })]
+              })
+            )
+          )
+        )
 
-      expect(nonTyped).toBeInstanceOf(SpaceNotTypedError)
-      expect(nonTyped._tag).toBe("SpaceNotTypedError")
-      expect(missingRole).toBeInstanceOf(SpaceRoleNotFoundError)
-      expect(missingRole._tag).toBe("SpaceRoleNotFoundError")
-      expect(missingSpaceType).toBeInstanceOf(SpaceRoleNotFoundError)
-      expect(missingSpaceType._tag).toBe("SpaceRoleNotFoundError")
-      expect(ambiguousRole).toBeInstanceOf(SpaceRoleIdentifierAmbiguousError)
-      expect(ambiguousRole._tag).toBe("SpaceRoleIdentifierAmbiguousError")
-    }))
+        expect(nonTyped).toBeInstanceOf(SpaceNotTypedError)
+        expect(nonTyped._tag).toBe("SpaceNotTypedError")
+        expect(missingRole).toBeInstanceOf(SpaceRoleNotFoundError)
+        expect(missingRole._tag).toBe("SpaceRoleNotFoundError")
+        expect(missingSpaceType).toBeInstanceOf(SpaceRoleNotFoundError)
+        expect(missingSpaceType._tag).toBe("SpaceRoleNotFoundError")
+        expect(ambiguousRole).toBeInstanceOf(SpaceRoleIdentifierAmbiguousError)
+        expect(ambiguousRole._tag).toBe("SpaceRoleIdentifierAmbiguousError")
+      })
+  )
 
   it.effect("space role resolution is not truncated by broad role list caps", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const fillerRoles = Array.from({ length: 100 }, (_, index) =>
-        makeRole({
-          _id: toRef<Role>(`role-filler-${index}`),
-          name: `Filler ${index}`
-        }))
+        makeRole({ _id: toRef<Role>(`role-filler-${index}`), name: `Filler ${index}` })
+      )
       const lateRole = makeRole({ _id: toRef<Role>("role-late"), name: "Late Role" })
       const lateDuplicateA = makeRole({ _id: toRef<Role>("role-late-a"), name: "Duplicated Late Role" })
       const lateDuplicateB = makeRole({ _id: toRef<Role>("role-late-b"), name: "Duplicated Late Role" })
@@ -1284,28 +1305,25 @@ describe("spaces operations", () => {
         space: spaceIdentifier("space-1"),
         role: spaceRoleIdentifier("Late Role"),
         members: [spaceMemberIdentifier(accountA)]
-      }).pipe(Effect.provide(createTestLayer({
-        ...baseLayer,
-        roles: [...fillerRoles, lateRole]
-      })))
+      }).pipe(Effect.provide(createTestLayer({ ...baseLayer, roles: [...fillerRoles, lateRole] })))
       const ambiguous = yield* Effect.exit(
         addSpaceRoleMembers({
           space: spaceIdentifier("space-1"),
           role: spaceRoleIdentifier("Duplicated Late Role"),
           members: [spaceMemberIdentifier(accountA)]
-        }).pipe(Effect.provide(createTestLayer({
-          ...baseLayer,
-          roles: [...fillerRoles, lateDuplicateA, lateDuplicateB]
-        })))
+        }).pipe(
+          Effect.provide(createTestLayer({ ...baseLayer, roles: [...fillerRoles, lateDuplicateA, lateDuplicateB] }))
+        )
       )
 
       expect(resolved).toMatchObject({ roleId: "role-late", members: [accountA], changed: true })
       expect(exitCauseText(ambiguous)).toContain("SpaceRoleIdentifierAmbiguousError")
       expect(exitCauseText(ambiguous)).toContain("role-late-b")
-    }))
+    })
+  )
 
   it.effect("member resolution reports missing, ambiguous, and non-employee persons", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const missing = yield* Effect.exit(
         addSpaceMembers({
           space: spaceIdentifier("space-1"),
@@ -1313,26 +1331,24 @@ describe("spaces operations", () => {
         }).pipe(Effect.provide(createTestLayer({ spaces: [makeSpace()] })))
       )
       const ambiguous = yield* Effect.exit(
-        addSpaceMembers({
-          space: spaceIdentifier("space-1"),
-          members: [spaceMemberIdentifier("Doe,Jane")]
-        }).pipe(Effect.provide(createTestLayer({
-          spaces: [makeSpace()],
-          persons: [
-            makePerson({ _id: toRef<Person>("person-1") }),
-            makePerson({ _id: toRef<Person>("person-2") })
-          ]
-        })))
+        addSpaceMembers({ space: spaceIdentifier("space-1"), members: [spaceMemberIdentifier("Doe,Jane")] }).pipe(
+          Effect.provide(
+            createTestLayer({
+              spaces: [makeSpace()],
+              persons: [makePerson({ _id: toRef<Person>("person-1") }), makePerson({ _id: toRef<Person>("person-2") })]
+            })
+          )
+        )
       )
       const nonEmployee = yield* Effect.exit(
-        addSpaceMembers({
-          space: spaceIdentifier("space-1"),
-          members: [spaceMemberIdentifier("Doe,Jane")]
-        }).pipe(Effect.provide(createTestLayer({ spaces: [makeSpace()], persons: [makePerson()] })))
+        addSpaceMembers({ space: spaceIdentifier("space-1"), members: [spaceMemberIdentifier("Doe,Jane")] }).pipe(
+          Effect.provide(createTestLayer({ spaces: [makeSpace()], persons: [makePerson()] }))
+        )
       )
 
       expect(exitCauseText(missing)).toContain("PersonNotFoundError")
       expect(exitCauseText(ambiguous)).toContain("PersonIdentifierAmbiguousError")
       expect(exitCauseText(nonEmployee)).toContain("PersonNotAnEmployeeError")
-    }))
+    })
+  )
 })

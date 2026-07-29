@@ -8,10 +8,7 @@ import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.
 import { listAttachedCommentsPage } from "../../../src/huly/operations/attached-comments.js"
 import { toClassRef, toRef } from "../../../src/huly/operations/sdk-boundary.js"
 
-const listWithClasses = (
-  primaryClass: Ref<Class<Doc>>,
-  additionalClasses: ReadonlyArray<Ref<Class<Doc>>>
-) => {
+const listWithClasses = (primaryClass: Ref<Class<Doc>>, additionalClasses: ReadonlyArray<Ref<Class<Doc>>>) => {
   let attachedToClassQuery: DocumentQuery<ChatMessage>["attachedToClass"] | undefined
   const findAll: HulyClientOperations["findAll"] = <T extends Doc>(
     _classRef: Ref<Class<T>>,
@@ -21,7 +18,7 @@ const listWithClasses = (
     return Effect.succeed(toFindResult<T>([]))
   }
 
-  return Effect.gen(function*() {
+  return Effect.gen(function* () {
     const client = yield* HulyClient
 
     yield* listAttachedCommentsPage({
@@ -39,25 +36,23 @@ const listWithClasses = (
 
 describe("attached comment target class queries", () => {
   it.effect("includes the primary class before deduplicated additional classes", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const primaryClass = toClassRef<Doc>("example:class:Primary")
       const additionalClass = toClassRef<Doc>("example:class:Additional")
 
-      const query = yield* listWithClasses(primaryClass, [
-        additionalClass,
-        primaryClass,
-        additionalClass
-      ])
+      const query = yield* listWithClasses(primaryClass, [additionalClass, primaryClass, additionalClass])
 
       expect(query).toEqual({ $in: [primaryClass, additionalClass] })
-    }))
+    })
+  )
 
   it.effect("uses the primary class when the additional class list is empty", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const primaryClass = toClassRef<Doc>("example:class:Primary")
 
       const query = yield* listWithClasses(primaryClass, [])
 
       expect(query).toBe(primaryClass)
-    }))
+    })
+  )
 })

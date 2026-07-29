@@ -13,9 +13,9 @@ const CapturedMarkupChildNodeSchema = Schema.Struct({
 })
 
 const CapturedMarkupTreeSchema = Schema.Struct({
-  content: Schema.optional(Schema.Array(Schema.Struct({
-    content: Schema.optional(Schema.Array(CapturedMarkupChildNodeSchema))
-  })))
+  content: Schema.optional(
+    Schema.Array(Schema.Struct({ content: Schema.optional(Schema.Array(CapturedMarkupChildNodeSchema)) }))
+  )
 })
 
 type CapturedMarkupChildNode = Schema.Schema.Type<typeof CapturedMarkupChildNodeSchema>

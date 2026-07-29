@@ -15,12 +15,10 @@ interface RenderedIssueDescription {
   readonly format: MarkupFormat
 }
 
-export const renderIssueDescriptionForWrite = (description: string): Effect.Effect<
-  RenderedIssueDescription,
-  IssueReferenceError,
-  HulyClient
-> =>
-  Effect.gen(function*() {
+export const renderIssueDescriptionForWrite = (
+  description: string
+): Effect.Effect<RenderedIssueDescription, IssueReferenceError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const rendered = renderMarkdownWithNativeReferencesForWrite(description, client.markupUrlConfig, "description")
     if (rendered._tag === "malformed") {

@@ -18,12 +18,10 @@ interface RenderedDocumentContent {
   readonly format: MarkupFormat
 }
 
-export const renderDocumentContentForWrite = (content: string): Effect.Effect<
-  RenderedDocumentContent,
-  DocumentReferenceError,
-  HulyClient
-> =>
-  Effect.gen(function*() {
+export const renderDocumentContentForWrite = (
+  content: string
+): Effect.Effect<RenderedDocumentContent, DocumentReferenceError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const rendered = renderMarkdownWithNativeReferencesForWrite(content, client.markupUrlConfig, "content")
     if (rendered._tag === "malformed") {

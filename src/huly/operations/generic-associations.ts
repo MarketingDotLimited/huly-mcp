@@ -121,20 +121,13 @@ type AssociationFilters = {
   readonly targetClass: ObjectClassName | undefined
 }
 
-type AssociationListFilters = AssociationFilters & {
-  readonly writableOnly: boolean
-}
+type AssociationListFilters = AssociationFilters & { readonly writableOnly: boolean }
 
-type RelationAssociationPair = {
-  readonly relation: HulyRelation
-  readonly association: HulyAssociation
-}
+type RelationAssociationPair = { readonly relation: HulyRelation; readonly association: HulyAssociation }
 
-type AssociationForSummary =
-  & Pick<HulyAssociation, "_id" | "classA" | "classB" | "nameA" | "nameB" | "type">
-  & {
-    readonly automationOnly?: boolean
-  }
+type AssociationForSummary = Pick<HulyAssociation, "_id" | "classA" | "classB" | "nameA" | "nameB" | "type"> & {
+  readonly automationOnly?: boolean
+}
 
 type AssociationDataWithAutomation = {
   readonly classA: Ref<Class<Doc>>
@@ -152,10 +145,7 @@ type ResolvedRelationWriteEndpoints = {
   readonly target: ResolvedObjectSummary
 }
 
-type AssociationDiscoveryResult = {
-  readonly associations: Array<HulyAssociation>
-  readonly limitReached: boolean
-}
+type AssociationDiscoveryResult = { readonly associations: Array<HulyAssociation>; readonly limitReached: boolean }
 
 type ListRelationsWarnings = readonly [ListRelationsWarningType, ...Array<ListRelationsWarningType>]
 
@@ -226,15 +216,16 @@ const isRelationWritableAssociation = (association: AssociationForSummary): bool
 const isSymmetric = (association: AssociationForSummary): boolean =>
   association.classA === association.classB && association.nameA === association.nameB
 
-const ASSOCIATION_CARDINALITY = {
-  "1:1": "one-to-one",
-  "1:N": "one-to-many",
-  "N:N": "many-to-many"
-} satisfies Record<HulyAssociation["type"], Cardinality>
+const ASSOCIATION_CARDINALITY = { "1:1": "one-to-one", "1:N": "one-to-many", "N:N": "many-to-many" } satisfies Record<
+  HulyAssociation["type"],
+  Cardinality
+>
 
-type MappedCardinality = typeof ASSOCIATION_CARDINALITY[keyof typeof ASSOCIATION_CARDINALITY]
+type MappedCardinality = (typeof ASSOCIATION_CARDINALITY)[keyof typeof ASSOCIATION_CARDINALITY]
 type ExactCardinalityMapping = [Cardinality] extends [MappedCardinality]
-  ? [MappedCardinality] extends [Cardinality] ? true : never
+  ? [MappedCardinality] extends [Cardinality]
+    ? true
+    : never
   : never
 
 const exactCardinalityMapping = <T extends true>(value: T): T => value
@@ -242,11 +233,10 @@ exactCardinalityMapping<ExactCardinalityMapping>(true)
 
 const cardinality = (type: HulyAssociation["type"]): Cardinality => ASSOCIATION_CARDINALITY[type]
 
-const SDK_CARDINALITY = {
-  "one-to-one": "1:1",
-  "one-to-many": "1:N",
-  "many-to-many": "N:N"
-} satisfies Record<Cardinality, HulyAssociation["type"]>
+const SDK_CARDINALITY = { "one-to-one": "1:1", "one-to-many": "1:N", "many-to-many": "N:N" } satisfies Record<
+  Cardinality,
+  HulyAssociation["type"]
+>
 
 const toAssociationSummary = (association: AssociationForSummary): AssociationSummary => {
   const sourceClass = ObjectClassName.make(association.classA)
@@ -282,10 +272,12 @@ const toCandidate = (association: HulyAssociation): AssociationCandidate => ({
 
 const matchesAssociationIdentifier = (association: HulyAssociation, identifier: string): boolean => {
   const normalized = identifier.trim().toLowerCase()
-  return association._id.toLowerCase() === normalized
-    || association.nameA.toLowerCase() === normalized
-    || association.nameB.toLowerCase() === normalized
-    || associationName(association)?.toLowerCase() === normalized
+  return (
+    association._id.toLowerCase() === normalized ||
+    association.nameA.toLowerCase() === normalized ||
+    association.nameB.toLowerCase() === normalized ||
+    associationName(association)?.toLowerCase() === normalized
+  )
 }
 
 const associationFiltersFromParams = (
@@ -301,21 +293,19 @@ const associationListFiltersFromParams = (params: ListAssociationsParams): Assoc
   writableOnly: params.writableOnly === true
 })
 
-const associationMatchesFilters = (
-  association: HulyAssociation,
-  filters: AssociationFilters
-): boolean =>
-  (filters.includeSystem || !isSystemAssociation(association))
-  && (filters.sourceClass === undefined || association.classA === String(filters.sourceClass))
-  && (filters.targetClass === undefined || association.classB === String(filters.targetClass))
+const associationMatchesFilters = (association: HulyAssociation, filters: AssociationFilters): boolean =>
+  (filters.includeSystem || !isSystemAssociation(association)) &&
+  (filters.sourceClass === undefined || association.classA === String(filters.sourceClass)) &&
+  (filters.targetClass === undefined || association.classB === String(filters.targetClass))
 
 const filterVisible = (
   associations: ReadonlyArray<HulyAssociation>,
   filters: AssociationListFilters
 ): Array<HulyAssociation> =>
-  associations.filter((association) =>
-    associationMatchesFilters(association, filters)
-    && (!filters.writableOnly || isRelationWritableAssociation(association))
+  associations.filter(
+    (association) =>
+      associationMatchesFilters(association, filters) &&
+      (!filters.writableOnly || isRelationWritableAssociation(association))
   )
 
 const listAssociationDocs = (
@@ -332,14 +322,10 @@ const listAssociationDocs = (
   }
 
   return Effect.map(
-    client.findAll<HulyAssociation>(
-      core.class.Association,
-      hulyQuery(query),
-      {
-        limit: clampLimit(params.limit),
-        sort: { modifiedOn: SortingOrder.Descending }
-      }
-    ),
+    client.findAll<HulyAssociation>(core.class.Association, hulyQuery(query), {
+      limit: clampLimit(params.limit),
+      sort: { modifiedOn: SortingOrder.Descending }
+    }),
     (result) => [...result]
   )
 }
@@ -364,7 +350,7 @@ const resolveAssociation = (
   identifier: string,
   filters: AssociationFilters
 ): Effect.Effect<HulyAssociation, GenericAssociationsError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const exactId = yield* client.findOne<HulyAssociation>(
       core.class.Association,
       hulyQuery<HulyAssociation>({ _id: toRef<HulyAssociation>(identifier) })
@@ -388,20 +374,14 @@ const resolveAssociation = (
     addCandidates(
       yield* client.findAll<HulyAssociation>(
         core.class.Association,
-        hulyQuery<HulyAssociation>({
-          ...associationClassFilterQuery(filters),
-          nameA: identifier
-        }),
+        hulyQuery<HulyAssociation>({ ...associationClassFilterQuery(filters), nameA: identifier }),
         { limit: ASSOCIATION_LOOKUP_AMBIGUITY_LIMIT }
       )
     )
     addCandidates(
       yield* client.findAll<HulyAssociation>(
         core.class.Association,
-        hulyQuery<HulyAssociation>({
-          ...associationClassFilterQuery(filters),
-          nameB: identifier
-        }),
+        hulyQuery<HulyAssociation>({ ...associationClassFilterQuery(filters), nameB: identifier }),
         { limit: ASSOCIATION_LOOKUP_AMBIGUITY_LIMIT }
       )
     )
@@ -412,11 +392,7 @@ const resolveAssociation = (
       addCandidates(
         yield* client.findAll<HulyAssociation>(
           core.class.Association,
-          hulyQuery<HulyAssociation>({
-            ...associationClassFilterQuery(filters),
-            nameA,
-            nameB
-          }),
+          hulyQuery<HulyAssociation>({ ...associationClassFilterQuery(filters), nameA, nameB }),
           { limit: ASSOCIATION_LOOKUP_AMBIGUITY_LIMIT }
         )
       )
@@ -428,10 +404,7 @@ const resolveAssociation = (
       return yield* new AssociationNotFoundError({ identifier })
     }
     if (candidates.length > 1) {
-      return yield* new AssociationIdentifierAmbiguousError({
-        identifier,
-        candidates: candidates.map(toCandidate)
-      })
+      return yield* new AssociationIdentifierAmbiguousError({ identifier, candidates: candidates.map(toCandidate) })
     }
     return assertAt(candidates, 0)
   })
@@ -498,7 +471,7 @@ const createdAssociationSummaryInput = (
 export const createAssociation = (
   params: CreateAssociationParams
 ): Effect.Effect<CreateAssociationResult, GenericAssociationsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     yield* rejectSystemClass(params.sourceClass, "create_association")
     yield* rejectSystemClass(params.targetClass, "create_association")
@@ -528,11 +501,7 @@ export const createAssociation = (
           }`
         })
       }
-      return {
-        association: toAssociationSummary(existing),
-        created: false,
-        existing: true
-      }
+      return { association: toAssociationSummary(existing), created: false, existing: true }
     }
 
     const attributes: AssociationDataWithAutomation = {
@@ -563,11 +532,8 @@ const ensureAssociationDeletionSupported = (
   return systemClass === undefined
     ? Effect.void
     : Effect.fail(
-      new AssociationSystemClassUnsupportedError({
-        className: systemClass,
-        operation: "delete_association"
-      })
-    )
+        new AssociationSystemClassUnsupportedError({ className: systemClass, operation: "delete_association" })
+      )
 }
 
 const countAssociationRelations = (
@@ -580,9 +546,7 @@ const countAssociationRelations = (
   Effect.map(
     client.findAll<HulyRelation>(
       core.class.Relation,
-      hulyQuery<HulyRelation>({
-        association: toRef<HulyAssociation>(association._id)
-      }),
+      hulyQuery<HulyRelation>({ association: toRef<HulyAssociation>(association._id) }),
       { limit: 5 }
     ),
     (relations) => {
@@ -598,23 +562,14 @@ const countAssociationRelations = (
 export const deleteAssociation = (
   params: DeleteAssociationParams
 ): Effect.Effect<DeleteAssociationResult, GenericAssociationsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
-    const association = yield* resolveAssociation(
-      client,
-      params.association,
-      MUTATION_ASSOCIATION_FILTERS
-    ).pipe(
+    const association = yield* resolveAssociation(client, params.association, MUTATION_ASSOCIATION_FILTERS).pipe(
       Effect.catchTag("AssociationNotFoundError", () => Effect.succeed(undefined))
     )
 
     if (association === undefined) {
-      return {
-        association: params.association,
-        deleted: false,
-        relationCount: Count.make(0),
-        reason: "not_found"
-      }
+      return { association: params.association, deleted: false, relationCount: Count.make(0), reason: "not_found" }
     }
 
     yield* ensureAssociationDeletionSupported(association)
@@ -640,7 +595,7 @@ export const deleteAssociation = (
 export const listAssociations = (
   params: ListAssociationsParams
 ): Effect.Effect<ListAssociationsResult, GenericAssociationsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     if (params.association !== undefined) {
@@ -658,10 +613,7 @@ export const listAssociations = (
     ).slice(0, clampLimit(params.limit))
     const summaries = associations.map(toAssociationSummary)
 
-    return {
-      associations: summaries,
-      total: listTotal(summaries.length)
-    }
+    return { associations: summaries, total: listTotal(summaries.length) }
   })
 
 const displayFromDoc = (doc: Doc): string => {
@@ -691,10 +643,7 @@ const findRawDoc = (
   id: string,
   className: string
 ): Effect.Effect<Doc | undefined, HulyClientError> =>
-  client.findOne<Doc>(
-    toClassRef(className),
-    hulyQuery<Doc>({ _id: toRef<Doc>(id) })
-  )
+  client.findOne<Doc>(toClassRef(className), hulyQuery<Doc>({ _id: toRef<Doc>(id) }))
 
 const chunkValues = <T>(values: ReadonlyArray<T>, size: number): Array<ReadonlyArray<T>> => {
   const chunks: Array<ReadonlyArray<T>> = []
@@ -716,16 +665,12 @@ const findDocsByClass = (
     return Effect.succeed(new Map())
   }
   /* v8 ignore stop */
-  return Effect.gen(function*() {
+  return Effect.gen(function* () {
     const docsById = new Map<Ref<Doc>, Doc>()
     for (const chunk of chunkValues(ids, MAX_LIMIT)) {
-      const docs = yield* client.findAll<Doc>(
-        className,
-        hulyQuery<Doc>({
-          _id: { $in: [...chunk] }
-        }),
-        { limit: chunk.length }
-      )
+      const docs = yield* client.findAll<Doc>(className, hulyQuery<Doc>({ _id: { $in: [...chunk] } }), {
+        limit: chunk.length
+      })
       for (const doc of docs) {
         docsById.set(doc._id, doc)
       }
@@ -740,13 +685,7 @@ const validateExpectedClass = (
   field: RelationEndpointField
 ): Effect.Effect<void, RelationEndpointClassMismatchError> => {
   if (expectedClass !== undefined && summary.class !== expectedClass) {
-    return Effect.fail(
-      new RelationEndpointClassMismatchError({
-        field,
-        expectedClass,
-        actualClass: summary.class
-      })
-    )
+    return Effect.fail(new RelationEndpointClassMismatchError({ field, expectedClass, actualClass: summary.class }))
   }
   return Effect.void
 }
@@ -761,10 +700,10 @@ const validateEitherEndpointClasses = (
 ): Effect.Effect<void, RelationEndpointClassMismatchError> => {
   const sourceClass = String(association.classA)
   const targetClass = String(association.classB)
-  const matchesForward = endpointMatchesAssociationClass(source, sourceClass)
-    && endpointMatchesAssociationClass(target, targetClass)
-  const matchesReverse = endpointMatchesAssociationClass(source, targetClass)
-    && endpointMatchesAssociationClass(target, sourceClass)
+  const matchesForward =
+    endpointMatchesAssociationClass(source, sourceClass) && endpointMatchesAssociationClass(target, targetClass)
+  const matchesReverse =
+    endpointMatchesAssociationClass(source, targetClass) && endpointMatchesAssociationClass(target, sourceClass)
 
   if (matchesForward || matchesReverse) {
     return Effect.void
@@ -806,7 +745,7 @@ const resolveIssueLocator = (
   locator: Extract<GenericObjectLocator, { kind: "issue" }>,
   field: RelationEndpointField
 ): Effect.Effect<ResolvedObjectSummary, GenericAssociationsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (locator.project !== undefined) {
       const { issue } = yield* findProjectAndIssue({ project: locator.project, identifier: locator.issue })
       /* v8 ignore next -- success path delegates to issues-tested findProjectAndIssue; modeling projects here is integration overlap */
@@ -833,7 +772,7 @@ const resolveDocumentWithoutTeamspace = (
   identifier: string,
   field: RelationEndpointField
 ): Effect.Effect<ResolvedObjectSummary, GenericAssociationsError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<HulyDocument>(
       documentPlugin.class.Document,
       hulyQuery<HulyDocument>({ _id: toRef<HulyDocument>(identifier) })
@@ -849,11 +788,7 @@ const resolveDocumentWithoutTeamspace = (
     )
 
     if (byTitle.length === 0) {
-      return yield* new GenericObjectNotFoundError({
-        field,
-        identifier,
-        class: documentPlugin.class.Document
-      })
+      return yield* new GenericObjectNotFoundError({ field, identifier, class: documentPlugin.class.Document })
     }
     if (byTitle.length > 1) {
       return yield* new GenericObjectIdentifierAmbiguousError({
@@ -873,17 +808,14 @@ const findCardById = (
   client: HulyClientOperations,
   identifier: CardIdentifier
 ): Effect.Effect<HulyCard | undefined, HulyClientError> =>
-  client.findOne<HulyCard>(
-    cardPlugin.class.Card,
-    hulyQuery<HulyCard>({ _id: toRef<HulyCard>(identifier) })
-  )
+  client.findOne<HulyCard>(cardPlugin.class.Card, hulyQuery<HulyCard>({ _id: toRef<HulyCard>(identifier) }))
 
 const findCardSpace = (
   client: HulyClientOperations,
   identifier: CardSpaceIdentifier,
   field: RelationEndpointField
 ): Effect.Effect<HulyCardSpace, GenericAssociationsError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<HulyCardSpace>(
       cardPlugin.class.CardSpace,
       hulyQuery<HulyCardSpace>({ _id: toRef<HulyCardSpace>(identifier) })
@@ -898,11 +830,7 @@ const findCardSpace = (
       { limit: 2 }
     )
     if (byName.length === 0) {
-      return yield* new GenericObjectNotFoundError({
-        field,
-        identifier,
-        class: cardPlugin.class.CardSpace
-      })
+      return yield* new GenericObjectNotFoundError({ field, identifier, class: cardPlugin.class.CardSpace })
     }
     if (byName.length > 1) {
       return yield* new GenericObjectIdentifierAmbiguousError({
@@ -924,7 +852,7 @@ const resolveCardInSpace = (
   cardSpace: HulyCardSpace,
   field: RelationEndpointField
 ): Effect.Effect<ResolvedObjectSummary, GenericAssociationsError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<HulyCard>(
       cardPlugin.class.Card,
       hulyQuery<HulyCard>({ _id: toRef<HulyCard>(identifier), space: cardSpace._id })
@@ -939,11 +867,7 @@ const resolveCardInSpace = (
       { limit: 2 }
     )
     if (byTitle.length === 0) {
-      return yield* new GenericObjectNotFoundError({
-        field,
-        identifier,
-        class: cardPlugin.class.Card
-      })
+      return yield* new GenericObjectNotFoundError({ field, identifier, class: cardPlugin.class.Card })
     }
     if (byTitle.length > 1) {
       return yield* new GenericObjectIdentifierAmbiguousError({
@@ -964,7 +888,7 @@ const resolveCardLocator = (
   locator: Extract<GenericObjectLocator, { kind: "card" }>,
   field: RelationEndpointField
 ): Effect.Effect<ResolvedObjectSummary, GenericAssociationsError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (locator.cardSpace !== undefined) {
       const cardSpace = yield* findCardSpace(client, locator.cardSpace, field)
       return yield* resolveCardInSpace(client, locator.card, cardSpace, field)
@@ -987,7 +911,7 @@ const resolveGenericObject = (
   expectedClass: string | undefined,
   field: RelationEndpointField
 ): Effect.Effect<ResolvedObjectSummary, GenericAssociationsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     switch (locator.kind) {
       case "raw": {
         const className = locator.class ?? expectedClass
@@ -999,11 +923,7 @@ const resolveGenericObject = (
         }
         const doc = yield* findRawDoc(client, locator.id, className)
         if (doc === undefined) {
-          return yield* new GenericObjectNotFoundError({
-            field,
-            identifier: locator.id,
-            class: className
-          })
+          return yield* new GenericObjectNotFoundError({ field, identifier: locator.id, class: className })
         }
         const summary = resolvedSummary(doc, "raw")
         yield* validateExpectedClass(summary, expectedClass, field)
@@ -1015,15 +935,13 @@ const resolveGenericObject = (
         return summary
       }
       case "document": {
-        const summary = locator.teamspace === undefined
-          ? yield* resolveDocumentWithoutTeamspace(client, locator.document, field)
-          : resolvedSummary(
-            (yield* findTeamspaceAndDocument({
-              teamspace: locator.teamspace,
-              document: locator.document
-            })).doc,
-            "document"
-          )
+        const summary =
+          locator.teamspace === undefined
+            ? yield* resolveDocumentWithoutTeamspace(client, locator.document, field)
+            : resolvedSummary(
+                (yield* findTeamspaceAndDocument({ teamspace: locator.teamspace, document: locator.document })).doc,
+                "document"
+              )
         yield* validateExpectedClass(summary, expectedClass, field)
         return summary
       }
@@ -1035,11 +953,7 @@ const resolveGenericObject = (
     }
   })
 
-const unresolvedRelationEndpoint = (
-  id: string,
-  className: string,
-  warning: string
-): ResolvedObjectSummary => ({
+const unresolvedRelationEndpoint = (id: string, className: string, warning: string): ResolvedObjectSummary => ({
   id: DocId.make(id),
   class: ObjectClassName.make(className),
   display: NonEmptyString.make(id),
@@ -1076,7 +990,7 @@ const relationsToSummaries = (
   client: HulyClientOperations,
   pairs: ReadonlyArray<RelationAssociationPair>
 ): Effect.Effect<Array<RelationSummary>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const idsByClass = new Map<Ref<Class<Doc>>, Set<Ref<Doc>>>()
     const addEndpoint = (className: Ref<Class<Doc>>, id: Ref<Doc>): void => {
       const ids = idsByClass.get(className) ?? new Set<Ref<Doc>>()
@@ -1089,13 +1003,11 @@ const relationsToSummaries = (
       addEndpoint(association.classB, relation.docB)
     }
 
-    const docsByClassEntries = yield* Effect.forEach(
-      [...idsByClass.entries()],
-      ([className, ids]) =>
-        Effect.map(
-          findDocsByClass(client, className, [...ids]),
-          (docs): readonly [Ref<Class<Doc>>, Map<Ref<Doc>, Doc>] => [className, docs]
-        )
+    const docsByClassEntries = yield* Effect.forEach([...idsByClass.entries()], ([className, ids]) =>
+      Effect.map(
+        findDocsByClass(client, className, [...ids]),
+        (docs): readonly [Ref<Class<Doc>>, Map<Ref<Doc>, Doc>] => [className, docs]
+      )
     )
     const docsByClass = new Map(docsByClassEntries)
 
@@ -1109,9 +1021,7 @@ const directionQueries = (
   direction: RelationDirection
 ): Array<StrictDocumentQuery<HulyRelation>> => {
   const makeQuery = (reversed: boolean): StrictDocumentQuery<HulyRelation> => {
-    const query: StrictDocumentQuery<HulyRelation> = {
-      association: toRef<HulyAssociation>(association._id)
-    }
+    const query: StrictDocumentQuery<HulyRelation> = { association: toRef<HulyAssociation>(association._id) }
     if (source !== undefined) {
       if (reversed) query.docB = toRef<Doc>(source.id)
       else query.docA = toRef<Doc>(source.id)
@@ -1127,9 +1037,7 @@ const directionQueries = (
     return [makeQuery(true)]
   }
   if (direction === "either") {
-    return source === undefined && target === undefined
-      ? [makeQuery(false)]
-      : [makeQuery(false), makeQuery(true)]
+    return source === undefined && target === undefined ? [makeQuery(false)] : [makeQuery(false), makeQuery(true)]
   }
   return [makeQuery(false)]
 }
@@ -1179,11 +1087,12 @@ const associationEndpointQueries = (
     return query
   }
 
-  const queries = direction === "target-to-source"
-    ? [makeQuery(true)]
-    : direction === "either"
-    ? [makeQuery(false), makeQuery(true)]
-    : [makeQuery(false)]
+  const queries =
+    direction === "target-to-source"
+      ? [makeQuery(true)]
+      : direction === "either"
+        ? [makeQuery(false), makeQuery(true)]
+        : [makeQuery(false)]
   const byKey = new Map<string, StrictDocumentQuery<HulyAssociation>>()
   for (const query of queries) {
     byKey.set(`${String(query.classA)}\u0000${String(query.classB)}`, query)
@@ -1197,40 +1106,30 @@ const findVisibleAssociationsForEndpoints = (
   target: ResolvedObjectSummary | undefined,
   direction: RelationDirection
 ): Effect.Effect<AssociationDiscoveryResult, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const discoveryResults = yield* Effect.forEach(
       associationEndpointQueries(source, target, direction),
       (query): Effect.Effect<AssociationDiscoveryResult, HulyClientError> =>
-        Effect.gen(function*() {
-          const associations = yield* client.findAll<HulyAssociation>(
-            core.class.Association,
-            hulyQuery(query),
-            {
-              limit: ASSOCIATION_DISCOVERY_LIMIT,
-              sort: { modifiedOn: SortingOrder.Descending }
-            }
-          )
-          return {
-            associations,
-            limitReached: associations.length >= ASSOCIATION_DISCOVERY_LIMIT
-          }
+        Effect.gen(function* () {
+          const associations = yield* client.findAll<HulyAssociation>(core.class.Association, hulyQuery(query), {
+            limit: ASSOCIATION_DISCOVERY_LIMIT,
+            sort: { modifiedOn: SortingOrder.Descending }
+          })
+          return { associations, limitReached: associations.length >= ASSOCIATION_DISCOVERY_LIMIT }
         })
     )
     const byId = new Map<Ref<HulyAssociation>, HulyAssociation>()
     for (const { associations } of discoveryResults) {
       for (const association of associations) {
         if (
-          associationMatchesFilters(association, VISIBLE_ASSOCIATION_FILTERS)
-          && associationMatchesEndpoints(association, source, target, direction)
+          associationMatchesFilters(association, VISIBLE_ASSOCIATION_FILTERS) &&
+          associationMatchesEndpoints(association, source, target, direction)
         ) {
           byId.set(association._id, association)
         }
       }
     }
-    return {
-      associations: [...byId.values()],
-      limitReached: discoveryResults.some((result) => result.limitReached)
-    }
+    return { associations: [...byId.values()], limitReached: discoveryResults.some((result) => result.limitReached) }
   })
 
 const findRelationsForAssociation = (
@@ -1241,14 +1140,10 @@ const findRelationsForAssociation = (
   direction: RelationDirection,
   limit: number
 ): Effect.Effect<Array<HulyRelation>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = new Map<string, HulyRelation>()
     for (const query of directionQueries(association, source, target, direction)) {
-      const relations = yield* client.findAll<HulyRelation>(
-        core.class.Relation,
-        hulyQuery(query),
-        { limit }
-      )
+      const relations = yield* client.findAll<HulyRelation>(core.class.Relation, hulyQuery(query), { limit })
       for (const relation of relations) {
         byId.set(relation._id, relation)
       }
@@ -1263,20 +1158,26 @@ const associationMatchesEndpoints = (
   direction: RelationDirection
 ): boolean => {
   if (direction === "target-to-source") {
-    return (source === undefined || String(source.class) === association.classB)
-      && (target === undefined || String(target.class) === association.classA)
+    return (
+      (source === undefined || String(source.class) === association.classB) &&
+      (target === undefined || String(target.class) === association.classA)
+    )
   }
 
   if (direction === "either") {
-    const matchesForward = (source === undefined || String(source.class) === association.classA)
-      && (target === undefined || String(target.class) === association.classB)
-    const matchesReverse = (source === undefined || String(source.class) === association.classB)
-      && (target === undefined || String(target.class) === association.classA)
+    const matchesForward =
+      (source === undefined || String(source.class) === association.classA) &&
+      (target === undefined || String(target.class) === association.classB)
+    const matchesReverse =
+      (source === undefined || String(source.class) === association.classB) &&
+      (target === undefined || String(target.class) === association.classA)
     return matchesForward || matchesReverse
   }
 
-  return (source === undefined || String(source.class) === association.classA)
-    && (target === undefined || String(target.class) === association.classB)
+  return (
+    (source === undefined || String(source.class) === association.classA) &&
+    (target === undefined || String(target.class) === association.classB)
+  )
 }
 
 const listRelationsForResolvedEndpoints = (
@@ -1287,7 +1188,7 @@ const listRelationsForResolvedEndpoints = (
   direction: RelationDirection,
   limit: number
 ): Effect.Effect<Array<RelationSummary>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const pairs: Array<RelationAssociationPair> = []
     for (const association of associations) {
       /* v8 ignore start -- unreachable: callers resolve endpoints against this association's classes, so it always matches */
@@ -1318,7 +1219,7 @@ const findRelationsForAssociationIdsAndEndpoints = (
   direction: RelationDirection,
   limit: number
 ): Effect.Effect<Array<HulyRelation>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (associationIds.length === 0) {
       return []
     }
@@ -1326,22 +1227,14 @@ const findRelationsForAssociationIdsAndEndpoints = (
     for (const query of relationDirectionQueries(source, target, direction)) {
       const relations = yield* client.findAll<HulyRelation>(
         core.class.Relation,
-        hulyQuery<HulyRelation>({
-          ...query,
-          association: { $in: [...associationIds] }
-        }),
-        {
-          limit,
-          sort: { modifiedOn: SortingOrder.Descending }
-        }
+        hulyQuery<HulyRelation>({ ...query, association: { $in: [...associationIds] } }),
+        { limit, sort: { modifiedOn: SortingOrder.Descending } }
       )
       for (const relation of relations) {
         byId.set(relation._id, relation)
       }
     }
-    return [...byId.values()]
-      .sort((left, right) => right.modifiedOn - left.modifiedOn)
-      .slice(0, limit)
+    return [...byId.values()].sort((left, right) => right.modifiedOn - left.modifiedOn).slice(0, limit)
   })
 
 const listRelationsWithoutAssociation = (
@@ -1354,7 +1247,7 @@ const listRelationsWithoutAssociation = (
   { readonly summaries: Array<RelationSummary>; readonly warnings?: ListRelationsWarnings },
   HulyClientError
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { associations, limitReached } = yield* findVisibleAssociationsForEndpoints(client, source, target, direction)
     const associationsById = new Map(associations.map((association) => [association._id, association]))
     const relations = yield* findRelationsForAssociationIdsAndEndpoints(
@@ -1382,18 +1275,20 @@ const listRelationsWithoutAssociation = (
 export const listRelations = (
   params: ListRelationsParams
 ): Effect.Effect<ListRelationsResult, GenericAssociationsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit)
     const direction = params.direction ?? DefaultRelationDirection
 
     if (params.association === undefined) {
-      const source = params.source === undefined
-        ? undefined
-        : yield* resolveGenericObject(client, params.source, undefined, "source")
-      const target = params.target === undefined
-        ? undefined
-        : yield* resolveGenericObject(client, params.target, undefined, "target")
+      const source =
+        params.source === undefined
+          ? undefined
+          : yield* resolveGenericObject(client, params.source, undefined, "source")
+      const target =
+        params.target === undefined
+          ? undefined
+          : yield* resolveGenericObject(client, params.target, undefined, "target")
       const { summaries, warnings } = yield* listRelationsWithoutAssociation(client, source, target, direction, limit)
 
       return {
@@ -1404,31 +1299,24 @@ export const listRelations = (
     }
 
     const association = yield* resolveAssociation(client, params.association, MUTATION_ASSOCIATION_FILTERS)
-    const sourceClass = direction === "either"
-      ? undefined
-      : direction === "target-to-source"
-      ? association.classB
-      : association.classA
-    const targetClass = direction === "either"
-      ? undefined
-      : direction === "target-to-source"
-      ? association.classA
-      : association.classB
-    const source = params.source === undefined
-      ? undefined
-      : yield* resolveGenericObject(client, params.source, sourceClass, "source")
-    const target = params.target === undefined
-      ? undefined
-      : yield* resolveGenericObject(client, params.target, targetClass, "target")
+    const sourceClass =
+      direction === "either" ? undefined : direction === "target-to-source" ? association.classB : association.classA
+    const targetClass =
+      direction === "either" ? undefined : direction === "target-to-source" ? association.classA : association.classB
+    const source =
+      params.source === undefined
+        ? undefined
+        : yield* resolveGenericObject(client, params.source, sourceClass, "source")
+    const target =
+      params.target === undefined
+        ? undefined
+        : yield* resolveGenericObject(client, params.target, targetClass, "target")
     if (direction === "either") {
       yield* validateEitherEndpointClasses(association, source, target)
     }
     const summaries = yield* listRelationsForResolvedEndpoints(client, [association], source, target, direction, limit)
 
-    return {
-      relations: summaries,
-      total: listTotal(summaries.length)
-    }
+    return { relations: summaries, total: listTotal(summaries.length) }
   })
 
 const resolveRelationWriteEndpoints = (
@@ -1436,7 +1324,7 @@ const resolveRelationWriteEndpoints = (
   association: HulyAssociation,
   params: Pick<CreateRelationParams, "source" | "target" | "direction">
 ): Effect.Effect<ResolvedRelationWriteEndpoints, GenericAssociationsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const direction = params.direction ?? DefaultRelationDirection
 
     if (direction === "source-to-target") {
@@ -1493,11 +1381,7 @@ const findExactRelations = (
   limit: number
 ): Effect.Effect<Array<HulyRelation>, HulyClientError> =>
   Effect.map(
-    client.findAll<HulyRelation>(
-      core.class.Relation,
-      hulyQuery(exactRelationQuery(association, endpoints)),
-      { limit }
-    ),
+    client.findAll<HulyRelation>(core.class.Relation, hulyQuery(exactRelationQuery(association, endpoints)), { limit }),
     (relations) => [...relations]
   )
 
@@ -1506,7 +1390,7 @@ const findCardinalityConflict = (
   association: HulyAssociation,
   endpoints: Pick<ResolvedRelationWriteEndpoints, "docA" | "docB">
 ): Effect.Effect<HulyRelation | undefined, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (association.type === "N:N") {
       return undefined
     }
@@ -1539,15 +1423,16 @@ const enforceCardinality = (
   association: HulyAssociation,
   endpoints: Pick<ResolvedRelationWriteEndpoints, "docA" | "docB">
 ): Effect.Effect<void, HulyClientError | RelationCardinalityViolationError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const conflict = yield* findCardinalityConflict(client, association, endpoints)
     if (conflict === undefined) {
       return
     }
 
-    const reason = association.type === "1:1"
-      ? "one-to-one associations allow each endpoint to appear in only one relation"
-      : "one-to-many associations allow each target-side endpoint to appear in only one relation"
+    const reason =
+      association.type === "1:1"
+        ? "one-to-one associations allow each endpoint to appear in only one relation"
+        : "one-to-many associations allow each target-side endpoint to appear in only one relation"
     return yield* new RelationCardinalityViolationError({
       associationId: AssociationId.make(association._id),
       cardinality: cardinality(association.type),
@@ -1558,7 +1443,7 @@ const enforceCardinality = (
 export const createRelation = (
   params: CreateRelationParams
 ): Effect.Effect<CreateRelationResult, GenericAssociationsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const association = yield* resolveAssociation(client, params.association, MUTATION_ASSOCIATION_FILTERS)
     yield* ensureRelationMutationSupported(association, "create_relation")
@@ -1585,15 +1470,11 @@ export const createRelation = (
     }
 
     yield* enforceCardinality(client, association, endpoints)
-    const relationId = yield* client.createDoc<HulyRelation>(
-      core.class.Relation,
-      toRef<Space>(core.space.Workspace),
-      {
-        association: toRef<HulyAssociation>(association._id),
-        docA: toRef<Doc>(endpoints.docA.id),
-        docB: toRef<Doc>(endpoints.docB.id)
-      }
-    )
+    const relationId = yield* client.createDoc<HulyRelation>(core.class.Relation, toRef<Space>(core.space.Workspace), {
+      association: toRef<HulyAssociation>(association._id),
+      docA: toRef<Doc>(endpoints.docA.id),
+      docB: toRef<Doc>(endpoints.docB.id)
+    })
 
     return {
       relationId: RelationId.make(relationId),
@@ -1608,7 +1489,7 @@ export const createRelation = (
 export const deleteRelation = (
   params: DeleteRelationParams
 ): Effect.Effect<DeleteRelationResult, GenericAssociationsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     if ("relation" in params) {
@@ -1617,11 +1498,7 @@ export const deleteRelation = (
         hulyQuery<HulyRelation>({ _id: toRef<HulyRelation>(params.relation) })
       )
       if (existing === undefined) {
-        return {
-          relationId: RelationId.make(params.relation),
-          deleted: false,
-          reason: "not_found"
-        }
+        return { relationId: RelationId.make(params.relation), deleted: false, reason: "not_found" }
       }
 
       const association = yield* resolveAssociation(client, existing.association, MUTATION_ASSOCIATION_FILTERS)
@@ -1641,11 +1518,7 @@ export const deleteRelation = (
     const matches = yield* findExactRelations(client, association, endpoints, 2)
 
     if (matches.length === 0) {
-      return {
-        associationId: AssociationId.make(association._id),
-        deleted: false,
-        reason: "not_found"
-      }
+      return { associationId: AssociationId.make(association._id), deleted: false, reason: "not_found" }
     }
     if (matches.length > 1) {
       return yield* new RelationIdentifierAmbiguousError({
@@ -1655,11 +1528,7 @@ export const deleteRelation = (
     }
 
     if (!isSingle(matches)) {
-      return {
-        associationId: AssociationId.make(association._id),
-        deleted: false,
-        reason: "not_found"
-      }
+      return { associationId: AssociationId.make(association._id), deleted: false, reason: "not_found" }
     }
     const relation = matches[0]
     yield* client.removeDoc<HulyRelation>(core.class.Relation, relation.space, relation._id)

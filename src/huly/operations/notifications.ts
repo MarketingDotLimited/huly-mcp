@@ -67,7 +67,7 @@ export {
 export const listNotifications = (
   params: ListNotificationsParams
 ): Effect.Effect<Array<NotificationSummary>, ListNotificationsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const query: StrictDocumentQuery<HulyInboxNotification> = {
       ...(params.includeArchived ? {} : { archived: false }),
@@ -76,10 +76,7 @@ export const listNotifications = (
     const notifications = yield* client.findAll<HulyInboxNotification>(
       notification.class.InboxNotification,
       hulyQuery<HulyInboxNotification>(query),
-      {
-        limit: clampLimit(params.limit),
-        sort: { modifiedOn: SortingOrder.Descending }
-      }
+      { limit: clampLimit(params.limit), sort: { modifiedOn: SortingOrder.Descending } }
     )
 
     return notifications.map((n) => ({
@@ -101,7 +98,7 @@ export const listNotifications = (
 export const getNotification = (
   params: GetNotificationParams
 ): Effect.Effect<Notification, GetNotificationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { notification: notif } = yield* findNotification(params.notificationId)
 
     return {
@@ -125,7 +122,7 @@ export const getNotification = (
 export const getNotificationContext = (
   params: GetNotificationContextParams
 ): Effect.Effect<DocNotifyContextSummary | null, GetNotificationContextError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const ctx = yield* client.findOne<HulyDocNotifyContext>(
       notification.class.DocNotifyContext,
@@ -145,7 +142,7 @@ export const getNotificationContext = (
 export const listNotificationContexts = (
   params: ListNotificationContextsParams
 ): Effect.Effect<Array<DocNotifyContextSummary>, ListNotificationContextsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const query: StrictDocumentQuery<HulyDocNotifyContext> = {
       ...(params.includeHidden ? {} : { hidden: false }),
@@ -154,10 +151,7 @@ export const listNotificationContexts = (
     const contexts = yield* client.findAll<HulyDocNotifyContext>(
       notification.class.DocNotifyContext,
       hulyQuery<HulyDocNotifyContext>(query),
-      {
-        limit: clampLimit(params.limit),
-        sort: { lastUpdateTimestamp: SortingOrder.Descending }
-      }
+      { limit: clampLimit(params.limit), sort: { lastUpdateTimestamp: SortingOrder.Descending } }
     )
 
     return contexts.map(toDocNotifyContextSummary)
@@ -169,7 +163,7 @@ export const listNotificationContexts = (
 export const listNotificationSettings = (
   params: ListNotificationSettingsParams
 ): Effect.Effect<Array<NotificationProviderSetting>, ListNotificationSettingsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const settings = yield* client.findAll<HulyNotificationProviderSetting>(
       notification.class.NotificationProviderSetting,
@@ -194,7 +188,7 @@ export const updateNotificationProviderSetting = (
   UpdateNotificationProviderSettingError,
   HulyClient | Diagnostics
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     yield* requireNotificationProviderId(client, params.providerId)
     const existingSetting = yield* client.findOne<HulyNotificationProviderSetting>(
@@ -224,7 +218,7 @@ export const updateNotificationProviderSetting = (
  * Get unread notification count.
  */
 export const getUnreadNotificationCount = (): Effect.Effect<UnreadCountResult, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const unreadNotifications = yield* findUnreadActiveNotifications(client, 1)
     return { count: listTotal(unreadNotifications.total) }

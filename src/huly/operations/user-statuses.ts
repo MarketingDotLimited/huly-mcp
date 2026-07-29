@@ -26,20 +26,16 @@ const userStatusSummary = (status: UserStatus) => ({
 export const listUserStatuses = (
   params: ListUserStatusesParams
 ): Effect.Effect<ListUserStatusesResult, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const onlineQuery = params.online === undefined ? {} : { online: params.online }
     const userQuery = params.user === undefined ? {} : { user: toAccountUuid(params.user) }
     const query: StrictDocumentQuery<UserStatus> = { ...onlineQuery, ...userQuery }
 
-    const statuses = yield* client.findAll<UserStatus>(
-      core.class.UserStatus,
-      hulyQuery(query),
-      {
-        limit: clampLimit(params.limit),
-        sort: { modifiedOn: SortingOrder.Descending }
-      }
-    )
+    const statuses = yield* client.findAll<UserStatus>(core.class.UserStatus, hulyQuery(query), {
+      limit: clampLimit(params.limit),
+      sort: { modifiedOn: SortingOrder.Descending }
+    })
 
     return ListUserStatusesResultSchema.make({
       statuses: statuses.map(userStatusSummary),

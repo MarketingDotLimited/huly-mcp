@@ -106,7 +106,7 @@ const MEETING_STATUS_TO_STRING = {
 } as const satisfies Record<HulyMeetingStatus, MeetingStatus>
 
 type ExactMappedValues<M extends Readonly<Record<PropertyKey, string>>, Expected extends string> =
-  Exclude<M[keyof M], Expected> extends never ? Exclude<Expected, M[keyof M]> extends never ? true : never : never
+  Exclude<M[keyof M], Expected> extends never ? (Exclude<Expected, M[keyof M]> extends never ? true : never) : never
 
 const exactMappedValues = <T extends true>(_value: T): void => {}
 
@@ -118,16 +118,16 @@ const roomAccessToString = (access: HulyRoomAccess): RoomAccess => ROOM_ACCESS_T
 const roomTypeToString = (type: HulyRoomType): RoomType => ROOM_TYPE_TO_STRING[type]
 const meetingStatusToString = (status: HulyMeetingStatus): MeetingStatus => MEETING_STATUS_TO_STRING[status]
 
-const optionalTimestamp = (value: number | undefined) => value === undefined ? undefined : Timestamp.make(value)
+const optionalTimestamp = (value: number | undefined) => (value === undefined ? undefined : Timestamp.make(value))
 
-const optionalCount = (value: number | undefined) => value === undefined ? undefined : Count.make(value)
+const optionalCount = (value: number | undefined) => (value === undefined ? undefined : Count.make(value))
 
 const optionalRoomName = (value: string | undefined): RoomName | undefined => {
   const trimmed = value?.trim() ?? ""
   return trimmed === "" ? undefined : RoomName.make(trimmed)
 }
 
-const optionalPersonName = (value: string | undefined) => value === undefined ? undefined : PersonName.make(value)
+const optionalPersonName = (value: string | undefined) => (value === undefined ? undefined : PersonName.make(value))
 
 const UNTITLED_FLOOR = FloorName.make("Untitled Floor")
 const UNTITLED_MEETING_MINUTES = MeetingMinutesTitle.make("Untitled Meeting Minutes")
@@ -167,13 +167,10 @@ const lookupRooms = (
   client: HulyClient["Type"],
   roomIds: ReadonlyArray<Ref<Room>>
 ): Effect.Effect<Map<Ref<Room>, Room>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const unique = [...new Set(roomIds)]
     if (unique.length === 0) return new Map()
-    const rooms = yield* client.findAll<Room>(
-      love.class.Room,
-      hulyQuery<Room>({ _id: { $in: unique } })
-    )
+    const rooms = yield* client.findAll<Room>(love.class.Room, hulyQuery<Room>({ _id: { $in: unique } }))
     return new Map(rooms.map((room) => [room._id, room]))
   })
 
@@ -181,20 +178,14 @@ const lookupPersons = (
   client: HulyClient["Type"],
   personIds: ReadonlyArray<Ref<Person>>
 ): Effect.Effect<Map<Ref<Person>, Person>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const unique = [...new Set(personIds)]
     if (unique.length === 0) return new Map()
-    const persons = yield* client.findAll<Person>(
-      contact.class.Person,
-      hulyQuery<Person>({ _id: { $in: unique } })
-    )
+    const persons = yield* client.findAll<Person>(contact.class.Person, hulyQuery<Person>({ _id: { $in: unique } }))
     return new Map(persons.map((person) => [person._id, person]))
   })
 
-const roomDescription = (
-  client: HulyClient["Type"],
-  room: Room
-): Effect.Effect<string | undefined, HulyClientError> =>
+const roomDescription = (client: HulyClient["Type"], room: Room): Effect.Effect<string | undefined, HulyClientError> =>
   // Huly uses null for an absent markup reference; the MCP surface exposes absent descriptions as undefined.
   room.description === null
     ? Effect.succeed(undefined)
@@ -209,10 +200,7 @@ const minutesDescription = (
     ? Effect.succeed(undefined)
     : client.fetchMarkup(love.class.MeetingMinutes, minutes._id, "description", minutes.description, "markdown")
 
-const summarizeOffice = (
-  office: Office,
-  persons: ReadonlyMap<Ref<Person>, Person>
-): OfficeSummary => ({
+const summarizeOffice = (office: Office, persons: ReadonlyMap<Ref<Person>, Person>): OfficeSummary => ({
   ...summarizeRoom(office),
   personId: office.person === null ? undefined : PersonId.make(office.person),
   personName: office.person === null ? undefined : optionalPersonName(persons.get(office.person)?.name)
@@ -233,20 +221,19 @@ const summarizeMinutes = (minutes: MeetingMinutes): MeetingMinutesSummary => ({
 export const listOfficeFloors = (
   params: ListOfficeFloorsParams
 ): Effect.Effect<Array<FloorSummary>, ListOfficeFloorsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
-    const floors = yield* client.findAll<Floor>(
-      love.class.Floor,
-      hulyQuery<Floor>({}),
-      { limit: clampLimit(params.limit), sort: { name: SortingOrder.Ascending } }
-    )
+    const floors = yield* client.findAll<Floor>(love.class.Floor, hulyQuery<Floor>({}), {
+      limit: clampLimit(params.limit),
+      sort: { name: SortingOrder.Ascending }
+    })
     return floors.map(summarizeFloor)
   })
 
 export const getOfficeFloor = (
   params: GetOfficeFloorParams
 ): Effect.Effect<FloorSummary, GetOfficeFloorError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const floor = yield* client.findOne<Floor>(
       love.class.Floor,
@@ -259,49 +246,41 @@ export const getOfficeFloor = (
 export const listOfficeRooms = (
   params: ListOfficeRoomsParams
 ): Effect.Effect<Array<RoomSummary>, ListOfficeRoomsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const query: StrictDocumentQuery<Room> = {}
     if (params.floorId !== undefined) query.floor = toRef<Floor>(params.floorId)
-    const rooms = yield* client.findAll<Room>(
-      love.class.Room,
-      hulyQuery(query),
-      { limit: clampLimit(params.limit), sort: { name: SortingOrder.Ascending } }
-    )
+    const rooms = yield* client.findAll<Room>(love.class.Room, hulyQuery(query), {
+      limit: clampLimit(params.limit),
+      sort: { name: SortingOrder.Ascending }
+    })
     return rooms.map(summarizeRoom)
   })
 
 export const getOfficeRoom = (
   params: GetOfficeRoomParams
 ): Effect.Effect<RoomDetails, GetOfficeRoomError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
-    const room = yield* client.findOne<Room>(
-      love.class.Room,
-      hulyQuery<Room>({ _id: toRef<Room>(params.roomId) })
-    )
+    const room = yield* client.findOne<Room>(love.class.Room, hulyQuery<Room>({ _id: toRef<Room>(params.roomId) }))
     if (room === undefined) return yield* new RoomNotFoundError({ roomId: params.roomId })
-    return {
-      ...summarizeRoom(room),
-      description: yield* roomDescription(client, room)
-    }
+    return { ...summarizeRoom(room), description: yield* roomDescription(client, room) }
   })
 
 export const listOffices = (
   params: ListOfficesParams
 ): Effect.Effect<Array<OfficeSummary>, ListOfficesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const query: StrictDocumentQuery<Office> = {}
     if (params.floorId !== undefined) query.floor = toRef<Floor>(params.floorId)
-    const offices = yield* client.findAll<Office>(
-      love.class.Office,
-      hulyQuery(query),
-      { limit: clampLimit(params.limit), sort: { name: SortingOrder.Ascending } }
-    )
+    const offices = yield* client.findAll<Office>(love.class.Office, hulyQuery(query), {
+      limit: clampLimit(params.limit),
+      sort: { name: SortingOrder.Ascending }
+    })
     const persons = yield* lookupPersons(
       client,
-      offices.flatMap((office) => office.person === null ? [] : [office.person])
+      offices.flatMap((office) => (office.person === null ? [] : [office.person]))
     )
     return offices.map((office) => summarizeOffice(office, persons))
   })
@@ -309,7 +288,7 @@ export const listOffices = (
 export const getOffice = (
   params: GetOfficeParams
 ): Effect.Effect<RoomDetails & OfficeSummary, GetOfficeError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const office = yield* client.findOne<Office>(
       love.class.Office,
@@ -317,19 +296,19 @@ export const getOffice = (
     )
     if (office === undefined) return yield* new RoomNotFoundError({ roomId: params.roomId })
     const persons = yield* lookupPersons(client, office.person === null ? [] : [office.person])
-    return {
-      ...summarizeOffice(office, persons),
-      description: yield* roomDescription(client, office)
-    }
+    return { ...summarizeOffice(office, persons), description: yield* roomDescription(client, office) }
   })
 
 export const listActiveRoomInfo = (
   _params: ListActiveRoomInfoParams
 ): Effect.Effect<Array<ActiveRoomInfo>, ListActiveRoomInfoError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const infos = yield* client.findAll<RoomInfo>(love.class.RoomInfo, hulyQuery<RoomInfo>({}))
-    const rooms = yield* lookupRooms(client, infos.map((info) => info.room))
+    const rooms = yield* lookupRooms(
+      client,
+      infos.map((info) => info.room)
+    )
     return infos.map((info) => ({
       roomId: RoomId.make(info.room),
       roomName: optionalRoomName(rooms.get(info.room)?.name),
@@ -341,16 +320,17 @@ export const listActiveRoomInfo = (
 export const listActiveRoomParticipants = (
   params: ListActiveRoomParticipantsParams
 ): Effect.Effect<Array<ActiveParticipantInfo>, ListActiveRoomParticipantsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const query: StrictDocumentQuery<ParticipantInfo> = {}
     if (params.roomId !== undefined) query.room = toRef<Room>(params.roomId)
-    const participants = yield* client.findAll<ParticipantInfo>(
-      love.class.ParticipantInfo,
-      hulyQuery(query),
-      { sort: { name: SortingOrder.Ascending } }
+    const participants = yield* client.findAll<ParticipantInfo>(love.class.ParticipantInfo, hulyQuery(query), {
+      sort: { name: SortingOrder.Ascending }
+    })
+    const rooms = yield* lookupRooms(
+      client,
+      participants.map((participant) => participant.room)
     )
-    const rooms = yield* lookupRooms(client, participants.map((participant) => participant.room))
     return participants.map((participant) => ({
       participantInfoId: ParticipantInfoId.make(participant._id),
       name: PersonName.make(participant.name),
@@ -367,7 +347,7 @@ export const listActiveRoomParticipants = (
 export const listMeetingMinutes = (
   params: ListMeetingMinutesParams
 ): Effect.Effect<Array<MeetingMinutesSummary>, ListMeetingMinutesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const query: StrictDocumentQuery<MeetingMinutes> = {}
     if (params.attachedToId !== undefined) query.attachedTo = toRef<Doc>(params.attachedToId)
@@ -377,18 +357,17 @@ export const listMeetingMinutes = (
         ...(params.to === undefined ? {} : { $lte: params.to })
       }
     }
-    const minutes = yield* client.findAll<MeetingMinutes>(
-      love.class.MeetingMinutes,
-      hulyQuery(query),
-      { limit: clampLimit(params.limit), sort: { createdOn: SortingOrder.Descending } }
-    )
+    const minutes = yield* client.findAll<MeetingMinutes>(love.class.MeetingMinutes, hulyQuery(query), {
+      limit: clampLimit(params.limit),
+      sort: { createdOn: SortingOrder.Descending }
+    })
     return minutes.map(summarizeMinutes)
   })
 
 export const getMeetingMinutes = (
   params: GetMeetingMinutesParams
 ): Effect.Effect<MeetingMinutesDetails, GetMeetingMinutesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const minutes = yield* client.findOne<MeetingMinutes>(
       love.class.MeetingMinutes,
@@ -397,16 +376,13 @@ export const getMeetingMinutes = (
     if (minutes === undefined) {
       return yield* new MeetingMinutesNotFoundError({ meetingMinutesId: params.meetingMinutesId })
     }
-    return {
-      ...summarizeMinutes(minutes),
-      description: yield* minutesDescription(client, minutes)
-    }
+    return { ...summarizeMinutes(minutes), description: yield* minutesDescription(client, minutes) }
   })
 
 export const listDevicePreferences = (
   _params: ListDevicePreferencesParams
 ): Effect.Effect<Array<DevicePreferenceSummary>, ListDevicePreferencesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const preferences = yield* client.findAll<DevicesPreference>(
       love.class.DevicesPreference,
@@ -424,13 +400,11 @@ export const listDevicePreferences = (
 export const listOfficeDefaults = (
   _params: ListOfficeDefaultsParams
 ): Effect.Effect<Array<OfficeDefaultsSummary>, ListOfficeDefaultsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
-    const rooms = yield* client.findAll<Room>(
-      love.class.Room,
-      hulyQuery<Room>({}),
-      { sort: { name: SortingOrder.Ascending } }
-    )
+    const rooms = yield* client.findAll<Room>(love.class.Room, hulyQuery<Room>({}), {
+      sort: { name: SortingOrder.Ascending }
+    })
     return rooms.map((room) => ({
       roomId: RoomId.make(room._id),
       name: optionalRoomName(room.name),

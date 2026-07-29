@@ -41,9 +41,7 @@ export const timeTools = [
   defineTool(
     {
       name: "log_time",
-      description: hoursDescription(
-        "Log time spent on a Huly issue. Records a time entry with optional description."
-      ),
+      description: hoursDescription("Log time spent on a Huly issue. Records a time entry with optional description."),
       category: CATEGORY,
       inputSchema: logTimeParamsJsonSchema,
       resultSchema: LogTimeResultSchema

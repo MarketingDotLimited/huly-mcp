@@ -51,7 +51,7 @@ const buildAccountUuidToNameMap = (
   client: HulyClient["Type"],
   accountUuids: ReadonlyArray<HulyAccountUuid>
 ): Effect.Effect<ReadonlyMap<HulyAccountUuid, PersonName>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (accountUuids.length === 0) {
       return new Map<HulyAccountUuid, PersonName>()
     }
@@ -75,32 +75,24 @@ const resolveChannelMembers = (
   members: ChannelMemberMutationParams["members"]
 ): Effect.Effect<Array<HulyAccountUuid>, ChannelMemberError> =>
   Effect.forEach(members, (member) =>
-    Schema.is(AccountUuid)(member)
-      ? Effect.succeed(toAccountUuid(member))
-      : resolveEmployeeAccountUuid(client, member)).pipe(Effect.map((values) => sortStrings([...new Set(values)])))
+    Schema.is(AccountUuid)(member) ? Effect.succeed(toAccountUuid(member)) : resolveEmployeeAccountUuid(client, member)
+  ).pipe(Effect.map((values) => sortStrings([...new Set(values)])))
 
 const updateChannelDoc = (
   client: HulyClient["Type"],
   channel: HulyChannel,
   operations: DocumentUpdate<HulyChannel>
 ): Effect.Effect<void, HulyClientError> =>
-  client.updateDoc(
-    chunter.class.Channel,
-    toRef<Space>(channel._id),
-    channel._id,
-    operations
-  ).pipe(Effect.asVoid)
+  client.updateDoc(chunter.class.Channel, toRef<Space>(channel._id), channel._id, operations).pipe(Effect.asVoid)
 
 const requireActiveChannel = (channel: HulyChannel): Effect.Effect<void, ChannelArchivedError> =>
-  channel.archived
-    ? Effect.fail(new ChannelArchived({ channel: channel._id }))
-    : Effect.void
+  channel.archived ? Effect.fail(new ChannelArchived({ channel: channel._id })) : Effect.void
 
 const ensureRemovalKeepsValidChannel = (
   channel: HulyChannel,
   nextMembers: ReadonlyArray<HulyAccountUuid>
 ): Effect.Effect<void, ChannelLastMemberRemovalError | ChannelLastOwnerRemovalError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (nextMembers.length === 0) {
       return yield* new ChannelLastMemberRemoval({ channel: channel._id })
     }
@@ -135,7 +127,7 @@ const mutateChannelMembers = (
     nextMembers: ReadonlyArray<HulyAccountUuid>
   ) => Effect.Effect<void, ChannelMemberError>
 ): Effect.Effect<ChannelMemberMutationResult, ChannelMemberError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { channel, client } = yield* findChannel(params.channel)
     yield* requireActiveChannel(channel)
 
@@ -154,7 +146,7 @@ const mutateChannelMembers = (
 export const listChannelMembers = (
   params: ListChannelMembersParams
 ): Effect.Effect<ListChannelMembersResult, ChannelNotFoundError | HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { channel, client } = yield* findChannel(params.channel)
     const accountUuidToName = yield* buildAccountUuidToNameMap(client, channel.members)
     const members: Array<ChannelMemberSummary> = channel.members.map((member) => ({
@@ -167,7 +159,7 @@ export const listChannelMembers = (
 export const addChannelMembers = (
   params: ChannelMemberMutationParams
 ): Effect.Effect<ChannelMemberMutationResult, ChannelMemberError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const resolvedMembers = yield* resolveChannelMembers(client, params.members)
     return yield* mutateChannelMembers(
@@ -179,7 +171,7 @@ export const addChannelMembers = (
 export const removeChannelMembers = (
   params: ChannelMemberMutationParams
 ): Effect.Effect<ChannelMemberMutationResult, ChannelMemberError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const resolvedMembers = yield* resolveChannelMembers(client, params.members)
     return yield* mutateChannelMembers(
@@ -192,7 +184,7 @@ export const removeChannelMembers = (
 export const joinChannel = (
   params: ChannelLifecycleParams
 ): Effect.Effect<ChannelMemberMutationResult, ChannelMemberError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     return yield* mutateChannelMembers(
       { channel: params.channel, members: [client.getAccountUuid()] },
@@ -203,7 +195,7 @@ export const joinChannel = (
 export const leaveChannel = (
   params: ChannelLifecycleParams
 ): Effect.Effect<ChannelMemberMutationResult, ChannelMemberError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     return yield* mutateChannelMembers(
       { channel: params.channel, members: [client.getAccountUuid()] },
@@ -216,7 +208,7 @@ const setChannelArchived = (
   params: ChannelLifecycleParams,
   archived: boolean
 ): Effect.Effect<ChannelArchiveResult, ChannelLifecycleError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { channel, client } = yield* findChannel(params.channel)
     const changed = channel.archived !== archived
     if (changed) {

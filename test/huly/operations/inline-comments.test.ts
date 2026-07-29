@@ -19,15 +19,9 @@ interface TestNode {
 }
 
 const makeMarkupDoc = (...content: Array<TestNode>): MarkupNode =>
-  markupToJSON(JSON.stringify({
-    type: "doc",
-    content
-  }))
+  markupToJSON(JSON.stringify({ type: "doc", content }))
 
-const makeParagraph = (...content: Array<TestNode>): TestNode => ({
-  type: "paragraph",
-  content
-})
+const makeParagraph = (...content: Array<TestNode>): TestNode => ({ type: "paragraph", content })
 
 const makeText = (text: string, marks?: Array<TestMark>): TestNode => ({
   type: "text",
@@ -37,7 +31,7 @@ const makeText = (text: string, marks?: Array<TestMark>): TestNode => ({
 
 describe("extractInlineComments", () => {
   it.effect("extracts single inline comment thread", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const root = makeMarkupDoc(
         makeParagraph(
           makeText("hello ", [{ type: INLINE_COMMENT_MARK_TYPE, attrs: { thread: "thread-1" } }]),
@@ -50,10 +44,11 @@ describe("extractInlineComments", () => {
       expect(result).toHaveLength(1)
       expect(result[0]?.threadId).toBe("thread-1")
       expect(result[0]?.textFragments).toEqual(["hello "])
-    }))
+    })
+  )
 
   it.effect("groups fragments by thread ID", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const root = makeMarkupDoc(
         makeParagraph(
           makeText("first ", [{ type: INLINE_COMMENT_MARK_TYPE, attrs: { thread: "t1" } }]),
@@ -67,10 +62,11 @@ describe("extractInlineComments", () => {
       expect(result).toHaveLength(1)
       expect(result[0]?.threadId).toBe("t1")
       expect(result[0]?.textFragments).toEqual(["first ", "second"])
-    }))
+    })
+  )
 
   it.effect("extracts multiple distinct threads in order", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const root = makeMarkupDoc(
         makeParagraph(
           makeText("a", [{ type: INLINE_COMMENT_MARK_TYPE, attrs: { thread: "t1" } }]),
@@ -83,33 +79,31 @@ describe("extractInlineComments", () => {
       expect(result).toHaveLength(2)
       expect(result[0]?.threadId).toBe("t1")
       expect(result[1]?.threadId).toBe("t2")
-    }))
+    })
+  )
 
   it.effect("returns empty array when no inline comments", () =>
-    Effect.gen(function*() {
-      const root = makeMarkupDoc(
-        makeParagraph(
-          makeText("plain text"),
-          makeText("bold text", [{ type: "bold" }])
-        )
-      )
+    Effect.gen(function* () {
+      const root = makeMarkupDoc(makeParagraph(makeText("plain text"), makeText("bold text", [{ type: "bold" }])))
 
       const result = extractInlineComments(root)
 
       expect(result).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("handles empty document", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const root = makeMarkupDoc()
 
       const result = extractInlineComments(root)
 
       expect(result).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("ignores marks with missing thread attr", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const root = makeMarkupDoc(
         makeParagraph(
           makeText("no thread", [{ type: INLINE_COMMENT_MARK_TYPE, attrs: {} }]),
@@ -120,16 +114,18 @@ describe("extractInlineComments", () => {
       const result = extractInlineComments(root)
 
       expect(result).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("records an empty fragment when a marked node carries no text", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       // A hardBreak node can hold an inline-comment mark but has no `text`,
       // exercising the `textNode.text ?? ""` fallback.
       const root = makeMarkupDoc(
-        makeParagraph(
-          { type: "hardBreak", marks: [{ type: INLINE_COMMENT_MARK_TYPE, attrs: { thread: "thread-empty" } }] }
-        )
+        makeParagraph({
+          type: "hardBreak",
+          marks: [{ type: INLINE_COMMENT_MARK_TYPE, attrs: { thread: "thread-empty" } }]
+        })
       )
 
       const result = extractInlineComments(root)
@@ -137,5 +133,6 @@ describe("extractInlineComments", () => {
       expect(result).toHaveLength(1)
       expect(result[0]?.threadId).toBe("thread-empty")
       expect(result[0]?.textFragments).toEqual([""])
-    }))
+    })
+  )
 })

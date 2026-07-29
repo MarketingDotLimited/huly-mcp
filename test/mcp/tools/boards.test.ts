@@ -73,17 +73,21 @@ const makeClient = (fixture: ClientFixture): HulyClientOperations => ({
   markupUrlConfig: testMarkupUrlConfig,
   workbenchUrlConfig: testWorkbenchUrlConfig,
   findAll: <T extends Doc>(_class: Ref<Class<T>>) =>
-    Effect.succeed(toFindResult(toTypedDocs<T>(
-      String(_class) === String(board.class.Board)
-        ? fixture.boards ?? []
-        : String(_class) === String(view.class.FilteredView)
-        ? fixture.savedViews ?? []
-        : []
-    ))),
+    Effect.succeed(
+      toFindResult(
+        toTypedDocs<T>(
+          String(_class) === String(board.class.Board)
+            ? (fixture.boards ?? [])
+            : String(_class) === String(view.class.FilteredView)
+              ? (fixture.savedViews ?? [])
+              : []
+        )
+      )
+    ),
   findAllInModel: <T extends Doc>(_class: Ref<Class<T>>) =>
-    Effect.succeed(toFindResult(toTypedDocs<T>(
-      String(_class) === String(board.class.MenuPage) ? fixture.menuPages ?? [] : []
-    ))),
+    Effect.succeed(
+      toFindResult(toTypedDocs<T>(String(_class) === String(board.class.MenuPage) ? (fixture.menuPages ?? []) : []))
+    ),
   findOne: () => Effect.succeed(undefined),
   createDoc: () => Effect.die(new Error("not implemented")),
   updateDoc: () => Effect.die(new Error("not implemented")),
@@ -104,7 +108,7 @@ const toTypedDocs = <T extends Doc>(docs: ReadonlyArray<Doc>): Array<T> => {
 
 describe("board MCP tools", () => {
   it.effect("registers board tools in order", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const filtered = boardRegistry()
 
       expect(filtered.definitions.map((tool) => tool.name)).toEqual([
@@ -135,10 +139,11 @@ describe("board MCP tools", () => {
         "get_board_common_preference"
       ])
       expect(toolDefinition("list_boards").category).toBe("boards")
-    }))
+    })
+  )
 
   it.effect("serializes successful board responses as structured content", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const registry = boardRegistry()
       const result = yield* Effect.promise(() =>
         registry.handleToolCall(makeToolName("list_boards"), {}, makeClient({ boards: [boardDoc] }), storageClient)
@@ -146,18 +151,14 @@ describe("board MCP tools", () => {
 
       expect(result?.isError).toBeUndefined()
       expect(result?.structuredContent?.result).toEqual({
-        boards: [{
-          id: "board-1",
-          name: "Roadmap",
-          archived: false,
-          private: false
-        }],
+        boards: [{ id: "board-1", name: "Roadmap", archived: false, private: false }],
         total: 1
       })
-    }))
+    })
+  )
 
   it.effect("serializes successful board menu page responses as structured content", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const registry = boardRegistry()
       const result = yield* Effect.promise(() =>
         registry.handleToolCall(
@@ -170,18 +171,21 @@ describe("board MCP tools", () => {
 
       expect(result?.isError).toBeUndefined()
       expect(result?.structuredContent?.result).toEqual({
-        pages: [{
-          id: "menu-main",
-          pageId: String(board.menuPageId.Main),
-          label: "board:string:Main",
-          component: "board:component:Main"
-        }],
+        pages: [
+          {
+            id: "menu-main",
+            pageId: String(board.menuPageId.Main),
+            label: "board:string:Main",
+            component: "board:component:Main"
+          }
+        ],
         total: 1
       })
-    }))
+    })
+  )
 
   it.effect("maps board domain errors to invalid params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const registry = boardRegistry()
       const result = yield* Effect.promise(() =>
         registry.handleToolCall(
@@ -195,10 +199,11 @@ describe("board MCP tools", () => {
       expect(result?.isError).toBe(true)
       expect(result?._meta?.errorCode).toBe(McpErrorCode.InvalidParams)
       expect(assertAt(assertExists(result).content, 0).text).toContain("Board 'Missing' not found")
-    }))
+    })
+  )
 
   it.effect("maps board saved-view domain errors to invalid params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const registry = boardRegistry()
       const result = yield* Effect.promise(() =>
         registry.handleToolCall(
@@ -212,21 +217,24 @@ describe("board MCP tools", () => {
       expect(result?.isError).toBe(true)
       expect(result?._meta?.errorCode).toBe(McpErrorCode.InvalidParams)
       expect(assertAt(assertExists(result).content, 0).text).toContain("Board saved view 'Missing' not found")
-    }))
+    })
+  )
 
   it.effect("rejects invalid board output before returning structured content", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = boardTools.find((definition) => definition.name === "list_boards")
       expect(tool).toBeDefined()
-      const result = yield* Effect.promise(() =>
-        tool?.handler({}, makeClient({ boards: [makeInvalidBoardDoc()] }), storageClient)
-          ?? Promise.resolve(undefined)
+      const result = yield* Effect.promise(
+        () =>
+          tool?.handler({}, makeClient({ boards: [makeInvalidBoardDoc()] }), storageClient) ??
+          Promise.resolve(undefined)
       )
 
       expect(result?.isError).toBe(true)
       expect(result?._meta?.errorCode).toBe(McpErrorCode.InternalError)
       expect(assertAt(assertExists(result).content, 0).text).toContain("invalid output")
-    }))
+    })
+  )
 })
 
 const makeInvalidBoardDoc = (): HulyBoard => ({

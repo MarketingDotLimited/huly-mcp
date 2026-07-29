@@ -10,35 +10,41 @@ import { propertyTestParameters } from "../helpers/property.js"
 const headerValueArbitrary = fc.string({ minLength: 1, maxLength: 80 })
 const supportedHeaderArbitrary = fc.constantFrom(...HULY_CONFIG_HEADERS)
 const requiredHeaderArbitrary = fc.constantFrom(...REQUIRED_HULY_CONFIG_HEADERS)
-const unsupportedHulyHeaderArbitrary = fc.stringMatching(/^x-huly-[a-z0-9-]{1,20}$/)
+const unsupportedHulyHeaderArbitrary = fc
+  .stringMatching(/^x-huly-[a-z0-9-]{1,20}$/)
   .filter((name) => !HULY_CONFIG_HEADERS.includes(name))
-const nonHulyHeaderNameArbitrary = fc.stringMatching(/^[a-z][a-z0-9-]{0,20}$/)
+const nonHulyHeaderNameArbitrary = fc
+  .stringMatching(/^[a-z][a-z0-9-]{0,20}$/)
   .filter((name) => !name.toLowerCase().startsWith("x-huly-"))
 
-const completeSupportedHeadersArbitrary = fc.record({
-  url: headerValueArbitrary,
-  workspace: headerValueArbitrary,
-  token: headerValueArbitrary,
-  timeout: fc.option(headerValueArbitrary, { nil: undefined })
-}).map(({ timeout, token, url, workspace }) => ({
-  "x-huly-url": url,
-  "x-huly-workspace": workspace,
-  "x-huly-token": token,
-  ...(timeout === undefined ? {} : { "x-huly-connection-timeout": timeout })
-}))
+const completeSupportedHeadersArbitrary = fc
+  .record({
+    url: headerValueArbitrary,
+    workspace: headerValueArbitrary,
+    token: headerValueArbitrary,
+    timeout: fc.option(headerValueArbitrary, { nil: undefined })
+  })
+  .map(({ timeout, token, url, workspace }) => ({
+    "x-huly-url": url,
+    "x-huly-workspace": workspace,
+    "x-huly-token": token,
+    ...(timeout === undefined ? {} : { "x-huly-connection-timeout": timeout })
+  }))
 
 const partialSupportedHeaderSubsetArbitrary = fc.oneof(
   fc.constant(["x-huly-connection-timeout"]),
   fc.subarray([...REQUIRED_HULY_CONFIG_HEADERS], { minLength: 2, maxLength: 2 }),
-  fc.subarray([...HULY_CONFIG_HEADERS], { minLength: 1 }).filter((headers) =>
-    !REQUIRED_HULY_CONFIG_HEADERS.every((requiredHeader) => headers.includes(requiredHeader))
-  )
+  fc
+    .subarray([...HULY_CONFIG_HEADERS], { minLength: 1 })
+    .filter((headers) => !REQUIRED_HULY_CONFIG_HEADERS.every((requiredHeader) => headers.includes(requiredHeader)))
 )
 
-const partialSupportedHeadersArbitrary = fc.tuple(
-  partialSupportedHeaderSubsetArbitrary,
-  fc.array(headerValueArbitrary, { minLength: HULY_CONFIG_HEADERS.length, maxLength: HULY_CONFIG_HEADERS.length })
-).map(([headers, values]) => Object.fromEntries(headers.map((header, index) => [header, values[index]])))
+const partialSupportedHeadersArbitrary = fc
+  .tuple(
+    partialSupportedHeaderSubsetArbitrary,
+    fc.array(headerValueArbitrary, { minLength: HULY_CONFIG_HEADERS.length, maxLength: HULY_CONFIG_HEADERS.length })
+  )
+  .map(([headers, values]) => Object.fromEntries(headers.map((header, index) => [header, values[index]])))
 
 const runProvider = (headers: unknown) => Effect.runPromise(hulyConfigProviderFromHeaders(headers))
 
@@ -78,10 +84,7 @@ describe("hulyConfigProviderFromHeaders properties", () => {
         unsupportedHulyHeaderArbitrary,
         headerValueArbitrary,
         async (headers, unsupportedHeader, value) => {
-          await expectConfigValidationFailure({
-            ...headers,
-            [unsupportedHeader]: value
-          })
+          await expectConfigValidationFailure({ ...headers, [unsupportedHeader]: value })
         }
       ),
       propertyTestParameters
@@ -114,10 +117,7 @@ describe("hulyConfigProviderFromHeaders properties", () => {
         requiredHeaderArbitrary,
         fc.oneof(fc.array(headerValueArbitrary, { minLength: 1, maxLength: 3 }), fc.constant(undefined)),
         async (headers, header, invalidValue) => {
-          await expectConfigValidationFailure({
-            ...headers,
-            [header]: invalidValue
-          })
+          await expectConfigValidationFailure({ ...headers, [header]: invalidValue })
         }
       ),
       propertyTestParameters

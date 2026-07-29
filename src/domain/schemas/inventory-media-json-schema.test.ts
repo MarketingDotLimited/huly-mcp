@@ -15,10 +15,7 @@ const getDescription = (schema: unknown, property: string): unknown => {
 
 describe("Inventory media JSON schema helpers", () => {
   it("adds known Inventory media field descriptions without inventing custom ones", () => {
-    const jsonSchema = inventoryMediaJsonSchema(Schema.Struct({
-      product: Schema.String,
-      custom: Schema.String
-    }))
+    const jsonSchema = inventoryMediaJsonSchema(Schema.Struct({ product: Schema.String, custom: Schema.String }))
 
     expect(getDescription(jsonSchema, "product")).toContain("Inventory product ID or exact product name")
     expect(getDescription(jsonSchema, "custom")).toBeUndefined()

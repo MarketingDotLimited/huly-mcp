@@ -18,32 +18,23 @@ import {
 } from "./shared.js"
 
 const DriveFileLocatorFields = {
-  filePath: Schema.optional(DrivePath.annotations({
-    description: "Exact Drive file path, such as '/Specs/API.md'. Mutually exclusive with fileId."
-  })),
-  fileId: Schema.optional(DriveItemId.annotations({
-    description: "Exact Drive file id. Mutually exclusive with filePath."
-  }))
+  filePath: Schema.optional(
+    DrivePath.annotations({
+      description: "Exact Drive file path, such as '/Specs/API.md'. Mutually exclusive with fileId."
+    })
+  ),
+  fileId: Schema.optional(
+    DriveItemId.annotations({ description: "Exact Drive file id. Mutually exclusive with filePath." })
+  )
 } as const
 
-const requireOneDriveFileLocator = (params: {
-  readonly filePath?: unknown
-  readonly fileId?: unknown
-}) => hasAtLeastOneDefined(params, ["filePath", "fileId"]) || "Provide filePath or fileId."
+const requireOneDriveFileLocator = (params: { readonly filePath?: unknown; readonly fileId?: unknown }) =>
+  hasAtLeastOneDefined(params, ["filePath", "fileId"]) || "Provide filePath or fileId."
 
-const requireExclusiveDriveFileLocator = (params: {
-  readonly filePath?: unknown
-  readonly fileId?: unknown
-}) =>
-  !hasMutuallyExclusiveFields(params, ["filePath", "fileId"]) || mutuallyExclusiveFieldsMessage([
-    "filePath",
-    "fileId"
-  ])
+const requireExclusiveDriveFileLocator = (params: { readonly filePath?: unknown; readonly fileId?: unknown }) =>
+  !hasMutuallyExclusiveFields(params, ["filePath", "fileId"]) || mutuallyExclusiveFieldsMessage(["filePath", "fileId"])
 
-const DriveFileCommentTargetSchema = Schema.Struct({
-  drive: DriveIdentifier,
-  ...DriveFileLocatorFields
-}).pipe(
+const DriveFileCommentTargetSchema = Schema.Struct({ drive: DriveIdentifier, ...DriveFileLocatorFields }).pipe(
   Schema.filter(requireOneDriveFileLocator),
   Schema.filter(requireExclusiveDriveFileLocator)
 )
@@ -51,64 +42,45 @@ const DriveFileCommentTargetSchema = Schema.Struct({
 export const ListDriveFileCommentsParamsSchema = Schema.Struct({
   drive: DriveIdentifier,
   ...DriveFileLocatorFields,
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of comments to return (default: ${DEFAULT_LIMIT}).`
-  }))
-}).pipe(
-  Schema.filter(requireOneDriveFileLocator),
-  Schema.filter(requireExclusiveDriveFileLocator)
-)
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of comments to return (default: ${DEFAULT_LIMIT}).` })
+  )
+}).pipe(Schema.filter(requireOneDriveFileLocator), Schema.filter(requireExclusiveDriveFileLocator))
 export type ListDriveFileCommentsParams = Schema.Schema.Type<typeof ListDriveFileCommentsParamsSchema>
 
 export const AddDriveFileCommentParamsSchema = Schema.Struct({
   drive: DriveIdentifier,
   ...DriveFileLocatorFields,
-  body: NonEmptyString.annotations({
-    description: `Comment body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
-  })
-}).pipe(
-  Schema.filter(requireOneDriveFileLocator),
-  Schema.filter(requireExclusiveDriveFileLocator)
-)
+  body: NonEmptyString.annotations({ description: `Comment body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}` })
+}).pipe(Schema.filter(requireOneDriveFileLocator), Schema.filter(requireExclusiveDriveFileLocator))
 export type AddDriveFileCommentParams = Schema.Schema.Type<typeof AddDriveFileCommentParamsSchema>
 
 export const UpdateDriveFileCommentParamsSchema = Schema.Struct({
   drive: DriveIdentifier,
   ...DriveFileLocatorFields,
-  commentId: CommentId.annotations({
-    description: "Drive file comment id to update."
-  }),
+  commentId: CommentId.annotations({ description: "Drive file comment id to update." }),
   body: NonEmptyString.annotations({
     description: `New comment body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
   })
-}).pipe(
-  Schema.filter(requireOneDriveFileLocator),
-  Schema.filter(requireExclusiveDriveFileLocator)
-)
+}).pipe(Schema.filter(requireOneDriveFileLocator), Schema.filter(requireExclusiveDriveFileLocator))
 export type UpdateDriveFileCommentParams = Schema.Schema.Type<typeof UpdateDriveFileCommentParamsSchema>
 
 export const DeleteDriveFileCommentParamsSchema = Schema.Struct({
   drive: DriveIdentifier,
   ...DriveFileLocatorFields,
-  commentId: CommentId.annotations({
-    description: "Drive file comment id to permanently delete."
-  })
-}).pipe(
-  Schema.filter(requireOneDriveFileLocator),
-  Schema.filter(requireExclusiveDriveFileLocator)
-)
+  commentId: CommentId.annotations({ description: "Drive file comment id to permanently delete." })
+}).pipe(Schema.filter(requireOneDriveFileLocator), Schema.filter(requireExclusiveDriveFileLocator))
 export type DeleteDriveFileCommentParams = Schema.Schema.Type<typeof DeleteDriveFileCommentParamsSchema>
 
 export const ListDriveFileActivityParamsSchema = Schema.Struct({
   drive: DriveIdentifier,
   ...DriveFileLocatorFields,
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of activity messages to return (default: ${DEFAULT_LIMIT}).`
-  }))
-}).pipe(
-  Schema.filter(requireOneDriveFileLocator),
-  Schema.filter(requireExclusiveDriveFileLocator)
-)
+  limit: Schema.optional(
+    LimitParam.annotations({
+      description: `Maximum number of activity messages to return (default: ${DEFAULT_LIMIT}).`
+    })
+  )
+}).pipe(Schema.filter(requireOneDriveFileLocator), Schema.filter(requireExclusiveDriveFileLocator))
 export type ListDriveFileActivityParams = Schema.Schema.Type<typeof ListDriveFileActivityParamsSchema>
 
 export const ListDriveFileCommentsResultSchema = Schema.Struct({
@@ -118,10 +90,7 @@ export const ListDriveFileCommentsResultSchema = Schema.Struct({
 })
 export type ListDriveFileCommentsResult = Schema.Schema.Type<typeof ListDriveFileCommentsResultSchema>
 
-export const AddDriveFileCommentResultSchema = Schema.Struct({
-  file: DriveItemSummarySchema,
-  commentId: CommentId
-})
+export const AddDriveFileCommentResultSchema = Schema.Struct({ file: DriveItemSummarySchema, commentId: CommentId })
 export type AddDriveFileCommentResult = Schema.Schema.Type<typeof AddDriveFileCommentResultSchema>
 
 export const UpdateDriveFileCommentResultSchema = Schema.Struct({

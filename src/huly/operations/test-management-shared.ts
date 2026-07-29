@@ -262,7 +262,7 @@ export const findTestResult = (
 export const resolveAssignee = (
   emailOrName: string
 ): Effect.Effect<Person, PersonNotFoundError | HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const person = yield* findPersonByEmailOrName(client, emailOrName)
     if (person === undefined) {

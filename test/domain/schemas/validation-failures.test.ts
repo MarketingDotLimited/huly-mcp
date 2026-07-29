@@ -120,10 +120,6 @@ describe("CustomFieldInfoWireSchema typeDetails refinements", () => {
   })
 
   it("accepts an enum custom field carrying enumRef", () => {
-    assertDecodeSuccess(CustomFieldInfoWireSchema, {
-      ...base,
-      type: "enum",
-      typeDetails: { enumRef: "enum-1" }
-    })
+    assertDecodeSuccess(CustomFieldInfoWireSchema, { ...base, type: "enum", typeDetails: { enumRef: "enum-1" } })
   })
 })

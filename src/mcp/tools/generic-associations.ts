@@ -48,12 +48,7 @@ export const genericAssociationTools = [
         "Idempotently create one Huly association definition between two non-system classes. Use sourceClass/targetClass with sourceRole/targetRole and cardinality; returns an existing identical association by default.",
       category: CATEGORY,
       inputSchema: createAssociationParamsJsonSchema,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false
-      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       resultSchema: CreateAssociationResultSchema
     },
     parseCreateAssociationParams,
@@ -66,12 +61,7 @@ export const genericAssociationTools = [
         "Idempotently delete one Huly association definition only when no concrete relations reference it. If relations exist, delete_relation must clean them up first; deleting an already-missing association is a successful no-op.",
       category: CATEGORY,
       inputSchema: deleteAssociationParamsJsonSchema,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        idempotentHint: true,
-        openWorldHint: false
-      },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
       resultSchema: DeleteAssociationResultSchema
     },
     parseDeleteAssociationParams,
@@ -96,12 +86,7 @@ export const genericAssociationTools = [
         "Idempotently create one concrete relation between two resolved documents for a writable association. Endpoint locators support raw, issue, document, and card. Enforces association endpoint classes, direction, duplicate handling, automation-only restrictions, and cardinality.",
       category: CATEGORY,
       inputSchema: createRelationParamsJsonSchema,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false
-      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       resultSchema: CreateRelationResultSchema
     },
     parseCreateRelationParams,
@@ -114,12 +99,7 @@ export const genericAssociationTools = [
         "Idempotently delete one concrete relation by relation ID or by exact association/source/target triple. Triple endpoint locators support raw, issue, document, and card. Triple deletes use the same direction semantics as create_relation and fail if the selector is ambiguous.",
       category: CATEGORY,
       inputSchema: deleteRelationParamsJsonSchema,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        idempotentHint: true,
-        openWorldHint: false
-      },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
       resultSchema: DeleteRelationResultSchema
     },
     parseDeleteRelationParams,

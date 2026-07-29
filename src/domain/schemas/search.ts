@@ -3,18 +3,11 @@ import { JSONSchema, Schema } from "effect"
 import { Count, DEFAULT_LIMIT, DocId, LimitParam, NonEmptyString, ObjectClassName, UNKNOWN_TOTAL } from "./shared.js"
 
 export const FulltextSearchParamsSchema = Schema.Struct({
-  query: NonEmptyString.annotations({
-    description: "Search query string for fulltext search"
-  }),
+  query: NonEmptyString.annotations({ description: "Search query string for fulltext search" }),
   limit: Schema.optional(
-    LimitParam.annotations({
-      description: `Maximum number of results to return (default: ${DEFAULT_LIMIT})`
-    })
+    LimitParam.annotations({ description: `Maximum number of results to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({
-  title: "FulltextSearchParams",
-  description: "Parameters for fulltext search"
-})
+}).annotations({ title: "FulltextSearchParams", description: "Parameters for fulltext search" })
 
 export type FulltextSearchParams = Schema.Schema.Type<typeof FulltextSearchParamsSchema>
 

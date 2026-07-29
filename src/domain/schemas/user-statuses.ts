@@ -17,19 +17,22 @@ export const UserStatusSummarySchema = Schema.Struct({
 export type UserStatusSummary = Schema.Schema.Type<typeof UserStatusSummarySchema>
 
 export const ListUserStatusesParamsSchema = Schema.Struct({
-  online: Schema.optional(Schema.Boolean.annotations({
-    description: "Optional presence filter. Use true for currently connected users, false for offline records."
-  })),
-  user: Schema.optional(UserStatusAccountUuid.annotations({
-    description: "Optional Huly account UUID filter. Pass the exact account UUID from a user status row."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of user status records to return (default: ${DEFAULT_LIMIT}, maximum: ${MAX_LIMIT}).`
-  }))
-}).annotations({
-  title: "ListUserStatusesParams",
-  description: "Parameters for listing Huly user presence records."
-})
+  online: Schema.optional(
+    Schema.Boolean.annotations({
+      description: "Optional presence filter. Use true for currently connected users, false for offline records."
+    })
+  ),
+  user: Schema.optional(
+    UserStatusAccountUuid.annotations({
+      description: "Optional Huly account UUID filter. Pass the exact account UUID from a user status row."
+    })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({
+      description: `Maximum number of user status records to return (default: ${DEFAULT_LIMIT}, maximum: ${MAX_LIMIT}).`
+    })
+  )
+}).annotations({ title: "ListUserStatusesParams", description: "Parameters for listing Huly user presence records." })
 export type ListUserStatusesParams = Schema.Schema.Type<typeof ListUserStatusesParamsSchema>
 
 export const ListUserStatusesResultSchema = Schema.Struct({

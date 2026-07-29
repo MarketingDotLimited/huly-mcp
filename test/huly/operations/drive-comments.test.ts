@@ -55,22 +55,23 @@ interface DriveCommentState {
 
 const personId = corePersonId("drive-comment-person")
 
-const driveSpace = (): DriveSpace => ({
-  _id: toRef<DriveSpace>("drive-1"),
-  _class: drive.class.Drive,
-  space: toRef<Space>(core.space.Space),
-  name: "Docs",
-  description: "Drive docs",
-  private: false,
-  archived: false,
-  autoJoin: false,
-  members: [],
-  owners: [],
-  modifiedBy: personId,
-  modifiedOn: 0,
-  createdBy: personId,
-  createdOn: 0
-} as unknown as DriveSpace)
+const driveSpace = (): DriveSpace =>
+  ({
+    _id: toRef<DriveSpace>("drive-1"),
+    _class: drive.class.Drive,
+    space: toRef<Space>(core.space.Space),
+    name: "Docs",
+    description: "Drive docs",
+    private: false,
+    archived: false,
+    autoJoin: false,
+    members: [],
+    owners: [],
+    modifiedBy: personId,
+    modifiedOn: 0,
+    createdBy: personId,
+    createdOn: 0
+  }) as unknown as DriveSpace
 
 const driveFile = (): File => ({
   _id: toRef<File>("file-api"),
@@ -101,23 +102,24 @@ const driveFolder = (): Folder => ({
   createdOn: 0
 })
 
-const chatMessage = (id: string, body: string): ChatMessage => ({
-  _id: toRef<ChatMessage>(id),
-  _class: chunter.class.ChatMessage,
-  space: toRef<DriveSpace>("drive-1"),
-  attachedTo: toRef<Doc>("file-api"),
-  attachedToClass: toRef<Class<Doc>>(drive.class.File),
-  collection: "comments",
-  message: markdownToMarkupString(body, testMarkupUrlConfig),
-  modifiedBy: personId,
-  modifiedOn: 1,
-  createdBy: personId,
-  createdOn: 1,
-  editedOn: undefined,
-  isPinned: false,
-  replies: 0,
-  reactions: 0
-} as unknown as ChatMessage)
+const chatMessage = (id: string, body: string): ChatMessage =>
+  ({
+    _id: toRef<ChatMessage>(id),
+    _class: chunter.class.ChatMessage,
+    space: toRef<DriveSpace>("drive-1"),
+    attachedTo: toRef<Doc>("file-api"),
+    attachedToClass: toRef<Class<Doc>>(drive.class.File),
+    collection: "comments",
+    message: markdownToMarkupString(body, testMarkupUrlConfig),
+    modifiedBy: personId,
+    modifiedOn: 1,
+    createdBy: personId,
+    createdOn: 1,
+    editedOn: undefined,
+    isPinned: false,
+    replies: 0,
+    reactions: 0
+  }) as unknown as ChatMessage
 
 const activityMessage = (): HulyActivityMessage => ({
   _id: toRef<HulyActivityMessage>("activity-1"),
@@ -140,14 +142,14 @@ const docsForClass = (state: DriveCommentState, classRef: Ref<Class<Doc>>): Read
   classRef === drive.class.Drive
     ? state.drives
     : classRef === drive.class.Folder
-    ? state.folders
-    : classRef === drive.class.File
-    ? state.files
-    : classRef === chunter.class.ChatMessage
-    ? state.messages
-    : classRef === activity.class.ActivityMessage
-    ? state.activityMessages
-    : []
+      ? state.folders
+      : classRef === drive.class.File
+        ? state.files
+        : classRef === chunter.class.ChatMessage
+          ? state.messages
+          : classRef === activity.class.ActivityMessage
+            ? state.activityMessages
+            : []
 
 const makeLayer = (state: DriveCommentState): Layer.Layer<HulyClient | HulyStorageClient> => {
   const findAll: HulyClientOperations["findAll"] = <T extends Doc>(
@@ -160,10 +162,8 @@ const makeLayer = (state: DriveCommentState): Layer.Layer<HulyClient | HulyStora
     )
   }
 
-  const findOne: HulyClientOperations["findOne"] = <T extends Doc>(
-    classRef: Ref<Class<T>>,
-    query: DocumentQuery<T>
-  ) => Effect.map(findAll(classRef, query), (docs) => docs.at(0))
+  const findOne: HulyClientOperations["findOne"] = <T extends Doc>(classRef: Ref<Class<T>>, query: DocumentQuery<T>) =>
+    Effect.map(findAll(classRef, query), (docs) => docs.at(0))
 
   const addCollection: HulyClientOperations["addCollection"] = <T extends Doc, P extends AttachedDoc>(
     classRef: Ref<Class<P>>,
@@ -204,16 +204,10 @@ const makeLayer = (state: DriveCommentState): Layer.Layer<HulyClient | HulyStora
     operations: DocumentUpdate<T>
   ) => {
     if (classRef === chunter.class.ChatMessage) {
-      state.updates.push({
-        id: String(objectId),
-        operations: operations as unknown as DocumentUpdate<ChatMessage>
-      })
+      state.updates.push({ id: String(objectId), operations: operations as unknown as DocumentUpdate<ChatMessage> })
       const index = state.messages.findIndex((message) => String(message._id) === String(objectId))
       const message = assertAt(state.messages, index)
-      state.messages[index] = {
-        ...message,
-        ...(operations as unknown as Partial<ChatMessage>)
-      }
+      state.messages[index] = { ...message, ...(operations as unknown as Partial<ChatMessage>) }
     }
     return Effect.succeed([])
   }
@@ -266,15 +260,11 @@ const baseState = (): DriveCommentState => ({
 
 describe("drive file comment operations", () => {
   it.effect("adds, lists, updates, and deletes Drive file comments", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = baseState()
       const layer = makeLayer(state)
       const listParams = yield* parseListDriveFileCommentsParams({ drive: "Docs", filePath: "/API.md" })
-      const addParams = yield* parseAddDriveFileCommentParams({
-        drive: "Docs",
-        fileId: "file-api",
-        body: "Added"
-      })
+      const addParams = yield* parseAddDriveFileCommentParams({ drive: "Docs", fileId: "file-api", body: "Added" })
       const updateNoopParams = yield* parseUpdateDriveFileCommentParams({
         drive: "Docs",
         filePath: "/API.md",
@@ -308,24 +298,23 @@ describe("drive file comment operations", () => {
       expect(state.updates).toHaveLength(1)
       expect(deleted.deleted).toBe(true)
       expect(state.removals).toEqual([{ classRef: chunter.class.ChatMessage, id: "comment-1" }])
-    }))
+    })
+  )
 
   it.effect("preserves native references when adding and updating Drive file comments", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = baseState()
       const layer = makeLayer(state)
       const addParams = yield* parseAddDriveFileCommentParams({
         drive: "Docs",
         fileId: "file-api",
-        body:
-          "See [TEST-1](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-1&label=TEST-1)."
+        body: "See [TEST-1](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-1&label=TEST-1)."
       })
       const updateParams = yield* parseUpdateDriveFileCommentParams({
         drive: "Docs",
         filePath: "/API.md",
         commentId: "comment-1",
-        body:
-          "See [TEST-2](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-2&label=TEST-2)."
+        body: "See [TEST-2](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-2&label=TEST-2)."
       })
 
       yield* addDriveFileComment(addParams).pipe(Effect.provide(layer))
@@ -334,24 +323,17 @@ describe("drive file comment operations", () => {
       const added = assertAt(state.messages, 1)
       expect(capturedMarkupReferenceNodes(added.message)).toContainEqual({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "TEST-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "TEST-1" }
       })
       expect(capturedMarkupReferenceNodes(String(assertAt(state.updates, 0).operations.message))).toContainEqual({
         type: "reference",
-        attrs: {
-          id: "issue-2",
-          objectclass: "tracker:class:Issue",
-          label: "TEST-2"
-        }
+        attrs: { id: "issue-2", objectclass: "tracker:class:Issue", label: "TEST-2" }
       })
-    }))
+    })
+  )
 
   it.effect("lists Drive file activity for a resolved file", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = baseState()
       const params = yield* parseListDriveFileActivityParams({ drive: "Docs", fileId: "file-api" })
       const result = yield* listDriveFileActivity(params).pipe(Effect.provide(makeLayer(state)))
@@ -363,10 +345,11 @@ describe("drive file comment operations", () => {
         objectId: "file-api",
         objectClass: drive.class.File
       })
-    }))
+    })
+  )
 
   it.effect("rejects folder targets and missing Drive file comments", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = baseState()
       const layer = makeLayer(state)
       const folderParams = yield* parseListDriveFileCommentsParams({ drive: "Docs", filePath: "/Specs" })
@@ -390,5 +373,6 @@ describe("drive file comment operations", () => {
       if (missingComment._tag === "Left") {
         expect(missingComment.left).toBeInstanceOf(DriveFileCommentNotFoundError)
       }
-    }))
+    })
+  )
 })

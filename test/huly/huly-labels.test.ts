@@ -8,10 +8,9 @@ describe("Huly label helpers", () => {
     expect(HULY_MODEL_ID_SEPARATOR).toBe(":")
     expect(String(tracker.class.Issue)).toBe("tracker:class:Issue")
     expect(hulyModelLabelTail(tracker.class.Issue)).toBe("Issue")
-    expect(decodeHulyModelLabelTail(tracker.class.Issue)).toEqual(expect.objectContaining({
-      _tag: "Right",
-      right: "Issue"
-    }))
+    expect(decodeHulyModelLabelTail(tracker.class.Issue)).toEqual(
+      expect.objectContaining({ _tag: "Right", right: "Issue" })
+    )
   })
 
   it("preserves non-namespaced string labels", () => {

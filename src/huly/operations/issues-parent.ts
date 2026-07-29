@@ -33,20 +33,12 @@ export const childIssueParent = (
   collection: "subIssues",
   parents: [
     ...parentIssue.parents,
-    {
-      parentId: parentIssue._id,
-      identifier: parentIssue.identifier,
-      parentTitle: parentIssue.title,
-      space: project
-    }
+    { parentId: parentIssue._id, identifier: parentIssue.identifier, parentTitle: parentIssue.title, space: project }
   ]
 })
 
-export const hasConcreteIssueParent = (
-  issue: Pick<HulyIssue, "attachedTo" | "attachedToClass">
-): boolean =>
-  issue.attachedToClass === tracker.class.Issue
-  && issue.attachedTo !== tracker.ids.NoParent
+export const hasConcreteIssueParent = (issue: Pick<HulyIssue, "attachedTo" | "attachedToClass">): boolean =>
+  issue.attachedToClass === tracker.class.Issue && issue.attachedTo !== tracker.ids.NoParent
 
 export const attachIssueChild = (
   client: HulyClient["Type"],
@@ -55,24 +47,14 @@ export const attachIssueChild = (
   parentIssue: Pick<HulyIssue, "_id" | "identifier" | "parents" | "title">,
   additionalUpdate: DocumentUpdate<HulyIssue>
 ): Effect.Effect<void, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const parent = childIssueParent(parentIssue, project)
-    yield* client.updateDoc(
-      tracker.class.Issue,
-      project,
-      child,
-      {
-        ...additionalUpdate,
-        attachedTo: toRef<HulyIssue>(parent.attachedTo),
-        attachedToClass: parent.attachedToClass,
-        collection: parent.collection,
-        parents: parent.parents
-      }
-    )
-    yield* client.updateDoc(
-      tracker.class.Issue,
-      project,
-      parentIssue._id,
-      { $inc: { subIssues: 1 } }
-    )
+    yield* client.updateDoc(tracker.class.Issue, project, child, {
+      ...additionalUpdate,
+      attachedTo: toRef<HulyIssue>(parent.attachedTo),
+      attachedToClass: parent.attachedToClass,
+      collection: parent.collection,
+      parents: parent.parents
+    })
+    yield* client.updateDoc(tracker.class.Issue, project, parentIssue._id, { $inc: { subIssues: 1 } })
   })

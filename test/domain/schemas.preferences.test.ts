@@ -13,7 +13,7 @@ import {
 
 describe("preference schemas", () => {
   it.effect("parses list/get SpacePreference params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const listParams = yield* parseListSpacePreferencesParams({
         space: "General",
         includeArchived: true,
@@ -29,15 +29,12 @@ describe("preference schemas", () => {
         limit: 10
       })
       expect(getParams).toMatchObject({ space: "space-1" })
-    }))
+    })
+  )
 
   it.effect("rejects list resolver options when no space is provided", () =>
-    Effect.gen(function*() {
-      const rejectedParams = [
-        { includeArchived: true },
-        { class: "core:class:Space" },
-        { type: "space-type-1" }
-      ]
+    Effect.gen(function* () {
+      const rejectedParams = [{ includeArchived: true }, { class: "core:class:Space" }, { type: "space-type-1" }]
 
       for (const params of rejectedParams) {
         const exit = yield* parseListSpacePreferencesParams(params).pipe(Effect.exit)
@@ -46,22 +43,14 @@ describe("preference schemas", () => {
           "includeArchived, class, and type can only be provided when space is provided."
         )
       }
-    }))
+    })
+  )
 
   it("emits client-safe JSON Schema for SpacePreference tool inputs", () => {
     expect(parseJsonSchemaRecord(listSpacePreferencesParamsJsonSchema)).toBeDefined()
     expect(parseJsonSchemaRecord(getSpacePreferenceParamsJsonSchema)).toBeDefined()
-    expect(listSpacePreferencesParamsJsonSchema).toMatchObject({
-      type: "object",
-      properties: {
-        space: {},
-        limit: {}
-      }
-    })
-    expect(getSpacePreferenceParamsJsonSchema).toMatchObject({
-      type: "object",
-      required: ["space"]
-    })
+    expect(listSpacePreferencesParamsJsonSchema).toMatchObject({ type: "object", properties: { space: {}, limit: {} } })
+    expect(getSpacePreferenceParamsJsonSchema).toMatchObject({ type: "object", required: ["space"] })
   })
 
   it("accepts the absent SpacePreference result shape", () => {

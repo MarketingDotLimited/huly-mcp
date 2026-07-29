@@ -447,6 +447,11 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 
 | Tool | Description |
 |------|-------------|
+| `list_chat_message_attachments` | List files attached directly to a Huly chat message target. target.kind supports channel_message, dm_message, and thread_reply; the tool resolves channel names and one-to-one DM participant display names for you. |
+| `get_chat_message_attachment` | Get one file attached directly to a Huly channel message, direct-message message, or thread reply. The attachmentId must belong to the resolved target. |
+| `add_chat_message_attachment` | Attach a file directly to a Huly channel message, direct-message message, or thread reply. Provide filename, contentType, and exactly one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. |
+| `update_chat_message_attachment` | Update description and/or pinned state for a file attached directly to a Huly channel message, direct-message message, or thread reply. The attachmentId must belong to the resolved target. |
+| `delete_chat_message_attachment` | Delete one file attached directly to a Huly channel message, direct-message message, or thread reply. The attachmentId must belong to the resolved target. |
 | `list_channel_members` | List members of a Huly channel by channel name or ID. Returns each member account UUID and the workspace display name when available. |
 | `add_channel_members` | Idempotently add members to a non-archived Huly channel. Members accept account UUID, exact email, or exact person display name and resolve to Huly account UUIDs before replacing the full sorted member array. |
 | `remove_channel_members` | Idempotently remove members from a non-archived Huly channel. Members accept account UUID, exact email, or exact person display name. Refuses removals that would leave the channel with zero members or, when owners exist, no owner among remaining members. |
@@ -477,11 +482,6 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `add_thread_reply` | Add a reply to a message thread. Reply body supports markdown formatting. Markdown links to current-workspace Huly browse URLs with _class, _id, and label become native Huly references; external URLs and other-workspace browse URLs stay normal links. |
 | `update_thread_reply` | Update a thread reply. Only the body can be modified; body supports markdown formatting. Markdown links to current-workspace Huly browse URLs with _class, _id, and label become native Huly references; external URLs and other-workspace browse URLs stay normal links. |
 | `delete_thread_reply` | Permanently delete a thread reply. This action cannot be undone. |
-| `list_chat_message_attachments` | List files attached directly to a Huly chat message target. target.kind supports channel_message, dm_message, and thread_reply; the tool resolves channel names and one-to-one DM participant display names for you. |
-| `get_chat_message_attachment` | Get one file attached directly to a Huly channel message, direct-message message, or thread reply. The attachmentId must belong to the resolved target. |
-| `add_chat_message_attachment` | Attach a file directly to a Huly channel message, direct-message message, or thread reply. Provide filename, contentType, and exactly one source: filePath is resolved on the MCP server host, data is client-local base64 content, and fileUrl is fetched by the MCP server. |
-| `update_chat_message_attachment` | Update description and/or pinned state for a file attached directly to a Huly channel message, direct-message message, or thread reply. The attachmentId must belong to the resolved target. |
-| `delete_chat_message_attachment` | Delete one file attached directly to a Huly channel message, direct-message message, or thread reply. The attachmentId must belong to the resolved target. |
 
 ### Calendar
 

@@ -10,12 +10,9 @@ import { Count } from "../domain/schemas/shared.js"
 /**
  * Teamspace not found in the workspace.
  */
-export class TeamspaceNotFoundError extends Schema.TaggedError<TeamspaceNotFoundError>()(
-  "TeamspaceNotFoundError",
-  {
-    identifier: Schema.String
-  }
-) {
+export class TeamspaceNotFoundError extends Schema.TaggedError<TeamspaceNotFoundError>()("TeamspaceNotFoundError", {
+  identifier: Schema.String
+}) {
   override get message(): string {
     return `Teamspace '${this.identifier}' not found`
   }
@@ -24,13 +21,10 @@ export class TeamspaceNotFoundError extends Schema.TaggedError<TeamspaceNotFound
 /**
  * Document not found in the specified teamspace.
  */
-export class DocumentNotFoundError extends Schema.TaggedError<DocumentNotFoundError>()(
-  "DocumentNotFoundError",
-  {
-    identifier: Schema.String,
-    teamspace: Schema.String
-  }
-) {
+export class DocumentNotFoundError extends Schema.TaggedError<DocumentNotFoundError>()("DocumentNotFoundError", {
+  identifier: Schema.String,
+  teamspace: Schema.String
+}) {
   override get message(): string {
     return `Document '${this.identifier}' not found in teamspace '${this.teamspace}'`
   }
@@ -41,9 +35,7 @@ export class DocumentNotFoundError extends Schema.TaggedError<DocumentNotFoundEr
  */
 export class DocumentTextNotFoundError extends Schema.TaggedError<DocumentTextNotFoundError>()(
   "DocumentTextNotFoundError",
-  {
-    searchText: Schema.String
-  }
+  { searchText: Schema.String }
 ) {
   override get message(): string {
     return `String to replace not found in document.\nString: ${this.searchText}`
@@ -55,16 +47,15 @@ export class DocumentTextNotFoundError extends Schema.TaggedError<DocumentTextNo
  */
 export class DocumentTextMultipleMatchesError extends Schema.TaggedError<DocumentTextMultipleMatchesError>()(
   "DocumentTextMultipleMatchesError",
-  {
-    searchText: Schema.String,
-    matchCount: Count
-  }
+  { searchText: Schema.String, matchCount: Count }
 ) {
   override get message(): string {
-    return `Found ${this.matchCount} matches of the string to replace, but replace_all is false. `
-      + `To replace all occurrences, set replace_all to true. `
-      + `To replace only one occurrence, provide more context to uniquely identify the instance.\n`
-      + `String: ${this.searchText}`
+    return (
+      `Found ${this.matchCount} matches of the string to replace, but replace_all is false. ` +
+      `To replace all occurrences, set replace_all to true. ` +
+      `To replace only one occurrence, provide more context to uniquely identify the instance.\n` +
+      `String: ${this.searchText}`
+    )
   }
 }
 
@@ -73,9 +64,7 @@ export class DocumentTextMultipleMatchesError extends Schema.TaggedError<Documen
  */
 export class DocumentEmptyContentError extends Schema.TaggedError<DocumentEmptyContentError>()(
   "DocumentEmptyContentError",
-  {
-    identifier: Schema.String
-  }
+  { identifier: Schema.String }
 ) {
   override get message(): string {
     return `Document '${this.identifier}' has no content. Use 'content' mode or create_document to set initial content.`
@@ -87,10 +76,7 @@ export class DocumentEmptyContentError extends Schema.TaggedError<DocumentEmptyC
  */
 export class DocumentContentCorruptedError extends Schema.TaggedError<DocumentContentCorruptedError>()(
   "DocumentContentCorruptedError",
-  {
-    identifier: Schema.String,
-    causeMessage: Schema.optional(Schema.String)
-  }
+  { identifier: Schema.String, causeMessage: Schema.optional(Schema.String) }
 ) {
   override get message(): string {
     return "Document content is unreadable or corrupted. Use edit_document with the full content field to replace and repair it."
@@ -100,12 +86,9 @@ export class DocumentContentCorruptedError extends Schema.TaggedError<DocumentCo
 /**
  * edit_document parameters mix mutually exclusive edit modes.
  */
-export class DocumentEditModeError extends Schema.TaggedError<DocumentEditModeError>()(
-  "DocumentEditModeError",
-  {
-    reason: Schema.String
-  }
-) {
+export class DocumentEditModeError extends Schema.TaggedError<DocumentEditModeError>()("DocumentEditModeError", {
+  reason: Schema.String
+}) {
   override get message(): string {
     return `Invalid edit_document mode: ${this.reason}`
   }
@@ -114,12 +97,9 @@ export class DocumentEditModeError extends Schema.TaggedError<DocumentEditModeEr
 /**
  * Native document reference links are invalid.
  */
-export class DocumentReferenceError extends Schema.TaggedError<DocumentReferenceError>()(
-  "DocumentReferenceError",
-  {
-    reason: Schema.String
-  }
-) {
+export class DocumentReferenceError extends Schema.TaggedError<DocumentReferenceError>()("DocumentReferenceError", {
+  reason: Schema.String
+}) {
   override get message(): string {
     return `Invalid document references: ${this.reason}`
   }

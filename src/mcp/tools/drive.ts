@@ -106,8 +106,7 @@ export const driveTools = [
   defineCombinedTool(
     {
       name: "list_drives",
-      description:
-        `List Huly Drive spaces. When includeArchived is omitted, includeArchived=${DEFAULT_INCLUDE_ARCHIVED}. Use this before path operations when you do not know the exact drive id or exact drive name.`,
+      description: `List Huly Drive spaces. When includeArchived is omitted, includeArchived=${DEFAULT_INCLUDE_ARCHIVED}. Use this before path operations when you do not know the exact drive id or exact drive name.`,
       category: CATEGORY,
       inputSchema: listDrivesParamsJsonSchema,
       resultSchema: ListDrivesResultSchema
@@ -245,8 +244,8 @@ export const driveTools = [
     {
       name: "add_drive_file_comment",
       description:
-        "Add a Markdown comment to a Drive file resolved by filePath or fileId. Provide only one locator. The comment is attached directly to the file. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
+        "Add a Markdown comment to a Drive file resolved by filePath or fileId. Provide only one locator. The comment is attached directly to the file. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
       category: CATEGORY,
       inputSchema: addDriveFileCommentParamsJsonSchema,
       annotations: { idempotentHint: false, destructiveHint: false },
@@ -259,8 +258,8 @@ export const driveTools = [
     {
       name: "update_drive_file_comment",
       description:
-        "Update a comment on a Drive file resolved by filePath or fileId. Provide only one locator. Idempotent when the comment body is unchanged. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
+        "Update a comment on a Drive file resolved by filePath or fileId. Provide only one locator. Idempotent when the comment body is unchanged. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
       category: CATEGORY,
       inputSchema: updateDriveFileCommentParamsJsonSchema,
       annotations: { idempotentHint: true, destructiveHint: false },
@@ -310,8 +309,7 @@ export const driveTools = [
   defineCombinedTool(
     {
       name: "upload_drive_file",
-      description:
-        `Upload a file into Drive at a full path including filename. Provide exactly one source: ${UPLOAD_SOURCE_SEMANTICS} By default createParents=true creates missing parent folders and reports them.`,
+      description: `Upload a file into Drive at a full path including filename. Provide exactly one source: ${UPLOAD_SOURCE_SEMANTICS} By default createParents=true creates missing parent folders and reports them.`,
       category: CATEGORY,
       inputSchema: uploadDriveFileParamsJsonSchema,
       annotations: { idempotentHint: false, destructiveHint: false },
@@ -323,8 +321,7 @@ export const driveTools = [
   defineCombinedTool(
     {
       name: "upload_drive_file_version",
-      description:
-        `Upload a new version for an existing Drive file resolved by file id or file path. Provide exactly one source: ${UPLOAD_SOURCE_SEMANTICS} This increments the file version counter and makes the uploaded version current.`,
+      description: `Upload a new version for an existing Drive file resolved by file id or file path. Provide exactly one source: ${UPLOAD_SOURCE_SEMANTICS} This increments the file version counter and makes the uploaded version current.`,
       category: CATEGORY,
       inputSchema: uploadDriveFileVersionParamsJsonSchema,
       annotations: { idempotentHint: false, destructiveHint: false },

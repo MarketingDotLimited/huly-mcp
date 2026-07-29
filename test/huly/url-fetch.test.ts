@@ -111,29 +111,32 @@ describe("fetchFromUrl", () => {
   const publicAddress: ResolvedAddress = { address: "8.8.8.8", family: 4 }
 
   it.effect("rejects a blocked URL before any resolution", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const deps: Deps = { resolveHostname: unusedResolveHostname, requestUrl: unusedRequestUrl }
       const error = yield* Effect.flip(fetchFromUrl("http://127.0.0.1/file", deps))
       expect(error._tag).toBe("FileFetchError")
       expect(error.reason).toContain("URL blocked")
-    }))
+    })
+  )
 
   it.effect("rejects when the hostname does not resolve", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const deps: Deps = { resolveHostname: async () => [], requestUrl: unusedRequestUrl }
       const error = yield* Effect.flip(fetchFromUrl("http://example.com/file", deps))
       expect(error.reason).toContain("did not resolve")
-    }))
+    })
+  )
 
   it.effect("rejects when DNS resolves to a blocked address", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const deps: Deps = {
         resolveHostname: async () => [{ address: "10.0.0.1", family: 4 }],
         requestUrl: unusedRequestUrl
       }
       const error = yield* Effect.flip(fetchFromUrl("http://example.com/file", deps))
       expect(error.reason).toContain("internal/private/non-global address")
-    }))
+    })
+  )
 
   // DNS-resolved addresses are not URL-validated, so these reach the IPv6/IPv4 parsers directly
   // (a bracketed literal would be rejected by `new URL` first).
@@ -156,25 +159,27 @@ describe("fetchFromUrl", () => {
   ]
   for (const address of blockedResolvedAddresses) {
     it.effect(`rejects a resolved ${address.family === 4 ? "IPv4" : "IPv6"} address ${address.address}`, () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const deps: Deps = { resolveHostname: async () => [address], requestUrl: unusedRequestUrl }
         const error = yield* Effect.flip(fetchFromUrl("http://example.com/file", deps))
         expect(error.reason).toContain("internal/private/non-global address")
-      }))
+      })
+    )
   }
 
   it.effect("returns the body on success", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const deps: Deps = {
         resolveHostname: async () => [publicAddress],
         requestUrl: async () => Buffer.from("payload")
       }
       const result = yield* fetchFromUrl("http://example.com/file", deps)
       expect(result.toString()).toBe("payload")
-    }))
+    })
+  )
 
   it.effect("falls through to the next address when the first request fails", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       let calls = 0
       const deps: Deps = {
         resolveHostname: async () => [publicAddress, { address: "9.9.9.9", family: 4 }],
@@ -187,10 +192,11 @@ describe("fetchFromUrl", () => {
       const result = yield* fetchFromUrl("http://example.com/file", deps)
       expect(result.toString()).toBe("second")
       expect(calls).toBe(2)
-    }))
+    })
+  )
 
   it.effect("fails after exhausting every resolved address", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const deps: Deps = {
         resolveHostname: async () => [publicAddress, { address: "9.9.9.9", family: 4 }],
         requestUrl: async () => {
@@ -199,64 +205,83 @@ describe("fetchFromUrl", () => {
       }
       const error = yield* Effect.flip(fetchFromUrl("http://example.com/file", deps))
       expect(error.reason).toContain("Request failed for all resolved addresses")
-    }))
+    })
+  )
 })
 
 describe("requestUrl", () => {
   it("returns the body of a 2xx response", async () => {
-    await withServer((_req, res) => {
-      res.writeHead(200)
-      res.end("hello body")
-    }, async (url) => {
-      const buffer = await requestUrl(url, LOOPBACK)
-      expect(buffer.toString()).toBe("hello body")
-    })
+    await withServer(
+      (_req, res) => {
+        res.writeHead(200)
+        res.end("hello body")
+      },
+      async (url) => {
+        const buffer = await requestUrl(url, LOOPBACK)
+        expect(buffer.toString()).toBe("hello body")
+      }
+    )
   })
 
   it("rejects on a non-2xx status", async () => {
-    await withServer((_req, res) => {
-      res.writeHead(404)
-      res.end("missing")
-    }, async (url) => {
-      await expect(requestUrl(url, LOOPBACK)).rejects.toThrow("HTTP 404")
-    })
+    await withServer(
+      (_req, res) => {
+        res.writeHead(404)
+        res.end("missing")
+      },
+      async (url) => {
+        await expect(requestUrl(url, LOOPBACK)).rejects.toThrow("HTTP 404")
+      }
+    )
   })
 
   it("rejects when the response exceeds the byte limit", async () => {
-    await withServer((_req, res) => {
-      res.writeHead(200)
-      res.end("x".repeat(1000))
-    }, async (url) => {
-      await expect(requestUrl(url, LOOPBACK, 16)).rejects.toThrow("exceeded maximum file size")
-    })
+    await withServer(
+      (_req, res) => {
+        res.writeHead(200)
+        res.end("x".repeat(1000))
+      },
+      async (url) => {
+        await expect(requestUrl(url, LOOPBACK, 16)).rejects.toThrow("exceeded maximum file size")
+      }
+    )
   })
 
   it("uses the pinned lookup when the URL host is a name", async () => {
-    await withServer((_req, res) => {
-      res.writeHead(200)
-      res.end("pinned")
-    }, async (url) => {
-      // a hostname URL forces Node to call the pinned DNS lookup that resolves to the server
-      const hostUrl = new URL(`http://localhost:${url.port}/file`)
-      const buffer = await requestUrl(hostUrl, LOOPBACK)
-      expect(buffer.toString()).toBe("pinned")
-    })
+    await withServer(
+      (_req, res) => {
+        res.writeHead(200)
+        res.end("pinned")
+      },
+      async (url) => {
+        // a hostname URL forces Node to call the pinned DNS lookup that resolves to the server
+        const hostUrl = new URL(`http://localhost:${url.port}/file`)
+        const buffer = await requestUrl(hostUrl, LOOPBACK)
+        expect(buffer.toString()).toBe("pinned")
+      }
+    )
   })
 
   it("rejects when the connection cannot be established", async () => {
     let closedPortUrl = new URL("http://127.0.0.1/file")
-    await withServer((_req, res) => res.end(), async (url) => {
-      closedPortUrl = url
-    })
+    await withServer(
+      (_req, res) => res.end(),
+      async (url) => {
+        closedPortUrl = url
+      }
+    )
     // the server is now closed; the pinned connection is refused
     await expect(requestUrl(closedPortUrl, LOOPBACK)).rejects.toThrow()
   })
 
   it("selects the https agent for https URLs", async () => {
-    await withServer((_req, res) => res.end("plaintext"), async (url) => {
-      // a plain-HTTP server cannot complete a TLS handshake, but the https branch is taken first
-      const httpsUrl = new URL(`https://127.0.0.1:${url.port}/file`)
-      await expect(requestUrl(httpsUrl, LOOPBACK)).rejects.toThrow()
-    })
+    await withServer(
+      (_req, res) => res.end("plaintext"),
+      async (url) => {
+        // a plain-HTTP server cannot complete a TLS handshake, but the https branch is taken first
+        const httpsUrl = new URL(`https://127.0.0.1:${url.port}/file`)
+        await expect(requestUrl(httpsUrl, LOOPBACK)).rejects.toThrow()
+      }
+    )
   })
 })

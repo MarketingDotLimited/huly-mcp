@@ -36,16 +36,11 @@ const parseUnknownRecordArray = (value: unknown): ReadonlyArray<UnknownRecord> =
   }
 }
 
-const mergeObjectFields = (
-  sources: ReadonlyArray<unknown>
-): Record<string, unknown> | undefined => {
-  const merged = sources.reduce<Record<string, unknown>>(
-    (acc, source) => {
-      const record = parseUnknownRecord(source)
-      return record === undefined ? acc : { ...record, ...acc }
-    },
-    {}
-  )
+const mergeObjectFields = (sources: ReadonlyArray<unknown>): Record<string, unknown> | undefined => {
+  const merged = sources.reduce<Record<string, unknown>>((acc, source) => {
+    const record = parseUnknownRecord(source)
+    return record === undefined ? acc : { ...record, ...acc }
+  }, {})
   return Object.keys(merged).length > 0 ? merged : undefined
 }
 
@@ -55,17 +50,12 @@ const rootCompositionBranches = (schema: object): ReadonlyArray<Record<string, u
     return parseUnknownRecordArray(branches)
   })
 
-const schemaAndCompositionDescendants = (
-  schema: object
-): ReadonlyArray<object> => [
+const schemaAndCompositionDescendants = (schema: object): ReadonlyArray<object> => [
   schema,
   ...rootCompositionBranches(schema).flatMap(schemaAndCompositionDescendants)
 ]
 
-const mergedSchemaField = (
-  schema: object,
-  field: ObjectSchemaField
-): Record<string, unknown> | undefined =>
+const mergedSchemaField = (schema: object, field: ObjectSchemaField): Record<string, unknown> | undefined =>
   mergeObjectFields(schemaAndCompositionDescendants(schema).map((branch) => Reflect.get(branch, field)))
 
 /**

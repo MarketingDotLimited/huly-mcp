@@ -51,23 +51,16 @@ const BULK_NOTIFICATION_LIMIT = 200
 export const markNotificationRead = (
   params: MarkNotificationReadParams
 ): Effect.Effect<MarkNotificationReadResult, MarkNotificationReadError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, notification: notif } = yield* findNotification(params.notificationId)
 
     if (notif.isViewed) {
       return { id: NotificationId.make(notif._id), marked: true }
     }
 
-    const updateOps: DocumentUpdate<HulyInboxNotification> = {
-      isViewed: true
-    }
+    const updateOps: DocumentUpdate<HulyInboxNotification> = { isViewed: true }
 
-    yield* client.updateDoc(
-      notification.class.InboxNotification,
-      notif.space,
-      notif._id,
-      updateOps
-    )
+    yield* client.updateDoc(notification.class.InboxNotification, notif.space, notif._id, updateOps)
 
     return { id: NotificationId.make(notif._id), marked: true }
   })
@@ -78,23 +71,16 @@ export const markNotificationRead = (
 export const markNotificationUnread = (
   params: MarkNotificationUnreadParams
 ): Effect.Effect<MarkNotificationUnreadResult, MarkNotificationUnreadError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, notification: notif } = yield* findNotification(params.notificationId)
 
     if (!notif.isViewed) {
       return { id: NotificationId.make(notif._id), marked: true }
     }
 
-    const updateOps: DocumentUpdate<HulyInboxNotification> = {
-      isViewed: false
-    }
+    const updateOps: DocumentUpdate<HulyInboxNotification> = { isViewed: false }
 
-    yield* client.updateDoc(
-      notification.class.InboxNotification,
-      notif.space,
-      notif._id,
-      updateOps
-    )
+    yield* client.updateDoc(notification.class.InboxNotification, notif.space, notif._id, updateOps)
 
     return { id: NotificationId.make(notif._id), marked: true }
   })
@@ -107,7 +93,7 @@ export const markAllNotificationsRead = (): Effect.Effect<
   MarkAllNotificationsReadError,
   HulyClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const unreadNotifications = yield* findUnreadActiveNotifications(client, BULK_NOTIFICATION_LIMIT)
@@ -115,13 +101,7 @@ export const markAllNotificationsRead = (): Effect.Effect<
     // Concurrent updates (10x speedup). Limited to 200/call.
     yield* Effect.forEach(
       unreadNotifications,
-      (notif) =>
-        client.updateDoc(
-          notification.class.InboxNotification,
-          notif.space,
-          notif._id,
-          { isViewed: true }
-        ),
+      (notif) => client.updateDoc(notification.class.InboxNotification, notif.space, notif._id, { isViewed: true }),
       { concurrency: 10 }
     )
 
@@ -134,23 +114,16 @@ export const markAllNotificationsRead = (): Effect.Effect<
 export const archiveNotification = (
   params: ArchiveNotificationParams
 ): Effect.Effect<ArchiveNotificationResult, ArchiveNotificationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, notification: notif } = yield* findNotification(params.notificationId)
 
     if (notif.archived) {
       return { id: NotificationId.make(notif._id), archived: true }
     }
 
-    const updateOps: DocumentUpdate<HulyInboxNotification> = {
-      archived: true
-    }
+    const updateOps: DocumentUpdate<HulyInboxNotification> = { archived: true }
 
-    yield* client.updateDoc(
-      notification.class.InboxNotification,
-      notif.space,
-      notif._id,
-      updateOps
-    )
+    yield* client.updateDoc(notification.class.InboxNotification, notif.space, notif._id, updateOps)
 
     return { id: NotificationId.make(notif._id), archived: true }
   })
@@ -161,23 +134,16 @@ export const archiveNotification = (
 export const unarchiveNotification = (
   params: UnarchiveNotificationParams
 ): Effect.Effect<UnarchiveNotificationResult, UnarchiveNotificationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, notification: notif } = yield* findNotification(params.notificationId)
 
     if (!notif.archived) {
       return { id: NotificationId.make(notif._id), archived: false }
     }
 
-    const updateOps: DocumentUpdate<HulyInboxNotification> = {
-      archived: false
-    }
+    const updateOps: DocumentUpdate<HulyInboxNotification> = { archived: false }
 
-    yield* client.updateDoc(
-      notification.class.InboxNotification,
-      notif.space,
-      notif._id,
-      updateOps
-    )
+    yield* client.updateDoc(notification.class.InboxNotification, notif.space, notif._id, updateOps)
 
     return { id: NotificationId.make(notif._id), archived: false }
   })
@@ -190,7 +156,7 @@ export const archiveAllNotifications = (): Effect.Effect<
   ArchiveAllNotificationsError,
   HulyClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const activeNotifications = yield* client.findAll<HulyInboxNotification>(
@@ -202,13 +168,7 @@ export const archiveAllNotifications = (): Effect.Effect<
     // Concurrent updates (10x speedup). Limited to 200/call.
     yield* Effect.forEach(
       activeNotifications,
-      (notif) =>
-        client.updateDoc(
-          notification.class.InboxNotification,
-          notif.space,
-          notif._id,
-          { archived: true }
-        ),
+      (notif) => client.updateDoc(notification.class.InboxNotification, notif.space, notif._id, { archived: true }),
       { concurrency: 10 }
     )
 
@@ -221,14 +181,10 @@ export const archiveAllNotifications = (): Effect.Effect<
 export const deleteNotification = (
   params: DeleteNotificationParams
 ): Effect.Effect<DeleteNotificationResult, DeleteNotificationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, notification: notif } = yield* findNotification(params.notificationId)
 
-    yield* client.removeDoc(
-      notification.class.InboxNotification,
-      notif.space,
-      notif._id
-    )
+    yield* client.removeDoc(notification.class.InboxNotification, notif.space, notif._id)
 
     return { id: NotificationId.make(notif._id), deleted: true }
   })
@@ -239,23 +195,16 @@ export const deleteNotification = (
 export const pinNotificationContext = (
   params: PinNotificationContextParams
 ): Effect.Effect<PinNotificationContextResult, PinNotificationContextError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, context } = yield* findNotificationContext(params.contextId)
 
     if (context.isPinned === params.pinned) {
       return { id: NotificationContextId.make(context._id), isPinned: context.isPinned }
     }
 
-    const updateOps: DocumentUpdate<HulyDocNotifyContext> = {
-      isPinned: params.pinned
-    }
+    const updateOps: DocumentUpdate<HulyDocNotifyContext> = { isPinned: params.pinned }
 
-    yield* client.updateDoc(
-      notification.class.DocNotifyContext,
-      context.space,
-      context._id,
-      updateOps
-    )
+    yield* client.updateDoc(notification.class.DocNotifyContext, context.space, context._id, updateOps)
 
     return { id: NotificationContextId.make(context._id), isPinned: params.pinned }
   })
@@ -266,23 +215,16 @@ export const pinNotificationContext = (
 export const hideNotificationContext = (
   params: HideNotificationContextParams
 ): Effect.Effect<HideNotificationContextResult, HideNotificationContextError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, context } = yield* findNotificationContext(params.contextId)
 
     if (context.hidden === params.hidden) {
       return { id: NotificationContextId.make(context._id), hidden: context.hidden }
     }
 
-    const updateOps: DocumentUpdate<HulyDocNotifyContext> = {
-      hidden: params.hidden
-    }
+    const updateOps: DocumentUpdate<HulyDocNotifyContext> = { hidden: params.hidden }
 
-    yield* client.updateDoc(
-      notification.class.DocNotifyContext,
-      context.space,
-      context._id,
-      updateOps
-    )
+    yield* client.updateDoc(notification.class.DocNotifyContext, context.space, context._id, updateOps)
 
     return { id: NotificationContextId.make(context._id), hidden: params.hidden }
   })

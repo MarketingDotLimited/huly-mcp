@@ -58,13 +58,10 @@ interface McpServerConfigCallbacks {
 
 type McpServerConfig = McpServerConfigData & McpServerConfigCallbacks
 
-export class McpServerError extends Schema.TaggedError<McpServerError>()(
-  "McpServerError",
-  {
-    message: Schema.String,
-    cause: Schema.optional(Schema.Defect)
-  }
-) {}
+export class McpServerError extends Schema.TaggedError<McpServerError>()("McpServerError", {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Defect)
+}) {}
 
 const defaultWriteError = (message: string): void => {
   console.error(message)
@@ -80,16 +77,10 @@ const parseToolExposureConfigEffect = (
 
 const CLIENT_INFO_META_KEY = "io.modelcontextprotocol/clientInfo"
 const Mcp2026ClientInfoRequestSchema = Schema.Struct({
-  params: Schema.Struct({
-    _meta: Schema.Struct({
-      [CLIENT_INFO_META_KEY]: Schema.Unknown
-    })
-  })
+  params: Schema.Struct({ _meta: Schema.Struct({ [CLIENT_INFO_META_KEY]: Schema.Unknown }) })
 })
 const LegacyClientInfoRequestSchema = Schema.Struct({
-  params: Schema.Struct({
-    clientInfo: Schema.optionalWith(Schema.Unknown, { exact: true })
-  })
+  params: Schema.Struct({ clientInfo: Schema.optionalWith(Schema.Unknown, { exact: true }) })
 })
 
 const clientInfoFromMcp2026Request = (req: Request): McpClientInfoLike | undefined => {
@@ -109,16 +100,11 @@ interface McpServerOperations {
   readonly stop: () => Effect.Effect<void, McpServerError>
 }
 
-export class McpServerService extends Context.Tag("@hulymcp/McpServer")<
-  McpServerService,
-  McpServerOperations
->() {
-  static layer(
-    config: McpServerConfig
-  ): Layer.Layer<McpServerService, McpServerError, TelemetryService> {
+export class McpServerService extends Context.Tag("@hulymcp/McpServer")<McpServerService, McpServerOperations>() {
+  static layer(config: McpServerConfig): Layer.Layer<McpServerService, McpServerError, TelemetryService> {
     return Layer.effect(
       McpServerService,
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const telemetry = yield* TelemetryService
         const writeError = config.writeError ?? defaultWriteError
 
@@ -137,10 +123,7 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<
           ...(proxyOutputStrictRaw === undefined ? {} : { proxyOutputStrict: proxyOutputStrictRaw })
         })
         const toolScope = resolveToolScope(
-          {
-            toolsets: toolsetsRaw,
-            tools: toolsRaw
-          },
+          { toolsets: toolsetsRaw, tools: toolsRaw },
           toolRegistry.definitions,
           writeError
         )
@@ -150,12 +133,9 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<
           categories: toolScope.enabledCategories,
           toolNames: toolScope.enabledToolNames
         })
-        const registries = {
-          fullRegistry: toolRegistry,
-          scopedNativeRegistry
-        }
-        const getRuntimeConfigContext = config.getRuntimeConfigContext
-          ?? (() => sanitizeHulyRuntimeConfigFromEnv(process.env))
+        const registries = { fullRegistry: toolRegistry, scopedNativeRegistry }
+        const getRuntimeConfigContext =
+          config.getRuntimeConfigContext ?? (() => sanitizeHulyRuntimeConfigFromEnv(process.env))
         const getHulyContext = (
           runtimeConfig: SanitizedHulyRuntimeConfigContext,
           toolExposure: ToolExposureContext
@@ -167,10 +147,7 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<
         }
         const requestExposureOptions = (
           currentClientInfo: () => McpClientInfoLike | undefined
-        ): Partial<ProtocolExposureOptions> => ({
-          ...sdkExposureOptions,
-          currentClientInfo
-        })
+        ): Partial<ProtocolExposureOptions> => ({ ...sdkExposureOptions, currentClientInfo })
 
         telemetry.sessionStart({
           transport: config.transport,
@@ -179,20 +156,16 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<
           toolsets
         })
 
-        const flushTelemetry = Effect.ignore(
-          Effect.tryPromise(() => telemetry.shutdown())
-        )
+        const flushTelemetry = Effect.ignore(Effect.tryPromise(() => telemetry.shutdown()))
 
         const serverRef = yield* Ref.make<Server | null>(null)
         const isRunning = yield* Ref.make(false)
 
         const operations: McpServerOperations = {
           run: () =>
-            Effect.gen(function*() {
+            Effect.gen(function* () {
               if (yield* Ref.get(isRunning)) {
-                return yield* new McpServerError({
-                  message: "MCP server is already running"
-                })
+                return yield* new McpServerError({ message: "MCP server is already running" })
               }
 
               yield* Ref.set(isRunning, true)
@@ -218,10 +191,7 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<
                 yield* Effect.tryPromise({
                   try: () => stdioServer.connect(transport),
                   catch: (e) =>
-                    new McpServerError({
-                      message: `Failed to connect stdio transport: ${String(e)}`,
-                      cause: e
-                    })
+                    new McpServerError({ message: `Failed to connect stdio transport: ${String(e)}`, cause: e })
                 })
 
                 yield* Effect.async<void, McpServerError>((resume) => {
@@ -254,23 +224,19 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<
 
                 yield* Effect.tryPromise({
                   try: () => stdioServer.close(),
-                  catch: (e) =>
-                    new McpServerError({
-                      message: `Failed to close server: ${String(e)}`,
-                      cause: e
-                    })
+                  catch: (e) => new McpServerError({ message: `Failed to close server: ${String(e)}`, cause: e })
                 })
               } else {
                 const port = config.httpPort ?? DEFAULT_HTTP_PORT
                 const host = config.httpHost ?? "127.0.0.1"
                 const createHttpRequestContext = (req: Request) => {
                   const resolveClientsForRequest = config.resolveClientsForHttpRequest
-                  const requestResolveClients = resolveClientsForRequest === undefined
-                    ? config.resolveClients
-                    : () => resolveClientsForRequest(req)
-                  const requestRuntimeConfig = config.getRuntimeConfigContextForHttpRequest === undefined
-                    ? getRuntimeConfigContext()
-                    : config.getRuntimeConfigContextForHttpRequest(req)
+                  const requestResolveClients =
+                    resolveClientsForRequest === undefined ? config.resolveClients : () => resolveClientsForRequest(req)
+                  const requestRuntimeConfig =
+                    config.getRuntimeConfigContextForHttpRequest === undefined
+                      ? getRuntimeConfigContext()
+                      : config.getRuntimeConfigContextForHttpRequest(req)
                   return { requestResolveClients, requestRuntimeConfig }
                 }
 
@@ -312,13 +278,7 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<
                   }
                 ).pipe(
                   Effect.scoped,
-                  Effect.mapError(
-                    (e: HttpTransportError) =>
-                      new McpServerError({
-                        message: e.message,
-                        cause: e.cause
-                      })
-                  )
+                  Effect.mapError((e: HttpTransportError) => new McpServerError({ message: e.message, cause: e.cause }))
                 )
 
                 yield* Ref.set(isRunning, false)
@@ -327,7 +287,7 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<
             }),
 
           stop: () =>
-            Effect.gen(function*() {
+            Effect.gen(function* () {
               if (!(yield* Ref.get(isRunning))) {
                 return
               }
@@ -340,11 +300,7 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<
               if (runningServer !== null) {
                 yield* Effect.tryPromise({
                   try: () => runningServer.close(),
-                  catch: (e) =>
-                    new McpServerError({
-                      message: `Failed to stop server: ${String(e)}`,
-                      cause: e
-                    })
+                  catch: (e) => new McpServerError({ message: `Failed to stop server: ${String(e)}`, cause: e })
                 })
                 yield* Ref.set(serverRef, null)
               }
@@ -356,13 +312,8 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<
     )
   }
 
-  static testLayer(
-    mockOperations: Partial<McpServerOperations>
-  ): Layer.Layer<McpServerService> {
-    const defaultOps: McpServerOperations = {
-      run: () => Effect.void,
-      stop: () => Effect.void
-    }
+  static testLayer(mockOperations: Partial<McpServerOperations>): Layer.Layer<McpServerService> {
+    const defaultOps: McpServerOperations = { run: () => Effect.void, stop: () => Effect.void }
 
     return Layer.succeed(McpServerService, { ...defaultOps, ...mockOperations })
   }

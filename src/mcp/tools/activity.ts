@@ -156,8 +156,8 @@ export const activityTools = [
   defineTool(
     {
       name: "update_activity_reply",
-      description: "Update a generic activity reply body. Body supports markdown. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
+      description:
+        "Update a generic activity reply body. Body supports markdown. " + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
       category: CATEGORY,
       inputSchema: updateActivityReplyParamsJsonSchema,
       resultSchema: UpdateActivityReplyResultSchema

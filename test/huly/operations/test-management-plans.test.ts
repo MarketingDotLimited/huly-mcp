@@ -110,11 +110,11 @@ const buildLayer = (c: MockConfig) => {
     const q = query as Record<string, unknown>
     if (_class === testManagement.class.TestProject) return Effect.succeed(toFindResult([project]))
     if (_class === testManagement.class.TestPlan) {
-      const f = plans.filter(p => !q.space || p.space === q.space)
+      const f = plans.filter((p) => !q.space || p.space === q.space)
       return Effect.succeed(toFindResult(f))
     }
     if (_class === testManagement.class.TestPlanItem) {
-      const f = items.filter(i => !q.attachedTo || i.attachedTo === q.attachedTo)
+      const f = items.filter((i) => !q.attachedTo || i.attachedTo === q.attachedTo)
       return Effect.succeed(toFindResult(f))
     }
     return Effect.succeed(toFindResult([]))
@@ -127,19 +127,19 @@ const buildLayer = (c: MockConfig) => {
     }
     if (_class === testManagement.class.TestPlan) {
       return Effect.succeed(
-        plans.find(p =>
-          (q._id && p._id === q._id) || (q.name && p.name === q.name && (!q.space || p.space === q.space))
+        plans.find(
+          (p) => (q._id && p._id === q._id) || (q.name && p.name === q.name && (!q.space || p.space === q.space))
         )
       )
     }
     if (_class === testManagement.class.TestPlanItem) {
-      return Effect.succeed(items.find(i => q._id && i._id === q._id))
+      return Effect.succeed(items.find((i) => q._id && i._id === q._id))
     }
     if (_class === testManagement.class.TestCase) {
-      return Effect.succeed(testCases.find(tc => (q._id && tc._id === q._id) || (q.name && tc.name === q.name)))
+      return Effect.succeed(testCases.find((tc) => (q._id && tc._id === q._id) || (q.name && tc.name === q.name)))
     }
     if (_class === contact.class.Person) {
-      return Effect.succeed(persons.find(p => (q._id && p._id === q._id) || (q.name && p.name === q.name)))
+      return Effect.succeed(persons.find((p) => (q._id && p._id === q._id) || (q.name && p.name === q.name)))
     }
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
@@ -173,33 +173,31 @@ const buildLayer = (c: MockConfig) => {
     return Effect.succeed(newId)
   }) as HulyClientOperations["addCollection"]
 
-  const updateDocImpl: HulyClientOperations["updateDoc"] = (
-    (_c: unknown, _s: unknown, _id: unknown, ops: unknown) => {
-      if (c.captureUpdateDoc) c.captureUpdateDoc.operations = ops as Record<string, unknown>
-      return Effect.succeed({} as never)
-    }
-  ) as HulyClientOperations["updateDoc"]
+  const updateDocImpl: HulyClientOperations["updateDoc"] = ((_c: unknown, _s: unknown, _id: unknown, ops: unknown) => {
+    if (c.captureUpdateDoc) c.captureUpdateDoc.operations = ops as Record<string, unknown>
+    return Effect.succeed({} as never)
+  }) as HulyClientOperations["updateDoc"]
 
-  const removeDocImpl: HulyClientOperations["removeDoc"] = (
-    (_c: unknown, _s: unknown, id: unknown) => {
-      if (c.captureRemoveDoc) {
-        c.captureRemoveDoc.called = true
-        c.captureRemoveDoc.id = id as string
-      }
-      return Effect.succeed({} as never)
+  const removeDocImpl: HulyClientOperations["removeDoc"] = ((_c: unknown, _s: unknown, id: unknown) => {
+    if (c.captureRemoveDoc) {
+      c.captureRemoveDoc.called = true
+      c.captureRemoveDoc.id = id as string
     }
-  ) as HulyClientOperations["removeDoc"]
+    return Effect.succeed({} as never)
+  }) as HulyClientOperations["removeDoc"]
 
-  const uploadMarkupImpl: HulyClientOperations["uploadMarkup"] = (
-    (_class: unknown, _id: unknown, _attr: unknown, markup: unknown) => {
-      if (c.captureUploadMarkup) c.captureUploadMarkup.markup = String(markup)
-      return Effect.succeed("markup-ref" as never)
-    }
-  ) as HulyClientOperations["uploadMarkup"]
+  const uploadMarkupImpl: HulyClientOperations["uploadMarkup"] = ((
+    _class: unknown,
+    _id: unknown,
+    _attr: unknown,
+    markup: unknown
+  ) => {
+    if (c.captureUploadMarkup) c.captureUploadMarkup.markup = String(markup)
+    return Effect.succeed("markup-ref" as never)
+  }) as HulyClientOperations["uploadMarkup"]
 
-  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = (
-    () => Effect.succeed("fetched description")
-  ) as HulyClientOperations["fetchMarkup"]
+  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = (() =>
+    Effect.succeed("fetched description")) as HulyClientOperations["fetchMarkup"]
 
   return HulyClient.testLayer({
     findAll: findAllImpl,
@@ -215,19 +213,20 @@ const buildLayer = (c: MockConfig) => {
 
 describe("listTestPlans", () => {
   it.effect("returns plans in project", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const plans = [makePlan(), makePlan({ _id: "plan-2" as Ref<TestPlan>, name: "Plan 2" })]
-      const result = yield* listTestPlans({
-        project: testProjectIdentifier("QA Project")
-      }).pipe(Effect.provide(buildLayer({ plans })))
+      const result = yield* listTestPlans({ project: testProjectIdentifier("QA Project") }).pipe(
+        Effect.provide(buildLayer({ plans }))
+      )
       expect(result.plans).toHaveLength(2)
       expect(assertAt(result.plans, 0).name).toBe("Sprint Plan")
-    }))
+    })
+  )
 })
 
 describe("getTestPlan", () => {
   it.effect("returns plan with items", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const items = [makeItem("i-1", "tc-1"), makeItem("i-2", "tc-2")]
       const result = yield* getTestPlan({
         project: testProjectIdentifier("QA Project"),
@@ -235,36 +234,37 @@ describe("getTestPlan", () => {
       }).pipe(Effect.provide(buildLayer({ plans: [makePlan()], items })))
       expect(result.name).toBe("Sprint Plan")
       expect(result.items).toHaveLength(2)
-    }))
+    })
+  )
 })
 
 describe("createTestPlan", () => {
   it.effect("creates new plan", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cap: MockConfig["captureCreateDoc"] = {}
-      const result = yield* createTestPlan({
-        project: testProjectIdentifier("QA Project"),
-        name: "New Plan"
-      }).pipe(Effect.provide(buildLayer({ captureCreateDoc: cap })))
+      const result = yield* createTestPlan({ project: testProjectIdentifier("QA Project"), name: "New Plan" }).pipe(
+        Effect.provide(buildLayer({ captureCreateDoc: cap }))
+      )
       expect(result.created).toBe(true)
       expect(result.name).toBe("New Plan")
       expect(cap.attributes?.name).toBe("New Plan")
-    }))
+    })
+  )
 
   it.effect("returns existing plan (idempotent)", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cap: MockConfig["captureCreateDoc"] = {}
-      const result = yield* createTestPlan({
-        project: testProjectIdentifier("QA Project"),
-        name: "Sprint Plan"
-      }).pipe(Effect.provide(buildLayer({ plans: [makePlan()], captureCreateDoc: cap })))
+      const result = yield* createTestPlan({ project: testProjectIdentifier("QA Project"), name: "Sprint Plan" }).pipe(
+        Effect.provide(buildLayer({ plans: [makePlan()], captureCreateDoc: cap }))
+      )
       expect(result.created).toBe(false)
       expect(result.id).toBe(PLAN_ID)
       expect(cap.attributes).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("uploads a non-empty description on creation", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cap: MockConfig["captureCreateDoc"] = {}
       const uploadCap: MockConfig["captureUploadMarkup"] = {}
       yield* createTestPlan({
@@ -272,16 +272,13 @@ describe("createTestPlan", () => {
         name: "Documented Plan",
         description: "Plan scope"
       }).pipe(Effect.provide(buildLayer({ captureCreateDoc: cap, captureUploadMarkup: uploadCap })))
-      expect(capturedMarkupChildNodes(uploadCap.markup)).toContainEqual({
-        type: "text",
-        text: "Plan scope",
-        marks: []
-      })
+      expect(capturedMarkupChildNodes(uploadCap.markup)).toContainEqual({ type: "text", text: "Plan scope", marks: [] })
       expect(cap.attributes?.description).toBe("markup-ref")
-    }))
+    })
+  )
 
   it.effect("creates test plan descriptions with native references", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cap: MockConfig["captureCreateDoc"] = {}
       const uploadCap: MockConfig["captureUploadMarkup"] = {}
       yield* createTestPlan({
@@ -293,30 +290,27 @@ describe("createTestPlan", () => {
 
       expect(capturedMarkupReferenceNodes(uploadCap.markup)[0]).toMatchObject({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "HULY-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
       expect(cap.attributes?.description).toBe("markup-ref")
-    }))
+    })
+  )
 })
 
 describe("updateTestPlan", () => {
   it.effect("fails when no update fields are provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const err = yield* Effect.flip(
-        updateTestPlan({
-          project: testProjectIdentifier("QA Project"),
-          plan: testPlanIdentifier("Sprint Plan")
-        }).pipe(Effect.provide(buildLayer({})))
+        updateTestPlan({ project: testProjectIdentifier("QA Project"), plan: testPlanIdentifier("Sprint Plan") }).pipe(
+          Effect.provide(buildLayer({}))
+        )
       )
       expect(err._tag).toBe("NoUpdateFieldsError")
-    }))
+    })
+  )
 
   it.effect("updates name", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cap: MockConfig["captureUpdateDoc"] = {}
       const result = yield* updateTestPlan({
         project: testProjectIdentifier("QA Project"),
@@ -325,10 +319,11 @@ describe("updateTestPlan", () => {
       }).pipe(Effect.provide(buildLayer({ plans: [makePlan()], captureUpdateDoc: cap })))
       expect(result.updated).toBe(true)
       expect(cap.operations?.name).toBe("Updated")
-    }))
+    })
+  )
 
   it.effect("returns not found for missing plan", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const err = yield* Effect.flip(
         updateTestPlan({
           project: testProjectIdentifier("QA Project"),
@@ -338,12 +333,13 @@ describe("updateTestPlan", () => {
       )
       expect(err._tag).toBe("TestPlanNotFoundError")
       expect((err as TestPlanNotFoundError).identifier).toBe("nope")
-    }))
+    })
+  )
 })
 
 describe("deleteTestPlan", () => {
   it.effect("deletes plan", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cap: MockConfig["captureRemoveDoc"] = {}
       const result = yield* deleteTestPlan({
         project: testProjectIdentifier("QA Project"),
@@ -351,23 +347,24 @@ describe("deleteTestPlan", () => {
       }).pipe(Effect.provide(buildLayer({ plans: [makePlan()], captureRemoveDoc: cap })))
       expect(result.deleted).toBe(true)
       expect(cap.called).toBe(true)
-    }))
+    })
+  )
 
   it.effect("returns not found for missing plan", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const err = yield* Effect.flip(
-        deleteTestPlan({
-          project: testProjectIdentifier("QA Project"),
-          plan: testPlanIdentifier("nope")
-        }).pipe(Effect.provide(buildLayer({})))
+        deleteTestPlan({ project: testProjectIdentifier("QA Project"), plan: testPlanIdentifier("nope") }).pipe(
+          Effect.provide(buildLayer({}))
+        )
       )
       expect(err._tag).toBe("TestPlanNotFoundError")
-    }))
+    })
+  )
 })
 
 describe("addTestPlanItem", () => {
   it.effect("adds test case to plan", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cap: MockConfig["captureAddCollection"] = {}
       const tc = makeTestCase("tc-1", "Login Test")
       const result = yield* addTestPlanItem({
@@ -377,12 +374,13 @@ describe("addTestPlanItem", () => {
       }).pipe(Effect.provide(buildLayer({ plans: [makePlan()], testCases: [tc], captureAddCollection: cap })))
       expect(result.added).toBe(true)
       expect(cap.attributes?.testCase).toBe("tc-1")
-    }))
+    })
+  )
 })
 
 describe("removeTestPlanItem", () => {
   it.effect("removes item from plan", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const item = makeItem("i-1", "tc-1")
       const cap: MockConfig["captureRemoveDoc"] = {}
       const result = yield* removeTestPlanItem({
@@ -392,10 +390,11 @@ describe("removeTestPlanItem", () => {
       }).pipe(Effect.provide(buildLayer({ plans: [makePlan()], items: [item], captureRemoveDoc: cap })))
       expect(result.removed).toBe(true)
       expect(cap.called).toBe(true)
-    }))
+    })
+  )
 
   it.effect("returns not found for item in wrong plan", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const item = makeItem("i-1", "tc-1", "other-plan" as Ref<TestPlan>)
       const err = yield* Effect.flip(
         removeTestPlanItem({
@@ -406,17 +405,14 @@ describe("removeTestPlanItem", () => {
       )
       expect(err._tag).toBe("TestPlanItemNotFoundError")
       expect((err as TestPlanItemNotFoundError).plan).toBe(PLAN_ID)
-    }))
+    })
+  )
 })
 
 describe("test-management-plans — optional field branches", () => {
   it.effect("getTestPlan surfaces description and item testSuite/assignee", () =>
-    Effect.gen(function*() {
-      const item = {
-        ...makeItem("item-1", "tc-1"),
-        testSuite: "ts-1",
-        assignee: "person-1"
-      } as unknown as TestPlanItem
+    Effect.gen(function* () {
+      const item = { ...makeItem("item-1", "tc-1"), testSuite: "ts-1", assignee: "person-1" } as unknown as TestPlanItem
       const planWithDesc = makePlan({ description: "blob" as unknown as TestPlan["description"] })
       const result = yield* getTestPlan({
         project: testProjectIdentifier("QA Project"),
@@ -425,19 +421,20 @@ describe("test-management-plans — optional field branches", () => {
       expect(result.description).toBe("fetched description")
       expect(assertAt(result.items, 0).testSuite).toBe("ts-1")
       expect(assertAt(result.items, 0).assignee).toBe("person-1")
-    }))
+    })
+  )
 
   it.effect("createTestPlan returns the existing plan when one already exists", () =>
-    Effect.gen(function*() {
-      const result = yield* createTestPlan({
-        project: testProjectIdentifier("QA Project"),
-        name: "Sprint Plan"
-      }).pipe(Effect.provide(buildLayer({ plans: [makePlan()] })))
+    Effect.gen(function* () {
+      const result = yield* createTestPlan({ project: testProjectIdentifier("QA Project"), name: "Sprint Plan" }).pipe(
+        Effect.provide(buildLayer({ plans: [makePlan()] }))
+      )
       expect(result.created).toBe(false)
-    }))
+    })
+  )
 
   it.effect("updateTestPlan uploads a new description", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cap: MockConfig["captureUpdateDoc"] = {}
       const uploadCap: MockConfig["captureUploadMarkup"] = {}
       yield* updateTestPlan({
@@ -449,10 +446,11 @@ describe("test-management-plans — optional field branches", () => {
       )
       expect(capturedMarkupChildNodes(uploadCap.markup)).toContainEqual({ type: "text", text: "Updated", marks: [] })
       expect(cap.operations?.description).toBe("markup-ref")
-    }))
+    })
+  )
 
   it.effect("updateTestPlan uploads native references", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cap: MockConfig["captureUpdateDoc"] = {}
       const uploadCap: MockConfig["captureUploadMarkup"] = {}
       yield* updateTestPlan({
@@ -466,17 +464,14 @@ describe("test-management-plans — optional field branches", () => {
 
       expect(capturedMarkupReferenceNodes(uploadCap.markup)[0]).toMatchObject({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "HULY-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
       expect(cap.operations?.description).toBe("markup-ref")
-    }))
+    })
+  )
 
   it.effect("updateTestPlan clears the description when set to null", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cap: MockConfig["captureUpdateDoc"] = {}
       yield* updateTestPlan({
         project: testProjectIdentifier("QA Project"),
@@ -484,10 +479,11 @@ describe("test-management-plans — optional field branches", () => {
         description: null
       }).pipe(Effect.provide(buildLayer({ plans: [makePlan()], captureUpdateDoc: cap })))
       expect(cap.operations?.description).toBeNull()
-    }))
+    })
+  )
 
   it.effect("addTestPlanItem threads the case suite and a resolved assignee", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const cap: { attributes?: Record<string, unknown>; id?: string } = {}
       const tcWithSuite = { ...makeTestCase("tc-9", "Case9"), attachedTo: "ts-1" } as unknown as TestCase
       yield* addTestPlanItem({
@@ -495,13 +491,18 @@ describe("test-management-plans — optional field branches", () => {
         plan: testPlanIdentifier("Sprint Plan"),
         testCase: testCaseIdentifier("Case9"),
         assignee: "Alice"
-      }).pipe(Effect.provide(buildLayer({
-        plans: [makePlan()],
-        testCases: [tcWithSuite],
-        persons: [makePerson("person-1", "Alice")],
-        captureAddCollection: cap
-      })))
+      }).pipe(
+        Effect.provide(
+          buildLayer({
+            plans: [makePlan()],
+            testCases: [tcWithSuite],
+            persons: [makePerson("person-1", "Alice")],
+            captureAddCollection: cap
+          })
+        )
+      )
       expect(cap.attributes?.testSuite).toBe("ts-1")
       expect(cap.attributes?.assignee).toBe("person-1")
-    }))
+    })
+  )
 })

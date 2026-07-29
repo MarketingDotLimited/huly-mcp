@@ -151,11 +151,15 @@ const createLayer = (config: {
     return Effect.succeed("schedule-new" as Ref<Doc>)
   }) as HulyClientOperations["createDoc"]
 
-  const updateDoc: HulyClientOperations["updateDoc"] =
-    ((_class: unknown, _space: unknown, _id: unknown, ops: unknown) => {
-      if (config.captureUpdate) config.captureUpdate.operations = ops as Record<string, unknown>
-      return Effect.succeed({})
-    }) as HulyClientOperations["updateDoc"]
+  const updateDoc: HulyClientOperations["updateDoc"] = ((
+    _class: unknown,
+    _space: unknown,
+    _id: unknown,
+    ops: unknown
+  ) => {
+    if (config.captureUpdate) config.captureUpdate.operations = ops as Record<string, unknown>
+    return Effect.succeed({})
+  }) as HulyClientOperations["updateDoc"]
 
   const removeDoc: HulyClientOperations["removeDoc"] = ((_class: unknown, _space: unknown, id: unknown) => {
     if (config.captureRemove) config.captureRemove.id = String(id)
@@ -167,73 +171,83 @@ const createLayer = (config: {
 
 describe("calendar schedules", () => {
   it.effect("lists schedule summaries with owner and calendar", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listSchedules({}).pipe(Effect.provide(createLayer({ schedules: [makeSchedule()] })))
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).scheduleId).toBe("schedule-1")
       expect(assertAt(result, 0).owner.name).toBe("Alice")
       expect(assertAt(result, 0).calendarId).toBe("cal-1")
-    }))
+    })
+  )
 
   it.effect("lists owner-filtered room-aware schedules", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { calendar: _calendar, ...scheduleWithoutCalendar } = makeSchedule()
       const result = yield* listSchedules({ owner: "person-1" }).pipe(
-        Effect.provide(createLayer({
-          schedules: [scheduleWithoutCalendar],
-          meetingSchedules: [makeMeetingSchedule({ calendar: undefined })],
-          rooms: [makeRoom()]
-        }))
+        Effect.provide(
+          createLayer({
+            schedules: [scheduleWithoutCalendar],
+            meetingSchedules: [makeMeetingSchedule({ calendar: undefined })],
+            rooms: [makeRoom()]
+          })
+        )
       )
 
       expect(assertAt(result, 0).owner.name).toBe("Alice")
       expect(assertAt(result, 0).calendarId).toBeUndefined()
       expect(assertAt(result, 0).meetingRoom).toEqual({ roomId: "room-1", name: "Focus" })
-    }))
+    })
+  )
 
   it.effect("lists no schedules without querying room details", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listSchedules({}).pipe(Effect.provide(createLayer({ schedules: [] })))
 
       expect(result).toEqual([])
-    }))
+    })
+  )
 
   it.effect("lists schedules without meeting schedule room mixins", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listSchedules({}).pipe(
         Effect.provide(createLayer({ schedules: [makeSchedule()], meetingSchedules: [] }))
       )
 
       expect(assertAt(result, 0).meetingRoom).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("keeps missing room names absent in room-aware schedules", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { calendar: _calendar, ...scheduleWithoutCalendar } = makeSchedule()
       const result = yield* listSchedules({ owner: "person-1" }).pipe(
-        Effect.provide(createLayer({
-          schedules: [scheduleWithoutCalendar],
-          meetingSchedules: [makeMeetingSchedule({ calendar: undefined })],
-          rooms: []
-        }))
+        Effect.provide(
+          createLayer({
+            schedules: [scheduleWithoutCalendar],
+            meetingSchedules: [makeMeetingSchedule({ calendar: undefined })],
+            rooms: []
+          })
+        )
       )
 
       expect(assertAt(result, 0).meetingRoom).toEqual({ roomId: "room-1", name: undefined })
-    }))
+    })
+  )
 
   it.effect("falls back to owner id when participant hydration misses", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listSchedules({}).pipe(
         Effect.provide(createLayer({ schedules: [makeSchedule()], persons: [] }))
       )
 
       expect(assertAt(result, 0).owner.id).toBe("person-1")
       expect(assertAt(result, 0).owner.name).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("gets schedule details with availability", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* getSchedule({ scheduleId: scheduleId("schedule-1") }).pipe(
         Effect.provide(createLayer({ schedules: [makeSchedule()] }))
       )
@@ -242,10 +256,11 @@ describe("calendar schedules", () => {
       const mondayAvailability = result.availability["monday"]
       expect(mondayAvailability).toBeDefined()
       expect(mondayAvailability?.[0]?.start).toBe(540)
-    }))
+    })
+  )
 
   it.effect("rejects invalid Huly schedule availability on read", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const invalidSchedule = makeSchedule({
         availability: { 7: [{ start: 600, end: 600 }] } as HulySchedule["availability"]
       })
@@ -256,14 +271,13 @@ describe("calendar schedules", () => {
       )
 
       expect(error._tag).toBe("HulyConnectionError")
-    }))
+    })
+  )
 
   it.effect("rejects malformed Huly schedule availability slot containers on read", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const malformedAvailability: unknown = { 1: null }
-      const invalidSchedule = makeSchedule({
-        availability: malformedAvailability as HulySchedule["availability"]
-      })
+      const invalidSchedule = makeSchedule({ availability: malformedAvailability as HulySchedule["availability"] })
       const error = yield* Effect.flip(
         getSchedule({ scheduleId: scheduleId("schedule-1") }).pipe(
           Effect.provide(createLayer({ schedules: [invalidSchedule] }))
@@ -271,33 +285,32 @@ describe("calendar schedules", () => {
       )
 
       expect(error._tag).toBe("HulyConnectionError")
-    }))
+    })
+  )
 
   it.effect("hides Huly's empty-string schedule description clear sentinel on read", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* getSchedule({ scheduleId: scheduleId("schedule-1") }).pipe(
-        Effect.provide(createLayer({
-          schedules: [makeSchedule({ description: "" })]
-        }))
+        Effect.provide(createLayer({ schedules: [makeSchedule({ description: "" })] }))
       )
 
       expect(result.description).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("omits optional schedule timestamps when Huly leaves them unset", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* getSchedule({ scheduleId: scheduleId("schedule-1") }).pipe(
-        Effect.provide(createLayer({
-          schedules: [makeSchedule({ createdOn: undefined, modifiedOn: undefined })]
-        }))
+        Effect.provide(createLayer({ schedules: [makeSchedule({ createdOn: undefined, modifiedOn: undefined })] }))
       )
 
       expect(result.createdOn).toBeUndefined()
       expect(result.modifiedOn).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("fails when schedule is missing", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const getError = yield* Effect.flip(
         getSchedule({ scheduleId: scheduleId("missing") }).pipe(Effect.provide(createLayer({ schedules: [] })))
       )
@@ -313,10 +326,11 @@ describe("calendar schedules", () => {
       expect(getError._tag).toBe("ScheduleNotFoundError")
       expect(updateError._tag).toBe("ScheduleNotFoundError")
       expect(deleteError._tag).toBe("ScheduleNotFoundError")
-    }))
+    })
+  )
 
   it.effect("creates schedule with owner default and calendar name", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureCreate: { attributes?: Data<HulySchedule> } = {}
       const result = yield* createSchedule({
         title: scheduleTitle("Consulting"),
@@ -331,10 +345,11 @@ describe("calendar schedules", () => {
       expect(captureCreate.attributes?.calendar).toBe("cal-1")
       const createdAvailability = assertExists(assertExists(captureCreate.attributes).availability)
       expect(assertAt(assertExists(createdAvailability[2]), 0).end).toBe(900)
-    }))
+    })
+  )
 
   it.effect("creates schedule with description and no calendar target", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureCreate: { attributes?: Data<HulySchedule> } = {}
       yield* createSchedule({
         title: scheduleTitle("No calendar"),
@@ -349,10 +364,11 @@ describe("calendar schedules", () => {
       expect(captureCreate.attributes?.calendar).toBeUndefined()
       const createdAvailability = assertExists(assertExists(captureCreate.attributes).availability)
       expect(assertExists(createdAvailability[5])).toEqual([])
-    }))
+    })
+  )
 
   it.effect("updates schedule calendar target and clears description", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureUpdate: { operations?: Record<string, unknown> } = {}
       yield* updateSchedule({
         scheduleId: scheduleId("schedule-1"),
@@ -361,21 +377,22 @@ describe("calendar schedules", () => {
       }).pipe(Effect.provide(createLayer({ schedules: [makeSchedule()], captureUpdate })))
 
       expect(captureUpdate.operations).toEqual({ description: "", calendar: "cal-1" })
-    }))
+    })
+  )
 
   it.effect("updates only the schedule title", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureUpdate: { operations?: Record<string, unknown> } = {}
-      yield* updateSchedule({
-        scheduleId: scheduleId("schedule-1"),
-        title: scheduleTitle("Focused")
-      }).pipe(Effect.provide(createLayer({ schedules: [makeSchedule()], captureUpdate })))
+      yield* updateSchedule({ scheduleId: scheduleId("schedule-1"), title: scheduleTitle("Focused") }).pipe(
+        Effect.provide(createLayer({ schedules: [makeSchedule()], captureUpdate }))
+      )
 
       expect(captureUpdate.operations).toEqual({ title: "Focused" })
-    }))
+    })
+  )
 
   it.effect("updates every writable schedule field", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureUpdate: { operations?: Record<string, unknown> } = {}
       yield* updateSchedule({
         scheduleId: scheduleId("schedule-1"),
@@ -399,22 +416,23 @@ describe("calendar schedules", () => {
         timeZone: "Europe/London",
         calendar: "cal-1"
       })
-    }))
+    })
+  )
 
   it.effect("fails when schedule calendar name is not accessible", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
-        updateSchedule({
-          scheduleId: scheduleId("schedule-1"),
-          calendarName: CalendarName.make("Missing")
-        }).pipe(Effect.provide(createLayer({ schedules: [makeSchedule()] })))
+        updateSchedule({ scheduleId: scheduleId("schedule-1"), calendarName: CalendarName.make("Missing") }).pipe(
+          Effect.provide(createLayer({ schedules: [makeSchedule()] }))
+        )
       )
 
       expect(error._tag).toBe("CalendarNotAccessibleError")
-    }))
+    })
+  )
 
   it.effect("deletes schedule by id", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureRemove: { id?: string } = {}
       const result = yield* deleteSchedule({ scheduleId: scheduleId("schedule-1") }).pipe(
         Effect.provide(createLayer({ schedules: [makeSchedule()], captureRemove }))
@@ -422,5 +440,6 @@ describe("calendar schedules", () => {
 
       expect(result.deleted).toBe(true)
       expect(captureRemove.id).toBe("schedule-1")
-    }))
+    })
+  )
 })

@@ -22,16 +22,7 @@ const warningOutputSchema = {
     "Optional agent-visible warnings about degraded result fidelity or important operational conditions. Omitted when there is nothing the agent needs to surface.",
   items: {
     type: "object",
-    properties: {
-      code: {
-        type: "string",
-        enum: toolWarningCodeEnum
-      },
-      message: {
-        type: "string",
-        minLength: 1
-      }
-    },
+    properties: { code: { type: "string", enum: toolWarningCodeEnum }, message: { type: "string", minLength: 1 } },
     required: ["code", "message"],
     additionalProperties: false
   }
@@ -45,10 +36,7 @@ const wrapResultOutputSchema = (resultSchema: JsonSchemaDocument): McpOutputSche
     $schema: resultSchema.$schema,
     ...(resultDefs === undefined ? {} : { $defs: resultDefs }),
     type: "object",
-    properties: {
-      result: embeddedResultSchema,
-      warnings: warningOutputSchema
-    },
+    properties: { result: embeddedResultSchema, warnings: warningOutputSchema },
     required: ["result"]
   }
 }

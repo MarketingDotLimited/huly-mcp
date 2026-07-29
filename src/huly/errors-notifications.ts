@@ -15,9 +15,7 @@ const RawErrorIdentifier = Schema.String
  */
 export class NotificationNotFoundError extends Schema.TaggedError<NotificationNotFoundError>()(
   "NotificationNotFoundError",
-  {
-    notificationId: RawErrorIdentifier
-  }
+  { notificationId: RawErrorIdentifier }
 ) {
   override get message(): string {
     return `Notification '${this.notificationId}' not found`
@@ -29,9 +27,7 @@ export class NotificationNotFoundError extends Schema.TaggedError<NotificationNo
  */
 export class NotificationContextNotFoundError extends Schema.TaggedError<NotificationContextNotFoundError>()(
   "NotificationContextNotFoundError",
-  {
-    contextId: RawErrorIdentifier
-  }
+  { contextId: RawErrorIdentifier }
 ) {
   override get message(): string {
     return `Notification context '${this.contextId}' not found`
@@ -40,9 +36,7 @@ export class NotificationContextNotFoundError extends Schema.TaggedError<Notific
 
 export class NotificationPersonSpaceNotFoundError extends Schema.TaggedError<NotificationPersonSpaceNotFoundError>()(
   "NotificationPersonSpaceNotFoundError",
-  {
-    user: RawErrorIdentifier
-  }
+  { user: RawErrorIdentifier }
 ) {
   override get message(): string {
     return `Notification person space for authenticated user '${this.user}' not found`
@@ -51,9 +45,7 @@ export class NotificationPersonSpaceNotFoundError extends Schema.TaggedError<Not
 
 export class NotificationTypeNotFoundError extends Schema.TaggedError<NotificationTypeNotFoundError>()(
   "NotificationTypeNotFoundError",
-  {
-    typeId: RawErrorIdentifier
-  }
+  { typeId: RawErrorIdentifier }
 ) {
   override get message(): string {
     return `Notification type '${this.typeId}' not found`
@@ -62,24 +54,17 @@ export class NotificationTypeNotFoundError extends Schema.TaggedError<Notificati
 
 export class NotificationProviderNotFoundError extends Schema.TaggedError<NotificationProviderNotFoundError>()(
   "NotificationProviderNotFoundError",
-  {
-    providerId: RawErrorIdentifier
-  }
+  { providerId: RawErrorIdentifier }
 ) {
   override get message(): string {
     return `Notification provider '${this.providerId}' not found`
   }
 }
 
-export class NotificationProviderNotConfigurableError
-  extends Schema.TaggedError<NotificationProviderNotConfigurableError>()(
-    "NotificationProviderNotConfigurableError",
-    {
-      providerId: RawErrorIdentifier,
-      typeId: RawErrorIdentifier
-    }
-  )
-{
+export class NotificationProviderNotConfigurableError extends Schema.TaggedError<NotificationProviderNotConfigurableError>()(
+  "NotificationProviderNotConfigurableError",
+  { providerId: RawErrorIdentifier, typeId: RawErrorIdentifier }
+) {
   override get message(): string {
     return `Notification type '${this.typeId}' is not configurable for provider '${this.providerId}' in this workspace`
   }

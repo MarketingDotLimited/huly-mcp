@@ -19,11 +19,7 @@ import {
   withAtLeastOneRequired
 } from "./shared.js"
 
-const InventoryObjectIdSchema = Schema.Union(
-  InventoryCategoryId,
-  InventoryProductId,
-  InventoryVariantId
-)
+const InventoryObjectIdSchema = Schema.Union(InventoryCategoryId, InventoryProductId, InventoryVariantId)
 
 const InventoryCategorySummarySchema = Schema.Struct({
   id: InventoryCategoryId,
@@ -110,20 +106,19 @@ export const InventoryDeletedResultSchema = Schema.Struct({
 export type InventoryDeletedResult = Schema.Schema.Type<typeof InventoryDeletedResultSchema>
 
 const ListInventoryCategoriesParamsSchema = Schema.Struct({
-  query: Schema.optional(NonEmptyString.annotations({
-    description: "Case-insensitive substring filter for category names."
-  })),
-  parentCategory: Schema.optional(InventoryCategoryIdentifier.annotations({
-    description:
-      "Optional parent category scope. Use a category ID, exact category name, 'root', or 'inventory:global:Category'. Omit to search all categories."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of categories to return (default: ${DEFAULT_LIMIT}).`
-  }))
-}).annotations({
-  title: "ListInventoryCategoriesParams",
-  description: "Parameters for listing inventory categories."
-})
+  query: Schema.optional(
+    NonEmptyString.annotations({ description: "Case-insensitive substring filter for category names." })
+  ),
+  parentCategory: Schema.optional(
+    InventoryCategoryIdentifier.annotations({
+      description:
+        "Optional parent category scope. Use a category ID, exact category name, 'root', or 'inventory:global:Category'. Omit to search all categories."
+    })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of categories to return (default: ${DEFAULT_LIMIT}).` })
+  )
+}).annotations({ title: "ListInventoryCategoriesParams", description: "Parameters for listing inventory categories." })
 
 export type ListInventoryCategoriesParams = Schema.Schema.Type<typeof ListInventoryCategoriesParamsSchema>
 
@@ -132,21 +127,20 @@ const GetInventoryCategoryParamsSchema = Schema.Struct({
     description:
       "Category ID or exact category name. Name lookup must be unambiguous; pass parentCategory when duplicate names may exist."
   }),
-  parentCategory: Schema.optional(InventoryCategoryIdentifier.annotations({
-    description: "Optional exact parent scope for category name lookup."
-  }))
-}).annotations({
-  title: "GetInventoryCategoryParams",
-  description: "Parameters for getting one inventory category."
-})
+  parentCategory: Schema.optional(
+    InventoryCategoryIdentifier.annotations({ description: "Optional exact parent scope for category name lookup." })
+  )
+}).annotations({ title: "GetInventoryCategoryParams", description: "Parameters for getting one inventory category." })
 
 export type GetInventoryCategoryParams = Schema.Schema.Type<typeof GetInventoryCategoryParamsSchema>
 
 const CreateInventoryCategoryParamsSchema = Schema.Struct({
   name: NonEmptyString.annotations({ description: "New category name." }),
-  parentCategory: Schema.optional(InventoryCategoryIdentifier.annotations({
-    description: "Parent category ID or exact name. Defaults to the Inventory root category."
-  }))
+  parentCategory: Schema.optional(
+    InventoryCategoryIdentifier.annotations({
+      description: "Parent category ID or exact name. Defaults to the Inventory root category."
+    })
+  )
 }).annotations({
   title: "CreateInventoryCategoryParams",
   description: "Parameters for creating an inventory category."
@@ -161,31 +155,32 @@ const UpdateInventoryCategoryParamsSchema = Schema.Struct({
     description:
       "Category ID or exact name to update. Name lookup must be unambiguous; pass parentCategory when needed."
   }),
-  parentCategory: Schema.optional(InventoryCategoryIdentifier.annotations({
-    description: "Optional current parent scope for category name lookup."
-  })),
+  parentCategory: Schema.optional(
+    InventoryCategoryIdentifier.annotations({ description: "Optional current parent scope for category name lookup." })
+  ),
   name: Schema.optional(NonEmptyString.annotations({ description: "New category name." })),
-  newParentCategory: Schema.optional(InventoryCategoryIdentifier.annotations({
-    description: "New parent category ID or exact name; use 'root' to move to the Inventory root."
-  }))
-}).pipe(
-  Schema.filter((params) =>
-    hasAtLeastOneDefined(params, UPDATE_INVENTORY_CATEGORY_FIELDS)
-      ? undefined
-      : atLeastOneUpdateFieldMessage(UPDATE_INVENTORY_CATEGORY_FIELDS)
+  newParentCategory: Schema.optional(
+    InventoryCategoryIdentifier.annotations({
+      description: "New parent category ID or exact name; use 'root' to move to the Inventory root."
+    })
   )
-).annotations({
-  title: "UpdateInventoryCategoryParams",
-  description: `Parameters for updating an inventory category. ${
-    atLeastOneUpdateFieldMessage(UPDATE_INVENTORY_CATEGORY_FIELDS)
-  }`
 })
+  .pipe(
+    Schema.filter((params) =>
+      hasAtLeastOneDefined(params, UPDATE_INVENTORY_CATEGORY_FIELDS)
+        ? undefined
+        : atLeastOneUpdateFieldMessage(UPDATE_INVENTORY_CATEGORY_FIELDS)
+    )
+  )
+  .annotations({
+    title: "UpdateInventoryCategoryParams",
+    description: `Parameters for updating an inventory category. ${atLeastOneUpdateFieldMessage(
+      UPDATE_INVENTORY_CATEGORY_FIELDS
+    )}`
+  })
 
 export type UpdateInventoryCategoryParams = Schema.Schema.Type<typeof UpdateInventoryCategoryParamsSchema>
-assertUpdateFields<UpdateInventoryCategoryParams>()(
-  ["category", "parentCategory"],
-  UPDATE_INVENTORY_CATEGORY_FIELDS
-)
+assertUpdateFields<UpdateInventoryCategoryParams>()(["category", "parentCategory"], UPDATE_INVENTORY_CATEGORY_FIELDS)
 
 const DeleteInventoryCategoryParamsSchema = GetInventoryCategoryParamsSchema.annotations({
   title: "DeleteInventoryCategoryParams",
@@ -195,19 +190,16 @@ const DeleteInventoryCategoryParamsSchema = GetInventoryCategoryParamsSchema.ann
 export type DeleteInventoryCategoryParams = Schema.Schema.Type<typeof DeleteInventoryCategoryParamsSchema>
 
 const ListInventoryProductsParamsSchema = Schema.Struct({
-  query: Schema.optional(NonEmptyString.annotations({
-    description: "Case-insensitive substring filter for product names."
-  })),
-  category: Schema.optional(InventoryCategoryIdentifier.annotations({
-    description: "Optional category scope by ID or exact category name."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of products to return (default: ${DEFAULT_LIMIT}).`
-  }))
-}).annotations({
-  title: "ListInventoryProductsParams",
-  description: "Parameters for listing inventory products."
-})
+  query: Schema.optional(
+    NonEmptyString.annotations({ description: "Case-insensitive substring filter for product names." })
+  ),
+  category: Schema.optional(
+    InventoryCategoryIdentifier.annotations({ description: "Optional category scope by ID or exact category name." })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of products to return (default: ${DEFAULT_LIMIT}).` })
+  )
+}).annotations({ title: "ListInventoryProductsParams", description: "Parameters for listing inventory products." })
 
 export type ListInventoryProductsParams = Schema.Schema.Type<typeof ListInventoryProductsParamsSchema>
 
@@ -215,13 +207,10 @@ const GetInventoryProductParamsSchema = Schema.Struct({
   product: InventoryProductIdentifier.annotations({
     description: "Product ID or exact product name. Name lookup must be unambiguous; pass category when needed."
   }),
-  category: Schema.optional(InventoryCategoryIdentifier.annotations({
-    description: "Optional exact category scope for product name lookup."
-  }))
-}).annotations({
-  title: "GetInventoryProductParams",
-  description: "Parameters for getting one inventory product."
-})
+  category: Schema.optional(
+    InventoryCategoryIdentifier.annotations({ description: "Optional exact category scope for product name lookup." })
+  )
+}).annotations({ title: "GetInventoryProductParams", description: "Parameters for getting one inventory product." })
 
 export type GetInventoryProductParams = Schema.Schema.Type<typeof GetInventoryProductParamsSchema>
 
@@ -230,10 +219,7 @@ const CreateInventoryProductParamsSchema = Schema.Struct({
   category: InventoryCategoryIdentifier.annotations({
     description: "Category ID or exact category name where the product will be created."
   })
-}).annotations({
-  title: "CreateInventoryProductParams",
-  description: "Parameters for creating an inventory product."
-})
+}).annotations({ title: "CreateInventoryProductParams", description: "Parameters for creating an inventory product." })
 
 export type CreateInventoryProductParams = Schema.Schema.Type<typeof CreateInventoryProductParamsSchema>
 
@@ -244,25 +230,27 @@ const UpdateInventoryProductParamsSchema = Schema.Struct({
     description:
       "Product ID or exact product name to update. Name lookup must be unambiguous; pass category when needed."
   }),
-  category: Schema.optional(InventoryCategoryIdentifier.annotations({
-    description: "Optional current category scope for product name lookup."
-  })),
+  category: Schema.optional(
+    InventoryCategoryIdentifier.annotations({ description: "Optional current category scope for product name lookup." })
+  ),
   name: Schema.optional(NonEmptyString.annotations({ description: "New product name." })),
-  newCategory: Schema.optional(InventoryCategoryIdentifier.annotations({
-    description: "New category ID or exact category name."
-  }))
-}).pipe(
-  Schema.filter((params) =>
-    hasAtLeastOneDefined(params, UPDATE_INVENTORY_PRODUCT_FIELDS)
-      ? undefined
-      : atLeastOneUpdateFieldMessage(UPDATE_INVENTORY_PRODUCT_FIELDS)
+  newCategory: Schema.optional(
+    InventoryCategoryIdentifier.annotations({ description: "New category ID or exact category name." })
   )
-).annotations({
-  title: "UpdateInventoryProductParams",
-  description: `Parameters for updating an inventory product. ${
-    atLeastOneUpdateFieldMessage(UPDATE_INVENTORY_PRODUCT_FIELDS)
-  }`
 })
+  .pipe(
+    Schema.filter((params) =>
+      hasAtLeastOneDefined(params, UPDATE_INVENTORY_PRODUCT_FIELDS)
+        ? undefined
+        : atLeastOneUpdateFieldMessage(UPDATE_INVENTORY_PRODUCT_FIELDS)
+    )
+  )
+  .annotations({
+    title: "UpdateInventoryProductParams",
+    description: `Parameters for updating an inventory product. ${atLeastOneUpdateFieldMessage(
+      UPDATE_INVENTORY_PRODUCT_FIELDS
+    )}`
+  })
 
 export type UpdateInventoryProductParams = Schema.Schema.Type<typeof UpdateInventoryProductParamsSchema>
 assertUpdateFields<UpdateInventoryProductParams>()(["product", "category"], UPDATE_INVENTORY_PRODUCT_FIELDS)
@@ -275,22 +263,19 @@ const DeleteInventoryProductParamsSchema = GetInventoryProductParamsSchema.annot
 export type DeleteInventoryProductParams = Schema.Schema.Type<typeof DeleteInventoryProductParamsSchema>
 
 const ListInventoryVariantsParamsSchema = Schema.Struct({
-  query: Schema.optional(NonEmptyString.annotations({
-    description: "Case-insensitive substring filter for variant names or SKUs."
-  })),
-  product: Schema.optional(InventoryProductIdentifier.annotations({
-    description: "Optional product scope by ID or exact product name."
-  })),
-  category: Schema.optional(InventoryCategoryIdentifier.annotations({
-    description: "Optional category scope used to resolve product names."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of variants to return (default: ${DEFAULT_LIMIT}).`
-  }))
-}).annotations({
-  title: "ListInventoryVariantsParams",
-  description: "Parameters for listing inventory variants/SKUs."
-})
+  query: Schema.optional(
+    NonEmptyString.annotations({ description: "Case-insensitive substring filter for variant names or SKUs." })
+  ),
+  product: Schema.optional(
+    InventoryProductIdentifier.annotations({ description: "Optional product scope by ID or exact product name." })
+  ),
+  category: Schema.optional(
+    InventoryCategoryIdentifier.annotations({ description: "Optional category scope used to resolve product names." })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of variants to return (default: ${DEFAULT_LIMIT}).` })
+  )
+}).annotations({ title: "ListInventoryVariantsParams", description: "Parameters for listing inventory variants/SKUs." })
 
 export type ListInventoryVariantsParams = Schema.Schema.Type<typeof ListInventoryVariantsParamsSchema>
 
@@ -299,16 +284,13 @@ const GetInventoryVariantParamsSchema = Schema.Struct({
     description:
       "Variant ID, exact variant name, or exact SKU. Name/SKU lookup must be unambiguous; pass product when needed."
   }),
-  product: Schema.optional(InventoryProductIdentifier.annotations({
-    description: "Optional exact product scope for variant name/SKU lookup."
-  })),
-  category: Schema.optional(InventoryCategoryIdentifier.annotations({
-    description: "Optional category scope used to resolve product names."
-  }))
-}).annotations({
-  title: "GetInventoryVariantParams",
-  description: "Parameters for getting one inventory variant/SKU."
-})
+  product: Schema.optional(
+    InventoryProductIdentifier.annotations({ description: "Optional exact product scope for variant name/SKU lookup." })
+  ),
+  category: Schema.optional(
+    InventoryCategoryIdentifier.annotations({ description: "Optional category scope used to resolve product names." })
+  )
+}).annotations({ title: "GetInventoryVariantParams", description: "Parameters for getting one inventory variant/SKU." })
 
 export type GetInventoryVariantParams = Schema.Schema.Type<typeof GetInventoryVariantParamsSchema>
 
@@ -316,9 +298,9 @@ const CreateInventoryVariantParamsSchema = Schema.Struct({
   product: InventoryProductIdentifier.annotations({
     description: "Product ID or exact product name where the variant will be created."
   }),
-  category: Schema.optional(InventoryCategoryIdentifier.annotations({
-    description: "Optional category scope used to resolve product names."
-  })),
+  category: Schema.optional(
+    InventoryCategoryIdentifier.annotations({ description: "Optional category scope used to resolve product names." })
+  ),
   name: NonEmptyString.annotations({ description: "New variant name." }),
   sku: NonEmptyString.annotations({ description: "New exact SKU." })
 }).annotations({
@@ -334,32 +316,31 @@ const UpdateInventoryVariantParamsSchema = Schema.Struct({
   variant: InventoryVariantIdentifier.annotations({
     description: "Variant ID, exact variant name, or exact SKU to update. Pass product when needed."
   }),
-  product: Schema.optional(InventoryProductIdentifier.annotations({
-    description: "Optional exact product scope for variant name/SKU lookup."
-  })),
-  category: Schema.optional(InventoryCategoryIdentifier.annotations({
-    description: "Optional category scope used to resolve product names."
-  })),
+  product: Schema.optional(
+    InventoryProductIdentifier.annotations({ description: "Optional exact product scope for variant name/SKU lookup." })
+  ),
+  category: Schema.optional(
+    InventoryCategoryIdentifier.annotations({ description: "Optional category scope used to resolve product names." })
+  ),
   name: Schema.optional(NonEmptyString.annotations({ description: "New variant name." })),
   sku: Schema.optional(NonEmptyString.annotations({ description: "New SKU." }))
-}).pipe(
-  Schema.filter((params) =>
-    hasAtLeastOneDefined(params, UPDATE_INVENTORY_VARIANT_FIELDS)
-      ? undefined
-      : atLeastOneUpdateFieldMessage(UPDATE_INVENTORY_VARIANT_FIELDS)
-  )
-).annotations({
-  title: "UpdateInventoryVariantParams",
-  description: `Parameters for updating an inventory variant/SKU. ${
-    atLeastOneUpdateFieldMessage(UPDATE_INVENTORY_VARIANT_FIELDS)
-  }`
 })
+  .pipe(
+    Schema.filter((params) =>
+      hasAtLeastOneDefined(params, UPDATE_INVENTORY_VARIANT_FIELDS)
+        ? undefined
+        : atLeastOneUpdateFieldMessage(UPDATE_INVENTORY_VARIANT_FIELDS)
+    )
+  )
+  .annotations({
+    title: "UpdateInventoryVariantParams",
+    description: `Parameters for updating an inventory variant/SKU. ${atLeastOneUpdateFieldMessage(
+      UPDATE_INVENTORY_VARIANT_FIELDS
+    )}`
+  })
 
 export type UpdateInventoryVariantParams = Schema.Schema.Type<typeof UpdateInventoryVariantParamsSchema>
-assertUpdateFields<UpdateInventoryVariantParams>()(
-  ["variant", "product", "category"],
-  UPDATE_INVENTORY_VARIANT_FIELDS
-)
+assertUpdateFields<UpdateInventoryVariantParams>()(["variant", "product", "category"], UPDATE_INVENTORY_VARIANT_FIELDS)
 
 const DeleteInventoryVariantParamsSchema = GetInventoryVariantParamsSchema.annotations({
   title: "DeleteInventoryVariantParams",

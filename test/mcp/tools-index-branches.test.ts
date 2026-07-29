@@ -38,17 +38,12 @@ const noopStorageClient: HulyStorageOperations = {
 
 describe("handleToolCall - known tool execution (line 71)", () => {
   it.effect("returns a response when tool is found in registry", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       // Pick a tool that we know exists - list_projects is simple and just needs findAll
       const firstTool = assertAt(toolRegistry.definitions, 0)
 
       const result = yield* Effect.promise(() =>
-        toolRegistry.handleToolCall(
-          firstTool.name,
-          {},
-          noopHulyClient,
-          noopStorageClient
-        )
+        toolRegistry.handleToolCall(firstTool.name, {}, noopHulyClient, noopStorageClient)
       )
 
       // When a known tool is called, it returns an MCP response (not null)
@@ -59,5 +54,6 @@ describe("handleToolCall - known tool execution (line 71)", () => {
       expect(result!.content.length).toBeGreaterThan(0)
       expect(assertAt(result!.content, 0).type).toBe("text")
       expect(typeof assertAt(result!.content, 0).text).toBe("string")
-    }))
+    })
+  )
 })

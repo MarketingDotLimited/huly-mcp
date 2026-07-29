@@ -30,12 +30,7 @@ describe("Count schemas", () => {
   })
 
   it("validates organization member counts", () => {
-    const organization = {
-      id: "org-1",
-      name: "Acme",
-      members: 0,
-      url: "https://example.com"
-    }
+    const organization = { id: "org-1", name: "Acme", members: 0, url: "https://example.com" }
 
     expect(Schema.decodeUnknownSync(OrganizationSummarySchema)(organization).members).toBe(0)
     expect(() => Schema.decodeUnknownSync(OrganizationSummarySchema)({ ...organization, members: -1 })).toThrow()

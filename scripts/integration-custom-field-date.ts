@@ -10,19 +10,10 @@ import { hulyQuery } from "../src/huly/operations/query-helpers.js"
 import { toRef } from "../src/huly/operations/sdk-boundary.js"
 import { connectIntegrationHuly } from "./integration-huly-client.js"
 
-const CommonCliFields = {
-  issueId: DocId
-}
+const CommonCliFields = { issueId: DocId }
 const CliArgsSchema = Schema.Union(
-  Schema.Struct({
-    ...CommonCliFields,
-    mode: Schema.Literal("setup")
-  }),
-  Schema.Struct({
-    ...CommonCliFields,
-    mode: Schema.Literal("read"),
-    fieldName: Schema.String
-  }),
+  Schema.Struct({ ...CommonCliFields, mode: Schema.Literal("setup") }),
+  Schema.Struct({ ...CommonCliFields, mode: Schema.Literal("read"), fieldName: Schema.String }),
   Schema.Struct({
     ...CommonCliFields,
     mode: Schema.Literal("cleanup"),
@@ -30,16 +21,9 @@ const CliArgsSchema = Schema.Union(
     fieldName: Schema.String
   })
 )
-const SetupResultSchema = Schema.Struct({
-  fieldId: CustomFieldId,
-  fieldName: Schema.String
-})
-const ReadResultSchema = Schema.Struct({
-  value: Schema.NullOr(CustomFieldDateTimestamp)
-})
-const CleanupResultSchema = Schema.Struct({
-  cleaned: Schema.Literal(true)
-})
+const SetupResultSchema = Schema.Struct({ fieldId: CustomFieldId, fieldName: Schema.String })
+const ReadResultSchema = Schema.Struct({ value: Schema.NullOr(CustomFieldDateTimestamp) })
+const CleanupResultSchema = Schema.Struct({ cleaned: Schema.Literal(true) })
 const DynamicDocumentSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
 
 type CliArgs = Schema.Schema.Type<typeof CliArgsSchema>
@@ -60,17 +44,12 @@ const parseCliArgs = (): CliArgs =>
   )
 
 const requireIssue = async (client: TxOperations, issueId: DocId): Promise<Doc> => {
-  const issue = await client.findOne<Doc>(
-    tracker.class.Issue,
-    hulyQuery<Doc>({ _id: toRef<Doc>(issueId) })
-  )
+  const issue = await client.findOne<Doc>(tracker.class.Issue, hulyQuery<Doc>({ _id: toRef<Doc>(issueId) }))
   if (issue === undefined) throw new Error(`Integration issue '${issueId}' not found.`)
   return issue
 }
 
-const setup = async (
-  client: TxOperations
-): Promise<Schema.Schema.Type<typeof SetupResultSchema>> => {
+const setup = async (client: TxOperations): Promise<Schema.Schema.Type<typeof SetupResultSchema>> => {
   const fieldId = CustomFieldId.make(randomUUID())
   const fieldRef = toRef<Attribute<number>>(fieldId)
   const fieldName = `issue172Date${fieldRef}`
@@ -81,11 +60,7 @@ const setup = async (
       attributeOf: tracker.class.Issue,
       name: fieldName,
       label: core.string.Date,
-      type: {
-        _class: core.class.TypeDate,
-        label: core.string.Date,
-        icon: core.icon.TypeDate
-      },
+      type: { _class: core.class.TypeDate, label: core.string.Date, icon: core.icon.TypeDate },
       isCustom: true
     },
     fieldRef
@@ -101,9 +76,7 @@ const read = async (
   const issue = await requireIssue(client, issueId)
   const values = Schema.decodeUnknownSync(DynamicDocumentSchema)(issue)
   const value = values[fieldName]
-  return {
-    value: value === undefined ? null : Schema.decodeUnknownSync(CustomFieldDateTimestamp)(value)
-  }
+  return { value: value === undefined ? null : Schema.decodeUnknownSync(CustomFieldDateTimestamp)(value) }
 }
 
 const cleanup = async (
@@ -113,17 +86,8 @@ const cleanup = async (
   fieldName: string
 ): Promise<Schema.Schema.Type<typeof CleanupResultSchema>> => {
   const issue = await requireIssue(client, issueId)
-  await client.updateDoc<Doc>(
-    tracker.class.Issue,
-    issue.space,
-    issue._id,
-    { $unset: { [fieldName]: true } }
-  )
-  await client.removeDoc<AnyAttribute>(
-    core.class.Attribute,
-    core.space.Model,
-    toRef<AnyAttribute>(fieldId)
-  )
+  await client.updateDoc<Doc>(tracker.class.Issue, issue.space, issue._id, { $unset: { [fieldName]: true } })
+  await client.removeDoc<AnyAttribute>(core.class.Attribute, core.space.Model, toRef<AnyAttribute>(fieldId))
   return { cleaned: true }
 }
 

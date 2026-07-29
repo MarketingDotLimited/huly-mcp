@@ -204,14 +204,11 @@ describe("createMcpProtocolHandlers", () => {
         expect(tool.inputSchema.type).toBe("object")
         expect(tool.outputSchema?.type).toBe("object")
       }
-      const contextTool = result.tools.find(tool => tool.name === GET_HULY_CONTEXT_TOOL_NAME)
+      const contextTool = result.tools.find((tool) => tool.name === GET_HULY_CONTEXT_TOOL_NAME)
       expect(contextTool?.outputSchema).toHaveProperty(["$defs", "NonEmptyTrimmedString"])
       expect(contextTool?.outputSchema?.properties?.result).not.toHaveProperty("$defs")
       expect(probe.firstListTools).toHaveLength(1)
-      expect(assertAt(probe.firstListTools, 0)).toMatchObject({
-        clientKind: "unknown",
-        resolvedMode: "native"
-      })
+      expect(assertAt(probe.firstListTools, 0)).toMatchObject({ clientKind: "unknown", resolvedMode: "native" })
     })
 
     it("records resolved client classification on first listTools", async () => {
@@ -228,10 +225,7 @@ describe("createMcpProtocolHandlers", () => {
 
       await handlers.listTools()
 
-      expect(assertAt(probe.firstListTools, 0)).toMatchObject({
-        clientKind: "codex",
-        resolvedMode: "proxy"
-      })
+      expect(assertAt(probe.firstListTools, 0)).toMatchObject({ clientKind: "codex", resolvedMode: "proxy" })
     })
 
     it("omits properties when a registered object schema does not declare them", async () => {
@@ -243,7 +237,7 @@ describe("createMcpProtocolHandlers", () => {
       )
 
       const result = await handlers.listTools()
-      const listed = result.tools.find(tool => tool.name === "propertyless_tool")
+      const listed = result.tools.find((tool) => tool.name === "propertyless_tool")
 
       expect(listed).toBeDefined()
       expect(listed?.inputSchema).not.toHaveProperty("properties")
@@ -255,10 +249,7 @@ describe("createMcpProtocolHandlers", () => {
         description: makeToolDescription("Tool used to exercise protocol schema conversion."),
         inputSchema: {
           type: "object",
-          properties: {
-            valid: { type: "string" },
-            ignored: "not an object"
-          },
+          properties: { valid: { type: "string" }, ignored: "not an object" },
           required: ["valid"],
           additionalProperties: false
         }
@@ -364,19 +355,21 @@ describe("createMcpProtocolHandlers", () => {
 
 // Build a real ClientBundle from the client test layers (no mocks): the layer
 // services are plain objects, so they survive scope closure.
-const buildStubClients = (hulyOps: Partial<HulyClientOperations> = {}): () => Promise<ClientBundle> => () =>
-  Effect.runPromise(
-    Effect.gen(function*() {
-      const ctx = yield* Layer.build(
-        Layer.merge(HulyClient.testLayer(hulyOps), HulyStorageClient.testLayer({}))
-      ).pipe(Effect.scoped)
-      return { hulyClient: Context.get(ctx, HulyClient), storageClient: Context.get(ctx, HulyStorageClient) }
-    })
-  )
+const buildStubClients =
+  (hulyOps: Partial<HulyClientOperations> = {}): (() => Promise<ClientBundle>) =>
+  () =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const ctx = yield* Layer.build(
+          Layer.merge(HulyClient.testLayer(hulyOps), HulyStorageClient.testLayer({}))
+        ).pipe(Effect.scoped)
+        return { hulyClient: Context.get(ctx, HulyClient), storageClient: Context.get(ctx, HulyStorageClient) }
+      })
+    )
 
-const buildStubClientsWithWorkspace = (): () => Promise<ClientBundle> => () =>
+const buildStubClientsWithWorkspace = (): (() => Promise<ClientBundle>) => () =>
   Effect.runPromise(
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const ctx = yield* Layer.build(
         Layer.mergeAll(HulyClient.testLayer({}), HulyStorageClient.testLayer({}), WorkspaceClient.testLayer({}))
       ).pipe(Effect.scoped)
@@ -409,7 +402,7 @@ const projectTypeFixture = (statusId: Ref<Status>): ProjectType =>
     modifiedOn: 0,
     createdBy: "user-1" as PersonId,
     createdOn: 0
-  } as unknown) as ProjectType
+  }) as unknown as ProjectType
 
 const projectWithTypeLookupFixture = (statusId: Ref<Status>, projectType: ProjectType): ProjectWithTypeLookup =>
   // eslint-disable-next-line no-restricted-syntax -- SDK Project plus lookup metadata has branded refs and generated fields with no public fixture constructor.
@@ -432,9 +425,9 @@ const projectWithTypeLookupFixture = (statusId: Ref<Status>, projectType: Projec
     createdBy: "user-1" as PersonId,
     createdOn: 0,
     $lookup: { type: projectType }
-  } as unknown) as ProjectWithTypeLookup
+  }) as unknown as ProjectWithTypeLookup
 
-const buildResourceWarningClients = (): () => Promise<ClientBundle> => {
+const buildResourceWarningClients = (): (() => Promise<ClientBundle>) => {
   const statusId = "plainstatus" as Ref<Status>
   const projectType = projectTypeFixture(statusId)
   const project = projectWithTypeLookupFixture(statusId, projectType)
@@ -442,9 +435,8 @@ const buildResourceWarningClients = (): () => Promise<ClientBundle> => {
   // HulyClientOperations.findOne is generic by requested SDK class. This fixture
   // returns a project only when the class ref is tracker.class.Project and returns
   // undefined for every other class, so the generic contract is preserved.
-  const findOne =
-    ((_class: Ref<Class<Doc>>) =>
-      Effect.succeed(_class === tracker.class.Project ? project : undefined)) as HulyClientOperations["findOne"]
+  const findOne = ((_class: Ref<Class<Doc>>) =>
+    Effect.succeed(_class === tracker.class.Project ? project : undefined)) as HulyClientOperations["findOne"]
 
   const findAll: HulyClientOperations["findAll"] = () => Effect.succeed(emptyFindResult())
   const findAllInModel: HulyClientOperations["findAllInModel"] = () => Effect.succeed(emptyFindResult())
@@ -455,10 +447,7 @@ const buildResourceWarningClients = (): () => Promise<ClientBundle> => {
 const rejectingResolveClients = (): Promise<ClientBundle> => Promise.reject(new Error("client init boom"))
 const rejectingResolveClientsWithString = (): Promise<ClientBundle> => Promise.reject("client init boom")
 const configValidationError = (): ConfigValidationError =>
-  new ConfigValidationError({
-    message: "Configuration error: Expected HULY_URL to exist",
-    field: "HULY_URL"
-  })
+  new ConfigValidationError({ message: "Configuration error: Expected HULY_URL to exist", field: "HULY_URL" })
 const rejectingDirectConfigResolveClients = (): Promise<ClientBundle> => Promise.reject(configValidationError())
 const rejectingFiberConfigResolveClients = (): Promise<ClientBundle> =>
   Effect.runPromise(Effect.fail(configValidationError()))
@@ -481,13 +470,8 @@ const propertylessToolDefinition = createToolDefinition({
 })
 const propertylessTool: RegisteredTool = {
   ...propertylessToolDefinition,
-  operation: {
-    ...propertylessToolDefinition,
-    execute: () => Effect.succeed({ result: { ok: "ok" }, warnings: [] })
-  },
-  handler: async () => ({
-    content: [{ type: "text", text: "ok" }]
-  })
+  operation: { ...propertylessToolDefinition, execute: () => Effect.succeed({ result: { ok: "ok" }, warnings: [] }) },
+  handler: async () => ({ content: [{ type: "text", text: "ok" }] })
 }
 
 const propertylessObjectRegistry: ToolRegistry = {
@@ -515,7 +499,7 @@ const diagnosticProbeTool = defineTool(
   },
   Schema.decodeUnknown(DiagnosticProbeParams),
   (params: DiagnosticProbeParams) =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const diagnostics = yield* Diagnostics
       yield* diagnostics.warnAgent({
         code: "status_metadata_unresolved",
@@ -543,10 +527,7 @@ const malformedSummaryProbeTool = defineTool(
     description: "malformed summary probe tool",
     inputSchema: {
       type: "object",
-      properties: {
-        "": { type: "string" },
-        kept: { type: "string" }
-      },
+      properties: { "": { type: "string" }, kept: { type: "string" } },
       required: ["kept"]
     },
     resultSchema: Schema.Struct({ ok: Schema.Boolean }),
@@ -560,13 +541,7 @@ const malformedRequiredProbeTool = defineTool(
   {
     name: "malformed_required_probe",
     description: "malformed required probe tool",
-    inputSchema: {
-      type: "object",
-      properties: {
-        kept: { type: "string" }
-      },
-      required: [""]
-    },
+    inputSchema: { type: "object", properties: { kept: { type: "string" } }, required: [""] },
     resultSchema: Schema.Struct({ ok: Schema.Boolean }),
     category: "test"
   },
@@ -578,13 +553,7 @@ const undeclaredRequiredProbeTool = defineTool(
   {
     name: "undeclared_required_probe",
     description: "undeclared required probe tool",
-    inputSchema: {
-      type: "object",
-      properties: {
-        kept: { type: "string" }
-      },
-      required: ["missing"]
-    },
+    inputSchema: { type: "object", properties: { kept: { type: "string" } }, required: ["missing"] },
     resultSchema: Schema.Struct({ ok: Schema.Boolean }),
     category: "test"
   },
@@ -603,21 +572,15 @@ const diagnosticProbeRegistry: ToolRegistry = {
 
 const contentOnlyProxyRegistry: ToolRegistry = {
   ...diagnosticProbeRegistry,
-  handleToolCall: async () => ({
-    content: [{ type: "text", text: "plain target output" }]
-  })
+  handleToolCall: async () => ({ content: [{ type: "text", text: "plain target output" }] })
 }
 
 const imageProxyRegistry: ToolRegistry = {
   ...diagnosticProbeRegistry,
   handleToolCall: async () => ({
-    content: [{ type: "text", text: "{\"attachmentId\":\"att-image\"}" }],
+    content: [{ type: "text", text: '{"attachmentId":"att-image"}' }],
     structuredContent: { result: { attachmentId: "att-image" } },
-    imageContent: {
-      type: "image",
-      data: CanonicalBase64ImageData.make("cG5n"),
-      mimeType: "image/png"
-    }
+    imageContent: { type: "image", data: CanonicalBase64ImageData.make("cG5n"), mimeType: "image/png" }
   })
 }
 
@@ -626,10 +589,7 @@ const errorProxyRegistry: ToolRegistry = {
   handleToolCall: async () => createInvalidParamsError("target rejected arguments", "TargetRejected")
 }
 
-const nullDispatchProxyRegistry: ToolRegistry = {
-  ...diagnosticProbeRegistry,
-  handleToolCall: async () => null
-}
+const nullDispatchProxyRegistry: ToolRegistry = { ...diagnosticProbeRegistry, handleToolCall: async () => null }
 
 const arraySchemaProbeRegistry: ToolRegistry = {
   tools: new Map([[arraySchemaProbeTool.name, arraySchemaProbeTool]]),
@@ -657,10 +617,7 @@ const proxyExposureOptions = (config?: {
   toolScopeFilteringActive?: boolean
   clientName?: string
 }) => ({
-  exposureConfig: {
-    configuredMode: "proxy" as const,
-    proxyOutputStrict: config?.proxyOutputStrict ?? false
-  },
+  exposureConfig: { configuredMode: "proxy" as const, proxyOutputStrict: config?.proxyOutputStrict ?? false },
   toolScopeFilteringActive: config?.toolScopeFilteringActive ?? false,
   currentClientInfo: () =>
     config?.clientName === undefined ? undefined : parseMcpClientInfo({ name: config.clientName })
@@ -898,9 +855,7 @@ describe("createMcpProtocolHandlers — hosted Huly migration notice", () => {
     const second = await handlers.callTool({ params: { name: "does_not_exist", arguments: {} } })
 
     expect(first.isError).toBe(true)
-    expect(JSON.parse(firstText([assertAt(first.content, 1)]))).toEqual({
-      warnings: [HOSTED_HULY_MIGRATION_WARNING]
-    })
+    expect(JSON.parse(firstText([assertAt(first.content, 1)]))).toEqual({ warnings: [HOSTED_HULY_MIGRATION_WARNING] })
     expect(second.isError).toBe(true)
     expect(second.content).toHaveLength(1)
   })
@@ -949,12 +904,7 @@ describe("createMcpProtocolHandlers — hosted Huly migration notice", () => {
 describe("createMcpProtocolHandlers — get_huly_context tool", () => {
   it("returns the validated context on success", async () => {
     const probe = createTelemetryProbe()
-    const handlers = createMcpProtocolHandlers(
-      unusedResolveClients,
-      probe.telemetry,
-      emptyRegistry,
-      makeValidContext
-    )
+    const handlers = createMcpProtocolHandlers(unusedResolveClients, probe.telemetry, emptyRegistry, makeValidContext)
 
     const response = await handlers.callTool({ params: { name: GET_HULY_CONTEXT_TOOL_NAME, arguments: {} } })
 
@@ -1175,10 +1125,7 @@ describe("createMcpProtocolHandlers — tool dispatch", () => {
 
 describe("createMcpProtocolHandlers — proxy mode", () => {
   it("uses an empty visible native registry for unscoped proxy mode", async () => {
-    const exposure = resolveProtocolExposure(
-      protocolRegistries(toolRegistry),
-      proxyExposureOptions()
-    )
+    const exposure = resolveProtocolExposure(protocolRegistries(toolRegistry), proxyExposureOptions())
     const clients = await buildStubClients()()
 
     const response = await exposure.visibleNativeRegistry.handleToolCall(
@@ -1255,8 +1202,8 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     if (!isJsonObject(categoryResult) || !Array.isArray(categoryResult.categories)) {
       throw new Error("expected category result")
     }
-    const channelsCategory = categoryResult.categories.find((category) =>
-      isJsonObject(category) && category.name === "channels"
+    const channelsCategory = categoryResult.categories.find(
+      (category) => isJsonObject(category) && category.name === "channels"
     )
     if (!isJsonObject(channelsCategory)) throw new Error("expected channels category")
     expect(channelsCategory.description).toContain("Messaging")
@@ -1287,7 +1234,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     expect(direct.isError).not.toBe(true)
     expect(firstText(search.content)).toContain("list_projects")
     expect(schema.isError).not.toBe(true)
-    expect(firstText(schema.content)).toContain("\"name\":\"list_projects\"")
+    expect(firstText(schema.content)).toContain('"name":"list_projects"')
   })
 
   it("keeps search param summaries root-required only and returns exact schemas for proxy lookup", async () => {
@@ -1314,9 +1261,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     const editMatch = searchResult.matches.find((match) => isJsonObject(match) && match.name === "edit_document")
     if (!isJsonObject(editMatch)) throw new Error("expected edit_document search match")
     expect(editMatch.requiredParams).toEqual(["teamspace", "document"])
-    expect(editMatch.optionalParams).toEqual(
-      expect.arrayContaining(["title", "content", "old_text", "new_text"])
-    )
+    expect(editMatch.optionalParams).toEqual(expect.arrayContaining(["title", "content", "old_text", "new_text"]))
     expect(editMatch.parameterSummaryStatus).toBe("available")
 
     if (!isJsonObject(schemaResult) || !isJsonObject(schemaResult.inputSchema)) {
@@ -1347,16 +1292,18 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
 
     expect(response.isError).not.toBe(true)
     expect(response.structuredContent?.result).toEqual({
-      matches: [{
-        name: "array_schema_probe",
-        category: "test",
-        description: "array schema probe tool",
-        requiredParams: [],
-        optionalParams: [],
-        parameterSummaryStatus: "invalid_input_schema",
-        parameterSummaryIssue:
-          "inputSchema summary must expose object properties keyed by non-empty strings and an optional string required array"
-      }]
+      matches: [
+        {
+          name: "array_schema_probe",
+          category: "test",
+          description: "array schema probe tool",
+          requiredParams: [],
+          optionalParams: [],
+          parameterSummaryStatus: "invalid_input_schema",
+          parameterSummaryIssue:
+            "inputSchema summary must expose object properties keyed by non-empty strings and an optional string required array"
+        }
+      ]
     })
   })
 
@@ -1377,16 +1324,18 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
 
     expect(response.isError).not.toBe(true)
     expect(response.structuredContent?.result).toEqual({
-      matches: [{
-        name: "malformed_summary_probe",
-        category: "test",
-        description: "malformed summary probe tool",
-        requiredParams: [],
-        optionalParams: [],
-        parameterSummaryStatus: "invalid_input_schema",
-        parameterSummaryIssue:
-          "inputSchema summary must expose object properties keyed by non-empty strings and an optional string required array"
-      }]
+      matches: [
+        {
+          name: "malformed_summary_probe",
+          category: "test",
+          description: "malformed summary probe tool",
+          requiredParams: [],
+          optionalParams: [],
+          parameterSummaryStatus: "invalid_input_schema",
+          parameterSummaryIssue:
+            "inputSchema summary must expose object properties keyed by non-empty strings and an optional string required array"
+        }
+      ]
     })
   })
 
@@ -1409,27 +1358,31 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     })
 
     expect(malformedRequired.structuredContent?.result).toEqual({
-      matches: [{
-        name: "malformed_required_probe",
-        category: "test",
-        description: "malformed required probe tool",
-        requiredParams: [],
-        optionalParams: [],
-        parameterSummaryStatus: "invalid_input_schema",
-        parameterSummaryIssue:
-          "inputSchema summary must expose object properties keyed by non-empty strings and an optional string required array"
-      }]
+      matches: [
+        {
+          name: "malformed_required_probe",
+          category: "test",
+          description: "malformed required probe tool",
+          requiredParams: [],
+          optionalParams: [],
+          parameterSummaryStatus: "invalid_input_schema",
+          parameterSummaryIssue:
+            "inputSchema summary must expose object properties keyed by non-empty strings and an optional string required array"
+        }
+      ]
     })
     expect(undeclaredRequired.structuredContent?.result).toEqual({
-      matches: [{
-        name: "undeclared_required_probe",
-        category: "test",
-        description: "undeclared required probe tool",
-        requiredParams: [],
-        optionalParams: [],
-        parameterSummaryStatus: "invalid_input_schema",
-        parameterSummaryIssue: "inputSchema required entries must refer to declared properties"
-      }]
+      matches: [
+        {
+          name: "undeclared_required_probe",
+          category: "test",
+          description: "undeclared required probe tool",
+          requiredParams: [],
+          optionalParams: [],
+          parameterSummaryStatus: "invalid_input_schema",
+          parameterSummaryIssue: "inputSchema required entries must refer to declared properties"
+        }
+      ]
     })
   })
 
@@ -1483,10 +1436,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     const response = await handlers.callTool({
       params: {
         name: "invoke_tool",
-        arguments: {
-          toolName: "diagnostic_probe",
-          arguments: { subject: "proxy invoke" }
-        }
+        arguments: { toolName: "diagnostic_probe", arguments: { subject: "proxy invoke" } }
       }
     })
 
@@ -1494,10 +1444,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     expect(response.structuredContent?.result).toEqual({
       toolName: "diagnostic_probe",
       result: { subject: "proxy invoke", degraded: true },
-      warnings: [{
-        code: "status_metadata_unresolved",
-        message: "Status metadata was degraded for proxy invoke."
-      }]
+      warnings: [{ code: "status_metadata_unresolved", message: "Status metadata was degraded for proxy invoke." }]
     })
   })
 
@@ -1521,20 +1468,20 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     })
     await handleProxyToolCall({
       toolName: makeToolName("invoke_tool"),
-      args: { toolName: "diagnostic_probe", arguments: "{\"subject\":\"stringified invoke\"}" },
+      args: { toolName: "diagnostic_probe", arguments: '{"subject":"stringified invoke"}' },
       proxyCandidateRegistry: captureRegistry,
       clients
     })
     await handleProxyToolCall({
       toolName: makeToolName("invoke_tool"),
-      args: { toolName: "diagnostic_probe", arguments: "\"{\\\"subject\\\":\\\"nested string\\\"}\"" },
+      args: { toolName: "diagnostic_probe", arguments: '"{\\"subject\\":\\"nested string\\"}"' },
       proxyCandidateRegistry: captureRegistry,
       clients
     })
 
     expect(assertAt(receivedArguments, 0)).toBe(structuredArguments)
     expect(assertAt(receivedArguments, 1)).toEqual({ subject: "stringified invoke" })
-    expect(assertAt(receivedArguments, 2)).toBe("{\"subject\":\"nested string\"}")
+    expect(assertAt(receivedArguments, 2)).toBe('{"subject":"nested string"}')
   })
 
   it("lets malformed deferred invoke_tool arguments fail against the target schema", async () => {
@@ -1549,13 +1496,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     )
 
     const response = await handlers.callTool({
-      params: {
-        name: "invoke_tool",
-        arguments: {
-          toolName: "diagnostic_probe",
-          arguments: "{\"subject\":"
-        }
-      }
+      params: { name: "invoke_tool", arguments: { toolName: "diagnostic_probe", arguments: '{"subject":' } }
     })
 
     expect(response.isError).toBe(true)
@@ -1577,10 +1518,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     const response = await handlers.callTool({
       params: {
         name: "invoke_tool",
-        arguments: {
-          toolName: "diagnostic_probe",
-          arguments: { subject: "with workspace" }
-        }
+        arguments: { toolName: "diagnostic_probe", arguments: { subject: "with workspace" } }
       }
     })
 
@@ -1615,19 +1553,13 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     const errorResponse = await errorHandlers.callTool({
       params: {
         name: "invoke_tool",
-        arguments: {
-          toolName: "diagnostic_probe",
-          arguments: { subject: "client failure" }
-        }
+        arguments: { toolName: "diagnostic_probe", arguments: { subject: "client failure" } }
       }
     })
     const nonErrorResponse = await nonErrorHandlers.callTool({
       params: {
         name: "invoke_tool",
-        arguments: {
-          toolName: "diagnostic_probe",
-          arguments: { subject: "client failure" }
-        }
+        arguments: { toolName: "diagnostic_probe", arguments: { subject: "client failure" } }
       }
     })
 
@@ -1635,7 +1567,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     expect(firstText(errorResponse.content)).toBe("Failed to initialize Huly clients")
     expect(nonErrorResponse.isError).toBe(true)
     expect(firstText(nonErrorResponse.content)).toBe("Failed to initialize Huly clients")
-    expect(probe.toolCalled.map(call => call.status)).toEqual(["error", "error"])
+    expect(probe.toolCalled.map((call) => call.status)).toEqual(["error", "error"])
   })
 
   it("wraps content-only proxy target output without warnings", async () => {
@@ -1769,7 +1701,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
 
     expect(listed.tools.map((tool) => tool.name)).not.toContain("list_projects")
     expect(firstText(search.content)).not.toContain("list_documents")
-    expect(firstText(search.content)).toContain("\"category\":\"projects\"")
+    expect(firstText(search.content)).toContain('"category":"projects"')
     expect(schema.isError).toBe(true)
     expect(directScoped.isError).not.toBe(true)
     expect(directHidden.isError).toBe(true)
@@ -1794,7 +1726,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
       params: { name: "invoke_tool", arguments: { toolName: "diagnostic_probe", arguments: { subject: "x" } } }
     })
 
-    expect(firstText(search.content)).toBe("{\"matches\":[]}")
+    expect(firstText(search.content)).toBe('{"matches":[]}')
     expect(schema.isError).toBe(true)
     expect(invoked.isError).toBe(true)
   })
@@ -1822,21 +1754,10 @@ describe("createMcpProtocolHandlers — resource handlers", () => {
 
     const result = await handlers.readResource({ params: { uri: "huly://projects/TEST" } })
 
-    expect(result._meta).toEqual({
-      warnings: [
-        expect.objectContaining({
-          code: "status_metadata_unresolved"
-        })
-      ]
-    })
+    expect(result._meta).toEqual({ warnings: [expect.objectContaining({ code: "status_metadata_unresolved" })] })
     const content = assertAt(result.contents, 0)
     if (!("text" in content)) throw new Error("expected text resource content")
-    expect(JSON.parse(content.text)).toMatchObject({
-      project: {
-        identifier: "TEST",
-        statuses: ["plainstatus"]
-      }
-    })
+    expect(JSON.parse(content.text)).toMatchObject({ project: { identifier: "TEST", statuses: ["plainstatus"] } })
   })
 
   it("returns an empty resource list when no Huly config is present during registry inspection", async () => {
@@ -1997,8 +1918,10 @@ describe("deriveEditMode", () => {
 })
 
 describe("fetchLatestNpmVersion", () => {
-  const okWith = (body: unknown): typeof fetch => () =>
-    Promise.resolve(new Response(JSON.stringify(body), { status: 200 }))
+  const okWith =
+    (body: unknown): typeof fetch =>
+    () =>
+      Promise.resolve(new Response(JSON.stringify(body), { status: 200 }))
 
   it("returns the version field on a well-formed response", async () => {
     expect(await fetchLatestNpmVersion(okWith({ version: "3.2.1" }))).toBe("3.2.1")

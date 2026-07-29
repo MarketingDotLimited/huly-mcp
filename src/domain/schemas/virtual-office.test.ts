@@ -20,22 +20,19 @@ describe("Virtual office schemas", () => {
   it("accepts room and active participant list filters", () => {
     expect(Either.isRight(Schema.decodeUnknownEither(ListOfficeRoomsParamsSchema)({ floorId: "floor-1" }))).toBe(true)
     expect(Either.isRight(Schema.decodeUnknownEither(GetOfficeRoomParamsSchema)({ roomId: "room-1" }))).toBe(true)
-    expect(Either.isRight(Schema.decodeUnknownEither(ListActiveRoomParticipantsParamsSchema)({ roomId: "room-1" })))
-      .toBe(true)
+    expect(
+      Either.isRight(Schema.decodeUnknownEither(ListActiveRoomParticipantsParamsSchema)({ roomId: "room-1" }))
+    ).toBe(true)
   })
 
   it("accepts meeting minutes filters and get params", () => {
-    expect(Either.isRight(
-      Schema.decodeUnknownEither(ListMeetingMinutesParamsSchema)({
-        attachedToId: "room-1",
-        from: 100,
-        to: 200
-      })
-    )).toBe(true)
-    expect(Either.isRight(
-      Schema.decodeUnknownEither(GetMeetingMinutesParamsSchema)({
-        meetingMinutesId: "minutes-1"
-      })
-    )).toBe(true)
+    expect(
+      Either.isRight(
+        Schema.decodeUnknownEither(ListMeetingMinutesParamsSchema)({ attachedToId: "room-1", from: 100, to: 200 })
+      )
+    ).toBe(true)
+    expect(
+      Either.isRight(Schema.decodeUnknownEither(GetMeetingMinutesParamsSchema)({ meetingMinutesId: "minutes-1" }))
+    ).toBe(true)
   })
 })

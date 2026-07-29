@@ -5,12 +5,9 @@
  */
 import { Schema } from "effect"
 
-export class TagNotFoundError extends Schema.TaggedError<TagNotFoundError>()(
-  "TagNotFoundError",
-  {
-    identifier: Schema.String
-  }
-) {
+export class TagNotFoundError extends Schema.TaggedError<TagNotFoundError>()("TagNotFoundError", {
+  identifier: Schema.String
+}) {
   override get message(): string {
     return `Tag/label '${this.identifier}' not found`
   }
@@ -18,9 +15,7 @@ export class TagNotFoundError extends Schema.TaggedError<TagNotFoundError>()(
 
 export class TagCategoryNotFoundError extends Schema.TaggedError<TagCategoryNotFoundError>()(
   "TagCategoryNotFoundError",
-  {
-    identifier: Schema.String
-  }
+  { identifier: Schema.String }
 ) {
   override get message(): string {
     return `Tag category '${this.identifier}' not found`

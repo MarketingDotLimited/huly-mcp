@@ -62,16 +62,14 @@ export type BoardCardAttachedLabel = Schema.Schema.Type<typeof BoardCardAttached
 
 export const ListBoardLabelsParamsSchema = Schema.Struct({
   category: Schema.optional(
-    TagCategoryIdentifier.annotations({
-      description: "Optional board label category _id or exact label."
-    })
+    TagCategoryIdentifier.annotations({ description: "Optional board label category _id or exact label." })
   ),
-  titleSearch: Schema.optional(Schema.String.annotations({
-    description: "Optional board label title substring search."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of board labels to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  titleSearch: Schema.optional(
+    Schema.String.annotations({ description: "Optional board label title substring search." })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of board labels to return (default: ${DEFAULT_LIMIT}).` })
+  )
 }).annotations({
   title: "ListBoardLabelsParams",
   description:
@@ -83,17 +81,18 @@ export const CreateBoardLabelParamsSchema = Schema.Struct({
   title: NonEmptyString.annotations({
     description: "Board label title. Creation is idempotent by exact board label title when there is one match."
   }),
-  color: Schema.optional(ColorCode.annotations({
-    description:
-      `Huly platform color palette index from 0 through ${MAX_COLOR_INDEX} (default: ${DEFAULT_COLOR_INDEX}).`
-  })),
-  description: Schema.optional(Schema.String.annotations({
-    description: "Board label description."
-  })),
-  category: Schema.optional(TagCategoryIdentifier.annotations({
-    description:
-      "Board label category _id or exact label. If omitted, uses the board card tag default category or board.category.Other."
-  }))
+  color: Schema.optional(
+    ColorCode.annotations({
+      description: `Huly platform color palette index from 0 through ${MAX_COLOR_INDEX} (default: ${DEFAULT_COLOR_INDEX}).`
+    })
+  ),
+  description: Schema.optional(Schema.String.annotations({ description: "Board label description." })),
+  category: Schema.optional(
+    TagCategoryIdentifier.annotations({
+      description:
+        "Board label category _id or exact label. If omitted, uses the board card tag default category or board.category.Other."
+    })
+  )
 }).annotations({
   title: "CreateBoardLabelParams",
   description:
@@ -107,32 +106,30 @@ export const UPDATE_BOARD_LABEL_FIELDS = ["title", "color", "description", "cate
 
 export const UpdateBoardLabelParamsSchema = Schema.Struct({
   label: BoardLabelRefSchema,
-  title: Schema.optional(NonEmptyString.annotations({
-    description: "New board label title."
-  })),
-  color: Schema.optional(ColorCode.annotations({
-    description: `New Huly platform color palette index from 0 through ${MAX_COLOR_INDEX}.`
-  })),
+  title: Schema.optional(NonEmptyString.annotations({ description: "New board label title." })),
+  color: Schema.optional(
+    ColorCode.annotations({ description: `New Huly platform color palette index from 0 through ${MAX_COLOR_INDEX}.` })
+  ),
   description: Schema.optional(clearableText("New board label description.")),
-  category: Schema.optional(TagCategoryIdentifier.annotations({
-    description: "New board label category _id or exact label."
-  }))
-}).pipe(
-  Schema.filter((params) =>
-    hasAtLeastOneDefined(params, UPDATE_BOARD_LABEL_FIELDS)
-      ? undefined
-      : atLeastOneUpdateFieldMessage(UPDATE_BOARD_LABEL_FIELDS)
+  category: Schema.optional(
+    TagCategoryIdentifier.annotations({ description: "New board label category _id or exact label." })
   )
-).annotations({
-  title: "UpdateBoardLabelParams",
-  description: `Update a board label definition. ${atLeastOneUpdateFieldMessage(UPDATE_BOARD_LABEL_FIELDS)}`
 })
+  .pipe(
+    Schema.filter((params) =>
+      hasAtLeastOneDefined(params, UPDATE_BOARD_LABEL_FIELDS)
+        ? undefined
+        : atLeastOneUpdateFieldMessage(UPDATE_BOARD_LABEL_FIELDS)
+    )
+  )
+  .annotations({
+    title: "UpdateBoardLabelParams",
+    description: `Update a board label definition. ${atLeastOneUpdateFieldMessage(UPDATE_BOARD_LABEL_FIELDS)}`
+  })
 export type UpdateBoardLabelParams = Schema.Schema.Type<typeof UpdateBoardLabelParamsSchema>
 assertUpdateFields<UpdateBoardLabelParams>()(["label"], UPDATE_BOARD_LABEL_FIELDS)
 
-export const DeleteBoardLabelParamsSchema = Schema.Struct({
-  label: BoardLabelRefSchema
-}).annotations({
+export const DeleteBoardLabelParamsSchema = Schema.Struct({ label: BoardLabelRefSchema }).annotations({
   title: "DeleteBoardLabelParams",
   description: "Delete one board label definition by TagElement _id or exact title."
 })
@@ -151,14 +148,17 @@ export const AddBoardCardLabelParamsSchema = Schema.Struct({
   board: BoardRefSchema,
   card: BoardCardRefSchema,
   label: BoardLabelRefSchema,
-  color: Schema.optional(ColorCode.annotations({
-    description:
-      `Color for the board label definition when label is a new title (default: ${DEFAULT_COLOR_INDEX}). Existing labels are not recolored.`
-  })),
-  category: Schema.optional(TagCategoryIdentifier.annotations({
-    description:
-      "Category for the board label definition when label is a new title. Existing labels are not recategorized."
-  }))
+  color: Schema.optional(
+    ColorCode.annotations({
+      description: `Color for the board label definition when label is a new title (default: ${DEFAULT_COLOR_INDEX}). Existing labels are not recolored.`
+    })
+  ),
+  category: Schema.optional(
+    TagCategoryIdentifier.annotations({
+      description:
+        "Category for the board label definition when label is a new title. Existing labels are not recategorized."
+    })
+  )
 }).annotations({
   title: "AddBoardCardLabelParams",
   description:
@@ -189,15 +189,9 @@ const CreatedBoardLabelResultSchema = Schema.Struct({
   created: Schema.Boolean
 })
 
-const UpdatedBoardLabelResultSchema = Schema.Struct({
-  id: TagElementId,
-  updated: Schema.Literal(true)
-})
+const UpdatedBoardLabelResultSchema = Schema.Struct({ id: TagElementId, updated: Schema.Literal(true) })
 
-const DeletedBoardLabelResultSchema = Schema.Struct({
-  id: TagElementId,
-  deleted: Schema.Literal(true)
-})
+const DeletedBoardLabelResultSchema = Schema.Struct({ id: TagElementId, deleted: Schema.Literal(true) })
 
 export const BoardLabelMutationResultSchema = Schema.Union(
   CreatedBoardLabelResultSchema,

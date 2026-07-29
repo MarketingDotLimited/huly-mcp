@@ -14,24 +14,10 @@ export interface ConsoleRedirectHandle {
   readonly restore: () => void
 }
 
-const redirectedMethods: ReadonlyArray<keyof ConsoleRedirectTarget> = [
-  "debug",
-  "info",
-  "log",
-  "warn",
-  "error"
-]
+const redirectedMethods: ReadonlyArray<keyof ConsoleRedirectTarget> = ["debug", "info", "log", "warn", "error"]
 
-export const redirectConsoleToStderr = (
-  target: ConsoleRedirectTarget = console
-): ConsoleRedirectHandle => {
-  const original = {
-    debug: target.debug,
-    error: target.error,
-    info: target.info,
-    log: target.log,
-    warn: target.warn
-  }
+export const redirectConsoleToStderr = (target: ConsoleRedirectTarget = console): ConsoleRedirectHandle => {
+  const original = { debug: target.debug, error: target.error, info: target.info, log: target.log, warn: target.warn }
   const writeToStderr = original.error.bind(target)
 
   for (const method of redirectedMethods) {

@@ -11,12 +11,12 @@ import { TelemetryService } from "../src/telemetry/telemetry.js"
 
 const resolveClientsFromLayer = (
   clientLayer: Layer.Layer<HulyClient | HulyStorageClient | WorkspaceClient>
-): () => Promise<ClientBundle> => {
+): (() => Promise<ClientBundle>) => {
   let promise: Promise<ClientBundle> | null = null
   return () => {
     if (promise === null) {
       promise = Effect.runPromise(
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const ctx = yield* Layer.build(clientLayer).pipe(Effect.scoped)
           return {
             hulyClient: Context.get(ctx, HulyClient),
@@ -74,53 +74,58 @@ describe("Main Entry Point", () => {
 
   describe("main program", () => {
     it.effect("fails on missing config with ConfigValidationError", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         // Don't set any env vars - config should fail
         const error = yield* Effect.flip(main)
 
         expect(error._tag).toBe("ConfigValidationError")
         expect(error.message).toContain("Configuration error")
-      }))
+      })
+    )
   })
 
   describe("HTTP port config", () => {
     it.effect("uses PORT when MCP_HTTP_PORT is unset", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         process.env["PORT"] = CLOUD_RUN_TEST_PORT
 
         const port = yield* getHttpPort
 
         expect(port).toBe(Number(CLOUD_RUN_TEST_PORT))
-      }))
+      })
+    )
 
     it.effect("prefers MCP_HTTP_PORT over PORT", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         process.env["MCP_HTTP_PORT"] = MCP_HTTP_TEST_PORT
         process.env["PORT"] = CLOUD_RUN_TEST_PORT
 
         const port = yield* getHttpPort
 
         expect(port).toBe(Number(MCP_HTTP_TEST_PORT))
-      }))
+      })
+    )
 
     it.effect("uses the default HTTP port when neither env var is set", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const port = yield* getHttpPort
 
         expect(port).toBe(DEFAULT_HTTP_PORT)
-      }))
+      })
+    )
   })
 
   describe("MCP HTTP auth token config", () => {
     it.effect("treats MCP_AUTH_TOKEN as optional", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const token = yield* getMcpAuthToken
 
         expect(Option.isNone(token)).toBe(true)
-      }))
+      })
+    )
 
     it.effect("reads MCP_AUTH_TOKEN as a redacted value independent of Huly tokens", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         process.env["MCP_AUTH_TOKEN"] = "mcp-endpoint-secret"
         process.env["HULY_TOKEN"] = "huly-api-token"
 
@@ -131,40 +136,44 @@ describe("Main Entry Point", () => {
           expect(Redacted.value(token.value)).toBe("mcp-endpoint-secret")
           expect(`${token.value}`).toBe("<redacted>")
         }
-      }))
+      })
+    )
   })
 
   describe("lazy Huly config startup", () => {
     it.effect("defaults to eager stdio config validation outside registry inspection", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const lazyEnvs = yield* getLazyEnvs
 
         expect(lazyEnvs).toBe(false)
-      }))
+      })
+    )
 
     it.effect("defaults to lazy config validation during Glama registry inspection", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         process.env["GLAMA_VERSION"] = "1.0.0"
 
         const lazyEnvs = yield* getLazyEnvs
 
         expect(lazyEnvs).toBe(true)
-      }))
+      })
+    )
 
     it.effect("lets explicit LAZY_ENVS override Glama registry inspection", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         process.env["GLAMA_VERSION"] = "1.0.0"
         process.env["LAZY_ENVS"] = "false"
 
         const lazyEnvs = yield* getLazyEnvs
 
         expect(lazyEnvs).toBe(false)
-      }))
+      })
+    )
   })
 
   describe("layer composition", () => {
     it.scoped("McpServerService layer composes with HulyClient, HulyStorageClient, and WorkspaceClient", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const clientLayer = Layer.mergeAll(
           HulyClient.testLayer({}),
           HulyStorageClient.testLayer({}),
@@ -173,17 +182,16 @@ describe("Main Entry Point", () => {
         const mcpServerLayer = McpServerService.layer({
           transport: "stdio",
           resolveClients: resolveClientsFromLayer(clientLayer)
-        }).pipe(
-          Layer.provide(TelemetryService.testLayer())
-        )
+        }).pipe(Layer.provide(TelemetryService.testLayer()))
 
         yield* Layer.build(mcpServerLayer)
-      }))
+      })
+    )
   })
 
   describe("error handling", () => {
     it.effect("reports config validation errors clearly", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         // Invalid URL
         process.env["HULY_URL"] = "not-a-valid-url"
         process.env["HULY_EMAIL"] = "test@example.com"
@@ -194,10 +202,11 @@ describe("Main Entry Point", () => {
 
         expect(error._tag).toBe("ConfigValidationError")
         expect(error.message).toContain("Configuration error")
-      }))
+      })
+    )
 
     it.effect("reports missing required config", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         // Missing HULY_PASSWORD
         process.env["HULY_URL"] = "https://test.huly.app"
         process.env["HULY_EMAIL"] = "test@example.com"
@@ -206,12 +215,13 @@ describe("Main Entry Point", () => {
         const error = yield* Effect.flip(main)
 
         expect(error).toBeDefined()
-      }))
+      })
+    )
   })
 
   describe("McpServerService integration", () => {
     it.effect("server run/stop cycle works", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         let runCalled = false
         let stopCalled = false
 
@@ -226,7 +236,7 @@ describe("Main Entry Point", () => {
             })
         })
 
-        yield* Effect.gen(function*() {
+        yield* Effect.gen(function* () {
           const server = yield* McpServerService
           yield* server.run()
           yield* server.stop()
@@ -234,16 +244,17 @@ describe("Main Entry Point", () => {
 
         expect(runCalled).toBe(true)
         expect(stopCalled).toBe(true)
-      }).pipe(Effect.provide(HttpServerFactoryService.defaultLayer)))
+      }).pipe(Effect.provide(HttpServerFactoryService.defaultLayer))
+    )
 
     it.effect("server error is properly typed", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const mockServerLayer = McpServerService.testLayer({
           run: () => new McpServerError({ message: "Connection refused" })
         })
 
         const error = yield* Effect.flip(
-          Effect.gen(function*() {
+          Effect.gen(function* () {
             const server = yield* McpServerService
             yield* server.run()
           }).pipe(Effect.provide(mockServerLayer))
@@ -251,6 +262,7 @@ describe("Main Entry Point", () => {
 
         expect(error._tag).toBe("McpServerError")
         expect(error.message).toBe("Connection refused")
-      }).pipe(Effect.provide(HttpServerFactoryService.defaultLayer)))
+      }).pipe(Effect.provide(HttpServerFactoryService.defaultLayer))
+    )
   })
 })

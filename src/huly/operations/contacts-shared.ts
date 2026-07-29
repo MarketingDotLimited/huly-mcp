@@ -16,10 +16,7 @@ export const findPersonById = (
   client: HulyClient["Type"],
   personId: string
 ): Effect.Effect<HulyPerson | undefined, HulyClientError> =>
-  client.findOne<HulyPerson>(
-    contact.class.Person,
-    { _id: toRef<HulyPerson>(personId) }
-  )
+  client.findOne<HulyPerson>(contact.class.Person, { _id: toRef<HulyPerson>(personId) })
 
 export const findPersonByEmail = (
   client: HulyClient["Type"],
@@ -34,18 +31,15 @@ export const batchGetEmailsForPersons = <T extends Doc>(
   client: HulyClient["Type"],
   personIds: Array<Ref<T>>
 ): Effect.Effect<Map<Ref<T>, Email>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (personIds.length === 0) {
       return new Map()
     }
 
-    const channels = yield* client.findAll<Channel>(
-      contact.class.Channel,
-      {
-        attachedTo: { $in: personIds },
-        provider: contact.channelProvider.Email
-      }
-    )
+    const channels = yield* client.findAll<Channel>(contact.class.Channel, {
+      attachedTo: { $in: personIds },
+      provider: contact.channelProvider.Email
+    })
 
     const emailMap = new Map<Ref<T>, Email>()
     for (const channel of channels) {
@@ -62,41 +56,29 @@ const findPersonBySocialIdentityEmail = (
   client: HulyClient["Type"],
   email: string
 ): Effect.Effect<HulyPerson | undefined, HulyClientError> =>
-  Effect.gen(function*() {
-    const identity = yield* client.findOne<SocialIdentity>(
-      contact.class.SocialIdentity,
-      {
-        type: SocialIdType.EMAIL,
-        value: email
-      }
-    )
+  Effect.gen(function* () {
+    const identity = yield* client.findOne<SocialIdentity>(contact.class.SocialIdentity, {
+      type: SocialIdType.EMAIL,
+      value: email
+    })
     if (identity === undefined) return undefined
-    return yield* client.findOne<HulyPerson>(
-      contact.class.Person,
-      { _id: identity.attachedTo }
-    )
+    return yield* client.findOne<HulyPerson>(contact.class.Person, { _id: identity.attachedTo })
   })
 
 const findPersonByExactEmail = (
   client: HulyClient["Type"],
   email: Email
 ): Effect.Effect<HulyPerson | undefined, HulyClientError | PersonIdentifierAmbiguousError> =>
-  Effect.gen(function*() {
-    const socialIdentities = yield* client.findAll<SocialIdentity>(
-      contact.class.SocialIdentity,
-      {
-        type: SocialIdType.EMAIL,
-        value: email
-      }
-    )
+  Effect.gen(function* () {
+    const socialIdentities = yield* client.findAll<SocialIdentity>(contact.class.SocialIdentity, {
+      type: SocialIdType.EMAIL,
+      value: email
+    })
 
-    const channels = yield* client.findAll<Channel>(
-      contact.class.Channel,
-      {
-        value: email,
-        provider: contact.channelProvider.Email
-      }
-    )
+    const channels = yield* client.findAll<Channel>(contact.class.Channel, {
+      value: email,
+      provider: contact.channelProvider.Email
+    })
 
     const personIds = [
       ...new Set([
@@ -108,10 +90,9 @@ const findPersonByExactEmail = (
       return undefined
     }
 
-    const persons = yield* client.findAll<HulyPerson>(
-      contact.class.Person,
-      { _id: { $in: personIds.map(toRef<HulyPerson>) } }
-    )
+    const persons = yield* client.findAll<HulyPerson>(contact.class.Person, {
+      _id: { $in: personIds.map(toRef<HulyPerson>) }
+    })
 
     if (persons.length === 0) {
       return undefined
@@ -128,11 +109,8 @@ const findPersonByExactName = (
   client: HulyClient["Type"],
   name: PersonName
 ): Effect.Effect<HulyPerson | undefined, HulyClientError | PersonIdentifierAmbiguousError> =>
-  Effect.gen(function*() {
-    const persons = yield* client.findAll<HulyPerson>(
-      contact.class.Person,
-      { name }
-    )
+  Effect.gen(function* () {
+    const persons = yield* client.findAll<HulyPerson>(contact.class.Person, { name })
 
     if (persons.length === 0) {
       return undefined
@@ -149,9 +127,7 @@ export const findPersonByExactEmailOrName = (
   client: HulyClient["Type"],
   identifier: PersonRefInput
 ): Effect.Effect<HulyPerson | undefined, HulyClientError | PersonIdentifierAmbiguousError> =>
-  isEmailIdentifier(identifier)
-    ? findPersonByExactEmail(client, identifier)
-    : findPersonByExactName(client, identifier)
+  isEmailIdentifier(identifier) ? findPersonByExactEmail(client, identifier) : findPersonByExactName(client, identifier)
 
 /**
  * Resolve a person identifier (email or exact display name) to the AccountUuid
@@ -165,12 +141,10 @@ export const resolveEmployeeAccountUuid = (
   AccountUuid,
   HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError | PersonNotAnEmployeeError
 > =>
-  Effect.gen(function*() {
-    const person = yield* (
-      isEmailIdentifier(identifier)
-        ? findPersonByExactEmail(client, identifier)
-        : findPersonByExactName(client, PersonName.make(identifier))
-    )
+  Effect.gen(function* () {
+    const person = yield* isEmailIdentifier(identifier)
+      ? findPersonByExactEmail(client, identifier)
+      : findPersonByExactName(client, PersonName.make(identifier))
     if (person === undefined) {
       return yield* new PersonNotFoundError({ identifier })
     }
@@ -191,55 +165,41 @@ export const findPersonByEmailOrName = (
   client: HulyClient["Type"],
   emailOrName: string
 ): Effect.Effect<HulyPerson | undefined, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     // 1. SocialIdentity email match (workspace members — primary source)
     const socialIdentityPerson = yield* findPersonBySocialIdentityEmail(client, emailOrName)
     if (socialIdentityPerson !== undefined) return socialIdentityPerson
 
     // 2. Exact email channel match (email channels only)
-    const exactChannel = yield* client.findOne<Channel>(
-      contact.class.Channel,
-      {
-        value: emailOrName,
-        provider: contact.channelProvider.Email
-      }
-    )
+    const exactChannel = yield* client.findOne<Channel>(contact.class.Channel, {
+      value: emailOrName,
+      provider: contact.channelProvider.Email
+    })
     if (exactChannel !== undefined) {
-      const person = yield* client.findOne<HulyPerson>(
-        contact.class.Person,
-        { _id: toRef<HulyPerson>(exactChannel.attachedTo) }
-      )
+      const person = yield* client.findOne<HulyPerson>(contact.class.Person, {
+        _id: toRef<HulyPerson>(exactChannel.attachedTo)
+      })
       if (person !== undefined) return person
     }
 
     // 3. Exact name match
-    const exactPerson = yield* client.findOne<HulyPerson>(
-      contact.class.Person,
-      { name: emailOrName }
-    )
+    const exactPerson = yield* client.findOne<HulyPerson>(contact.class.Person, { name: emailOrName })
     if (exactPerson !== undefined) return exactPerson
 
     // 4. Substring email channel match via $like (email channels only)
     const escaped = escapeLikeWildcards(emailOrName)
-    const likeChannel = yield* client.findOne<Channel>(
-      contact.class.Channel,
-      {
-        value: { $like: `%${escaped}%` },
-        provider: contact.channelProvider.Email
-      }
-    )
+    const likeChannel = yield* client.findOne<Channel>(contact.class.Channel, {
+      value: { $like: `%${escaped}%` },
+      provider: contact.channelProvider.Email
+    })
     if (likeChannel !== undefined) {
-      const person = yield* client.findOne<HulyPerson>(
-        contact.class.Person,
-        { _id: toRef<HulyPerson>(likeChannel.attachedTo) }
-      )
+      const person = yield* client.findOne<HulyPerson>(contact.class.Person, {
+        _id: toRef<HulyPerson>(likeChannel.attachedTo)
+      })
       if (person !== undefined) return person
     }
 
     // 5. Substring name match via $like
-    const likePerson = yield* client.findOne<HulyPerson>(
-      contact.class.Person,
-      { name: { $like: `%${escaped}%` } }
-    )
+    const likePerson = yield* client.findOne<HulyPerson>(contact.class.Person, { name: { $like: `%${escaped}%` } })
     return likePerson
   })

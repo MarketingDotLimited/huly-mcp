@@ -97,12 +97,7 @@ export const cardTools = [
         "Read one page of a Huly card's version history using any version card ID or exact title. Returns deterministic oldest-version-first entries, an authoritative total for the full history, and hasMore when the limit truncates the page. Unversioned cards return one entry without version metadata. This tool never creates or restores versions.",
       category: CATEGORY,
       inputSchema: listCardVersionsParamsJsonSchema,
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false
-      },
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       resultSchema: ListCardVersionsResultSchema
     },
     parseListCardVersionsParams,
@@ -112,9 +107,9 @@ export const cardTools = [
     {
       name: "create_card",
       description:
-        "Create a new card in a Huly card space. Requires a master tag (card type). Content supports markdown formatting. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT
-        + " Returns the created card id.",
+        "Create a new card in a Huly card space. Requires a master tag (card type). Content supports markdown formatting. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT +
+        " Returns the created card id.",
       category: CATEGORY,
       inputSchema: createCardParamsJsonSchema,
       resultSchema: CreateCardResultSchema
@@ -126,8 +121,8 @@ export const cardTools = [
     {
       name: "update_card",
       description:
-        "Update fields on an existing Huly card. Only provided fields are modified. Content updates support markdown. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
+        "Update fields on an existing Huly card. Only provided fields are modified. Content updates support markdown. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
       category: CATEGORY,
       inputSchema: updateCardParamsJsonSchema,
       resultSchema: UpdateCardResultSchema

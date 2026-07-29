@@ -38,11 +38,7 @@ export type RelationIdentifier = Schema.Schema.Type<typeof RelationIdentifier>
 export const ListRelationsWarning = NonEmptyString.pipe(Schema.brand("ListRelationsWarning"))
 export type ListRelationsWarning = Schema.Schema.Type<typeof ListRelationsWarning>
 
-const CardinalityValues = [
-  "one-to-one",
-  "one-to-many",
-  "many-to-many"
-] as const
+const CardinalityValues = ["one-to-one", "one-to-many", "many-to-many"] as const
 // MCP-facing vocabulary derived from Huly SDK Association["type"]; operations maintain the exact SDK mapping.
 export const CardinalitySchema = Schema.Literal(...CardinalityValues).annotations({
   description: `Association cardinality: ${enumValuesDescription(CardinalityValues)}`
@@ -54,9 +50,9 @@ const RelationDirectionValues = ["source-to-target", "target-to-source", "either
 export const RelationDirectionSchema = Schema.Literal(...RelationDirectionValues)
 export type RelationDirection = Schema.Schema.Type<typeof RelationDirectionSchema>
 export const DefaultRelationDirection = "source-to-target" satisfies RelationDirection
-const relationDirectionDescription = `Relation traversal direction: ${
-  enumValuesDescription(RelationDirectionValues)
-}. Defaults to ${DefaultRelationDirection}.`
+const relationDirectionDescription = `Relation traversal direction: ${enumValuesDescription(
+  RelationDirectionValues
+)}. Defaults to ${DefaultRelationDirection}.`
 
 export const RelationIfExistsSchema = Schema.Literal("return_existing", "fail")
 export type RelationIfExists = Schema.Schema.Type<typeof RelationIfExistsSchema>
@@ -68,13 +64,13 @@ const AssociationIfExistsSchema = Schema.Literal("return_existing", "fail")
 
 const RawObjectLocatorSchema = Schema.Struct({
   kind: Schema.Literal("raw"),
-  id: DocId.annotations({
-    description: "Raw Huly document _id"
-  }),
-  class: Schema.optional(ObjectClassName.annotations({
-    description:
-      "Raw Huly document class, such as tracker:class:Issue. Required unless the association side determines the expected class."
-  }))
+  id: DocId.annotations({ description: "Raw Huly document _id" }),
+  class: Schema.optional(
+    ObjectClassName.annotations({
+      description:
+        "Raw Huly document class, such as tracker:class:Issue. Required unless the association side determines the expected class."
+    })
+  )
 })
 
 const IssueObjectLocatorSchema = Schema.Struct({
@@ -82,19 +78,21 @@ const IssueObjectLocatorSchema = Schema.Struct({
   issue: IssueIdentifier.annotations({
     description: "Issue identifier, such as HULY-123, or a numeric issue number when project is also provided."
   }),
-  project: Schema.optional(ProjectIdentifier.annotations({
-    description: "Project identifier. Optional when issue already includes a project prefix like HULY-123."
-  }))
+  project: Schema.optional(
+    ProjectIdentifier.annotations({
+      description: "Project identifier. Optional when issue already includes a project prefix like HULY-123."
+    })
+  )
 })
 
 const DocumentObjectLocatorSchema = Schema.Struct({
   kind: Schema.Literal("document"),
-  document: DocumentIdentifier.annotations({
-    description: "Document title or ID"
-  }),
-  teamspace: Schema.optional(TeamspaceIdentifier.annotations({
-    description: "Teamspace name or ID. If omitted, document title matches must be unique across the workspace."
-  }))
+  document: DocumentIdentifier.annotations({ description: "Document title or ID" }),
+  teamspace: Schema.optional(
+    TeamspaceIdentifier.annotations({
+      description: "Teamspace name or ID. If omitted, document title matches must be unique across the workspace."
+    })
+  )
 })
 
 const CardObjectLocatorSchema = Schema.Struct({
@@ -103,10 +101,12 @@ const CardObjectLocatorSchema = Schema.Struct({
     description:
       "Card ID or exact card title. Card IDs can be resolved without cardSpace; title lookup requires cardSpace."
   }),
-  cardSpace: Schema.optional(CardSpaceIdentifier.annotations({
-    description:
-      "Card space name or ID. Required when card is a title so title lookup is scoped and not ambiguous across the workspace."
-  }))
+  cardSpace: Schema.optional(
+    CardSpaceIdentifier.annotations({
+      description:
+        "Card space name or ID. Required when card is a title so title lookup is scoped and not ambiguous across the workspace."
+    })
+  )
 })
 
 export const GenericObjectLocatorSchema = Schema.Union(
@@ -136,13 +136,17 @@ export const AssociationSummarySchema = Schema.Struct({
   label: Schema.optional(NonEmptyString),
   description: Schema.optional(Schema.String),
   sourceClass: ObjectClassName,
-  sourceClassLabel: Schema.optional(NonEmptyString.annotations({
-    description: "Best-effort human display label for sourceClass when the class is known to this server"
-  })),
+  sourceClassLabel: Schema.optional(
+    NonEmptyString.annotations({
+      description: "Best-effort human display label for sourceClass when the class is known to this server"
+    })
+  ),
   targetClass: ObjectClassName,
-  targetClassLabel: Schema.optional(NonEmptyString.annotations({
-    description: "Best-effort human display label for targetClass when the class is known to this server"
-  })),
+  targetClassLabel: Schema.optional(
+    NonEmptyString.annotations({
+      description: "Best-effort human display label for targetClass when the class is known to this server"
+    })
+  ),
   sourceRole: Schema.optional(AssociationRoleName),
   targetRole: Schema.optional(AssociationRoleName),
   relationClass: Schema.optional(ObjectClassName),
@@ -168,24 +172,34 @@ export const RelationSummarySchema = Schema.Struct({
 export type RelationSummary = Schema.Schema.Type<typeof RelationSummarySchema>
 
 export const ListAssociationsParamsSchema = Schema.Struct({
-  association: Schema.optional(AssociationIdentifier.annotations({
-    description: "Association _id, source/target role name, or stable association name"
-  })),
-  sourceClass: Schema.optional(ObjectClassName.annotations({
-    description: "Only return associations whose source class matches this Huly class ID"
-  })),
-  targetClass: Schema.optional(ObjectClassName.annotations({
-    description: "Only return associations whose target class matches this Huly class ID"
-  })),
-  writableOnly: Schema.optional(Schema.Boolean.annotations({
-    description: "Only return associations whose relation create/delete path has been validated and allowlisted"
-  })),
-  includeSystem: Schema.optional(Schema.Boolean.annotations({
-    description: `Include internal/system associations. Defaults to ${DEFAULT_INCLUDE_SYSTEM_ASSOCIATIONS}.`
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of associations to return (default: ${DEFAULT_LIMIT})`
-  }))
+  association: Schema.optional(
+    AssociationIdentifier.annotations({
+      description: "Association _id, source/target role name, or stable association name"
+    })
+  ),
+  sourceClass: Schema.optional(
+    ObjectClassName.annotations({
+      description: "Only return associations whose source class matches this Huly class ID"
+    })
+  ),
+  targetClass: Schema.optional(
+    ObjectClassName.annotations({
+      description: "Only return associations whose target class matches this Huly class ID"
+    })
+  ),
+  writableOnly: Schema.optional(
+    Schema.Boolean.annotations({
+      description: "Only return associations whose relation create/delete path has been validated and allowlisted"
+    })
+  ),
+  includeSystem: Schema.optional(
+    Schema.Boolean.annotations({
+      description: `Include internal/system associations. Defaults to ${DEFAULT_INCLUDE_SYSTEM_ASSOCIATIONS}.`
+    })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of associations to return (default: ${DEFAULT_LIMIT})` })
+  )
 }).annotations({
   title: "ListAssociationsParams",
   description: "Parameters for listing generic Huly association definitions"
@@ -212,14 +226,17 @@ const CreateAssociationParamsSchema = Schema.Struct({
     description: "Role name stored on the target side of the association."
   }),
   cardinality: CardinalitySchema,
-  automationOnly: Schema.optional(Schema.Boolean.annotations({
-    description:
-      `Whether Huly automation-only UI paths should own relation writes for this association. Defaults to ${DEFAULT_ASSOCIATION_AUTOMATION_ONLY}.`
-  })),
-  ifExists: Schema.optional(AssociationIfExistsSchema.annotations({
-    description:
-      "return_existing (default) returns an identical existing association; fail reports an existing association as an error"
-  }))
+  automationOnly: Schema.optional(
+    Schema.Boolean.annotations({
+      description: `Whether Huly automation-only UI paths should own relation writes for this association. Defaults to ${DEFAULT_ASSOCIATION_AUTOMATION_ONLY}.`
+    })
+  ),
+  ifExists: Schema.optional(
+    AssociationIfExistsSchema.annotations({
+      description:
+        "return_existing (default) returns an identical existing association; fail reports an existing association as an error"
+    })
+  )
 }).annotations({
   title: "CreateAssociationParams",
   description:
@@ -256,25 +273,19 @@ export const DeleteAssociationResultSchema = Schema.Struct({
 export type DeleteAssociationResult = Schema.Schema.Type<typeof DeleteAssociationResultSchema>
 
 const ListRelationsParamsBaseSchema = Schema.Struct({
-  association: Schema.optional(AssociationIdentifier.annotations({
-    description: "Association _id or name. If omitted, relations are listed only across supported visible associations."
-  })),
-  source: Schema.optional(GenericObjectLocatorSchema.annotations({
-    description: "Optional source endpoint filter"
-  })),
-  target: Schema.optional(GenericObjectLocatorSchema.annotations({
-    description: "Optional target endpoint filter"
-  })),
-  direction: Schema.optional(RelationDirectionSchema.annotations({
-    description: relationDirectionDescription
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of relations to return (default: ${DEFAULT_LIMIT})`
-  }))
-}).annotations({
-  title: "ListRelationsParams",
-  description: "Parameters for listing concrete Huly relation instances"
-})
+  association: Schema.optional(
+    AssociationIdentifier.annotations({
+      description:
+        "Association _id or name. If omitted, relations are listed only across supported visible associations."
+    })
+  ),
+  source: Schema.optional(GenericObjectLocatorSchema.annotations({ description: "Optional source endpoint filter" })),
+  target: Schema.optional(GenericObjectLocatorSchema.annotations({ description: "Optional target endpoint filter" })),
+  direction: Schema.optional(RelationDirectionSchema.annotations({ description: relationDirectionDescription })),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of relations to return (default: ${DEFAULT_LIMIT})` })
+  )
+}).annotations({ title: "ListRelationsParams", description: "Parameters for listing concrete Huly relation instances" })
 
 export const ListRelationsParamsSchema = ListRelationsParamsBaseSchema.pipe(
   Schema.filter((params) =>
@@ -282,10 +293,7 @@ export const ListRelationsParamsSchema = ListRelationsParamsBaseSchema.pipe(
       ? "Provide at least one of association, source, or target to avoid broad workspace scans."
       : undefined
   )
-).annotations({
-  title: "ListRelationsParams",
-  description: "Parameters for listing concrete Huly relation instances"
-})
+).annotations({ title: "ListRelationsParams", description: "Parameters for listing concrete Huly relation instances" })
 export type ListRelationsParams = Schema.Schema.Type<typeof ListRelationsParamsSchema>
 
 export const ListRelationsResultSchema = Schema.Struct({
@@ -304,18 +312,15 @@ export const CreateRelationParamsSchema = Schema.Struct({
   association: AssociationIdentifier.annotations({
     description: "Association _id or unambiguous name returned by list_associations"
   }),
-  source: GenericObjectLocatorSchema.annotations({
-    description: "Source endpoint document"
-  }),
-  target: GenericObjectLocatorSchema.annotations({
-    description: "Target endpoint document"
-  }),
-  direction: Schema.optional(RelationDirectionSchema.annotations({
-    description: relationDirectionDescription
-  })),
-  ifExists: Schema.optional(RelationIfExistsSchema.annotations({
-    description: "return_existing (default) returns an existing relation; fail reports an existing relation as an error"
-  }))
+  source: GenericObjectLocatorSchema.annotations({ description: "Source endpoint document" }),
+  target: GenericObjectLocatorSchema.annotations({ description: "Target endpoint document" }),
+  direction: Schema.optional(RelationDirectionSchema.annotations({ description: relationDirectionDescription })),
+  ifExists: Schema.optional(
+    RelationIfExistsSchema.annotations({
+      description:
+        "return_existing (default) returns an existing relation; fail reports an existing relation as an error"
+    })
+  )
 }).annotations({
   title: "CreateRelationParams",
   description: "Parameters for idempotently creating a concrete generic relation"
@@ -333,27 +338,14 @@ export const CreateRelationResultSchema = Schema.Struct({
 export type CreateRelationResult = Schema.Schema.Type<typeof CreateRelationResultSchema>
 
 const DeleteRelationByIdParamsSchema = Schema.Struct({
-  relation: RelationIdentifier.annotations({
-    description: "Concrete relation _id to delete"
-  })
-}).annotations({
-  title: "DeleteRelationByIdParams",
-  description: "Delete one concrete relation by its relation ID."
-})
+  relation: RelationIdentifier.annotations({ description: "Concrete relation _id to delete" })
+}).annotations({ title: "DeleteRelationByIdParams", description: "Delete one concrete relation by its relation ID." })
 
 const DeleteRelationByTripleParamsSchema = Schema.Struct({
-  association: AssociationIdentifier.annotations({
-    description: "Association _id or unambiguous name"
-  }),
-  source: GenericObjectLocatorSchema.annotations({
-    description: "Source endpoint"
-  }),
-  target: GenericObjectLocatorSchema.annotations({
-    description: "Target endpoint"
-  }),
-  direction: Schema.optional(RelationDirectionSchema.annotations({
-    description: relationDirectionDescription
-  }))
+  association: AssociationIdentifier.annotations({ description: "Association _id or unambiguous name" }),
+  source: GenericObjectLocatorSchema.annotations({ description: "Source endpoint" }),
+  target: GenericObjectLocatorSchema.annotations({ description: "Target endpoint" }),
+  direction: Schema.optional(RelationDirectionSchema.annotations({ description: relationDirectionDescription }))
 }).annotations({
   title: "DeleteRelationByTripleParams",
   description: "Delete one concrete relation by exact association + source + target triple."
@@ -382,17 +374,10 @@ export const createAssociationParamsJsonSchema = JSONSchema.make(CreateAssociati
 export const deleteAssociationParamsJsonSchema = JSONSchema.make(DeleteAssociationParamsSchema)
 export const listRelationsParamsJsonSchema = {
   ...JSONSchema.make(ListRelationsParamsBaseSchema),
-  anyOf: [
-    { required: ["association"] },
-    { required: ["source"] },
-    { required: ["target"] }
-  ]
+  anyOf: [{ required: ["association"] }, { required: ["source"] }, { required: ["target"] }]
 }
 export const createRelationParamsJsonSchema = JSONSchema.make(CreateRelationParamsSchema)
-export const deleteRelationParamsJsonSchema = {
-  ...JSONSchema.make(DeleteRelationParamsSchema),
-  type: "object"
-}
+export const deleteRelationParamsJsonSchema = { ...JSONSchema.make(DeleteRelationParamsSchema), type: "object" }
 
 const strictParseOptions = { onExcessProperty: "error" } as const
 

@@ -43,7 +43,7 @@ const noopStorageClient: HulyStorageOperations = {
 
 describe("CATEGORY_NAMES", () => {
   it.effect("contains expected categories", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(CATEGORY_NAMES.has(makeToolCategory("projects"))).toBe(true)
       expect(CATEGORY_NAMES.has(makeToolCategory("issues"))).toBe(true)
       expect(CATEGORY_NAMES.has(makeToolCategory("documents"))).toBe(true)
@@ -58,10 +58,11 @@ describe("CATEGORY_NAMES", () => {
       expect(CATEGORY_NAMES.has(makeToolCategory("preferences"))).toBe(true)
       expect(CATEGORY_NAMES.has(makeToolCategory("approvals"))).toBe(true)
       expect(CATEGORY_NAMES.size).toBeGreaterThan(5)
-    }))
+    })
+  )
 
   it.effect("registers calendar schedule and virtual-office tools", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const names = new Set(toolRegistry.definitions.map((tool) => tool.name))
 
       expect(names.has(toolName("list_schedules"))).toBe(true)
@@ -81,10 +82,11 @@ describe("CATEGORY_NAMES", () => {
       expect(names.has(toolName("get_meeting_minutes"))).toBe(true)
       expect(names.has(toolName("list_device_preferences"))).toBe(true)
       expect(names.has(toolName("list_office_defaults"))).toBe(true)
-    }))
+    })
+  )
 
   it.effect("registers truthful read-only card version history metadata", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const definition = toolDefinition("list_card_versions")
 
       expect(definition.category).toBe("cards")
@@ -96,10 +98,11 @@ describe("CATEGORY_NAMES", () => {
         idempotentHint: true,
         openWorldHint: false
       })
-    }))
+    })
+  )
 
   it.effect("registers issue #102 closeout tools in their owning categories", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(toolDefinition("list_document_snapshots").category).toBe("documents")
       expect(toolDefinition("get_document_snapshot").category).toBe("documents")
       expect(toolDefinition("list_project_target_preferences").category).toBe("projects")
@@ -107,16 +110,18 @@ describe("CATEGORY_NAMES", () => {
       expect(toolDefinition("list_related_issue_targets").category).toBe("issues")
       expect(toolDefinition("set_related_issue_target").category).toBe("issues")
       expect(toolDefinition("delete_related_issue_space_target").category).toBe("issues")
-    }))
+    })
+  )
 
   it.effect("registers preference tools in the preferences category", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(toolDefinition("list_space_preferences").category).toBe("preferences")
       expect(toolDefinition("get_space_preference").category).toBe("preferences")
-    }))
+    })
+  )
 
   it.effect("registers approval request tools in the approvals category", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(toolDefinition("list_approval_requests").category).toBe("approvals")
       expect(toolDefinition("get_approval_request").category).toBe("approvals")
       expect(toolDefinition("add_approval_request").category).toBe("approvals")
@@ -124,28 +129,31 @@ describe("CATEGORY_NAMES", () => {
       expect(toolDefinition("approve_approval_request").category).toBe("approvals")
       expect(toolDefinition("reject_approval_request").category).toBe("approvals")
       expect(toolDefinition("cancel_approval_request").category).toBe("approvals")
-    }))
+    })
+  )
 })
 
 describe("toolRegistry", () => {
   it.effect("has tools", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(toolRegistry.tools.size).toBeGreaterThan(0)
       expect(toolRegistry.definitions.length).toBeGreaterThan(0)
       expect(toolRegistry.tools.size).toBe(toolRegistry.definitions.length)
-    }))
+    })
+  )
 
   it.effect("all tool names are unique", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const names = toolRegistry.definitions.map((t) => t.name)
       const uniqueNames = new Set(names)
       expect(uniqueNames.size).toBe(names.length)
-    }))
+    })
+  )
 })
 
 describe("createFilteredRegistry", () => {
   it.effect("filters to only requested categories", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const filtered = createFilteredRegistry(categorySet("issues"))
 
       expect(filtered.definitions.length).toBeGreaterThan(0)
@@ -154,17 +162,19 @@ describe("createFilteredRegistry", () => {
       for (const tool of filtered.definitions) {
         expect(tool.category).toBe("issues")
       }
-    }))
+    })
+  )
 
   it.effect("returns empty registry for unknown category", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const filtered = createFilteredRegistry(categorySet("nonexistent_category"))
       expect(filtered.definitions.length).toBe(0)
       expect(filtered.tools.size).toBe(0)
-    }))
+    })
+  )
 
   it.effect("combines multiple categories", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const filtered = createFilteredRegistry(categorySet("issues", "projects"))
 
       const categories = new Set(filtered.definitions.map((t) => t.category))
@@ -173,10 +183,11 @@ describe("createFilteredRegistry", () => {
         expect(["issues", "projects"]).toContain(cat)
       }
       expect(filtered.definitions.length).toBeGreaterThan(0)
-    }))
+    })
+  )
 
   it.effect("filters to task-management tools", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const filtered = createFilteredRegistry(categorySet("task-management"))
       const toolNames = filtered.definitions.map((tool) => tool.name)
 
@@ -190,10 +201,11 @@ describe("createFilteredRegistry", () => {
       for (const tool of filtered.definitions) {
         expect(tool.category).toBe("task-management")
       }
-    }))
+    })
+  )
 
   it.effect("filters to association tools", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const filtered = createFilteredRegistry(categorySet("associations"))
       const toolNames = filtered.definitions.map((tool) => tool.name)
 
@@ -208,10 +220,11 @@ describe("createFilteredRegistry", () => {
       for (const tool of filtered.definitions) {
         expect(tool.category).toBe("associations")
       }
-    }))
+    })
+  )
 
   it.effect("filters to user status tools", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const filtered = createFilteredRegistry(categorySet("user-statuses"))
       const toolNames = filtered.definitions.map((tool) => tool.name)
 
@@ -219,10 +232,11 @@ describe("createFilteredRegistry", () => {
       for (const tool of filtered.definitions) {
         expect(tool.category).toBe("user-statuses")
       }
-    }))
+    })
+  )
 
   it.effect("filters to recruiting tools", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const filtered = createFilteredRegistry(categorySet("recruiting"))
       const toolNames = filtered.definitions.map((tool) => tool.name)
 
@@ -276,41 +290,34 @@ describe("createFilteredRegistry", () => {
       for (const tool of filtered.definitions) {
         expect(tool.category).toBe("recruiting")
       }
-    }))
+    })
+  )
 })
 
 describe("handleToolCall", () => {
   it.effect("returns null for unknown tool", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.promise(() =>
-        toolRegistry.handleToolCall(
-          toolName("totally_nonexistent_tool_xyz"),
-          {},
-          noopHulyClient,
-          noopStorageClient
-        )
+        toolRegistry.handleToolCall(toolName("totally_nonexistent_tool_xyz"), {}, noopHulyClient, noopStorageClient)
       )
 
       expect(result).toBeNull()
-    }))
+    })
+  )
 
   it.effect("accepts omitted arguments for all-optional parameter tools", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.promise(() =>
-        toolRegistry.handleToolCall(
-          toolName("list_projects"),
-          undefined,
-          noopHulyClient,
-          noopStorageClient
-        )
+        toolRegistry.handleToolCall(toolName("list_projects"), undefined, noopHulyClient, noopStorageClient)
       )
 
       expect(result?.isError).toBeUndefined()
-      expect(result?.content[0]?.text).toBe("{\"projects\":[],\"total\":0}")
-    }))
+      expect(result?.content[0]?.text).toBe('{"projects":[],"total":0}')
+    })
+  )
 
   it.effect("accepts omitted arguments for true no-argument tools", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.promise(() =>
         toolRegistry.handleToolCall(
           toolName("get_unread_notification_count"),
@@ -321,27 +328,24 @@ describe("handleToolCall", () => {
       )
 
       expect(result?.isError).toBeUndefined()
-      expect(result?.content[0]?.text).toContain("\"count\"")
-    }))
+      expect(result?.content[0]?.text).toContain('"count"')
+    })
+  )
 
   it.effect("rejects omitted arguments for required-parameter tools", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.promise(() =>
-        toolRegistry.handleToolCall(
-          toolName("get_issue"),
-          undefined,
-          noopHulyClient,
-          noopStorageClient
-        )
+        toolRegistry.handleToolCall(toolName("get_issue"), undefined, noopHulyClient, noopStorageClient)
       )
 
       expect(result?.isError).toBe(true)
       expect(result?._meta?.errorTag).toBe("MissingArguments")
       expect(result?.content[0]?.text).toContain("missing arguments object")
-    }))
+    })
+  )
 
   it.effect("rejects unexpected arguments for true no-argument tools", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.promise(() =>
         toolRegistry.handleToolCall(
           toolName("get_unread_notification_count"),
@@ -353,12 +357,13 @@ describe("handleToolCall", () => {
 
       expect(result?.isError).toBe(true)
       expect(result?.content[0]?.text).toContain("does not accept arguments")
-    }))
+    })
+  )
 })
 
 describe("TOOL_DEFINITIONS", () => {
   it.effect("is populated", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const keys = Object.keys(TOOL_DEFINITIONS)
       expect(keys.length).toBeGreaterThan(0)
       expect(keys.length).toBe(toolRegistry.tools.size)
@@ -366,13 +371,15 @@ describe("TOOL_DEFINITIONS", () => {
       expect(keys).toContain("list_associations")
       expect(keys).toContain("list_user_statuses")
       expect(keys).toContain("list_filtered_views")
-    }))
+    })
+  )
 
   it.effect("entries match toolRegistry", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       for (const [name, tool] of Object.entries(TOOL_DEFINITIONS)) {
         expect(tool.name).toBe(name)
         expect(toolRegistry.tools.has(toolName(name))).toBe(true)
       }
-    }))
+    })
+  )
 })

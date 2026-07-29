@@ -6,10 +6,8 @@ import { ChannelId, Count, Timestamp } from "../../domain/schemas/shared.js"
 import { InvalidContactProviderError } from "../errors.js"
 import { fromContactChannelProviderRef } from "./contact-channel-providers.js"
 
-export const channelSummary = (
-  channel: Channel
-): Effect.Effect<ContactChannelSummary, InvalidContactProviderError> =>
-  Effect.gen(function*() {
+export const channelSummary = (channel: Channel): Effect.Effect<ContactChannelSummary, InvalidContactProviderError> =>
+  Effect.gen(function* () {
     const provider = fromContactChannelProviderRef(channel.provider)
     if (provider instanceof InvalidContactProviderError) {
       return yield* provider

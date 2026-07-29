@@ -18,7 +18,7 @@ export const resolveAssignee = (
   client: HulyClient["Type"],
   assigneeIdentifier: string
 ): Effect.Effect<Person, PersonNotFoundError | HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const person = yield* findPersonByEmailOrName(client, assigneeIdentifier)
     if (person === undefined) {
       return yield* new PersonNotFoundError({ identifier: assigneeIdentifier })
@@ -35,18 +35,15 @@ interface TaskTypeWorkflow {
 const TASK_TYPE_DISCOVERY_HINT = "Use list_task_types or get_project_type to discover valid task types and statuses."
 
 const taskTypeMatches = (taskType: TaskType, taskTypeRef: TaskTypeRef): boolean =>
-  String(taskType._id) === String(taskTypeRef)
-  || normalizeForComparison(taskType.name) === normalizeForComparison(taskTypeRef)
+  String(taskType._id) === String(taskTypeRef) ||
+  normalizeForComparison(taskType.name) === normalizeForComparison(taskTypeRef)
 
 const describeTaskTypeOptions = (taskTypes: ReadonlyArray<TaskType>): string =>
   taskTypes.length === 0
     ? "No task types are configured for this project type."
     : `Available task types: ${taskTypes.map((taskType) => `${taskType.name} (${taskType._id})`).join(", ")}.`
 
-const mergeTaskTypes = (
-  first: ReadonlyArray<TaskType>,
-  second: ReadonlyArray<TaskType>
-): ReadonlyArray<TaskType> => {
+const mergeTaskTypes = (first: ReadonlyArray<TaskType>, second: ReadonlyArray<TaskType>): ReadonlyArray<TaskType> => {
   const taskTypesById = new Map<string, TaskType>()
   for (const taskType of [...first, ...second]) {
     taskTypesById.set(String(taskType._id), taskType)
@@ -62,14 +59,14 @@ export const resolveTaskTypeWorkflow = (
   taskTypeRef: TaskTypeRef,
   projectIdentifier: ProjectIdentifier
 ): Effect.Effect<TaskTypeWorkflow, HulyClientError | HulyError> =>
-  Effect.gen(function*() {
-    const workflowProjectType = projectType
-      ?? (yield* client.findOne<ProjectType>(task.class.ProjectType, hulyQuery<ProjectType>({ _id: project.type })))
+  Effect.gen(function* () {
+    const workflowProjectType =
+      projectType ??
+      (yield* client.findOne<ProjectType>(task.class.ProjectType, hulyQuery<ProjectType>({ _id: project.type })))
     if (workflowProjectType === undefined) {
       return yield* Effect.fail(
         new HulyError({
-          message:
-            `Project '${projectIdentifier}' does not expose a project type/workflow, so taskType cannot be resolved. ${TASK_TYPE_DISCOVERY_HINT}`
+          message: `Project '${projectIdentifier}' does not expose a project type/workflow, so taskType cannot be resolved. ${TASK_TYPE_DISCOVERY_HINT}`
         })
       )
     }
@@ -90,8 +87,9 @@ export const resolveTaskTypeWorkflow = (
       const reason = matches.length === 0 ? "was not found" : "matched more than one task type"
       return yield* Effect.fail(
         new HulyError({
-          message: `Task type '${taskTypeRef}' ${reason} in project '${projectIdentifier}' workflow. `
-            + `${describeTaskTypeOptions([...taskTypes])} ${TASK_TYPE_DISCOVERY_HINT}`
+          message:
+            `Task type '${taskTypeRef}' ${reason} in project '${projectIdentifier}' workflow. ` +
+            `${describeTaskTypeOptions([...taskTypes])} ${TASK_TYPE_DISCOVERY_HINT}`
         })
       )
     }
@@ -123,11 +121,10 @@ const resolveStatusForTaskType = (
   return match !== undefined
     ? Effect.succeed(match._id)
     : Effect.fail(
-      new HulyError({
-        message:
-          `Status '${statusName}' is not valid for task type '${workflow.taskType.name}' in project '${projectIdentifier}'. Valid statuses for this task type: ${statusNames}. ${TASK_TYPE_DISCOVERY_HINT}`
-      })
-    )
+        new HulyError({
+          message: `Status '${statusName}' is not valid for task type '${workflow.taskType.name}' in project '${projectIdentifier}'. Valid statuses for this task type: ${statusNames}. ${TASK_TYPE_DISCOVERY_HINT}`
+        })
+      )
 }
 
 export const chooseStatusForTaskType = (
@@ -146,9 +143,8 @@ export const chooseStatusForTaskType = (
   return workflow.defaultStatusId !== undefined
     ? Effect.succeed(workflow.defaultStatusId)
     : Effect.fail(
-      new HulyError({
-        message:
-          `Task type '${workflow.taskType.name}' in project '${projectIdentifier}' has no valid status. ${TASK_TYPE_DISCOVERY_HINT}`
-      })
-    )
+        new HulyError({
+          message: `Task type '${workflow.taskType.name}' in project '${projectIdentifier}' has no valid status. ${TASK_TYPE_DISCOVERY_HINT}`
+        })
+      )
 }

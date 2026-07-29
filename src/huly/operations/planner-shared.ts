@@ -57,16 +57,10 @@ import { hulyQuery, type StrictDocumentQuery, withLookup } from "./query-helpers
 import { toRef } from "./sdk-boundary.js"
 
 export type HulyTodoWithLookup = WithLookup<HulyToDo> & {
-  readonly $lookup?: {
-    readonly user?: Person
-    readonly attachedTo?: HulyIssue
-  }
+  readonly $lookup?: { readonly user?: Person; readonly attachedTo?: HulyIssue }
 }
 
-export const todoLookup = {
-  user: contact.class.Person,
-  attachedTo: tracker.class.Issue
-} as const
+export const todoLookup = { user: contact.class.Person, attachedTo: tracker.class.Issue } as const
 
 interface ResolvedTodoAttachment {
   readonly type: "none" | "issue"
@@ -145,7 +139,7 @@ export const resolveTodoOwner = (
   Ref<Employee>,
   HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError | PersonNotAnEmployeeError
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (owner === undefined) {
       const employee = yield* client.findOne<Employee>(
         contact.mixin.Employee,
@@ -182,12 +176,8 @@ export const resolveTodoOwner = (
 export const resolveTodoAttachment = (
   client: HulyClient["Type"],
   attachment?: TodoAttachmentInput
-): Effect.Effect<
-  ResolvedTodoAttachment,
-  HulyClientError | ProjectNotFoundError | IssueNotFoundError,
-  never
-> =>
-  Effect.gen(function*() {
+): Effect.Effect<ResolvedTodoAttachment, HulyClientError | ProjectNotFoundError | IssueNotFoundError, never> =>
+  Effect.gen(function* () {
     if (attachment?.type === "issue") {
       const { issue, project } = yield* findProjectAndIssue({
         project: attachment.project,
@@ -203,24 +193,17 @@ export const resolveTodoAttachment = (
       }
     }
 
-    return {
-      type: "none",
-      attachedTo: time.ids.NotAttached,
-      attachedToClass: time.class.ToDo
-    }
+    return { type: "none", attachedTo: time.ids.NotAttached, attachedToClass: time.class.ToDo }
   })
 
 export const latestOpenTodoRank = (
   client: HulyClient["Type"],
   owner: Ref<Employee>
 ): Effect.Effect<TodoRank, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const latestTodo = yield* client.findOne<HulyToDo>(
       time.class.ToDo,
-      hulyQuery<HulyToDo>({
-        user: owner,
-        doneOn: null
-      }),
+      hulyQuery<HulyToDo>({ user: owner, doneOn: null }),
       { sort: { rank: SortingOrder.Ascending } }
     )
     return TodoRankSchema.make(makeRank(undefined, latestTodo?.rank))
@@ -237,10 +220,7 @@ const applyCompletionState = (
   }
 }
 
-const queryForAttachment = (
-  query: StrictDocumentQuery<HulyToDo>,
-  attachment: ResolvedTodoAttachment
-): void => {
+const queryForAttachment = (query: StrictDocumentQuery<HulyToDo>, attachment: ResolvedTodoAttachment): void => {
   query.attachedTo = attachment.attachedTo
   query.attachedToClass = attachment.attachedToClass
 }
@@ -294,7 +274,7 @@ export const findTodo = (
   locator: TodoLocator,
   defaultCompletionState: TodoCompletionState = "open"
 ): Effect.Effect<HulyToDo, PlannerLookupError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if ("todoId" in locator) {
       const todo = yield* client.findOne<HulyToDo>(
         time.class.ToDo,
@@ -306,11 +286,12 @@ export const findTodo = (
     }
 
     const owner = "owner" in locator ? yield* resolveTodoOwner(client, locator.owner) : undefined
-    const attachment = "issue" in locator
-      ? yield* resolveTodoAttachment(client, { type: "issue", ...locator.issue })
-      : "attachedTo" in locator
-      ? yield* resolveTodoAttachment(client, locator.attachedTo)
-      : undefined
+    const attachment =
+      "issue" in locator
+        ? yield* resolveTodoAttachment(client, { type: "issue", ...locator.issue })
+        : "attachedTo" in locator
+          ? yield* resolveTodoAttachment(client, locator.attachedTo)
+          : undefined
 
     const todos = yield* client.findAll<HulyToDo>(
       time.class.ToDo,
@@ -354,11 +335,7 @@ const todoAttachmentSummary = (todo: HulyTodoWithLookup): TodoAttachmentSummary 
       title: attachmentTitleOrFallback(issue.title, issue.identifier)
     }
   }
-  return {
-    type: "unknown",
-    id: DocId.make(todo.attachedTo),
-    class: ObjectClassName.make(todo.attachedToClass)
-  }
+  return { type: "unknown", id: DocId.make(todo.attachedTo), class: ObjectClassName.make(todo.attachedToClass) }
 }
 
 const runtimeCount = (value: unknown): Count => Count.make(Number(value))

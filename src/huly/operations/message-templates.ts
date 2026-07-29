@@ -64,15 +64,14 @@ const fieldValueEntryFor = (value: MessageTemplateRenderValue): readonly [Templa
   value.value
 ]
 
-const fieldValueMapFor = (
-  values: ReadonlyArray<MessageTemplateRenderValue>
-): ReadonlyMap<TemplateFieldId, string> => new Map(values.map(fieldValueEntryFor))
+const fieldValueMapFor = (values: ReadonlyArray<MessageTemplateRenderValue>): ReadonlyMap<TemplateFieldId, string> =>
+  new Map(values.map(fieldValueEntryFor))
 
 const uniqueFields = (fields: ReadonlyArray<TemplateFieldId>): Array<TemplateFieldId> => [...new Set(fields)]
 
 const renderTokenWith = (
   valuesByField: ReadonlyMap<TemplateFieldId, string>
-): (token: string, rawField: string) => string => {
+): ((token: string, rawField: string) => string) => {
   const renderToken = (token: string, rawField: string): string => {
     const value = valuesByField.get(TemplateFieldId.make(rawField))
     return value === undefined ? token : value
@@ -97,10 +96,7 @@ const usedFieldValueFor = (
   const value = valuesByField.get(field)
   if (value === undefined) return []
 
-  return [{
-    field,
-    value
-  }]
+  return [{ field, value }]
 }
 
 const renderTemplateMessage = (
@@ -125,16 +121,13 @@ const renderTemplateMessage = (
 export const listMessageTemplateCategories = (
   params: ListMessageTemplateCategoriesParams
 ): Effect.Effect<Array<MessageTemplateCategorySummary>, ListMessageTemplateCategoriesError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const diagnostics = yield* Diagnostics
     const categories = yield* client.findAll<HulyTemplateCategory>(
       templates.class.TemplateCategory,
       hulyQuery<HulyTemplateCategory>({}),
-      {
-        limit: clampLimit(params.limit),
-        sort: { modifiedOn: SortingOrder.Descending }
-      }
+      { limit: clampLimit(params.limit), sort: { modifiedOn: SortingOrder.Descending } }
     )
 
     yield* warnMetadataFallbacks(
@@ -150,27 +143,23 @@ export const listMessageTemplateCategories = (
 export const listMessageTemplates = (
   params: ListMessageTemplatesParams
 ): Effect.Effect<Array<MessageTemplateSummary>, ListMessageTemplatesError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const diagnostics = yield* Diagnostics
     const category = params.category === undefined ? undefined : yield* resolveCategory(client, params.category)
     const titleLike = searchLike(params.search)
     const categoryFilter = category === undefined ? {} : { space: category._id }
     const titleFilter = titleLike === undefined ? {} : { title: titleLike }
-    const query: StrictDocumentQuery<HulyMessageTemplate> = {
-      ...categoryFilter,
-      ...titleFilter
-    }
+    const query: StrictDocumentQuery<HulyMessageTemplate> = { ...categoryFilter, ...titleFilter }
 
-    const found = yield* client.findAll<HulyMessageTemplate>(
-      templates.class.MessageTemplate,
-      hulyQuery(query),
-      {
-        limit: clampLimit(params.limit),
-        sort: { modifiedOn: SortingOrder.Descending }
-      }
+    const found = yield* client.findAll<HulyMessageTemplate>(templates.class.MessageTemplate, hulyQuery(query), {
+      limit: clampLimit(params.limit),
+      sort: { modifiedOn: SortingOrder.Descending }
+    })
+    const categories = yield* categoryMapFor(
+      client,
+      found.map((template) => template.space)
     )
-    const categories = yield* categoryMapFor(client, found.map((template) => template.space))
     yield* warnMetadataFallbacks(
       diagnostics,
       Count.make(found.filter(hasBlankTemplateTitle).length),
@@ -184,7 +173,7 @@ export const listMessageTemplates = (
 export const getMessageTemplate = (
   params: GetMessageTemplateParams
 ): Effect.Effect<MessageTemplate, GetMessageTemplateError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const diagnostics = yield* Diagnostics
     const template = yield* resolveTemplate(client, params)
@@ -202,7 +191,7 @@ export const getMessageTemplate = (
 export const renderMessageTemplate = (
   params: RenderMessageTemplateParams
 ): Effect.Effect<RenderMessageTemplateResult, RenderMessageTemplateError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const diagnostics = yield* Diagnostics
     const template = yield* resolveTemplate(client, params)
@@ -216,36 +205,29 @@ export const renderMessageTemplate = (
 
     const detail = templateDetailFor(template, client, categories)
 
-    return {
-      ...detail,
-      ...renderTemplateMessage(detail.message, detail.placeholderFieldIds, params.values ?? [])
-    }
+    return { ...detail, ...renderTemplateMessage(detail.message, detail.placeholderFieldIds, params.values ?? []) }
   })
 
 export const listMessageTemplateFields = (
   params: ListMessageTemplateFieldsParams
 ): Effect.Effect<Array<MessageTemplateField>, ListMessageTemplateFieldsError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const diagnostics = yield* Diagnostics
     const category = params.category === undefined ? undefined : yield* resolveFieldCategory(client, params.category)
     const labelLike = searchLike(params.search)
     const categoryFilter = category === undefined ? {} : { category: category._id }
     const labelFilter = labelLike === undefined ? {} : { label: labelLike }
-    const query: StrictDocumentQuery<HulyTemplateField> = {
-      ...categoryFilter,
-      ...labelFilter
-    }
+    const query: StrictDocumentQuery<HulyTemplateField> = { ...categoryFilter, ...labelFilter }
 
-    const fields = yield* client.findAll<HulyTemplateField>(
-      templates.class.TemplateField,
-      hulyQuery(query),
-      {
-        limit: clampLimit(params.limit),
-        sort: { modifiedOn: SortingOrder.Descending }
-      }
+    const fields = yield* client.findAll<HulyTemplateField>(templates.class.TemplateField, hulyQuery(query), {
+      limit: clampLimit(params.limit),
+      sort: { modifiedOn: SortingOrder.Descending }
+    })
+    const categories = yield* fieldCategoryMapFor(
+      client,
+      fields.map((field) => field.category)
     )
-    const categories = yield* fieldCategoryMapFor(client, fields.map((field) => field.category))
     yield* warnMetadataFallbacks(
       diagnostics,
       Count.make(fields.filter(hasBlankTemplateFieldLabel).length),

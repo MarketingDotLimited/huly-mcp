@@ -23,9 +23,7 @@ describe("concatLink", () => {
     })
 
     it("concatLink(url, '/browse?workspace=xyz')", () => {
-      expect(concatLink("https://huly.io", "/browse?workspace=xyz")).toBe(
-        "https://huly.io/browse?workspace=xyz"
-      )
+      expect(concatLink("https://huly.io", "/browse?workspace=xyz")).toBe("https://huly.io/browse?workspace=xyz")
     })
 
     it("concatLink(url, serverConfig.UPLOAD_URL ?? '/upload') with default", () => {
@@ -49,9 +47,7 @@ describe("concatLink", () => {
     })
 
     it("host with trailing-slashed path, path with leading slash", () => {
-      expect(concatLink("https://example.com/api/", "/files")).toBe(
-        "https://example.com/api/files"
-      )
+      expect(concatLink("https://example.com/api/", "/files")).toBe("https://example.com/api/files")
     })
   })
 })

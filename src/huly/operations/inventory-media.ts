@@ -76,9 +76,7 @@ import { type InventoryError, requireRemoveCollection, resolveProduct, workspace
 import { clampLimit, findResultTotal, hulyQuery } from "./query-helpers.js"
 import { requireUpdateFields } from "./update-guards.js"
 
-type InventoryProductMediaReadError =
-  | InventoryError
-  | AttachmentNotFoundError
+type InventoryProductMediaReadError = InventoryError | AttachmentNotFoundError
 
 type InventoryProductMediaAddError =
   | InventoryError
@@ -89,18 +87,11 @@ type InventoryProductMediaAddError =
   | FileTooLargeError
   | InvalidContentTypeError
 
-type InventoryProductMediaUpdateError =
-  | InventoryProductMediaReadError
-  | NoUpdateFieldsError
+type InventoryProductMediaUpdateError = InventoryProductMediaReadError | NoUpdateFieldsError
 
-type InventoryProductMediaDeleteError =
-  | InventoryProductMediaReadError
-  | InventoryMutationUnsupportedError
+type InventoryProductMediaDeleteError = InventoryProductMediaReadError | InventoryMutationUnsupportedError
 
-type InventoryProductCommentError =
-  | InventoryError
-  | HulyClientError
-  | InventoryProductCommentNotFoundError
+type InventoryProductCommentError = InventoryError | HulyClientError | InventoryProductCommentNotFoundError
 
 interface ResolvedProductTarget {
   readonly client: HulyClient["Type"]
@@ -118,7 +109,7 @@ const resolveProductTarget = (params: {
   readonly product: InventoryProductIdentifier
   readonly category?: InventoryCategoryIdentifier | undefined
 }): Effect.Effect<ResolvedProductTarget, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const product = yield* resolveProduct(client, params.product, params.category)
     return { client, product, reference: productReference(product) }
@@ -151,7 +142,7 @@ const removeProductMedia = (
   scope: AttachmentCollectionScope,
   mediaId: AttachmentId
 ): Effect.Effect<void, InventoryProductMediaDeleteError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const media = yield* findAttachmentForScope(target.client, mediaId, scope)
     const removeCollection = requireRemoveCollection(target.client)
     if (removeCollection instanceof InventoryMutationUnsupportedError) return yield* removeCollection
@@ -168,7 +159,7 @@ const removeProductMedia = (
 export const listInventoryProductAttachments = (
   params: ListInventoryProductAttachmentsParams
 ): Effect.Effect<ListInventoryProductAttachmentsResult, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveProductTarget(params)
     const page = yield* listAttachmentPageForScope(
       target.client,
@@ -181,7 +172,7 @@ export const listInventoryProductAttachments = (
 export const getInventoryProductAttachment = (
   params: GetInventoryProductAttachmentParams
 ): Effect.Effect<GetInventoryProductAttachmentResult, InventoryProductMediaReadError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const storageClient = yield* HulyStorageClient
     const target = yield* resolveProductTarget(params)
     const attachmentResult = yield* getAttachmentForScope(
@@ -196,7 +187,7 @@ export const getInventoryProductAttachment = (
 export const addInventoryProductAttachment = (
   params: AddInventoryProductAttachmentParams
 ): Effect.Effect<AddInventoryProductAttachmentResult, InventoryProductMediaAddError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveProductTarget(params)
     const result = yield* uploadAndAttach(params, {
       spaceRef: workspace,
@@ -205,18 +196,13 @@ export const addInventoryProductAttachment = (
       attachmentClassRef: attachment.class.Attachment,
       collection: "attachments"
     })
-    return {
-      product: target.reference,
-      attachmentId: result.attachmentId,
-      blobId: result.blobId,
-      url: result.url
-    }
+    return { product: target.reference, attachmentId: result.attachmentId, blobId: result.blobId, url: result.url }
   })
 
 export const updateInventoryProductAttachment = (
   params: UpdateInventoryProductAttachmentParams
 ): Effect.Effect<UpdateInventoryProductAttachmentResult, InventoryProductMediaUpdateError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_inventory_product_attachment", params, ["description", "pinned"])
     const target = yield* resolveProductTarget(params)
     yield* updateAttachmentForScope(
@@ -231,7 +217,7 @@ export const updateInventoryProductAttachment = (
 export const deleteInventoryProductAttachment = (
   params: DeleteInventoryProductAttachmentParams
 ): Effect.Effect<DeleteInventoryProductAttachmentResult, InventoryProductMediaDeleteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveProductTarget(params)
     yield* removeProductMedia(
       target,
@@ -244,7 +230,7 @@ export const deleteInventoryProductAttachment = (
 export const listInventoryProductPhotos = (
   params: ListInventoryProductPhotosParams
 ): Effect.Effect<ListInventoryProductPhotosResult, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveProductTarget(params)
     const page = yield* listAttachmentPageForScope(
       target.client,
@@ -257,7 +243,7 @@ export const listInventoryProductPhotos = (
 export const getInventoryProductPhoto = (
   params: GetInventoryProductPhotoParams
 ): Effect.Effect<GetInventoryProductPhotoResult, InventoryProductMediaReadError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const storageClient = yield* HulyStorageClient
     const target = yield* resolveProductTarget(params)
     const photo = yield* getAttachmentForScope(
@@ -272,7 +258,7 @@ export const getInventoryProductPhoto = (
 export const addInventoryProductPhoto = (
   params: AddInventoryProductPhotoParams
 ): Effect.Effect<AddInventoryProductPhotoResult, InventoryProductMediaAddError, HulyClient | HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveProductTarget(params)
     const result = yield* uploadAndAttach(params, {
       spaceRef: workspace,
@@ -281,18 +267,13 @@ export const addInventoryProductPhoto = (
       attachmentClassRef: attachment.class.Photo,
       collection: "photos"
     })
-    return {
-      product: target.reference,
-      photoId: result.attachmentId,
-      blobId: result.blobId,
-      url: result.url
-    }
+    return { product: target.reference, photoId: result.attachmentId, blobId: result.blobId, url: result.url }
   })
 
 export const updateInventoryProductPhoto = (
   params: UpdateInventoryProductPhotoParams
 ): Effect.Effect<UpdateInventoryProductPhotoResult, InventoryProductMediaUpdateError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_inventory_product_photo", params, ["description", "pinned"])
     const target = yield* resolveProductTarget(params)
     yield* updateAttachmentForScope(
@@ -307,7 +288,7 @@ export const updateInventoryProductPhoto = (
 export const deleteInventoryProductPhoto = (
   params: DeleteInventoryProductPhotoParams
 ): Effect.Effect<DeleteInventoryProductPhotoResult, InventoryProductMediaDeleteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveProductTarget(params)
     yield* removeProductMedia(
       target,
@@ -320,7 +301,7 @@ export const deleteInventoryProductPhoto = (
 export const listInventoryProductComments = (
   params: ListInventoryProductCommentsParams
 ): Effect.Effect<ListInventoryProductCommentsResult, InventoryProductCommentError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveProductTarget(params)
     const page = yield* listAttachedCommentsPage(productCommentTarget(target), params.limit, "Inventory product")
     return { product: target.reference, comments: page.comments, total: page.total }
@@ -329,7 +310,7 @@ export const listInventoryProductComments = (
 export const addInventoryProductComment = (
   params: AddInventoryProductCommentParams
 ): Effect.Effect<AddInventoryProductCommentResult, InventoryProductCommentError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveProductTarget(params)
     const commentId = yield* addAttachedComment(productCommentTarget(target), params.body)
     return { product: target.reference, commentId }
@@ -338,13 +319,10 @@ export const addInventoryProductComment = (
 export const updateInventoryProductComment = (
   params: UpdateInventoryProductCommentParams
 ): Effect.Effect<UpdateInventoryProductCommentResult, InventoryProductCommentError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveProductTarget(params)
-    const updated = yield* updateAttachedComment(
-      productCommentTarget(target),
-      params.commentId,
-      params.body,
-      () => productCommentNotFound(target.product, params.commentId)
+    const updated = yield* updateAttachedComment(productCommentTarget(target), params.commentId, params.body, () =>
+      productCommentNotFound(target.product, params.commentId)
     )
     return { product: target.reference, commentId: params.commentId, updated }
   })
@@ -352,12 +330,10 @@ export const updateInventoryProductComment = (
 export const deleteInventoryProductComment = (
   params: DeleteInventoryProductCommentParams
 ): Effect.Effect<DeleteInventoryProductCommentResult, InventoryProductCommentError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveProductTarget(params)
-    yield* deleteAttachedComment(
-      productCommentTarget(target),
-      params.commentId,
-      () => productCommentNotFound(target.product, params.commentId)
+    yield* deleteAttachedComment(productCommentTarget(target), params.commentId, () =>
+      productCommentNotFound(target.product, params.commentId)
     )
     return { product: target.reference, commentId: params.commentId, deleted: true }
   })
@@ -365,19 +341,12 @@ export const deleteInventoryProductComment = (
 export const listInventoryProductActivity = (
   params: ListInventoryProductActivityParams
 ): Effect.Effect<ListInventoryProductActivityResult, InventoryError | ActivityRecordInvalidError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const target = yield* resolveProductTarget(params)
     const messages = yield* target.client.findAll<HulyActivityMessage>(
       activity.class.ActivityMessage,
-      hulyQuery<HulyActivityMessage>({
-        attachedTo: target.product._id,
-        attachedToClass: inventory.class.Product
-      }),
-      {
-        limit: clampLimit(params.limit),
-        sort: { modifiedOn: SortingOrder.Descending },
-        total: true
-      }
+      hulyQuery<HulyActivityMessage>({ attachedTo: target.product._id, attachedToClass: inventory.class.Product }),
+      { limit: clampLimit(params.limit), sort: { modifiedOn: SortingOrder.Descending }, total: true }
     )
     const activityMessages = yield* toActivityMessages(
       messages,

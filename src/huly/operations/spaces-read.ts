@@ -61,7 +61,7 @@ const findSpaceType = (
   client: HulyClient["Type"],
   identifier: SpaceTypeIdentifier
 ): Effect.Effect<HulySpaceType, GetSpaceTypeError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<HulySpaceType>(
       core.class.SpaceType,
       hulyQuery<HulySpaceType>({ _id: toRef<HulySpaceType>(identifier) })
@@ -95,7 +95,7 @@ const permissionsByIds = (
   client: HulyClient["Type"],
   permissionIds: ReadonlyArray<Ref<HulyPermission>>
 ): Effect.Effect<Map<Ref<HulyPermission>, HulyPermission>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const uniqueIds = sortStrings([...new Set(permissionIds)])
     if (uniqueIds.length === 0) return new Map()
     const permissions = yield* client.findAll<HulyPermission>(
@@ -106,46 +106,41 @@ const permissionsByIds = (
     return new Map(permissions.map((permission) => [permission._id, permission]))
   })
 
-export const listSpaces = (
-  params: ListSpacesParams
-): Effect.Effect<ListSpacesResult, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+export const listSpaces = (params: ListSpacesParams): Effect.Effect<ListSpacesResult, HulyClientError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const query = applySpaceFilters({}, params)
     const limit = clampLimit(params.limit)
 
-    const spaces = yield* client.findAll(
-      spaceClass,
-      hulyQuery(query),
-      { limit, sort: { name: SortingOrder.Ascending }, total: true }
-    )
+    const spaces = yield* client.findAll(spaceClass, hulyQuery(query), {
+      limit,
+      sort: { name: SortingOrder.Ascending },
+      total: true
+    })
 
-    return {
-      spaces: spaces.map(toSpaceSummary),
-      total: listTotal(spaces.total)
-    }
+    return { spaces: spaces.map(toSpaceSummary), total: listTotal(spaces.total) }
   })
 
 export const getSpace = (
   params: GetSpaceParams
 ): Effect.Effect<ReturnType<typeof toSpaceDetail>, SpaceMutationError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const diagnostics = yield* Diagnostics
     const space = yield* findSpace(client, params)
-    const spaceType = space.type === undefined
-      ? undefined
-      : yield* client.findOne<HulySpaceType>(
-        core.class.SpaceType,
-        hulyQuery<HulySpaceType>({ _id: toRef<HulySpaceType>(space.type) })
-      )
-    const roles = spaceType === undefined
-      ? []
-      : yield* client.findAll<HulyRole>(
-        core.class.Role,
-        hulyQuery<HulyRole>({ attachedTo: spaceType._id }),
-        { limit: Math.max(spaceType.roles, 1) }
-      )
+    const spaceType =
+      space.type === undefined
+        ? undefined
+        : yield* client.findOne<HulySpaceType>(
+            core.class.SpaceType,
+            hulyQuery<HulySpaceType>({ _id: toRef<HulySpaceType>(space.type) })
+          )
+    const roles =
+      spaceType === undefined
+        ? []
+        : yield* client.findAll<HulyRole>(core.class.Role, hulyQuery<HulyRole>({ attachedTo: spaceType._id }), {
+            limit: Math.max(spaceType.roles, 1)
+          })
     const validRoleIds = new Set(roles.map((role) => role._id))
     if (spaceType !== undefined) {
       const readResult = readSpaceRoleAssignmentEntries(space, spaceType, validRoleIds)
@@ -162,7 +157,7 @@ export const getSpace = (
 export const listSpaceTypes = (
   params: ListSpaceTypesParams
 ): Effect.Effect<ListSpaceTypesResult, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const query: StrictDocumentQuery<HulySpaceType> = {}
     if (params.targetClass !== undefined) {
@@ -170,20 +165,21 @@ export const listSpaceTypes = (
     }
     const limit = clampLimit(params.limit)
 
-    const spaceTypes = yield* client.findAll<HulySpaceType>(
-      core.class.SpaceType,
-      hulyQuery(query),
-      { limit, sort: { name: SortingOrder.Ascending }, total: true }
-    )
+    const spaceTypes = yield* client.findAll<HulySpaceType>(core.class.SpaceType, hulyQuery(query), {
+      limit,
+      sort: { name: SortingOrder.Ascending },
+      total: true
+    })
 
     const descriptorIds = sortStrings([...new Set(spaceTypes.map(descriptorId))])
-    const descriptors = descriptorIds.length === 0
-      ? []
-      : yield* client.findAll<SpaceTypeDescriptor>(
-        core.class.SpaceTypeDescriptor,
-        hulyQuery<SpaceTypeDescriptor>({ _id: { $in: descriptorIds.map(toRef<SpaceTypeDescriptor>) } }),
-        { limit: descriptorIds.length }
-      )
+    const descriptors =
+      descriptorIds.length === 0
+        ? []
+        : yield* client.findAll<SpaceTypeDescriptor>(
+            core.class.SpaceTypeDescriptor,
+            hulyQuery<SpaceTypeDescriptor>({ _id: { $in: descriptorIds.map(toRef<SpaceTypeDescriptor>) } }),
+            { limit: descriptorIds.length }
+          )
     const descriptorsById = new Map(descriptors.map((descriptor) => [descriptor._id, descriptor]))
 
     return {
@@ -195,7 +191,7 @@ export const listSpaceTypes = (
 export const getSpaceType = (
   params: GetSpaceTypeParams
 ): Effect.Effect<SpaceTypeDetail, GetSpaceTypeError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const spaceType = yield* findSpaceType(client, params.spaceType)
 
@@ -204,17 +200,13 @@ export const getSpaceType = (
       hulyQuery<SpaceTypeDescriptor>({ _id: spaceType.descriptor })
     )
 
-    const roles = yield* client.findAll<HulyRole>(
-      core.class.Role,
-      hulyQuery<HulyRole>({ attachedTo: spaceType._id }),
-      { limit: clampLimit(undefined), sort: { name: SortingOrder.Ascending } }
-    )
+    const roles = yield* client.findAll<HulyRole>(core.class.Role, hulyQuery<HulyRole>({ attachedTo: spaceType._id }), {
+      limit: clampLimit(undefined),
+      sort: { name: SortingOrder.Ascending }
+    })
 
     const permissionIds = sortStrings([
-      ...new Set([
-        ...(descriptor?.availablePermissions ?? []),
-        ...roles.flatMap((role) => role.permissions)
-      ])
+      ...new Set([...(descriptor?.availablePermissions ?? []), ...roles.flatMap((role) => role.permissions)])
     ])
     const permissionMap = yield* permissionsByIds(client, permissionIds)
 
@@ -237,7 +229,7 @@ export const getSpaceType = (
 export const listSpacePermissions = (
   params: ListSpacePermissionsParams
 ): Effect.Effect<ListSpacePermissionsResult, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const query: StrictDocumentQuery<HulyPermission> = {}
     if (params.scope !== undefined) {
@@ -246,16 +238,11 @@ export const listSpacePermissions = (
     if (params.objectClass !== undefined) {
       query.objectClass = toClassRef<Doc>(params.objectClass)
     }
-    const permissions = yield* client.findAll<HulyPermission>(
-      core.class.Permission,
-      hulyQuery(query),
-      { sort: { label: SortingOrder.Ascending } }
-    )
+    const permissions = yield* client.findAll<HulyPermission>(core.class.Permission, hulyQuery(query), {
+      sort: { label: SortingOrder.Ascending }
+    })
     const filtered = permissions.filter((permission) => permissionSearchMatches(permission, params.search))
     const limited = filtered.slice(0, clampLimit(params.limit))
 
-    return {
-      permissions: limited.map(toPermissionSummary),
-      total: listTotal(filtered.length)
-    }
+    return { permissions: limited.map(toPermissionSummary), total: listTotal(filtered.length) }
   })

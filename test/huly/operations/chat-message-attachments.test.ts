@@ -65,21 +65,17 @@ interface State {
   readonly messages: Array<ChatMessage>
   readonly replies: Array<HulyThreadMessage>
   readonly attachments: Array<HulyAttachment>
-  readonly addCalls: Array<
-    { readonly attachedTo: string; readonly attachedToClass: string; readonly collection: string }
-  >
+  readonly addCalls: Array<{
+    readonly attachedTo: string
+    readonly attachedToClass: string
+    readonly collection: string
+  }>
   readonly updateCalls: Array<{ readonly objectId: string; readonly operations: DocumentUpdate<HulyAttachment> }>
   readonly removeCalls: Array<{ readonly objectId: string; readonly attachedTo: string; readonly collection: string }>
   nextBlob: number
 }
 
-const baseDoc = {
-  space: toRef<Space>("space-1"),
-  modifiedBy: person,
-  modifiedOn: 1,
-  createdBy: person,
-  createdOn: 1
-}
+const baseDoc = { space: toRef<Space>("space-1"), modifiedBy: person, modifiedOn: 1, createdBy: person, createdOn: 1 }
 
 const makeChannel = (): HulyChannel => ({
   ...baseDoc,
@@ -152,11 +148,7 @@ const makeReply = (id: string, attachments: number): HulyThreadMessage => ({
   objectClass: chunter.class.Channel
 })
 
-const makeAttachment = (
-  id: string,
-  attachedTo: Ref<Doc>,
-  attachedToClass: Ref<Class<Doc>>
-): HulyAttachment => ({
+const makeAttachment = (id: string, attachedTo: Ref<Doc>, attachedToClass: Ref<Class<Doc>>): HulyAttachment => ({
   ...baseDoc,
   _id: toRef<HulyAttachment>(id),
   _class: attachment.class.Attachment,
@@ -182,16 +174,16 @@ const docsForClass = (state: State, classRef: Ref<Class<Doc>>): ReadonlyArray<Do
   classRef === chunter.class.Channel
     ? state.channels
     : classRef === chunter.class.DirectMessage
-    ? state.directMessages
-    : classRef === contact.mixin.Employee
-    ? state.employees
-    : classRef === chunter.class.ChatMessage
-    ? state.messages
-    : classRef === chunter.class.ThreadMessage
-    ? state.replies
-    : classRef === attachment.class.Attachment
-    ? state.attachments
-    : []
+      ? state.directMessages
+      : classRef === contact.mixin.Employee
+        ? state.employees
+        : classRef === chunter.class.ChatMessage
+          ? state.messages
+          : classRef === chunter.class.ThreadMessage
+            ? state.replies
+            : classRef === attachment.class.Attachment
+              ? state.attachments
+              : []
 
 const applyOptions = <T extends Doc>(docs: ReadonlyArray<T>, options: FindOptions<T> | undefined): ReadonlyArray<T> =>
   options?.limit === undefined ? docs : docs.slice(0, options.limit)
@@ -206,13 +198,7 @@ const stateFixture = (): State => {
     toRef<Class<Doc>>(chunter.class.Channel),
     1
   )
-  const dmMessage = makeMessage(
-    "msg-dm",
-    dm._id,
-    toRef<Doc>(dm._id),
-    toRef<Class<Doc>>(chunter.class.DirectMessage),
-    2
-  )
+  const dmMessage = makeMessage("msg-dm", dm._id, toRef<Doc>(dm._id), toRef<Class<Doc>>(chunter.class.DirectMessage), 2)
   const reply = makeReply("reply-1", 3)
   return {
     channels: [channel],
@@ -243,10 +229,8 @@ const layerFor = (state: State): Layer.Layer<HulyClient | HulyStorageClient> => 
     return Effect.succeed(Object.assign([...applyOptions(filtered as Array<T>, options)], { total: filtered.length }))
   }
 
-  const findOne: HulyClientOperations["findOne"] = <T extends Doc>(
-    classRef: Ref<Class<T>>,
-    query: DocumentQuery<T>
-  ) => Effect.map(findAll(classRef, query), (docs) => docs.at(0))
+  const findOne: HulyClientOperations["findOne"] = <T extends Doc>(classRef: Ref<Class<T>>, query: DocumentQuery<T>) =>
+    Effect.map(findAll(classRef, query), (docs) => docs.at(0))
 
   const addCollection: HulyClientOperations["addCollection"] = <T extends Doc, P extends AttachedDoc>(
     classRef: Ref<Class<P>>,
@@ -336,7 +320,7 @@ const exerciseLifecycle = (
   expectedAttachedTo: string,
   expectedClass: string
 ) =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const layer = layerFor(state)
     const listParams = yield* parseListChatMessageAttachmentsParams({ target, limit: 10 })
     const listed = yield* listChatMessageAttachments(listParams).pipe(Effect.provide(layer), withDiagnostics)
@@ -357,10 +341,7 @@ const exerciseLifecycle = (
       collection: "attachments"
     })
 
-    const getParams = yield* parseGetChatMessageAttachmentParams({
-      target,
-      attachmentId: added.attachmentId
-    })
+    const getParams = yield* parseGetChatMessageAttachmentParams({ target, attachmentId: added.attachmentId })
     const read = yield* getChatMessageAttachment(getParams).pipe(Effect.provide(layer), withDiagnostics)
     expect(read.attachment.url).toBe(`https://files.test/${added.blobId}`)
 
@@ -382,21 +363,15 @@ const exerciseLifecycle = (
     yield* updateChatMessageAttachment(clearParams).pipe(Effect.provide(layer), withDiagnostics)
     expect(state.updateCalls.at(-1)?.operations).toMatchObject({ description: "" })
 
-    const deleteParams = yield* parseDeleteChatMessageAttachmentParams({
-      target,
-      attachmentId: added.attachmentId
-    })
+    const deleteParams = yield* parseDeleteChatMessageAttachmentParams({ target, attachmentId: added.attachmentId })
     const deleted = yield* deleteChatMessageAttachment(deleteParams).pipe(Effect.provide(layer), withDiagnostics)
     expect(deleted.deleted).toBe(true)
-    expect(state.removeCalls.at(-1)).toMatchObject({
-      attachedTo: expectedAttachedTo,
-      collection: "attachments"
-    })
+    expect(state.removeCalls.at(-1)).toMatchObject({ attachedTo: expectedAttachedTo, collection: "attachments" })
   })
 
 describe("chat message attachment operations", () => {
   it.effect("resolves all supported targets and runs attachment lifecycles", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = stateFixture()
 
       yield* exerciseLifecycle(
@@ -426,10 +401,11 @@ describe("chat message attachment operations", () => {
         "reply-1",
         chunter.class.ThreadMessage
       )
-    }))
+    })
+  )
 
   it.effect("rejects attachment IDs that belong to another chat message target", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = stateFixture()
       const layer = layerFor(state)
       const params = yield* parseGetChatMessageAttachmentParams({
@@ -440,19 +416,20 @@ describe("chat message attachment operations", () => {
       const error = yield* Effect.flip(getChatMessageAttachment(params).pipe(Effect.provide(layer), withDiagnostics))
 
       expect(error).toBeInstanceOf(ChatMessageAttachmentNotFoundError)
-    }))
+    })
+  )
 
   it.effect("exposes attachment counts in message and reply summaries", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = stateFixture()
       const layer = layerFor(state)
 
       const channelMessages = yield* listChannelMessages(
         yield* parseListChannelMessagesParams({ channel: "general" })
       ).pipe(Effect.provide(layer))
-      const dmMessages = yield* listDirectMessageMessages(
-        yield* parseListDmMessagesParams({ dm: "dm-1" })
-      ).pipe(Effect.provide(layer))
+      const dmMessages = yield* listDirectMessageMessages(yield* parseListDmMessagesParams({ dm: "dm-1" })).pipe(
+        Effect.provide(layer)
+      )
       const replies = yield* listThreadReplies(
         yield* parseListThreadRepliesParams({ channel: "general", messageId: "msg-channel" })
       ).pipe(Effect.provide(layer))
@@ -460,10 +437,11 @@ describe("chat message attachment operations", () => {
       expect(channelMessages.messages[0]?.attachments).toBe(1)
       expect(dmMessages.messages[0]?.attachments).toBe(2)
       expect(replies.replies[0]?.attachments).toBe(3)
-    }))
+    })
+  )
 
   it.effect("returns target-aware metadata in results", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = stateFixture()
       const layer = layerFor(state)
       const params = yield* parseGetChatMessageAttachmentParams({
@@ -483,10 +461,11 @@ describe("chat message attachment operations", () => {
         collection: "attachments"
       })
       expect(result.attachment.description).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("allows clearing descriptions with null", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = stateFixture()
       const layer = layerFor(state)
       const params = yield* parseUpdateChatMessageAttachmentParams({
@@ -498,5 +477,6 @@ describe("chat message attachment operations", () => {
       yield* updateChatMessageAttachment(params).pipe(Effect.provide(layer), withDiagnostics)
 
       expect(state.updateCalls.at(-1)?.operations).toMatchObject({ description: "" })
-    }))
+    })
+  )
 })

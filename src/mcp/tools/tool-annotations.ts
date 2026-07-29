@@ -6,7 +6,10 @@ interface AnnotatedTool {
 }
 
 const deriveTitle = (name: string): string =>
-  name.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")
+  name
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
 
 const READ_PREFIXES = ["list_", "get_", "describe_", "search_", "fulltext_", "download_", "preview_", "read_"]
 const CREATE_PREFIXES = ["create_", "add_", "upload_", "send_", "log_"]

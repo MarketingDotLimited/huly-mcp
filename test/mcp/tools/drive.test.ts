@@ -91,22 +91,23 @@ const file = (id: string, title: string): File => ({
   createdOn: 0
 })
 
-const chatMessage = (id: string, body: string): ChatMessage => ({
-  _id: toRef<ChatMessage>(id),
-  _class: chunter.class.ChatMessage,
-  space: toRef<DriveSpace>("drive-1"),
-  attachedTo: toRef<Doc>("file-api"),
-  attachedToClass: toRef<Class<Doc>>(drive.class.File),
-  collection: "comments",
-  message: markdownToMarkupString(body, testMarkupUrlConfig),
-  modifiedBy: personId,
-  modifiedOn: 1,
-  createdBy: personId,
-  createdOn: 1,
-  isPinned: false,
-  replies: 0,
-  reactions: 0
-} as unknown as ChatMessage)
+const chatMessage = (id: string, body: string): ChatMessage =>
+  ({
+    _id: toRef<ChatMessage>(id),
+    _class: chunter.class.ChatMessage,
+    space: toRef<DriveSpace>("drive-1"),
+    attachedTo: toRef<Doc>("file-api"),
+    attachedToClass: toRef<Class<Doc>>(drive.class.File),
+    collection: "comments",
+    message: markdownToMarkupString(body, testMarkupUrlConfig),
+    modifiedBy: personId,
+    modifiedOn: 1,
+    createdBy: personId,
+    createdOn: 1,
+    isPinned: false,
+    replies: 0,
+    reactions: 0
+  }) as unknown as ChatMessage
 
 const activityMessage = (): HulyActivityMessage => ({
   _id: toRef<HulyActivityMessage>("activity-1"),
@@ -129,14 +130,14 @@ const documentsForClass = (state: DriveToolState, classRef: Ref<Class<Doc>>): Re
   classRef === drive.class.Drive
     ? state.drives
     : classRef === drive.class.Folder
-    ? state.folders
-    : classRef === drive.class.File
-    ? state.files
-    : classRef === chunter.class.ChatMessage
-    ? state.messages ?? []
-    : classRef === activity.class.ActivityMessage
-    ? state.activityMessages ?? []
-    : []
+      ? state.folders
+      : classRef === drive.class.File
+        ? state.files
+        : classRef === chunter.class.ChatMessage
+          ? (state.messages ?? [])
+          : classRef === activity.class.ActivityMessage
+            ? (state.activityMessages ?? [])
+            : []
 
 const makeHulyClient = (state: DriveToolState): HulyClientOperations => ({
   getAccountUuid: () => accountA,
@@ -155,12 +156,7 @@ const makeHulyClient = (state: DriveToolState): HulyClientOperations => ({
     makeHulyClient(state).findAll(classRef, query),
   findOne: <T extends Doc>(classRef: Ref<Class<T>>, query: DocumentQuery<T>) =>
     Effect.map(makeHulyClient(state).findAll(classRef, query), (docs) => docs.at(0)),
-  createDoc: <T extends Doc>(
-    classRef: Ref<Class<T>>,
-    space: Ref<Space>,
-    attributes: Data<T>,
-    id?: Ref<T>
-  ) => {
+  createDoc: <T extends Doc>(classRef: Ref<Class<T>>, space: Ref<Space>, attributes: Data<T>, id?: Ref<T>) => {
     const next = id ?? toRef<T>(`created-${state.nextId++}`)
     if (classRef === drive.class.Drive) {
       state.drives.push({
@@ -266,7 +262,7 @@ const findTool = (name: string) => {
 
 describe("driveTools", () => {
   it.effect("exports Drive tools in the drive category and registers them globally", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(driveTools.map((tool) => tool.name)).toEqual([
         "list_drives",
         "get_drive",
@@ -298,34 +294,22 @@ describe("driveTools", () => {
         expect(TOOL_DEFINITIONS[tool.name]).toBe(tool)
       }
 
-      expect(driveTools.find((tool) => tool.name === "move_drive_item")?.description).toContain(
-        "file or folder"
-      )
-      expect(driveTools.find((tool) => tool.name === "create_drive")?.description).toContain(
-        "created=false"
-      )
+      expect(driveTools.find((tool) => tool.name === "move_drive_item")?.description).toContain("file or folder")
+      expect(driveTools.find((tool) => tool.name === "create_drive")?.description).toContain("created=false")
       expect(driveTools.find((tool) => tool.name === "set_drive_owners")?.description).toContain(
         "ensured as a Drive member"
       )
-      expect(driveTools.find((tool) => tool.name === "delete_drive")?.description).toContain(
-        "empty Huly Drive space"
-      )
-      expect(driveTools.find((tool) => tool.name === "delete_drive_item")?.description).toContain(
-        "permanent deletion"
-      )
+      expect(driveTools.find((tool) => tool.name === "delete_drive")?.description).toContain("empty Huly Drive space")
+      expect(driveTools.find((tool) => tool.name === "delete_drive_item")?.description).toContain("permanent deletion")
       expect(driveTools.find((tool) => tool.name === "list_drive_file_comments")?.description).toContain(
         "filePath or fileId"
       )
-    }))
+    })
+  )
 
   it.effect("Drive administration handlers encode successful structured output", () =>
-    Effect.gen(function*() {
-      const state: DriveToolState = {
-        drives: [driveSpace()],
-        folders: [],
-        files: [],
-        nextId: 1
-      }
+    Effect.gen(function* () {
+      const state: DriveToolState = { drives: [driveSpace()], folders: [], files: [], nextId: 1 }
       const hulyClient = makeHulyClient(state)
 
       const created = yield* Effect.promise(() =>
@@ -357,16 +341,13 @@ describe("driveTools", () => {
       expect(updated.structuredContent?.result).toMatchObject({ updated: true, drive: { autoJoin: true } })
       expect(added.structuredContent?.result).toMatchObject({ changed: true, members: [accountA, accountB] })
       expect(removed.structuredContent?.result).toMatchObject({ changed: true, members: [accountB] })
-      expect(owners.structuredContent?.result).toMatchObject({
-        changed: true,
-        owners: [accountB],
-        members: [accountB]
-      })
+      expect(owners.structuredContent?.result).toMatchObject({ changed: true, owners: [accountB], members: [accountB] })
       expect(deleted.structuredContent?.result).toMatchObject({ deleted: true, drive: { name: "Team Drive" } })
-    }))
+    })
+  )
 
   it.effect("Drive file comment and activity handlers encode successful structured output", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state: DriveToolState = {
         drives: [driveSpace()],
         folders: [],
@@ -419,10 +400,11 @@ describe("driveTools", () => {
         total: 1
       })
       expect(deleted.structuredContent?.result).toMatchObject({ commentId: "comment-1", deleted: true })
-    }))
+    })
+  )
 
   it.effect("Drive administration handlers map parse and domain errors", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const nonEmptyState: DriveToolState = {
         drives: [driveSpace()],
         folders: [folder("folder-specs", "Specs")],
@@ -444,10 +426,11 @@ describe("driveTools", () => {
       expect(domainError.isError).toBe(true)
       expect(domainError._meta?.errorCode).toBe(McpErrorCode.InvalidParams)
       expect(assertAt(domainError.content, 0).text).toContain("Drive 'Docs' is not empty")
-    }))
+    })
+  )
 
   it.effect("Drive file comment handlers map parse and domain errors", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state: DriveToolState = {
         drives: [driveSpace()],
         folders: [],
@@ -478,5 +461,6 @@ describe("driveTools", () => {
       expect(domainError.isError).toBe(true)
       expect(domainError._meta?.errorCode).toBe(McpErrorCode.InvalidParams)
       expect(assertAt(domainError.content, 0).text).toContain("Drive file comment 'missing-comment'")
-    }))
+    })
+  )
 })

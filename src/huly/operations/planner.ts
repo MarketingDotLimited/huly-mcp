@@ -80,19 +80,19 @@ const descriptionForTodo = (
 ): Effect.Effect<string | undefined, HulyClientError> =>
   todo.description
     ? client.fetchMarkup(
-      time.class.ToDo,
-      todo._id,
-      "description",
-      todoDescriptionAsMarkupRef(todo.description),
-      "markdown"
-    )
+        time.class.ToDo,
+        todo._id,
+        "description",
+        todoDescriptionAsMarkupRef(todo.description),
+        "markdown"
+      )
     : Effect.succeed(undefined)
 
 const detailFromTodo = (
   client: HulyClient["Type"],
   todo: HulyTodoWithLookup
 ): Effect.Effect<TodoDetail, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const emailMap = yield* batchGetEmailsForPersons(client, uniqueTodoOwnerIds([todo]))
     const description = yield* descriptionForTodo(client, todo)
     return {
@@ -110,7 +110,7 @@ const uploadTodoDescription = (
   todoId: Ref<HulyToDo>,
   description: string | undefined
 ): Effect.Effect<HulyToDo["description"], HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (description === undefined || description.trim() === "") return ""
     const rendered = renderMarkdownPreservingNativeReferences(description, client.markupUrlConfig)
     const ref = yield* client.uploadMarkup(objectClass, todoId, "description", rendered.markup, rendered.format)
@@ -136,15 +136,9 @@ const createPersonalTodo = (
     rank
   }
   if (params.dueDate !== undefined) data.dueDate = params.dueDate
-  return client.addCollection(
-    time.class.ToDo,
-    time.space.ToDos,
-    time.ids.NotAttached,
-    time.class.ToDo,
-    "todos",
-    data,
-    todoId
-  ).pipe(Effect.asVoid)
+  return client
+    .addCollection(time.class.ToDo, time.space.ToDos, time.ids.NotAttached, time.class.ToDo, "todos", data, todoId)
+    .pipe(Effect.asVoid)
 }
 
 const createIssueTodo = (
@@ -168,26 +162,17 @@ const createIssueTodo = (
     rank
   }
   if (params.dueDate !== undefined) data.dueDate = params.dueDate
-  return client.addCollection(
-    time.class.ProjectToDo,
-    time.space.ToDos,
-    issue._id,
-    tracker.class.Issue,
-    "todos",
-    data,
-    todoId
-  ).pipe(Effect.asVoid)
+  return client
+    .addCollection(time.class.ProjectToDo, time.space.ToDos, issue._id, tracker.class.Issue, "todos", data, todoId)
+    .pipe(Effect.asVoid)
 }
 
-export const listTodos = (
-  params: ListTodosParams
-): Effect.Effect<Array<TodoSummary>, PlannerLookupError, HulyClient> =>
-  Effect.gen(function*() {
+export const listTodos = (params: ListTodosParams): Effect.Effect<Array<TodoSummary>, PlannerLookupError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const owner = params.owner === undefined ? undefined : yield* resolveTodoOwner(client, params.owner)
-    const attachment = params.issue === undefined
-      ? undefined
-      : yield* resolveTodoAttachment(client, { type: "issue", ...params.issue })
+    const attachment =
+      params.issue === undefined ? undefined : yield* resolveTodoAttachment(client, { type: "issue", ...params.issue })
     const query = queryFromListFilters(owner, attachment, {
       title: params.title,
       dueFrom: params.dueFrom,
@@ -206,26 +191,21 @@ export const listTodos = (
       )
     )
     const titleSearch = params.titleSearch?.toLowerCase()
-    const filtered = titleSearch === undefined
-      ? todos
-      : todos.filter((todo) => todo.title.toLowerCase().includes(titleSearch))
+    const filtered =
+      titleSearch === undefined ? todos : todos.filter((todo) => todo.title.toLowerCase().includes(titleSearch))
     const emailMap = yield* batchGetEmailsForPersons(client, uniqueTodoOwnerIds(filtered))
     return filtered.map((todo) => todoSummary(todo, emailMap))
   })
 
-export const getTodo = (
-  params: GetTodoParams
-): Effect.Effect<TodoDetail, PlannerLookupError, HulyClient> =>
-  Effect.gen(function*() {
+export const getTodo = (params: GetTodoParams): Effect.Effect<TodoDetail, PlannerLookupError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const todo = yield* findTodo(client, params.locator)
     return yield* detailFromTodo(client, todo)
   })
 
-export const createTodo = (
-  params: CreateTodoParams
-): Effect.Effect<CreateTodoResult, PlannerLookupError, HulyClient> =>
-  Effect.gen(function*() {
+export const createTodo = (params: CreateTodoParams): Effect.Effect<CreateTodoResult, PlannerLookupError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const owner = yield* resolveTodoOwner(client, params.owner)
     const attachment = yield* resolveTodoAttachment(client, params.attachedTo)
@@ -247,7 +227,7 @@ export const createTodo = (
 export const updateTodo = (
   params: UpdateTodoParams
 ): Effect.Effect<TodoMutationResult, PlannerMutationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_todo", params, UPDATE_TODO_FIELDS)
     const client = yield* HulyClient
     const todo = yield* findTodo(client, params.locator)
@@ -258,11 +238,11 @@ export const updateTodo = (
       params.dueDate === undefined
         ? {}
         : params.dueDate === null
-        ? { $unset: { dueDate: "" } }
-        : { dueDate: params.dueDate },
+          ? { $unset: { dueDate: "" } }
+          : { dueDate: params.dueDate },
       params.priority === undefined ? {} : { priority: stringToTodoPriority(params.priority) },
       params.visibility === undefined ? {} : { visibility: stringToTodoVisibility(params.visibility) },
-      yield* Effect.gen(function*() {
+      yield* Effect.gen(function* () {
         if (params.description === undefined) return {}
         if (params.description === null || params.description.trim() === "") return { description: "" }
         const rendered = renderMarkdownPreservingNativeReferences(params.description, client.markupUrlConfig)
@@ -291,7 +271,7 @@ export const updateTodo = (
 export const completeTodo = (
   params: CompleteTodoParams
 ): Effect.Effect<TodoMutationResult, PlannerMutationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const todo = yield* findTodo(client, params.locator)
     const doneOn = params.doneOn ?? (yield* Clock.currentTimeMillis)
@@ -302,7 +282,7 @@ export const completeTodo = (
 export const reopenTodo = (
   params: ReopenTodoParams
 ): Effect.Effect<TodoMutationResult, PlannerMutationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const todo = yield* findTodo(client, params.locator, "completed")
     yield* client.updateDoc(time.class.ToDo, todo.space, todo._id, { doneOn: null })
@@ -312,7 +292,7 @@ export const reopenTodo = (
 export const deleteTodo = (
   params: DeleteTodoParams
 ): Effect.Effect<DeleteTodoResult, PlannerMutationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const todo = yield* findTodo(client, params.locator)
     if (todo.attachedToClass === tracker.class.Issue && todo.attachedTo !== time.ids.NotAttached) {
@@ -324,21 +304,20 @@ export const deleteTodo = (
     return { todoId: TodoId.make(todo._id), deleted: true }
   })
 
-const decrementIssueTodoCounter = (
-  client: HulyClient["Type"],
-  todo: HulyToDo
-): Effect.Effect<void, HulyClientError> =>
-  client.updateDoc(
-    toRef<Class<TodoableParent>>(tracker.class.Issue),
-    todo.attachedSpace ?? todo.space,
-    toRef<TodoableParent>(todo.attachedTo),
-    { $inc: { todos: -1 } }
-  ).pipe(Effect.asVoid)
+const decrementIssueTodoCounter = (client: HulyClient["Type"], todo: HulyToDo): Effect.Effect<void, HulyClientError> =>
+  client
+    .updateDoc(
+      toRef<Class<TodoableParent>>(tracker.class.Issue),
+      todo.attachedSpace ?? todo.space,
+      toRef<TodoableParent>(todo.attachedTo),
+      { $inc: { todos: -1 } }
+    )
+    .pipe(Effect.asVoid)
 
 export const scheduleTodo = (
   params: ScheduleTodoParams
 ): Effect.Effect<ScheduleTodoResult, HulyDomainError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const todo = yield* findTodo(client, params.locator)
     const description = yield* descriptionForTodo(client, todo)
@@ -354,11 +333,8 @@ export const scheduleTodo = (
     return { todoId: TodoId.make(todo._id), workSlotId: result.slotId }
   })
 
-const removeWorkSlot = (
-  client: HulyClient["Type"],
-  slot: HulyWorkSlot
-): Effect.Effect<void, HulyClientError> =>
-  Effect.gen(function*() {
+const removeWorkSlot = (client: HulyClient["Type"], slot: HulyWorkSlot): Effect.Effect<void, HulyClientError> =>
+  Effect.gen(function* () {
     if (client.removeCollection !== undefined) {
       yield* client.removeCollection(
         time.class.WorkSlot,
@@ -378,17 +354,19 @@ const decrementTodoWorkSlotCounter = (
   client: HulyClient["Type"],
   slot: HulyWorkSlot
 ): Effect.Effect<void, HulyClientError> =>
-  client.updateDoc(
-    toRef<Class<WorkSlottedTodo>>(time.class.ToDo),
-    time.space.ToDos,
-    toRef<WorkSlottedTodo>(slot.attachedTo),
-    { $inc: { workslots: -1 } }
-  ).pipe(Effect.asVoid)
+  client
+    .updateDoc(
+      toRef<Class<WorkSlottedTodo>>(time.class.ToDo),
+      time.space.ToDos,
+      toRef<WorkSlottedTodo>(slot.attachedTo),
+      { $inc: { workslots: -1 } }
+    )
+    .pipe(Effect.asVoid)
 
 export const unscheduleTodo = (
   params: UnscheduleTodoParams
 ): Effect.Effect<UnscheduleTodoResult, PlannerMutationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     if ("workSlotId" in params) {
@@ -403,12 +381,13 @@ export const unscheduleTodo = (
 
     const todo = yield* findTodo(client, params.locator)
 
-    const query = params.scope === "future"
-      ? hulyQuery<HulyWorkSlot>({
-        attachedTo: todo._id,
-        date: { $gte: params.from ?? (yield* Clock.currentTimeMillis) }
-      })
-      : hulyQuery<HulyWorkSlot>({ attachedTo: todo._id })
+    const query =
+      params.scope === "future"
+        ? hulyQuery<HulyWorkSlot>({
+            attachedTo: todo._id,
+            date: { $gte: params.from ?? (yield* Clock.currentTimeMillis) }
+          })
+        : hulyQuery<HulyWorkSlot>({ attachedTo: todo._id })
     const slots = yield* client.findAll<HulyWorkSlot>(time.class.WorkSlot, query)
     yield* Effect.all(slots.map((slot) => removeWorkSlot(client, slot)))
     return { todoId: TodoId.make(todo._id), removed: Count.make(slots.length) }

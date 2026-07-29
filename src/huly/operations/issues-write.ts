@@ -49,18 +49,11 @@ type CreateIssueError =
   | PersonNotFoundError
   | IssueReferenceError
 
-type DeleteIssueError =
-  | HulyClientError
-  | ProjectNotFoundError
-  | IssueNotFoundError
+type DeleteIssueError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
 
 // SDK: updateDoc with retrieve=true returns TxResult which doesn't type the embedded object.
 // The runtime value includes { object: { sequence: number } } for $inc operations.
-const TxIncResult = Schema.Struct({
-  object: Schema.Struct({
-    sequence: Schema.Number
-  })
-})
+const TxIncResult = Schema.Struct({ object: Schema.Struct({ sequence: Schema.Number }) })
 
 const extractUpdatedSequence = (txResult: unknown): number | undefined => {
   const decoded = Schema.decodeUnknownOption(TxIncResult)(txResult)
@@ -74,11 +67,10 @@ const requireUpdatedSequence = (
   const sequence = extractUpdatedSequence(txResult)
   return sequence === undefined
     ? Effect.fail(
-      new HulyError({
-        message:
-          `Project '${projectIdentifier}' sequence increment did not return the updated sequence; issue creation stopped to avoid a duplicate identifier.`
-      })
-    )
+        new HulyError({
+          message: `Project '${projectIdentifier}' sequence increment did not return the updated sequence; issue creation stopped to avoid a duplicate identifier.`
+        })
+      )
     : Effect.succeed(sequence)
 }
 
@@ -95,40 +87,44 @@ const requireUpdatedSequence = (
 export const createIssue = (
   params: CreateIssueParams
 ): Effect.Effect<CreateIssueResult, CreateIssueError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, defaultStatusId, project, projectType, statuses } = yield* findProjectWithStatuses(params.project)
 
     const issueId: Ref<HulyIssue> = generateId()
 
-    const taskTypeWorkflow = params.taskType === undefined
-      ? undefined
-      : yield* resolveTaskTypeWorkflow(client, project, projectType, statuses, params.taskType, params.project)
-    const taskTypeStatusRef: Ref<Status> | undefined = taskTypeWorkflow === undefined
-      ? undefined
-      : yield* chooseStatusForTaskType(taskTypeWorkflow, params.status, undefined, params.project)
-    const statusRef: Ref<Status> = taskTypeStatusRef !== undefined
-      ? taskTypeStatusRef
-      : params.status !== undefined
-      ? yield* resolveStatusByName(statuses, params.status, params.project)
-      : defaultStatusId !== undefined
-      ? defaultStatusId
-      : yield* Effect.fail(new InvalidStatusError({ status: "(default)", project: params.project }))
+    const taskTypeWorkflow =
+      params.taskType === undefined
+        ? undefined
+        : yield* resolveTaskTypeWorkflow(client, project, projectType, statuses, params.taskType, params.project)
+    const taskTypeStatusRef: Ref<Status> | undefined =
+      taskTypeWorkflow === undefined
+        ? undefined
+        : yield* chooseStatusForTaskType(taskTypeWorkflow, params.status, undefined, params.project)
+    const statusRef: Ref<Status> =
+      taskTypeStatusRef !== undefined
+        ? taskTypeStatusRef
+        : params.status !== undefined
+          ? yield* resolveStatusByName(statuses, params.status, params.project)
+          : defaultStatusId !== undefined
+            ? defaultStatusId
+            : yield* Effect.fail(new InvalidStatusError({ status: "(default)", project: params.project }))
 
-    const assigneeRef: Ref<Person> | null = params.assignee !== undefined
-      ? (yield* resolveAssignee(client, params.assignee))._id
-      : null
+    const assigneeRef: Ref<Person> | null =
+      params.assignee !== undefined ? (yield* resolveAssignee(client, params.assignee))._id : null
 
-    const renderedDescription = params.description !== undefined && params.description.trim() !== ""
-      ? yield* renderIssueDescriptionForWrite(params.description)
-      : undefined
+    const renderedDescription =
+      params.description !== undefined && params.description.trim() !== ""
+        ? yield* renderIssueDescriptionForWrite(params.description)
+        : undefined
 
     const parentIssueParam = params.parentIssue
-    const { attachedTo, attachedToClass, collection, parents } = parentIssueParam !== undefined
-      ? yield* Effect.gen(function*() {
-        const parentIssue = yield* findIssueInProject(client, project, parentIssueParam)
-        return childIssueParent(parentIssue, project._id)
-      })
-      : topLevelIssueParent()
+    const { attachedTo, attachedToClass, collection, parents } =
+      parentIssueParam !== undefined
+        ? yield* Effect.gen(function* () {
+            const parentIssue = yield* findIssueInProject(client, project, parentIssueParam)
+            return childIssueParent(parentIssue, project._id)
+          })
+        : topLevelIssueParent()
 
     const incOps: DocumentUpdate<HulyProject> = { $inc: { sequence: 1 } }
     const incResult = yield* client.updateDoc(
@@ -147,15 +143,16 @@ export const createIssue = (
     )
     const rank = makeRank(lastIssue?.rank, undefined)
 
-    const descriptionMarkupRef: MarkupBlobRef | null = renderedDescription === undefined
-      ? null
-      : yield* client.uploadMarkup(
-        tracker.class.Issue,
-        issueId,
-        "description",
-        renderedDescription.markup,
-        renderedDescription.format
-      )
+    const descriptionMarkupRef: MarkupBlobRef | null =
+      renderedDescription === undefined
+        ? null
+        : yield* client.uploadMarkup(
+            tracker.class.Issue,
+            issueId,
+            "description",
+            renderedDescription.markup,
+            renderedDescription.format
+          )
 
     const priority = stringToPriority(params.priority ?? DEFAULT_ISSUE_PRIORITY)
     const identifier = `${project.identifier}-${sequence}`
@@ -201,14 +198,10 @@ export const createIssue = (
 export const deleteIssue = (
   params: DeleteIssueParams
 ): Effect.Effect<DeleteIssueResult, DeleteIssueError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, issue, project } = yield* findProjectAndIssue(params)
 
-    yield* client.removeDoc(
-      tracker.class.Issue,
-      project._id,
-      issue._id
-    )
+    yield* client.removeDoc(tracker.class.Issue, project._id, issue._id)
 
     return { identifier: IssueIdentifier.make(issue.identifier), deleted: true }
   })

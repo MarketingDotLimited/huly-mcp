@@ -65,7 +65,7 @@ const toDrawing = (drawing: HulyDrawing): Drawing => ({
 export const saveAttachment = (
   params: SaveAttachmentParams
 ): Effect.Effect<SaveAttachmentResult, SaveAttachmentError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const att = yield* findOneOrFail(
       client,
@@ -80,32 +80,19 @@ export const saveAttachment = (
     )
 
     if (existing !== undefined) {
-      return {
-        savedId: SavedAttachmentId.make(existing._id),
-        attachmentId: AttachmentId.make(att._id),
-        saved: false
-      }
+      return { savedId: SavedAttachmentId.make(existing._id), attachmentId: AttachmentId.make(att._id), saved: false }
     }
 
     const savedId: Ref<HulySavedAttachment> = generateId()
-    yield* client.createDoc(
-      attachment.class.SavedAttachments,
-      att.space,
-      { attachedTo: att._id },
-      savedId
-    )
+    yield* client.createDoc(attachment.class.SavedAttachments, att.space, { attachedTo: att._id }, savedId)
 
-    return {
-      savedId: SavedAttachmentId.make(savedId),
-      attachmentId: AttachmentId.make(att._id),
-      saved: true
-    }
+    return { savedId: SavedAttachmentId.make(savedId), attachmentId: AttachmentId.make(att._id), saved: true }
   })
 
 export const unsaveAttachment = (
   params: UnsaveAttachmentParams
 ): Effect.Effect<UnsaveAttachmentResult, UnsaveAttachmentError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const saved = yield* findOneOrFail(
       client,
@@ -121,7 +108,7 @@ export const unsaveAttachment = (
 export const listSavedAttachments = (
   params: ListSavedAttachmentsParams
 ): Effect.Effect<Array<SavedAttachment>, ListSavedAttachmentsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit)
     const saved = yield* client.findAll<HulySavedAttachment>(
@@ -130,16 +117,13 @@ export const listSavedAttachments = (
       { limit }
     )
 
-    return saved.map((s) => ({
-      id: SavedAttachmentId.make(s._id),
-      attachmentId: AttachmentId.make(s.attachedTo)
-    }))
+    return saved.map((s) => ({ id: SavedAttachmentId.make(s._id), attachmentId: AttachmentId.make(s.attachedTo) }))
   })
 
 export const listDrawings = (
   params: ListDrawingsParams
 ): Effect.Effect<Array<Drawing>, ListDrawingsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit)
     const drawings = yield* client.findAll<HulyDrawing>(
@@ -154,10 +138,8 @@ export const listDrawings = (
     return drawings.map(toDrawing)
   })
 
-export const getDrawing = (
-  params: GetDrawingParams
-): Effect.Effect<Drawing, GetDrawingError, HulyClient> =>
-  Effect.gen(function*() {
+export const getDrawing = (params: GetDrawingParams): Effect.Effect<Drawing, GetDrawingError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const drawing = yield* findOneOrFail(
       client,
@@ -172,7 +154,7 @@ export const getDrawing = (
 export const createDrawing = (
   params: CreateDrawingParams
 ): Effect.Effect<CreateDrawingResult, CreateDrawingError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const drawingId: Ref<HulyDrawing> = generateId()
     yield* client.createDoc(
@@ -192,7 +174,7 @@ export const createDrawing = (
 export const updateDrawing = (
   params: UpdateDrawingParams
 ): Effect.Effect<UpdateDrawingResult, UpdateDrawingError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const drawing = yield* findOneOrFail(
       client,
@@ -201,19 +183,16 @@ export const updateDrawing = (
       () => new DrawingNotFoundError({ drawingId: params.drawingId })
     )
 
-    yield* client.updateDoc(
-      attachment.class.Drawing,
-      drawing.space,
-      drawing._id,
-      { content: params.content === null ? "" : params.content }
-    )
+    yield* client.updateDoc(attachment.class.Drawing, drawing.space, drawing._id, {
+      content: params.content === null ? "" : params.content
+    })
     return { drawingId: DrawingId.make(drawing._id), updated: true }
   })
 
 export const deleteDrawing = (
   params: DeleteDrawingParams
 ): Effect.Effect<DeleteDrawingResult, DeleteDrawingError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const drawing = yield* findOneOrFail(
       client,

@@ -23,13 +23,11 @@ import {
 
 describe("attachment media schemas", () => {
   it("explains where each upload source is resolved", () => {
-    for (
-      const schema of [
-        addAttachmentParamsJsonSchema,
-        addIssueAttachmentParamsJsonSchema,
-        addDocumentAttachmentParamsJsonSchema
-      ]
-    ) {
+    for (const schema of [
+      addAttachmentParamsJsonSchema,
+      addIssueAttachmentParamsJsonSchema,
+      addDocumentAttachmentParamsJsonSchema
+    ]) {
       const description = JSON.stringify(schema)
       expect(description).toContain("MCP server host")
       expect(description).toContain("MCP client")
@@ -38,17 +36,15 @@ describe("attachment media schemas", () => {
   })
 
   it("applies the same server-host, client-local, and server-fetch semantics to every upload surface", () => {
-    for (
-      const schema of [
-        uploadFileParamsJsonSchema,
-        addChatMessageAttachmentParamsJsonSchema,
-        addInventoryProductAttachmentParamsJsonSchema,
-        addInventoryProductPhotoParamsJsonSchema,
-        addRecruitingAttachmentParamsJsonSchema,
-        uploadDriveFileParamsJsonSchema,
-        uploadDriveFileVersionParamsJsonSchema
-      ]
-    ) {
+    for (const schema of [
+      uploadFileParamsJsonSchema,
+      addChatMessageAttachmentParamsJsonSchema,
+      addInventoryProductAttachmentParamsJsonSchema,
+      addInventoryProductPhotoParamsJsonSchema,
+      addRecruitingAttachmentParamsJsonSchema,
+      uploadDriveFileParamsJsonSchema,
+      uploadDriveFileVersionParamsJsonSchema
+    ]) {
       const description = JSON.stringify(schema)
       expect(description).toContain("MCP server host")
       expect(description).toContain("client-local")
@@ -90,21 +86,13 @@ describe("attachment media schemas", () => {
 
   it("rejects malformed image data when encoding the outbound MCP presentation schema", () => {
     for (const data of ["Zg==", "Zm8=", "Zm9v", "AP+A/w=="]) {
-      const encoded = Schema.encodeUnknownEither(McpImageContentSchema)({
-        type: "image",
-        data,
-        mimeType: "image/png"
-      })
+      const encoded = Schema.encodeUnknownEither(McpImageContentSchema)({ type: "image", data, mimeType: "image/png" })
 
       expect(Either.isRight(encoded)).toBe(true)
     }
 
     for (const data of ["not-base64", "Zh=="]) {
-      const encoded = Schema.encodeUnknownEither(McpImageContentSchema)({
-        type: "image",
-        data,
-        mimeType: "image/png"
-      })
+      const encoded = Schema.encodeUnknownEither(McpImageContentSchema)({ type: "image", data, mimeType: "image/png" })
 
       expect(Either.isLeft(encoded)).toBe(true)
     }
@@ -113,7 +101,7 @@ describe("attachment media schemas", () => {
   })
 
   it.effect("accepts attachment media kinds and rejects unknown kinds", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const defaultKind = yield* parseAddAttachmentParams({
         objectId: "issue-1",
         objectClass: "tracker:class:Issue",
@@ -131,30 +119,34 @@ describe("attachment media schemas", () => {
         data: "aGVsbG8=",
         kind: "photo"
       })
-      const invalid = yield* Effect.either(parseAddAttachmentParams({
-        objectId: "issue-1",
-        objectClass: "tracker:class:Issue",
-        space: "space-1",
-        filename: "photo.png",
-        contentType: "image/png",
-        data: "aGVsbG8=",
-        kind: "video"
-      }))
+      const invalid = yield* Effect.either(
+        parseAddAttachmentParams({
+          objectId: "issue-1",
+          objectClass: "tracker:class:Issue",
+          space: "space-1",
+          filename: "photo.png",
+          contentType: "image/png",
+          data: "aGVsbG8=",
+          kind: "video"
+        })
+      )
 
       expect(defaultKind.kind).toBeUndefined()
       expect(photo.kind).toBe("photo")
       expect(invalid._tag).toBe("Left")
-    }))
+    })
+  )
 
   it.effect("parses drawing content as an opaque payload", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const drawing = yield* parseCreateDrawingParams({
         parentId: "issue-1",
         parentClass: "tracker:class:Issue",
         space: "space-1",
-        content: "{\"shape\":\"line\"}"
+        content: '{"shape":"line"}'
       })
 
-      expect(drawing.content).toBe("{\"shape\":\"line\"}")
-    }))
+      expect(drawing.content).toBe('{"shape":"line"}')
+    })
+  )
 })

@@ -59,10 +59,7 @@ type MetadataFallbackValue =
   | "field IDs as labels"
   | "template IDs as titles"
 
-type Timestamps = {
-  readonly createdOn?: Timestamp
-  readonly modifiedOn?: Timestamp
-}
+type Timestamps = { readonly createdOn?: Timestamp; readonly modifiedOn?: Timestamp }
 
 export type ResolveCategoryError =
   | HulyClientError
@@ -108,19 +105,13 @@ const templateFieldLabelFor = (field: HulyTemplateField): NonEmptyString =>
 const categoryRefFor = (category: HulyTemplateCategory): MessageTemplateCategoryRef => {
   const name = categoryNameFor(category)
 
-  return {
-    id: MessageTemplateCategoryId.make(category._id),
-    name
-  }
+  return { id: MessageTemplateCategoryId.make(category._id), name }
 }
 
 const fieldCategoryRefFor = (category: HulyTemplateFieldCategory): TemplateFieldCategoryRef => {
   const label = fieldCategoryLabelFor(category)
 
-  return {
-    id: TemplateFieldCategoryId.make(category._id),
-    label
-  }
+  return { id: TemplateFieldCategoryId.make(category._id), label }
 }
 
 export const categorySummaryFor = (category: HulyTemplateCategory): MessageTemplateCategorySummary => ({
@@ -143,10 +134,7 @@ const placeholderFieldIds = (markdown: string): Array<TemplateFieldId> => {
   return ids.map((id) => TemplateFieldId.make(id))
 }
 
-const markdownForTemplate = (
-  template: HulyMessageTemplate,
-  client: HulyClient["Type"]
-): MessageTemplateMarkdown =>
+const markdownForTemplate = (template: HulyMessageTemplate, client: HulyClient["Type"]): MessageTemplateMarkdown =>
   MessageTemplateMarkdown.make(markupToMarkdownString(template.message, client.markupUrlConfig))
 
 export const searchLike = (search: string | undefined): { readonly $like: string } | undefined => {
@@ -163,10 +151,11 @@ export const warnMetadataFallbacks = (
   count === 0
     ? Effect.void
     : diagnostics.warnAgent({
-      code: MessageTemplateMetadataDegradedWarningCode,
-      message: `Huly did not return complete metadata for ${count} ${resourceLabel}. `
-        + `The tool result uses ${fallbackLabel}; do not infer human-readable names from those fallback values.`
-    })
+        code: MessageTemplateMetadataDegradedWarningCode,
+        message:
+          `Huly did not return complete metadata for ${count} ${resourceLabel}. ` +
+          `The tool result uses ${fallbackLabel}; do not infer human-readable names from those fallback values.`
+      })
 
 const refMetadataMapFor = <T extends Doc, V>(
   diagnostics: Diagnostics["Type"],
@@ -177,16 +166,11 @@ const refMetadataMapFor = <T extends Doc, V>(
   resourceLabel: MetadataFallbackResource,
   fallbackLabel: MetadataFallbackValue
 ): Effect.Effect<ReadonlyMap<Ref<T>, V>> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const docsById = new Map(docs.map((doc) => [doc._id, doc]))
     const missingCount = ids.filter((id) => !docsById.has(id)).length
     const blankCount = docs.filter(isBlank).length
-    yield* warnMetadataFallbacks(
-      diagnostics,
-      Count.make(missingCount + blankCount),
-      resourceLabel,
-      fallbackLabel
-    )
+    yield* warnMetadataFallbacks(diagnostics, Count.make(missingCount + blankCount), resourceLabel, fallbackLabel)
 
     return new Map(docs.map((doc) => [doc._id, toValue(doc)]))
   })
@@ -208,7 +192,7 @@ export const resolveCategory = (
   client: HulyClient["Type"],
   identifier: MessageTemplateCategoryIdentifier
 ): Effect.Effect<HulyTemplateCategory, ResolveCategoryError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<HulyTemplateCategory>(
       templates.class.TemplateCategory,
       hulyQuery<HulyTemplateCategory>({ _id: toRef<HulyTemplateCategory>(identifier) })
@@ -233,7 +217,7 @@ export const categoryMapFor = (
   client: HulyClient["Type"],
   categoryIds: ReadonlyArray<Ref<HulyTemplateCategory>>
 ): Effect.Effect<ReadonlyMap<Ref<HulyTemplateCategory>, MessageTemplateCategoryRef>, HulyClientError, Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const diagnostics = yield* Diagnostics
     const ids = [...new Set(categoryIds)]
     if (ids.length === 0) return new Map<Ref<HulyTemplateCategory>, MessageTemplateCategoryRef>()
@@ -259,10 +243,7 @@ const categoryRefFromMap = (
   categoryId: Ref<HulyTemplateCategory>,
   categories: ReadonlyMap<Ref<HulyTemplateCategory>, MessageTemplateCategoryRef>
 ): MessageTemplateCategoryRef =>
-  categories.get(categoryId) ?? {
-    id: MessageTemplateCategoryId.make(categoryId),
-    name: String(categoryId)
-  }
+  categories.get(categoryId) ?? { id: MessageTemplateCategoryId.make(categoryId), name: String(categoryId) }
 
 export const templateSummaryFor = (
   template: HulyMessageTemplate,
@@ -287,36 +268,27 @@ export const templateDetailFor = (
 ): MessageTemplate => {
   const message = markdownForTemplate(template, client)
 
-  return {
-    ...templateSummaryFor(template, client, categories),
-    message
-  }
+  return { ...templateSummaryFor(template, client, categories), message }
 }
 
 export const resolveTemplate = (
   client: HulyClient["Type"],
   params: GetMessageTemplateParams
 ): Effect.Effect<HulyMessageTemplate, ResolveTemplateError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const category = params.category === undefined ? undefined : yield* resolveCategory(client, params.category)
     const categoryFilter = category === undefined ? {} : { space: category._id }
 
     const byId = yield* client.findOne<HulyMessageTemplate>(
       templates.class.MessageTemplate,
-      hulyQuery<HulyMessageTemplate>({
-        _id: toRef<HulyMessageTemplate>(params.template),
-        ...categoryFilter
-      })
+      hulyQuery<HulyMessageTemplate>({ _id: toRef<HulyMessageTemplate>(params.template), ...categoryFilter })
     )
 
     if (byId !== undefined) return byId
 
     const matches = yield* client.findAll<HulyMessageTemplate>(
       templates.class.MessageTemplate,
-      hulyQuery<HulyMessageTemplate>({
-        title: params.template,
-        ...categoryFilter
-      }),
+      hulyQuery<HulyMessageTemplate>({ title: params.template, ...categoryFilter }),
       { limit: AMBIGUOUS_LOOKUP_LIMIT }
     )
 
@@ -339,7 +311,7 @@ export const resolveFieldCategory = (
   client: HulyClient["Type"],
   identifier: TemplateFieldCategoryIdentifier
 ): Effect.Effect<HulyTemplateFieldCategory, ResolveFieldCategoryError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<HulyTemplateFieldCategory>(
       templates.class.TemplateFieldCategory,
       hulyQuery<HulyTemplateFieldCategory>({ _id: toRef<HulyTemplateFieldCategory>(identifier) })
@@ -371,7 +343,7 @@ export const fieldCategoryMapFor = (
   client: HulyClient["Type"],
   categoryIds: ReadonlyArray<Ref<HulyTemplateFieldCategory>>
 ): Effect.Effect<ReadonlyMap<Ref<HulyTemplateFieldCategory>, TemplateFieldCategoryRef>, HulyClientError, Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const diagnostics = yield* Diagnostics
     const ids = [...new Set(categoryIds)]
     if (ids.length === 0) return new Map<Ref<HulyTemplateFieldCategory>, TemplateFieldCategoryRef>()
@@ -397,10 +369,7 @@ const fieldCategoryRefFromMap = (
   categoryId: Ref<HulyTemplateFieldCategory>,
   categories: ReadonlyMap<Ref<HulyTemplateFieldCategory>, TemplateFieldCategoryRef>
 ): TemplateFieldCategoryRef =>
-  categories.get(categoryId) ?? {
-    id: TemplateFieldCategoryId.make(categoryId),
-    label: String(categoryId)
-  }
+  categories.get(categoryId) ?? { id: TemplateFieldCategoryId.make(categoryId), label: String(categoryId) }
 
 export const templateFieldFor = (
   field: HulyTemplateField,

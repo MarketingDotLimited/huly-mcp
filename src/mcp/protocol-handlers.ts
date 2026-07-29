@@ -73,10 +73,7 @@ export interface ClientBundle {
 }
 
 interface ToolCallRequest {
-  readonly params: {
-    readonly name: CallToolRequestParams["name"]
-    readonly arguments?: unknown
-  }
+  readonly params: { readonly name: CallToolRequestParams["name"]; readonly arguments?: unknown }
 }
 
 interface ResourceReadRequest {
@@ -100,14 +97,8 @@ export interface McpProtocolHandlers {
 const ServerDiscoverResultSchema = Schema.Struct({
   resultType: Schema.Literal("complete"),
   supportedVersions: Schema.Tuple(Schema.Literal("2026-07-28")),
-  capabilities: Schema.Struct({
-    tools: Schema.Struct({}),
-    resources: Schema.Struct({})
-  }),
-  serverInfo: Schema.Struct({
-    name: Schema.Literal("huly-mcp"),
-    version: Schema.String
-  }),
+  capabilities: Schema.Struct({ tools: Schema.Struct({}), resources: Schema.Struct({}) }),
+  serverInfo: Schema.Struct({ name: Schema.Literal("huly-mcp"), version: Schema.String }),
   instructions: Schema.optionalWith(Schema.Literal(HOSTED_HULY_MIGRATION_INSTRUCTIONS), { exact: true })
 })
 type ServerDiscoverResult = Schema.Schema.Type<typeof ServerDiscoverResultSchema>
@@ -146,24 +137,24 @@ export interface NowClock {
   readonly currentTimeMillis: () => number
 }
 
-export const liveNowClock: NowClock = {
-  currentTimeMillis: () => Effect.runSync(Clock.currentTimeMillis)
-}
+export const liveNowClock: NowClock = { currentTimeMillis: () => Effect.runSync(Clock.currentTimeMillis) }
 
-const createDrainInflight = (getInflight: () => number, clock: NowClock): () => Promise<void> => () => {
-  if (getInflight() <= 0) return Promise.resolve()
-  return new Promise((resolve) => {
-    const start = clock.currentTimeMillis()
-    const check = () => {
-      if (getInflight() <= 0 || clock.currentTimeMillis() - start > DRAIN_TIMEOUT_MS) {
-        resolve()
-      } else {
-        setTimeout(check, DRAIN_POLL_MS)
+const createDrainInflight =
+  (getInflight: () => number, clock: NowClock): (() => Promise<void>) =>
+  () => {
+    if (getInflight() <= 0) return Promise.resolve()
+    return new Promise((resolve) => {
+      const start = clock.currentTimeMillis()
+      const check = () => {
+        if (getInflight() <= 0 || clock.currentTimeMillis() - start > DRAIN_TIMEOUT_MS) {
+          resolve()
+        } else {
+          setTimeout(check, DRAIN_POLL_MS)
+        }
       }
-    }
-    check()
-  })
-}
+      check()
+    })
+  }
 
 /**
  * Fetch the latest published npm version. The `fetch` implementation is injected
@@ -220,10 +211,7 @@ export const createMcpProtocolHandlers = (
 
   const listTools = async (): Promise<ListToolsProtocolResult> => {
     const exposure = resolveProtocolExposure(registries, protocolExposureOptions)
-    telemetry.firstListTools({
-      clientKind: exposure.context.clientKind,
-      resolvedMode: exposure.context.resolvedMode
-    })
+    telemetry.firstListTools({ clientKind: exposure.context.clientKind, resolvedMode: exposure.context.resolvedMode })
     return {
       tools: [
         ...[versionToolDefinition, getHulyContextToolDefinition].map(toListedTool),
@@ -339,12 +327,12 @@ export const createMcpProtocolHandlers = (
           ...(clients === undefined
             ? {}
             : {
-              clients: {
-                hulyClient: clients.hulyClient,
-                storageClient: clients.storageClient,
-                ...(clients.workspaceClient === undefined ? {} : { workspaceClient: clients.workspaceClient })
-              }
-            })
+                clients: {
+                  hulyClient: clients.hulyClient,
+                  storageClient: clients.storageClient,
+                  ...(clients.workspaceClient === undefined ? {} : { workspaceClient: clients.workspaceClient })
+                }
+              })
         })
         const responseWithNotice = withClaimedNotice(response)
         const durationMs = clock.currentTimeMillis() - start
@@ -368,8 +356,8 @@ export const createMcpProtocolHandlers = (
       const nativeCallRegistry = exposure.visibleNativeRegistry.tools.has(hulyToolName)
         ? exposure.visibleNativeRegistry
         : exposure.context.resolvedMode === "proxy"
-        ? exposure.proxyCandidateRegistry
-        : exposure.visibleNativeRegistry
+          ? exposure.proxyCandidateRegistry
+          : exposure.visibleNativeRegistry
       const tool = nativeCallRegistry.tools.get(hulyToolName)
       if (tool === undefined) return returnError(createUnknownToolError(name))
 

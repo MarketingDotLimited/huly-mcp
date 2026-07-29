@@ -83,10 +83,9 @@ export const taskManagementTools = [
   defineTool(
     {
       name: "create_issue_status",
-      description:
-        `Add a Huly issue workflow status idempotently by normalized name within a project type and task type scope. Accepts category as a Huly SDK task.statusCategory key: ${
-          enumValuesDescription(StatusCategoryValues)
-        }; taskType may be ID or display name, and omission applies the status to every task type in the project type.`,
+      description: `Add a Huly issue workflow status idempotently by normalized name within a project type and task type scope. Accepts category as a Huly SDK task.statusCategory key: ${enumValuesDescription(
+        StatusCategoryValues
+      )}; taskType may be ID or display name, and omission applies the status to every task type in the project type.`,
       category: CATEGORY,
       inputSchema: createIssueStatusParamsJsonSchema,
       annotations: { idempotentHint: true },

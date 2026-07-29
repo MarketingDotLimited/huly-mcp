@@ -16,10 +16,9 @@ import { hulyQuery } from "../src/huly/operations/query-helpers.js"
 import { toRef } from "../src/huly/operations/sdk-boundary.js"
 import { connectIntegrationHuly } from "./integration-huly-client.js"
 
-const OptionalCountFromString = Schema.optionalWith(
-  Schema.NumberFromString.pipe(Schema.compose(Count)),
-  { exact: true }
-)
+const OptionalCountFromString = Schema.optionalWith(Schema.NumberFromString.pipe(Schema.compose(Count)), {
+  exact: true
+})
 const CommonCliFields = {
   project: ProjectIdentifier,
   issue: IssueIdentifier,
@@ -32,11 +31,7 @@ const CliArgsSchema = Schema.Union(
     mode: Schema.Literal("top-level"),
     parent: Schema.optionalWith(IssueIdentifier, { exact: true })
   }),
-  Schema.Struct({
-    ...CommonCliFields,
-    mode: Schema.Literal("child"),
-    parent: IssueIdentifier
-  }),
+  Schema.Struct({ ...CommonCliFields, mode: Schema.Literal("child"), parent: IssueIdentifier }),
   Schema.Struct({
     ...CommonCliFields,
     mode: Schema.Literal("make-legacy"),
@@ -64,21 +59,16 @@ type CliArgs = Schema.Schema.Type<typeof CliArgsSchema>
 type IntegrationOperation = Schema.Schema.Type<typeof IntegrationOperation>
 type ParentState = Schema.Schema.Type<typeof ParentStateSchema>
 
-class CliInputError extends Schema.TaggedError<CliInputError>()("CliInputError", {
-  cause: Schema.Defect
-}) {
+class CliInputError extends Schema.TaggedError<CliInputError>()("CliInputError", { cause: Schema.Defect }) {
   override get message(): string {
     return `Invalid integration parent-semantics arguments: ${String(this.cause)}`
   }
 }
 
-class IntegrationOperationError extends Schema.TaggedError<IntegrationOperationError>()(
-  "IntegrationOperationError",
-  {
-    operation: IntegrationOperation,
-    cause: Schema.Defect
-  }
-) {
+class IntegrationOperationError extends Schema.TaggedError<IntegrationOperationError>()("IntegrationOperationError", {
+  operation: IntegrationOperation,
+  cause: Schema.Defect
+}) {
   override get message(): string {
     return `Huly integration operation '${this.operation}' failed: ${String(this.cause)}`
   }
@@ -127,10 +117,7 @@ const integrationOperation = <A>(
   operation: IntegrationOperation,
   run: () => PromiseLike<A>
 ): Effect.Effect<A, IntegrationOperationError> =>
-  Effect.tryPromise({
-    try: run,
-    catch: (cause) => new IntegrationOperationError({ operation, cause })
-  })
+  Effect.tryPromise({ try: run, catch: (cause) => new IntegrationOperationError({ operation, cause }) })
 
 const parseCliArgs = (): Effect.Effect<CliArgs, CliInputError> =>
   Effect.try({
@@ -149,7 +136,7 @@ const parseCliArgs = (): Effect.Effect<CliArgs, CliInputError> =>
     catch: (cause) => new CliInputError({ cause })
   }).pipe(
     Effect.flatMap(Schema.decodeUnknown(CliArgsSchema)),
-    Effect.mapError((cause) => cause instanceof CliInputError ? cause : new CliInputError({ cause }))
+    Effect.mapError((cause) => (cause instanceof CliInputError ? cause : new CliInputError({ cause })))
   )
 
 interface ResolvedIssues {
@@ -163,18 +150,11 @@ const requireIssue = (
   project: HulyProject,
   identifier: IssueIdentifier
 ): Effect.Effect<HulyIssue, IntegrationOperationError | IssueNotVisibleError> =>
-  integrationOperation(
-    "find-issue",
-    () =>
-      client.findOne<HulyIssue>(
-        tracker.class.Issue,
-        hulyQuery<HulyIssue>({ space: project._id, identifier })
-      )
+  integrationOperation("find-issue", () =>
+    client.findOne<HulyIssue>(tracker.class.Issue, hulyQuery<HulyIssue>({ space: project._id, identifier }))
   ).pipe(
     Effect.flatMap((issue) =>
-      issue === undefined
-        ? Effect.fail(new IssueNotVisibleError({ issue: identifier }))
-        : Effect.succeed(issue)
+      issue === undefined ? Effect.fail(new IssueNotVisibleError({ issue: identifier })) : Effect.succeed(issue)
     )
   )
 
@@ -182,14 +162,9 @@ const resolveIssues = (
   client: TxOperations,
   args: CliArgs
 ): Effect.Effect<ResolvedIssues, IntegrationOperationError | IssueNotVisibleError | ProjectLookupError> =>
-  Effect.gen(function*() {
-    const project = yield* integrationOperation(
-      "find-project",
-      () =>
-        client.findOne<HulyProject>(
-          tracker.class.Project,
-          hulyQuery<HulyProject>({ identifier: args.project })
-        )
+  Effect.gen(function* () {
+    const project = yield* integrationOperation("find-project", () =>
+      client.findOne<HulyProject>(tracker.class.Project, hulyQuery<HulyProject>({ identifier: args.project }))
     )
     if (project === undefined) return yield* new ProjectLookupError({ project: args.project })
     return {
@@ -208,7 +183,7 @@ const readState = (
   Effect.acquireUseRelease(
     integrationOperation("connect-client", connectIntegrationHuly),
     ({ client }) =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const resolved = yield* resolveIssues(client, args)
         const state = yield* Schema.decodeUnknown(ParentStateSchema)({
           issueId: resolved.issue._id,
@@ -218,9 +193,7 @@ const readState = (
           parents: resolved.issue.parents.length,
           subIssues: resolved.issue.subIssues,
           ...(resolved.parent === undefined ? {} : { parentSubIssues: resolved.parent.subIssues })
-        }).pipe(
-          Effect.mapError((cause) => new ParentStateDecodeError({ cause }))
-        )
+        }).pipe(Effect.mapError((cause) => new ParentStateDecodeError({ cause })))
         return { resolved, state }
       }),
     ({ client }) => integrationOperation("close-client", () => client.close()).pipe(Effect.orDie)
@@ -230,28 +203,35 @@ const stateMatches = (
   args: CliArgs,
   { resolved, state }: Awaited<Effect.Effect.Success<ReturnType<typeof readState>>>
 ): boolean => {
-  const countsMatch = (args.expectedIssueChildren === undefined || state.subIssues === args.expectedIssueChildren)
-    && (args.expectedParentChildren === undefined || state.parentSubIssues === args.expectedParentChildren)
+  const countsMatch =
+    (args.expectedIssueChildren === undefined || state.subIssues === args.expectedIssueChildren) &&
+    (args.expectedParentChildren === undefined || state.parentSubIssues === args.expectedParentChildren)
   if (!countsMatch) return false
 
   if (args.mode === "child") {
     const parent = resolved.parent
     if (parent === undefined) return false
-    return state.attachedTo === DocId.make(parent._id)
-      && state.attachedToClass === ObjectClassName.make(tracker.class.Issue)
-      && state.collection === "subIssues"
-      && resolved.issue.parents.at(LAST_ITEM_OFFSET)?.parentId === parent._id
+    return (
+      state.attachedTo === DocId.make(parent._id) &&
+      state.attachedToClass === ObjectClassName.make(tracker.class.Issue) &&
+      state.collection === "subIssues" &&
+      resolved.issue.parents.at(LAST_ITEM_OFFSET)?.parentId === parent._id
+    )
   }
   if (args.mode === "make-legacy") {
-    return state.attachedTo === DocId.make(resolved.project._id)
-      && state.attachedToClass === ObjectClassName.make(tracker.class.Project)
-      && state.collection === "issues"
-      && state.parents === 0
+    return (
+      state.attachedTo === DocId.make(resolved.project._id) &&
+      state.attachedToClass === ObjectClassName.make(tracker.class.Project) &&
+      state.collection === "issues" &&
+      state.parents === 0
+    )
   }
-  return state.attachedTo === DocId.make(tracker.ids.NoParent)
-    && state.attachedToClass === ObjectClassName.make(tracker.class.Issue)
-    && state.collection === "subIssues"
-    && state.parents === 0
+  return (
+    state.attachedTo === DocId.make(tracker.ids.NoParent) &&
+    state.attachedToClass === ObjectClassName.make(tracker.class.Issue) &&
+    state.collection === "subIssues" &&
+    state.parents === 0
+  )
 }
 
 const isRetryablePollingError = (
@@ -261,9 +241,7 @@ const isRetryablePollingError = (
     | ParentStateDecodeError
     | ParentStatePendingError
     | ProjectLookupError
-): boolean =>
-  error._tag === "IssueNotVisibleError"
-  || error._tag === "ParentStatePendingError"
+): boolean => error._tag === "IssueNotVisibleError" || error._tag === "ParentStatePendingError"
 
 const waitForState = (
   args: CliArgs
@@ -278,10 +256,9 @@ const waitForState = (
         : Effect.fail(new ParentStatePendingError({ issue: args.issue, mode: args.mode }))
     )
   )
-  const retryPolicy = Schedule.intersect(
-    Schedule.recurs(MAX_POLL_ATTEMPTS - 1),
-    Schedule.spaced(POLL_INTERVAL)
-  ).pipe(Schedule.whileInput(isRetryablePollingError))
+  const retryPolicy = Schedule.intersect(Schedule.recurs(MAX_POLL_ATTEMPTS - 1), Schedule.spaced(POLL_INTERVAL)).pipe(
+    Schedule.whileInput(isRetryablePollingError)
+  )
   return poll.pipe(
     Effect.retry(retryPolicy),
     Effect.catchTags({
@@ -297,7 +274,7 @@ const makeLegacy = (
   Effect.acquireUseRelease(
     integrationOperation("connect-client", connectIntegrationHuly),
     ({ client }) =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const { issue, project } = yield* resolveIssues(client, args)
         const update: DocumentUpdate<HulyIssue> = {
           attachedTo: toRef<HulyIssue>(project._id),
@@ -305,15 +282,14 @@ const makeLegacy = (
           collection: "issues",
           parents: []
         }
-        yield* integrationOperation(
-          "repair-legacy",
-          () => client.updateDoc(tracker.class.Issue, project._id, issue._id, update)
+        yield* integrationOperation("repair-legacy", () =>
+          client.updateDoc(tracker.class.Issue, project._id, issue._id, update)
         )
       }),
     ({ client }) => integrationOperation("close-client", () => client.close()).pipe(Effect.orDie)
   )
 
-const program = Effect.gen(function*() {
+const program = Effect.gen(function* () {
   const args = yield* parseCliArgs()
   if (args.mode === "make-legacy") yield* makeLegacy(args)
   const encoded = yield* Schema.encode(ParentStateSchema)(yield* waitForState(args)).pipe(

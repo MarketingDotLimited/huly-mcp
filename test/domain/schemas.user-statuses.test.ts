@@ -15,28 +15,32 @@ type JsonSchemaObject = {
 
 describe("User status schemas", () => {
   it.effect("accepts empty params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseListUserStatusesParams({})
       expect(result).toEqual({})
-    }))
+    })
+  )
 
   it.effect("accepts online filter", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseListUserStatusesParams({ online: true })
       expect(result.online).toBe(true)
-    }))
+    })
+  )
 
   it.effect("accepts user filter", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* parseListUserStatusesParams({ user: "account-uuid-1" })
       expect(result.user).toBe("account-uuid-1")
-    }))
+    })
+  )
 
   it.effect("rejects empty user filter", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(parseListUserStatusesParams({ user: "" }))
       expect(error._tag).toBe("ParseError")
-    }))
+    })
+  )
 
   it("generates an MCP-compatible JSON schema", () => {
     const schema = listUserStatusesParamsJsonSchema as JsonSchemaObject

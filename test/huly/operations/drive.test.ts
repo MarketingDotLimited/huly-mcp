@@ -94,22 +94,23 @@ interface DriveState {
 const personId = corePersonId("person-1")
 const accountA = toAccountUuid(AccountUuid.make("00000000-0000-4000-8000-000000000001"))
 const accountB = toAccountUuid(AccountUuid.make("00000000-0000-4000-8000-000000000002"))
-const driveSpace = (id = "drive-1", name = "Docs"): DriveSpace => ({
-  _id: toRef<DriveSpace>(id),
-  _class: drive.class.Drive,
-  space: toRef<Space>("core:space:Space"),
-  name,
-  description: "Drive docs",
-  private: false,
-  archived: false,
-  autoJoin: false,
-  members: [],
-  owners: [],
-  modifiedBy: personId,
-  modifiedOn: 0,
-  createdBy: personId,
-  createdOn: 0
-} as unknown as DriveSpace)
+const driveSpace = (id = "drive-1", name = "Docs"): DriveSpace =>
+  ({
+    _id: toRef<DriveSpace>(id),
+    _class: drive.class.Drive,
+    space: toRef<Space>("core:space:Space"),
+    name,
+    description: "Drive docs",
+    private: false,
+    archived: false,
+    autoJoin: false,
+    members: [],
+    owners: [],
+    modifiedBy: personId,
+    modifiedOn: 0,
+    createdBy: personId,
+    createdOn: 0
+  }) as unknown as DriveSpace
 
 const folder = (id: string, title: string, parent: Ref<Folder>, path: ReadonlyArray<Ref<Folder>> = []): Folder => ({
   _id: toRef<Folder>(id),
@@ -147,12 +148,7 @@ const file = (
   createdOn: 0
 })
 
-const version = (
-  id: string,
-  attachedTo: Ref<File>,
-  n: number,
-  blobId = `blob-${n}`
-): FileVersion => ({
+const version = (id: string, attachedTo: Ref<File>, n: number, blobId = `blob-${n}`): FileVersion => ({
   _id: toRef<FileVersion>(id),
   _class: drive.class.FileVersion,
   space: toRef<DriveSpace>("drive-1"),
@@ -182,24 +178,23 @@ const makeLayer = (state: DriveState): Layer.Layer<HulyClient | HulyStorageClien
     classRef: Ref<Class<T>>,
     query: DocumentQuery<T>
   ) => {
-    const docs = classRef === drive.class.Drive
-      ? state.drives
-      : classRef === drive.class.Folder
-      ? state.folders
-      : classRef === drive.class.File
-      ? state.files
-      : classRef === drive.class.FileVersion
-      ? state.versions
-      : []
+    const docs =
+      classRef === drive.class.Drive
+        ? state.drives
+        : classRef === drive.class.Folder
+          ? state.folders
+          : classRef === drive.class.File
+            ? state.files
+            : classRef === drive.class.FileVersion
+              ? state.versions
+              : []
     return Effect.succeed(
       findResult(docs.filter((doc) => matchesQuery(doc, query as DocumentQuery<Doc>)) as unknown as Array<T>)
     )
   }
 
-  const findOne: HulyClientOperations["findOne"] = <T extends Doc>(
-    classRef: Ref<Class<T>>,
-    query: DocumentQuery<T>
-  ) => Effect.map(findAll(classRef, query), (docs) => docs.at(0))
+  const findOne: HulyClientOperations["findOne"] = <T extends Doc>(classRef: Ref<Class<T>>, query: DocumentQuery<T>) =>
+    Effect.map(findAll(classRef, query), (docs) => docs.at(0))
 
   const createDoc: HulyClientOperations["createDoc"] = <T extends Doc>(
     classRef: Ref<Class<T>>,
@@ -299,11 +294,7 @@ const makeLayer = (state: DriveState): Layer.Layer<HulyClient | HulyStorageClien
     objectId: Ref<P>,
     attachedTo: Ref<T>
   ) => {
-    state.removedCollections?.push({
-      classRef: String(classRef),
-      id: String(objectId),
-      attachedTo: String(attachedTo)
-    })
+    state.removedCollections?.push({ classRef: String(classRef), id: String(objectId), attachedTo: String(attachedTo) })
     if (classRef === drive.class.FileVersion) {
       const index = state.versions.findIndex((candidate) => String(candidate._id) === String(objectId))
       if (index >= 0) state.versions.splice(index, 1)
@@ -358,15 +349,12 @@ const makeLayer = (state: DriveState): Layer.Layer<HulyClient | HulyStorageClien
     workbenchUrlConfig: testWorkbenchUrlConfig
   }
 
-  return Layer.merge(
-    HulyClient.testLayer(clientOperations),
-    HulyStorageClient.testLayer(storage)
-  )
+  return Layer.merge(HulyClient.testLayer(clientOperations), HulyStorageClient.testLayer(storage))
 }
 
 describe("drive operations", () => {
   it.effect("resolves drives by id, filters by query, and reports ambiguous names", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const blankDrive = driveSpace("drive-4", "   ")
       const driveWithoutOwners = { ...driveSpace("drive-5", "No owners"), owners: undefined } as unknown as DriveSpace
       const state: DriveState = {
@@ -400,17 +388,12 @@ describe("drive operations", () => {
       expect(ambiguous).toBeInstanceOf(DriveIdentifierAmbiguousError)
       expect(notFound).toBeInstanceOf(DriveNotFoundError)
       expect(unfiltered.drives).toContainEqual(expect.objectContaining({ name: "(untitled)", ownersCount: 0 }))
-    }))
+    })
+  )
 
   it.effect("creates a Drive idempotently and defaults caller membership", () =>
-    Effect.gen(function*() {
-      const state: DriveState = {
-        drives: [],
-        folders: [],
-        files: [],
-        versions: [],
-        nextId: 1
-      }
+    Effect.gen(function* () {
+      const state: DriveState = { drives: [], folders: [], files: [], versions: [], nextId: 1 }
 
       const params = yield* parseCreateDriveParams({ name: "Specs", private: true, autoJoin: true })
       const created = yield* createDrive(params).pipe(Effect.provide(makeLayer(state)))
@@ -422,33 +405,25 @@ describe("drive operations", () => {
       expect(state.drives).toHaveLength(1)
       expect(assertAt(state.drives, 0).members).toEqual(["00000000-0000-4000-8000-000000000000"])
       expect(assertAt(state.drives, 0).owners).toEqual(["00000000-0000-4000-8000-000000000000"])
-    }))
+    })
+  )
 
   it.effect("creates a Drive with explicit initial members and owners", () =>
-    Effect.gen(function*() {
-      const state: DriveState = {
-        drives: [],
-        folders: [],
-        files: [],
-        versions: [],
-        nextId: 1
-      }
+    Effect.gen(function* () {
+      const state: DriveState = { drives: [], folders: [], files: [], versions: [], nextId: 1 }
 
-      const params = yield* parseCreateDriveParams({
-        name: "Team Drive",
-        members: [accountA],
-        owners: [accountB]
-      })
+      const params = yield* parseCreateDriveParams({ name: "Team Drive", members: [accountA], owners: [accountB] })
       const created = yield* createDrive(params).pipe(Effect.provide(makeLayer(state)))
 
       expect(created.created).toBe(true)
       expect(created.drive).toMatchObject({ name: "Team Drive", membersCount: 2, ownersCount: 1 })
       expect(assertAt(state.drives, 0).members).toEqual([accountA, accountB])
       expect(assertAt(state.drives, 0).owners).toEqual([accountB])
-    }))
+    })
+  )
 
   it.effect("updates Drive metadata with clearable description", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state: DriveState = {
         drives: [driveSpace()],
         folders: [],
@@ -469,20 +444,17 @@ describe("drive operations", () => {
       const result = yield* updateDrive(params).pipe(Effect.provide(makeLayer(state)))
 
       expect(result.drive).toMatchObject({ name: "Knowledge", private: true, archived: true, autoJoin: true })
-      expect(state.updatedDrives).toEqual([{
-        id: "drive-1",
-        operations: {
-          name: "Knowledge",
-          description: "",
-          private: true,
-          archived: true,
-          autoJoin: true
+      expect(state.updatedDrives).toEqual([
+        {
+          id: "drive-1",
+          operations: { name: "Knowledge", description: "", private: true, archived: true, autoJoin: true }
         }
-      }])
-    }))
+      ])
+    })
+  )
 
   it.effect("updates only supplied Drive fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state: DriveState = {
         drives: [driveSpace()],
         folders: [],
@@ -492,23 +464,16 @@ describe("drive operations", () => {
         updatedDrives: []
       }
 
-      const params = yield* parseUpdateDriveParams({
-        drive: "Docs",
-        autoJoin: true
-      })
+      const params = yield* parseUpdateDriveParams({ drive: "Docs", autoJoin: true })
       const result = yield* updateDrive(params).pipe(Effect.provide(makeLayer(state)))
 
       expect(result.drive).toMatchObject({ name: "Docs", autoJoin: true })
-      expect(state.updatedDrives).toEqual([{
-        id: "drive-1",
-        operations: {
-          autoJoin: true
-        }
-      }])
-    }))
+      expect(state.updatedDrives).toEqual([{ id: "drive-1", operations: { autoJoin: true } }])
+    })
+  )
 
   it.effect("adds, removes, and replaces Drive members and owners idempotently", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state: DriveState = {
         drives: [{ ...driveSpace(), members: [accountA], owners: [accountA] }],
         folders: [],
@@ -532,10 +497,11 @@ describe("drive operations", () => {
       expect(owners).toMatchObject({ owners: [accountB], members: [accountA, accountB], changed: true })
       expect(removed.members).toEqual([accountB])
       expect(assertAt(state.drives, 0)).toMatchObject({ members: [accountB], owners: [accountB] })
-    }))
+    })
+  )
 
   it.effect("adds replacement Drive owners to members when required", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state: DriveState = {
         drives: [{ ...driveSpace(), members: [accountA], owners: [accountA] }],
         folders: [],
@@ -549,17 +515,14 @@ describe("drive operations", () => {
       const owners = yield* setDriveOwners(ownerParams).pipe(Effect.provide(makeLayer(state)))
 
       expect(owners).toMatchObject({ owners: [accountB], members: [accountA, accountB], changed: true })
-      expect(state.updatedDrives).toEqual([{
-        id: "drive-1",
-        operations: {
-          owners: [accountB],
-          members: [accountA, accountB]
-        }
-      }])
-    }))
+      expect(state.updatedDrives).toEqual([
+        { id: "drive-1", operations: { owners: [accountB], members: [accountA, accountB] } }
+      ])
+    })
+  )
 
   it.effect("leaves Drive owners unchanged when replacement is already current", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state: DriveState = {
         drives: [{ ...driveSpace(), members: [accountA], owners: [accountA] }],
         folders: [],
@@ -569,27 +532,18 @@ describe("drive operations", () => {
         updatedDrives: []
       }
 
-      const ownerParams = yield* parseSetDriveOwnersParams({
-        drive: "Docs",
-        owners: [accountA],
-        ensureMembers: false
-      })
+      const ownerParams = yield* parseSetDriveOwnersParams({ drive: "Docs", owners: [accountA], ensureMembers: false })
       const owners = yield* setDriveOwners(ownerParams).pipe(Effect.provide(makeLayer(state)))
 
       expect(owners).toMatchObject({ owners: [accountA], members: [accountA], changed: false })
       expect(state.updatedDrives).toEqual([])
-    }))
+    })
+  )
 
   it.effect("deletes only empty Drives and rejects non-empty Drives with child summaries", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const specs = folder("folder-specs", "Specs", drive.ids.Root)
-      const nonEmptyState: DriveState = {
-        drives: [driveSpace()],
-        folders: [specs],
-        files: [],
-        versions: [],
-        nextId: 1
-      }
+      const nonEmptyState: DriveState = { drives: [driveSpace()], folders: [specs], files: [], versions: [], nextId: 1 }
       const emptyState: DriveState = {
         drives: [driveSpace("drive-empty", "Empty")],
         folders: [],
@@ -613,10 +567,11 @@ describe("drive operations", () => {
       expect(deleted).toMatchObject({ deleted: true, drive: { id: "drive-empty", name: "Empty" } })
       expect(emptyState.drives).toEqual([])
       expect(emptyState.removedDocs).toEqual([{ classRef: drive.class.Drive, id: "drive-empty" }])
-    }))
+    })
+  )
 
   it.effect("lists children under a normalized folder path", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const specs = folder("folder-specs", "Specs", drive.ids.Root)
       const api = file("file-api", "API.md", specs._id, [specs._id])
       const state: DriveState = {
@@ -632,10 +587,11 @@ describe("drive operations", () => {
 
       expect(result.path).toBe("/Specs")
       expect(result.items).toMatchObject([{ title: "API.md", path: "/Specs/API.md", kind: "file" }])
-    }))
+    })
+  )
 
   it.effect("fails ambiguous same-parent path matches with candidates", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const duplicateA = folder("folder-a", "Specs", drive.ids.Root)
       const duplicateB = folder("folder-b", "Specs", drive.ids.Root)
       const state: DriveState = {
@@ -650,10 +606,11 @@ describe("drive operations", () => {
       const error = yield* Effect.flip(listDriveItems(params).pipe(Effect.provide(makeLayer(state))))
 
       expect(error).toBeInstanceOf(DrivePathAmbiguousError)
-    }))
+    })
+  )
 
   it.effect("lists the root with default path/kind and orders same-title folder/file pairs", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const sameFolder = folder("folder-same", "Same", drive.ids.Root)
       const sameFile = file("file-same", "Same", drive.ids.Root, [])
       const state: DriveState = {
@@ -669,10 +626,11 @@ describe("drive operations", () => {
 
       expect(result.path).toBe("/")
       expect(result.items.map((item) => `${item.title}:${item.kind}`)).toEqual(["Same:file", "Same:folder"])
-    }))
+    })
+  )
 
   it.effect("gets items by id and reports missing or non-folder path parents", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const specs = folder("folder-specs", "Specs", drive.ids.Root)
       const api = file("file-api", "API.md", specs._id, [specs._id])
       const state: DriveState = {
@@ -713,10 +671,11 @@ describe("drive operations", () => {
       expect(pathMissing).toBeInstanceOf(DrivePathNotFoundError)
       expect(fileAsParent).toBeInstanceOf(DriveParentNotFolderError)
       expect(nestedBelowFile).toBeInstanceOf(DriveParentNotFolderError)
-    }))
+    })
+  )
 
   it.effect("reports root get-item and folder creation conflicts", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const duplicateA = folder("folder-a", "Specs", drive.ids.Root)
       const duplicateB = folder("folder-b", "Specs", drive.ids.Root)
       const readme = file("file-readme", "README.md", drive.ids.Root, [])
@@ -740,10 +699,11 @@ describe("drive operations", () => {
       expect(root).toBeInstanceOf(DrivePathNotFoundError)
       expect(ambiguousFolder).toBeInstanceOf(DrivePathAmbiguousError)
       expect(fileParent).toBeInstanceOf(DriveParentNotFolderError)
-    }))
+    })
+  )
 
   it.effect("creates missing folder parents and is idempotent for existing paths", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state: DriveState = { drives: [driveSpace()], folders: [], files: [], versions: [], nextId: 1 }
 
       const createParams = yield* parseCreateDriveFolderParams({ drive: "Docs", path: "/Specs/API" })
@@ -758,20 +718,22 @@ describe("drive operations", () => {
       expect(created.created).toBe(true)
       expect(created.folder.path).toBe("/Specs/API")
       expect(existing.created).toBe(false)
-    }))
+    })
+  )
 
   it.effect("rejects root folder creation", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state: DriveState = { drives: [driveSpace()], folders: [], files: [], versions: [], nextId: 1 }
 
       const params = yield* parseCreateDriveFolderParams({ drive: "Docs", path: "/" })
       const error = yield* Effect.flip(createDriveFolder(params).pipe(Effect.provide(makeLayer(state))))
 
       expect(error).toBeInstanceOf(DrivePathConflictError)
-    }))
+    })
+  )
 
   it.effect("filters item kinds and uploads with or without parent creation", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const specs = folder("folder-specs", "Specs", drive.ids.Root)
       const api = file("file-api", "API.md", drive.ids.Root, [])
       const state: DriveState = {
@@ -806,10 +768,11 @@ describe("drive operations", () => {
       expect(files.items).toMatchObject([{ kind: "file", title: "API.md" }])
       expect(noParents).toBeInstanceOf(DrivePathNotFoundError)
       expect(nested.createdParents).toMatchObject([{ path: "/New" }, { path: "/New/Deep" }])
-    }))
+    })
+  )
 
   it.effect("uploads from a local path at the drive root and rejects root upload paths", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state: DriveState = { drives: [driveSpace()], folders: [], files: [], versions: [], nextId: 1 }
 
       const rootPathParams = yield* parseUploadDriveFileParams({
@@ -834,13 +797,9 @@ describe("drive operations", () => {
       })
       const fileUrl = yield* Effect.flip(uploadDriveFile(fileUrlParams).pipe(Effect.provide(makeLayer(state))))
       const noSource = yield* Effect.flip(
-        uploadDriveFile(
-          {
-            drive: "Docs",
-            path: "/Empty.txt",
-            contentType: "text/plain"
-          } as unknown as Parameters<typeof uploadDriveFile>[0]
-        ).pipe(Effect.provide(makeLayer(state)))
+        uploadDriveFile({ drive: "Docs", path: "/Empty.txt", contentType: "text/plain" } as unknown as Parameters<
+          typeof uploadDriveFile
+        >[0]).pipe(Effect.provide(makeLayer(state)))
       )
 
       expect(rootPath).toBeInstanceOf(DrivePathConflictError)
@@ -848,10 +807,11 @@ describe("drive operations", () => {
       expect(uploaded.createdParents).toEqual([])
       expect(fileUrl._tag).toBe("FileFetchError")
       expect(noSource._tag).toBe("InvalidFileDataError")
-    }))
+    })
+  )
 
   it.effect("reports a folder locator when file versions require a file", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const specs = folder("folder-specs", "Specs", drive.ids.Root)
       const state: DriveState = {
         drives: [driveSpace()],
@@ -866,10 +826,11 @@ describe("drive operations", () => {
       const error = yield* Effect.flip(listDriveFileVersions(params).pipe(Effect.provide(makeLayer(state))))
 
       expect(error).toBeInstanceOf(DriveFileNotFoundError)
-    }))
+    })
+  )
 
   it.effect("uploads a file, creates an initial version, and lists/restores versions", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       yield* TestClock.adjust("123 millis")
       const specs = folder("folder-specs", "Specs", drive.ids.Root)
       const state: DriveState = {
@@ -907,10 +868,11 @@ describe("drive operations", () => {
       expect(versions.total).toBe(2)
       expect(restored.restored).toBe(true)
       expect(state.updatedFiles?.at(-1)?.operations).toMatchObject({ file: "version-previous" })
-    }))
+    })
+  )
 
   it.effect("restores numeric versions idempotently and reports missing versions", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const specs = folder("folder-specs", "Specs", drive.ids.Root)
       const api = file("file-api", "API.md", specs._id, [specs._id], "version-2", 2)
       const state: DriveState = {
@@ -929,10 +891,11 @@ describe("drive operations", () => {
       expect(restored.restored).toBe(false)
       expect(state.updatedFiles).toBeUndefined()
       expect(missing).toBeInstanceOf(DriveFileVersionNotFoundError)
-    }))
+    })
+  )
 
   it.effect("rejects upload path conflicts", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const existing = folder("folder-specs", "Specs", drive.ids.Root)
       const state: DriveState = { drives: [driveSpace()], folders: [existing], files: [], versions: [], nextId: 1 }
 
@@ -945,10 +908,11 @@ describe("drive operations", () => {
       const error = yield* Effect.flip(uploadDriveFile(params).pipe(Effect.provide(makeLayer(state))))
 
       expect(error).toBeInstanceOf(DrivePathConflictError)
-    }))
+    })
+  )
 
   it.effect("uploads a new version for an existing Drive file", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       yield* TestClock.adjust("321 millis")
       const specs = folder("folder-specs", "Specs", drive.ids.Root)
       const api = file("file-api", "API.md", specs._id, [specs._id], "version-1", 1)
@@ -978,10 +942,11 @@ describe("drive operations", () => {
         { version: 2 },
         { file: result.currentVersion.id }
       ])
-    }))
+    })
+  )
 
   it.effect("moves files and folders within the same Drive and rewrites descendant paths", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const specs = folder("folder-specs", "Specs", drive.ids.Root)
       const archive = folder("folder-archive", "Archive", drive.ids.Root)
       const api = file("file-api", "API.md", specs._id, [specs._id])
@@ -1029,10 +994,11 @@ describe("drive operations", () => {
       expect(state.folders.find((item) => item._id === guide._id)?.path).toEqual([specs._id, archive._id])
       expect(state.files.find((item) => item._id === page._id)?.path).toEqual([guide._id, specs._id, archive._id])
       expect(idempotent.moved).toBe(false)
-    }))
+    })
+  )
 
   it.effect("moves a nested file to the Drive root", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const specs = folder("folder-specs", "Specs", drive.ids.Root)
       const api = file("file-api", "API.md", specs._id, [specs._id])
       const state: DriveState = {
@@ -1044,19 +1010,16 @@ describe("drive operations", () => {
         updatedFiles: []
       }
 
-      const params = yield* parseMoveDriveItemParams({
-        drive: "Docs",
-        path: "/Specs/API.md",
-        targetFolderPath: "/"
-      })
+      const params = yield* parseMoveDriveItemParams({ drive: "Docs", path: "/Specs/API.md", targetFolderPath: "/" })
       const moved = yield* moveDriveItem(params).pipe(Effect.provide(makeLayer(state)))
 
       expect(moved).toMatchObject({ moved: true, fromPath: "/Specs/API.md", toPath: "/API.md" })
       expect(assertAt(state.files, 0)).toMatchObject({ parent: drive.ids.Root, path: [] })
-    }))
+    })
+  )
 
   it.effect("rejects move collisions and descendant folder moves", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const specs = folder("folder-specs", "Specs", drive.ids.Root)
       const child = folder("folder-child", "Child", specs._id, [specs._id])
       const archive = folder("folder-archive", "Archive", drive.ids.Root)
@@ -1085,10 +1048,11 @@ describe("drive operations", () => {
 
       expect(collision).toBeInstanceOf(DrivePathConflictError)
       expect(descendant).toBeInstanceOf(DriveInvalidMoveError)
-    }))
+    })
+  )
 
   it.effect("renames Drive items idempotently and rejects sibling collisions", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const specs = folder("folder-specs", "Specs", drive.ids.Root)
       const api = file("file-api", "API.md", specs._id, [specs._id])
       const existing = file("file-existing", "Guide.md", specs._id, [specs._id], "version-existing")
@@ -1124,10 +1088,11 @@ describe("drive operations", () => {
       expect(unchanged.renamed).toBe(false)
       expect(collision).toBeInstanceOf(DrivePathConflictError)
       expect(state.files.find((item) => item._id === api._id)?.title).toBe("OpenAPI.md")
-    }))
+    })
+  )
 
   it.effect("renames by item id using reconstructed paths", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const specs = folder("folder-specs", "Specs", drive.ids.Root)
       const api = file("file-api", "API.md", specs._id, [specs._id])
       const orphan = file("file-orphan", "Orphan.md", toRef<Folder>("folder-missing"), [
@@ -1147,17 +1112,9 @@ describe("drive operations", () => {
         updatedFiles: []
       }
 
-      const idParams = yield* parseRenameDriveItemParams({
-        drive: "Docs",
-        itemId: "file-api",
-        title: "API.md"
-      })
+      const idParams = yield* parseRenameDriveItemParams({ drive: "Docs", itemId: "file-api", title: "API.md" })
       const unchanged = yield* renameDriveItem(idParams).pipe(Effect.provide(makeLayer(state)))
-      const rootParams = yield* parseRenameDriveItemParams({
-        drive: "Docs",
-        itemId: "file-root",
-        title: "Readme.md"
-      })
+      const rootParams = yield* parseRenameDriveItemParams({ drive: "Docs", itemId: "file-root", title: "Readme.md" })
       const renamedRoot = yield* renameDriveItem(rootParams).pipe(Effect.provide(makeLayer(state)))
       const orphanParams = yield* parseRenameDriveItemParams({
         drive: "Docs",
@@ -1169,10 +1126,11 @@ describe("drive operations", () => {
       expect(unchanged).toMatchObject({ renamed: false, fromPath: "/Specs/API.md", toPath: "/Specs/API.md" })
       expect(renamedRoot).toMatchObject({ renamed: true, fromPath: "/README.md", toPath: "/Readme.md" })
       expect(unchangedOrphan.fromPath).toBe("/folder-missing/Orphan.md")
-    }))
+    })
+  )
 
   it.effect("deletes files with versions, deletes empty folders, and rejects non-empty folders", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const empty = folder("folder-empty", "Empty", drive.ids.Root)
       const full = folder("folder-full", "Full", drive.ids.Root)
       const api = file("file-api", "API.md", drive.ids.Root, [], "version-2", 2)
@@ -1205,10 +1163,11 @@ describe("drive operations", () => {
       expect(deletedFolder).toMatchObject({ deleted: true, deletedVersions: 0 })
       expect(state.folders.some((item) => item._id === empty._id)).toBe(false)
       expect(fullError).toBeInstanceOf(DriveFolderNotEmptyError)
-    }))
+    })
+  )
 
   it.effect("reports root mutation attempts and falls back to removeDoc for file versions", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const api = file("file-api", "API.md", drive.ids.Root, [], "version-2", 2)
       const state: DriveState = {
         drives: [driveSpace()],
@@ -1238,5 +1197,6 @@ describe("drive operations", () => {
       expect(deleted.deletedVersions).toBe(2)
       expect(state.removedDocs?.filter((item) => item.classRef === drive.class.FileVersion)).toHaveLength(2)
       expect(state.removedDocs?.some((item) => item.id === "file-api")).toBe(true)
-    }))
+    })
+  )
 })

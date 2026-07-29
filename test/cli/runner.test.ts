@@ -1,5 +1,5 @@
 import { NodeContext } from "@effect/platform-node"
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { describe, expect, it } from "vitest"
 import type { ClientBundle } from "../../src/mcp/server.js"
 
@@ -20,26 +20,17 @@ interface RunnerObservation {
     readonly result: ToolOperationSuccess
   }>
   readonly rendered: Array<ToolOperationSuccess>
-  readonly telemetry: Array<{
-    readonly event: "session_start" | "tool_called" | "shutdown"
-    readonly props?: unknown
-  }>
+  readonly telemetry: Array<{ readonly event: "session_start" | "tool_called" | "shutdown"; readonly props?: unknown }>
 }
 
-const makePorts = (
-  result: ToolOperationSuccess,
-  observation: RunnerObservation
-): CliRunnerPorts => ({
+const makePorts = (result: ToolOperationSuccess, observation: RunnerObservation): CliRunnerPorts => ({
   downloadAttachment: (_bundle, success, attachmentIdField, output) =>
     Effect.sync(() => {
       observation.downloads.push({ attachmentIdField, output, result: success })
     }),
   getOperation: (toolName) => {
     const operation = operationRegistry.getOperation(toolName)
-    return {
-      ...operation,
-      execute: () => Effect.succeed(result)
-    }
+    return { ...operation, execute: () => Effect.succeed(result) }
   },
   renderSuccess: (success) =>
     Effect.sync(() => {
@@ -48,15 +39,8 @@ const makePorts = (
   useClientBundle: (use) => use(emptyBundle)
 })
 
-const parse = (
-  toolName: CliToolName,
-  raw: ReadonlyArray<string>
-) =>
-  parseCliCommandLine(
-    operationRegistry.getOperation(toolName),
-    cliCommandCatalog[toolName],
-    raw
-  )
+const parse = (toolName: CliToolName, raw: ReadonlyArray<string>) =>
+  parseCliCommandLine(operationRegistry.getOperation(toolName), cliCommandCatalog[toolName], raw)
 
 const run = (
   toolName: CliToolName,
@@ -65,23 +49,27 @@ const run = (
   observation: RunnerObservation
 ): Promise<void> =>
   Effect.runPromise(
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const parsed = yield* parse(toolName, raw)
       yield* runCliToolWithPorts(ports, toolName, parsed)
     }).pipe(
-      Effect.provide(NodeContext.layer),
-      Effect.provide(TelemetryService.testLayer({
-        sessionStart: (props) => {
-          observation.telemetry.push({ event: "session_start", props })
-        },
-        shutdown: () => {
-          observation.telemetry.push({ event: "shutdown" })
-          return Promise.resolve()
-        },
-        toolCalled: (props) => {
-          observation.telemetry.push({ event: "tool_called", props })
-        }
-      }))
+      Effect.provide(
+        Layer.mergeAll(
+          NodeContext.layer,
+          TelemetryService.testLayer({
+            sessionStart: (props) => {
+              observation.telemetry.push({ event: "session_start", props })
+            },
+            shutdown: () => {
+              observation.telemetry.push({ event: "shutdown" })
+              return Promise.resolve()
+            },
+            toolCalled: (props) => {
+              observation.telemetry.push({ event: "tool_called", props })
+            }
+          })
+        )
+      )
     )
   )
 
@@ -94,7 +82,7 @@ const rejected = async (promise: Promise<unknown>): Promise<unknown> => {
   }
 }
 
-const errorMessage = (error: unknown): string => error instanceof Error ? error.message : String(error)
+const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error))
 
 describe("CLI runner", () => {
   it("runs an operation through injected ports and renders the result", async () => {
@@ -197,11 +185,7 @@ describe("CLI runner", () => {
       observation
     )
 
-    expect(observation.downloads).toEqual([{
-      attachmentIdField: "attachmentId",
-      output: "artifact.bin",
-      result
-    }])
+    expect(observation.downloads).toEqual([{ attachmentIdField: "attachmentId", output: "artifact.bin", result }])
     expect(observation.rendered).toEqual([result])
   })
 
@@ -224,7 +208,7 @@ describe("CLI runner", () => {
       ...makePorts({ result: {}, warnings: [] }, observation),
       getOperation: operationRegistry.getOperation
     }
-    const error = await rejected(run("list_projects", ["--input-json", "{\"unexpected\":true}"], ports, observation))
+    const error = await rejected(run("list_projects", ["--input-json", '{"unexpected":true}'], ports, observation))
 
     expect(errorMessage(error)).toContain("An unexpected error occurred")
     expect(observation.rendered).toEqual([])
@@ -234,9 +218,9 @@ describe("CLI runner", () => {
     const parsed = await Effect.runPromise(
       parse("list_issues", ["--output", "issues.json"]).pipe(Effect.provide(NodeContext.layer))
     )
-    const error = await rejected(Effect.runPromise(
-      runCliTool("list_issues", parsed).pipe(Effect.provide(TelemetryService.testLayer()))
-    ))
+    const error = await rejected(
+      Effect.runPromise(runCliTool("list_issues", parsed).pipe(Effect.provide(TelemetryService.testLayer())))
+    )
 
     expect(errorMessage(error)).toContain("issues list does not support --output")
   })

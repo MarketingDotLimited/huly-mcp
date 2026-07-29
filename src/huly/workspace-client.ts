@@ -49,15 +49,16 @@ interface CreateAccessLinkOptions {
   readonly personalized?: boolean
 }
 
-export type WorkspaceClientUserProfile =
-  & Omit<PersonWithProfile, "bio" | "city" | "country" | "website" | "socialLinks">
-  & {
-    readonly bio?: string | null
-    readonly city?: string | null
-    readonly country?: string | null
-    readonly website?: string | null
-    readonly socialLinks?: Record<string, string> | null
-  }
+export type WorkspaceClientUserProfile = Omit<
+  PersonWithProfile,
+  "bio" | "city" | "country" | "website" | "socialLinks"
+> & {
+  readonly bio?: string | null
+  readonly city?: string | null
+  readonly country?: string | null
+  readonly website?: string | null
+  readonly socialLinks?: Record<string, string> | null
+}
 
 export interface WorkspaceClientOperations {
   readonly getWorkspaceMembers: () => Effect.Effect<Array<WorkspaceMemberInfo>, WorkspaceClientError>
@@ -80,9 +81,7 @@ export interface WorkspaceClientOperations {
   readonly updateAllowReadOnlyGuests: (
     readOnlyGuestsAllowed: boolean
   ) => Effect.Effect<{ guestPerson: Person; guestSocialIds: Array<SocialId> } | undefined, WorkspaceClientError>
-  readonly updateAllowGuestSignUp: (
-    guestSignUpAllowed: boolean
-  ) => Effect.Effect<void, WorkspaceClientError>
+  readonly updateAllowGuestSignUp: (guestSignUpAllowed: boolean) => Effect.Effect<void, WorkspaceClientError>
   readonly getRegionInfo: () => Effect.Effect<Array<RegionInfo>, WorkspaceClientError>
 }
 
@@ -96,15 +95,14 @@ export class WorkspaceClient extends Context.Tag("@hulymcp/WorkspaceClient")<
     HulyConfigService | HulySdk
   > = Layer.scoped(
     WorkspaceClient,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const config = yield* HulyConfigService
       const sdk = yield* HulySdk
 
-      const { client } = yield* connectAccountClientWithRetry({
-        url: config.url,
-        auth: config.auth,
-        workspace: config.workspace
-      }, sdk)
+      const { client } = yield* connectAccountClientWithRetry(
+        { url: config.url, auth: config.auth, workspace: config.workspace },
+        sdk
+      )
 
       const withClient = <A>(
         op: (client: AccountClient) => Promise<A>,
@@ -112,11 +110,7 @@ export class WorkspaceClient extends Context.Tag("@hulymcp/WorkspaceClient")<
       ): Effect.Effect<A, WorkspaceClientError> =>
         Effect.tryPromise({
           try: () => op(client),
-          catch: (e) =>
-            new HulyConnectionError({
-              message: `${errorMsg}: ${String(e)}`,
-              cause: e
-            })
+          catch: (e) => new HulyConnectionError({ message: `${errorMsg}: ${String(e)}`, cause: e })
         })
 
       const toAccountClientAccessLinkOptions = (
@@ -168,15 +162,10 @@ export class WorkspaceClient extends Context.Tag("@hulymcp/WorkspaceClient")<
     })
   )
 
-  static readonly layer: Layer.Layer<
-    WorkspaceClient,
-    WorkspaceClientError,
-    HulyConfigService
-  > = WorkspaceClient.layerWithDependencies.pipe(Layer.provide(HulySdk.defaultLayer))
+  static readonly layer: Layer.Layer<WorkspaceClient, WorkspaceClientError, HulyConfigService> =
+    WorkspaceClient.layerWithDependencies.pipe(Layer.provide(HulySdk.defaultLayer))
 
-  static testLayer(
-    mockOps: Partial<WorkspaceClientOperations>
-  ): Layer.Layer<WorkspaceClient> {
+  static testLayer(mockOps: Partial<WorkspaceClientOperations>): Layer.Layer<WorkspaceClient> {
     const notImplemented = (name: string) => (): Effect.Effect<never, WorkspaceClientError> =>
       Effect.die(new Error(`${name} not implemented in test layer`))
 

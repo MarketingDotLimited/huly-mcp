@@ -42,25 +42,26 @@ import {
 } from "../../helpers/brands.js"
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock builder
-const makeNotification = (overrides?: Partial<HulyInboxNotification>): HulyInboxNotification => ({
-  _id: "notif-1" as Ref<HulyInboxNotification>,
-  _class: notification.class.InboxNotification,
-  space: "person-space-1" as Ref<PersonSpace>,
-  user: "user-1" as HulyInboxNotification["user"],
-  isViewed: false,
-  archived: false,
-  objectId: "obj-1" as Ref<Doc>,
-  objectClass: "tracker.class.Issue" as Ref<Class<Doc>>,
-  docNotifyContext: "ctx-1" as Ref<HulyDocNotifyContext>,
-  title: "New issue assigned" as HulyInboxNotification["title"],
-  body: "Issue PROJ-1 was assigned to you" as HulyInboxNotification["body"],
-  data: undefined,
-  createdOn: 1706500000000,
-  modifiedOn: 1706500000000,
-  modifiedBy: "user-1" as PersonId,
-  createdBy: "user-1" as PersonId,
-  ...overrides
-} as HulyInboxNotification)
+const makeNotification = (overrides?: Partial<HulyInboxNotification>): HulyInboxNotification =>
+  ({
+    _id: "notif-1" as Ref<HulyInboxNotification>,
+    _class: notification.class.InboxNotification,
+    space: "person-space-1" as Ref<PersonSpace>,
+    user: "user-1" as HulyInboxNotification["user"],
+    isViewed: false,
+    archived: false,
+    objectId: "obj-1" as Ref<Doc>,
+    objectClass: "tracker.class.Issue" as Ref<Class<Doc>>,
+    docNotifyContext: "ctx-1" as Ref<HulyDocNotifyContext>,
+    title: "New issue assigned" as HulyInboxNotification["title"],
+    body: "Issue PROJ-1 was assigned to you" as HulyInboxNotification["body"],
+    data: undefined,
+    createdOn: 1706500000000,
+    modifiedOn: 1706500000000,
+    modifiedBy: "user-1" as PersonId,
+    createdBy: "user-1" as PersonId,
+    ...overrides
+  }) as HulyInboxNotification
 
 const makeNotificationContext = (overrides?: Partial<HulyDocNotifyContext>): HulyDocNotifyContext => {
   const result: HulyDocNotifyContext = {
@@ -120,10 +121,10 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       let result = [...notifications]
       if (q.archived !== undefined) {
-        result = result.filter(n => n.archived === q.archived)
+        result = result.filter((n) => n.archived === q.archived)
       }
       if (q.isViewed !== undefined) {
-        result = result.filter(n => n.isViewed === q.isViewed)
+        result = result.filter((n) => n.isViewed === q.isViewed)
       }
       const opts = options as { sort?: Record<string, number>; limit?: number } | undefined
       if (opts?.sort?.modifiedOn !== undefined) {
@@ -137,10 +138,10 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       let result = [...contexts]
       if (q.hidden !== undefined) {
-        result = result.filter(c => c.hidden === q.hidden)
+        result = result.filter((c) => c.hidden === q.hidden)
       }
       if (q.isPinned !== undefined) {
-        result = result.filter(c => c.isPinned === q.isPinned)
+        result = result.filter((c) => c.isPinned === q.isPinned)
       }
       const opts = options as { sort?: Record<string, number> } | undefined
       if (opts?.sort?.lastUpdateTimestamp !== undefined) {
@@ -158,46 +159,48 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === notification.class.InboxNotification) {
       const q = query as { _id?: Ref<HulyInboxNotification> }
-      const found = notifications.find(n => n._id === q._id)
+      const found = notifications.find((n) => n._id === q._id)
       return Effect.succeed(found)
     }
     if (_class === notification.class.DocNotifyContext) {
       const q = query as { _id?: Ref<HulyDocNotifyContext>; objectId?: Ref<Doc>; objectClass?: Ref<Class<Doc>> }
-      const found = contexts.find(c =>
-        (!q._id || c._id === q._id)
-        && (!q.objectId || c.objectId === q.objectId)
-        && (!q.objectClass || c.objectClass === q.objectClass)
+      const found = contexts.find(
+        (c) =>
+          (!q._id || c._id === q._id) &&
+          (!q.objectId || c.objectId === q.objectId) &&
+          (!q.objectClass || c.objectClass === q.objectClass)
       )
       return Effect.succeed(found)
     }
     if (_class === notification.class.NotificationProviderSetting) {
       const q = query as { attachedTo?: Ref<NotificationProvider> }
-      const found = settings.find(s => s.attachedTo === q.attachedTo)
+      const found = settings.find((s) => s.attachedTo === q.attachedTo)
       return Effect.succeed(found)
     }
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
-  const updateDocImpl: HulyClientOperations["updateDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown, operations: unknown) => {
-      if (config.captureUpdateDoc) {
-        config.captureUpdateDoc.operations = operations as Record<string, unknown>
-        if (config.captureUpdateDoc.calls) {
-          config.captureUpdateDoc.calls.push(operations as Record<string, unknown>)
-        }
+  const updateDocImpl: HulyClientOperations["updateDoc"] = ((
+    _class: unknown,
+    _space: unknown,
+    _objectId: unknown,
+    operations: unknown
+  ) => {
+    if (config.captureUpdateDoc) {
+      config.captureUpdateDoc.operations = operations as Record<string, unknown>
+      if (config.captureUpdateDoc.calls) {
+        config.captureUpdateDoc.calls.push(operations as Record<string, unknown>)
       }
-      return Effect.succeed({})
     }
-  ) as HulyClientOperations["updateDoc"]
+    return Effect.succeed({})
+  }) as HulyClientOperations["updateDoc"]
 
-  const removeDocImpl: HulyClientOperations["removeDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown) => {
-      if (config.captureRemoveDoc) {
-        config.captureRemoveDoc.called = true
-      }
-      return Effect.succeed({})
+  const removeDocImpl: HulyClientOperations["removeDoc"] = ((_class: unknown, _space: unknown, _objectId: unknown) => {
+    if (config.captureRemoveDoc) {
+      config.captureRemoveDoc.called = true
     }
-  ) as HulyClientOperations["removeDoc"]
+    return Effect.succeed({})
+  }) as HulyClientOperations["removeDoc"]
 
   return HulyClient.testLayer({
     findAll: findAllImpl,
@@ -209,7 +212,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
 
 describe("listNotifications", () => {
   it.effect("returns notifications mapped to summaries", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const notif = makeNotification({
         _id: "notif-1" as Ref<HulyInboxNotification>,
         isViewed: false,
@@ -234,18 +237,13 @@ describe("listNotifications", () => {
       expect(assertAt(result, 0).objectClass).toBe("tracker.class.Issue")
       expect(assertAt(result, 0).createdOn).toBe(1706500000000)
       expect(assertAt(result, 0).modifiedOn).toBe(1706500001000)
-    }))
+    })
+  )
 
   it.effect("excludes archived notifications by default", () =>
-    Effect.gen(function*() {
-      const active = makeNotification({
-        _id: "notif-1" as Ref<HulyInboxNotification>,
-        archived: false
-      })
-      const archived = makeNotification({
-        _id: "notif-2" as Ref<HulyInboxNotification>,
-        archived: true
-      })
+    Effect.gen(function* () {
+      const active = makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification>, archived: false })
+      const archived = makeNotification({ _id: "notif-2" as Ref<HulyInboxNotification>, archived: true })
 
       const testLayer = createTestLayerWithMocks({ notifications: [active, archived] })
 
@@ -253,38 +251,30 @@ describe("listNotifications", () => {
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).id).toBe("notif-1")
-    }))
+    })
+  )
 
   it.effect("includes archived when requested", () =>
-    Effect.gen(function*() {
-      const active = makeNotification({
-        _id: "notif-1" as Ref<HulyInboxNotification>,
-        archived: false
-      })
-      const archived = makeNotification({
-        _id: "notif-2" as Ref<HulyInboxNotification>,
-        archived: true
-      })
+    Effect.gen(function* () {
+      const active = makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification>, archived: false })
+      const archived = makeNotification({ _id: "notif-2" as Ref<HulyInboxNotification>, archived: true })
 
       const testLayer = createTestLayerWithMocks({ notifications: [active, archived] })
 
       const result = yield* listNotifications({ includeArchived: true }).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(2)
-    }))
+    })
+  )
 
   it.effect("filters unread only when requested", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const unread = makeNotification({
         _id: "notif-1" as Ref<HulyInboxNotification>,
         isViewed: false,
         archived: false
       })
-      const read = makeNotification({
-        _id: "notif-2" as Ref<HulyInboxNotification>,
-        isViewed: true,
-        archived: false
-      })
+      const read = makeNotification({ _id: "notif-2" as Ref<HulyInboxNotification>, isViewed: true, archived: false })
 
       const testLayer = createTestLayerWithMocks({ notifications: [unread, read] })
 
@@ -292,21 +282,23 @@ describe("listNotifications", () => {
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).id).toBe("notif-1")
-    }))
+    })
+  )
 
   it.effect("returns empty array when no notifications", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ notifications: [] })
 
       const result = yield* listNotifications({}).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(0)
-    }))
+    })
+  )
 })
 
 describe("getNotification", () => {
   it.effect("returns full notification details", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const notif = makeNotification({
         _id: "notif-1" as Ref<HulyInboxNotification>,
         isViewed: true,
@@ -336,10 +328,11 @@ describe("getNotification", () => {
       expect(result.title).toBe("Full title")
       expect(result.body).toBe("Full body")
       expect(result.data).toBe("some data")
-    }))
+    })
+  )
 
   it.effect("returns NotificationNotFoundError when not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ notifications: [] })
 
       const error = yield* Effect.flip(
@@ -348,16 +341,14 @@ describe("getNotification", () => {
 
       expect(error._tag).toBe("NotificationNotFoundError")
       expect((error as NotificationNotFoundError).notificationId).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("markNotificationRead", () => {
   it.effect("marks unread notification as read", () =>
-    Effect.gen(function*() {
-      const notif = makeNotification({
-        _id: "notif-1" as Ref<HulyInboxNotification>,
-        isViewed: false
-      })
+    Effect.gen(function* () {
+      const notif = makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification>, isViewed: false })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ notifications: [notif], captureUpdateDoc })
@@ -369,14 +360,12 @@ describe("markNotificationRead", () => {
       expect(result.id).toBe("notif-1")
       expect(result.marked).toBe(true)
       expect(captureUpdateDoc.operations?.isViewed).toBe(true)
-    }))
+    })
+  )
 
   it.effect("skips update when already viewed", () =>
-    Effect.gen(function*() {
-      const notif = makeNotification({
-        _id: "notif-1" as Ref<HulyInboxNotification>,
-        isViewed: true
-      })
+    Effect.gen(function* () {
+      const notif = makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification>, isViewed: true })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ notifications: [notif], captureUpdateDoc })
@@ -388,10 +377,11 @@ describe("markNotificationRead", () => {
       expect(result.id).toBe("notif-1")
       expect(result.marked).toBe(true)
       expect(captureUpdateDoc.operations).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("returns NotificationNotFoundError when not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ notifications: [] })
 
       const error = yield* Effect.flip(
@@ -400,16 +390,14 @@ describe("markNotificationRead", () => {
 
       expect(error._tag).toBe("NotificationNotFoundError")
       expect((error as NotificationNotFoundError).notificationId).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("markNotificationUnread", () => {
   it.effect("marks read notification as unread", () =>
-    Effect.gen(function*() {
-      const notif = makeNotification({
-        _id: "notif-1" as Ref<HulyInboxNotification>,
-        isViewed: true
-      })
+    Effect.gen(function* () {
+      const notif = makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification>, isViewed: true })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ notifications: [notif], captureUpdateDoc })
@@ -421,14 +409,12 @@ describe("markNotificationUnread", () => {
       expect(result.id).toBe("notif-1")
       expect(result.marked).toBe(true)
       expect(captureUpdateDoc.operations?.isViewed).toBe(false)
-    }))
+    })
+  )
 
   it.effect("skips update when already unread", () =>
-    Effect.gen(function*() {
-      const notif = makeNotification({
-        _id: "notif-1" as Ref<HulyInboxNotification>,
-        isViewed: false
-      })
+    Effect.gen(function* () {
+      const notif = makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification>, isViewed: false })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ notifications: [notif], captureUpdateDoc })
@@ -440,10 +426,11 @@ describe("markNotificationUnread", () => {
       expect(result.id).toBe("notif-1")
       expect(result.marked).toBe(true)
       expect(captureUpdateDoc.operations).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("returns NotificationNotFoundError when not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ notifications: [] })
 
       const error = yield* Effect.flip(
@@ -452,23 +439,16 @@ describe("markNotificationUnread", () => {
 
       expect(error._tag).toBe("NotificationNotFoundError")
       expect((error as NotificationNotFoundError).notificationId).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("markAllNotificationsRead", () => {
   it.effect("marks all unread non-archived notifications as read", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const notifs = [
-        makeNotification({
-          _id: "notif-1" as Ref<HulyInboxNotification>,
-          isViewed: false,
-          archived: false
-        }),
-        makeNotification({
-          _id: "notif-2" as Ref<HulyInboxNotification>,
-          isViewed: false,
-          archived: false
-        })
+        makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification>, isViewed: false, archived: false }),
+        makeNotification({ _id: "notif-2" as Ref<HulyInboxNotification>, isViewed: false, archived: false })
       ]
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = { calls: [] }
 
@@ -478,16 +458,13 @@ describe("markAllNotificationsRead", () => {
 
       expect(result.count).toBe(2)
       expect(captureUpdateDoc.calls).toHaveLength(2)
-    }))
+    })
+  )
 
   it.effect("returns count 0 when no unread notifications", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const notifs = [
-        makeNotification({
-          _id: "notif-1" as Ref<HulyInboxNotification>,
-          isViewed: true,
-          archived: false
-        })
+        makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification>, isViewed: true, archived: false })
       ]
 
       const testLayer = createTestLayerWithMocks({ notifications: notifs })
@@ -495,16 +472,14 @@ describe("markAllNotificationsRead", () => {
       const result = yield* markAllNotificationsRead().pipe(Effect.provide(testLayer))
 
       expect(result.count).toBe(0)
-    }))
+    })
+  )
 })
 
 describe("archiveNotification", () => {
   it.effect("archives a non-archived notification", () =>
-    Effect.gen(function*() {
-      const notif = makeNotification({
-        _id: "notif-1" as Ref<HulyInboxNotification>,
-        archived: false
-      })
+    Effect.gen(function* () {
+      const notif = makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification>, archived: false })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ notifications: [notif], captureUpdateDoc })
@@ -516,14 +491,12 @@ describe("archiveNotification", () => {
       expect(result.id).toBe("notif-1")
       expect(result.archived).toBe(true)
       expect(captureUpdateDoc.operations?.archived).toBe(true)
-    }))
+    })
+  )
 
   it.effect("skips update when already archived", () =>
-    Effect.gen(function*() {
-      const notif = makeNotification({
-        _id: "notif-1" as Ref<HulyInboxNotification>,
-        archived: true
-      })
+    Effect.gen(function* () {
+      const notif = makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification>, archived: true })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ notifications: [notif], captureUpdateDoc })
@@ -535,10 +508,11 @@ describe("archiveNotification", () => {
       expect(result.id).toBe("notif-1")
       expect(result.archived).toBe(true)
       expect(captureUpdateDoc.operations).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("returns NotificationNotFoundError when not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ notifications: [] })
 
       const error = yield* Effect.flip(
@@ -547,16 +521,14 @@ describe("archiveNotification", () => {
 
       expect(error._tag).toBe("NotificationNotFoundError")
       expect((error as NotificationNotFoundError).notificationId).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("unarchiveNotification", () => {
   it.effect("unarchives an archived notification", () =>
-    Effect.gen(function*() {
-      const notif = makeNotification({
-        _id: "notif-1" as Ref<HulyInboxNotification>,
-        archived: true
-      })
+    Effect.gen(function* () {
+      const notif = makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification>, archived: true })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ notifications: [notif], captureUpdateDoc })
@@ -568,14 +540,12 @@ describe("unarchiveNotification", () => {
       expect(result.id).toBe("notif-1")
       expect(result.archived).toBe(false)
       expect(captureUpdateDoc.operations?.archived).toBe(false)
-    }))
+    })
+  )
 
   it.effect("skips update when already active", () =>
-    Effect.gen(function*() {
-      const notif = makeNotification({
-        _id: "notif-1" as Ref<HulyInboxNotification>,
-        archived: false
-      })
+    Effect.gen(function* () {
+      const notif = makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification>, archived: false })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ notifications: [notif], captureUpdateDoc })
@@ -587,10 +557,11 @@ describe("unarchiveNotification", () => {
       expect(result.id).toBe("notif-1")
       expect(result.archived).toBe(false)
       expect(captureUpdateDoc.operations).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("returns NotificationNotFoundError when not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ notifications: [] })
 
       const error = yield* Effect.flip(
@@ -599,21 +570,16 @@ describe("unarchiveNotification", () => {
 
       expect(error._tag).toBe("NotificationNotFoundError")
       expect((error as NotificationNotFoundError).notificationId).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("archiveAllNotifications", () => {
   it.effect("archives all non-archived notifications", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const notifs = [
-        makeNotification({
-          _id: "notif-1" as Ref<HulyInboxNotification>,
-          archived: false
-        }),
-        makeNotification({
-          _id: "notif-2" as Ref<HulyInboxNotification>,
-          archived: false
-        })
+        makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification>, archived: false }),
+        makeNotification({ _id: "notif-2" as Ref<HulyInboxNotification>, archived: false })
       ]
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = { calls: [] }
 
@@ -623,28 +589,25 @@ describe("archiveAllNotifications", () => {
 
       expect(result.count).toBe(2)
       expect(captureUpdateDoc.calls).toHaveLength(2)
-    }))
+    })
+  )
 
   it.effect("returns count 0 when all already archived", () =>
-    Effect.gen(function*() {
-      const notifs = [
-        makeNotification({
-          _id: "notif-1" as Ref<HulyInboxNotification>,
-          archived: true
-        })
-      ]
+    Effect.gen(function* () {
+      const notifs = [makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification>, archived: true })]
 
       const testLayer = createTestLayerWithMocks({ notifications: notifs })
 
       const result = yield* archiveAllNotifications().pipe(Effect.provide(testLayer))
 
       expect(result.count).toBe(0)
-    }))
+    })
+  )
 })
 
 describe("deleteNotification", () => {
   it.effect("deletes notification", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const notif = makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification> })
       const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
 
@@ -657,10 +620,11 @@ describe("deleteNotification", () => {
       expect(result.id).toBe("notif-1")
       expect(result.deleted).toBe(true)
       expect(captureRemoveDoc.called).toBe(true)
-    }))
+    })
+  )
 
   it.effect("returns NotificationNotFoundError when not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ notifications: [] })
 
       const error = yield* Effect.flip(
@@ -668,12 +632,13 @@ describe("deleteNotification", () => {
       )
 
       expect(error._tag).toBe("NotificationNotFoundError")
-    }))
+    })
+  )
 })
 
 describe("getNotificationContext", () => {
   it.effect("returns context by objectId and objectClass", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const ctx = makeNotificationContext({
         _id: "ctx-1" as Ref<HulyDocNotifyContext>,
         objectId: "obj-1" as Ref<Doc>,
@@ -699,10 +664,11 @@ describe("getNotificationContext", () => {
       expect(result!.hidden).toBe(false)
       expect(result!.lastViewedTimestamp).toBe(1706400000000)
       expect(result!.lastUpdateTimestamp).toBe(1706500000000)
-    }))
+    })
+  )
 
   it.effect("returns null when context not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ contexts: [] })
 
       const result = yield* getNotificationContext({
@@ -711,12 +677,13 @@ describe("getNotificationContext", () => {
       }).pipe(Effect.provide(testLayer))
 
       expect(result).toBeNull()
-    }))
+    })
+  )
 })
 
 describe("listNotificationContexts", () => {
   it.effect("returns non-hidden contexts", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const visible = makeNotificationContext({
         _id: "ctx-1" as Ref<HulyDocNotifyContext>,
         hidden: false,
@@ -734,10 +701,11 @@ describe("listNotificationContexts", () => {
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).id).toBe("ctx-1")
-    }))
+    })
+  )
 
   it.effect("filters pinned only when requested", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const pinned = makeNotificationContext({
         _id: "ctx-1" as Ref<HulyDocNotifyContext>,
         isPinned: true,
@@ -755,193 +723,172 @@ describe("listNotificationContexts", () => {
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).id).toBe("ctx-1")
-    }))
+    })
+  )
 
   it.effect("returns empty array when no contexts", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ contexts: [] })
 
       const result = yield* listNotificationContexts({}).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("includes hidden contexts when requested", () =>
-    Effect.gen(function*() {
-      const visible = makeNotificationContext({
-        _id: "ctx-1" as Ref<HulyDocNotifyContext>,
-        hidden: false
-      })
-      const hidden = makeNotificationContext({
-        _id: "ctx-2" as Ref<HulyDocNotifyContext>,
-        hidden: true
-      })
+    Effect.gen(function* () {
+      const visible = makeNotificationContext({ _id: "ctx-1" as Ref<HulyDocNotifyContext>, hidden: false })
+      const hidden = makeNotificationContext({ _id: "ctx-2" as Ref<HulyDocNotifyContext>, hidden: true })
 
       const testLayer = createTestLayerWithMocks({ contexts: [visible, hidden] })
 
       const result = yield* listNotificationContexts({ includeHidden: true }).pipe(Effect.provide(testLayer))
 
       expect(result.map((ctx) => ctx.id)).toEqual(["ctx-1", "ctx-2"])
-    }))
+    })
+  )
 })
 
 describe("pinNotificationContext", () => {
   it.effect("pins an unpinned context", () =>
-    Effect.gen(function*() {
-      const ctx = makeNotificationContext({
-        _id: "ctx-1" as Ref<HulyDocNotifyContext>,
-        isPinned: false
-      })
+    Effect.gen(function* () {
+      const ctx = makeNotificationContext({ _id: "ctx-1" as Ref<HulyDocNotifyContext>, isPinned: false })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ contexts: [ctx], captureUpdateDoc })
 
-      const result = yield* pinNotificationContext({
-        contextId: notificationContextId("ctx-1"),
-        pinned: true
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* pinNotificationContext({ contextId: notificationContextId("ctx-1"), pinned: true }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.id).toBe("ctx-1")
       expect(result.isPinned).toBe(true)
       expect(captureUpdateDoc.operations?.isPinned).toBe(true)
-    }))
+    })
+  )
 
   it.effect("unpins a pinned context", () =>
-    Effect.gen(function*() {
-      const ctx = makeNotificationContext({
-        _id: "ctx-1" as Ref<HulyDocNotifyContext>,
-        isPinned: true
-      })
+    Effect.gen(function* () {
+      const ctx = makeNotificationContext({ _id: "ctx-1" as Ref<HulyDocNotifyContext>, isPinned: true })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ contexts: [ctx], captureUpdateDoc })
 
-      const result = yield* pinNotificationContext({
-        contextId: notificationContextId("ctx-1"),
-        pinned: false
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* pinNotificationContext({ contextId: notificationContextId("ctx-1"), pinned: false }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.id).toBe("ctx-1")
       expect(result.isPinned).toBe(false)
       expect(captureUpdateDoc.operations?.isPinned).toBe(false)
-    }))
+    })
+  )
 
   it.effect("skips update when pin state already matches", () =>
-    Effect.gen(function*() {
-      const ctx = makeNotificationContext({
-        _id: "ctx-1" as Ref<HulyDocNotifyContext>,
-        isPinned: true
-      })
+    Effect.gen(function* () {
+      const ctx = makeNotificationContext({ _id: "ctx-1" as Ref<HulyDocNotifyContext>, isPinned: true })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ contexts: [ctx], captureUpdateDoc })
 
-      const result = yield* pinNotificationContext({
-        contextId: notificationContextId("ctx-1"),
-        pinned: true
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* pinNotificationContext({ contextId: notificationContextId("ctx-1"), pinned: true }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.id).toBe("ctx-1")
       expect(result.isPinned).toBe(true)
       expect(captureUpdateDoc.operations).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("returns NotificationContextNotFoundError when not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ contexts: [] })
 
       const error = yield* Effect.flip(
-        pinNotificationContext({
-          contextId: notificationContextId("nonexistent"),
-          pinned: true
-        }).pipe(Effect.provide(testLayer))
+        pinNotificationContext({ contextId: notificationContextId("nonexistent"), pinned: true }).pipe(
+          Effect.provide(testLayer)
+        )
       )
 
       expect(error._tag).toBe("NotificationContextNotFoundError")
       expect((error as NotificationContextNotFoundError).contextId).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("hideNotificationContext", () => {
   it.effect("hides a visible context", () =>
-    Effect.gen(function*() {
-      const ctx = makeNotificationContext({
-        _id: "ctx-1" as Ref<HulyDocNotifyContext>,
-        hidden: false
-      })
+    Effect.gen(function* () {
+      const ctx = makeNotificationContext({ _id: "ctx-1" as Ref<HulyDocNotifyContext>, hidden: false })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ contexts: [ctx], captureUpdateDoc })
 
-      const result = yield* hideNotificationContext({
-        contextId: notificationContextId("ctx-1"),
-        hidden: true
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* hideNotificationContext({ contextId: notificationContextId("ctx-1"), hidden: true }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.id).toBe("ctx-1")
       expect(result.hidden).toBe(true)
       expect(captureUpdateDoc.operations?.hidden).toBe(true)
-    }))
+    })
+  )
 
   it.effect("unhides a hidden context", () =>
-    Effect.gen(function*() {
-      const ctx = makeNotificationContext({
-        _id: "ctx-1" as Ref<HulyDocNotifyContext>,
-        hidden: true
-      })
+    Effect.gen(function* () {
+      const ctx = makeNotificationContext({ _id: "ctx-1" as Ref<HulyDocNotifyContext>, hidden: true })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ contexts: [ctx], captureUpdateDoc })
 
-      const result = yield* hideNotificationContext({
-        contextId: notificationContextId("ctx-1"),
-        hidden: false
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* hideNotificationContext({ contextId: notificationContextId("ctx-1"), hidden: false }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.id).toBe("ctx-1")
       expect(result.hidden).toBe(false)
       expect(captureUpdateDoc.operations?.hidden).toBe(false)
-    }))
+    })
+  )
 
   it.effect("skips update when hidden state already matches", () =>
-    Effect.gen(function*() {
-      const ctx = makeNotificationContext({
-        _id: "ctx-1" as Ref<HulyDocNotifyContext>,
-        hidden: true
-      })
+    Effect.gen(function* () {
+      const ctx = makeNotificationContext({ _id: "ctx-1" as Ref<HulyDocNotifyContext>, hidden: true })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
       const testLayer = createTestLayerWithMocks({ contexts: [ctx], captureUpdateDoc })
 
-      const result = yield* hideNotificationContext({
-        contextId: notificationContextId("ctx-1"),
-        hidden: true
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* hideNotificationContext({ contextId: notificationContextId("ctx-1"), hidden: true }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.id).toBe("ctx-1")
       expect(result.hidden).toBe(true)
       expect(captureUpdateDoc.operations).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("returns NotificationContextNotFoundError when not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ contexts: [] })
 
       const error = yield* Effect.flip(
-        hideNotificationContext({
-          contextId: notificationContextId("nonexistent"),
-          hidden: true
-        }).pipe(Effect.provide(testLayer))
+        hideNotificationContext({ contextId: notificationContextId("nonexistent"), hidden: true }).pipe(
+          Effect.provide(testLayer)
+        )
       )
 
       expect(error._tag).toBe("NotificationContextNotFoundError")
       expect((error as NotificationContextNotFoundError).contextId).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("listNotificationSettings", () => {
   it.effect("returns settings mapped to provider settings", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const setting = makeNotificationSetting({
         _id: "setting-1" as Ref<HulyNotificationProviderSetting>,
         attachedTo: "provider-inbox" as Ref<NotificationProvider>,
@@ -956,21 +903,23 @@ describe("listNotificationSettings", () => {
       expect(assertAt(result, 0).id).toBe("setting-1")
       expect(assertAt(result, 0).providerId).toBe("provider-inbox")
       expect(assertAt(result, 0).enabled).toBe(true)
-    }))
+    })
+  )
 
   it.effect("returns empty array when no settings", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ settings: [] })
 
       const result = yield* listNotificationSettings({}).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(0)
-    }))
+    })
+  )
 })
 
 describe("updateNotificationProviderSetting", () => {
   it.effect("updates existing setting when value changes", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const diagnostics = yield* makeDiagnosticsScope
       const setting = makeNotificationSetting({
         _id: "setting-1" as Ref<HulyNotificationProviderSetting>,
@@ -990,10 +939,11 @@ describe("updateNotificationProviderSetting", () => {
       expect(result.enabled).toBe(false)
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.enabled).toBe(false)
-    }))
+    })
+  )
 
   it.effect("returns updated=false when existing setting value matches", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const diagnostics = yield* makeDiagnosticsScope
       const setting = makeNotificationSetting({
         _id: "setting-1" as Ref<HulyNotificationProviderSetting>,
@@ -1013,10 +963,11 @@ describe("updateNotificationProviderSetting", () => {
       expect(result.enabled).toBe(true)
       expect(result.updated).toBe(false)
       expect(captureUpdateDoc.operations).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("returns updated=false when setting does not exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const diagnostics = yield* makeDiagnosticsScope
       const testLayer = createTestLayerWithMocks({ settings: [] })
 
@@ -1028,23 +979,16 @@ describe("updateNotificationProviderSetting", () => {
       expect(result.providerId).toBe("nonexistent-provider")
       expect(result.enabled).toBe(true)
       expect(result.updated).toBe(false)
-    }))
+    })
+  )
 })
 
 describe("getUnreadNotificationCount", () => {
   it.effect("returns unread count from total", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const notifs = [
-        makeNotification({
-          _id: "notif-1" as Ref<HulyInboxNotification>,
-          isViewed: false,
-          archived: false
-        }),
-        makeNotification({
-          _id: "notif-2" as Ref<HulyInboxNotification>,
-          isViewed: false,
-          archived: false
-        })
+        makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification>, isViewed: false, archived: false }),
+        makeNotification({ _id: "notif-2" as Ref<HulyInboxNotification>, isViewed: false, archived: false })
       ]
 
       const testLayer = createTestLayerWithMocks({ notifications: notifs })
@@ -1052,16 +996,13 @@ describe("getUnreadNotificationCount", () => {
       const result = yield* getUnreadNotificationCount().pipe(Effect.provide(testLayer))
 
       expect(result.count).toBe(2)
-    }))
+    })
+  )
 
   it.effect("returns 0 when no unread notifications", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const notifs = [
-        makeNotification({
-          _id: "notif-1" as Ref<HulyInboxNotification>,
-          isViewed: true,
-          archived: false
-        })
+        makeNotification({ _id: "notif-1" as Ref<HulyInboxNotification>, isViewed: true, archived: false })
       ]
 
       const testLayer = createTestLayerWithMocks({ notifications: notifs })
@@ -1069,5 +1010,6 @@ describe("getUnreadNotificationCount", () => {
       const result = yield* getUnreadNotificationCount().pipe(Effect.provide(testLayer))
 
       expect(result.count).toBe(0)
-    }))
+    })
+  )
 })

@@ -99,7 +99,7 @@ export const optionalCount = (value: number | undefined): Count | undefined =>
 const statusCategoryValueFromRef = (category: Ref<StatusCategory> | undefined): StatusCategoryValue =>
   category === undefined
     ? UnknownStatusCategoryValue
-    : StatusCategoryEntries.find((entry) => entry.ref === category)?.key ?? UnknownStatusCategoryValue
+    : (StatusCategoryEntries.find((entry) => entry.ref === category)?.key ?? UnknownStatusCategoryValue)
 
 const workflowStatusFromDoc = (doc: StatusMetadata): RecruitingStatusSummary => ({
   id: IssueStatusId.make(doc._id),
@@ -109,11 +109,7 @@ const workflowStatusFromDoc = (doc: StatusMetadata): RecruitingStatusSummary => 
 
 const workflowStatusSummaryFromRef = (statusRef: Ref<Status>): RecruitingStatusSummary => {
   const fallback = workflowStatusFromRef(statusRef)
-  return {
-    id: IssueStatusId.make(statusRef),
-    name: StatusName.make(fallback.name),
-    category: fallback.category
-  }
+  return { id: IssueStatusId.make(statusRef), name: StatusName.make(fallback.name), category: fallback.category }
 }
 
 const statusSummariesFromRefs = (
@@ -126,7 +122,7 @@ export const getVacancyStatuses = (
   client: HulyClient["Type"],
   vacancy: Vacancy
 ): Effect.Effect<ReadonlyArray<RecruitingStatusSummary>, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const projectType = yield* getVacancyTypeById(client, vacancy.type)
     const statusRefs = uniqueStatusRefs(projectType.statuses.map((status) => status._id))
     if (statusRefs.length === 0) {
@@ -175,7 +171,7 @@ export const getVacancyTypeById = (
   client: HulyClient["Type"],
   typeId: Ref<ProjectType>
 ): Effect.Effect<ProjectType, HulyClientError | RecruitingModelMissingError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const projectType = yield* client.findOne<ProjectType>(
       task.class.ProjectType,
       hulyQuery<ProjectType>({ _id: typeId })
@@ -192,7 +188,7 @@ export const resolveVacancyType = (
   client: HulyClient["Type"],
   identifier: string | undefined
 ): Effect.Effect<ProjectType, HulyClientError | RecruitingVacancyTypeNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const normalized = identifier?.trim()
     const defaultType = toRef<ProjectType>(recruitIds.template.DefaultVacancy)
     if (normalized === undefined || normalized === "") {
@@ -233,7 +229,7 @@ export const resolveVacancy = (
   Vacancy,
   HulyClientError | RecruitingVacancyIdentifierAmbiguousError | RecruitingVacancyNotFoundError
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<Vacancy>(
       recruitIds.class.Vacancy,
       hulyQuery<Vacancy>({ _id: toRef<Vacancy>(identifier) })
@@ -251,10 +247,7 @@ export const resolveVacancy = (
       return yield* new RecruitingVacancyNotFoundError({ identifier })
     }
     if (byName.length > 1) {
-      return yield* new RecruitingVacancyIdentifierAmbiguousError({
-        identifier,
-        matches: Count.make(byName.length)
-      })
+      return yield* new RecruitingVacancyIdentifierAmbiguousError({ identifier, matches: Count.make(byName.length) })
     }
     return assertAt(byName, 0)
   })
@@ -268,7 +261,7 @@ export const findApplicant = (
   Applicant,
   HulyClientError | RecruitingApplicantIdentifierAmbiguousError | RecruitingApplicantNotFoundError
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<Applicant>(
       recruitIds.class.Applicant,
       hulyQuery<Applicant>({ _id: toRef<Applicant>(applicantIdentifier) })
@@ -303,7 +296,7 @@ export const applicantRefFromDoc = (
   client: HulyClient["Type"],
   applicant: Applicant
 ): Effect.Effect<ApplicantRef, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const vacancy = yield* client.findOne<Vacancy>(recruitIds.class.Vacancy, { _id: applicant.space })
     const candidate = yield* client.findOne<Person>(contact.class.Person, { _id: toRef<Person>(applicant.attachedTo) })
     if (vacancy === undefined || candidate === undefined) {
@@ -317,9 +310,7 @@ export const applicantRefFromDoc = (
     return toApplicantRef(applicant, vacancy, candidate, statusName, email)
   })
 
-const TxIncResult = Schema.Struct({
-  object: Schema.Struct({ sequence: Schema.Number })
-})
+const TxIncResult = Schema.Struct({ object: Schema.Struct({ sequence: Schema.Number }) })
 
 const extractUpdatedSequence = (txResult: unknown): number | undefined => {
   const decoded = Schema.decodeUnknownOption(TxIncResult)(txResult)
@@ -331,11 +322,8 @@ export const incrementSequence = (
   attachedTo: Ref<Class<Doc>>,
   label: string
 ): Effect.Effect<number, HulyClientError | RecruitingModelMissingError> =>
-  Effect.gen(function*() {
-    const sequence = yield* client.findOne<Sequence>(
-      core.class.Sequence,
-      hulyQuery<Sequence>({ attachedTo })
-    )
+  Effect.gen(function* () {
+    const sequence = yield* client.findOne<Sequence>(core.class.Sequence, hulyQuery<Sequence>({ attachedTo }))
     if (sequence === undefined) {
       return yield* new RecruitingModelMissingError({ message: `Recruiting ${label} sequence is missing` })
     }

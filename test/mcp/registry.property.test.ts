@@ -25,12 +25,14 @@ const knownCategories = [...CATEGORY_NAMES]
 const knownToolNames = toolRegistry.definitions.map((tool) => tool.name)
 const knownCategoryArbitrary = fc.constantFrom(...knownCategories)
 const knownToolNameArbitrary = fc.constantFrom(...knownToolNames)
-const unknownCategoryArbitrary = fc.stringMatching(/^[a-z][a-z0-9_-]{1,24}$/).map(makeToolCategory).filter(
-  (category) => !CATEGORY_NAMES.has(category)
-)
-const unknownToolNameArbitrary = fc.stringMatching(/^[a-z][a-z0-9_]{1,32}$/).map(makeToolName).filter(
-  (name) => !toolRegistry.tools.has(name)
-)
+const unknownCategoryArbitrary = fc
+  .stringMatching(/^[a-z][a-z0-9_-]{1,24}$/)
+  .map(makeToolCategory)
+  .filter((category) => !CATEGORY_NAMES.has(category))
+const unknownToolNameArbitrary = fc
+  .stringMatching(/^[a-z][a-z0-9_]{1,32}$/)
+  .map(makeToolName)
+  .filter((name) => !toolRegistry.tools.has(name))
 
 const wordArbitrary = fc.stringMatching(/^[a-z][a-z0-9]{0,10}$/)
 const toolNameArbitrary = fc.array(wordArbitrary, { minLength: 1, maxLength: 5 }).map((parts) => parts.join("_"))
@@ -38,7 +40,10 @@ const requiredArbitrary = fc.array(fc.stringMatching(/^[a-z][a-z0-9_]{0,12}$/), 
 const unionSchemaArbitrary = fc.record({ required: requiredArbitrary }, { requiredKeys: [] })
 
 const deriveTitle = (name: string): string =>
-  name.split("_").map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(" ")
+  name
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
 
 const annotationKeys = [
   "destructiveHint",
@@ -171,8 +176,8 @@ describe("createScopedRegistry properties", () => {
             categories: requestedCategories,
             toolNames: requestedToolNames
           })
-          const expected = toolRegistry.definitions.filter((tool) =>
-            requestedCategories.has(tool.category) || requestedToolNames.has(tool.name)
+          const expected = toolRegistry.definitions.filter(
+            (tool) => requestedCategories.has(tool.category) || requestedToolNames.has(tool.name)
           )
 
           expect(scoped.definitions).toEqual(expected)
@@ -196,9 +201,10 @@ describe("tool argument schema properties", () => {
         fc.array(unionSchemaArbitrary, { maxLength: 4 }),
         (required, anyOf, oneOf) => {
           const inputSchema = { required, anyOf, oneOf }
-          const expected = required.length > 0
-            || anyOf.some((schema) => (schema.required?.length ?? 0) > 0)
-            || oneOf.some((schema) => (schema.required?.length ?? 0) > 0)
+          const expected =
+            required.length > 0 ||
+            anyOf.some((schema) => (schema.required?.length ?? 0) > 0) ||
+            oneOf.some((schema) => (schema.required?.length ?? 0) > 0)
 
           expect(requiresArgumentsObject(toolDefinition("generated_tool", inputSchema))).toBe(expected)
         }
@@ -213,10 +219,7 @@ describe("tool argument schema properties", () => {
         fc.dictionary(fc.stringMatching(/^[a-z][a-z0-9_]{0,12}$/), fc.anything()),
         fc.option(fc.boolean(), { nil: undefined }),
         (properties, additionalProperties) => {
-          const inputSchema = {
-            properties,
-            ...(additionalProperties !== undefined && { additionalProperties })
-          }
+          const inputSchema = { properties, ...(additionalProperties !== undefined && { additionalProperties }) }
 
           expect(isNoArgumentTool(toolDefinition("generated_tool", inputSchema))).toBe(
             Object.keys(properties).length === 0 && additionalProperties === false
@@ -230,9 +233,7 @@ describe("tool argument schema properties", () => {
   it("classifies empty Effect Struct union schemas and actual registry no-arg tools", () => {
     fc.assert(
       fc.property(fc.boolean(), (useOneOf) => {
-        const inputSchema = {
-          [useOneOf ? "oneOf" : "anyOf"]: [{ type: "object" }, { type: "array" }]
-        }
+        const inputSchema = { [useOneOf ? "oneOf" : "anyOf"]: [{ type: "object" }, { type: "array" }] }
 
         expect(isNoArgumentTool(toolDefinition("generated_empty_struct", inputSchema))).toBe(true)
         expect(requiresArgumentsObject(toolDefinition("generated_empty_struct", inputSchema))).toBe(false)
@@ -282,10 +283,7 @@ describe("tool argument schema properties", () => {
       fc.property(
         fc.constantFrom("anyOf", "oneOf"),
         fc.array(
-          fc.oneof(
-            fc.record({ type: fc.constantFrom("string", "number", "boolean", "null") }),
-            fc.constant({})
-          ),
+          fc.oneof(fc.record({ type: fc.constantFrom("string", "number", "boolean", "null") }), fc.constant({})),
           { minLength: 1, maxLength: 4 }
         ),
         (unionKey, variants) => {

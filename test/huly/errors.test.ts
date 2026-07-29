@@ -222,34 +222,38 @@ import { funnelIdentifier, funnelReference, leadIdentifier } from "../helpers/br
 describe("Huly Errors", () => {
   describe("HulyError", () => {
     it.effect("creates with message", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new HulyError({ message: "Something went wrong" })
         expect(error._tag).toBe("HulyError")
         expect(error.message).toBe("Something went wrong")
-      }))
+      })
+    )
 
     it.effect("creates with cause", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const cause = new Error("underlying error")
         const error = new HulyError({ message: "Wrapped error", cause })
         expect(error.cause).toBe(cause)
-      }))
+      })
+    )
   })
 
   describe("HulyConnectionError", () => {
     it.effect("creates with message", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new HulyConnectionError({ message: "Connection failed" })
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toBe("Connection failed")
-      }))
+      })
+    )
 
     it.effect("creates with cause", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const cause = new Error("network timeout")
         const error = new HulyConnectionError({ message: "Connection failed", cause })
         expect(error.cause).toBe(cause)
-      }))
+      })
+    )
   })
 
   describe("HulyUnavailableError", () => {
@@ -263,21 +267,23 @@ describe("Huly Errors", () => {
         expect(error._tag).toBe("HulyUnavailableError")
         expect(error.endpointOrigin).toBe("https://huly.app")
         expect(error.detailCode).toBe("ECONNREFUSED")
-      }))
+      })
+    )
   })
 
   describe("HulyAuthError", () => {
     it.effect("creates with message", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new HulyAuthError({ message: "Invalid credentials" })
         expect(error._tag).toBe("HulyAuthError")
         expect(error.message).toBe("Invalid credentials")
-      }))
+      })
+    )
   })
 
   describe("Board errors", () => {
     it.effect("generates board-specific messages", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         expect(new BoardNotFoundError({ identifier: "Roadmap" }).message).toBe("Board 'Roadmap' not found")
         expect(new BoardIdentifierAmbiguousError({ identifier: "Roadmap", matches: 2 }).message).toBe(
           "Board 'Roadmap' matched 2 boards; pass a board _id instead"
@@ -325,21 +331,15 @@ describe("Huly Errors", () => {
         expect(new BoardSavedViewIdentifierAmbiguousError({ identifier: "Mine", matches: 2 }).message).toBe(
           "Board saved view 'Mine' matched 2 saved views; pass a saved view _id"
         )
-        expect(new BoardMenuPageNotFoundError({ identifier: "main" }).message).toBe(
-          "Board menu page 'main' not found"
-        )
+        expect(new BoardMenuPageNotFoundError({ identifier: "main" }).message).toBe("Board menu page 'main' not found")
         expect(new BoardMenuPageIdentifierAmbiguousError({ identifier: "main", matches: 2 }).message).toBe(
           "Board menu page 'main' matched 2 menu pages; pass a menu page _id"
         )
-        expect(new BoardViewletNotFoundError({ identifier: "Table" }).message).toBe(
-          "Board viewlet 'Table' not found"
-        )
+        expect(new BoardViewletNotFoundError({ identifier: "Table" }).message).toBe("Board viewlet 'Table' not found")
         expect(new BoardViewletIdentifierAmbiguousError({ identifier: "Table", matches: 2 }).message).toBe(
           "Board viewlet 'Table' matched 2 viewlets; pass a viewlet _id"
         )
-        expect(new FilteredViewNotFoundError({ identifier: "Mine" }).message).toBe(
-          "Filtered view 'Mine' not found"
-        )
+        expect(new FilteredViewNotFoundError({ identifier: "Mine" }).message).toBe("Filtered view 'Mine' not found")
         expect(new FilteredViewIdentifierAmbiguousError({ identifier: "Mine", matches: 2 }).message).toBe(
           "Filtered view 'Mine' matched 2 filtered views; pass a filtered view _id"
         )
@@ -347,495 +347,548 @@ describe("Huly Errors", () => {
         expect(new ViewletIdentifierAmbiguousError({ identifier: "Table", matches: 2 }).message).toBe(
           "Viewlet 'Table' matched 2 viewlets; pass a viewlet _id"
         )
-      }))
+      })
+    )
   })
 
   describe("IssueNotFoundError", () => {
     it.effect("creates with identifier and project", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new IssueNotFoundError({ identifier: "HULY-123", project: "HULY" })
         expect(error._tag).toBe("IssueNotFoundError")
         expect(error.identifier).toBe("HULY-123")
         expect(error.project).toBe("HULY")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new IssueNotFoundError({ identifier: "HULY-123", project: "HULY" })
         expect(error.message).toBe("Issue 'HULY-123' not found in project 'HULY'")
-      }))
+      })
+    )
   })
 
   describe("ProjectNotFoundError", () => {
     it.effect("creates with identifier", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new ProjectNotFoundError({ identifier: "MISSING" })
         expect(error._tag).toBe("ProjectNotFoundError")
         expect(error.identifier).toBe("MISSING")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new ProjectNotFoundError({ identifier: "MISSING" })
         expect(error.message).toBe("Project 'MISSING' not found")
-      }))
+      })
+    )
   })
 
   describe("InvalidStatusError", () => {
     it.effect("creates with status and project", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new InvalidStatusError({ status: "bogus", project: "HULY" })
         expect(error._tag).toBe("InvalidStatusError")
         expect(error.status).toBe("bogus")
         expect(error.project).toBe("HULY")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new InvalidStatusError({ status: "bogus", project: "HULY" })
         expect(error.message).toBe("Invalid status 'bogus' for project 'HULY'")
-      }))
+      })
+    )
   })
 
   describe("FileUploadError", () => {
     it.effect("creates with message", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new FileUploadError({ message: "Storage quota exceeded" })
         expect(error._tag).toBe("FileUploadError")
         expect(error.message).toBe("Storage quota exceeded")
-      }))
+      })
+    )
 
     it.effect("creates with cause", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const cause = new Error("network error")
         const error = new FileUploadError({ message: "Upload failed", cause })
         expect(error.cause).toBe(cause)
-      }))
+      })
+    )
   })
 
   describe("InvalidFileDataError", () => {
     it.effect("creates with message", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new InvalidFileDataError({ message: "Invalid base64 encoding" })
         expect(error._tag).toBe("InvalidFileDataError")
         expect(error.message).toBe("Invalid base64 encoding")
-      }))
+      })
+    )
   })
 
   describe("FileNotFoundError", () => {
     it.effect("creates with filePath", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new FileNotFoundError({ filePath: "/tmp/missing.txt" })
         expect(error._tag).toBe("FileNotFoundError")
         expect(error.filePath).toBe("/tmp/missing.txt")
         expect(error.message).toBe("File not found: /tmp/missing.txt")
-      }))
+      })
+    )
   })
 
   describe("FileFetchError", () => {
     it.effect("creates with fileUrl and reason", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new FileFetchError({ fileUrl: "https://example.com/img.png", reason: "404 Not Found" })
         expect(error._tag).toBe("FileFetchError")
         expect(error.fileUrl).toBe("https://example.com/img.png")
         expect(error.reason).toBe("404 Not Found")
         expect(error.message).toBe("Failed to fetch file from https://example.com/img.png: 404 Not Found")
-      }))
+      })
+    )
   })
 
   describe("TeamspaceNotFoundError", () => {
     it.effect("creates with identifier", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new TeamspaceNotFoundError({ identifier: "my-teamspace" })
         expect(error._tag).toBe("TeamspaceNotFoundError")
         expect(error.identifier).toBe("my-teamspace")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new TeamspaceNotFoundError({ identifier: "my-teamspace" })
         expect(error.message).toBe("Teamspace 'my-teamspace' not found")
-      }))
+      })
+    )
   })
 
   describe("DocumentNotFoundError", () => {
     it.effect("creates with identifier and teamspace", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new DocumentNotFoundError({ identifier: "doc-1", teamspace: "engineering" })
         expect(error._tag).toBe("DocumentNotFoundError")
         expect(error.identifier).toBe("doc-1")
         expect(error.teamspace).toBe("engineering")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new DocumentNotFoundError({ identifier: "doc-1", teamspace: "engineering" })
         expect(error.message).toBe("Document 'doc-1' not found in teamspace 'engineering'")
-      }))
+      })
+    )
   })
 
   describe("CommentNotFoundError", () => {
     it.effect("creates with commentId, issueIdentifier, and project", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new CommentNotFoundError({ commentId: "c-42", issueIdentifier: "HULY-99", project: "HULY" })
         expect(error._tag).toBe("CommentNotFoundError")
         expect(error.commentId).toBe("c-42")
         expect(error.issueIdentifier).toBe("HULY-99")
         expect(error.project).toBe("HULY")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new CommentNotFoundError({ commentId: "c-42", issueIdentifier: "HULY-99", project: "HULY" })
         expect(error.message).toBe("Comment 'c-42' not found on issue 'HULY-99' in project 'HULY'")
-      }))
+      })
+    )
   })
 
   describe("MilestoneNotFoundError", () => {
     it.effect("creates with identifier and project", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new MilestoneNotFoundError({ identifier: "v1.0", project: "HULY" })
         expect(error._tag).toBe("MilestoneNotFoundError")
         expect(error.identifier).toBe("v1.0")
         expect(error.project).toBe("HULY")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new MilestoneNotFoundError({ identifier: "v1.0", project: "HULY" })
         expect(error.message).toBe("Milestone 'v1.0' not found in project 'HULY'")
-      }))
+      })
+    )
   })
 
   describe("ChannelNotFoundError", () => {
     it.effect("creates with identifier", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new ChannelNotFoundError({ identifier: "general" })
         expect(error._tag).toBe("ChannelNotFoundError")
         expect(error.identifier).toBe("general")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new ChannelNotFoundError({ identifier: "general" })
         expect(error.message).toBe("Channel 'general' not found")
-      }))
+      })
+    )
   })
 
   describe("DirectMessageNotFoundError", () => {
     it.effect("creates with identifier", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new DirectMessageNotFoundError({ identifier: "Kerr,Shannon" })
         expect(error._tag).toBe("DirectMessageNotFoundError")
         expect(error.identifier).toBe("Kerr,Shannon")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new DirectMessageNotFoundError({ identifier: "Kerr,Shannon" })
         expect(error.message).toBe("Direct message 'Kerr,Shannon' not found")
-      }))
+      })
+    )
   })
 
   describe("DirectMessageIdentifierAmbiguousError", () => {
     it.effect("creates with identifier and match count", () =>
-      Effect.gen(function*() {
-        const error = new DirectMessageIdentifierAmbiguousError({
-          identifier: "Kerr,Shannon",
-          matches: Count.make(2)
-        })
+      Effect.gen(function* () {
+        const error = new DirectMessageIdentifierAmbiguousError({ identifier: "Kerr,Shannon", matches: Count.make(2) })
         expect(error._tag).toBe("DirectMessageIdentifierAmbiguousError")
         expect(error.identifier).toBe("Kerr,Shannon")
         expect(error.matches).toBe(2)
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
-        const error = new DirectMessageIdentifierAmbiguousError({
-          identifier: "Kerr,Shannon",
-          matches: Count.make(2)
-        })
+      Effect.gen(function* () {
+        const error = new DirectMessageIdentifierAmbiguousError({ identifier: "Kerr,Shannon", matches: Count.make(2) })
         expect(error.message).toBe("Direct message 'Kerr,Shannon' is ambiguous (2 matches); use the DM _id")
-      }))
+      })
+    )
   })
 
   describe("PersonIdentifierAmbiguousError", () => {
     it.effect("creates with identifier and match count", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new PersonIdentifierAmbiguousError({ identifier: "Smith,Bill", matches: Count.make(2) })
         expect(error._tag).toBe("PersonIdentifierAmbiguousError")
         expect(error.identifier).toBe("Smith,Bill")
         expect(error.matches).toBe(2)
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new PersonIdentifierAmbiguousError({ identifier: "Smith,Bill", matches: Count.make(2) })
         expect(error.message).toBe(
           "Person identifier 'Smith,Bill' matched 2 people; use an exact email address instead"
         )
-      }))
+      })
+    )
   })
 
   describe("MessageNotFoundError", () => {
     it.effect("creates with messageId and channel", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new MessageNotFoundError({ messageId: "msg-1", channel: "general" })
         expect(error._tag).toBe("MessageNotFoundError")
         expect(error.messageId).toBe("msg-1")
         expect(error.channel).toBe("general")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new MessageNotFoundError({ messageId: "msg-1", channel: "general" })
         expect(error.message).toBe("Message 'msg-1' not found in channel 'general'")
-      }))
+      })
+    )
   })
 
   describe("ThreadReplyNotFoundError", () => {
     it.effect("creates with replyId and messageId", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new ThreadReplyNotFoundError({ replyId: "reply-5", messageId: "msg-1" })
         expect(error._tag).toBe("ThreadReplyNotFoundError")
         expect(error.replyId).toBe("reply-5")
         expect(error.messageId).toBe("msg-1")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new ThreadReplyNotFoundError({ replyId: "reply-5", messageId: "msg-1" })
         expect(error.message).toBe("Thread reply 'reply-5' not found on message 'msg-1'")
-      }))
+      })
+    )
   })
 
   describe("EventNotFoundError", () => {
     it.effect("creates with eventId", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new EventNotFoundError({ eventId: EventId.make("evt-100") })
         expect(error._tag).toBe("EventNotFoundError")
         expect(error.eventId).toBe("evt-100")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new EventNotFoundError({ eventId: EventId.make("evt-100") })
         expect(error.message).toBe("Event 'evt-100' not found")
-      }))
+      })
+    )
   })
 
   describe("RecurringEventNotFoundError", () => {
     it.effect("creates with eventId", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new RecurringEventNotFoundError({ eventId: EventId.make("rec-200") })
         expect(error._tag).toBe("RecurringEventNotFoundError")
         expect(error.eventId).toBe("rec-200")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new RecurringEventNotFoundError({ eventId: EventId.make("rec-200") })
         expect(error.message).toBe("Recurring event 'rec-200' not found")
-      }))
+      })
+    )
   })
 
   describe("CalendarNotAccessibleError", () => {
     it.effect("creates with calendarId", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new CalendarNotAccessibleError({ calendarId: "cal-100" })
         expect(error._tag).toBe("CalendarNotAccessibleError")
         expect(error.calendarId).toBe("cal-100")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new CalendarNotAccessibleError({ calendarId: "cal-100" })
         expect(error.message).toBe("Calendar 'cal-100' not found or not accessible")
-      }))
+      })
+    )
   })
 
   describe("ScheduleNotFoundError", () => {
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new ScheduleNotFoundError({ scheduleId: ScheduleId.make("sched-100") })
         expect(error.message).toBe("Schedule 'sched-100' not found")
-      }))
+      })
+    )
   })
 
   describe("Virtual office errors", () => {
     it.effect("generate messages from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         expect(new FloorNotFoundError({ floorId: FloorId.make("floor-100") }).message).toBe(
           "Office floor 'floor-100' not found"
         )
         expect(new RoomNotFoundError({ roomId: RoomId.make("room-100") }).message).toBe(
           "Office room 'room-100' not found"
         )
-        expect(new MeetingMinutesNotFoundError({ meetingMinutesId: MeetingMinutesId.make("minutes-100") }).message)
-          .toBe(
-            "Meeting minutes 'minutes-100' not found"
-          )
-      }))
+        expect(
+          new MeetingMinutesNotFoundError({ meetingMinutesId: MeetingMinutesId.make("minutes-100") }).message
+        ).toBe("Meeting minutes 'minutes-100' not found")
+      })
+    )
   })
 
   describe("ActivityMessageNotFoundError", () => {
     it.effect("creates with messageId", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new ActivityMessageNotFoundError({ messageId: "act-10" })
         expect(error._tag).toBe("ActivityMessageNotFoundError")
         expect(error.messageId).toBe("act-10")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new ActivityMessageNotFoundError({ messageId: "act-10" })
         expect(error.message).toBe("Activity message 'act-10' not found")
-      }))
+      })
+    )
   })
 
   describe("ReactionNotFoundError", () => {
     it.effect("creates with messageId and emoji", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new ReactionNotFoundError({ messageId: "msg-7", emoji: "thumbsup" })
         expect(error._tag).toBe("ReactionNotFoundError")
         expect(error.messageId).toBe("msg-7")
         expect(error.emoji).toBe("thumbsup")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new ReactionNotFoundError({ messageId: "msg-7", emoji: "thumbsup" })
         expect(error.message).toBe("Reaction 'thumbsup' not found on message 'msg-7'")
-      }))
+      })
+    )
   })
 
   describe("SavedMessageNotFoundError", () => {
     it.effect("creates with messageId", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new SavedMessageNotFoundError({ messageId: "msg-saved-1" })
         expect(error._tag).toBe("SavedMessageNotFoundError")
         expect(error.messageId).toBe("msg-saved-1")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new SavedMessageNotFoundError({ messageId: "msg-saved-1" })
         expect(error.message).toBe("Saved message for 'msg-saved-1' not found")
-      }))
+      })
+    )
   })
 
   describe("AttachmentNotFoundError", () => {
     it.effect("creates with attachmentId", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new AttachmentNotFoundError({ attachmentId: "att-3" })
         expect(error._tag).toBe("AttachmentNotFoundError")
         expect(error.attachmentId).toBe("att-3")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new AttachmentNotFoundError({ attachmentId: "att-3" })
         expect(error.message).toBe("Attachment 'att-3' not found")
-      }))
+      })
+    )
   })
 
   describe("ComponentNotFoundError", () => {
     it.effect("creates with identifier and project", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new ComponentNotFoundError({ identifier: "frontend", project: "HULY" })
         expect(error._tag).toBe("ComponentNotFoundError")
         expect(error.identifier).toBe("frontend")
         expect(error.project).toBe("HULY")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new ComponentNotFoundError({ identifier: "frontend", project: "HULY" })
         expect(error.message).toBe("Component 'frontend' not found in project 'HULY'")
-      }))
+      })
+    )
   })
 
   describe("IssueTemplateNotFoundError", () => {
     it.effect("creates with identifier and project", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new IssueTemplateNotFoundError({ identifier: "bug-report", project: "HULY" })
         expect(error._tag).toBe("IssueTemplateNotFoundError")
         expect(error.identifier).toBe("bug-report")
         expect(error.project).toBe("HULY")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new IssueTemplateNotFoundError({ identifier: "bug-report", project: "HULY" })
         expect(error.message).toBe("Issue template 'bug-report' not found in project 'HULY'")
-      }))
+      })
+    )
   })
 
   describe("TemplateChildNotFoundError", () => {
     it.effect("creates with fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new TemplateChildNotFoundError({ childId: "c-1", template: "tpl-1", project: "HULY" })
         expect(error._tag).toBe("TemplateChildNotFoundError")
         expect(error.childId).toBe("c-1")
         expect(error.template).toBe("tpl-1")
         expect(error.project).toBe("HULY")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new TemplateChildNotFoundError({ childId: "c-1", template: "tpl-1", project: "HULY" })
         expect(error.message).toBe("Child template 'c-1' not found in template 'tpl-1' of project 'HULY'")
-      }))
+      })
+    )
   })
 
   describe("NotificationNotFoundError", () => {
     it.effect("creates with notificationId", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new NotificationNotFoundError({ notificationId: "notif-55" })
         expect(error._tag).toBe("NotificationNotFoundError")
         expect(error.notificationId).toBe("notif-55")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new NotificationNotFoundError({ notificationId: "notif-55" })
         expect(error.message).toBe("Notification 'notif-55' not found")
-      }))
+      })
+    )
   })
 
   describe("NotificationContextNotFoundError", () => {
     it.effect("creates with contextId", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new NotificationContextNotFoundError({ contextId: "ctx-77" })
         expect(error._tag).toBe("NotificationContextNotFoundError")
         expect(error.contextId).toBe("ctx-77")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new NotificationContextNotFoundError({ contextId: "ctx-77" })
         expect(error.message).toBe("Notification context 'ctx-77' not found")
-      }))
+      })
+    )
   })
 
   describe("InvalidPersonUuidError", () => {
     it.effect("creates with uuid", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new InvalidPersonUuidError({ uuid: "not-a-uuid" })
         expect(error._tag).toBe("InvalidPersonUuidError")
         expect(error.uuid).toBe("not-a-uuid")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new InvalidPersonUuidError({ uuid: "not-a-uuid" })
         expect(error.message).toBe("Invalid PersonUuid format: 'not-a-uuid'")
-      }))
+      })
+    )
   })
 
   describe("FileTooLargeError", () => {
     it.effect("creates with filename, size, and maxSize", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new FileTooLargeError({
           filename: "big.zip",
           size: 15 * BYTES_PER_MB,
@@ -845,86 +898,93 @@ describe("Huly Errors", () => {
         expect(error.filename).toBe("big.zip")
         expect(error.size).toBe(15 * BYTES_PER_MB)
         expect(error.maxSize).toBe(10 * BYTES_PER_MB)
-      }))
+      })
+    )
 
     it.effect("generates message with MB conversion", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new FileTooLargeError({
           filename: "big.zip",
           size: 15 * BYTES_PER_MB,
           maxSize: 10 * BYTES_PER_MB
         })
         expect(error.message).toBe("File 'big.zip' is too large (15.00MB). Maximum allowed: 10MB")
-      }))
+      })
+    )
 
     it.effect("formats fractional MB with two decimal places", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new FileTooLargeError({
           filename: "photo.jpg",
           size: 5.5 * BYTES_PER_MB,
           maxSize: 5 * BYTES_PER_MB
         })
         expect(error.message).toBe("File 'photo.jpg' is too large (5.50MB). Maximum allowed: 5MB")
-      }))
+      })
+    )
   })
 
   describe("InvalidContentTypeError", () => {
     it.effect("creates with filename and contentType", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new InvalidContentTypeError({ filename: "script.exe", contentType: "application/x-msdownload" })
         expect(error._tag).toBe("InvalidContentTypeError")
         expect(error.filename).toBe("script.exe")
         expect(error.contentType).toBe("application/x-msdownload")
-      }))
+      })
+    )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new InvalidContentTypeError({ filename: "script.exe", contentType: "application/x-msdownload" })
         expect(error.message).toBe("Invalid content type 'application/x-msdownload' for file 'script.exe'")
-      }))
+      })
+    )
   })
 
   describe("BYTES_PER_MB", () => {
     it.effect("equals 1024 * 1024", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         expect(BYTES_PER_MB).toBe(1048576)
-      }))
+      })
+    )
   })
 
   describe("HulyDomainError Schema", () => {
     it.effect("decodes a valid error via Schema.Union", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new ProjectNotFoundError({ identifier: "X" })
         const decoded = yield* Schema.decode(HulyDomainErrorSchema)(error)
         expect(decoded._tag).toBe("ProjectNotFoundError")
-      }))
+      })
+    )
   })
 
   describe("Effect integration", () => {
     it.effect("errors are yieldable", () =>
-      Effect.gen(function*() {
-        const program = Effect.gen(function*() {
+      Effect.gen(function* () {
+        const program = Effect.gen(function* () {
           return yield* new IssueNotFoundError({ identifier: "HULY-1", project: "TEST" })
         })
 
         const error = yield* Effect.flip(program)
         expect(error._tag).toBe("IssueNotFoundError")
-      }))
+      })
+    )
 
     it.effect("can pattern match with catchTag", () =>
-      Effect.gen(function*() {
-        const program = Effect.gen(function*() {
+      Effect.gen(function* () {
+        const program = Effect.gen(function* () {
           return yield* new IssueNotFoundError({ identifier: "HULY-1", project: "TEST" })
-        }).pipe(
-          Effect.catchTag("IssueNotFoundError", (e) => Effect.succeed(`Recovered: ${e.identifier}`))
-        )
+        }).pipe(Effect.catchTag("IssueNotFoundError", (e) => Effect.succeed(`Recovered: ${e.identifier}`)))
 
         const result = yield* program
         expect(result).toBe("Recovered: HULY-1")
-      }))
+      })
+    )
 
     it.effect("can pattern match with Match exhaustive over all error types", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         // Using switch instead of Match.type to avoid Effect Match inference issues
         // with Schema.TaggedError unions under exactOptionalPropertyTypes: true.
         // The return type annotation ensures exhaustiveness: TypeScript errors if a case is missing.
@@ -1357,10 +1417,7 @@ describe("Huly Errors", () => {
         )
         expect(
           matchError(
-            new ApprovalRequestTargetNotFoundError({
-              attachedTo: "issue-1",
-              attachedToClass: "tracker:class:Issue"
-            })
+            new ApprovalRequestTargetNotFoundError({ attachedTo: "issue-1", attachedToClass: "tracker:class:Issue" })
           )
         ).toBe("approval-request-target:issue-1:tracker:class:Issue")
         expect(
@@ -1379,21 +1436,11 @@ describe("Huly Errors", () => {
             })
           )
         ).toBe("approval-request-unsupported:approve_approval_request:updateCollection")
+        expect(matchError(new ApprovalRequestNotActiveError({ request: "request-1", status: "Cancelled" }))).toBe(
+          "approval-request-not-active:request-1:Cancelled"
+        )
         expect(
-          matchError(
-            new ApprovalRequestNotActiveError({
-              request: "request-1",
-              status: "Cancelled"
-            })
-          )
-        ).toBe("approval-request-not-active:request-1:Cancelled")
-        expect(
-          matchError(
-            new ApprovalRequestApproverNotRequestedError({
-              request: "request-1",
-              person: "person-1"
-            })
-          )
+          matchError(new ApprovalRequestApproverNotRequestedError({ request: "request-1", person: "person-1" }))
         ).toBe("approval-request-approver:request-1:person-1")
         expect(
           matchError(
@@ -1407,54 +1454,47 @@ describe("Huly Errors", () => {
         expect(matchError(new ProjectNotFoundError({ identifier: "Z" }))).toBe("project:Z")
         expect(matchError(new InvalidStatusError({ status: "bad", project: "P" }))).toBe("status:bad")
         expect(matchError(new PersonNotFoundError({ identifier: "john@example.com" }))).toBe("person:john@example.com")
-        expect(matchError(new PersonIdentifierAmbiguousError({ identifier: "Smith,Bill", matches: Count.make(2) })))
-          .toBe(
-            "person-ambiguous:Smith,Bill:2"
-          )
-        expect(matchError(new TodoNotFoundError({ locator: "{\"todoId\":\"todo-1\"}" }))).toBe(
-          "todo:{\"todoId\":\"todo-1\"}"
-        )
+        expect(
+          matchError(new PersonIdentifierAmbiguousError({ identifier: "Smith,Bill", matches: Count.make(2) }))
+        ).toBe("person-ambiguous:Smith,Bill:2")
+        expect(matchError(new TodoNotFoundError({ locator: '{"todoId":"todo-1"}' }))).toBe('todo:{"todoId":"todo-1"}')
         expect(new TodoNotFoundError({ locator: "missing" }).message).toBe(
           "Planner ToDo not found for locator: missing"
         )
         expect(matchError(new TodoIdentifierAmbiguousError({ locator: "title:Fix bug", matches: 2 }))).toBe(
           "todo-ambiguous:title:Fix bug:2"
         )
-        expect(matchError(
-          new MessageTemplateCategoryNotFoundError({
-            identifier: MessageTemplateCategoryIdentifier.make("Sales")
-          })
-        )).toBe(
-          "message-template-category:Sales"
-        )
         expect(
-          new MessageTemplateCategoryNotFoundError({
-            identifier: MessageTemplateCategoryIdentifier.make("Sales")
-          }).message
-        ).toBe(
-          "Message template category 'Sales' not found"
-        )
-        expect(matchError(
-          new MessageTemplateCategoryIdentifierAmbiguousError({
-            identifier: MessageTemplateCategoryIdentifier.make("Sales"),
-            matches: Count.make(2)
-          })
-        ))
-          .toBe("message-template-category-ambiguous:Sales:2")
+          matchError(
+            new MessageTemplateCategoryNotFoundError({ identifier: MessageTemplateCategoryIdentifier.make("Sales") })
+          )
+        ).toBe("message-template-category:Sales")
+        expect(
+          new MessageTemplateCategoryNotFoundError({ identifier: MessageTemplateCategoryIdentifier.make("Sales") })
+            .message
+        ).toBe("Message template category 'Sales' not found")
+        expect(
+          matchError(
+            new MessageTemplateCategoryIdentifierAmbiguousError({
+              identifier: MessageTemplateCategoryIdentifier.make("Sales"),
+              matches: Count.make(2)
+            })
+          )
+        ).toBe("message-template-category-ambiguous:Sales:2")
         expect(
           new MessageTemplateCategoryIdentifierAmbiguousError({
             identifier: MessageTemplateCategoryIdentifier.make("Sales"),
             matches: Count.make(2)
           }).message
         ).toBe("Message template category 'Sales' matched 2 categories; use the category ID")
-        expect(matchError(
-          new MessageTemplateNotFoundError({
-            identifier: MessageTemplateIdentifier.make("Intro"),
-            category: MessageTemplateCategoryIdentifier.make("Sales")
-          })
-        )).toBe(
-          "message-template:Intro:Sales"
-        )
+        expect(
+          matchError(
+            new MessageTemplateNotFoundError({
+              identifier: MessageTemplateIdentifier.make("Intro"),
+              category: MessageTemplateCategoryIdentifier.make("Sales")
+            })
+          )
+        ).toBe("message-template:Intro:Sales")
         expect(new MessageTemplateNotFoundError({ identifier: MessageTemplateIdentifier.make("Intro") }).message).toBe(
           "Message template 'Intro' not found"
         )
@@ -1464,43 +1504,37 @@ describe("Huly Errors", () => {
             category: MessageTemplateCategoryIdentifier.make("Sales")
           }).message
         ).toBe("Message template 'Intro' not found in category 'Sales'")
-        expect(matchError(
-          new MessageTemplateIdentifierAmbiguousError({
-            identifier: MessageTemplateIdentifier.make("Intro"),
-            matches: Count.make(2)
-          })
-        )).toBe(
-          "message-template-ambiguous:Intro:2"
-        )
+        expect(
+          matchError(
+            new MessageTemplateIdentifierAmbiguousError({
+              identifier: MessageTemplateIdentifier.make("Intro"),
+              matches: Count.make(2)
+            })
+          )
+        ).toBe("message-template-ambiguous:Intro:2")
         expect(
           new MessageTemplateIdentifierAmbiguousError({
             identifier: MessageTemplateIdentifier.make("Intro"),
             matches: Count.make(2)
           }).message
-        ).toBe(
-          "Message template 'Intro' matched 2 templates; provide category to disambiguate"
-        )
-        expect(matchError(
-          new TemplateFieldCategoryNotFoundError({
-            identifier: TemplateFieldCategoryIdentifier.make("Contact")
-          })
-        )).toBe(
-          "template-field-category:Contact"
-        )
+        ).toBe("Message template 'Intro' matched 2 templates; provide category to disambiguate")
         expect(
-          new TemplateFieldCategoryNotFoundError({
-            identifier: TemplateFieldCategoryIdentifier.make("Contact")
-          }).message
-        ).toBe(
-          "Template field category 'Contact' not found"
-        )
-        expect(matchError(
-          new TemplateFieldCategoryIdentifierAmbiguousError({
-            identifier: TemplateFieldCategoryIdentifier.make("Contact"),
-            matches: Count.make(2)
-          })
-        ))
-          .toBe("template-field-category-ambiguous:Contact:2")
+          matchError(
+            new TemplateFieldCategoryNotFoundError({ identifier: TemplateFieldCategoryIdentifier.make("Contact") })
+          )
+        ).toBe("template-field-category:Contact")
+        expect(
+          new TemplateFieldCategoryNotFoundError({ identifier: TemplateFieldCategoryIdentifier.make("Contact") })
+            .message
+        ).toBe("Template field category 'Contact' not found")
+        expect(
+          matchError(
+            new TemplateFieldCategoryIdentifierAmbiguousError({
+              identifier: TemplateFieldCategoryIdentifier.make("Contact"),
+              matches: Count.make(2)
+            })
+          )
+        ).toBe("template-field-category-ambiguous:Contact:2")
         expect(
           new TemplateFieldCategoryIdentifierAmbiguousError({
             identifier: TemplateFieldCategoryIdentifier.make("Contact"),
@@ -1510,78 +1544,98 @@ describe("Huly Errors", () => {
         expect(matchError(new RecruitingVacancyNotFoundError({ identifier: VacancyIdentifier.make("VCN-1") }))).toBe(
           "recruiting-vacancy:VCN-1"
         )
-        expect(matchError(
-          new RecruitingVacancyIdentifierAmbiguousError({
-            identifier: VacancyIdentifier.make("Engineer"),
-            matches: Count.make(2)
-          })
-        )).toBe("recruiting-vacancy-ambiguous:Engineer:2")
-        expect(matchError(
-          new RecruitingVacancyTypeNotFoundError({ identifier: NonEmptyString.make("Default vacancy") })
-        )).toBe("recruiting-vacancy-type:Default vacancy")
-        expect(matchError(
-          new RecruitingCandidateNotFoundError({ identifier: CandidateIdentifier.make("alice@example.com") })
-        )).toBe("recruiting-candidate:alice@example.com")
-        expect(matchError(
-          new RecruitingApplicantNotFoundError({ identifier: ApplicantIdentifier.make("APP-1") })
-        )).toBe("recruiting-applicant:APP-1")
-        expect(matchError(
-          new RecruitingApplicantIdentifierAmbiguousError({
-            identifier: ApplicantIdentifier.make("APP-1"),
-            matches: Count.make(2)
-          })
-        )).toBe("recruiting-applicant-ambiguous:APP-1:2")
-        expect(matchError(
-          new RecruitingDuplicateApplicantError({
-            vacancy: VacancyIdentifier.make("VCN-1"),
-            candidate: CandidateIdentifier.make("alice@example.com")
-          })
-        )).toBe("recruiting-applicant-duplicate:VCN-1:alice@example.com")
+        expect(
+          matchError(
+            new RecruitingVacancyIdentifierAmbiguousError({
+              identifier: VacancyIdentifier.make("Engineer"),
+              matches: Count.make(2)
+            })
+          )
+        ).toBe("recruiting-vacancy-ambiguous:Engineer:2")
+        expect(
+          matchError(new RecruitingVacancyTypeNotFoundError({ identifier: NonEmptyString.make("Default vacancy") }))
+        ).toBe("recruiting-vacancy-type:Default vacancy")
+        expect(
+          matchError(
+            new RecruitingCandidateNotFoundError({ identifier: CandidateIdentifier.make("alice@example.com") })
+          )
+        ).toBe("recruiting-candidate:alice@example.com")
+        expect(
+          matchError(new RecruitingApplicantNotFoundError({ identifier: ApplicantIdentifier.make("APP-1") }))
+        ).toBe("recruiting-applicant:APP-1")
+        expect(
+          matchError(
+            new RecruitingApplicantIdentifierAmbiguousError({
+              identifier: ApplicantIdentifier.make("APP-1"),
+              matches: Count.make(2)
+            })
+          )
+        ).toBe("recruiting-applicant-ambiguous:APP-1:2")
+        expect(
+          matchError(
+            new RecruitingDuplicateApplicantError({
+              vacancy: VacancyIdentifier.make("VCN-1"),
+              candidate: CandidateIdentifier.make("alice@example.com")
+            })
+          )
+        ).toBe("recruiting-applicant-duplicate:VCN-1:alice@example.com")
         expect(matchError(new RecruitingReviewNotFoundError({ identifier: ReviewIdentifier.make("RVE-1") }))).toBe(
           "recruiting-review:RVE-1"
         )
-        expect(matchError(
-          new RecruitingReviewIdentifierAmbiguousError({
-            identifier: ReviewIdentifier.make("Interview"),
-            matches: Count.make(2)
-          })
-        )).toBe("recruiting-review-ambiguous:Interview:2")
+        expect(
+          matchError(
+            new RecruitingReviewIdentifierAmbiguousError({
+              identifier: ReviewIdentifier.make("Interview"),
+              matches: Count.make(2)
+            })
+          )
+        ).toBe("recruiting-review-ambiguous:Interview:2")
         expect(matchError(new RecruitingOpinionNotFoundError({ identifier: OpinionIdentifier.make("OPE-1") }))).toBe(
           "recruiting-opinion:OPE-1"
         )
-        expect(matchError(
-          new RecruitingOpinionIdentifierAmbiguousError({
-            identifier: OpinionIdentifier.make("OPE-1"),
-            matches: Count.make(2)
-          })
-        )).toBe("recruiting-opinion-ambiguous:OPE-1:2")
-        expect(matchError(
-          new RecruitingApplicantMatchNotFoundError({ identifier: ApplicantMatchIdentifier.make("match-1") })
-        )).toBe("recruiting-applicant-match:match-1")
+        expect(
+          matchError(
+            new RecruitingOpinionIdentifierAmbiguousError({
+              identifier: OpinionIdentifier.make("OPE-1"),
+              matches: Count.make(2)
+            })
+          )
+        ).toBe("recruiting-opinion-ambiguous:OPE-1:2")
+        expect(
+          matchError(
+            new RecruitingApplicantMatchNotFoundError({ identifier: ApplicantMatchIdentifier.make("match-1") })
+          )
+        ).toBe("recruiting-applicant-match:match-1")
         expect(matchError(new RecruitingModelMissingError({ message: "missing sequence" }))).toBe(
           "recruiting-model-missing:missing sequence"
         )
         expect(matchError(new RecruitingMutationUnsupportedError({ message: "removeCollection missing" }))).toBe(
           "recruiting-mutation-unsupported:removeCollection missing"
         )
-        expect(matchError(
-          new RecruitingCommentNotFoundError({
-            target: NonEmptyString.make("Recruiting vacancy 'Backend Engineer'"),
-            commentId: CommentId.make("comment-1")
-          })
-        )).toBe("recruiting-comment:Recruiting vacancy 'Backend Engineer':comment-1")
-        expect(matchError(
-          new RecruitingAttachmentNotFoundError({
-            target: NonEmptyString.make("Recruiting vacancy 'Backend Engineer'"),
-            attachmentId: AttachmentId.make("attachment-1")
-          })
-        )).toBe("recruiting-attachment:Recruiting vacancy 'Backend Engineer':attachment-1")
-        expect(matchError(
-          new ChatMessageAttachmentNotFoundError({
-            target: NonEmptyString.make("channel message 'msg-1' in channel 'general'"),
-            attachmentId: AttachmentId.make("attachment-1")
-          })
-        )).toBe("chat-attachment:channel message 'msg-1' in channel 'general':attachment-1")
+        expect(
+          matchError(
+            new RecruitingCommentNotFoundError({
+              target: NonEmptyString.make("Recruiting vacancy 'Backend Engineer'"),
+              commentId: CommentId.make("comment-1")
+            })
+          )
+        ).toBe("recruiting-comment:Recruiting vacancy 'Backend Engineer':comment-1")
+        expect(
+          matchError(
+            new RecruitingAttachmentNotFoundError({
+              target: NonEmptyString.make("Recruiting vacancy 'Backend Engineer'"),
+              attachmentId: AttachmentId.make("attachment-1")
+            })
+          )
+        ).toBe("recruiting-attachment:Recruiting vacancy 'Backend Engineer':attachment-1")
+        expect(
+          matchError(
+            new ChatMessageAttachmentNotFoundError({
+              target: NonEmptyString.make("channel message 'msg-1' in channel 'general'"),
+              attachmentId: AttachmentId.make("attachment-1")
+            })
+          )
+        ).toBe("chat-attachment:channel message 'msg-1' in channel 'general':attachment-1")
         expect(matchError(new BoardNotFoundError({ identifier: "Roadmap" }))).toBe("board:Roadmap")
         expect(matchError(new BoardIdentifierAmbiguousError({ identifier: "Roadmap", matches: 2 }))).toBe(
           "board-ambiguous:Roadmap:2"
@@ -1589,13 +1643,9 @@ describe("Huly Errors", () => {
         expect(matchError(new BoardCardNotFoundError({ board: "Roadmap", identifier: "CARD-1" }))).toBe(
           "board-card:Roadmap:CARD-1"
         )
-        expect(matchError(
-          new BoardCardIdentifierAmbiguousError({
-            board: "Roadmap",
-            identifier: "Planning",
-            matches: 2
-          })
-        )).toBe("board-card-ambiguous:Roadmap:Planning:2")
+        expect(
+          matchError(new BoardCardIdentifierAmbiguousError({ board: "Roadmap", identifier: "Planning", matches: 2 }))
+        ).toBe("board-card-ambiguous:Roadmap:Planning:2")
         expect(matchError(new BoardProjectTypeNotFoundError({ identifier: "Kanban" }))).toBe(
           "board-project-type:Kanban"
         )
@@ -1605,23 +1655,15 @@ describe("Huly Errors", () => {
         expect(matchError(new BoardTaskTypeNotFoundError({ board: "Roadmap", identifier: "Card" }))).toBe(
           "board-task-type:Roadmap:Card"
         )
-        expect(matchError(
-          new BoardTaskTypeIdentifierAmbiguousError({
-            board: "Roadmap",
-            identifier: "Card",
-            matches: 2
-          })
-        )).toBe("board-task-type-ambiguous:Roadmap:Card:2")
+        expect(
+          matchError(new BoardTaskTypeIdentifierAmbiguousError({ board: "Roadmap", identifier: "Card", matches: 2 }))
+        ).toBe("board-task-type-ambiguous:Roadmap:Card:2")
         expect(matchError(new BoardStatusNotFoundError({ board: "Roadmap", identifier: "Todo" }))).toBe(
           "board-status:Roadmap:Todo"
         )
-        expect(matchError(
-          new BoardStatusIdentifierAmbiguousError({
-            board: "Roadmap",
-            identifier: "Todo",
-            matches: 2
-          })
-        )).toBe("board-status-ambiguous:Roadmap:Todo:2")
+        expect(
+          matchError(new BoardStatusIdentifierAmbiguousError({ board: "Roadmap", identifier: "Todo", matches: 2 }))
+        ).toBe("board-status-ambiguous:Roadmap:Todo:2")
         expect(matchError(new BoardArchivedCardDeleteError({ board: "Roadmap", identifier: "CARD-1" }))).toBe(
           "board-card-delete-active:Roadmap:CARD-1"
         )
@@ -1631,19 +1673,18 @@ describe("Huly Errors", () => {
         expect(matchError(new BoardMutationUnsupportedError({ message: "removeCollection missing" }))).toBe(
           "board-mutation-unsupported:removeCollection missing"
         )
-        expect(matchError(
-          new RecruitingIssueLocatorInvalidError({
-            issue: IssueIdentifier.make("1"),
-            reason: "project is required"
-          })
-        )).toBe("recruiting-issue-invalid:1:project is required")
+        expect(
+          matchError(
+            new RecruitingIssueLocatorInvalidError({ issue: IssueIdentifier.make("1"), reason: "project is required" })
+          )
+        ).toBe("recruiting-issue-invalid:1:project is required")
         expect(new TodoIdentifierAmbiguousError({ locator: "title:Fix bug", matches: 2 }).message).toBe(
           "Planner ToDo locator is ambiguous: title:Fix bug matched 2 ToDos"
         )
         expect(matchError(new TodoWorkSlotNotFoundError({ workSlotId: "slot-1" }))).toBe("todo-workslot:slot-1")
-        expect(
-          matchError(new PlannerSchedulingPrerequisiteError({ prerequisite: "personal calendar" }))
-        ).toBe("planner-prerequisite:personal calendar")
+        expect(matchError(new PlannerSchedulingPrerequisiteError({ prerequisite: "personal calendar" }))).toBe(
+          "planner-prerequisite:personal calendar"
+        )
         expect(matchError(new InventoryCategoryNotFoundError({ identifier: "Cat" }))).toBe("inventory-category:Cat")
         expect(new InventoryCategoryNotFoundError({ identifier: "Cat" }).message).toBe(
           "Inventory category 'Cat' not found"
@@ -1670,10 +1711,9 @@ describe("Huly Errors", () => {
         expect(new InventoryProductIdentifierAmbiguousError({ identifier: "Product", matches: 2 }).message).toBe(
           "Inventory product 'Product' matched 2 products; pass category or use the product ID"
         )
-        expect(matchError(new InventoryProductCommentNotFoundError({ product: "Product", commentId: "comment-1" })))
-          .toBe(
-            "inventory-product-comment:Product:comment-1"
-          )
+        expect(
+          matchError(new InventoryProductCommentNotFoundError({ product: "Product", commentId: "comment-1" }))
+        ).toBe("inventory-product-comment:Product:comment-1")
         expect(new InventoryProductCommentNotFoundError({ product: "Product", commentId: "comment-1" }).message).toBe(
           "Comment 'comment-1' not found on inventory product 'Product'"
         )
@@ -1698,10 +1738,7 @@ describe("Huly Errors", () => {
         expect(matchError(new InvalidContactProviderError({ provider: "fax" }))).toBe("contactprovider:fax")
         expect(
           matchError(
-            new ContactChannelNotFoundError({
-              ownerIdentifier: "person-1",
-              channelIdentifier: "email:a@example.com"
-            })
+            new ContactChannelNotFoundError({ ownerIdentifier: "person-1", channelIdentifier: "email:a@example.com" })
           )
         ).toBe("contact-channel:person-1:email:a@example.com")
         expect(
@@ -1715,16 +1752,12 @@ describe("Huly Errors", () => {
         ).toBe("contact-channel-ambiguous:person-1:phone:+1555:2")
         expect(
           matchError(
-            new ContactChannelConflictError({
-              ownerIdentifier: "person-1",
-              provider: "email",
-              value: "a@example.com"
-            })
+            new ContactChannelConflictError({ ownerIdentifier: "person-1", provider: "email", value: "a@example.com" })
           )
         ).toBe("contact-channel-conflict:person-1:email:a@example.com")
-        expect(
-          matchError(new InvalidContactChannelValueError({ provider: "email", value: "not-email" }))
-        ).toBe("contact-channel-value:email:not-email")
+        expect(matchError(new InvalidContactChannelValueError({ provider: "email", value: "not-email" }))).toBe(
+          "contact-channel-value:email:not-email"
+        )
         expect(
           matchError(new InvalidContactChannelLocatorError({ ownerIdentifier: "person-1", reason: "bad locator" }))
         ).toBe("contact-channel-locator:person-1:bad locator")
@@ -1743,32 +1776,24 @@ describe("Huly Errors", () => {
           matchError(new DocumentContentCorruptedError({ identifier: "doc-1", causeMessage: "missing markup blob" }))
         ).toBe("doccorrupt:doc-1:missing markup blob")
         expect(matchError(new DocumentEditModeError({ reason: "bad mode" }))).toBe("doceditmode:bad mode")
-        expect(matchError(new DocumentReferenceError({ reason: "bad reference" }))).toBe(
-          "docreference:bad reference"
+        expect(matchError(new DocumentReferenceError({ reason: "bad reference" }))).toBe("docreference:bad reference")
+        expect(matchError(new CommentNotFoundError({ commentId: "c-1", issueIdentifier: "H-1", project: "P" }))).toBe(
+          "comment:c-1"
         )
-        expect(
-          matchError(new CommentNotFoundError({ commentId: "c-1", issueIdentifier: "H-1", project: "P" }))
-        ).toBe("comment:c-1")
         expect(matchError(new MilestoneNotFoundError({ identifier: "m-1", project: "P" }))).toBe("milestone:m-1")
         expect(matchError(new ChannelNotFoundError({ identifier: "ch-1" }))).toBe("channel:ch-1")
         expect(matchError(new ChannelArchivedError({ channel: "general" }))).toBe("channel-archived:general")
         expect(matchError(new ChannelLastMemberRemovalError({ channel: "general" }))).toBe(
           "channel-last-member:general"
         )
-        expect(matchError(new ChannelLastOwnerRemovalError({ channel: "general" }))).toBe(
-          "channel-last-owner:general"
-        )
-        expect(matchError(new DirectMessageIdentifierAmbiguousError({ identifier: "dm-1", matches: Count.make(2) })))
-          .toBe(
-            "dm-ambiguous:dm-1:2"
-          )
+        expect(matchError(new ChannelLastOwnerRemovalError({ channel: "general" }))).toBe("channel-last-owner:general")
+        expect(
+          matchError(new DirectMessageIdentifierAmbiguousError({ identifier: "dm-1", matches: Count.make(2) }))
+        ).toBe("dm-ambiguous:dm-1:2")
         expect(matchError(new DirectMessageNotFoundError({ identifier: "dm-1" }))).toBe("dm:dm-1")
         expect(
           matchError(
-            new DirectMessageParticipantCountError({
-              requested: Count.make(2),
-              nonSelfParticipants: Count.make(1)
-            })
+            new DirectMessageParticipantCountError({ requested: Count.make(2), nonSelfParticipants: Count.make(1) })
           )
         ).toBe("dm-participant-count:2:1")
         expect(matchError(new MessageNotFoundError({ messageId: "msg-1", channel: "ch-1" }))).toBe("message:msg-1")
@@ -1789,13 +1814,11 @@ describe("Huly Errors", () => {
         expect(matchError(new ReactionNotFoundError({ messageId: "msg-1", emoji: "heart" }))).toBe("reaction:heart")
         expect(matchError(new SavedMessageNotFoundError({ messageId: "sm-1" }))).toBe("saved:sm-1")
         expect(matchError(new AttachmentNotFoundError({ attachmentId: "att-1" }))).toBe("attachment:att-1")
-        expect(matchError(new SavedAttachmentNotFoundError({ attachmentId: "att-1" }))).toBe(
-          "saved-attachment:att-1"
-        )
+        expect(matchError(new SavedAttachmentNotFoundError({ attachmentId: "att-1" }))).toBe("saved-attachment:att-1")
         expect(matchError(new DrawingNotFoundError({ drawingId: "drawing-1" }))).toBe("drawing:drawing-1")
-        expect(
-          matchError(new CardSpaceNotFoundError({ identifier: CardSpaceIdentifier.make("cs-1") }))
-        ).toBe("cardspace:cs-1")
+        expect(matchError(new CardSpaceNotFoundError({ identifier: CardSpaceIdentifier.make("cs-1") }))).toBe(
+          "cardspace:cs-1"
+        )
         expect(
           matchError(
             new CardNotFoundError({
@@ -1813,19 +1836,17 @@ describe("Huly Errors", () => {
             })
           )
         ).toBe("card-comment:comment-1")
-        expect(
-          matchError(new MasterTagNotFoundError({ identifier: "mt-1", cardSpace: "cs-1" }))
-        ).toBe("mastertag:mt-1")
+        expect(matchError(new MasterTagNotFoundError({ identifier: "mt-1", cardSpace: "cs-1" }))).toBe("mastertag:mt-1")
         expect(matchError(new TagNotFoundError({ identifier: "lbl-1" }))).toBe("tag:lbl-1")
         expect(matchError(new TagCategoryNotFoundError({ identifier: "cat-1" }))).toBe("tagcat:cat-1")
-        expect(
-          matchError(new TestPlanItemNotFoundError({ identifier: "item-1", plan: "plan-1" }))
-        ).toBe("testplanitem:item-1")
+        expect(matchError(new TestPlanItemNotFoundError({ identifier: "item-1", plan: "plan-1" }))).toBe(
+          "testplanitem:item-1"
+        )
         expect(matchError(new ComponentNotFoundError({ identifier: "cmp-1", project: "P" }))).toBe("component:cmp-1")
         expect(matchError(new IssueTemplateNotFoundError({ identifier: "tpl-1", project: "P" }))).toBe("template:tpl-1")
-        expect(
-          matchError(new TemplateChildNotFoundError({ childId: "c-1", template: "tpl-1", project: "P" }))
-        ).toBe("templatechild:c-1")
+        expect(matchError(new TemplateChildNotFoundError({ childId: "c-1", template: "tpl-1", project: "P" }))).toBe(
+          "templatechild:c-1"
+        )
         expect(matchError(new NotificationNotFoundError({ notificationId: "n-1" }))).toBe("notification:n-1")
         expect(matchError(new NotificationContextNotFoundError({ contextId: "nc-1" }))).toBe("notifctx:nc-1")
         expect(matchError(new NotificationPersonSpaceNotFoundError({ user: "user-1" }))).toBe(
@@ -1865,9 +1886,9 @@ describe("Huly Errors", () => {
           )
         ).toBe("space-role-assignments-malformed:space-1:space-type-1:core:class:Space")
         expect(matchError(new NotificationTypeNotFoundError({ typeId: "nt-1" }))).toBe("notiftype:nt-1")
-        expect(
-          matchError(new NotificationProviderNotConfigurableError({ providerId: "np-1", typeId: "nt-1" }))
-        ).toBe("notif-provider-not-configurable:np-1:nt-1")
+        expect(matchError(new NotificationProviderNotConfigurableError({ providerId: "np-1", typeId: "nt-1" }))).toBe(
+          "notif-provider-not-configurable:np-1:nt-1"
+        )
         expect(matchError(new InvalidPersonUuidError({ uuid: "bad-uuid" }))).toBe("uuid:bad-uuid")
         expect(
           matchError(
@@ -1926,9 +1947,9 @@ describe("Huly Errors", () => {
             })
           )
         ).toBe("relation-ambiguous:triple:2")
-        expect(
-          matchError(new RelationMutationUnsupportedError({ reason: "not validated" }))
-        ).toBe("relation-unsupported:not validated")
+        expect(matchError(new RelationMutationUnsupportedError({ reason: "not validated" }))).toBe(
+          "relation-unsupported:not validated"
+        )
         expect(
           matchError(
             new RelationCardinalityViolationError({
@@ -1940,10 +1961,7 @@ describe("Huly Errors", () => {
         ).toBe("relation-cardinality:assoc-1:one-to-one:already linked")
         expect(
           matchError(
-            new RelationDirectionAmbiguousError({
-              associationId: AssociationId.make("assoc-1"),
-              reason: "same class"
-            })
+            new RelationDirectionAmbiguousError({ associationId: AssociationId.make("assoc-1"), reason: "same class" })
           )
         ).toBe("relation-direction:assoc-1:same class")
         expect(
@@ -1960,11 +1978,9 @@ describe("Huly Errors", () => {
             new GenericObjectIdentifierAmbiguousError({
               field: "source",
               identifier: "Spec",
-              candidates: [{
-                id: DocId.make("doc-1"),
-                class: ObjectClassName.make("document:class:Document"),
-                display: "Spec"
-              }]
+              candidates: [
+                { id: DocId.make("doc-1"), class: ObjectClassName.make("document:class:Document"), display: "Spec" }
+              ]
             })
           )
         ).toBe("generic-object-ambiguous:source:1")
@@ -1995,22 +2011,29 @@ describe("Huly Errors", () => {
         )
         expect(matchError(new FloorNotFoundError({ floorId: FloorId.make("floor-1") }))).toBe("floor:floor-1")
         expect(matchError(new RoomNotFoundError({ roomId: RoomId.make("room-1") }))).toBe("room:room-1")
-        expect(matchError(new MeetingMinutesNotFoundError({ meetingMinutesId: MeetingMinutesId.make("minutes-1") })))
-          .toBe(
-            "meeting-minutes:minutes-1"
-          )
+        expect(
+          matchError(new MeetingMinutesNotFoundError({ meetingMinutesId: MeetingMinutesId.make("minutes-1") }))
+        ).toBe("meeting-minutes:minutes-1")
         expect(matchError(new DriveNotFoundError({ drive: "Docs" }))).toBe("drive:Docs")
         expect(new DriveNotFoundError({ drive: "Docs" }).message).toBe("Drive 'Docs' not found")
-        expect(matchError(
-          new DriveIdentifierAmbiguousError({
-            drive: "Docs",
-            matches: [{ id: "drive-1", name: "Docs" }, { id: "drive-2", name: "Docs" }]
-          })
-        )).toBe("drive-ambiguous:Docs:2")
+        expect(
+          matchError(
+            new DriveIdentifierAmbiguousError({
+              drive: "Docs",
+              matches: [
+                { id: "drive-1", name: "Docs" },
+                { id: "drive-2", name: "Docs" }
+              ]
+            })
+          )
+        ).toBe("drive-ambiguous:Docs:2")
         expect(
           new DriveIdentifierAmbiguousError({
             drive: "Docs",
-            matches: [{ id: "drive-1", name: "Docs" }, { id: "drive-2", name: "Docs" }]
+            matches: [
+              { id: "drive-1", name: "Docs" },
+              { id: "drive-2", name: "Docs" }
+            ]
           }).message
         ).toBe("Drive 'Docs' is ambiguous; use an exact drive id. Matches: Docs (drive-1), Docs (drive-2)")
         expect(matchError(new DrivePathNotFoundError({ drive: "Docs", path: "/missing" }))).toBe(
@@ -2043,19 +2066,11 @@ describe("Huly Errors", () => {
         ).toBe(
           "Drive path '/Specs' in drive 'Docs' is ambiguous. Matches: /Specs (folder folder-1), /Specs (file file-1)"
         )
-        expect(matchError(
-          new DriveParentNotFolderError({
-            drive: "Docs",
-            path: "/readme/child",
-            parentPath: "/readme"
-          })
-        )).toBe("drive-parent-not-folder:Docs:/readme/child:/readme")
         expect(
-          new DriveParentNotFolderError({
-            drive: "Docs",
-            path: "/readme/child",
-            parentPath: "/readme"
-          }).message
+          matchError(new DriveParentNotFolderError({ drive: "Docs", path: "/readme/child", parentPath: "/readme" }))
+        ).toBe("drive-parent-not-folder:Docs:/readme/child:/readme")
+        expect(
+          new DriveParentNotFolderError({ drive: "Docs", path: "/readme/child", parentPath: "/readme" }).message
         ).toBe("Drive parent '/readme' for path '/readme/child' is not a folder in drive 'Docs'")
         expect(matchError(new DriveFileNotFoundError({ drive: "Docs", file: "/missing.txt" }))).toBe(
           "drive-file:Docs:/missing.txt"
@@ -2063,45 +2078,31 @@ describe("Huly Errors", () => {
         expect(new DriveFileNotFoundError({ drive: "Docs", file: "/missing.txt" }).message).toBe(
           "Drive file '/missing.txt' not found in drive 'Docs'"
         )
-        expect(matchError(
-          new DriveFileCommentNotFoundError({
-            drive: "Docs",
-            file: "file-1",
-            commentId: "comment-1"
-          })
-        )).toBe("drive-file-comment:Docs:file-1:comment-1")
         expect(
-          new DriveFileCommentNotFoundError({
-            drive: "Docs",
-            file: "file-1",
-            commentId: "comment-1"
-          }).message
+          matchError(new DriveFileCommentNotFoundError({ drive: "Docs", file: "file-1", commentId: "comment-1" }))
+        ).toBe("drive-file-comment:Docs:file-1:comment-1")
+        expect(
+          new DriveFileCommentNotFoundError({ drive: "Docs", file: "file-1", commentId: "comment-1" }).message
         ).toBe("Drive file comment 'comment-1' for file 'file-1' not found in drive 'Docs'")
-        expect(matchError(
-          new DriveFileVersionNotFoundError({
-            drive: "Docs",
-            file: "file-1",
-            version: "3"
-          })
-        )).toBe("drive-version:Docs:file-1:3")
-        expect(
-          new DriveFileVersionNotFoundError({
-            drive: "Docs",
-            file: "file-1",
-            version: "3"
-          }).message
-        ).toBe("Drive file version '3' for file 'file-1' not found in drive 'Docs'")
+        expect(matchError(new DriveFileVersionNotFoundError({ drive: "Docs", file: "file-1", version: "3" }))).toBe(
+          "drive-version:Docs:file-1:3"
+        )
+        expect(new DriveFileVersionNotFoundError({ drive: "Docs", file: "file-1", version: "3" }).message).toBe(
+          "Drive file version '3' for file 'file-1' not found in drive 'Docs'"
+        )
         expect(new DrivePathConflictError({ drive: "Docs", path: "/x", existingKind: "file" }).message).toBe(
           "Drive path '/x' already exists as a file in drive 'Docs'"
         )
-        expect(matchError(
-          new DriveInvalidMoveError({
-            drive: "Docs",
-            path: "/Specs",
-            targetFolderPath: "/Specs/API",
-            reason: "a folder cannot be moved into itself or one of its descendants"
-          })
-        )).toBe(
+        expect(
+          matchError(
+            new DriveInvalidMoveError({
+              drive: "Docs",
+              path: "/Specs",
+              targetFolderPath: "/Specs/API",
+              reason: "a folder cannot be moved into itself or one of its descendants"
+            })
+          )
+        ).toBe(
           "drive-invalid-move:Docs:/Specs:/Specs/API:a folder cannot be moved into itself or one of its descendants"
         )
         expect(
@@ -2122,14 +2123,16 @@ describe("Huly Errors", () => {
             reason: "the Drive root is not a file or folder item"
           }).message
         ).toBe("Cannot delete Drive item '/' in drive 'Docs': the Drive root is not a file or folder item")
-        expect(matchError(
-          new DriveFolderNotEmptyError({
-            drive: "Docs",
-            path: "/Specs",
-            childCount: Count.make(1),
-            children: [{ id: "file-1", title: "API.md", kind: "file" }]
-          })
-        )).toBe("drive-folder-not-empty:Docs:/Specs:1:1")
+        expect(
+          matchError(
+            new DriveFolderNotEmptyError({
+              drive: "Docs",
+              path: "/Specs",
+              childCount: Count.make(1),
+              children: [{ id: "file-1", title: "API.md", kind: "file" }]
+            })
+          )
+        ).toBe("drive-folder-not-empty:Docs:/Specs:1:1")
         expect(
           new DriveFolderNotEmptyError({
             drive: "Docs",
@@ -2139,20 +2142,18 @@ describe("Huly Errors", () => {
           }).message
         ).toBe("Drive folder '/Specs' in drive 'Docs' is not empty (1 child items). Children: API.md (file file-1)")
         expect(
-          new DriveFolderNotEmptyError({
-            drive: "Docs",
-            path: "/Specs",
-            childCount: Count.make(0),
-            children: []
-          }).message
+          new DriveFolderNotEmptyError({ drive: "Docs", path: "/Specs", childCount: Count.make(0), children: [] })
+            .message
         ).toBe("Drive folder '/Specs' in drive 'Docs' is not empty (0 child items).")
-        expect(matchError(
-          new DriveNotEmptyError({
-            drive: "Docs",
-            childCount: Count.make(1),
-            children: [{ id: "folder-1", title: "Specs", kind: "folder" }]
-          })
-        )).toBe("drive-not-empty:Docs:1:1")
+        expect(
+          matchError(
+            new DriveNotEmptyError({
+              drive: "Docs",
+              childCount: Count.make(1),
+              children: [{ id: "folder-1", title: "Specs", kind: "folder" }]
+            })
+          )
+        ).toBe("drive-not-empty:Docs:1:1")
         expect(
           new DriveNotEmptyError({
             drive: "Docs",
@@ -2160,13 +2161,10 @@ describe("Huly Errors", () => {
             children: [{ id: "folder-1", title: "Specs", kind: "folder" }]
           }).message
         ).toBe("Drive 'Docs' is not empty (1 child items). Children: Specs (folder folder-1)")
-        expect(
-          new DriveNotEmptyError({
-            drive: "Docs",
-            childCount: Count.make(0),
-            children: []
-          }).message
-        ).toBe("Drive 'Docs' is not empty (0 child items).")
-      }))
+        expect(new DriveNotEmptyError({ drive: "Docs", childCount: Count.make(0), children: [] }).message).toBe(
+          "Drive 'Docs' is not empty (0 child items)."
+        )
+      })
+    )
   })
 })

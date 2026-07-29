@@ -18,9 +18,7 @@ describe("stripCollidingSchemaIds", () => {
   it("removes inline $id values under /schemas/ while keeping siblings and content", () => {
     const input = {
       type: "object",
-      properties: {
-        tx: { $id: "/schemas/unknown", title: "unknown", description: "opaque" }
-      }
+      properties: { tx: { $id: "/schemas/unknown", title: "unknown", description: "opaque" } }
     }
     const out = expectRecord(stripCollidingSchemaIds(input))
     const props = expectRecord(out.properties)
@@ -39,7 +37,7 @@ describe("stripCollidingSchemaIds", () => {
     }
     const out = expectRecord(stripCollidingSchemaIds(input))
     expect(JSON.stringify(out)).not.toContain("/schemas/")
-    expect(JSON.stringify(out)).toContain("\"title\":\"{}\"")
+    expect(JSON.stringify(out)).toContain('"title":"{}"')
   })
 
   it("keeps $ref and non-/schemas $id untouched", () => {

@@ -108,9 +108,10 @@ export const calendarTools = [
   defineTool(
     {
       name: "create_event",
-      description: "Create a new calendar event. Description supports markdown formatting. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT
-        + " Optional calendarId targets a specific calendar; when omitted, the event uses the authenticated user's primary personal calendar. Returns the created event ID.",
+      description:
+        "Create a new calendar event. Description supports markdown formatting. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT +
+        " Optional calendarId targets a specific calendar; when omitted, the event uses the authenticated user's primary personal calendar. Returns the created event ID.",
       category: CATEGORY,
       inputSchema: createEventParamsJsonSchema,
       resultSchema: CreateEventResultSchema
@@ -122,8 +123,8 @@ export const calendarTools = [
     {
       name: "update_event",
       description:
-        "Update fields on an existing calendar event. Only provided fields are modified. Description updates support markdown. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
+        "Update fields on an existing calendar event. Only provided fields are modified. Description updates support markdown. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
       category: CATEGORY,
       inputSchema: updateEventParamsJsonSchema,
       resultSchema: UpdateEventResultSchema
@@ -216,9 +217,10 @@ export const calendarTools = [
   defineTool(
     {
       name: "create_recurring_event",
-      description: "Create a new recurring calendar event with RFC5545 RRULE rules. Description supports markdown. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT
-        + " Optional calendarId targets a specific calendar; when omitted, the event uses the authenticated user's primary personal calendar. Returns the created event ID.",
+      description:
+        "Create a new recurring calendar event with RFC5545 RRULE rules. Description supports markdown. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT +
+        " Optional calendarId targets a specific calendar; when omitted, the event uses the authenticated user's primary personal calendar. Returns the created event ID.",
       category: CATEGORY,
       inputSchema: createRecurringEventParamsJsonSchema,
       resultSchema: CreateRecurringEventResultSchema

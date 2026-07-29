@@ -67,7 +67,7 @@ interface MessageCase {
 }
 
 const assertMessages = (cases: ReadonlyArray<MessageCase>) =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     for (const { error, message, tag } of cases) {
       expect(error._tag).toBe(tag)
       expect(error.message).toBe(message)
@@ -78,20 +78,9 @@ describe("Extended Huly error message getters", () => {
   it("rejects empty card locators when decoding domain errors", () => {
     const decode = Schema.decodeUnknownEither(HulyDomainErrorSchema)
 
-    expect(Either.isLeft(decode({
-      _tag: "CardSpaceNotFoundError",
-      identifier: ""
-    }))).toBe(true)
-    expect(Either.isLeft(decode({
-      _tag: "CardNotFoundError",
-      identifier: "",
-      cardSpace: "my-space"
-    }))).toBe(true)
-    expect(Either.isLeft(decode({
-      _tag: "CardNotFoundError",
-      identifier: "CARD-1",
-      cardSpace: ""
-    }))).toBe(true)
+    expect(Either.isLeft(decode({ _tag: "CardSpaceNotFoundError", identifier: "" }))).toBe(true)
+    expect(Either.isLeft(decode({ _tag: "CardNotFoundError", identifier: "", cardSpace: "my-space" }))).toBe(true)
+    expect(Either.isLeft(decode({ _tag: "CardNotFoundError", identifier: "CARD-1", cardSpace: "" }))).toBe(true)
   })
 
   it.effect("errors-base: NoUpdateFieldsError", () =>
@@ -101,7 +90,8 @@ describe("Extended Huly error message getters", () => {
         tag: "NoUpdateFieldsError",
         message: "update_card requires at least one update field: title, content"
       }
-    ]))
+    ])
+  )
 
   it.effect("errors-cards", () =>
     assertMessages([
@@ -123,7 +113,8 @@ describe("Extended Huly error message getters", () => {
         tag: "MasterTagNotFoundError",
         message: "Master tag 'Bug' not found in card space 'my-space'"
       }
-    ]))
+    ])
+  )
 
   it.effect("errors-custom-fields", () =>
     assertMessages([
@@ -146,7 +137,8 @@ describe("Extended Huly error message getters", () => {
         message:
           "Invalid date custom-field value '2026-07-24Z'. Use a real calendar date in YYYY-MM-DD form or a canonical non-negative epoch-millisecond string between 0 and 8640000000000000. Time-zone suffixes, date-times, signs, decimals, exponents, whitespace, and non-finite values are not accepted."
       }
-    ]))
+    ])
+  )
 
   it.effect("errors-test-management", () =>
     assertMessages([
@@ -185,7 +177,8 @@ describe("Extended Huly error message getters", () => {
         tag: "TestPlanItemNotFoundError",
         message: "Test plan item 'item-1' not found in plan 'PLAN-1'"
       }
-    ]))
+    ])
+  )
 
   it.effect("errors-documents", () =>
     assertMessages([
@@ -197,10 +190,11 @@ describe("Extended Huly error message getters", () => {
       {
         error: new DocumentTextMultipleMatchesError({ searchText: "bar", matchCount: Count.make(3) }),
         tag: "DocumentTextMultipleMatchesError",
-        message: "Found 3 matches of the string to replace, but replace_all is false. "
-          + "To replace all occurrences, set replace_all to true. "
-          + "To replace only one occurrence, provide more context to uniquely identify the instance.\n"
-          + "String: bar"
+        message:
+          "Found 3 matches of the string to replace, but replace_all is false. " +
+          "To replace all occurrences, set replace_all to true. " +
+          "To replace only one occurrence, provide more context to uniquely identify the instance.\n" +
+          "String: bar"
       },
       {
         error: new DocumentEmptyContentError({ identifier: "doc-1" }),
@@ -218,7 +212,8 @@ describe("Extended Huly error message getters", () => {
         tag: "DocumentEditModeError",
         message: "Invalid edit_document mode: mixed modes"
       }
-    ]))
+    ])
+  )
 
   it.effect("errors-generic-associations (message branches)", () =>
     assertMessages([
@@ -291,10 +286,7 @@ describe("Extended Huly error message getters", () => {
       },
       {
         // associationId present branch
-        error: new RelationMutationUnsupportedError({
-          associationId: AssociationId.make("assoc-9"),
-          reason: "frozen"
-        }),
+        error: new RelationMutationUnsupportedError({ associationId: AssociationId.make("assoc-9"), reason: "frozen" }),
         tag: "RelationMutationUnsupportedError",
         message:
           "Generic relation mutation for association 'assoc-9' is not supported: frozen. Call list_associations with writableOnly=true to discover writable associations."
@@ -335,7 +327,8 @@ describe("Extended Huly error message getters", () => {
         message:
           "Association 'links' matched multiple definitions: relates (assoc-1 tracker:class:Issue -> document:class:Document); (assoc-2); partial (assoc-3). Call list_associations with sourceClass and targetClass to choose one."
       }
-    ]))
+    ])
+  )
 
   it.effect("errors-processes (message branches)", () =>
     assertMessages([
@@ -381,10 +374,11 @@ describe("Extended Huly error message getters", () => {
         tag: "ProcessNotFoundError",
         message: "Process 'Approval' not found. Available processes: Review (proc-2, masterTag card:type:Doc)"
       }
-    ]))
+    ])
+  )
 
   it.effect("every extended error round-trips through the HulyDomainError union schema", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const samples: ReadonlyArray<HulyDomainError> = [
         new NoUpdateFieldsError({ operation: "update_card", fields: ["title"] }),
         new CardNotFoundError({
@@ -412,5 +406,6 @@ describe("Extended Huly error message getters", () => {
         const decoded = yield* Schema.decode(HulyDomainErrorSchema)(encoded)
         expect(decoded._tag).toBe(sample._tag)
       }
-    }))
+    })
+  )
 })

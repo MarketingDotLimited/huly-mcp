@@ -6,11 +6,8 @@ import { parseAddActivityReplyParams, parseListActivityReferencesParams } from "
 
 describe("activity message schemas", () => {
   it.effect("parses activity replies and references", () =>
-    Effect.gen(function*() {
-      const reply = yield* parseAddActivityReplyParams({
-        messageId: "msg-1",
-        body: "Thanks for the update"
-      })
+    Effect.gen(function* () {
+      const reply = yield* parseAddActivityReplyParams({ messageId: "msg-1", body: "Thanks for the update" })
       const references = yield* parseListActivityReferencesParams({
         objectId: "issue-1",
         objectClass: "tracker:class:Issue",
@@ -22,5 +19,6 @@ describe("activity message schemas", () => {
       expect(reply.body).toBe("Thanks for the update")
       expect(references.direction).toBe("both")
       expect(emptyReply._tag).toBe("Left")
-    }))
+    })
+  )
 })

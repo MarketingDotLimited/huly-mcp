@@ -20,8 +20,14 @@ import type {
   UpdateBoardLabelParams
 } from "../../domain/schemas.js"
 import { UPDATE_BOARD_LABEL_FIELDS } from "../../domain/schemas/board-labels.js"
-import { DEFAULT_COLOR_INDEX, type NonEmptyString } from "../../domain/schemas/shared.js"
-import { Count, TagCategoryId, TagElementId, TagReferenceId } from "../../domain/schemas/shared.js"
+import {
+  Count,
+  DEFAULT_COLOR_INDEX,
+  type NonEmptyString,
+  TagCategoryId,
+  TagElementId,
+  TagReferenceId
+} from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type { NoUpdateFieldsError, TagCategoryNotFoundError } from "../errors.js"
 import { BoardLabelIdentifierAmbiguousError, BoardLabelNotFoundError } from "../errors.js"
@@ -99,24 +105,18 @@ const findBoardLabelMatches = (
   identifier: BoardLabelLookup,
   options: { readonly lookupById: boolean }
 ): Effect.Effect<ReadonlyArray<HulyTagElement>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (options.lookupById) {
       const byId = yield* client.findAll<HulyTagElement>(
         tags.class.TagElement,
-        hulyQuery<HulyTagElement>({
-          _id: toRef<HulyTagElement>(identifier),
-          targetClass: boardLabelTargetClassRef
-        })
+        hulyQuery<HulyTagElement>({ _id: toRef<HulyTagElement>(identifier), targetClass: boardLabelTargetClassRef })
       )
       if (byId.length > 0) return byId
     }
 
     return yield* client.findAll<HulyTagElement>(
       tags.class.TagElement,
-      hulyQuery<HulyTagElement>({
-        targetClass: boardLabelTargetClassRef,
-        title: identifier
-      })
+      hulyQuery<HulyTagElement>({ targetClass: boardLabelTargetClassRef, title: identifier })
     )
   })
 
@@ -124,7 +124,7 @@ const resolveBoardLabel = (
   client: HulyClient["Type"],
   identifier: BoardLabelLookup
 ): Effect.Effect<HulyTagElement, BoardLabelReadError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const matches = yield* findBoardLabelMatches(client, identifier, { lookupById: true })
     const first = matches[0]
     if (matches.length === 1 && first !== undefined) return first
@@ -144,7 +144,7 @@ const ensureBoardLabel = (
     readonly lookupById: boolean
   }
 ): Effect.Effect<ResolvedBoardLabel, BoardLabelCreateError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const existing = yield* findBoardLabelMatches(client, params.label, { lookupById: params.lookupById })
     const first = existing[0]
     if (existing.length === 1 && first !== undefined) return existingBoardLabel(first)
@@ -155,12 +155,7 @@ const ensureBoardLabel = (
       })
     }
 
-    const category = yield* resolveTagCategoryRef(
-      client,
-      boardLabelTargetClass,
-      params.category,
-      board.category.Other
-    )
+    const category = yield* resolveTagCategoryRef(client, boardLabelTargetClass, params.category, board.category.Other)
     const labelId = generateId<HulyTagElement>()
     const data: Data<HulyTagElement> = {
       title: params.label,
@@ -178,16 +173,13 @@ const ensureBoardLabelTitleAvailable = (
   label: HulyTagElement,
   title: NonEmptyString | undefined
 ): Effect.Effect<void, HulyClientError | BoardLabelIdentifierAmbiguousError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (title === undefined || title === label.title) return
 
     const matches = yield* findBoardLabelMatches(client, title, { lookupById: false })
     const conflicts = matches.filter((match) => match._id !== label._id)
     if (conflicts.length > 0) {
-      return yield* new BoardLabelIdentifierAmbiguousError({
-        identifier: String(title),
-        matches: conflicts.length + 1
-      })
+      return yield* new BoardLabelIdentifierAmbiguousError({ identifier: String(title), matches: conflicts.length + 1 })
     }
   })
 
@@ -209,29 +201,30 @@ const listCardTagReferences = (
 export const listBoardLabels = (
   params: ListBoardLabelsParams
 ): Effect.Effect<ListBoardLabelsResult, HulyClientError | TagCategoryNotFoundError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
-    const categoryFilter = params.category === undefined
-      ? {}
-      : { category: yield* resolveTagCategoryRef(client, boardLabelTargetClass, params.category) }
+    const categoryFilter =
+      params.category === undefined
+        ? {}
+        : { category: yield* resolveTagCategoryRef(client, boardLabelTargetClass, params.category) }
     const titleSearch = params.titleSearch?.trim() ?? ""
     const query: StrictDocumentQuery<HulyTagElement> = {
       targetClass: boardLabelTargetClassRef,
       ...categoryFilter,
       ...(titleSearch === "" ? {} : { title: { $like: `%${escapeLikeWildcards(titleSearch)}%` } })
     }
-    const labels = yield* client.findAll<HulyTagElement>(
-      tags.class.TagElement,
-      hulyQuery(query),
-      { limit: clampLimit(params.limit), sort: { modifiedOn: SortingOrder.Descending }, total: true }
-    )
+    const labels = yield* client.findAll<HulyTagElement>(tags.class.TagElement, hulyQuery(query), {
+      limit: clampLimit(params.limit),
+      sort: { modifiedOn: SortingOrder.Descending },
+      total: true
+    })
     return { labels: labels.map(toBoardLabelSummary), total: Count.make(Math.max(0, listTotal(labels.total))) }
   })
 
 export const createBoardLabel = (
   params: CreateBoardLabelParams
 ): Effect.Effect<BoardLabelMutationResult, BoardLabelCreateError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const label = yield* ensureBoardLabel(client, { ...params, label: params.title, lookupById: false })
     return { id: TagElementId.make(label.id), title: label.title, created: label.created }
@@ -240,7 +233,7 @@ export const createBoardLabel = (
 export const updateBoardLabel = (
   params: UpdateBoardLabelParams
 ): Effect.Effect<BoardLabelMutationResult, BoardLabelUpdateError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_board_label", params, UPDATE_BOARD_LABEL_FIELDS)
     const client = yield* HulyClient
     const label = yield* resolveBoardLabel(client, params.label)
@@ -260,7 +253,7 @@ export const updateBoardLabel = (
 export const deleteBoardLabel = (
   params: DeleteBoardLabelParams
 ): Effect.Effect<BoardLabelMutationResult, BoardLabelReadError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const label = yield* resolveBoardLabel(client, params.label)
     yield* client.removeDoc(tags.class.TagElement, workspaceSpace, label._id)
@@ -270,7 +263,7 @@ export const deleteBoardLabel = (
 export const listBoardCardLabels = (
   params: BoardCardLabelParams
 ): Effect.Effect<ListBoardCardLabelsResult, BoardCardLabelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { board: resolvedBoard, client } = yield* resolveBoardFromContext(params.board, { includeArchived: true })
     const card = yield* resolveBoardCard(client, resolvedBoard, params.card)
     const tagRefs = yield* listCardTagReferences(client, card)
@@ -280,7 +273,7 @@ export const listBoardCardLabels = (
 export const addBoardCardLabel = (
   params: AddBoardCardLabelParams
 ): Effect.Effect<AddBoardCardLabelResult, BoardCardLabelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { board: resolvedBoard, client } = yield* resolveBoardFromContext(params.board, { includeArchived: true })
     const card = yield* resolveBoardCard(client, resolvedBoard, params.card)
     const label = yield* ensureBoardLabel(client, { ...params, lookupById: true })
@@ -296,11 +289,7 @@ export const addBoardCardLabel = (
       }
     }
 
-    const attributes: AttachedData<TagReference> = {
-      tag: label.id,
-      title: label.title,
-      color: label.color
-    }
+    const attributes: AttachedData<TagReference> = { tag: label.id, title: label.title, color: label.color }
     const tagRefId = yield* client.addCollection(
       tags.class.TagReference,
       card.space,
@@ -321,7 +310,7 @@ export const addBoardCardLabel = (
 export const removeBoardCardLabel = (
   params: RemoveBoardCardLabelParams
 ): Effect.Effect<RemoveBoardCardLabelResult, BoardCardLabelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { board: resolvedBoard, client } = yield* resolveBoardFromContext(params.board, { includeArchived: true })
     const card = yield* resolveBoardCard(client, resolvedBoard, params.card)
     const label = yield* resolveBoardLabel(client, params.label)

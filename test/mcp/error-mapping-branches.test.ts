@@ -8,14 +8,10 @@ import { assertAt } from "../../src/utils/assertions.js"
 describe("Error Mapping Branch Coverage", () => {
   describe("mapParseCauseToMcp - Sequential cause with ParseError (line 148)", () => {
     it.effect("extracts first ParseError from sequential cause", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const TestSchema = Schema.Struct({ x: Schema.Number })
-        const error1 = yield* Effect.flip(
-          Schema.decodeUnknown(TestSchema)({ x: "bad" })
-        )
-        const error2 = yield* Effect.flip(
-          Schema.decodeUnknown(TestSchema)({ x: "also bad" })
-        )
+        const error1 = yield* Effect.flip(Schema.decodeUnknown(TestSchema)({ x: "bad" }))
+        const error2 = yield* Effect.flip(Schema.decodeUnknown(TestSchema)({ x: "also bad" }))
 
         const cause = Cause.sequential(Cause.fail(error1), Cause.fail(error2))
 
@@ -27,20 +23,17 @@ describe("Error Mapping Branch Coverage", () => {
         expect(response.isError).toBe(true)
         expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
         expect(assertAt(response.content, 0).text).toContain("Invalid parameters for test_tool")
-      }))
+      })
+    )
   })
 
   describe("mapParseCauseToMcp - Parallel cause with ParseError (line 148)", () => {
     it.effect("extracts first ParseError from parallel cause", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const TestSchema1 = Schema.Struct({ a: Schema.String })
         const TestSchema2 = Schema.Struct({ b: Schema.Number })
-        const error1 = yield* Effect.flip(
-          Schema.decodeUnknown(TestSchema1)({ a: 123 })
-        )
-        const error2 = yield* Effect.flip(
-          Schema.decodeUnknown(TestSchema2)({ b: "nope" })
-        )
+        const error1 = yield* Effect.flip(Schema.decodeUnknown(TestSchema1)({ a: 123 }))
+        const error2 = yield* Effect.flip(Schema.decodeUnknown(TestSchema2)({ b: "nope" }))
 
         const cause = Cause.parallel(Cause.fail(error1), Cause.fail(error2))
         const response = mapParseCauseToMcp(cause, "parallel_tool")
@@ -48,29 +41,32 @@ describe("Error Mapping Branch Coverage", () => {
         expect(response.isError).toBe(true)
         expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
         expect(assertAt(response.content, 0).text).toContain("Invalid parameters for parallel_tool")
-      }))
+      })
+    )
   })
 
   describe("mapParseCauseToMcp - Die cause (no failures, line 151)", () => {
     it.effect("returns generic error for Die cause (no ParseErrors)", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const cause = Cause.die(new Error("unexpected"))
         const response = mapParseCauseToMcp(cause as Cause.Cause<ParseResult.ParseError>)
 
         expect(response.isError).toBe(true)
         expect(response._meta.errorCode).toBe(McpErrorCode.InternalError)
         expect(assertAt(response.content, 0).text).toBe("An unexpected error occurred")
-      }))
+      })
+    )
   })
 
   describe("createSuccessResponse - non-serializable result (encodeJsonText line 218)", () => {
-    it.effect("falls back to the literal \"null\" text when JSON.stringify yields undefined", () =>
-      Effect.gen(function*() {
+    it.effect('falls back to the literal "null" text when JSON.stringify yields undefined', () =>
+      Effect.gen(function* () {
         // JSON.stringify(undefined) returns undefined, exercising the non-string branch.
         const response = createSuccessResponse(undefined)
 
         expect(assertAt(response.content, 0).text).toBe("null")
         expect(response.structuredContent).toEqual({ result: undefined })
-      }))
+      })
+    )
   })
 })

@@ -56,10 +56,7 @@ export const extractInlineComments = (root: MarkupNode): ReadonlyArray<Extracted
     threadMap.get(threadId)?.push(text)
   })
 
-  return [...threadMap.entries()].map(([threadId, textFragments]) => ({
-    threadId,
-    textFragments
-  }))
+  return [...threadMap.entries()].map(([threadId, textFragments]) => ({ threadId, textFragments }))
 }
 
 type ListInlineCommentsError =
@@ -71,11 +68,8 @@ type ListInlineCommentsError =
 export const listInlineComments = (
   params: ListInlineCommentsParams
 ): Effect.Effect<ListInlineCommentsResult, ListInlineCommentsError, HulyClient> =>
-  Effect.gen(function*() {
-    const { client, doc } = yield* findTeamspaceAndDocument({
-      teamspace: params.teamspace,
-      document: params.document
-    })
+  Effect.gen(function* () {
+    const { client, doc } = yield* findTeamspaceAndDocument({ teamspace: params.teamspace, document: params.document })
     const markupUrlConfig = client.markupUrlConfig
 
     const rawMarkup = yield* fetchReadableDocumentContent({
@@ -101,7 +95,7 @@ export const listInlineComments = (
     const threadRepliesMap = new Map<string, Array<HulyThreadMessage>>()
 
     if (params.includeReplies) {
-      const threadIds = extracted.map(c => toRef<ChatMessage>(c.threadId))
+      const threadIds = extracted.map((c) => toRef<ChatMessage>(c.threadId))
       const allReplies = yield* client.findAll<HulyThreadMessage>(
         chunter.class.ThreadMessage,
         { attachedTo: { $in: threadIds } },
@@ -118,23 +112,16 @@ export const listInlineComments = (
       }
 
       // Resolve sender names in one batch
-      const senderIds = [
-        ...new Set(
-          allReplies.map(r => r.createdBy).filter((id) => id !== undefined)
-        )
-      ]
+      const senderIds = [...new Set(allReplies.map((r) => r.createdBy).filter((id) => id !== undefined))]
       nameMap = yield* buildSocialIdToPersonNameMap(client, senderIds)
     }
 
-    const comments: Array<InlineCommentThread> = extracted.map(comment => {
-      const thread: InlineCommentThread = {
-        threadId: comment.threadId,
-        text: comment.textFragments.join("")
-      }
+    const comments: Array<InlineCommentThread> = extracted.map((comment) => {
+      const thread: InlineCommentThread = { threadId: comment.threadId, text: comment.textFragments.join("") }
 
       if (params.includeReplies) {
         const threadReplies = threadRepliesMap.get(comment.threadId) ?? []
-        const replies: Array<InlineCommentReply> = threadReplies.map(r => ({
+        const replies: Array<InlineCommentReply> = threadReplies.map((r) => ({
           id: r._id,
           body: optionalMarkupToMarkdown(r.message, markupUrlConfig, ""),
           sender: r.createdBy !== undefined ? nameMap.get(r.createdBy) : undefined,

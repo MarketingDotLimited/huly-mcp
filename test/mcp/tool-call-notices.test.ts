@@ -15,18 +15,13 @@ const expectClaimed = (claim: ToolCallNoticeClaim): Extract<ToolCallNoticeClaim,
 
 describe("createHostedHulyMigrationNoticeProvider", () => {
   it("provides initialization instructions only for the default hosted Huly origin", () => {
-    expect(hostedHulyMigrationInstructionsForOrigin("https://huly.app")).toBe(
-      HOSTED_HULY_MIGRATION_WARNING.message
-    )
+    expect(hostedHulyMigrationInstructionsForOrigin("https://huly.app")).toBe(HOSTED_HULY_MIGRATION_WARNING.message)
     expect(hostedHulyMigrationInstructionsForOrigin("https://huly.example.com")).toBeUndefined()
     expect(hostedHulyMigrationInstructionsForOrigin(undefined)).toBeUndefined()
   })
 
   it("does not claim a notice when no Huly origin is configured", () => {
-    const provider = createHostedHulyMigrationNoticeProvider({
-      delivery: "once",
-      hulyOrigin: undefined
-    })
+    const provider = createHostedHulyMigrationNoticeProvider({ delivery: "once", hulyOrigin: undefined })
 
     expect(provider.claim()).toEqual({ _tag: "None" })
   })
@@ -41,10 +36,7 @@ describe("createHostedHulyMigrationNoticeProvider", () => {
   })
 
   it("delivers the hosted-Huly notice once after a persistent-session claim completes", () => {
-    const provider = createHostedHulyMigrationNoticeProvider({
-      delivery: "once",
-      hulyOrigin: "https://huly.app"
-    })
+    const provider = createHostedHulyMigrationNoticeProvider({ delivery: "once", hulyOrigin: "https://huly.app" })
 
     const first = expectClaimed(provider.claim())
     expect(first.warning).toEqual(HOSTED_HULY_MIGRATION_WARNING)
@@ -58,10 +50,7 @@ describe("createHostedHulyMigrationNoticeProvider", () => {
   })
 
   it("releases an incomplete persistent-session claim for the next tool call", () => {
-    const provider = createHostedHulyMigrationNoticeProvider({
-      delivery: "once",
-      hulyOrigin: "https://huly.app"
-    })
+    const provider = createHostedHulyMigrationNoticeProvider({ delivery: "once", hulyOrigin: "https://huly.app" })
 
     expectClaimed(provider.claim()).release()
 
@@ -70,10 +59,7 @@ describe("createHostedHulyMigrationNoticeProvider", () => {
   })
 
   it("claims the hosted-Huly notice for every stateless HTTP request", () => {
-    const provider = createHostedHulyMigrationNoticeProvider({
-      delivery: "always",
-      hulyOrigin: "https://huly.app"
-    })
+    const provider = createHostedHulyMigrationNoticeProvider({ delivery: "always", hulyOrigin: "https://huly.app" })
 
     const first = expectClaimed(provider.claim())
     first.release()

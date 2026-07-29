@@ -43,11 +43,7 @@ const person = "person-1" as PersonId
 const space = "space-1" as Ref<Space>
 const account = "00000000-0000-4000-8000-000000000001"
 
-const baseDoc = {
-  space,
-  modifiedBy: person,
-  modifiedOn: 0
-} as const
+const baseDoc = { space, modifiedBy: person, modifiedOn: 0 } as const
 
 const makePluginConfig = (overrides: Readonly<Record<string, unknown>>): PluginConfiguration => {
   const value: unknown = {
@@ -217,10 +213,7 @@ const createTestLayer = (data: ConfigLayerData) => {
   const roles = [...(data.roles ?? [])]
   const permissions = [...(data.permissions ?? [])]
 
-  const findAll: HulyClientOperations["findAll"] = <T extends Doc>(
-    _class: Ref<Class<T>>,
-    query: DocumentQuery<T>
-  ) => {
+  const findAll: HulyClientOperations["findAll"] = <T extends Doc>(_class: Ref<Class<T>>, query: DocumentQuery<T>) => {
     const matches = (docs: ReadonlyArray<Doc>) => docs.filter((doc) => matchesQuery(doc, queryRecord(query)))
     const docs = (() => {
       if (_class === core.class.PluginConfiguration) return matches(pluginConfigs)
@@ -246,64 +239,66 @@ const createTestLayer = (data: ConfigLayerData) => {
 
 describe("sdk discovery configuration operations", () => {
   it.effect("lists plugin configurations with labels and transaction counts", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const listed = yield* listHulyPluginConfigurations().pipe(
         Effect.provide(createTestLayer({ pluginConfigs: [makePluginConfig({})] }))
       )
       const encoded = yield* Schema.encodeUnknown(ListHulyPluginConfigurationsResultSchema)(listed)
 
       expect(encoded).toEqual({
-        pluginConfigurations: [{
-          pluginId: "tracker",
-          label: "Tracker",
-          enabled: true,
-          beta: false,
-          transactionCount: 2
-        }],
+        pluginConfigurations: [
+          { pluginId: "tracker", label: "Tracker", enabled: true, beta: false, transactionCount: 2 }
+        ],
         total: 1
       })
-    }))
+    })
+  )
 
   it.effect("lists domain index configurations with open SDK metadata summaries", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const listed = yield* listHulyDomainIndexConfigurations().pipe(
         Effect.provide(createTestLayer({ domainConfigs: [makeDomainConfig({ disableCollection: true })] }))
       )
       const encoded = yield* Schema.encodeUnknown(ListHulyDomainIndexConfigurationsResultSchema)(listed)
 
       expect(encoded).toEqual({
-        domainIndexConfigurations: [{
-          domain: "tracker",
-          disableCollection: true,
-          disabled: [
-            { kind: "field", key: "legacyIndex" },
-            { kind: "sdk-open-metadata", metadata: { keys: { modifiedOn: -1 } } }
-          ],
-          indexes: [{ kind: "sdk-open-metadata", metadata: { keys: "identifier", sparse: true } }],
-          skip: ["transient"]
-        }],
+        domainIndexConfigurations: [
+          {
+            domain: "tracker",
+            disableCollection: true,
+            disabled: [
+              { kind: "field", key: "legacyIndex" },
+              { kind: "sdk-open-metadata", metadata: { keys: { modifiedOn: -1 } } }
+            ],
+            indexes: [{ kind: "sdk-open-metadata", metadata: { keys: "identifier", sparse: true } }],
+            skip: ["transient"]
+          }
+        ],
         total: 1
       })
-    }))
+    })
+  )
 
   it.effect("normalizes sparse plugin and domain configuration documents", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const pluginResult = yield* listHulyPluginConfigurations().pipe(
-        Effect.provide(createTestLayer({
-          pluginConfigs: [makePluginConfig({ pluginId: "bare-plugin" as Plugin, label: "" })]
-        }))
+        Effect.provide(
+          createTestLayer({ pluginConfigs: [makePluginConfig({ pluginId: "bare-plugin" as Plugin, label: "" })] })
+        )
       )
       const domainResult = yield* listHulyDomainIndexConfigurations().pipe(
-        Effect.provide(createTestLayer({
-          domainConfigs: [
-            makeDomainConfig({
-              disabled: undefined,
-              indexes: undefined,
-              skip: ["", "validSkip"],
-              disableCollection: undefined
-            })
-          ]
-        }))
+        Effect.provide(
+          createTestLayer({
+            domainConfigs: [
+              makeDomainConfig({
+                disabled: undefined,
+                indexes: undefined,
+                skip: ["", "validSkip"],
+                disableCollection: undefined
+              })
+            ]
+          })
+        )
       )
       const encodedPlugin = yield* Schema.encodeUnknown(ListHulyPluginConfigurationsResultSchema)(pluginResult)
       const encodedDomain = yield* Schema.encodeUnknown(ListHulyDomainIndexConfigurationsResultSchema)(domainResult)
@@ -320,55 +315,50 @@ describe("sdk discovery configuration operations", () => {
       })
 
       const omittedSkipResult = yield* listHulyDomainIndexConfigurations().pipe(
-        Effect.provide(createTestLayer({
-          domainConfigs: [
-            makeDomainConfig({
-              skip: undefined
-            })
-          ]
-        }))
+        Effect.provide(createTestLayer({ domainConfigs: [makeDomainConfig({ skip: undefined })] }))
       )
       const encodedOmittedSkip = yield* Schema.encodeUnknown(ListHulyDomainIndexConfigurationsResultSchema)(
         omittedSkipResult
       )
       expect(encodedOmittedSkip.domainIndexConfigurations[0]?.skip).toEqual([])
-    }))
+    })
+  )
 
   it.effect("lists base and custom sequences, preferring custom prefixes for duplicate ids", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const listed = yield* listHulySequences().pipe(
-        Effect.provide(createTestLayer({
-          sequences: [makeSequence({}), makeSequence({ _id: toRef<Sequence>("sequence-custom"), sequence: 6 })],
-          customSequences: [makeCustomSequence({})]
-        }))
+        Effect.provide(
+          createTestLayer({
+            sequences: [makeSequence({}), makeSequence({ _id: toRef<Sequence>("sequence-custom"), sequence: 6 })],
+            customSequences: [makeCustomSequence({})]
+          })
+        )
       )
       const encoded = yield* Schema.encodeUnknown(ListHulySequencesResultSchema)(listed)
 
       expect(encoded).toEqual({
         sequences: [
           { sequenceId: "sequence-issue", attachedClass: tracker.class.Issue, currentValue: 12 },
-          {
-            sequenceId: "sequence-custom",
-            attachedClass: tracker.class.Issue,
-            currentValue: 7,
-            prefix: "ISSUE"
-          }
+          { sequenceId: "sequence-custom", attachedClass: tracker.class.Issue, currentValue: 7, prefix: "ISSUE" }
         ],
         total: 2
       })
-    }))
+    })
+  )
 
   it.effect("describes space type capabilities with role assignment shape", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const detail = yield* describeHulySpaceTypeCapabilities({
         spaceType: SpaceTypeIdentifier.make("space-type-1")
       }).pipe(
-        Effect.provide(createTestLayer({
-          spaceTypes: [makeSpaceType({})],
-          descriptors: [makeDescriptor({})],
-          roles: [makeRole({})],
-          permissions: [makePermission({})]
-        }))
+        Effect.provide(
+          createTestLayer({
+            spaceTypes: [makeSpaceType({})],
+            descriptors: [makeDescriptor({})],
+            roles: [makeRole({})],
+            permissions: [makePermission({})]
+          })
+        )
       )
       const encoded = yield* Schema.encodeUnknown(HulySpaceTypeCapabilitiesSchema)(detail)
 
@@ -387,5 +377,6 @@ describe("sdk discovery configuration operations", () => {
           readProjectionTools: ["get_space"]
         }
       })
-    }))
+    })
+  )
 })

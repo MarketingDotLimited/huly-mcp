@@ -9,21 +9,11 @@ import {
 } from "./upload-source.js"
 
 const UploadFileParamsBase = Schema.Struct({
-  filename: NonEmptyString.annotations({
-    description: "Name of the file (e.g., 'screenshot.png')"
-  }),
-  contentType: MimeType.annotations({
-    description: "MIME type of the file (e.g., 'image/png', 'application/pdf')"
-  }),
-  filePath: Schema.optional(Schema.String.annotations({
-    description: UPLOAD_FILE_PATH_DESCRIPTION
-  })),
-  fileUrl: Schema.optional(Schema.String.annotations({
-    description: UPLOAD_FILE_URL_DESCRIPTION
-  })),
-  data: Schema.optional(Schema.String.annotations({
-    description: UPLOAD_BASE64_DATA_DESCRIPTION
-  }))
+  filename: NonEmptyString.annotations({ description: "Name of the file (e.g., 'screenshot.png')" }),
+  contentType: MimeType.annotations({ description: "MIME type of the file (e.g., 'image/png', 'application/pdf')" }),
+  filePath: Schema.optional(Schema.String.annotations({ description: UPLOAD_FILE_PATH_DESCRIPTION })),
+  fileUrl: Schema.optional(Schema.String.annotations({ description: UPLOAD_FILE_URL_DESCRIPTION })),
+  data: Schema.optional(Schema.String.annotations({ description: UPLOAD_BASE64_DATA_DESCRIPTION }))
 })
 
 export const UploadFileParamsSchema = UploadFileParamsBase.pipe(
@@ -46,13 +36,10 @@ export const UploadFileResultSchema = Schema.Struct({
 })
 export type UploadFileResult = Schema.Schema.Type<typeof UploadFileResultSchema>
 
-export const uploadFileParamsJsonSchema = withJsonSchemaPropertyDescriptions(
-  JSONSchema.make(UploadFileParamsSchema),
-  {
-    filePath: UPLOAD_FILE_PATH_DESCRIPTION,
-    fileUrl: UPLOAD_FILE_URL_DESCRIPTION,
-    data: UPLOAD_BASE64_DATA_DESCRIPTION
-  }
-)
+export const uploadFileParamsJsonSchema = withJsonSchemaPropertyDescriptions(JSONSchema.make(UploadFileParamsSchema), {
+  filePath: UPLOAD_FILE_PATH_DESCRIPTION,
+  fileUrl: UPLOAD_FILE_URL_DESCRIPTION,
+  data: UPLOAD_BASE64_DATA_DESCRIPTION
+})
 
 export const parseUploadFileParams = Schema.decodeUnknown(UploadFileParamsSchema)

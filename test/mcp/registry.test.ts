@@ -103,7 +103,7 @@ const noopWorkspaceClient: WorkspaceClientOperations = {
 
 describe("combined image tool presentation", () => {
   it.effect("keeps base64 out of structured and text metadata while exposing one image", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const base64 = CanonicalBase64ImageData.make("dW5pcXVlLWltYWdlLWJ5dGVz")
       const imageType = Schema.decodeUnknownSync(SupportedAttachmentImageTypeSchema)("image/png")
       const tool = defineCombinedImageTool(
@@ -115,11 +115,7 @@ describe("combined image tool presentation", () => {
           category: "test"
         },
         parse,
-        () =>
-          Effect.succeed({
-            metadata: { name: "shot.png", type: imageType, size: 18 },
-            data: base64
-          }),
+        () => Effect.succeed({ metadata: { name: "shot.png", type: imageType, size: 18 }, data: base64 }),
         (result) => ({
           result: result.metadata,
           image: { type: "image", data: result.data, mimeType: result.metadata.type }
@@ -128,11 +124,7 @@ describe("combined image tool presentation", () => {
 
       const response = yield* Effect.promise(() => tool.handler({ name: "image" }, noopHulyClient, noopStorageClient))
 
-      expect(response.structuredContent?.result).toEqual({
-        name: "shot.png",
-        type: "image/png",
-        size: 18
-      })
+      expect(response.structuredContent?.result).toEqual({ name: "shot.png", type: "image/png", size: 18 })
       expect(JSON.stringify(response.structuredContent)).not.toContain(base64)
       expect(response.content).toHaveLength(1)
       expect(response.content[0].text).not.toContain(base64)
@@ -141,68 +133,61 @@ describe("combined image tool presentation", () => {
         data: base64,
         mimeType: "image/png"
       })
-    }))
+    })
+  )
 })
 
 describe("formatOperationFailure", () => {
   it.effect("formats parse, domain, output, and provision failures", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const parseError = yield* Schema.decodeUnknown(Params)({}).pipe(Effect.flip)
 
       expect(
-        formatOperationFailure(operationFailure({
-          _tag: "ToolParseFailure",
-          cause: Cause.fail(parseError),
-          toolName: "test_tool"
-        }))
+        formatOperationFailure(
+          operationFailure({ _tag: "ToolParseFailure", cause: Cause.fail(parseError), toolName: "test_tool" })
+        )
       ).toContain("Invalid parameters for test_tool")
       expect(
-        formatOperationFailure(operationFailure({
-          _tag: "ToolParseFailure",
-          cause: Cause.empty,
-          toolName: "test_tool"
-        }))
+        formatOperationFailure(
+          operationFailure({ _tag: "ToolParseFailure", cause: Cause.empty, toolName: "test_tool" })
+        )
       ).toBe("An unexpected error occurred")
       expect(
-        formatOperationFailure(operationFailure({
-          _tag: "ToolParseFailure",
-          cause: Cause.sequential(Cause.empty, Cause.fail(parseError)),
-          toolName: "test_tool"
-        }))
+        formatOperationFailure(
+          operationFailure({
+            _tag: "ToolParseFailure",
+            cause: Cause.sequential(Cause.empty, Cause.fail(parseError)),
+            toolName: "test_tool"
+          })
+        )
       ).toContain("Invalid parameters for test_tool")
       expect(
-        formatOperationFailure(operationFailure({
-          _tag: "ToolDomainFailure",
-          cause: Cause.fail(new HulyError({ message: "domain failed" })),
-          warnings: []
-        }))
+        formatOperationFailure(
+          operationFailure({
+            _tag: "ToolDomainFailure",
+            cause: Cause.fail(new HulyError({ message: "domain failed" })),
+            warnings: []
+          })
+        )
       ).toBe("domain failed")
       expect(
-        formatOperationFailure(operationFailure({
-          _tag: "ToolDomainFailure",
-          cause: Cause.empty,
-          warnings: []
-        }))
+        formatOperationFailure(operationFailure({ _tag: "ToolDomainFailure", cause: Cause.empty, warnings: [] }))
       ).toBe("An unexpected error occurred")
       expect(
-        formatOperationFailure(operationFailure({
-          _tag: "ToolOutputFailure",
-          toolName: "test_tool",
-          warnings: []
-        }))
+        formatOperationFailure(operationFailure({ _tag: "ToolOutputFailure", toolName: "test_tool", warnings: [] }))
       ).toBe("Tool test_tool produced invalid output")
       expect(
-        formatOperationFailure(operationFailure({
-          _tag: "ToolProvisionFailure",
-          error: new HulyError({ message: "provision failed" })
-        }))
+        formatOperationFailure(
+          operationFailure({ _tag: "ToolProvisionFailure", error: new HulyError({ message: "provision failed" }) })
+        )
       ).toBe("provision failed")
-    }))
+    })
+  )
 })
 
 describe("defineTool", () => {
   it.effect("returns encoded success response on valid input", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = defineTool(
         {
           name: "test_tool",
@@ -212,10 +197,7 @@ describe("defineTool", () => {
           category: "test"
         },
         parse,
-        (params: Params) =>
-          Effect.succeed({ greeting: `hello ${params.name}` }).pipe(
-            Effect.tap(() => HulyClient)
-          )
+        (params: Params) => Effect.succeed({ greeting: `hello ${params.name}` }).pipe(Effect.tap(() => HulyClient))
       )
 
       expect(tool.outputSchema.properties?.result).toMatchObject({ type: "object" })
@@ -226,11 +208,12 @@ describe("defineTool", () => {
 
       expect(result.isError).toBeUndefined()
       expect(result.structuredContent).toEqual({ result: { greeting: "hello world" } })
-      expect(assertAt(result.content, 0).text).toBe("{\"greeting\":\"hello world\"}")
-    }))
+      expect(assertAt(result.content, 0).text).toBe('{"greeting":"hello world"}')
+    })
+  )
 
   it.effect("returns parse error on invalid input", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = defineTool(
         {
           name: "test_tool",
@@ -240,10 +223,7 @@ describe("defineTool", () => {
           category: "test"
         },
         parse,
-        (_params: Params) =>
-          Effect.succeed({ greeting: "ok" }).pipe(
-            Effect.tap(() => HulyClient)
-          )
+        (_params: Params) => Effect.succeed({ greeting: "ok" }).pipe(Effect.tap(() => HulyClient))
       )
 
       const result = yield* Effect.promise(() =>
@@ -254,10 +234,11 @@ describe("defineTool", () => {
       expect(result.structuredContent).toBeUndefined()
       expect(result._meta?.errorCode).toBe(McpErrorCode.InvalidParams)
       expect(assertAt(result.content, 0).text).toContain("Invalid parameters")
-    }))
+    })
+  )
 
   it.effect("returns domain error on operation failure", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = defineTool(
         {
           name: "test_tool",
@@ -268,11 +249,7 @@ describe("defineTool", () => {
         },
         parse,
         (_params: Params) =>
-          Effect.fail(new HulyError({ message: "something broke" })) as Effect.Effect<
-            never,
-            HulyError,
-            HulyClient
-          >
+          Effect.fail(new HulyError({ message: "something broke" })) as Effect.Effect<never, HulyError, HulyClient>
       )
 
       const result = yield* Effect.promise(() =>
@@ -282,10 +259,11 @@ describe("defineTool", () => {
       expect(result.isError).toBe(true)
       expect(result._meta?.errorCode).toBe(McpErrorCode.InternalError)
       expect(assertAt(result.content, 0).text).toContain("something broke")
-    }))
+    })
+  )
 
   it.effect("returns internal error when result encoding fails", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = defineTool(
         {
           name: "encoded_tool",
@@ -295,10 +273,7 @@ describe("defineTool", () => {
           category: "test"
         },
         parse,
-        (_params: Params) =>
-          Effect.succeed({ count: -1 }).pipe(
-            Effect.tap(() => HulyClient)
-          )
+        (_params: Params) => Effect.succeed({ count: -1 }).pipe(Effect.tap(() => HulyClient))
       )
 
       const result = yield* Effect.promise(() =>
@@ -308,10 +283,11 @@ describe("defineTool", () => {
       expect(result.isError).toBe(true)
       expect(result._meta?.errorCode).toBe(McpErrorCode.InternalError)
       expect(assertAt(result.content, 0).text).toContain("invalid output")
-    }))
+    })
+  )
 
   it.effect("adds diagnostics warnings to encoded success envelopes", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = defineTool(
         {
           name: "test_tool",
@@ -322,7 +298,7 @@ describe("defineTool", () => {
         },
         parse,
         (params: Params) =>
-          Effect.gen(function*() {
+          Effect.gen(function* () {
             const diagnostics = yield* Diagnostics
             yield* diagnostics.warnAgent({
               code: "status_metadata_unresolved",
@@ -339,16 +315,14 @@ describe("defineTool", () => {
       expect(result.isError).toBeUndefined()
       expect(result.structuredContent).toEqual({
         result: { greeting: "hello world" },
-        warnings: [{
-          code: "status_metadata_unresolved",
-          message: "Status metadata was degraded for world."
-        }]
+        warnings: [{ code: "status_metadata_unresolved", message: "Status metadata was degraded for world." }]
       })
       expect(result.content).toHaveLength(2)
-    }))
+    })
+  )
 
   it.effect("adds diagnostics warnings to failure envelopes", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = defineTool(
         {
           name: "test_tool",
@@ -359,7 +333,7 @@ describe("defineTool", () => {
         },
         parse,
         (params: Params) =>
-          Effect.gen(function*() {
+          Effect.gen(function* () {
             const diagnostics = yield* Diagnostics
             yield* diagnostics.warnAgent({
               code: "status_metadata_unresolved",
@@ -377,17 +351,15 @@ describe("defineTool", () => {
       expect(result.structuredContent).toBeUndefined()
       expect(assertAt(result.content, 0).text).toContain("failed after warning")
       expect(JSON.parse(assertAt(result.content, 1).text)).toEqual({
-        warnings: [{
-          code: "status_metadata_unresolved",
-          message: "Status metadata was degraded for world."
-        }]
+        warnings: [{ code: "status_metadata_unresolved", message: "Status metadata was degraded for world." }]
       })
-    }))
+    })
+  )
 })
 
 describe("defineStorageTool", () => {
   it.effect("provides the storage client", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = defineStorageTool(
         {
           name: "storage_tool",
@@ -397,10 +369,7 @@ describe("defineStorageTool", () => {
           category: "test"
         },
         parse,
-        (params: Params) =>
-          Effect.succeed({ url: `file://${params.name}` }).pipe(
-            Effect.tap(() => HulyStorageClient)
-          )
+        (params: Params) => Effect.succeed({ url: `file://${params.name}` }).pipe(Effect.tap(() => HulyStorageClient))
       )
 
       const result = yield* Effect.promise(() =>
@@ -409,12 +378,13 @@ describe("defineStorageTool", () => {
 
       expect(result.isError).toBeUndefined()
       expect(result.structuredContent).toEqual({ result: { url: "file://doc.pdf" } })
-    }))
+    })
+  )
 })
 
 describe("defineCombinedTool", () => {
   it.effect("provides both Huly and storage clients", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = defineCombinedTool(
         {
           name: "combined_tool",
@@ -425,7 +395,7 @@ describe("defineCombinedTool", () => {
         },
         parse,
         (params: Params) =>
-          Effect.gen(function*() {
+          Effect.gen(function* () {
             yield* HulyClient
             yield* HulyStorageClient
             return { combined: params.name }
@@ -438,12 +408,13 @@ describe("defineCombinedTool", () => {
 
       expect(result.isError).toBeUndefined()
       expect(result.structuredContent).toEqual({ result: { combined: "both" } })
-    }))
+    })
+  )
 })
 
 describe("defineWorkspaceTool", () => {
   it.effect("provides the workspace client when available", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = defineWorkspaceTool(
         {
           name: "workspace_tool",
@@ -453,10 +424,7 @@ describe("defineWorkspaceTool", () => {
           category: "test"
         },
         parse,
-        (params: Params) =>
-          Effect.succeed({ ws: params.name }).pipe(
-            Effect.tap(() => WorkspaceClient)
-          )
+        (params: Params) => Effect.succeed({ ws: params.name }).pipe(Effect.tap(() => WorkspaceClient))
       )
 
       const result = yield* Effect.promise(() =>
@@ -465,10 +433,11 @@ describe("defineWorkspaceTool", () => {
 
       expect(result.isError).toBeUndefined()
       expect(result.structuredContent).toEqual({ result: { ws: "myws" } })
-    }))
+    })
+  )
 
   it.effect("returns error when workspace client is undefined", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = defineWorkspaceTool(
         {
           name: "workspace_tool",
@@ -478,10 +447,7 @@ describe("defineWorkspaceTool", () => {
           category: "test"
         },
         parse,
-        (params: Params) =>
-          Effect.succeed({ ws: params.name }).pipe(
-            Effect.tap(() => WorkspaceClient)
-          )
+        (params: Params) => Effect.succeed({ ws: params.name }).pipe(Effect.tap(() => WorkspaceClient))
       )
 
       const result = yield* Effect.promise(() =>
@@ -491,12 +457,13 @@ describe("defineWorkspaceTool", () => {
       expect(result.isError).toBe(true)
       expect(result._meta?.errorCode).toBe(McpErrorCode.InternalError)
       expect(assertAt(result.content, 0).text).toContain("WorkspaceClient not available")
-    }))
+    })
+  )
 })
 
 describe("defineNoParamsWorkspaceTool", () => {
   it.effect("provides the workspace client without requiring params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = defineNoParamsWorkspaceTool(
         {
           name: "workspace_members",
@@ -505,10 +472,7 @@ describe("defineNoParamsWorkspaceTool", () => {
           resultSchema: MembersResult,
           category: "test"
         },
-        () =>
-          Effect.succeed({ members: 5 }).pipe(
-            Effect.tap(() => WorkspaceClient)
-          )
+        () => Effect.succeed({ members: 5 }).pipe(Effect.tap(() => WorkspaceClient))
       )
 
       const result = yield* Effect.promise(() =>
@@ -517,10 +481,11 @@ describe("defineNoParamsWorkspaceTool", () => {
 
       expect(result.isError).toBeUndefined()
       expect(result.structuredContent).toEqual({ result: { members: 5 } })
-    }))
+    })
+  )
 
   it.effect("returns workspace error before running no-param operation", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = defineNoParamsWorkspaceTool(
         {
           name: "workspace_members",
@@ -529,10 +494,7 @@ describe("defineNoParamsWorkspaceTool", () => {
           resultSchema: MembersResult,
           category: "test"
         },
-        () =>
-          Effect.succeed({ members: 5 }).pipe(
-            Effect.tap(() => WorkspaceClient)
-          )
+        () => Effect.succeed({ members: 5 }).pipe(Effect.tap(() => WorkspaceClient))
       )
 
       const result = yield* Effect.promise(() =>
@@ -542,5 +504,6 @@ describe("defineNoParamsWorkspaceTool", () => {
       expect(result.isError).toBe(true)
       expect(result._meta?.errorCode).toBe(McpErrorCode.InternalError)
       expect(assertAt(result.content, 0).text).toContain("WorkspaceClient not available")
-    }))
+    })
+  )
 })

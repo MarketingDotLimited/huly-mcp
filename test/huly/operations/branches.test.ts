@@ -89,14 +89,14 @@ const createComponentTestLayer = (config: {
   const findAllImpl: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown) => {
     if (_class === tracker.class.Component) {
       const q = query as Record<string, unknown>
-      const filtered = components.filter(c => q.space === undefined || c.space === q.space)
+      const filtered = components.filter((c) => q.space === undefined || c.space === q.space)
       return Effect.succeed(toFindResult(filtered))
     }
     if (_class === contact.class.Person) {
       const q = query as Record<string, unknown>
       if (q._id && typeof q._id === "object" && "$in" in (q._id as Record<string, unknown>)) {
         const ids = assertExists((q._id as { readonly $in?: ReadonlyArray<string> }).$in)
-        const filtered = persons.filter(p => ids.includes(p._id))
+        const filtered = persons.filter((p) => ids.includes(p._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(persons))
@@ -107,21 +107,22 @@ const createComponentTestLayer = (config: {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === tracker.class.Project) {
       const q = query as Record<string, unknown>
-      const found = projects.find(p => p.identifier === q.identifier)
+      const found = projects.find((p) => p.identifier === q.identifier)
       return Effect.succeed(found)
     }
     if (_class === tracker.class.Component) {
       const q = query as Record<string, unknown>
-      const found = components.find(c =>
-        (q.space !== undefined && q._id !== undefined && c.space === q.space && c._id === q._id)
-        || (q.space !== undefined && q.label !== undefined && c.space === q.space && c.label === q.label)
+      const found = components.find(
+        (c) =>
+          (q.space !== undefined && q._id !== undefined && c.space === q.space && c._id === q._id) ||
+          (q.space !== undefined && q.label !== undefined && c.space === q.space && c.label === q.label)
       )
       return Effect.succeed(found)
     }
     if (_class === contact.class.Person) {
       const q = query as Record<string, unknown>
       if (q._id) {
-        const found = persons.find(p => p._id === q._id)
+        const found = persons.find((p) => p._id === q._id)
         return Effect.succeed(found)
       }
       return Effect.succeed(undefined)
@@ -129,15 +130,12 @@ const createComponentTestLayer = (config: {
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
-  return HulyClient.testLayer({
-    findAll: findAllImpl,
-    findOne: findOneImpl
-  })
+  return HulyClient.testLayer({ findAll: findAllImpl, findOne: findOneImpl })
 }
 
 describe("getComponent - lead person not found in DB (line 177 false branch)", () => {
   it.effect("returns undefined lead when person lookup returns undefined", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const comp = makeComponent({
         _id: "comp-1" as Ref<HulyComponent>,
@@ -147,11 +145,7 @@ describe("getComponent - lead person not found in DB (line 177 false branch)", (
       })
 
       // No persons provided - so findOne for Person returns undefined
-      const testLayer = createComponentTestLayer({
-        projects: [project],
-        components: [comp],
-        persons: []
-      })
+      const testLayer = createComponentTestLayer({ projects: [project], components: [comp], persons: [] })
 
       const result = yield* getComponent({
         project: projectIdentifier("PROJ"),
@@ -161,7 +155,8 @@ describe("getComponent - lead person not found in DB (line 177 false branch)", (
       expect(result.id).toBe("comp-1")
       // lead is set (non-null), but person lookup fails, so leadName stays undefined
       expect(result.lead).toBeUndefined()
-    }))
+    })
+  )
 })
 
 // --- Threads: sender name resolved (line 133 true branch) ---
@@ -265,9 +260,8 @@ const createThreadTestLayer = (config: {
   const findAllImpl: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown, options: unknown) => {
     if (_class === chunter.class.ThreadMessage) {
       const q = query as { attachedTo?: Ref<ActivityMessage>; space?: Ref<Space> }
-      const filtered = threadMessages.filter(m =>
-        (!q.attachedTo || m.attachedTo === q.attachedTo)
-        && (!q.space || m.space === q.space)
+      const filtered = threadMessages.filter(
+        (m) => (!q.attachedTo || m.attachedTo === q.attachedTo) && (!q.space || m.space === q.space)
       )
       const opts = options as { sort?: Record<string, number> } | undefined
       let result = [...filtered]
@@ -281,7 +275,7 @@ const createThreadTestLayer = (config: {
       const q = query as { _id?: { $in?: Array<PersonId> } }
       const ids = q._id?.$in
       if (ids) {
-        const filtered = socialIdentities.filter(si => ids.includes(si._id))
+        const filtered = socialIdentities.filter((si) => ids.includes(si._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(socialIdentities))
@@ -290,7 +284,7 @@ const createThreadTestLayer = (config: {
       const q = query as { _id?: { $in?: Array<Ref<Person>> } }
       const personIds = q._id?.$in
       if (personIds) {
-        const filtered = persons.filter(p => personIds.includes(p._id))
+        const filtered = persons.filter((p) => personIds.includes(p._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(persons))
@@ -301,37 +295,25 @@ const createThreadTestLayer = (config: {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === chunter.class.Channel) {
       const q = query as Record<string, unknown>
-      const found = channels.find(c =>
-        (q.name && c.name === q.name)
-        || (q._id && c._id === q._id)
-      )
+      const found = channels.find((c) => (q.name && c.name === q.name) || (q._id && c._id === q._id))
       return Effect.succeed(found)
     }
     if (_class === chunter.class.ChatMessage) {
       const q = query as { _id?: Ref<ChatMessage>; space?: Ref<Space> }
-      const found = messages.find(m =>
-        (!q._id || m._id === q._id)
-        && (!q.space || m.space === q.space)
-      )
+      const found = messages.find((m) => (!q._id || m._id === q._id) && (!q.space || m.space === q.space))
       return Effect.succeed(found)
     }
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
-  return HulyClient.testLayer({
-    findAll: findAllImpl,
-    findOne: findOneImpl
-  })
+  return HulyClient.testLayer({ findAll: findAllImpl, findOne: findOneImpl })
 }
 
 describe("listThreadReplies - sender name resolved (line 133 true branch)", () => {
   it.effect("resolves sender names via socialId->person mapping", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
-      const parentMsg = makeChatMessage({
-        _id: "msg-1" as Ref<ChatMessage>,
-        space: "ch-1" as Ref<Space>
-      })
+      const parentMsg = makeChatMessage({ _id: "msg-1" as Ref<ChatMessage>, space: "ch-1" as Ref<Space> })
       const threadMsgs = [
         makeThreadMessage({
           _id: "reply-1" as Ref<HulyThreadMessage>,
@@ -341,9 +323,7 @@ describe("listThreadReplies - sender name resolved (line 133 true branch)", () =
           createdOn: 1000
         })
       ]
-      const persons = [
-        makePerson({ _id: "person-alice" as Ref<Person>, name: "Alice Smith" })
-      ]
+      const persons = [makePerson({ _id: "person-alice" as Ref<Person>, name: "Alice Smith" })]
       const socialIdentities = [
         makeSocialIdentity({
           _id: "social-alice" as SocialIdentity["_id"],
@@ -367,14 +347,15 @@ describe("listThreadReplies - sender name resolved (line 133 true branch)", () =
       expect(result.replies).toHaveLength(1)
       expect(assertAt(result.replies, 0).sender).toBe("Alice Smith")
       expect(assertAt(result.replies, 0).senderId).toBe("social-alice")
-    }))
+    })
+  )
 })
 
 // --- Storage: filePath and fileUrl branches (lines 46-48) ---
 
 describe("uploadFile - filePath branch (line 46-47)", () => {
   it.effect("reads from file path when filePath is provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       // We cannot easily test actual filesystem reads in unit tests,
       // but we can verify the filePath branch is hit by checking it returns FileNotFoundError
       const testLayer = HulyStorageClient.testLayer({})
@@ -388,12 +369,13 @@ describe("uploadFile - filePath branch (line 46-47)", () => {
       )
 
       expect(error._tag).toBe("FileNotFoundError")
-    }))
+    })
+  )
 })
 
 describe("uploadFile - fileUrl branch (line 48-49)", () => {
   it.effect("attempts to fetch from URL when fileUrl is provided (no filePath)", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = HulyStorageClient.testLayer({})
 
       const error = yield* Effect.flip(
@@ -406,5 +388,6 @@ describe("uploadFile - fileUrl branch (line 48-49)", () => {
 
       expect(error._tag).toBe("FileFetchError")
       expect((error as { fileUrl: string }).fileUrl).toBe("http://localhost:1/nonexistent-image.png")
-    }))
+    })
+  )
 })

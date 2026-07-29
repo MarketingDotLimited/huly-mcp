@@ -38,21 +38,22 @@ const toFindResult = <T extends Doc>(docs: Array<T>): FindResult<T> => {
 }
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock builder
-const makeProject = (overrides?: Partial<HulyProject>): HulyProject => ({
-  _id: "project-1" as Ref<HulyProject>,
-  _class: tracker.class.Project,
-  space: "space-1" as Ref<Space>,
-  identifier: "TEST",
-  name: "Test Project",
-  sequence: 1,
-  defaultIssueStatus: "status-open" as Ref<Status>,
-  defaultTimeReportDay: TimeReportDayType.CurrentWorkDay,
-  modifiedBy: "user-1" as PersonId,
-  modifiedOn: 0,
-  createdBy: "user-1" as PersonId,
-  createdOn: 0,
-  ...overrides
-} as HulyProject)
+const makeProject = (overrides?: Partial<HulyProject>): HulyProject =>
+  ({
+    _id: "project-1" as Ref<HulyProject>,
+    _class: tracker.class.Project,
+    space: "space-1" as Ref<Space>,
+    identifier: "TEST",
+    name: "Test Project",
+    sequence: 1,
+    defaultIssueStatus: "status-open" as Ref<Status>,
+    defaultTimeReportDay: TimeReportDayType.CurrentWorkDay,
+    modifiedBy: "user-1" as PersonId,
+    modifiedOn: 0,
+    createdBy: "user-1" as PersonId,
+    createdOn: 0,
+    ...overrides
+  }) as HulyProject
 
 const makeIssue = (overrides?: Partial<HulyIssue>): HulyIssue => {
   const result: HulyIssue = {
@@ -162,9 +163,9 @@ const createTestLayerWithMocks = (config: MockConfig) => {
         result = result.sort((a, b) => direction * (a.modifiedOn - b.modifiedOn))
       }
       if (opts?.lookup?.assignee) {
-        result = result.map(issue => {
+        result = result.map((issue) => {
           const assigneePerson = issue.assignee
-            ? persons.find(p => String(p._id) === String(issue.assignee))
+            ? persons.find((p) => String(p._id) === String(issue.assignee))
             : undefined
           return { ...issue, $lookup: { assignee: assigneePerson } }
         })
@@ -175,14 +176,14 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       const inQuery = q._id as { $in?: Array<Ref<Status>> } | undefined
       if (inQuery?.$in) {
-        const filtered = statuses.filter(s => inQuery.$in!.includes(s._id))
+        const filtered = statuses.filter((s) => inQuery.$in!.includes(s._id))
         return Effect.succeed(toFindResult(filtered as Array<Doc>))
       }
       return Effect.succeed(toFindResult(statuses as Array<Doc>))
     }
     if (_class === contact.class.Channel) {
       const value = (query as Record<string, unknown>).value as string
-      const filtered = channels.filter(c => c.value === value)
+      const filtered = channels.filter((c) => c.value === value)
       return Effect.succeed(toFindResult(filtered as Array<Doc>))
     }
     if (_class === contact.class.Person) {
@@ -190,9 +191,8 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     }
     if (_class === tags.class.TagReference) {
       const q = query as Record<string, unknown>
-      const filtered = tagReferences.filter(tr =>
-        tr.attachedTo === q.attachedTo
-        && tr.attachedToClass === q.attachedToClass
+      const filtered = tagReferences.filter(
+        (tr) => tr.attachedTo === q.attachedTo && tr.attachedToClass === q.attachedToClass
       )
       return Effect.succeed(toFindResult(filtered as Array<Doc>))
     }
@@ -202,18 +202,13 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown, options?: unknown) => {
     if (_class === tracker.class.Project) {
       const identifier = (query as Record<string, unknown>).identifier as string
-      const found = projects.find(p => p.identifier === identifier)
+      const found = projects.find((p) => p.identifier === identifier)
       if (found === undefined) return Effect.succeed(undefined)
       const opts = options as { lookup?: Record<string, unknown> } | undefined
       if (opts?.lookup?.type) {
         const projectWithLookup = {
           ...found,
-          $lookup: {
-            type: {
-              _id: "project-type-1",
-              statuses: statuses.map(s => ({ _id: s._id }))
-            }
-          }
+          $lookup: { type: { _id: "project-type-1", statuses: statuses.map((s) => ({ _id: s._id })) } }
         }
         return Effect.succeed(projectWithLookup)
       }
@@ -221,10 +216,11 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     }
     if (_class === tracker.class.Issue) {
       const q = query as Record<string, unknown>
-      const found = issues.find(i =>
-        (q.identifier && i.identifier === q.identifier)
-        || (q.number && i.number === q.number)
-        || (q.space && i.space === q.space && !q.identifier && !q.number)
+      const found = issues.find(
+        (i) =>
+          (q.identifier && i.identifier === q.identifier) ||
+          (q.number && i.number === q.number) ||
+          (q.space && i.space === q.space && !q.identifier && !q.number)
       )
       return Effect.succeed(found)
     }
@@ -232,13 +228,13 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       const value = q.value as string | { $like: string } | undefined
       if (typeof value === "string") {
-        const found = channels.find(c => c.value === value && (q.provider === undefined || c.provider === q.provider))
+        const found = channels.find((c) => c.value === value && (q.provider === undefined || c.provider === q.provider))
         return Effect.succeed(found)
       }
       if (value && typeof value === "object" && "$like" in value) {
         const pattern = value.$like.replace(/%/g, "")
-        const found = channels.find(c =>
-          c.value.includes(pattern) && (q.provider === undefined || c.provider === q.provider)
+        const found = channels.find(
+          (c) => c.value.includes(pattern) && (q.provider === undefined || c.provider === q.provider)
         )
         return Effect.succeed(found)
       }
@@ -247,17 +243,17 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     if (_class === contact.class.Person) {
       const q = query as Record<string, unknown>
       if (q._id) {
-        const found = persons.find(p => p._id === q._id)
+        const found = persons.find((p) => p._id === q._id)
         return Effect.succeed(found)
       }
       if (q.name) {
         if (typeof q.name === "string") {
-          const found = persons.find(p => p.name === q.name)
+          const found = persons.find((p) => p.name === q.name)
           return Effect.succeed(found)
         }
         if (typeof q.name === "object" && "$like" in (q.name as Record<string, unknown>)) {
           const pattern = assertExists((q.name as { readonly $like?: string }).$like).replace(/%/g, "")
-          const found = persons.find(p => p.name.includes(pattern))
+          const found = persons.find((p) => p.name.includes(pattern))
           return Effect.succeed(found)
         }
       }
@@ -268,33 +264,40 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       if (config.tagElementCreateReturnsUndefined && q._id) {
         return Effect.succeed(undefined)
       }
-      const found = tagElements.find(te =>
-        (q._id && te._id === q._id)
-        || (q.title && q.targetClass && te.title === q.title && te.targetClass === q.targetClass)
+      const found = tagElements.find(
+        (te) =>
+          (q._id && te._id === q._id) ||
+          (q.title && q.targetClass && te.title === q.title && te.targetClass === q.targetClass)
       )
       return Effect.succeed(found)
     }
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
-  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = (
-    (_objectClass: unknown, _objectId: unknown, _objectAttr: unknown, id: unknown) => {
-      const content = (config.markupContent ?? {})[id as string] ?? ""
-      return Effect.succeed(content)
-    }
-  ) as HulyClientOperations["fetchMarkup"]
+  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = ((
+    _objectClass: unknown,
+    _objectId: unknown,
+    _objectAttr: unknown,
+    id: unknown
+  ) => {
+    const content = (config.markupContent ?? {})[id as string] ?? ""
+    return Effect.succeed(content)
+  }) as HulyClientOperations["fetchMarkup"]
 
-  const updateDocImpl: HulyClientOperations["updateDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown, operations: unknown) => {
-      if (config.captureUpdateDoc) {
-        config.captureUpdateDoc.operations = operations as Record<string, unknown>
-      }
-      const project = assertAt(projects, 0)
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- project may be undefined from array access
-      const sequence = (config.updateDocResult?.object?.sequence) ?? (project ? project.sequence + 1 : 1)
-      return Effect.succeed({ object: { sequence } } as never)
+  const updateDocImpl: HulyClientOperations["updateDoc"] = ((
+    _class: unknown,
+    _space: unknown,
+    _objectId: unknown,
+    operations: unknown
+  ) => {
+    if (config.captureUpdateDoc) {
+      config.captureUpdateDoc.operations = operations as Record<string, unknown>
     }
-  ) as HulyClientOperations["updateDoc"]
+    const project = assertAt(projects, 0)
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- project may be undefined from array access
+    const sequence = config.updateDocResult?.object?.sequence ?? (project ? project.sequence + 1 : 1)
+    return Effect.succeed({ object: { sequence } } as never)
+  }) as HulyClientOperations["updateDoc"]
 
   const addCollectionImpl: HulyClientOperations["addCollection"] = ((
     _class: unknown,
@@ -324,10 +327,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       config.captureCreateDoc.id = id as string
     }
     if (_class === tags.class.TagElement && id && !config.tagElementCreateReturnsUndefined) {
-      const newTag = makeTagElement({
-        _id: id as Ref<TagElement>,
-        ...(attributes as Partial<TagElement>)
-      })
+      const newTag = makeTagElement({ _id: id as Ref<TagElement>, ...(attributes as Partial<TagElement>) })
       tagElements = [...tagElements, newTag]
     }
     return Effect.succeed((id ?? "new-doc-id") as Ref<Doc>)
@@ -362,11 +362,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     return Effect.succeed(undefined)
   }) as HulyClientOperations["updateMarkup"]
 
-  const removeDocImpl: HulyClientOperations["removeDoc"] = ((
-    _class: unknown,
-    _space: unknown,
-    objectId: unknown
-  ) => {
+  const removeDocImpl: HulyClientOperations["removeDoc"] = ((_class: unknown, _space: unknown, objectId: unknown) => {
     if (config.captureRemoveDoc) {
       config.captureRemoveDoc.id = String(objectId)
     }
@@ -389,7 +385,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
 describe("Issues Extended Coverage", () => {
   describe("extractUpdatedSequence fallback (line 121 None branch)", () => {
     it.effect("fails before addCollection when updateDoc returns a non-decodable sequence result", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", sequence: 10 })
 
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
@@ -409,10 +405,7 @@ describe("Issues Extended Coverage", () => {
           if (_class === tracker.class.Project) {
             const opts = options as { lookup?: Record<string, unknown> } | undefined
             if (opts?.lookup?.type) {
-              return Effect.succeed({
-                ...project,
-                $lookup: { type: { _id: "pt-1", statuses: [] } }
-              })
+              return Effect.succeed({ ...project, $lookup: { type: { _id: "pt-1", statuses: [] } } })
             }
             return Effect.succeed(project)
           }
@@ -453,31 +446,27 @@ describe("Issues Extended Coverage", () => {
         })
 
         const error = yield* Effect.flip(
-          createIssue({
-            project: projectIdentifier("TEST"),
-            title: "Missing Sequence"
-          }).pipe(Effect.provide(testLayer), withDiagnostics)
+          createIssue({ project: projectIdentifier("TEST"), title: "Missing Sequence" }).pipe(
+            Effect.provide(testLayer),
+            withDiagnostics
+          )
         )
 
         expect(error.message).toContain("did not return the updated sequence")
         expect(captureAddCollection.attributes).toBeUndefined()
-      }))
+      })
+    )
   })
 
   describe("deleteIssue", () => {
     it.effect("deletes an existing issue", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
         const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses,
-          captureRemoveDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureRemoveDoc })
 
         const result = yield* deleteIssue({
           project: projectIdentifier("TEST"),
@@ -487,62 +476,52 @@ describe("Issues Extended Coverage", () => {
         expect(result.identifier).toBe("TEST-1")
         expect(result.deleted).toBe(true)
         expect(captureRemoveDoc.id).toBe("issue-1")
-      }))
+      })
+    )
 
     it.effect("returns ProjectNotFoundError when project does not exist", () =>
-      Effect.gen(function*() {
-        const testLayer = createTestLayerWithMocks({
-          projects: [],
-          issues: [],
-          statuses: []
-        })
+      Effect.gen(function* () {
+        const testLayer = createTestLayerWithMocks({ projects: [], issues: [], statuses: [] })
 
         const error = yield* Effect.flip(
-          deleteIssue({
-            project: projectIdentifier("NONEXISTENT"),
-            identifier: issueIdentifier("1")
-          }).pipe(Effect.provide(testLayer), withDiagnostics)
+          deleteIssue({ project: projectIdentifier("NONEXISTENT"), identifier: issueIdentifier("1") }).pipe(
+            Effect.provide(testLayer),
+            withDiagnostics
+          )
         )
 
         expect(error._tag).toBe("ProjectNotFoundError")
         expect((error as ProjectNotFoundError).identifier).toBe("NONEXISTENT")
-      }))
+      })
+    )
 
     it.effect("returns IssueNotFoundError when issue does not exist", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [],
-          statuses
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [], statuses })
 
         const error = yield* Effect.flip(
-          deleteIssue({
-            project: projectIdentifier("TEST"),
-            identifier: issueIdentifier("TEST-999")
-          }).pipe(Effect.provide(testLayer), withDiagnostics)
+          deleteIssue({ project: projectIdentifier("TEST"), identifier: issueIdentifier("TEST-999") }).pipe(
+            Effect.provide(testLayer),
+            withDiagnostics
+          )
         )
 
         expect(error._tag).toBe("IssueNotFoundError")
         expect((error as IssueNotFoundError).identifier).toBe("TEST-999")
-      }))
+      })
+    )
 
     it.effect("deletes issue found by numeric identifier", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-42", number: 42 })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
         const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          statuses,
-          captureRemoveDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureRemoveDoc })
 
         const result = yield* deleteIssue({
           project: projectIdentifier("TEST"),
@@ -551,12 +530,13 @@ describe("Issues Extended Coverage", () => {
 
         expect(result.identifier).toBe("TEST-42")
         expect(result.deleted).toBe(true)
-      }))
+      })
+    )
   })
 
   describe("addLabel - created tag can be attached without read-after-write", () => {
     it.effect("returns labelAdded=true without re-reading the created tag element", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
 
@@ -580,17 +560,15 @@ describe("Issues Extended Coverage", () => {
         expect(result.identifier).toBe("TEST-1")
         expect(result.labelAdded).toBe(true)
         expect(captureAddCollection.attributes).toMatchObject({ title: "NewTag" })
-      }))
+      })
+    )
   })
 
   describe("updateIssue - description update in place (line 503-512)", () => {
     it.effect("updates description in place when issue already has one", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
-        const issue = makeIssue({
-          identifier: "TEST-1",
-          description: "existing-markup-ref" as MarkupBlobRef
-        })
+        const issue = makeIssue({ identifier: "TEST-1", description: "existing-markup-ref" as MarkupBlobRef })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
@@ -615,15 +593,13 @@ describe("Issues Extended Coverage", () => {
         expect(captureUpdateMarkup.markup).not.toBe("# Updated Description")
         // Should NOT have set description in updateOps (it was updated in place)
         expect(captureUpdateDoc.operations?.description).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("updates existing issue descriptions with native references", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
-        const issue = makeIssue({
-          identifier: "TEST-1",
-          description: "existing-markup-ref" as MarkupBlobRef
-        })
+        const issue = makeIssue({ identifier: "TEST-1", description: "existing-markup-ref" as MarkupBlobRef })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
         const captureUpdateMarkup: MockConfig["captureUpdateMarkup"] = {}
@@ -648,22 +624,16 @@ describe("Issues Extended Coverage", () => {
         const reference = capturedMarkupReferenceNodes(captureUpdateMarkup.markup)[0]
         expect(reference).toMatchObject({
           type: "reference",
-          attrs: {
-            id: "issue-1",
-            objectclass: "tracker:class:Issue",
-            label: "TEST-1"
-          }
+          attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "TEST-1" }
         })
         expect(captureUpdateDoc.operations?.description).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("returns updated=true when only description is updated in place (no other updateOps)", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
-        const issue = makeIssue({
-          identifier: "TEST-1",
-          description: "existing-markup-ref" as MarkupBlobRef
-        })
+        const issue = makeIssue({ identifier: "TEST-1", description: "existing-markup-ref" as MarkupBlobRef })
         const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
         const captureUpdateMarkup: MockConfig["captureUpdateMarkup"] = {}
@@ -685,6 +655,7 @@ describe("Issues Extended Coverage", () => {
         expect(result.updated).toBe(true)
         expect(captureUpdateMarkup.format).toBe("markup")
         expect(captureUpdateMarkup.markup).not.toBe("# Only desc updated")
-      }))
+      })
+    )
   })
 })

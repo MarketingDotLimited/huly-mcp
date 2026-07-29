@@ -166,7 +166,7 @@ const makeSavedView = (overrides: Partial<FilteredView> = {}): FilteredView => (
   ...docBase(toRef<FilteredView>("saved-view-1"), view.class.FilteredView, core.space.Workspace),
   name: "Mine",
   location: { path: ["board"] },
-  filters: "[{\"key\":\"status\"}]",
+  filters: '[{"key":"status"}]',
   viewOptions: { groupBy: ["status"], orderBy: ["modifiedOn", SortingOrder.Descending] },
   filterClass: boardCardClass,
   viewletId: toRef<Viewlet>("viewlet-kanban"),
@@ -302,7 +302,8 @@ const createLayer = (fixture: Fixture = {}) => {
     return []
   }
   const makeFindAll =
-    (select: (classId: string) => Array<Doc>): HulyClientOperations["findAll"] => (_class, query, options) => {
+    (select: (classId: string) => Array<Doc>): HulyClientOperations["findAll"] =>
+    (_class, query, options) => {
       // The fake SDK stores heterogeneous docs; each call narrows by class before applying the query.
 
       const matched = select(String(_class)).filter((doc) => matchesQuery(doc, query as DocumentQuery<Doc>))
@@ -339,9 +340,10 @@ const createLayer = (fixture: Fixture = {}) => {
       return Effect.succeed(id as never)
     },
     updateDoc: (_class, _space, objectId, operations) => {
-      const target = String(_class) === String(tags.class.TagElement)
-        ? labels.find((label) => String(label._id) === String(objectId))
-        : undefined
+      const target =
+        String(_class) === String(tags.class.TagElement)
+          ? labels.find((label) => String(label._id) === String(objectId))
+          : undefined
       if (target !== undefined) Object.assign(target, operations)
       return Effect.succeed({})
     },
@@ -382,7 +384,7 @@ const createLayer = (fixture: Fixture = {}) => {
 
 describe("board labels and view discovery operations", () => {
   it.effect("manages board label definitions with board-card tag semantics", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const fixture = createLayer()
 
       const listed = yield* listBoardLabels({ titleSearch: "Urg" }).pipe(Effect.provide(fixture.layer))
@@ -415,17 +417,15 @@ describe("board labels and view discovery operations", () => {
       )
       expect(idConflictCreated).toMatchObject({ created: true })
       expect(idConflictFixture.state.labels.at(-1)?.title).toBe(String(labelId))
-    }))
+    })
+  )
 
   it.effect("detects duplicate board label titles and missing categories", () =>
-    Effect.gen(function*() {
-      const duplicateFixture = createLayer({
-        labels: [makeLabel(), makeLabel({ _id: otherLabelId })]
-      })
+    Effect.gen(function* () {
+      const duplicateFixture = createLayer({ labels: [makeLabel(), makeLabel({ _id: otherLabelId })] })
       expect(
         yield* Effect.flip(createBoardLabel({ title: text("Urgent") }).pipe(Effect.provide(duplicateFixture.layer)))
-      )
-        .toBeInstanceOf(BoardLabelIdentifierAmbiguousError)
+      ).toBeInstanceOf(BoardLabelIdentifierAmbiguousError)
 
       const missingCategoryFixture = createLayer({ categories: [] })
       expect(
@@ -440,13 +440,12 @@ describe("board labels and view discovery operations", () => {
           listBoardLabels({ category: category("Missing") }).pipe(Effect.provide(missingCategoryFixture.layer))
         )
       ).toMatchObject({ _tag: "TagCategoryNotFoundError" })
-    }))
+    })
+  )
 
   it.effect("resolves board labels by id, reports read-locator failures, and omits absent ref counts", () =>
-    Effect.gen(function*() {
-      const fixture = createLayer({
-        labels: [withoutRefCount(makeLabel({ title: "No Count" }))]
-      })
+    Effect.gen(function* () {
+      const fixture = createLayer({ labels: [withoutRefCount(makeLabel({ title: "No Count" }))] })
 
       const listed = yield* listBoardLabels({ category: category("Other"), titleSearch: "" }).pipe(
         Effect.provide(fixture.layer)
@@ -457,15 +456,14 @@ describe("board labels and view discovery operations", () => {
       const deletedById = yield* deleteBoardLabel({ label: l(String(labelId)) }).pipe(Effect.provide(fixture.layer))
       expect(deletedById).toMatchObject({ deleted: true })
 
-      const duplicateFixture = createLayer({
-        labels: [makeLabel(), makeLabel({ _id: otherLabelId })]
-      })
+      const duplicateFixture = createLayer({ labels: [makeLabel(), makeLabel({ _id: otherLabelId })] })
       expect(
         yield* Effect.flip(deleteBoardLabel({ label: l("Urgent") }).pipe(Effect.provide(duplicateFixture.layer)))
       ).toBeInstanceOf(BoardLabelIdentifierAmbiguousError)
 
-      expect(yield* Effect.flip(deleteBoardLabel({ label: l("Missing") }).pipe(Effect.provide(createLayer().layer))))
-        .toBeInstanceOf(BoardLabelNotFoundError)
+      expect(
+        yield* Effect.flip(deleteBoardLabel({ label: l("Missing") }).pipe(Effect.provide(createLayer().layer)))
+      ).toBeInstanceOf(BoardLabelNotFoundError)
 
       const updateFixture = createLayer()
       yield* updateBoardLabel({ label: l("Urgent"), color: color(6), category: category("Other") }).pipe(
@@ -486,10 +484,11 @@ describe("board labels and view discovery operations", () => {
 
       const unfiltered = yield* listBoardLabels({}).pipe(Effect.provide(updateFixture.layer))
       expect(unfiltered.total).toBe(1)
-    }))
+    })
+  )
 
   it.effect("lists, attaches, idempotently reattaches, and detaches board card labels", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const fixture = createLayer()
 
       expect(
@@ -518,13 +517,17 @@ describe("board labels and view discovery operations", () => {
         label: l("Fresh")
       }).pipe(Effect.provide(fixture.layer))
       expect(removedMissing.detached).toBe(true)
-      const removedAgain = yield* removeBoardCardLabel({ board: b("Roadmap"), card: c("CARD-1"), label: l("Fresh") })
-        .pipe(Effect.provide(fixture.layer))
+      const removedAgain = yield* removeBoardCardLabel({
+        board: b("Roadmap"),
+        card: c("CARD-1"),
+        label: l("Fresh")
+      }).pipe(Effect.provide(fixture.layer))
       expect(removedAgain.detached).toBe(false)
-    }))
+    })
+  )
 
   it.effect("reads board menu pages, saved views, viewlets, and common preference rows", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const fixture = createLayer()
 
       const pages = yield* listBoardMenuPages({}).pipe(Effect.provide(fixture.layer))
@@ -532,14 +535,15 @@ describe("board labels and view discovery operations", () => {
         String(board.menuPageId.Main),
         String(board.menuPageId.Archive)
       ])
-      expect((yield* listBoardMenuPages({ page: m("main") }).pipe(Effect.provide(fixture.layer))).pages[0]?.label)
-        .toBe("board:string:Main")
+      expect((yield* listBoardMenuPages({ page: m("main") }).pipe(Effect.provide(fixture.layer))).pages[0]?.label).toBe(
+        "board:string:Main"
+      )
 
       const savedViews = yield* listBoardSavedViews({ visibility: "own" }).pipe(Effect.provide(fixture.layer))
       expect(savedViews.savedViews[0]?.visibility).toBe("own")
       const savedView = yield* getBoardSavedView({ savedView: sv("Mine") }).pipe(Effect.provide(fixture.layer))
       expect(savedView.attachedTo).toBe(String(board.app.Board))
-      expect(savedView.filters).toBe("[{\"key\":\"status\"}]")
+      expect(savedView.filters).toBe('[{"key":"status"}]')
 
       const viewlets = yield* listBoardViewlets({}).pipe(Effect.provide(fixture.layer))
       expect(viewlets.viewlets.map((item) => item.title)).toEqual(["Kanban", "Table"])
@@ -554,10 +558,11 @@ describe("board labels and view discovery operations", () => {
         Effect.provide(createLayer({ commonPreferences: [] }).layer)
       )
       expect(absent).toEqual({ present: false, attachedTo: String(board.app.Board) })
-    }))
+    })
+  )
 
   it.effect("covers board view locator variants, visibility filters, and optional viewlet metadata", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const duplicateLabel = intl("board:string:Duplicate")
       const { sharable: _omittedSharable, ...sharedSavedView } = makeSavedView({
         _id: toRef<FilteredView>("saved-view-shared"),
@@ -569,22 +574,13 @@ describe("board labels and view discovery operations", () => {
         filterClass: _omittedFilterClass,
         viewOptions: _omittedViewOptions,
         ...minimalSavedView
-      } = makeSavedView({
-        _id: toRef<FilteredView>("saved-view-minimal"),
-        name: "Minimal"
-      })
-      const {
-        color: _omittedDescriptorColor,
-        ...blankDescriptor
-      } = makeDescriptor({
+      } = makeSavedView({ _id: toRef<FilteredView>("saved-view-minimal"), name: "Minimal" })
+      const { color: _omittedDescriptorColor, ...blankDescriptor } = makeDescriptor({
         _id: toRef<ViewletDescriptor>("descriptor-blank"),
         label: intl(" "),
         component: component("view:component:Blank")
       })
-      const {
-        props: _omittedProps,
-        ...blankViewlet
-      } = makeViewlet({
+      const { props: _omittedProps, ...blankViewlet } = makeViewlet({
         _id: toRef<Viewlet>("viewlet-blank"),
         descriptor: toRef<ViewletDescriptor>("descriptor-blank"),
         title: " ",
@@ -635,8 +631,9 @@ describe("board labels and view discovery operations", () => {
         viewletPreferences: []
       })
 
-      expect((yield* listBoardMenuPages({ page: m("menu-main") }).pipe(Effect.provide(fixture.layer))).pages[0]?.id)
-        .toBe("menu-main")
+      expect(
+        (yield* listBoardMenuPages({ page: m("menu-main") }).pipe(Effect.provide(fixture.layer))).pages[0]?.id
+      ).toBe("menu-main")
       expect(
         (yield* listBoardMenuPages({ page: m("board:string:Main") }).pipe(Effect.provide(fixture.layer))).pages[0]
           ?.pageId
@@ -662,9 +659,7 @@ describe("board labels and view discovery operations", () => {
         savedViews: [{ id: "saved-view-shared", name: "Shared", visibility: "shared", users: 0 }],
         total: 1
       })
-      const byId = yield* getBoardSavedView({ savedView: sv("saved-view-shared") }).pipe(
-        Effect.provide(fixture.layer)
-      )
+      const byId = yield* getBoardSavedView({ savedView: sv("saved-view-shared") }).pipe(Effect.provide(fixture.layer))
       expect(byId).not.toHaveProperty("viewletId")
       expect(byId).not.toHaveProperty("sharable")
       const minimal = yield* getBoardSavedView({ savedView: sv("saved-view-minimal") }).pipe(
@@ -672,16 +667,16 @@ describe("board labels and view discovery operations", () => {
       )
       expect(minimal).not.toHaveProperty("viewOptions")
       expect(minimal).not.toHaveProperty("filterClass")
-      expect(yield* Effect.flip(getBoardSavedView({ savedView: sv("Missing") }).pipe(Effect.provide(fixture.layer))))
-        .toBeInstanceOf(BoardSavedViewNotFoundError)
+      expect(
+        yield* Effect.flip(getBoardSavedView({ savedView: sv("Missing") }).pipe(Effect.provide(fixture.layer)))
+      ).toBeInstanceOf(BoardSavedViewNotFoundError)
 
-      const viewletById = yield* listBoardViewlets({ viewlet: v("viewlet-kanban") }).pipe(
-        Effect.provide(fixture.layer)
-      )
+      const viewletById = yield* listBoardViewlets({ viewlet: v("viewlet-kanban") }).pipe(Effect.provide(fixture.layer))
       expect(viewletById.viewlets[0]?.baseQuery).toEqual({ title: "Planning" })
       expect(viewletById.viewlets[0]?.descriptorInfo).toMatchObject({ hidden: true, readonly: true })
-      expect((yield* listBoardViewlets({ viewlet: v("table") }).pipe(Effect.provide(fixture.layer))).viewlets[0]?.id)
-        .toBe("viewlet-table")
+      expect(
+        (yield* listBoardViewlets({ viewlet: v("table") }).pipe(Effect.provide(fixture.layer))).viewlets[0]?.id
+      ).toBe("viewlet-table")
       expect(
         (yield* listBoardViewlets({ viewlet: v(String(view.viewlet.Table)) }).pipe(Effect.provide(fixture.layer)))
           .viewlets[0]?.variant
@@ -692,8 +687,9 @@ describe("board labels and view discovery operations", () => {
       expect(blank.viewlets[0]).not.toHaveProperty("props")
       expect(blank.viewlets[0]?.descriptorInfo).not.toHaveProperty("label")
       expect(blank.viewlets[0]?.descriptorInfo).not.toHaveProperty("color")
-      expect(yield* Effect.flip(listBoardViewlets({ viewlet: v("Missing") }).pipe(Effect.provide(fixture.layer))))
-        .toBeInstanceOf(BoardViewletNotFoundError)
+      expect(
+        yield* Effect.flip(listBoardViewlets({ viewlet: v("Missing") }).pipe(Effect.provide(fixture.layer)))
+      ).toBeInstanceOf(BoardViewletNotFoundError)
 
       const empty = yield* listBoardViewlets({}).pipe(
         Effect.provide(createLayer({ viewlets: [], descriptors: [], viewletPreferences: [] }).layer)
@@ -704,10 +700,11 @@ describe("board labels and view discovery operations", () => {
         Effect.provide(createLayer({ descriptors: [], viewletPreferences: [] }).layer)
       )
       expect(missingDescriptor.viewlets[0]).not.toHaveProperty("descriptorInfo")
-    }))
+    })
+  )
 
   it.effect("fails missing or ambiguous read-only board view locators", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const ambiguousSavedViewFixture = createLayer({
         savedViews: [makeSavedView(), makeSavedView({ _id: toRef<FilteredView>("saved-view-2") })]
       })
@@ -726,7 +723,9 @@ describe("board labels and view discovery operations", () => {
         )
       ).toBeInstanceOf(BoardViewletIdentifierAmbiguousError)
 
-      expect(yield* Effect.flip(listBoardMenuPages({ page: m("missing") }).pipe(Effect.provide(createLayer().layer))))
-        .toBeInstanceOf(BoardMenuPageNotFoundError)
-    }))
+      expect(
+        yield* Effect.flip(listBoardMenuPages({ page: m("missing") }).pipe(Effect.provide(createLayer().layer)))
+      ).toBeInstanceOf(BoardMenuPageNotFoundError)
+    })
+  )
 })

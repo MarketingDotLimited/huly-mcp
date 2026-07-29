@@ -101,19 +101,10 @@ const isAuthError = (error: unknown): boolean =>
   error instanceof PlatformError && AUTH_STATUS_CODES.has(error.status.code)
 
 const MAX_RETRIES = 2
-const connectionRetrySchedule = Schedule.exponential("100 millis").pipe(
-  Schedule.compose(Schedule.recurs(MAX_RETRIES))
-)
+const connectionRetrySchedule = Schedule.exponential("100 millis").pipe(Schedule.compose(Schedule.recurs(MAX_RETRIES)))
 
-const withConnectionRetry = <A>(
-  attempt: Effect.Effect<A, ConnectionError>
-): Effect.Effect<A, ConnectionError> =>
-  attempt.pipe(
-    Effect.retry({
-      schedule: connectionRetrySchedule,
-      while: (e) => !(e instanceof HulyAuthError)
-    })
-  )
+const withConnectionRetry = <A>(attempt: Effect.Effect<A, ConnectionError>): Effect.Effect<A, ConnectionError> =>
+  attempt.pipe(Effect.retry({ schedule: connectionRetrySchedule, while: (e) => !(e instanceof HulyAuthError) }))
 
 /**
  * Connect with retry: wraps a Promise-returning function in Effect.tryPromise,
@@ -128,17 +119,11 @@ export const connectWithRetry = <A>(
       try: connect,
       catch: (e) => {
         if (isAuthError(e)) {
-          return new HulyAuthError({
-            message: "Credentials or workspace authorization failed"
-          })
+          return new HulyAuthError({ message: "Credentials or workspace authorization failed" })
         }
         const [failureKind, detailCode] = classifyHulyUnavailableFailure(e)
         const endpointOrigin = normalizeHulyOrigin(endpointUrl)
-        const diagnostic = {
-          endpointOrigin,
-          failureKind,
-          ...(detailCode === undefined ? {} : { detailCode })
-        }
+        const diagnostic = { endpointOrigin, failureKind, ...(detailCode === undefined ? {} : { detailCode }) }
         return new HulyUnavailableError(diagnostic)
       }
     })
@@ -312,277 +297,176 @@ export interface HulyClientOperations extends HulyClientContext {
     attributes: MixinUpdate<D, M>
   ) => Effect.Effect<TxResult, HulyClientError>
 
-  readonly searchFulltext: (
-    query: SearchQuery,
-    options: SearchOptions
-  ) => Effect.Effect<SearchResult, HulyClientError>
+  readonly searchFulltext: (query: SearchQuery, options: SearchOptions) => Effect.Effect<SearchResult, HulyClientError>
 }
 
-export class HulyClient extends Context.Tag("@hulymcp/HulyClient")<
-  HulyClient,
-  HulyClientOperations
->() {
-  static readonly layerWithDependencies: Layer.Layer<
-    HulyClient,
-    HulyClientError,
-    HulyConfigService | HulySdk
-  > = Layer.effect(
-    HulyClient,
-    Effect.gen(function*() {
-      const config = yield* HulyConfigService
-      const sdk = yield* HulySdk
+export class HulyClient extends Context.Tag("@hulymcp/HulyClient")<HulyClient, HulyClientOperations>() {
+  static readonly layerWithDependencies: Layer.Layer<HulyClient, HulyClientError, HulyConfigService | HulySdk> =
+    Layer.effect(
+      HulyClient,
+      Effect.gen(function* () {
+        const config = yield* HulyConfigService
+        const sdk = yield* HulySdk
 
-      const {
-        accountUuid,
-        client,
-        imageUrl,
-        markupOps,
-        primarySocialId,
-        refUrl,
-        socialIds,
-        workspaceUrlSlug
-      } = yield* connectRestWithRetry({
-        url: config.url,
-        auth: config.auth,
-        workspace: config.workspace
-      }, sdk)
+        const { accountUuid, client, imageUrl, markupOps, primarySocialId, refUrl, socialIds, workspaceUrlSlug } =
+          yield* connectRestWithRetry({ url: config.url, auth: config.auth, workspace: config.workspace }, sdk)
 
-      const markupUrlConfig: MarkupUrlConfig = {
-        refUrl: UrlString.make(refUrl),
-        imageUrl: UrlString.make(imageUrl)
-      }
-      const workbenchUrlConfig: WorkbenchUrlConfig = {
-        baseUrl: UrlString.make(config.url),
-        workspaceUrlSlug
-      }
+        const markupUrlConfig: MarkupUrlConfig = { refUrl: UrlString.make(refUrl), imageUrl: UrlString.make(imageUrl) }
+        const workbenchUrlConfig: WorkbenchUrlConfig = { baseUrl: UrlString.make(config.url), workspaceUrlSlug }
 
-      const withClient = <A>(
-        op: (client: TxOperations) => Promise<A>,
-        errorMsg: string
-      ): Effect.Effect<A, HulyClientError> =>
-        Effect.tryPromise({
-          try: () => op(client),
-          catch: (e) =>
-            new HulyConnectionError({
-              message: `${errorMsg}: ${String(e)}`,
-              cause: e
-            })
-        })
-
-      const operations: HulyClientOperations = {
-        getAccountUuid: () => accountUuid,
-        getPrimarySocialId: () => primarySocialId,
-        getSocialIds: () => socialIds,
-        workbenchUrlConfig,
-        markupUrlConfig,
-
-        findAll: <T extends Doc>(
-          _class: Ref<Class<T>>,
-          query: DocumentQuery<T>,
-          options?: FindOptions<T>
-        ) =>
-          withClient(
-            (client) => client.findAll(_class, query, options),
-            "findAll failed"
-          ),
-
-        findOne: <T extends Doc>(
-          _class: Ref<Class<T>>,
-          query: DocumentQuery<T>,
-          options?: FindOptions<T>
-        ) =>
-          withClient(
-            (client) => client.findOne(_class, query, options),
-            "findOne failed"
-          ),
-
-        findAllInModel: <T extends Doc>(
-          _class: Ref<Class<T>>,
-          query: DocumentQuery<T>,
-          options?: FindOptions<T>
-        ) =>
-          withClient(
-            (client) => Promise.resolve(client.getModel().findAllSync(_class, query, options)),
-            "findAllInModel failed"
-          ),
-
-        createDoc: <T extends Doc>(
-          _class: Ref<Class<T>>,
-          space: Ref<Space>,
-          attributes: Data<T>,
-          id?: Ref<T>
-        ) =>
-          withClient(
-            (client) => client.createDoc(_class, space, attributes, id),
-            "createDoc failed"
-          ),
-
-        updateDoc: <T extends Doc>(
-          _class: Ref<Class<T>>,
-          space: Ref<Space>,
-          objectId: Ref<T>,
-          ops: DocumentUpdate<T>,
-          retrieve?: boolean
-        ) =>
-          withClient(
-            (client) => client.updateDoc(_class, space, objectId, ops, retrieve),
-            "updateDoc failed"
-          ),
-
-        addCollection: <T extends Doc, P extends AttachedDoc>(
-          _class: Ref<Class<P>>,
-          space: Ref<Space>,
-          attachedTo: Ref<T>,
-          attachedToClass: Ref<Class<T>>,
-          collection: string,
-          attributes: AttachedData<P>,
-          id?: Ref<P>
-        ) =>
-          withClient(
-            (client) =>
-              client.addCollection(
-                _class,
-                space,
-                attachedTo,
-                attachedToClass,
-                collection,
-                attributes,
-                id
-              ),
-            "addCollection failed"
-          ),
-
-        updateCollection: <T extends Doc, P extends AttachedDoc>(
-          _class: Ref<Class<P>>,
-          space: Ref<Space>,
-          objectId: Ref<P>,
-          attachedTo: Ref<T>,
-          attachedToClass: Ref<Class<T>>,
-          collection: Extract<keyof T, string> | string,
-          operations: DocumentUpdate<P>,
-          retrieve?: boolean
-        ) =>
-          withClient(
-            (client) =>
-              client.updateCollection(
-                _class,
-                space,
-                objectId,
-                attachedTo,
-                attachedToClass,
-                collection,
-                operations,
-                retrieve
-              ),
-            "updateCollection failed"
-          ),
-
-        removeCollection: <T extends Doc, P extends AttachedDoc>(
-          _class: Ref<Class<P>>,
-          space: Ref<Space>,
-          objectId: Ref<P>,
-          attachedTo: Ref<T>,
-          attachedToClass: Ref<Class<T>>,
-          collection: Extract<keyof T, string> | string
-        ) =>
-          withClient(
-            (client) => client.removeCollection(_class, space, objectId, attachedTo, attachedToClass, collection),
-            "removeCollection failed"
-          ),
-
-        removeDoc: <T extends Doc>(
-          _class: Ref<Class<T>>,
-          space: Ref<Space>,
-          objectId: Ref<T>
-        ) =>
-          withClient(
-            (client) => client.removeDoc(_class, space, objectId),
-            "removeDoc failed"
-          ),
-
-        createMixin: <D extends Doc, M extends D>(
-          objectId: Ref<D>,
-          objectClass: Ref<Class<D>>,
-          objectSpace: Ref<Space>,
-          mixin: Ref<Mixin<M>>,
-          attributes: MixinData<D, M>
-        ) =>
-          withClient(
-            (client) => client.createMixin(objectId, objectClass, objectSpace, mixin, attributes),
-            "createMixin failed"
-          ),
-
-        updateMixin: <D extends Doc, M extends D>(
-          objectId: Ref<D>,
-          objectClass: Ref<Class<D>>,
-          objectSpace: Ref<Space>,
-          mixin: Ref<Mixin<M>>,
-          attributes: MixinUpdate<D, M>
-        ) =>
-          withClient(
-            (client) => client.updateMixin(objectId, objectClass, objectSpace, mixin, attributes),
-            "updateMixin failed"
-          ),
-
-        uploadMarkup: (objectClass, objectId, objectAttr, markup, format) =>
+        const withClient = <A>(
+          op: (client: TxOperations) => Promise<A>,
+          errorMsg: string
+        ): Effect.Effect<A, HulyClientError> =>
           Effect.tryPromise({
-            try: () => markupOps.uploadMarkup(objectClass, objectId, objectAttr, markup, format),
-            catch: (e) =>
-              new HulyConnectionError({
-                message: `uploadMarkup failed: ${String(e)}`,
-                cause: e
-              })
-          }),
+            try: () => op(client),
+            catch: (e) => new HulyConnectionError({ message: `${errorMsg}: ${String(e)}`, cause: e })
+          })
 
-        fetchMarkup: (objectClass, objectId, objectAttr, id, format) =>
-          Effect.tryPromise({
-            try: () => markupOps.fetchMarkup(objectClass, objectId, objectAttr, id, format),
-            catch: (e) =>
-              new HulyConnectionError({
-                message: `fetchMarkup failed: ${String(e)}`,
-                cause: e
-              })
-          }),
+        const operations: HulyClientOperations = {
+          getAccountUuid: () => accountUuid,
+          getPrimarySocialId: () => primarySocialId,
+          getSocialIds: () => socialIds,
+          workbenchUrlConfig,
+          markupUrlConfig,
 
-        updateMarkup: (objectClass, objectId, objectAttr, markup, format) =>
-          Effect.tryPromise({
-            try: () => markupOps.updateMarkup(objectClass, objectId, objectAttr, markup, format),
-            catch: (e) =>
-              new HulyConnectionError({
-                message: `updateMarkup failed: ${String(e)}`,
-                cause: e
-              })
-          }),
+          findAll: <T extends Doc>(_class: Ref<Class<T>>, query: DocumentQuery<T>, options?: FindOptions<T>) =>
+            withClient((client) => client.findAll(_class, query, options), "findAll failed"),
 
-        searchFulltext: (query, options) =>
-          withClient(
-            (client) => client.searchFulltext(query, options),
-            "searchFulltext failed"
-          )
-      }
+          findOne: <T extends Doc>(_class: Ref<Class<T>>, query: DocumentQuery<T>, options?: FindOptions<T>) =>
+            withClient((client) => client.findOne(_class, query, options), "findOne failed"),
 
-      return operations
-    })
-  )
+          findAllInModel: <T extends Doc>(_class: Ref<Class<T>>, query: DocumentQuery<T>, options?: FindOptions<T>) =>
+            withClient(
+              (client) => Promise.resolve(client.getModel().findAllSync(_class, query, options)),
+              "findAllInModel failed"
+            ),
 
-  static readonly layer: Layer.Layer<
-    HulyClient,
-    HulyClientError,
-    HulyConfigService
-  > = HulyClient.layerWithDependencies.pipe(Layer.provide(HulySdk.defaultLayer))
+          createDoc: <T extends Doc>(_class: Ref<Class<T>>, space: Ref<Space>, attributes: Data<T>, id?: Ref<T>) =>
+            withClient((client) => client.createDoc(_class, space, attributes, id), "createDoc failed"),
 
-  static testLayer(
-    mockOperations: Partial<HulyClientOperations>
-  ): Layer.Layer<HulyClient> {
-    const noopFindAll = <T extends Doc>(): Effect.Effect<
-      FindResult<T>,
-      HulyClientError
-    > => Effect.succeed(toFindResult<T>([]))
+          updateDoc: <T extends Doc>(
+            _class: Ref<Class<T>>,
+            space: Ref<Space>,
+            objectId: Ref<T>,
+            ops: DocumentUpdate<T>,
+            retrieve?: boolean
+          ) => withClient((client) => client.updateDoc(_class, space, objectId, ops, retrieve), "updateDoc failed"),
 
-    const noopFindOne = <T extends Doc>(): Effect.Effect<
-      WithLookup<T> | undefined,
-      HulyClientError
-    > => Effect.succeed(undefined)
+          addCollection: <T extends Doc, P extends AttachedDoc>(
+            _class: Ref<Class<P>>,
+            space: Ref<Space>,
+            attachedTo: Ref<T>,
+            attachedToClass: Ref<Class<T>>,
+            collection: string,
+            attributes: AttachedData<P>,
+            id?: Ref<P>
+          ) =>
+            withClient(
+              (client) => client.addCollection(_class, space, attachedTo, attachedToClass, collection, attributes, id),
+              "addCollection failed"
+            ),
+
+          updateCollection: <T extends Doc, P extends AttachedDoc>(
+            _class: Ref<Class<P>>,
+            space: Ref<Space>,
+            objectId: Ref<P>,
+            attachedTo: Ref<T>,
+            attachedToClass: Ref<Class<T>>,
+            collection: Extract<keyof T, string> | string,
+            operations: DocumentUpdate<P>,
+            retrieve?: boolean
+          ) =>
+            withClient(
+              (client) =>
+                client.updateCollection(
+                  _class,
+                  space,
+                  objectId,
+                  attachedTo,
+                  attachedToClass,
+                  collection,
+                  operations,
+                  retrieve
+                ),
+              "updateCollection failed"
+            ),
+
+          removeCollection: <T extends Doc, P extends AttachedDoc>(
+            _class: Ref<Class<P>>,
+            space: Ref<Space>,
+            objectId: Ref<P>,
+            attachedTo: Ref<T>,
+            attachedToClass: Ref<Class<T>>,
+            collection: Extract<keyof T, string> | string
+          ) =>
+            withClient(
+              (client) => client.removeCollection(_class, space, objectId, attachedTo, attachedToClass, collection),
+              "removeCollection failed"
+            ),
+
+          removeDoc: <T extends Doc>(_class: Ref<Class<T>>, space: Ref<Space>, objectId: Ref<T>) =>
+            withClient((client) => client.removeDoc(_class, space, objectId), "removeDoc failed"),
+
+          createMixin: <D extends Doc, M extends D>(
+            objectId: Ref<D>,
+            objectClass: Ref<Class<D>>,
+            objectSpace: Ref<Space>,
+            mixin: Ref<Mixin<M>>,
+            attributes: MixinData<D, M>
+          ) =>
+            withClient(
+              (client) => client.createMixin(objectId, objectClass, objectSpace, mixin, attributes),
+              "createMixin failed"
+            ),
+
+          updateMixin: <D extends Doc, M extends D>(
+            objectId: Ref<D>,
+            objectClass: Ref<Class<D>>,
+            objectSpace: Ref<Space>,
+            mixin: Ref<Mixin<M>>,
+            attributes: MixinUpdate<D, M>
+          ) =>
+            withClient(
+              (client) => client.updateMixin(objectId, objectClass, objectSpace, mixin, attributes),
+              "updateMixin failed"
+            ),
+
+          uploadMarkup: (objectClass, objectId, objectAttr, markup, format) =>
+            Effect.tryPromise({
+              try: () => markupOps.uploadMarkup(objectClass, objectId, objectAttr, markup, format),
+              catch: (e) => new HulyConnectionError({ message: `uploadMarkup failed: ${String(e)}`, cause: e })
+            }),
+
+          fetchMarkup: (objectClass, objectId, objectAttr, id, format) =>
+            Effect.tryPromise({
+              try: () => markupOps.fetchMarkup(objectClass, objectId, objectAttr, id, format),
+              catch: (e) => new HulyConnectionError({ message: `fetchMarkup failed: ${String(e)}`, cause: e })
+            }),
+
+          updateMarkup: (objectClass, objectId, objectAttr, markup, format) =>
+            Effect.tryPromise({
+              try: () => markupOps.updateMarkup(objectClass, objectId, objectAttr, markup, format),
+              catch: (e) => new HulyConnectionError({ message: `updateMarkup failed: ${String(e)}`, cause: e })
+            }),
+
+          searchFulltext: (query, options) =>
+            withClient((client) => client.searchFulltext(query, options), "searchFulltext failed")
+        }
+
+        return operations
+      })
+    )
+
+  static readonly layer: Layer.Layer<HulyClient, HulyClientError, HulyConfigService> =
+    HulyClient.layerWithDependencies.pipe(Layer.provide(HulySdk.defaultLayer))
+
+  static testLayer(mockOperations: Partial<HulyClientOperations>): Layer.Layer<HulyClient> {
+    const noopFindAll = <T extends Doc>(): Effect.Effect<FindResult<T>, HulyClientError> =>
+      Effect.succeed(toFindResult<T>([]))
+
+    const noopFindOne = <T extends Doc>(): Effect.Effect<WithLookup<T> | undefined, HulyClientError> =>
+      Effect.succeed(undefined)
 
     const notImplemented = (name: string) => (): Effect.Effect<never, HulyClientError> =>
       Effect.die(new Error(`${name} not implemented in test layer`))
@@ -697,19 +581,12 @@ function createMarkupOps(
   }
 }
 
-const connectRest = async (
-  config: ConnectionConfig,
-  sdk: HulySdkDependencies
-): Promise<RestConnection> => {
+const connectRest = async (config: ConnectionConfig, sdk: HulySdkDependencies): Promise<RestConnection> => {
   const serverConfig = await sdk.loadServerConfig(config.url)
 
   const authOptions = authToOptions(config.auth, config.workspace)
 
-  const { endpoint, info, token, workspaceId } = await sdk.getWorkspaceToken(
-    config.url,
-    authOptions,
-    serverConfig
-  )
+  const { endpoint, info, token, workspaceId } = await sdk.getWorkspaceToken(config.url, authOptions, serverConfig)
 
   // createRestTxOperations also calls getAccount() internally but doesn't expose it.
   // Extra call here is one-time at connection startup; acceptable to avoid reimplementing SDK internals.
@@ -722,13 +599,11 @@ const connectRest = async (
     token,
     LOAD_FULL_MODEL_FOR_AUTHORITATIVE_METADATA
   )
-  const { imageUrl, ops: markupOps, refUrl } = createMarkupOps(
-    config.url,
-    workspaceId,
-    token,
-    serverConfig.COLLABORATOR_URL,
-    sdk
-  )
+  const {
+    imageUrl,
+    ops: markupOps,
+    refUrl
+  } = createMarkupOps(config.url, workspaceId, token, serverConfig.COLLABORATOR_URL, sdk)
 
   return {
     client,

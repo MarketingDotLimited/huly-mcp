@@ -15,11 +15,11 @@ type PersistentNoticeState = "pending" | "claimed" | "delivered"
 export type ToolCallNoticeClaim =
   | { readonly _tag: "None" }
   | {
-    readonly _tag: "Claimed"
-    readonly warning: ToolWarning
-    readonly delivered: () => void
-    readonly release: () => void
-  }
+      readonly _tag: "Claimed"
+      readonly warning: ToolWarning
+      readonly delivered: () => void
+      readonly release: () => void
+    }
 
 export interface ToolCallNoticeProvider {
   readonly claim: () => ToolCallNoticeClaim
@@ -32,9 +32,7 @@ interface HostedHulyMigrationNoticeConfig {
 
 const noNoticeClaim: ToolCallNoticeClaim = { _tag: "None" }
 
-export const noToolCallNoticeProvider: ToolCallNoticeProvider = {
-  claim: () => noNoticeClaim
-}
+export const noToolCallNoticeProvider: ToolCallNoticeProvider = { claim: () => noNoticeClaim }
 
 const isHostedHulyOrigin = (origin: SanitizedHulyOrigin): boolean =>
   origin !== undefined && isDefaultHulyCloudOrigin(normalizeHulyOrigin(origin))
@@ -45,12 +43,7 @@ export const hostedHulyMigrationInstructionsForOrigin = (
   isHostedHulyOrigin(origin) ? HOSTED_HULY_MIGRATION_INSTRUCTIONS : undefined
 
 const alwaysNoticeProvider = (): ToolCallNoticeProvider => ({
-  claim: () => ({
-    _tag: "Claimed",
-    warning: HOSTED_HULY_MIGRATION_WARNING,
-    delivered: () => {},
-    release: () => {}
-  })
+  claim: () => ({ _tag: "Claimed", warning: HOSTED_HULY_MIGRATION_WARNING, delivered: () => {}, release: () => {} })
 })
 
 const onceNoticeProvider = (): ToolCallNoticeProvider => {

@@ -28,10 +28,7 @@ type IssueLabelAttachmentBoundary = Schema.Schema.Type<typeof IssueLabelAttachme
 const NormalizedLabelTitle = NonEmptyString.pipe(Schema.brand("NormalizedLabelTitle"))
 type NormalizedLabelTitle = Schema.Schema.Type<typeof NormalizedLabelTitle>
 
-type IssueLabelDegradationReason =
-  | "malformed_attachment"
-  | "missing_or_malformed_title"
-  | "invalid_color"
+type IssueLabelDegradationReason = "malformed_attachment" | "missing_or_malformed_title" | "invalid_color"
 
 interface IssueLabelCandidate {
   readonly referenceId: TagReferenceId
@@ -47,19 +44,13 @@ interface IssueLabelIndex {
 }
 
 type IssueLabelCandidateProjection =
+  | { readonly _tag: "Success"; readonly candidate: IssueLabelCandidate }
   | {
-    readonly _tag: "Success"
-    readonly candidate: IssueLabelCandidate
-  }
-  | {
-    readonly _tag: "DegradedSuccess"
-    readonly candidate: IssueLabelCandidate
-    readonly degradationReason: "invalid_color"
-  }
-  | {
-    readonly _tag: "Rejected"
-    readonly degradationReason: "malformed_attachment" | "missing_or_malformed_title"
-  }
+      readonly _tag: "DegradedSuccess"
+      readonly candidate: IssueLabelCandidate
+      readonly degradationReason: "invalid_color"
+    }
+  | { readonly _tag: "Rejected"; readonly degradationReason: "malformed_attachment" | "missing_or_malformed_title" }
 
 const decodeAttachment = Schema.decodeUnknownEither(IssueLabelAttachmentBoundarySchema)
 const decodeTitle = Schema.decodeUnknownEither(NonEmptyString)
@@ -128,8 +119,8 @@ const projectionDegradationReason = (
 const projectCandidateGroup = (candidates: ReadonlyArray<IssueLabelCandidate>): ReadonlyArray<Label> => {
   const sorted = [...candidates].sort(compareCandidates)
   return sorted
-    .filter((candidate, index) =>
-      sorted.findIndex((other) => other.normalizedTitle === candidate.normalizedTitle) === index
+    .filter(
+      (candidate, index) => sorted.findIndex((other) => other.normalizedTitle === candidate.normalizedTitle) === index
     )
     .map((candidate) => ({
       title: candidate.title,
@@ -163,22 +154,19 @@ const degradationMessage = (reasons: ReadonlyArray<IssueLabelDegradationReason>)
   const malformedAttachments = countReason(reasons, "malformed_attachment")
   const malformedTitles = countReason(reasons, "missing_or_malformed_title")
   const invalidColors = countReason(reasons, "invalid_color")
-  return `Issue label summaries omitted or partially projected malformed Huly metadata: `
-    + `${malformedAttachments} malformed attachment(s), `
-    + `${malformedTitles} missing or malformed title(s), and `
-    + `${invalidColors} invalid color(s). `
-    + `Duplicate case-insensitive titles prefer a reference with a valid color.`
+  return (
+    `Issue label summaries omitted or partially projected malformed Huly metadata: ` +
+    `${malformedAttachments} malformed attachment(s), ` +
+    `${malformedTitles} missing or malformed title(s), and ` +
+    `${invalidColors} invalid color(s). ` +
+    `Duplicate case-insensitive titles prefer a reference with a valid color.`
+  )
 }
 
-export const labelsForIssue = (
-  index: IssueLabelIndex,
-  issueId: Ref<HulyIssue>
-): ReadonlyArray<Label> => index.byIssueId.get(IssueId.make(issueId)) ?? []
+export const labelsForIssue = (index: IssueLabelIndex, issueId: Ref<HulyIssue>): ReadonlyArray<Label> =>
+  index.byIssueId.get(IssueId.make(issueId)) ?? []
 
-export const issueIdsMatchingLabel = (
-  index: IssueLabelIndex,
-  label: NonEmptyString
-): Array<Ref<HulyIssue>> => {
+export const issueIdsMatchingLabel = (index: IssueLabelIndex, label: NonEmptyString): Array<Ref<HulyIssue>> => {
   const normalizedFilter = normalizeLabelTitle(label)
   return [...index.byIssueId]
     .filter(([, labels]) => labels.some((summary) => normalizeLabelTitle(summary.title) === normalizedFilter))
@@ -191,7 +179,7 @@ export const loadIssueLabelIndex = (
   space: TagReference["space"],
   issueIds?: ReadonlyArray<Ref<HulyIssue>>
 ): Effect.Effect<IssueLabelIndex, HulyClientError, Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (issueIds !== undefined && issueIds.length === 0) return buildIssueLabelIndex([])
 
     const diagnostics = yield* Diagnostics
@@ -200,14 +188,10 @@ export const loadIssueLabelIndex = (
       attachedToClass: tracker.class.Issue,
       collection: "labels"
     }
-    const query: StrictDocumentQuery<TagReference> = issueIds === undefined
-      ? baseQuery
-      : { ...baseQuery, attachedTo: { $in: issueIds.map(toDocRef) } }
+    const query: StrictDocumentQuery<TagReference> =
+      issueIds === undefined ? baseQuery : { ...baseQuery, attachedTo: { $in: issueIds.map(toDocRef) } }
 
-    const attachments = yield* client.findAll<TagReference>(
-      tags.class.TagReference,
-      hulyQuery(query)
-    )
+    const attachments = yield* client.findAll<TagReference>(tags.class.TagReference, hulyQuery(query))
     const index = buildIssueLabelIndex(attachments)
     if (index.degradationReasons.length > 0) {
       yield* diagnostics.warnAgent({

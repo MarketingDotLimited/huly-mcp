@@ -43,14 +43,14 @@ export const ProjectTargetPreferencePropertySchema = Schema.Struct({
 export type ProjectTargetPreferenceProperty = Schema.Schema.Type<typeof ProjectTargetPreferencePropertySchema>
 
 export const ListProjectTargetPreferencesParamsSchema = Schema.Struct({
-  project: Schema.optional(ProjectIdentifier.annotations({
-    description:
-      "Optional project identifier. Omit to list recent low-level project target preference records across projects."
-  })),
-  limit: Schema.optional(
-    LimitParam.annotations({
-      description: `Maximum number of preferences to return (default: ${DEFAULT_LIMIT}).`
+  project: Schema.optional(
+    ProjectIdentifier.annotations({
+      description:
+        "Optional project identifier. Omit to list recent low-level project target preference records across projects."
     })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of preferences to return (default: ${DEFAULT_LIMIT}).` })
   )
 }).annotations({
   title: "ListProjectTargetPreferencesParams",

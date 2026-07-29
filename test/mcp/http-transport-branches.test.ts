@@ -37,9 +37,7 @@ interface Probe<Args extends Array<unknown>, Result> {
   readonly fn: (...args: Args) => Result
 }
 
-const createProbe = <Args extends Array<unknown>, Result>(
-  impl: (...args: Args) => Result
-): Probe<Args, Result> => {
+const createProbe = <Args extends Array<unknown>, Result>(impl: (...args: Args) => Result): Probe<Args, Result> => {
   const calls: Array<Args> = []
   return {
     calls,
@@ -57,11 +55,7 @@ const createMockExpressApp = () => {
     get: Record<string, (req: Request, res: Response) => Promise<void>>
     post: Record<string, (req: Request, res: Response) => Promise<void>>
     delete: Record<string, (req: Request, res: Response) => Promise<void>>
-  } = {
-    get: {},
-    post: {},
-    delete: {}
-  }
+  } = { get: {}, post: {}, delete: {} }
 
   const app = mock<Express>({
     get: createProbe<[string, (req: Request, res: Response) => Promise<void>], void>((path, handler) => {
@@ -106,18 +100,12 @@ const createMockResponse = () => {
   return response
 }
 
-const getResponseCalls = (response: Response): {
-  status: Array<[number]>
-  json: Array<[unknown]>
-} =>
+const getResponseCalls = (response: Response): { status: Array<[number]>; json: Array<[unknown]> } =>
   // eslint-disable-next-line no-restricted-syntax -- test probe metadata is attached to a structural fake
   (response as unknown as { __calls: { status: Array<[number]>; json: Array<[unknown]> } }).__calls
 
 const createMockRequest = (body: unknown = {}): Request =>
-  mock<Request>({
-    body,
-    on: createVoidProbe<[string, (...args: Array<unknown>) => void]>().fn
-  })
+  mock<Request>({ body, on: createVoidProbe<[string, (...args: Array<unknown>) => void]>().fn })
 
 describe("HTTP Transport - Branch Coverage", () => {
   describe("createMcpHandlers - headersSent check (line 135)", () => {
@@ -145,41 +133,30 @@ describe("HTTP Transport - Branch Coverage", () => {
       const closeProbe = createProbe<[((err?: Error) => void)?], void>((cb) => {
         cb?.(new Error("Close failed"))
       })
-      const mockHttp = mock<http.Server>({
-        close: closeProbe.fn
-      })
+      const mockHttp = mock<http.Server>({ close: closeProbe.fn })
       const writeError = createProbe<[string], void>(() => undefined)
 
       const mockFactory: HttpServerFactory = {
         createApp: createProbe<[string], Express>(() => app).fn,
-        listen: createProbe<[Express, number, string], Effect.Effect<http.Server, never>>(
-          () => Effect.succeed(mockHttp)
+        listen: createProbe<[Express, number, string], Effect.Effect<http.Server, never>>(() =>
+          Effect.succeed(mockHttp)
         ).fn,
         writeError: writeError.fn
       }
 
       const mockMcpServer = createMockMcpServer()
 
-      const program = startHttpTransport(
-        { port: 3000, host: "127.0.0.1" },
-        () => mockMcpServer
-      ).pipe(
+      const program = startHttpTransport({ port: 3000, host: "127.0.0.1" }, () => mockMcpServer).pipe(
         Effect.scoped,
         Effect.timeout(10),
         Effect.ignore
       )
 
-      await Effect.runPromise(
-        program.pipe(
-          Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))
-        )
-      )
+      await Effect.runPromise(program.pipe(Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))))
 
       expect(closeProbe.calls).toHaveLength(1)
       // Verify the error was caught and logged to stderr rather than crashing
-      const closeErrorCall = writeError.calls.find(
-        (call) => assertAt(call, 0).includes("Server close error")
-      )
+      const closeErrorCall = writeError.calls.find((call) => assertAt(call, 0).includes("Server close error"))
       expect(closeErrorCall).toBeDefined()
     })
   })

@@ -17,16 +17,13 @@ const optionalRoomName = (value: string | undefined): RoomName | undefined => {
 const roomReference = (
   roomId: HulyMeeting["room"],
   rooms: ReadonlyMap<HulyMeeting["room"], HulyRoom>
-): RoomReference => ({
-  roomId: RoomId.make(roomId),
-  name: optionalRoomName(rooms.get(roomId)?.name)
-})
+): RoomReference => ({ roomId: RoomId.make(roomId), name: optionalRoomName(rooms.get(roomId)?.name) })
 
 export const lookupEventRooms = (
   client: HulyClient["Type"],
   events: ReadonlyArray<HulyEvent>
 ): Effect.Effect<ReadonlyMap<string, RoomReference>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const eventIds = events.map((event) => toRef<HulyMeeting>(event._id))
     if (eventIds.length === 0) return new Map()
 
@@ -37,10 +34,7 @@ export const lookupEventRooms = (
     const roomIds = [...new Set(meetings.map((meeting) => meeting.room))]
     if (roomIds.length === 0) return new Map()
 
-    const rooms = yield* client.findAll<HulyRoom>(
-      love.class.Room,
-      hulyQuery<HulyRoom>({ _id: { $in: roomIds } })
-    )
+    const rooms = yield* client.findAll<HulyRoom>(love.class.Room, hulyQuery<HulyRoom>({ _id: { $in: roomIds } }))
     const roomsById = new Map(rooms.map((room) => [room._id, room]))
     return new Map(meetings.map((meeting) => [String(meeting._id), roomReference(meeting.room, roomsById)]))
   })

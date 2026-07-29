@@ -21,12 +21,7 @@ import {
   type FieldSpec
 } from "./schema-fields.js"
 
-export class CliInputError extends Schema.TaggedError<CliInputError>()(
-  "CliInputError",
-  {
-    message: Schema.String
-  }
-) {}
+export class CliInputError extends Schema.TaggedError<CliInputError>()("CliInputError", { message: Schema.String }) {}
 
 interface CliInvocation {
   readonly globals: CliGlobalOptions
@@ -36,10 +31,7 @@ interface CliInvocation {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
 
-const parseJsonObjectText = (
-  source: string,
-  text: string
-): Effect.Effect<Record<string, unknown>, CliInputError> =>
+const parseJsonObjectText = (source: string, text: string): Effect.Effect<Record<string, unknown>, CliInputError> =>
   Effect.try({
     try: () => {
       const parsed: unknown = JSON.parse(text)
@@ -83,11 +75,7 @@ const parseJsonValue = (fieldName: string, raw: string): Effect.Effect<unknown, 
     catch: (error) => new CliInputError({ message: `Option ${fieldName} has invalid JSON: ${String(error)}` })
   })
 
-const parseFieldValue = (
-  rootSchema: object,
-  field: FieldSpec,
-  raw: string
-): Effect.Effect<unknown, CliInputError> => {
+const parseFieldValue = (rootSchema: object, field: FieldSpec, raw: string): Effect.Effect<unknown, CliInputError> => {
   const acceptsBoolean = fieldAcceptsBoolean(rootSchema, field)
   const acceptsNumber = fieldAcceptsNumber(rootSchema, field)
   const acceptsString = fieldAcceptsString(rootSchema, field)
@@ -111,15 +99,15 @@ const parseFieldValue = (
 const collectSourceInput = (
   options: ReadonlyArray<ParsedCliOption>
 ): Effect.Effect<Record<string, unknown>, CliInputError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     let input: Record<string, unknown> = {}
     for (const option of options) {
       if (option._tag === "GlobalOption" && option.name === "input-json") {
-        input = { ...input, ...yield* parseJsonObjectText("--input-json", option.value) }
+        input = { ...input, ...(yield* parseJsonObjectText("--input-json", option.value)) }
       }
       if (option._tag === "GlobalOption" && option.name === "input-file") {
         const content = yield* readTextFile(option.value)
-        input = { ...input, ...yield* parseJsonObjectText(option.value, content) }
+        input = { ...input, ...(yield* parseJsonObjectText(option.value, content)) }
       }
     }
     return input
@@ -131,7 +119,7 @@ const collectPositionals = (
   rootSchema: object,
   fields: ReadonlyMap<string, FieldSpec>
 ): Effect.Effect<Record<string, unknown>, CliInputError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const unknownOption = positionals.find((value) => value.startsWith("--"))
     if (unknownOption !== undefined) {
       return yield* new CliInputError({ message: `Unknown option ${unknownOption}.` })
@@ -162,16 +150,15 @@ const collectExplicitOptions = (
   rootSchema: object,
   fields: ReadonlyMap<string, FieldSpec>
 ): Effect.Effect<Record<string, unknown>, CliInputError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const input: Record<string, unknown> = {}
     for (const option of parsed.options) {
       if (option._tag === "BooleanFieldOption" && rawOptionPresent(parsed.raw, option.optionName)) {
         const field = fields.get(option.optionName)
         const inlineValue = rawOptionInlineValue(parsed.raw, option.optionName)
         if (field !== undefined) {
-          input[option.fieldName] = inlineValue === undefined
-            ? option.value
-            : yield* parseBooleanValue(option.fieldName, inlineValue)
+          input[option.fieldName] =
+            inlineValue === undefined ? option.value : yield* parseBooleanValue(option.fieldName, inlineValue)
         }
       }
       if (option._tag === "FieldOption") {
@@ -189,11 +176,12 @@ const rawGlobalBooleanValue = (
   raw: ReadonlyArray<string>,
   name: "json" | "yes"
 ): Effect.Effect<boolean, CliInputError> => {
-  const matching = raw.filter((token) =>
-    token === `--${name}`
-    || token === `--no-${name}`
-    || token.startsWith(`--${name}=`)
-    || token.startsWith(`--no-${name}=`)
+  const matching = raw.filter(
+    (token) =>
+      token === `--${name}` ||
+      token === `--no-${name}` ||
+      token.startsWith(`--${name}=`) ||
+      token.startsWith(`--no-${name}=`)
   )
   const last = matching[matching.length - 1]
   if (last === undefined || last === `--no-${name}`) return Effect.succeed(false)
@@ -205,7 +193,7 @@ const collectGlobalOptions = (
   options: ReadonlyArray<ParsedCliOption>,
   raw: ReadonlyArray<string>
 ): Effect.Effect<CliGlobalOptions, CliInputError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const json = yield* rawGlobalBooleanValue(raw, "json")
     const yes = yield* rawGlobalBooleanValue(raw, "yes")
     let output: string | undefined
@@ -222,19 +210,12 @@ export const buildCliInvocation = (
   spec: CliCommandSpec,
   parsed: ParsedCliCommandLine
 ): Effect.Effect<CliInvocation, CliInputError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const fields = collectFieldSpecs(tool.inputSchema)
     const sourceInput = yield* collectSourceInput(parsed.options)
     const explicitInput = yield* collectExplicitOptions(parsed, tool.inputSchema, fields)
     const positionalInput = yield* collectPositionals(spec, parsed.positionals, tool.inputSchema, fields)
     const globals = yield* collectGlobalOptions(parsed.options, parsed.raw)
 
-    return {
-      globals,
-      input: {
-        ...sourceInput,
-        ...positionalInput,
-        ...explicitInput
-      }
-    }
+    return { globals, input: { ...sourceInput, ...positionalInput, ...explicitInput } }
   })

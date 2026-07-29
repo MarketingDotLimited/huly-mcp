@@ -67,7 +67,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       let filtered = [...teamspaces]
       if (q.archived !== undefined) {
-        filtered = filtered.filter(ts => ts.archived === q.archived)
+        filtered = filtered.filter((ts) => ts.archived === q.archived)
       }
       return Effect.succeed(toFindResult(filtered))
     }
@@ -77,7 +77,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
         config.captureDocumentQuery.options = options as Record<string, unknown>
       }
       const q = query as Record<string, unknown>
-      const filtered = documents.filter(d => d.space === q.space)
+      const filtered = documents.filter((d) => d.space === q.space)
       return Effect.succeed(toFindResult(filtered))
     }
     return Effect.succeed(toFindResult([]))
@@ -86,18 +86,16 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === documentPlugin.class.Teamspace) {
       const q = query as Record<string, unknown>
-      const found = teamspaces.find(ts =>
-        (q.name && ts.name === q.name)
-        || (q._id && ts._id === q._id)
-      )
+      const found = teamspaces.find((ts) => (q.name && ts.name === q.name) || (q._id && ts._id === q._id))
       return Effect.succeed(found)
     }
     if (_class === documentPlugin.class.Document) {
       const q = query as Record<string, unknown>
-      const found = documents.find(d =>
-        (q.space && q.title && d.space === q.space && d.title === q.title)
-        || (q.space && q._id && d.space === q.space && d._id === q._id)
-        || (q.space && !q.title && !q._id && d.space === q.space)
+      const found = documents.find(
+        (d) =>
+          (q.space && q.title && d.space === q.space && d.title === q.title) ||
+          (q.space && q._id && d.space === q.space && d._id === q._id) ||
+          (q.space && !q.title && !q._id && d.space === q.space)
       )
       return Effect.succeed(found)
     }
@@ -105,21 +103,27 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   }) as HulyClientOperations["findOne"]
 
   const markupContent = config.markupContent ?? {}
-  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = (
-    (_objectClass: unknown, _objectId: unknown, _objectAttr: unknown, id: unknown) => {
-      const content = markupContent[id as string] ?? ""
-      return Effect.succeed(content)
-    }
-  ) as HulyClientOperations["fetchMarkup"]
+  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = ((
+    _objectClass: unknown,
+    _objectId: unknown,
+    _objectAttr: unknown,
+    id: unknown
+  ) => {
+    const content = markupContent[id as string] ?? ""
+    return Effect.succeed(content)
+  }) as HulyClientOperations["fetchMarkup"]
 
-  const updateDocImpl: HulyClientOperations["updateDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown, operations: unknown) => {
-      if (config.captureUpdateDoc) {
-        config.captureUpdateDoc.operations = operations as Record<string, unknown>
-      }
-      return Effect.succeed({} as never)
+  const updateDocImpl: HulyClientOperations["updateDoc"] = ((
+    _class: unknown,
+    _space: unknown,
+    _objectId: unknown,
+    operations: unknown
+  ) => {
+    if (config.captureUpdateDoc) {
+      config.captureUpdateDoc.operations = operations as Record<string, unknown>
     }
-  ) as HulyClientOperations["updateDoc"]
+    return Effect.succeed({} as never)
+  }) as HulyClientOperations["updateDoc"]
 
   // eslint-disable-next-line no-restricted-syntax -- mock function signature (unknown params) doesn't overlap with typed signature
   const uploadMarkupImpl: HulyClientOperations["uploadMarkup"] = ((
@@ -148,9 +152,8 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     return Effect.succeed(undefined)
   }) as HulyClientOperations["updateMarkup"]
 
-  const removeDocImpl: HulyClientOperations["removeDoc"] = (
-    () => Effect.succeed({})
-  ) as HulyClientOperations["removeDoc"]
+  const removeDocImpl: HulyClientOperations["removeDoc"] = (() =>
+    Effect.succeed({})) as HulyClientOperations["removeDoc"]
 
   return HulyClient.testLayer({
     findAll: findAllImpl,
@@ -167,7 +170,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
 
 describe("listDocuments - titleSearch branch (line 196)", () => {
   it.effect("applies titleSearch filter to query", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
       const captureQuery: MockConfig["captureDocumentQuery"] = {}
 
@@ -182,10 +185,11 @@ describe("listDocuments - titleSearch branch (line 196)", () => {
       )
 
       expect(captureQuery.query?.title).toEqual({ $like: "%design%" })
-    }))
+    })
+  )
 
   it.effect("skips titleSearch when whitespace-only", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
       const captureQuery: MockConfig["captureDocumentQuery"] = {}
 
@@ -200,12 +204,13 @@ describe("listDocuments - titleSearch branch (line 196)", () => {
       )
 
       expect(captureQuery.query?.title).toBeUndefined()
-    }))
+    })
+  )
 })
 
 describe("listDocuments - contentSearch branch (line 200)", () => {
   it.effect("applies contentSearch to $search query", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
       const captureQuery: MockConfig["captureDocumentQuery"] = {}
 
@@ -220,10 +225,11 @@ describe("listDocuments - contentSearch branch (line 200)", () => {
       )
 
       expect(captureQuery.query?.$search).toBe("implementation")
-    }))
+    })
+  )
 
   it.effect("skips contentSearch when whitespace-only", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
       const captureQuery: MockConfig["captureDocumentQuery"] = {}
 
@@ -238,12 +244,13 @@ describe("listDocuments - contentSearch branch (line 200)", () => {
       )
 
       expect(captureQuery.query?.$search).toBeUndefined()
-    }))
+    })
+  )
 })
 
 describe("editDocument - in-place content update branch (full replace mode)", () => {
   it.effect("uses updateMarkup when document already has content", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
       const doc = makeDocument({
         _id: "doc-1" as Ref<HulyDocument>,
@@ -276,10 +283,11 @@ describe("editDocument - in-place content update branch (full replace mode)", ()
       // When content is updated in-place, the updateDoc should NOT set content field
       // (contentUpdatedInPlace = true means content is not in updateOps)
       expect(captureUpdateDoc.operations?.content).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("updates title alongside in-place content update", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
       const doc = makeDocument({
         _id: "doc-1" as Ref<HulyDocument>,
@@ -307,5 +315,6 @@ describe("editDocument - in-place content update branch (full replace mode)", ()
       expect(result.updated).toBe(true)
       expect(captureUpdateMarkup.called).toBe(true)
       expect(captureUpdateDoc.operations?.title).toBe("New Title")
-    }))
+    })
+  )
 })

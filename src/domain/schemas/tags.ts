@@ -24,12 +24,15 @@ import {
 } from "./shared.js"
 
 type HulyTagWeight = NonNullable<HulyTagReference["weight"]>
-type ExactTypeMatch<Actual, Expected> = [Actual] extends [Expected] ? [Expected] extends [Actual] ? true : false
+type ExactTypeMatch<Actual, Expected> = [Actual] extends [Expected]
+  ? [Expected] extends [Actual]
+    ? true
+    : false
   : false
 type AssertTrue<T extends true> = T
 
 export const TAG_WEIGHT_VALUES = [0, 1, 2, 3, 4, 5, 6, 7, 8] as const satisfies ReadonlyArray<HulyTagWeight> // eslint-disable-line no-magic-numbers
-type LocalTagWeight = typeof TAG_WEIGHT_VALUES[number]
+type LocalTagWeight = (typeof TAG_WEIGHT_VALUES)[number]
 
 export type TagWeightSdkParity = AssertTrue<ExactTypeMatch<LocalTagWeight, HulyTagWeight>>
 
@@ -48,15 +51,11 @@ export const TagTargetClass = ObjectClassName.annotations({
 export type TagTargetClass = Schema.Schema.Type<typeof TagTargetClass>
 
 export const TagObjectLocatorSchema = Schema.Struct({
-  objectId: DocId.annotations({
-    description: "Raw Huly object ID that owns the tag reference."
-  }),
+  objectId: DocId.annotations({ description: "Raw Huly object ID that owns the tag reference." }),
   objectClass: ObjectClassName.annotations({
     description: "Raw Huly class/mixin of the object receiving the tag reference."
   }),
-  space: SpaceId.annotations({
-    description: "Huly space ID where the tag reference should be stored."
-  }),
+  space: SpaceId.annotations({ description: "Huly space ID where the tag reference should be stored." }),
   collection: NonEmptyString.annotations({
     description:
       "Collection field on the object that stores tag references, for example 'labels' for tracker issues or 'skills' for recruiting candidates."
@@ -76,10 +75,7 @@ export const TagSummarySchema = Schema.Struct({
   color: ColorCode,
   category: NonEmptyString,
   refCount: Schema.optional(Count)
-}).annotations({
-  title: "TagSummary",
-  description: "Generic Huly tag definition summary."
-})
+}).annotations({ title: "TagSummary", description: "Generic Huly tag definition summary." })
 export type TagSummary = Schema.Schema.Type<typeof TagSummarySchema>
 
 export const AttachedTagSummarySchema = Schema.Struct({
@@ -88,47 +84,34 @@ export const AttachedTagSummarySchema = Schema.Struct({
   title: NonEmptyString,
   color: ColorCode,
   weight: Schema.optional(TagWeight)
-}).annotations({
-  title: "AttachedTagSummary",
-  description: "Generic Huly tag reference attached to one object."
-})
+}).annotations({ title: "AttachedTagSummary", description: "Generic Huly tag reference attached to one object." })
 export type AttachedTagSummary = Schema.Schema.Type<typeof AttachedTagSummarySchema>
 
 export const ListTagsParamsSchema = Schema.Struct({
   targetClass: TagTargetClass,
   category: Schema.optional(
-    TagCategoryIdentifier.annotations({
-      description: "Filter by tag category ID or label within the targetClass."
+    TagCategoryIdentifier.annotations({ description: "Filter by tag category ID or label within the targetClass." })
+  ),
+  titleSearch: Schema.optional(
+    Schema.String.annotations({
+      description: "Search tag titles by substring (case-insensitive where supported by Huly backend)."
     })
   ),
-  titleSearch: Schema.optional(Schema.String.annotations({
-    description: "Search tag titles by substring (case-insensitive where supported by Huly backend)."
-  })),
   limit: Schema.optional(
-    LimitParam.annotations({
-      description: `Maximum number of tags to return (default: ${DEFAULT_LIMIT}).`
-    })
+    LimitParam.annotations({ description: `Maximum number of tags to return (default: ${DEFAULT_LIMIT}).` })
   )
-}).annotations({
-  title: "ListTagsParams",
-  description: "List generic Huly tag definitions for one target class."
-})
+}).annotations({ title: "ListTagsParams", description: "List generic Huly tag definitions for one target class." })
 export type ListTagsParams = Schema.Schema.Type<typeof ListTagsParamsSchema>
 
 export const CreateTagParamsSchema = Schema.Struct({
   targetClass: TagTargetClass,
-  title: NonEmptyString.annotations({
-    description: "Tag title."
-  }),
+  title: NonEmptyString.annotations({ description: "Tag title." }),
   color: Schema.optional(
     ColorCode.annotations({
-      description:
-        `Huly platform color palette index from 0 through ${MAX_COLOR_INDEX} (default: ${DEFAULT_COLOR_INDEX}).`
+      description: `Huly platform color palette index from 0 through ${MAX_COLOR_INDEX} (default: ${DEFAULT_COLOR_INDEX}).`
     })
   ),
-  description: Schema.optional(Schema.String.annotations({
-    description: "Tag description."
-  })),
+  description: Schema.optional(Schema.String.annotations({ description: "Tag description." })),
   category: Schema.optional(
     TagCategoryIdentifier.annotations({
       description:
@@ -142,54 +125,46 @@ export const CreateTagParamsSchema = Schema.Struct({
 export type CreateTagParams = Schema.Schema.Type<typeof CreateTagParamsSchema>
 
 const updateTagFields = {
-  title: Schema.optional(NonEmptyString.annotations({
-    description: "New tag title."
-  })),
+  title: Schema.optional(NonEmptyString.annotations({ description: "New tag title." })),
   color: Schema.optional(
-    ColorCode.annotations({
-      description: `New Huly platform color palette index from 0 through ${MAX_COLOR_INDEX}.`
-    })
+    ColorCode.annotations({ description: `New Huly platform color palette index from 0 through ${MAX_COLOR_INDEX}.` })
   ),
   description: Schema.optional(clearableText("New tag description.")),
   category: Schema.optional(
-    TagCategoryIdentifier.annotations({
-      description: "New category ID or label within targetClass."
-    })
+    TagCategoryIdentifier.annotations({ description: "New category ID or label within targetClass." })
   )
 }
 
 export type UpdateTagField = keyof typeof updateTagFields
 const UpdateTagFieldSchema = Schema.Struct(updateTagFields)
-export const UPDATE_TAG_FIELDS = ["title", "color", "description", "category"] as const satisfies ReadonlyArray<
-  UpdateTagField
->
+export const UPDATE_TAG_FIELDS = [
+  "title",
+  "color",
+  "description",
+  "category"
+] as const satisfies ReadonlyArray<UpdateTagField>
 
 export const UpdateTagParamsSchema = Schema.Struct({
   targetClass: TagTargetClass,
-  tag: TagIdentifier.annotations({
-    description: "Tag ID or exact title. Title lookup is scoped to targetClass."
-  }),
+  tag: TagIdentifier.annotations({ description: "Tag ID or exact title. Title lookup is scoped to targetClass." }),
   ...UpdateTagFieldSchema.fields
-}).pipe(
-  Schema.filter((params) =>
-    hasAtLeastOneDefined(params, UPDATE_TAG_FIELDS) ? undefined : atLeastOneUpdateFieldMessage(UPDATE_TAG_FIELDS)
-  )
-).annotations({
-  title: "UpdateTagParams",
-  description: `Update a generic Huly tag definition. ${atLeastOneUpdateFieldMessage(UPDATE_TAG_FIELDS)}`
 })
+  .pipe(
+    Schema.filter((params) =>
+      hasAtLeastOneDefined(params, UPDATE_TAG_FIELDS) ? undefined : atLeastOneUpdateFieldMessage(UPDATE_TAG_FIELDS)
+    )
+  )
+  .annotations({
+    title: "UpdateTagParams",
+    description: `Update a generic Huly tag definition. ${atLeastOneUpdateFieldMessage(UPDATE_TAG_FIELDS)}`
+  })
 export type UpdateTagParams = Schema.Schema.Type<typeof UpdateTagParamsSchema>
 assertUpdateFields<UpdateTagParams>()(["targetClass", "tag"], UPDATE_TAG_FIELDS)
 
 export const DeleteTagParamsSchema = Schema.Struct({
   targetClass: TagTargetClass,
-  tag: TagIdentifier.annotations({
-    description: "Tag ID or exact title. Title lookup is scoped to targetClass."
-  })
-}).annotations({
-  title: "DeleteTagParams",
-  description: "Delete a generic Huly tag definition."
-})
+  tag: TagIdentifier.annotations({ description: "Tag ID or exact title. Title lookup is scoped to targetClass." })
+}).annotations({ title: "DeleteTagParams", description: "Delete a generic Huly tag definition." })
 export type DeleteTagParams = Schema.Schema.Type<typeof DeleteTagParamsSchema>
 
 export const ListAttachedTagsParamsSchema = TagObjectLocatorSchema.annotations({
@@ -207,8 +182,7 @@ export const AttachTagParamsSchema = Schema.Struct({
   object: TagObjectLocatorSchema,
   color: Schema.optional(
     ColorCode.annotations({
-      description:
-        `Huly platform color palette index from 0 through ${MAX_COLOR_INDEX} for a newly created tag definition (default: ${DEFAULT_COLOR_INDEX}). Ignored when the tag already exists.`
+      description: `Huly platform color palette index from 0 through ${MAX_COLOR_INDEX} for a newly created tag definition (default: ${DEFAULT_COLOR_INDEX}). Ignored when the tag already exists.`
     })
   ),
   category: Schema.optional(
@@ -216,9 +190,9 @@ export const AttachTagParamsSchema = Schema.Struct({
       description: "Category for a newly created tag definition. Ignored when the tag already exists."
     })
   ),
-  weight: Schema.optional(TagWeight.annotations({
-    description: "Optional weight/knowledge level to store on the TagReference."
-  }))
+  weight: Schema.optional(
+    TagWeight.annotations({ description: "Optional weight/knowledge level to store on the TagReference." })
+  )
 }).annotations({
   title: "AttachTagParams",
   description:
@@ -228,9 +202,7 @@ export type AttachTagParams = Schema.Schema.Type<typeof AttachTagParamsSchema>
 
 export const DetachTagParamsSchema = Schema.Struct({
   targetClass: TagTargetClass,
-  tag: TagIdentifier.annotations({
-    description: "Tag ID or exact title within targetClass."
-  }),
+  tag: TagIdentifier.annotations({ description: "Tag ID or exact title within targetClass." }),
   object: TagObjectLocatorSchema
 }).annotations({
   title: "DetachTagParams",
@@ -243,25 +215,16 @@ export const CreateTagResultSchema = Schema.Struct({
   title: NonEmptyString,
   targetClass: TagTargetClass,
   created: Schema.Boolean
-}).annotations({
-  title: "CreateTagResult",
-  description: "Result of creating a generic Huly tag definition."
-})
+}).annotations({ title: "CreateTagResult", description: "Result of creating a generic Huly tag definition." })
 export type CreateTagResult = Schema.Schema.Type<typeof CreateTagResultSchema>
 
-export const UpdateTagResultSchema = Schema.Struct({
-  id: TagElementId,
-  updated: Schema.Boolean
-}).annotations({
+export const UpdateTagResultSchema = Schema.Struct({ id: TagElementId, updated: Schema.Boolean }).annotations({
   title: "UpdateTagResult",
   description: "Result of updating a generic Huly tag definition."
 })
 export type UpdateTagResult = Schema.Schema.Type<typeof UpdateTagResultSchema>
 
-export const DeleteTagResultSchema = Schema.Struct({
-  id: TagElementId,
-  deleted: Schema.Boolean
-}).annotations({
+export const DeleteTagResultSchema = Schema.Struct({ id: TagElementId, deleted: Schema.Boolean }).annotations({
   title: "DeleteTagResult",
   description: "Result of deleting a generic Huly tag definition."
 })
@@ -272,16 +235,10 @@ export const AttachTagResultSchema = Schema.Struct({
   tag: TagElementId,
   title: NonEmptyString,
   attached: Schema.Boolean
-}).annotations({
-  title: "AttachTagResult",
-  description: "Result of attaching a tag reference."
-})
+}).annotations({ title: "AttachTagResult", description: "Result of attaching a tag reference." })
 export type AttachTagResult = Schema.Schema.Type<typeof AttachTagResultSchema>
 
-export const DetachTagResultSchema = Schema.Struct({
-  detached: Schema.Boolean,
-  detachedCount: Count
-}).annotations({
+export const DetachTagResultSchema = Schema.Struct({ detached: Schema.Boolean, detachedCount: Count }).annotations({
   title: "DetachTagResult",
   description: "Result of detaching tag references."
 })

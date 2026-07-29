@@ -8,9 +8,9 @@ import { UPLOAD_SOURCE_FIELD_DESCRIPTIONS } from "./upload-source.js"
 
 export const INVENTORY_MEDIA_FILE_SOURCE_FIELDS = ["filePath", "fileUrl", "data"] as const
 
-export const inventoryMediaExactlyOneFileSourceMessage = `Provide exactly one of ${
-  INVENTORY_MEDIA_FILE_SOURCE_FIELDS.join(", ")
-}.`
+export const inventoryMediaExactlyOneFileSourceMessage = `Provide exactly one of ${INVENTORY_MEDIA_FILE_SOURCE_FIELDS.join(
+  ", "
+)}.`
 
 const INVENTORY_MEDIA_FIELD_DESCRIPTIONS: Readonly<Partial<Record<string, string>>> = {
   product: "Inventory product ID or exact product name. Pass category when duplicate product names may exist.",

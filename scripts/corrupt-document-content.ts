@@ -70,13 +70,10 @@ const connect = async (): Promise<TxOperations> => {
   const workspace = requiredEnv("HULY_WORKSPACE")
   const serverConfig = await apiClient.loadServerConfig(url)
   const token = process.env["HULY_TOKEN"]
-  const auth = token !== undefined && token.trim() !== ""
-    ? { token, workspace }
-    : {
-      email: requiredEnv("HULY_EMAIL"),
-      password: requiredEnv("HULY_PASSWORD"),
-      workspace
-    }
+  const auth =
+    token !== undefined && token.trim() !== ""
+      ? { token, workspace }
+      : { email: requiredEnv("HULY_EMAIL"), password: requiredEnv("HULY_PASSWORD"), workspace }
   const { endpoint, token: workspaceToken, workspaceId } = await apiClient.getWorkspaceToken(url, auth, serverConfig)
   return await apiClient.createRestTxOperations(endpoint, workspaceId, workspaceToken)
 }
@@ -87,22 +84,13 @@ const corruptDocumentContent = async (client: TxOperations, args: Args): Promise
   const documentId = args.documentId as Ref<HulyDocument>
   // eslint-disable-next-line no-restricted-syntax -- SDK boundary: this helper deliberately writes raw markdown into a branded markup field.
   const content = args.content as MarkupBlobRef
-  const docs = await client.findAll<HulyDocument>(
-    documentPlugin.class.Document,
-    { _id: documentId },
-    { limit: 1 }
-  )
+  const docs = await client.findAll<HulyDocument>(documentPlugin.class.Document, { _id: documentId }, { limit: 1 })
   const doc = docs[0]
   if (doc === undefined) {
     throw new Error(`Document '${args.documentId}' not found.`)
   }
 
-  await client.updateDoc(
-    documentPlugin.class.Document,
-    doc.space,
-    doc._id,
-    { content }
-  )
+  await client.updateDoc(documentPlugin.class.Document, doc.space, doc._id, { content })
 }
 
 const main = async (): Promise<void> => {

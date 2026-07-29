@@ -21,10 +21,7 @@ interface DiagnosticsOperations {
   readonly trail: (message: string) => Effect.Effect<void>
 }
 
-export class Diagnostics extends Context.Tag("@hulymcp/Diagnostics")<
-  Diagnostics,
-  DiagnosticsOperations
->() {}
+export class Diagnostics extends Context.Tag("@hulymcp/Diagnostics")<Diagnostics, DiagnosticsOperations>() {}
 
 interface DiagnosticsScope {
   readonly service: DiagnosticsOperations
@@ -34,7 +31,7 @@ interface DiagnosticsScope {
 const warningLogText = (warning: ToolWarning): string =>
   `Agent-visible tool warning [${warning.code}]: ${warning.message}`
 
-export const makeDiagnosticsScope: Effect.Effect<DiagnosticsScope> = Effect.gen(function*() {
+export const makeDiagnosticsScope: Effect.Effect<DiagnosticsScope> = Effect.gen(function* () {
   const warningsRef = yield* Ref.make<ReadonlyArray<ToolWarning>>([])
 
   return {

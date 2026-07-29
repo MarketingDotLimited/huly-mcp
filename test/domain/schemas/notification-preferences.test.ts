@@ -9,7 +9,7 @@ import {
 
 describe("notification preference schemas", () => {
   it.effect("parses notification type settings and object subscriptions", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const typeSetting = yield* parseUpdateNotificationTypeSettingParams({
         providerId: "notification:providers:InboxNotificationProvider",
         typeId: "notification:type:IssueUpdate",
@@ -22,5 +22,6 @@ describe("notification preference schemas", () => {
 
       expect(typeSetting.enabled).toBe(false)
       expect(subscription.objectId).toBe("issue-1")
-    }))
+    })
+  )
 })

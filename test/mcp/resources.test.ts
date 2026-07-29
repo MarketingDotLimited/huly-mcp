@@ -119,9 +119,8 @@ const createClientLayer = (config?: {
   const findAllImpl: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown) => {
     if (_class === tracker.class.Project) {
       const archived = queryValue(query, "archived")
-      const filteredProjects = typeof archived === "boolean"
-        ? projects.filter(project => project.archived === archived)
-        : projects
+      const filteredProjects =
+        typeof archived === "boolean" ? projects.filter((project) => project.archived === archived) : projects
       return Effect.succeed(toFindResult([...filteredProjects]))
     }
 
@@ -134,16 +133,17 @@ const createClientLayer = (config?: {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === tracker.class.Project) {
       const identifier = queryValue(query, "identifier")
-      return Effect.succeed(projects.find(project => project.identifier === identifier))
+      return Effect.succeed(projects.find((project) => project.identifier === identifier))
     }
 
     if (_class === tracker.class.Issue) {
       const identifier = queryValue(query, "identifier")
       const number = queryValue(query, "number")
       return Effect.succeed(
-        issues.find(issue =>
-          (typeof identifier === "string" && issue.identifier === identifier)
-          || (typeof number === "number" && issue.number === number)
+        issues.find(
+          (issue) =>
+            (typeof identifier === "string" && issue.identifier === identifier) ||
+            (typeof number === "number" && issue.number === number)
         )
       )
     }
@@ -151,10 +151,7 @@ const createClientLayer = (config?: {
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
-  return HulyClient.testLayer({
-    findAll: findAllImpl,
-    findOne: findOneImpl
-  })
+  return HulyClient.testLayer({ findAll: findAllImpl, findOne: findOneImpl })
 }
 
 const readJson = (text: string): unknown => JSON.parse(text)
@@ -193,58 +190,59 @@ describe("MCP resources", () => {
   })
 
   it.effect("lists active projects as concrete MCP resources", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listResources().pipe(
-        Effect.provide(createClientLayer({
-          projects: [
-            makeProject(),
-            makeProject({
-              _id: "project-2" as Ref<HulyProject>,
-              identifier: "OLD",
-              name: "Archived Project",
-              description: "",
-              archived: true
-            })
-          ]
-        })),
+        Effect.provide(
+          createClientLayer({
+            projects: [
+              makeProject(),
+              makeProject({
+                _id: "project-2" as Ref<HulyProject>,
+                identifier: "OLD",
+                name: "Archived Project",
+                description: "",
+                archived: true
+              })
+            ]
+          })
+        ),
         withDiagnostics
       )
 
       expect(result).toEqual({
-        resources: [{
-          uri: "huly://projects/TEST",
-          name: "TEST",
-          title: "Test Project",
-          description: "Project used by MCP resource tests",
-          mimeType: HULY_RESOURCE_MIME_TYPE
-        }]
+        resources: [
+          {
+            uri: "huly://projects/TEST",
+            name: "TEST",
+            title: "Test Project",
+            description: "Project used by MCP resource tests",
+            mimeType: HULY_RESOURCE_MIME_TYPE
+          }
+        ]
       })
-    }))
+    })
+  )
 
   it.effect("falls back to a synthesized description for projects without one", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listResources().pipe(
-        Effect.provide(createClientLayer({
-          projects: [makeProject({ identifier: "NODESC", description: "" })]
-        })),
+        Effect.provide(createClientLayer({ projects: [makeProject({ identifier: "NODESC", description: "" })] })),
         withDiagnostics
       )
       expect(result.resources[0]?.description).toBe("Huly project NODESC")
-    }))
+    })
+  )
 
   it.effect("does not hide backend connection errors while listing resources", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const backendSecret = "https://user:password@example.huly.app/path?token=secret"
       const error = yield* Effect.flip(
         listResources().pipe(
-          Effect.provide(HulyClient.testLayer({
-            findAll: () =>
-              Effect.fail(
-                new HulyConnectionError({
-                  message: `Connection failed for ${backendSecret}`
-                })
-              )
-          })),
+          Effect.provide(
+            HulyClient.testLayer({
+              findAll: () => Effect.fail(new HulyConnectionError({ message: `Connection failed for ${backendSecret}` }))
+            })
+          ),
           withDiagnostics
         )
       )
@@ -254,7 +252,8 @@ describe("MCP resources", () => {
       expect(error.message).not.toContain(backendSecret)
       expect(error.message).not.toContain("password")
       expect(error.message).not.toContain("secret")
-    }))
+    })
+  )
 
   it("parses accepted Huly resource URIs", () => {
     expect(parseHulyResourceUri("huly://projects/HULY")).toEqual({
@@ -277,33 +276,28 @@ describe("MCP resources", () => {
   })
 
   it("rejects malformed or unsupported Huly resource URIs", () => {
-    for (
-      const uri of [
-        "huly://issues/123",
-        "huly://issues/HULY-1/extra",
-        "huly://projects",
-        "huly://projects/",
-        "huly://projects/%20HULY",
-        "huly://projects/HULY%20",
-        "huly://projects/HULY%2FCORE",
-        "huly://projects/%FF",
-        "huly://projects/HULY/extra",
-        "huly://documents/DOC-1",
-        "https://huly.app/projects/HULY",
-        "not-a-uri"
-      ]
-    ) {
+    for (const uri of [
+      "huly://issues/123",
+      "huly://issues/HULY-1/extra",
+      "huly://projects",
+      "huly://projects/",
+      "huly://projects/%20HULY",
+      "huly://projects/HULY%20",
+      "huly://projects/HULY%2FCORE",
+      "huly://projects/%FF",
+      "huly://projects/HULY/extra",
+      "huly://documents/DOC-1",
+      "https://huly.app/projects/HULY",
+      "not-a-uri"
+    ]) {
       expect(() => parseHulyResourceUri(uri)).toThrow(McpError)
     }
   })
 
   it.effect("reads a project resource as one JSON content block", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* readHulyResource("huly://projects/TEST").pipe(
-        Effect.provide(createClientLayer({
-          projects: [makeProject()],
-          statuses: [makeStatus()]
-        })),
+        Effect.provide(createClientLayer({ projects: [makeProject()], statuses: [makeStatus()] })),
         withDiagnostics
       )
 
@@ -323,15 +317,13 @@ describe("MCP resources", () => {
           statuses: []
         }
       })
-    }))
+    })
+  )
 
   it.effect("reads an issue resource as one JSON content block", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* readHulyResource("huly://issues/TEST-1").pipe(
-        Effect.provide(createClientLayer({
-          projects: [makeProject()],
-          issues: [makeIssue()]
-        })),
+        Effect.provide(createClientLayer({ projects: [makeProject()], issues: [makeIssue()] })),
         withDiagnostics
       )
 
@@ -343,42 +335,33 @@ describe("MCP resources", () => {
       expect(readJson(textContent(assertAt(result.contents, 0)))).toMatchObject({
         type: "huly.issue",
         uri: "huly://issues/TEST-1",
-        issue: {
-          identifier: "TEST-1",
-          title: "Test Issue",
-          project: "TEST",
-          status: "Unknown"
-        }
+        issue: { identifier: "TEST-1", title: "Test Issue", project: "TEST", status: "Unknown" }
       })
-    }))
+    })
+  )
 
   it.effect("maps missing resources to the MCP resource not found code", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
-        readHulyResource("huly://projects/MISSING").pipe(
-          Effect.provide(createClientLayer()),
-          withDiagnostics
-        )
+        readHulyResource("huly://projects/MISSING").pipe(Effect.provide(createClientLayer()), withDiagnostics)
       )
 
       expect(error).toBeInstanceOf(McpError)
       expect(error.code).toBe(-32002)
       expect(error.data).toEqual({ uri: "huly://projects/MISSING" })
-    }))
+    })
+  )
 
   it.effect("does not expose backend connection error details in resource read errors", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const backendSecret = "https://user:password@example.huly.app/path?token=secret"
       const error = yield* Effect.flip(
         readHulyResource("huly://projects/TEST").pipe(
-          Effect.provide(HulyClient.testLayer({
-            findOne: () =>
-              Effect.fail(
-                new HulyConnectionError({
-                  message: `Connection failed for ${backendSecret}`
-                })
-              )
-          })),
+          Effect.provide(
+            HulyClient.testLayer({
+              findOne: () => Effect.fail(new HulyConnectionError({ message: `Connection failed for ${backendSecret}` }))
+            })
+          ),
           withDiagnostics
         )
       )
@@ -388,10 +371,11 @@ describe("MCP resources", () => {
       expect(error.message).not.toContain(backendSecret)
       expect(error.message).not.toContain("password")
       expect(error.message).not.toContain("secret")
-    }))
+    })
+  )
 
   it.effect("maps an auth failure while listing to a redacted internal error", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         listResources().pipe(
           Effect.provide(
@@ -402,10 +386,11 @@ describe("MCP resources", () => {
       expect(error).toBeInstanceOf(McpError)
       expect(error.message).toContain("Authentication error while listing Huly resources")
       expect(error.message).not.toContain("bad token")
-    }))
+    })
+  )
 
   it.effect("maps an auth failure while reading to a redacted internal error", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         readHulyResource("huly://projects/TEST").pipe(
           Effect.provide(
@@ -417,19 +402,21 @@ describe("MCP resources", () => {
       expect(error).toBeInstanceOf(McpError)
       expect(error.message).toContain("Authentication error while reading Huly resource")
       expect(error.message).not.toContain("bad token")
-    }))
+    })
+  )
 
   it.effect("maps an invalid resource URI passed to readHulyResource to an McpError", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         readHulyResource("not-a-uri").pipe(Effect.provide(createClientLayer()), withDiagnostics)
       )
       expect(error).toBeInstanceOf(McpError)
       expect(error.message).toContain("Invalid Huly resource URI")
-    }))
+    })
+  )
 
   it.effect("maps a missing issue resource to the MCP resource not found code", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         readHulyResource("huly://issues/TEST-404").pipe(
           Effect.provide(createClientLayer({ projects: [makeProject()], issues: [] })),
@@ -439,5 +426,6 @@ describe("MCP resources", () => {
       expect(error).toBeInstanceOf(McpError)
       expect(error.code).toBe(-32002)
       expect(error.data).toEqual({ uri: "huly://issues/TEST-404" })
-    }))
+    })
+  )
 })

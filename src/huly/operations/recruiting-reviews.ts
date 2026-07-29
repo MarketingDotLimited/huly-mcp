@@ -119,23 +119,17 @@ const optionalApplication = (
   client: HulyClient["Type"],
   identifier: ApplicantIdentifier | undefined,
   candidate?: Person
-) => identifier === undefined ? Effect.succeed(undefined) : findApplicant(client, identifier, undefined, candidate)
+) => (identifier === undefined ? Effect.succeed(undefined) : findApplicant(client, identifier, undefined, candidate))
 
-const optionalCandidate = (
-  client: HulyClient["Type"],
-  identifier: CandidateIdentifier | undefined
-) => identifier === undefined ? Effect.succeed(undefined) : resolveCandidatePerson(client, identifier)
+const optionalCandidate = (client: HulyClient["Type"], identifier: CandidateIdentifier | undefined) =>
+  identifier === undefined ? Effect.succeed(undefined) : resolveCandidatePerson(client, identifier)
 
-const companySummary = (
-  client: HulyClient["Type"],
-  company: Ref<Organization> | undefined
-) =>
+const companySummary = (client: HulyClient["Type"], company: Ref<Organization> | undefined) =>
   company === undefined
     ? Effect.succeed(undefined)
-    : Effect.map(
-      client.findOne<Organization>(contact.class.Organization, { _id: company }),
-      (org) => org === undefined ? undefined : { id: DocId.make(org._id), name: org.name }
-    )
+    : Effect.map(client.findOne<Organization>(contact.class.Organization, { _id: company }), (org) =>
+        org === undefined ? undefined : { id: DocId.make(org._id), name: org.name }
+      )
 
 const matchesReviewText = (review: Review, query: string | undefined): boolean => {
   const normalized = normalizeForComparison(query ?? "")
@@ -150,14 +144,14 @@ const reviewMatchesFilters = (
   candidate: Person | undefined,
   application: Applicant | undefined
 ): boolean =>
-  (candidate === undefined || String(review.attachedTo) === String(candidate._id))
-  && (application === undefined || String(review.application) === String(application._id))
+  (candidate === undefined || String(review.attachedTo) === String(candidate._id)) &&
+  (application === undefined || String(review.application) === String(application._id))
 
 export const reviewRefFromDoc = (
   client: HulyClient["Type"],
   review: Review
 ): Effect.Effect<ReviewRef, HulyClientError | RecruitingModelMissingError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const person = yield* client.findOne<Person>(
       contact.class.Person,
       hulyQuery<Person>({ _id: toRef<Person>(review.attachedTo) })
@@ -180,15 +174,17 @@ const reviewDetail = (
   client: HulyClient["Type"],
   review: Review
 ): Effect.Effect<ReviewDetail, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ref = yield* reviewRefFromDoc(client, review)
     const description = optionalMarkupToMarkdown(review.description, client.markupUrlConfig, undefined)
-    const application = review.application === undefined
-      ? undefined
-      : yield* Effect.flatMap(
-        client.findOne<Applicant>(recruitIds.class.Applicant, hulyQuery<Applicant>({ _id: review.application })),
-        (applicant) => applicant === undefined ? Effect.succeed(undefined) : applicantRefFromDoc(client, applicant)
-      )
+    const application =
+      review.application === undefined
+        ? undefined
+        : yield* Effect.flatMap(
+            client.findOne<Applicant>(recruitIds.class.Applicant, hulyQuery<Applicant>({ _id: review.application })),
+            (applicant) =>
+              applicant === undefined ? Effect.succeed(undefined) : applicantRefFromDoc(client, applicant)
+          )
     const participants = yield* buildParticipants(client, review.participants)
     const company = yield* companySummary(client, review.company)
     const opinions = optionalCount(review.opinions)
@@ -217,11 +213,8 @@ export const findReview = (
   identifier: ReviewIdentifier,
   candidate?: Person,
   application?: Applicant
-): Effect.Effect<
-  Review,
-  HulyClientError | RecruitingReviewIdentifierAmbiguousError | RecruitingReviewNotFoundError
-> =>
-  Effect.gen(function*() {
+): Effect.Effect<Review, HulyClientError | RecruitingReviewIdentifierAmbiguousError | RecruitingReviewNotFoundError> =>
+  Effect.gen(function* () {
     const byId = yield* client.findOne<Review>(
       recruitIds.class.Review,
       hulyQuery<Review>({ _id: toRef<Review>(identifier) })
@@ -245,11 +238,8 @@ export const findReview = (
     return assertAt(reviews, 0)
   })
 
-export const resolveReviewLocator = (
-  client: HulyClient["Type"],
-  params: GetRecruitingReviewParams | DeleteRecruitingReviewParams
-) =>
-  Effect.gen(function*() {
+export const resolveReviewLocator = (client: HulyClient["Type"], params: GetRecruitingReviewParams) =>
+  Effect.gen(function* () {
     const candidate = yield* optionalCandidate(client, params.candidate)
     const application = yield* optionalApplication(client, params.application, candidate)
     return yield* findReview(client, params.review, candidate, application)
@@ -258,7 +248,7 @@ export const resolveReviewLocator = (
 export const listRecruitingReviews = (
   params: ListRecruitingReviewsParams
 ): Effect.Effect<ListRecruitingReviewsResult, ReviewReadError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const candidate = yield* optionalCandidate(client, params.candidate)
     const application = yield* optionalApplication(client, params.application, candidate)
@@ -268,15 +258,12 @@ export const listRecruitingReviews = (
       ...(params.from === undefined ? {} : { date: { $gte: params.from } }),
       ...(params.to === undefined ? {} : { dueDate: { $lte: params.to } })
     }
-    const reviews = yield* client.findAll<Review>(
-      recruitIds.class.Review,
-      hulyQuery(query),
-      { sort: { date: SortingOrder.Descending } }
-    )
-    const limited = reviews.filter((review) => matchesReviewText(review, params.query)).slice(
-      0,
-      listLimit(params.limit)
-    )
+    const reviews = yield* client.findAll<Review>(recruitIds.class.Review, hulyQuery(query), {
+      sort: { date: SortingOrder.Descending }
+    })
+    const limited = reviews
+      .filter((review) => matchesReviewText(review, params.query))
+      .slice(0, listLimit(params.limit))
     const refs = yield* Effect.forEach(limited, (review) => reviewRefFromDoc(client, review))
     return { reviews: refs, total: Count.make(refs.length) }
   })
@@ -284,7 +271,7 @@ export const listRecruitingReviews = (
 export const getRecruitingReview = (
   params: GetRecruitingReviewParams
 ): Effect.Effect<ReviewDetail, ReviewReadError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     return yield* reviewDetail(client, yield* resolveReviewLocator(client, params))
   })
@@ -300,23 +287,21 @@ const resolveParticipants = (
 export const createRecruitingReview = (
   params: CreateRecruitingReviewParams
 ): Effect.Effect<{ readonly review: ReviewRef }, ReviewWriteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const person = yield* resolveCandidatePerson(client, params.candidate)
     yield* ensureCandidateMixin(client, person, {})
     const application = yield* optionalApplication(client, params.application, person)
-    const company = params.company === undefined
-      ? undefined
-      : (yield* resolveOrganizationByIdentifier(client, params.company))._id
+    const company =
+      params.company === undefined ? undefined : (yield* resolveOrganizationByIdentifier(client, params.company))._id
     const number = yield* incrementSequence(client, recruitIds.class.Review, "review")
     const reviewId = generateId<Review>()
     const data: AttachedData<Review> = {
       number,
       date: params.date,
-      dueDate: params.dueDate ?? (params.date + DEFAULT_REVIEW_DURATION_MS),
-      description: params.description === undefined
-        ? ""
-        : markdownToMarkupString(params.description, client.markupUrlConfig),
+      dueDate: params.dueDate ?? params.date + DEFAULT_REVIEW_DURATION_MS,
+      description:
+        params.description === undefined ? "" : markdownToMarkupString(params.description, client.markupUrlConfig),
       verdict: params.verdict ?? "",
       title: params.title,
       participants: yield* resolveParticipants(client, params),
@@ -347,7 +332,7 @@ export const createRecruitingReview = (
 export const updateRecruitingReview = (
   params: UpdateRecruitingReviewParams
 ): Effect.Effect<{ readonly review: ReviewRef }, ReviewWriteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const updateCollection = client.updateCollection
     if (updateCollection === undefined) {
@@ -356,23 +341,26 @@ export const updateRecruitingReview = (
     const candidate = yield* optionalCandidate(client, params.candidate)
     const applicationContext = yield* optionalApplication(client, params.applicationContext, candidate)
     const review = yield* findReview(client, params.review, candidate, applicationContext)
-    const application = params.application === undefined
-      ? undefined
-      : params.application === null
-      ? null
-      : yield* optionalApplication(client, params.application)
-    const company = params.company === undefined
-      ? undefined
-      : params.company === null
-      ? null
-      : (yield* resolveOrganizationByIdentifier(client, params.company))._id
+    const application =
+      params.application === undefined
+        ? undefined
+        : params.application === null
+          ? null
+          : yield* optionalApplication(client, params.application)
+    const company =
+      params.company === undefined
+        ? undefined
+        : params.company === null
+          ? null
+          : (yield* resolveOrganizationByIdentifier(client, params.company))._id
     const direct: DocumentUpdate<Review> = {
       ...(params.title === undefined ? {} : { title: params.title }),
-      ...(params.description === undefined ? {} : {
-        description: params.description === null
-          ? ""
-          : markdownToMarkupString(params.description, client.markupUrlConfig)
-      }),
+      ...(params.description === undefined
+        ? {}
+        : {
+            description:
+              params.description === null ? "" : markdownToMarkupString(params.description, client.markupUrlConfig)
+          }),
       ...(params.verdict === undefined ? {} : { verdict: params.verdict ?? "" }),
       ...(params.date === undefined ? {} : { date: params.date }),
       ...(params.dueDate === undefined ? {} : { dueDate: params.dueDate }),
@@ -381,10 +369,7 @@ export const updateRecruitingReview = (
       ...(application === undefined || application === null ? {} : { application: application._id }),
       ...(company === undefined || company === null ? {} : { company })
     }
-    const unset = {
-      ...(application === null ? { application: "" } : {}),
-      ...(company === null ? { company: "" } : {})
-    }
+    const unset = { ...(application === null ? { application: "" } : {}), ...(company === null ? { company: "" } : {}) }
     const operations = Object.keys(unset).length === 0 ? direct : { ...direct, $unset: unset }
     yield* updateCollection(
       recruitIds.class.Review,
@@ -401,7 +386,7 @@ export const updateRecruitingReview = (
 export const deleteRecruitingReview = (
   params: DeleteRecruitingReviewParams
 ): Effect.Effect<DeleteRecruitingReviewResult, ReviewWriteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const removeCollection = client.removeCollection
     if (removeCollection === undefined) {

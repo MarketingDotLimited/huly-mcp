@@ -222,95 +222,109 @@ describe("assertions", () => {
 
   describe("assertExistsEffect", () => {
     it.effect("succeeds with the value when defined", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* assertExistsEffect(42, () => "missing")
         expect(result).toBe(42)
-      }))
+      })
+    )
 
     it.effect("succeeds with falsy defined values", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         expect(yield* assertExistsEffect(0, () => "missing")).toBe(0)
         expect(yield* assertExistsEffect("", () => "missing")).toBe("")
         expect(yield* assertExistsEffect(false, () => "missing")).toBe(false)
-      }))
+      })
+    )
 
     it.effect("fails for null", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(assertExistsEffect(null, () => "was null"))
         expect(error).toBe("was null")
-      }))
+      })
+    )
 
     it.effect("fails for undefined", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(assertExistsEffect(undefined, () => "was undefined"))
         expect(error).toBe("was undefined")
-      }))
+      })
+    )
   })
 
   describe("getOnlyOneEffect", () => {
     it.effect("succeeds for single-element array", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* getOnlyOneEffect([99], (arr) => `bad: ${arr.length}`)
         expect(result).toBe(99)
-      }))
+      })
+    )
 
     it.effect("fails for empty array with error receiving the array", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(getOnlyOneEffect([], (arr) => `expected 1, got ${arr.length}`))
         expect(error).toBe("expected 1, got 0")
-      }))
+      })
+    )
 
     it.effect("fails for multi-element array with error receiving the array", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(getOnlyOneEffect([1, 2, 3], (arr) => `expected 1, got ${arr.length}`))
         expect(error).toBe("expected 1, got 3")
-      }))
+      })
+    )
   })
 
   describe("getFirstEffect", () => {
     it.effect("succeeds with first element of non-empty array", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* getFirstEffect([10, 20], () => "empty")
         expect(result).toBe(10)
-      }))
+      })
+    )
 
     it.effect("succeeds for single-element array", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* getFirstEffect(["only"], () => "empty")
         expect(result).toBe("only")
-      }))
+      })
+    )
 
     it.effect("fails for empty array", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(getFirstEffect([], () => "no elements"))
         expect(error).toBe("no elements")
-      }))
+      })
+    )
   })
 
   describe("getOneOrNoneEffect", () => {
     it.effect("succeeds with Option.none() for empty array", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* getOneOrNoneEffect([], (arr) => `too many: ${arr.length}`)
         expect(Option.isNone(result)).toBe(true)
-      }))
+      })
+    )
 
     it.effect("succeeds with Option.some(element) for single-element array", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = yield* getOneOrNoneEffect([42], (arr) => `too many: ${arr.length}`)
         expect(Option.isSome(result)).toBe(true)
         expect(Option.getOrThrow(result)).toBe(42)
-      }))
+      })
+    )
 
     it.effect("fails for array with 2+ elements with error receiving the array", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(getOneOrNoneEffect([1, 2], (arr) => `too many: ${arr.length}`))
         expect(error).toBe("too many: 2")
-      }))
+      })
+    )
 
     it.effect("fails for array with 3 elements", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = yield* Effect.flip(getOneOrNoneEffect([1, 2, 3], (arr) => `too many: ${arr.length}`))
         expect(error).toBe("too many: 3")
-      }))
+      })
+    )
   })
 })

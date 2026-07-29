@@ -62,9 +62,7 @@ type ListDmMessagesError = FindDirectMessageError
 
 type SendDmMessageError = FindDirectMessageError
 
-type UpdateDmMessageError =
-  | FindDirectMessageError
-  | MessageNotFoundError
+type UpdateDmMessageError = FindDirectMessageError | MessageNotFoundError
 
 type DeleteDmMessageError = UpdateDmMessageError
 
@@ -77,29 +75,24 @@ type CreateDirectMessageError =
 
 // --- Helpers ---
 
-export const findDirectMessageMessage = (
-  params: { dm: DirectMessageIdentifier; messageId: MessageId }
-): Effect.Effect<
+export const findDirectMessageMessage = (params: {
+  dm: DirectMessageIdentifier
+  messageId: MessageId
+}): Effect.Effect<
   { client: HulyClient["Type"]; dm: HulyDirectMessage; message: ChatMessage },
   FindDirectMessageError | MessageNotFoundError,
   HulyClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, dm } = yield* findDirectMessage(params.dm)
 
-    const message = yield* client.findOne<ChatMessage>(
-      chunter.class.ChatMessage,
-      {
-        _id: toRef<ChatMessage>(params.messageId),
-        space: dm._id
-      }
-    )
+    const message = yield* client.findOne<ChatMessage>(chunter.class.ChatMessage, {
+      _id: toRef<ChatMessage>(params.messageId),
+      space: dm._id
+    })
 
     if (message === undefined) {
-      return yield* new MessageNotFoundError({
-        messageId: params.messageId,
-        channel: params.dm
-      })
+      return yield* new MessageNotFoundError({ messageId: params.messageId, channel: params.dm })
     }
 
     return { client, dm, message }
@@ -113,7 +106,7 @@ export const findDirectMessageMessage = (
 export const listDirectMessageMessages = (
   params: ListDmMessagesParams
 ): Effect.Effect<ListDmMessagesResult, ListDmMessagesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, dm } = yield* findDirectMessage(params.dm)
     const markupUrlConfig = client.markupUrlConfig
 
@@ -122,17 +115,12 @@ export const listDirectMessageMessages = (
     const messages = yield* client.findAll<ChatMessage>(
       chunter.class.ChatMessage,
       { space: dm._id },
-      {
-        limit,
-        sort: { createdOn: SortingOrder.Descending }
-      }
+      { limit, sort: { createdOn: SortingOrder.Descending } }
     )
 
     const total = messages.total
 
-    const uniqueSocialIds = [
-      ...new Set(messages.map((msg) => msg.modifiedBy))
-    ]
+    const uniqueSocialIds = [...new Set(messages.map((msg) => msg.modifiedBy))]
 
     const socialIdToName = yield* buildSocialIdToPersonNameMap(client, uniqueSocialIds)
 
@@ -160,17 +148,14 @@ export const listDirectMessageMessages = (
 export const sendDirectMessage = (
   params: SendDmMessageParams
 ): Effect.Effect<SendDmMessageResult, SendDmMessageError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, dm } = yield* findDirectMessage(params.dm)
     const markupUrlConfig = client.markupUrlConfig
 
     const messageId: Ref<ChatMessage> = generateId()
     const markup = markdownToMarkupString(params.body, markupUrlConfig)
 
-    const messageData: AttachedData<ChatMessage> = {
-      message: markup,
-      attachments: 0
-    }
+    const messageData: AttachedData<ChatMessage> = { message: markup, attachments: 0 }
 
     yield* client.addCollection(
       chunter.class.ChatMessage,
@@ -191,24 +176,16 @@ export const sendDirectMessage = (
 export const updateDirectMessage = (
   params: UpdateDmMessageParams
 ): Effect.Effect<UpdateDmMessageResult, UpdateDmMessageError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, dm, message } = yield* findDirectMessageMessage(params)
     const markupUrlConfig = client.markupUrlConfig
 
     const markup = markdownToMarkupString(params.body, markupUrlConfig)
 
     const now = yield* Clock.currentTimeMillis
-    const updateOps: DocumentUpdate<ChatMessage> = {
-      message: markup,
-      editedOn: now
-    }
+    const updateOps: DocumentUpdate<ChatMessage> = { message: markup, editedOn: now }
 
-    yield* client.updateDoc(
-      chunter.class.ChatMessage,
-      dm._id,
-      message._id,
-      updateOps
-    )
+    yield* client.updateDoc(chunter.class.ChatMessage, dm._id, message._id, updateOps)
 
     return { id: MessageId.make(message._id), updated: true }
   })
@@ -219,14 +196,10 @@ export const updateDirectMessage = (
 export const deleteDirectMessage = (
   params: DeleteDmMessageParams
 ): Effect.Effect<DeleteDmMessageResult, DeleteDmMessageError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, dm, message } = yield* findDirectMessageMessage(params)
 
-    yield* client.removeDoc(
-      chunter.class.ChatMessage,
-      dm._id,
-      message._id
-    )
+    yield* client.removeDoc(chunter.class.ChatMessage, dm._id, message._id)
 
     return { id: MessageId.make(message._id), deleted: true }
   })
@@ -244,7 +217,7 @@ const resolveEmployeeAccount = (
   HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError | PersonNotAnEmployeeError,
   HulyClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     return yield* resolveEmployeeAccountUuid(client, identifier)
   })
@@ -263,7 +236,7 @@ const resolveEmployeeAccount = (
 export const createDirectMessage = (
   params: CreateDirectMessageParams
 ): Effect.Effect<CreateDirectMessageResult, CreateDirectMessageError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const me = client.getAccountUuid()
 
@@ -272,10 +245,7 @@ export const createDirectMessage = (
       return yield* new CannotDirectMessageSelfError({ identifier: params.person })
     }
 
-    const existingDms = yield* client.findAll<HulyDirectMessage>(
-      chunter.class.DirectMessage,
-      { members: me }
-    )
+    const existingDms = yield* client.findAll<HulyDirectMessage>(chunter.class.DirectMessage, { members: me })
 
     const members = sortedDirectMessageMembers(me, other)
     const existing = existingDms.find((dm) => hasExactDirectMessageMembers(dm, members))

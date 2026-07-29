@@ -26,7 +26,7 @@ Honest 99%, not coverage-inflation:
 
 - **Find uncovered branch locations for a file:** `node scripts/uncovered.mjs <path-substring>` (reads `coverage/coverage-final.json`; run a coverage pass first). Prints branch types + line numbers, uncovered functions, and uncovered statements.
 - **Verify one file fast:** `npx vitest run <test-file> --coverage --coverage.include='src/<file>.ts'`. Note: a targeted run **overwrites** `coverage-final.json`, so re-run full `npx vitest run --coverage` before using `uncovered.mjs` across files.
-- **No mocks** (enforced by eslint + review): substitute behavior only through DI seams — `HulyClient.testLayer({...})`, `WorkspaceClient` live layer with a stubbed `HulySdk`, `HulyConfigService.testLayer`, etc. `test/helpers/mock-fn.ts` `mockFn` (call-tracking, not `vi.mock`) is allowed. Use brand constructors from `test/helpers/brands.ts` instead of `as` casts in fixtures.
+- **No mocks** (enforced by Oxlint + review): substitute behavior only through DI seams — `HulyClient.testLayer({...})`, `WorkspaceClient` live layer with a stubbed `HulySdk`, `HulyConfigService.testLayer`, etc. `test/helpers/mock-fn.ts` `mockFn` (call-tracking, not `vi.mock`) is allowed. Use brand constructors from `test/helpers/brands.ts` instead of `as` casts in fixtures.
 - **esbuild ≠ tsc:** vitest (esbuild) skips type errors that `tsc` (in `check-all`) rejects. Always run the full `pnpm check-all`, not just `npx vitest run`, before declaring a file done.
 
 ## Remaining work, by file

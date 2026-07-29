@@ -76,7 +76,7 @@ const createTestLayer = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       const inQuery = q._id as { $in?: Array<Ref<Status>> } | undefined
       if (inQuery?.$in) {
-        const filtered = statuses.filter(s => inQuery.$in!.includes(s._id))
+        const filtered = statuses.filter((s) => inQuery.$in!.includes(s._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(statuses))
@@ -87,18 +87,13 @@ const createTestLayer = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown, options?: unknown) => {
     if (_class === tracker.class.Project) {
       const identifier = (query as Record<string, unknown>).identifier as string
-      const found = projects.find(p => p.identifier === identifier)
+      const found = projects.find((p) => p.identifier === identifier)
       if (found === undefined) return Effect.succeed(undefined)
       const opts = options as { lookup?: Record<string, unknown> } | undefined
       if (opts?.lookup?.type) {
         return Effect.succeed({
           ...found,
-          $lookup: {
-            type: {
-              _id: "project-type-1",
-              statuses: statuses.map(s => ({ _id: s._id }))
-            }
-          }
+          $lookup: { type: { _id: "project-type-1", statuses: statuses.map((s) => ({ _id: s._id })) } }
         })
       }
       return Effect.succeed(found)
@@ -106,10 +101,7 @@ const createTestLayer = (config: MockConfig) => {
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
-  return HulyClient.testLayer({
-    findAll: findAllImpl,
-    findOne: findOneImpl
-  })
+  return HulyClient.testLayer({ findAll: findAllImpl, findOne: findOneImpl })
 }
 
 const expectParseFailure = (exit: Exit.Exit<unknown, ParseResult.ParseError>): string => {
@@ -126,7 +118,7 @@ describe("listIssues filters", () => {
 
   describe("titleRegex", () => {
     it.effect("builds $regex query", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const captureQuery: MockConfig["captureIssueQuery"] = {}
         const testLayer = createTestLayer({
           projects: [project],
@@ -141,10 +133,11 @@ describe("listIssues filters", () => {
         )
 
         expect(captureQuery.query?.title).toEqual({ $regex: "BUG%" })
-      }))
+      })
+    )
 
     it.effect("ignores empty titleRegex", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const captureQuery: MockConfig["captureIssueQuery"] = {}
         const testLayer = createTestLayer({
           projects: [project],
@@ -159,12 +152,13 @@ describe("listIssues filters", () => {
         )
 
         expect(captureQuery.query?.title).toBeUndefined()
-      }))
+      })
+    )
   })
 
   describe("hasAssignee", () => {
     it.effect("true builds $ne: null query", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const captureQuery: MockConfig["captureIssueQuery"] = {}
         const testLayer = createTestLayer({
           projects: [project],
@@ -179,10 +173,11 @@ describe("listIssues filters", () => {
         )
 
         expect(captureQuery.query?.assignee).toEqual({ $ne: null })
-      }))
+      })
+    )
 
     it.effect("false builds null query", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const captureQuery: MockConfig["captureIssueQuery"] = {}
         const testLayer = createTestLayer({
           projects: [project],
@@ -197,12 +192,13 @@ describe("listIssues filters", () => {
         )
 
         expect(captureQuery.query?.assignee).toBeNull()
-      }))
+      })
+    )
   })
 
   describe("hasDueDate", () => {
     it.effect("true builds $ne: null query", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const captureQuery: MockConfig["captureIssueQuery"] = {}
         const testLayer = createTestLayer({
           projects: [project],
@@ -217,10 +213,11 @@ describe("listIssues filters", () => {
         )
 
         expect(captureQuery.query?.dueDate).toEqual({ $ne: null })
-      }))
+      })
+    )
 
     it.effect("false builds null query", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const captureQuery: MockConfig["captureIssueQuery"] = {}
         const testLayer = createTestLayer({
           projects: [project],
@@ -235,12 +232,13 @@ describe("listIssues filters", () => {
         )
 
         expect(captureQuery.query?.dueDate).toBeNull()
-      }))
+      })
+    )
   })
 
   describe("hasComponent", () => {
     it.effect("true builds $ne: null query", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const captureQuery: MockConfig["captureIssueQuery"] = {}
         const testLayer = createTestLayer({
           projects: [project],
@@ -255,10 +253,11 @@ describe("listIssues filters", () => {
         )
 
         expect(captureQuery.query?.component).toEqual({ $ne: null })
-      }))
+      })
+    )
 
     it.effect("false builds null query", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const captureQuery: MockConfig["captureIssueQuery"] = {}
         const testLayer = createTestLayer({
           projects: [project],
@@ -273,12 +272,13 @@ describe("listIssues filters", () => {
         )
 
         expect(captureQuery.query?.component).toBeNull()
-      }))
+      })
+    )
   })
 
   describe("isTopLevel", () => {
     it.effect("true filters by the Huly NoParent sentinel", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const captureQuery: MockConfig["captureIssueQuery"] = {}
         const testLayer = createTestLayer({
           projects: [project],
@@ -294,10 +294,11 @@ describe("listIssues filters", () => {
 
         expect(captureQuery.query?.attachedTo).toBe(tracker.ids.NoParent)
         expect(captureQuery.query?.attachedToClass).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("false does not set a parent filter", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const captureQuery: MockConfig["captureIssueQuery"] = {}
         const testLayer = createTestLayer({
           projects: [project],
@@ -312,10 +313,11 @@ describe("listIssues filters", () => {
         )
 
         expect(captureQuery.query?.attachedToClass).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("undefined does not set attachedToClass", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const captureQuery: MockConfig["captureIssueQuery"] = {}
         const testLayer = createTestLayer({
           projects: [project],
@@ -327,17 +329,14 @@ describe("listIssues filters", () => {
         yield* listIssues({ project: projectIdentifier("TEST") }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(captureQuery.query?.attachedToClass).toBeUndefined()
-      }))
+      })
+    )
   })
 
   describe("mutual exclusion", () => {
     it("rejects titleSearch + titleRegex", async () => {
       const result = await Effect.runPromiseExit(
-        Schema.decodeUnknown(ListIssuesParamsSchema)({
-          project: "TEST",
-          titleSearch: "bug",
-          titleRegex: "BUG%"
-        })
+        Schema.decodeUnknown(ListIssuesParamsSchema)({ project: "TEST", titleSearch: "bug", titleRegex: "BUG%" })
       )
 
       const msg = expectParseFailure(result)
@@ -347,11 +346,7 @@ describe("listIssues filters", () => {
 
     it("rejects assignee + hasAssignee", async () => {
       const result = await Effect.runPromiseExit(
-        Schema.decodeUnknown(ListIssuesParamsSchema)({
-          project: "TEST",
-          assignee: "test@test.com",
-          hasAssignee: true
-        })
+        Schema.decodeUnknown(ListIssuesParamsSchema)({ project: "TEST", assignee: "test@test.com", hasAssignee: true })
       )
 
       const msg = expectParseFailure(result)
@@ -361,11 +356,7 @@ describe("listIssues filters", () => {
 
     it("rejects component + hasComponent", async () => {
       const result = await Effect.runPromiseExit(
-        Schema.decodeUnknown(ListIssuesParamsSchema)({
-          project: "TEST",
-          component: "frontend",
-          hasComponent: true
-        })
+        Schema.decodeUnknown(ListIssuesParamsSchema)({ project: "TEST", component: "frontend", hasComponent: true })
       )
 
       const msg = expectParseFailure(result)
@@ -375,11 +366,7 @@ describe("listIssues filters", () => {
 
     it("rejects parentIssue + isTopLevel: true", async () => {
       const result = await Effect.runPromiseExit(
-        Schema.decodeUnknown(ListIssuesParamsSchema)({
-          project: "TEST",
-          parentIssue: "TEST-1",
-          isTopLevel: true
-        })
+        Schema.decodeUnknown(ListIssuesParamsSchema)({ project: "TEST", parentIssue: "TEST-1", isTopLevel: true })
       )
 
       const msg = expectParseFailure(result)
@@ -389,11 +376,7 @@ describe("listIssues filters", () => {
 
     it("allows parentIssue + isTopLevel: false", async () => {
       const result = await Effect.runPromiseExit(
-        Schema.decodeUnknown(ListIssuesParamsSchema)({
-          project: "TEST",
-          parentIssue: "TEST-1",
-          isTopLevel: false
-        })
+        Schema.decodeUnknown(ListIssuesParamsSchema)({ project: "TEST", parentIssue: "TEST-1", isTopLevel: false })
       )
 
       expect(Exit.isSuccess(result)).toBe(true)

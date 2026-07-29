@@ -74,30 +74,17 @@ export { listInlineComments } from "./documents-inline-comments.js"
 
 type ListTeamspacesError = HulyClientError
 
-type GetTeamspaceError =
-  | HulyClientError
-  | TeamspaceNotFoundError
+type GetTeamspaceError = HulyClientError | TeamspaceNotFoundError
 
 type CreateTeamspaceError = HulyClientError
 
-type UpdateTeamspaceError =
-  | HulyClientError
-  | NoUpdateFieldsError
-  | TeamspaceNotFoundError
+type UpdateTeamspaceError = HulyClientError | NoUpdateFieldsError | TeamspaceNotFoundError
 
-type DeleteTeamspaceError =
-  | HulyClientError
-  | TeamspaceNotFoundError
+type DeleteTeamspaceError = HulyClientError | TeamspaceNotFoundError
 
-type ListDocumentsError =
-  | HulyClientError
-  | TeamspaceNotFoundError
+type ListDocumentsError = HulyClientError | TeamspaceNotFoundError
 
-type GetDocumentError =
-  | HulyClientError
-  | TeamspaceNotFoundError
-  | DocumentNotFoundError
-  | DocumentContentCorruptedError
+type GetDocumentError = HulyClientError | TeamspaceNotFoundError | DocumentNotFoundError | DocumentContentCorruptedError
 
 type CreateDocumentError =
   | HulyClientError
@@ -109,10 +96,7 @@ type CreateDocumentError =
   | PersonIdentifierAmbiguousError
   | PersonNotFoundError
 
-type DeleteDocumentError =
-  | HulyClientError
-  | TeamspaceNotFoundError
-  | DocumentNotFoundError
+type DeleteDocumentError = HulyClientError | TeamspaceNotFoundError | DocumentNotFoundError
 
 // --- Helpers ---
 
@@ -127,7 +111,7 @@ export { findTeamspaceAndDocument }
 export const listTeamspaces = (
   params: ListTeamspacesParams
 ): Effect.Effect<ListTeamspacesResult, ListTeamspacesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const query: StrictDocumentQuery<HulyTeamspace> = {}
@@ -137,16 +121,10 @@ export const listTeamspaces = (
 
     const limit = clampLimit(params.limit)
 
-    const teamspaces = yield* client.findAll<HulyTeamspace>(
-      documentPlugin.class.Teamspace,
-      hulyQuery(query),
-      {
-        limit,
-        sort: {
-          name: SortingOrder.Ascending
-        }
-      }
-    )
+    const teamspaces = yield* client.findAll<HulyTeamspace>(documentPlugin.class.Teamspace, hulyQuery(query), {
+      limit,
+      sort: { name: SortingOrder.Ascending }
+    })
 
     const total = teamspaces.total
 
@@ -158,10 +136,7 @@ export const listTeamspaces = (
       private: ts.private
     }))
 
-    return {
-      teamspaces: summaries,
-      total: listTotal(total)
-    }
+    return { teamspaces: summaries, total: listTotal(total) }
   })
 
 // --- Teamspace CRUD Operations ---
@@ -169,7 +144,7 @@ export const listTeamspaces = (
 export const getTeamspace = (
   params: GetTeamspaceParams
 ): Effect.Effect<GetTeamspaceResult, GetTeamspaceError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, teamspace } = yield* findTeamspace(params.teamspace, { includeArchived: true })
 
     const docs = yield* client.findAll<HulyDocument>(
@@ -191,7 +166,7 @@ export const getTeamspace = (
 export const createTeamspace = (
   params: CreateTeamspaceParams
 ): Effect.Effect<CreateTeamspaceResult, CreateTeamspaceError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const existing = yield* client.findOne<HulyTeamspace>(
@@ -200,11 +175,7 @@ export const createTeamspace = (
     )
 
     if (existing !== undefined) {
-      return {
-        id: TeamspaceId.make(existing._id),
-        name: existing.name,
-        created: false
-      }
+      return { id: TeamspaceId.make(existing._id), name: existing.name, created: false }
     }
 
     const teamspaceId: Ref<HulyTeamspace> = generateId()
@@ -222,29 +193,20 @@ export const createTeamspace = (
 
     // Teamspaces are top-level spaces — use core.space.Space as parent,
     // matching the official Huly platform-api example (teamspace-create.ts).
-    yield* client.createDoc(
-      documentPlugin.class.Teamspace,
-      core.space.Space,
-      teamspaceData,
-      teamspaceId
-    )
+    yield* client.createDoc(documentPlugin.class.Teamspace, core.space.Space, teamspaceData, teamspaceId)
 
-    return {
-      id: TeamspaceId.make(teamspaceId),
-      name: params.name,
-      created: true
-    }
+    return { id: TeamspaceId.make(teamspaceId), name: params.name, created: true }
   })
 
 export const updateTeamspace = (
   params: UpdateTeamspaceParams
 ): Effect.Effect<UpdateTeamspaceResult, UpdateTeamspaceError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_teamspace", params, UPDATE_TEAMSPACE_FIELDS)
 
     const { client, teamspace } = yield* findTeamspace(params.teamspace, { includeArchived: true })
 
-    type UpdateTeamspaceField = typeof UPDATE_TEAMSPACE_FIELDS[number]
+    type UpdateTeamspaceField = (typeof UPDATE_TEAMSPACE_FIELDS)[number]
     type UpdateTeamspaceEntries = {
       readonly [Field in UpdateTeamspaceField]: DirectUpdateEntry<
         UpdateTeamspaceField,
@@ -254,19 +216,13 @@ export const updateTeamspace = (
     }
     const updateEntries = {
       name: params.name === undefined ? {} : { name: params.name },
-      description: params.description === undefined ? {} : {
-        description: params.description === null ? "" : params.description
-      },
+      description:
+        params.description === undefined ? {} : { description: params.description === null ? "" : params.description },
       archived: params.archived === undefined ? {} : { archived: params.archived }
     } satisfies UpdateTeamspaceEntries
     const updateOps: DocumentUpdate<HulyTeamspace> = mergeUpdateEntries(Object.values(updateEntries))
 
-    yield* client.updateDoc(
-      documentPlugin.class.Teamspace,
-      core.space.Space,
-      teamspace._id,
-      updateOps
-    )
+    yield* client.updateDoc(documentPlugin.class.Teamspace, core.space.Space, teamspace._id, updateOps)
 
     return { id: TeamspaceId.make(teamspace._id), updated: true }
   })
@@ -274,14 +230,10 @@ export const updateTeamspace = (
 export const deleteTeamspace = (
   params: DeleteTeamspaceParams
 ): Effect.Effect<DeleteTeamspaceResult, DeleteTeamspaceError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, teamspace } = yield* findTeamspace(params.teamspace, { includeArchived: true })
 
-    yield* client.removeDoc(
-      documentPlugin.class.Teamspace,
-      core.space.Space,
-      teamspace._id
-    )
+    yield* client.removeDoc(documentPlugin.class.Teamspace, core.space.Space, teamspace._id)
 
     return { id: TeamspaceId.make(teamspace._id), deleted: true }
   })
@@ -294,14 +246,12 @@ export const deleteTeamspace = (
 export const listDocuments = (
   params: ListDocumentsParams
 ): Effect.Effect<ListDocumentsResult, ListDocumentsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, teamspace } = yield* findTeamspace(params.teamspace)
 
     const limit = clampLimit(params.limit)
 
-    const query: StrictDocumentQuery<HulyDocument> = {
-      space: teamspace._id
-    }
+    const query: StrictDocumentQuery<HulyDocument> = { space: teamspace._id }
 
     if (params.titleSearch !== undefined && params.titleSearch.trim() !== "") {
       query.title = { $like: `%${escapeLikeWildcards(params.titleSearch)}%` }
@@ -315,16 +265,10 @@ export const listDocuments = (
       query.$search = params.contentSearch
     }
 
-    const documents = yield* client.findAll<HulyDocument>(
-      documentPlugin.class.Document,
-      hulyQuery(query),
-      {
-        limit,
-        sort: {
-          modifiedOn: SortingOrder.Descending
-        }
-      }
-    )
+    const documents = yield* client.findAll<HulyDocument>(documentPlugin.class.Document, hulyQuery(query), {
+      limit,
+      sort: { modifiedOn: SortingOrder.Descending }
+    })
 
     const total = documents.total
 
@@ -336,10 +280,7 @@ export const listDocuments = (
       modifiedOn: doc.modifiedOn
     }))
 
-    return {
-      documents: summaries,
-      total: listTotal(total)
-    }
+    return { documents: summaries, total: listTotal(total) }
   })
 
 /**
@@ -350,10 +291,8 @@ export const listDocuments = (
  * - Content rendered as markdown
  * - All metadata
  */
-export const getDocument = (
-  params: GetDocumentParams
-): Effect.Effect<Document, GetDocumentError, HulyClient> =>
-  Effect.gen(function*() {
+export const getDocument = (params: GetDocumentParams): Effect.Effect<Document, GetDocumentError, HulyClient> =>
+  Effect.gen(function* () {
     const { client, doc, teamspace } = yield* findTeamspaceAndDocument({
       teamspace: params.teamspace,
       document: params.document
@@ -394,29 +333,27 @@ export const getDocument = (
 export const createDocument = (
   params: CreateDocumentParams
 ): Effect.Effect<CreateDocumentResult, CreateDocumentError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, teamspace } = yield* findTeamspace(params.teamspace)
 
     const documentId: Ref<HulyDocument> = generateId()
 
     const parent = params.parent
-    const parentRef: Ref<HulyDocument> = parent === undefined
-      ? documentPlugin.ids.NoParent
-      : yield* Effect.gen(function*() {
-        const parentDoc = yield* findByNameOrId(
-          client,
-          documentPlugin.class.Document,
-          { space: teamspace._id, title: parent },
-          { space: teamspace._id, _id: toRef<HulyDocument>(parent) }
-        )
-        if (parentDoc === undefined) {
-          return yield* new DocumentNotFoundError({
-            identifier: parent,
-            teamspace: params.teamspace
+    const parentRef: Ref<HulyDocument> =
+      parent === undefined
+        ? documentPlugin.ids.NoParent
+        : yield* Effect.gen(function* () {
+            const parentDoc = yield* findByNameOrId(
+              client,
+              documentPlugin.class.Document,
+              { space: teamspace._id, title: parent },
+              { space: teamspace._id, _id: toRef<HulyDocument>(parent) }
+            )
+            if (parentDoc === undefined) {
+              return yield* new DocumentNotFoundError({ identifier: parent, teamspace: params.teamspace })
+            }
+            return parentDoc._id
           })
-        }
-        return parentDoc._id
-      })
 
     // Fetch rank of the last document to insert after
     const lastDoc = yield* client.findOne<HulyDocument>(
@@ -427,32 +364,23 @@ export const createDocument = (
     const rank = makeRank(lastDoc?.rank, undefined)
 
     const content = params.content
-    const contentMarkupRef: MarkupBlobRef | null = content !== undefined && content.trim() !== ""
-      ? yield* Effect.gen(function*() {
-        const renderedContent = yield* renderDocumentContentForWrite(content)
-        return yield* client.uploadMarkup(
-          documentPlugin.class.Document,
-          documentId,
-          "content",
-          renderedContent.markup,
-          renderedContent.format
-        )
-      })
-      : null
+    const contentMarkupRef: MarkupBlobRef | null =
+      content !== undefined && content.trim() !== ""
+        ? yield* Effect.gen(function* () {
+            const renderedContent = yield* renderDocumentContentForWrite(content)
+            return yield* client.uploadMarkup(
+              documentPlugin.class.Document,
+              documentId,
+              "content",
+              renderedContent.markup,
+              renderedContent.format
+            )
+          })
+        : null
 
-    const documentData: Data<HulyDocument> = {
-      title: params.title,
-      content: contentMarkupRef,
-      parent: parentRef,
-      rank
-    }
+    const documentData: Data<HulyDocument> = { title: params.title, content: contentMarkupRef, parent: parentRef, rank }
 
-    yield* client.createDoc(
-      documentPlugin.class.Document,
-      teamspace._id,
-      documentData,
-      documentId
-    )
+    yield* client.createDoc(documentPlugin.class.Document, teamspace._id, documentData, documentId)
 
     return {
       id: DocumentId.make(documentId),
@@ -476,14 +404,10 @@ export const createDocument = (
 export const deleteDocument = (
   params: DeleteDocumentParams
 ): Effect.Effect<DeleteDocumentResult, DeleteDocumentError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, doc, teamspace } = yield* findTeamspaceAndDocument(params)
 
-    yield* client.removeDoc(
-      documentPlugin.class.Document,
-      teamspace._id,
-      doc._id
-    )
+    yield* client.removeDoc(documentPlugin.class.Document, teamspace._id, doc._id)
 
     return { id: DocumentId.make(doc._id), deleted: true }
   })

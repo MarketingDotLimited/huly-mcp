@@ -40,7 +40,7 @@ export const resolveDrive = (
   client: HulyClientOperations,
   identifier: string
 ): Effect.Effect<DriveSpace, DriveOperationError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<DriveSpace>(
       drive.class.Drive,
       hulyQuery<DriveSpace>({ _id: toRef<DriveSpace>(identifier) })
@@ -65,7 +65,7 @@ export const resolvePath = (
   driveSpace: DriveSpace,
   path: NormalizedDrivePath
 ): Effect.Effect<ResolvedPath, DriveOperationError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (path.segments.length === 0) return { item: undefined, path: DRIVE_ROOT_PATH }
 
     let parent: Ref<Folder> = drive.ids.Root
@@ -104,11 +104,7 @@ export const resolvePath = (
       if (segment !== lastSegment) {
         if (!isFolder(currentItem)) {
           return yield* Effect.fail(
-            new DriveParentNotFolderError({
-              drive: driveSpace.name,
-              path: path.path,
-              parentPath: currentPath
-            })
+            new DriveParentNotFolderError({ drive: driveSpace.name, path: path.path, parentPath: currentPath })
           )
         }
         parent = currentItem._id
@@ -123,21 +119,15 @@ export const resolveItemById = (
   driveSpace: DriveSpace,
   itemId: DriveItemId
 ): Effect.Effect<DriveItem, DriveOperationError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const folder = yield* client.findOne<Folder>(
       drive.class.Folder,
-      hulyQuery<Folder>({
-        _id: toRef<Folder>(itemId),
-        space: driveSpace._id
-      })
+      hulyQuery<Folder>({ _id: toRef<Folder>(itemId), space: driveSpace._id })
     )
     if (folder !== undefined) return folder
     const file = yield* client.findOne<File>(
       drive.class.File,
-      hulyQuery<File>({
-        _id: toRef<File>(itemId),
-        space: driveSpace._id
-      })
+      hulyQuery<File>({ _id: toRef<File>(itemId), space: driveSpace._id })
     )
     if (file !== undefined) return file
     return yield* Effect.fail(new DrivePathNotFoundError({ drive: driveSpace.name, path: itemId }))
@@ -149,13 +139,10 @@ export const resolveFile = (
   driveIdentifier: string,
   fileLocator: string
 ): Effect.Effect<File, DriveOperationError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<File>(
       drive.class.File,
-      hulyQuery<File>({
-        _id: toRef<File>(fileLocator),
-        space: driveSpace._id
-      })
+      hulyQuery<File>({ _id: toRef<File>(fileLocator), space: driveSpace._id })
     )
     if (byId !== undefined) return byId
 
@@ -171,19 +158,16 @@ export const resolveVersion = (
   file: File,
   versionLocator: string
 ): Effect.Effect<FileVersion, DriveOperationError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const numericVersion = Number(versionLocator)
-    const query = Number.isInteger(numericVersion) && numericVersion > 0
-      ? hulyQuery<FileVersion>({ attachedTo: file._id, version: numericVersion })
-      : hulyQuery<FileVersion>({ _id: toRef<FileVersion>(versionLocator), attachedTo: file._id })
+    const query =
+      Number.isInteger(numericVersion) && numericVersion > 0
+        ? hulyQuery<FileVersion>({ attachedTo: file._id, version: numericVersion })
+        : hulyQuery<FileVersion>({ _id: toRef<FileVersion>(versionLocator), attachedTo: file._id })
     const version = yield* client.findOne<FileVersion>(drive.class.FileVersion, query)
     if (version !== undefined && version.space === driveSpace._id) return version
     return yield* Effect.fail(
-      new DriveFileVersionNotFoundError({
-        drive: driveIdentifier,
-        file: file._id,
-        version: versionLocator
-      })
+      new DriveFileVersionNotFoundError({ drive: driveIdentifier, file: file._id, version: versionLocator })
     )
   })
 
@@ -195,11 +179,7 @@ export const requireFolderParent = (
   if (resolved.item === undefined) return Effect.succeed(undefined)
   if (isFolder(resolved.item)) return Effect.succeed(resolved.item)
   return Effect.fail(
-    new DriveParentNotFolderError({
-      drive: driveIdentifier,
-      path: path.path,
-      parentPath: resolved.path
-    })
+    new DriveParentNotFolderError({ drive: driveIdentifier, path: path.path, parentPath: resolved.path })
   )
 }
 
@@ -213,7 +193,7 @@ export const resolveExistingParentFolder = (
   { readonly folder: Folder | undefined; readonly createdFolders: ReadonlyArray<CreatedFolder> },
   DriveOperationError
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const resolved = yield* resolvePath(client, driveSpace, parentPath)
     const folder = yield* requireFolderParent(driveIdentifier, fullPath, resolved)
     return { folder, createdFolders: [] }
@@ -232,7 +212,7 @@ export const ensureFolderPath = (
   },
   DriveOperationError
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     let parent: Folder | undefined
     let parentRef: Ref<Folder> = drive.ids.Root
     let currentPath = DRIVE_ROOT_PATH
@@ -270,15 +250,11 @@ export const ensureFolderPath = (
         continue
       }
 
-      const folderId = yield* client.createDoc<Folder>(
-        drive.class.Folder,
-        driveSpace._id,
-        {
-          title: segment,
-          parent: parentRef,
-          path: computeChildPath(parent)
-        }
-      )
+      const folderId = yield* client.createDoc<Folder>(drive.class.Folder, driveSpace._id, {
+        title: segment,
+        parent: parentRef,
+        path: computeChildPath(parent)
+      })
       const folder: Folder = {
         ...baseCreatedDoc(drive.class.Folder, toRef<Drive>(driveSpace._id), client.getPrimarySocialId()),
         _id: folderId,
@@ -292,11 +268,7 @@ export const ensureFolderPath = (
       parentRef = folder._id
     }
 
-    return {
-      folder: parent,
-      created: createdFolders.length > 0,
-      createdFolders
-    }
+    return { folder: parent, created: createdFolders.length > 0, createdFolders }
   })
 
 export const listChildren = (
@@ -306,13 +278,15 @@ export const listChildren = (
   kind: "any" | "folder" | "file",
   limit?: number
 ): Effect.Effect<ReadonlyArray<DriveItem>, HulyClientError> =>
-  Effect.gen(function*() {
-    const folders = kind === "file"
-      ? []
-      : yield* client.findAll<Folder>(drive.class.Folder, hulyQuery<Folder>({ space: driveSpace._id, parent }))
-    const files = kind === "folder"
-      ? []
-      : yield* client.findAll<File>(drive.class.File, hulyQuery<File>({ space: driveSpace._id, parent }))
+  Effect.gen(function* () {
+    const folders =
+      kind === "file"
+        ? []
+        : yield* client.findAll<Folder>(drive.class.Folder, hulyQuery<Folder>({ space: driveSpace._id, parent }))
+    const files =
+      kind === "folder"
+        ? []
+        : yield* client.findAll<File>(drive.class.File, hulyQuery<File>({ space: driveSpace._id, parent }))
     return [...folders, ...files]
       .sort((a, b) => a.title.localeCompare(b.title) || itemKind(a).localeCompare(itemKind(b)))
       .slice(0, clampLimit(limit))
@@ -324,22 +298,14 @@ export const findChildrenByTitle = (
   parent: Ref<Folder>,
   title: string
 ): Effect.Effect<ReadonlyArray<DriveItem>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const folders = yield* client.findAll<Folder>(
       drive.class.Folder,
-      hulyQuery<Folder>({
-        space: driveSpace._id,
-        parent,
-        title
-      })
+      hulyQuery<Folder>({ space: driveSpace._id, parent, title })
     )
     const files = yield* client.findAll<File>(
       drive.class.File,
-      hulyQuery<File>({
-        space: driveSpace._id,
-        parent,
-        title
-      })
+      hulyQuery<File>({ space: driveSpace._id, parent, title })
     )
     return [...folders, ...files]
   })
@@ -356,14 +322,7 @@ const baseCreatedDoc = <T extends Doc>(
   readonly modifiedOn: number
   readonly createdBy: PersonId
   readonly createdOn: number
-} => ({
-  _class: classRef,
-  space,
-  modifiedBy: personId,
-  modifiedOn: now,
-  createdBy: personId,
-  createdOn: now
-})
+} => ({ _class: classRef, space, modifiedBy: personId, modifiedOn: now, createdBy: personId, createdOn: now })
 
 export const makeCreatedFile = (
   classRef: Ref<Class<File>>,
@@ -374,7 +333,7 @@ export const makeCreatedFile = (
   parent: Folder | undefined,
   versionId: Ref<FileVersion>
 ): Effect.Effect<File, never> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const now = yield* Clock.currentTimeMillis
     return {
       ...baseCreatedDoc(classRef, toRef<Drive>(driveSpace._id), client.getPrimarySocialId(), now),

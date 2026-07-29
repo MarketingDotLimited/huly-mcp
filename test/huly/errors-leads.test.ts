@@ -7,17 +7,18 @@ import { funnelIdentifier, funnelReference, leadIdentifier } from "../helpers/br
 describe("Lead Errors", () => {
   describe("FunnelNotFoundError", () => {
     it.effect("creates with correct tag and message", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new FunnelNotFoundError({ identifier: funnelReference("SALES") })
         expect(error._tag).toBe("FunnelNotFoundError")
         expect(error.message).toContain("SALES")
         expect(error.message).toContain("not found")
-      }))
+      })
+    )
   })
 
   describe("LeadNotFoundError", () => {
     it.effect("creates with correct tag, identifier, and funnel in message", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const error = new LeadNotFoundError({
           identifier: leadIdentifier("LEAD-1"),
           funnel: funnelIdentifier("funnel-1")
@@ -26,6 +27,7 @@ describe("Lead Errors", () => {
         expect(error.message).toContain("LEAD-1")
         expect(error.message).toContain("funnel-1")
         expect(error.message).toContain("not found")
-      }))
+      })
+    )
   })
 })

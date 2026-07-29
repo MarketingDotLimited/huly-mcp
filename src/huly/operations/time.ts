@@ -61,7 +61,7 @@ import { contact, time, tracker } from "../huly-plugins.js"
 // eslint-disable-next-line no-restricted-syntax -- Ref<Doc> and PersonId are incompatible branded types, no single-step cast exists
 const refAsPersonId = (ref: Ref<Doc>): CorePersonId => ref as unknown as CorePersonId
 
-const toTimeReportDate = (date: HulyTimeSpendReport["date"]) => date === null ? null : Timestamp.make(date)
+const toTimeReportDate = (date: HulyTimeSpendReport["date"]) => (date === null ? null : Timestamp.make(date))
 
 type LogTimeError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
 type GetTimeReportError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
@@ -71,10 +71,8 @@ type ListWorkSlotsError = HulyClientError
 type StartTimerError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
 type StopTimerError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
 
-export const logTime = (
-  params: LogTimeParams
-): Effect.Effect<LogTimeResult, LogTimeError, HulyClient> =>
-  Effect.gen(function*() {
+export const logTime = (params: LogTimeParams): Effect.Effect<LogTimeResult, LogTimeError, HulyClient> =>
+  Effect.gen(function* () {
     const { client, issue, project } = yield* findProjectAndIssue({
       project: params.project,
       identifier: params.identifier
@@ -85,18 +83,20 @@ export const logTime = (
       contact.class.SocialIdentity,
       hulyQuery<SocialIdentity>({ _id: toSocialIdentityRef(client.getPrimarySocialId()) })
     )
-    const employee = socialIdentity === undefined
-      ? null
-      : toRef<HulyEmployee>(
-        (yield* parsePrimarySocialIdentityProjection(socialIdentity).pipe(
-          Effect.mapError((parseError) =>
-            new HulyConnectionError({
-              message: `Authenticated social identity failed schema validation: ${parseError.message}`,
-              cause: parseError
-            })
+    const employee =
+      socialIdentity === undefined
+        ? null
+        : toRef<HulyEmployee>(
+            (yield* parsePrimarySocialIdentityProjection(socialIdentity).pipe(
+              Effect.mapError(
+                (parseError) =>
+                  new HulyConnectionError({
+                    message: `Authenticated social identity failed schema validation: ${parseError.message}`,
+                    cause: parseError
+                  })
+              )
+            )).attachedTo
           )
-        )).attachedTo
-      )
 
     const now = yield* Clock.currentTimeMillis
     const reportData: AttachedData<HulyTimeSpendReport> = {
@@ -122,11 +122,8 @@ export const logTime = (
 export const getTimeReport = (
   params: GetTimeReportParams
 ): Effect.Effect<TimeReportSummary, GetTimeReportError, HulyClient> =>
-  Effect.gen(function*() {
-    const { client, issue } = yield* findProjectAndIssue({
-      project: params.project,
-      identifier: params.identifier
-    })
+  Effect.gen(function* () {
+    const { client, issue } = yield* findProjectAndIssue({ project: params.project, identifier: params.identifier })
 
     const reports = yield* client.findAll<HulyTimeSpendReport>(
       tracker.class.TimeSpendReport,
@@ -134,22 +131,14 @@ export const getTimeReport = (
       { sort: { date: SortingOrder.Descending } }
     )
 
-    const employeeIds = [
-      ...new Set(
-        reports.map(r => r.employee).filter(isExistent)
-      )
-    ]
+    const employeeIds = [...new Set(reports.map((r) => r.employee).filter(isExistent))]
 
-    const persons = employeeIds.length > 0
-      ? yield* client.findAll<Person>(
-        contact.class.Person,
-        { _id: { $in: employeeIds } }
-      )
-      : []
+    const persons =
+      employeeIds.length > 0 ? yield* client.findAll<Person>(contact.class.Person, { _id: { $in: employeeIds } }) : []
 
-    const personMap = new Map(persons.map(p => [p._id, p.name]))
+    const personMap = new Map(persons.map((p) => [p._id, p.name]))
 
-    const timeReports: Array<TimeSpendReport> = reports.map(r => {
+    const timeReports: Array<TimeSpendReport> = reports.map((r) => {
       const employeeName = r.employee == null ? undefined : personMap.get(r.employee)
       const employee = employeeName === undefined ? undefined : PersonName.make(employeeName)
       const date = toTimeReportDate(r.date)
@@ -180,23 +169,17 @@ export const getTimeReport = (
 export const listTimeSpendReports = (
   params: ListTimeSpendReportsParams
 ): Effect.Effect<Array<TimeSpendReport>, ListTimeSpendReportsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     type TimeSpendReportWithLookup = WithLookup<HulyTimeSpendReport> & {
-      $lookup?: {
-        attachedTo?: HulyIssue
-        employee?: Person
-      }
+      $lookup?: { attachedTo?: HulyIssue; employee?: Person }
     }
 
     const query: DocumentQuery<TimeSpendReportWithLookup> = {}
 
     if (params.project !== undefined) {
-      const project = yield* client.findOne<HulyProject>(
-        tracker.class.Project,
-        { identifier: params.project }
-      )
+      const project = yield* client.findOne<HulyProject>(tracker.class.Project, { identifier: params.project })
       if (project === undefined) {
         return yield* new ProjectNotFoundError({ identifier: params.project })
       }
@@ -217,17 +200,15 @@ export const listTimeSpendReports = (
       query,
       withLookup<TimeSpendReportWithLookup>(
         { limit, sort: { date: SortingOrder.Descending } },
-        {
-          attachedTo: tracker.class.Issue,
-          employee: contact.class.Person
-        }
+        { attachedTo: tracker.class.Issue, employee: contact.class.Person }
       )
     )
 
-    return reports.map(r => {
-      const identifier = r.$lookup?.attachedTo?.identifier !== undefined
-        ? IssueIdentifier.make(r.$lookup.attachedTo.identifier)
-        : undefined
+    return reports.map((r) => {
+      const identifier =
+        r.$lookup?.attachedTo?.identifier !== undefined
+          ? IssueIdentifier.make(r.$lookup.attachedTo.identifier)
+          : undefined
       const employee = r.$lookup?.employee?.name !== undefined ? PersonName.make(r.$lookup.employee.name) : undefined
       const date = toTimeReportDate(r.date)
 
@@ -245,14 +226,11 @@ export const listTimeSpendReports = (
 export const getDetailedTimeReport = (
   params: GetDetailedTimeReportParams
 ): Effect.Effect<DetailedTimeReport, GetDetailedTimeReportError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, project } = yield* findProject(params.project)
 
     type TimeSpendReportWithLookup = WithLookup<HulyTimeSpendReport> & {
-      $lookup?: {
-        attachedTo?: HulyIssue
-        employee?: Person
-      }
+      $lookup?: { attachedTo?: HulyIssue; employee?: Person }
     }
 
     const query: DocumentQuery<TimeSpendReportWithLookup> = { space: project._id }
@@ -269,10 +247,7 @@ export const getDetailedTimeReport = (
       query,
       withLookup<TimeSpendReportWithLookup>(
         { sort: { date: SortingOrder.Descending } },
-        {
-          attachedTo: tracker.class.Issue,
-          employee: contact.class.Person
-        }
+        { attachedTo: tracker.class.Issue, employee: contact.class.Person }
       )
     )
 
@@ -318,9 +293,8 @@ export const getDetailedTimeReport = (
       byIssueMap.set(issueKey, existing)
 
       const empKey = r.employee
-      const employeeName = r.$lookup?.employee?.name === undefined
-        ? undefined
-        : PersonName.make(r.$lookup.employee.name)
+      const employeeName =
+        r.$lookup?.employee?.name === undefined ? undefined : PersonName.make(r.$lookup.employee.name)
       const empExisting = byEmployeeMap.get(empKey) ?? {
         ...(employeeName === undefined ? {} : { employeeName }),
         totalTime: TimeHours.make(0)
@@ -332,18 +306,13 @@ export const getDetailedTimeReport = (
     const byIssue: DetailedTimeReport["byIssue"] = Array.from(byIssueMap.values())
     const byEmployee: DetailedTimeReport["byEmployee"] = Array.from(byEmployeeMap.values())
 
-    return {
-      project: params.project,
-      totalTime,
-      byIssue,
-      byEmployee
-    }
+    return { project: params.project, totalTime, byIssue, byEmployee }
   })
 
 export const listWorkSlots = (
   params: ListWorkSlotsParams
 ): Effect.Effect<Array<WorkSlot>, ListWorkSlotsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     /* eslint-disable @typescript-eslint/consistent-type-imports -- inline type for generic */
@@ -353,15 +322,9 @@ export const listWorkSlots = (
     const query: DocumentQuery<HulyWorkSlot> = {}
 
     if (params.employeeId !== undefined) {
-      const person = yield* client.findOne<Person>(
-        contact.class.Person,
-        { _id: toRef<Person>(params.employeeId) }
-      )
+      const person = yield* client.findOne<Person>(contact.class.Person, { _id: toRef<Person>(params.employeeId) })
       if (person === undefined) {
-        const channels = yield* client.findAll<Channel>(
-          contact.class.Channel,
-          { value: params.employeeId }
-        )
+        const channels = yield* client.findAll<Channel>(contact.class.Channel, { value: params.employeeId })
         if (isNonEmpty(channels)) {
           const channel = channels[0]
           query.user = refAsPersonId(channel.attachedTo)
@@ -380,13 +343,12 @@ export const listWorkSlots = (
 
     const limit = clampLimit(params.limit)
 
-    const slots = yield* client.findAll<HulyWorkSlot>(
-      time.class.WorkSlot,
-      query,
-      { limit, sort: { date: SortingOrder.Descending } }
-    )
+    const slots = yield* client.findAll<HulyWorkSlot>(time.class.WorkSlot, query, {
+      limit,
+      sort: { date: SortingOrder.Descending }
+    })
 
-    return slots.map(s => ({
+    return slots.map((s) => ({
       id: WorkSlotId.make(s._id),
       todoId: TodoId.make(s.attachedTo),
       date: Timestamp.make(s.date),
@@ -402,21 +364,13 @@ export const listWorkSlots = (
  * timer API, so this only validates the issue exists and returns a start timestamp.
  * The client is expected to track the timer and call logTime when stopping.
  */
-export const startTimer = (
-  params: StartTimerParams
-): Effect.Effect<StartTimerResult, StartTimerError, HulyClient> =>
-  Effect.gen(function*() {
-    const { issue } = yield* findProjectAndIssue({
-      project: params.project,
-      identifier: params.identifier
-    })
+export const startTimer = (params: StartTimerParams): Effect.Effect<StartTimerResult, StartTimerError, HulyClient> =>
+  Effect.gen(function* () {
+    const { issue } = yield* findProjectAndIssue({ project: params.project, identifier: params.identifier })
 
     const startedAt = yield* Clock.currentTimeMillis
 
-    return {
-      identifier: IssueIdentifier.make(issue.identifier),
-      startedAt: Timestamp.make(startedAt)
-    }
+    return { identifier: IssueIdentifier.make(issue.identifier), startedAt: Timestamp.make(startedAt) }
   })
 
 /**
@@ -426,19 +380,11 @@ export const startTimer = (
  * timer API, so this only validates the issue exists and returns a stop timestamp.
  * The client should calculate elapsed time and call logTime to record it.
  */
-export const stopTimer = (
-  params: StopTimerParams
-): Effect.Effect<StopTimerResult, StopTimerError, HulyClient> =>
-  Effect.gen(function*() {
-    const { issue } = yield* findProjectAndIssue({
-      project: params.project,
-      identifier: params.identifier
-    })
+export const stopTimer = (params: StopTimerParams): Effect.Effect<StopTimerResult, StopTimerError, HulyClient> =>
+  Effect.gen(function* () {
+    const { issue } = yield* findProjectAndIssue({ project: params.project, identifier: params.identifier })
 
     const stoppedAt = yield* Clock.currentTimeMillis
 
-    return {
-      identifier: IssueIdentifier.make(issue.identifier),
-      stoppedAt: Timestamp.make(stoppedAt)
-    }
+    return { identifier: IssueIdentifier.make(issue.identifier), stoppedAt: Timestamp.make(stoppedAt) }
   })

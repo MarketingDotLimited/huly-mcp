@@ -13,7 +13,10 @@ export interface MockFn<Args extends Array<any>, Result> {
   mockReturnThis: () => MockFn<Args, Result>
 }
 
-const defaultImpl = <Args extends Array<unknown>, Result>(): (...args: Args) => Result => (() => undefined as Result)
+const defaultImpl =
+  <Args extends Array<unknown>, Result>(): ((...args: Args) => Result) =>
+  () =>
+    undefined as Result
 
 export const mockFn = <Fn extends (...args: Array<any>) => any = (...args: Array<any>) => any>(
   initial?: Fn
@@ -29,10 +32,7 @@ export const mockFn = <Fn extends (...args: Array<any>) => any = (...args: Array
     return (next ?? impl)(...args)
   }) as MockFn<Args, Result>
 
-  Object.defineProperty(fn, "mock", {
-    value: { calls },
-    enumerable: true
-  })
+  Object.defineProperty(fn, "mock", { value: { calls }, enumerable: true })
   fn.mockClear = () => {
     calls.length = 0
     return fn
@@ -68,7 +68,7 @@ export const mockFn = <Fn extends (...args: Array<any>) => any = (...args: Array
     return fn
   }
   fn.mockReturnThis = () => {
-    impl = function(this: Result) {
+    impl = function (this: Result) {
       return this
     } as (...args: Args) => Result
     return fn

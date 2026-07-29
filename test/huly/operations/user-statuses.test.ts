@@ -26,15 +26,9 @@ const makeUserStatus = (overrides?: Partial<UserStatus>): UserStatus => ({
   ...overrides
 })
 
-type CapturedFindAll = {
-  query?: DocumentQuery<UserStatus>
-  options?: FindOptions<UserStatus>
-}
+type CapturedFindAll = { query?: DocumentQuery<UserStatus>; options?: FindOptions<UserStatus> }
 
-const createLayer = (
-  statuses: ReadonlyArray<UserStatus> = [makeUserStatus()],
-  captured: CapturedFindAll = {}
-) => {
+const createLayer = (statuses: ReadonlyArray<UserStatus> = [makeUserStatus()], captured: CapturedFindAll = {}) => {
   const findAll: HulyClientOperations["findAll"] = (<T extends Doc>(
     _class: Ref<Class<T>>,
     query: DocumentQuery<T>,
@@ -51,51 +45,50 @@ const createLayer = (
 
 describe("user status operations", () => {
   it.effect("lists user statuses with empty query by default", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captured: CapturedFindAll = {}
       const result = yield* listUserStatuses({}).pipe(Effect.provide(createLayer([makeUserStatus()], captured)))
 
       expect(captured.query).toEqual({})
       expect(result).toEqual({
-        statuses: [{
-          id: userStatusId,
-          user: accountUuid,
-          online: true,
-          modifiedOn: 1700000000000
-        }],
+        statuses: [{ id: userStatusId, user: accountUuid, online: true, modifiedOn: 1700000000000 }],
         total: 1
       })
-    }))
+    })
+  )
 
   it.effect("includes online filter", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captured: CapturedFindAll = {}
       yield* listUserStatuses({ online: false }).pipe(Effect.provide(createLayer([], captured)))
 
       expect(captured.query).toEqual({ online: false })
-    }))
+    })
+  )
 
   it.effect("includes user filter", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captured: CapturedFindAll = {}
       yield* listUserStatuses({ user: UserStatusAccountUuid.make(accountUuid) }).pipe(
         Effect.provide(createLayer([], captured))
       )
 
       expect(captured.query).toEqual({ user: accountUuid })
-    }))
+    })
+  )
 
   it.effect("clamps limit and requests newest modified records first", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captured: CapturedFindAll = {}
       yield* listUserStatuses({ limit: 500 }).pipe(Effect.provide(createLayer([], captured)))
 
       expect(captured.options?.limit).toBe(200)
       expect(captured.options?.sort).toEqual({ modifiedOn: SortingOrder.Descending })
-    }))
+    })
+  )
 
   it.effect("maps SDK docs to result summaries", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const offlineStatus = makeUserStatus({
         _id: "user-status-2" as Ref<UserStatus>,
         user: "22222222-2222-4222-8222-222222222222" as UserStatus["user"],
@@ -103,24 +96,13 @@ describe("user status operations", () => {
         modifiedOn: 1700000000100
       })
 
-      const result = yield* listUserStatuses({}).pipe(
-        Effect.provide(createLayer([makeUserStatus(), offlineStatus]))
-      )
+      const result = yield* listUserStatuses({}).pipe(Effect.provide(createLayer([makeUserStatus(), offlineStatus])))
 
       expect(result.statuses).toEqual([
-        {
-          id: userStatusId,
-          user: accountUuid,
-          online: true,
-          modifiedOn: 1700000000000
-        },
-        {
-          id: "user-status-2",
-          user: "22222222-2222-4222-8222-222222222222",
-          online: false,
-          modifiedOn: 1700000000100
-        }
+        { id: userStatusId, user: accountUuid, online: true, modifiedOn: 1700000000000 },
+        { id: "user-status-2", user: "22222222-2222-4222-8222-222222222222", online: false, modifiedOn: 1700000000100 }
       ])
       expect(result.total).toBe(2)
-    }))
+    })
+  )
 })

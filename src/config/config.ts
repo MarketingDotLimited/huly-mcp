@@ -20,7 +20,7 @@ export {
   sanitizeHulyRuntimeConfigFromHeaders
 } from "./huly-runtime-context.js"
 
-type HulyConfigHeader = typeof HULY_CONFIG_HEADERS[number]
+type HulyConfigHeader = (typeof HULY_CONFIG_HEADERS)[number]
 type HulyEnvNamePattern = `HULY_${string}`
 const HeaderValueSchema = Schema.Union(Schema.String, Schema.Array(Schema.String), Schema.Undefined)
 const HeaderRecordSchema = Schema.Record({ key: Schema.String, value: HeaderValueSchema })
@@ -30,10 +30,7 @@ type UrlHeaderEntries = ReadonlyMap<HulyConfigEnvName, string>
 
 type UrlHeaderConfig =
   | { readonly _tag: "NoUrlHeaders" }
-  | {
-    readonly _tag: "UrlHeaders"
-    readonly entries: UrlHeaderEntries
-  }
+  | { readonly _tag: "UrlHeaders"; readonly entries: UrlHeaderEntries }
 
 const headerToEnvName = {
   "x-huly-url": "HULY_URL",
@@ -42,7 +39,7 @@ const headerToEnvName = {
   "x-huly-connection-timeout": "HULY_CONNECTION_TIMEOUT"
 } as const satisfies Record<HulyConfigHeader, HulyEnvNamePattern>
 
-type HulyConfigEnvName = typeof headerToEnvName[HulyConfigHeader]
+type HulyConfigEnvName = (typeof headerToEnvName)[HulyConfigHeader]
 type ConfigMapEntry = readonly [HulyConfigEnvName, string]
 
 const hulyConfigHeaderSet = new Set<string>(HULY_CONFIG_HEADERS)
@@ -54,14 +51,17 @@ const isConfigMapEntry = (entry: ConfigMapEntry | undefined): entry is ConfigMap
  * Schema for URL validation - must be valid http/https URL.
  */
 const UrlSchema = Schema.String.pipe(
-  Schema.filter((s) => {
-    try {
-      const url = new URL(s)
-      return url.protocol === "http:" || url.protocol === "https:"
-    } catch {
-      return false
-    }
-  }, { message: () => "Must be a valid http or https URL" })
+  Schema.filter(
+    (s) => {
+      try {
+        const url = new URL(s)
+        return url.protocol === "http:" || url.protocol === "https:"
+      } catch {
+        return false
+      }
+    },
+    { message: () => "Must be a valid http or https URL" }
+  )
 )
 
 /**
@@ -90,10 +90,7 @@ const PositiveIntFromString = Schema.NumberFromString.pipe(
   Schema.positive({ message: () => "Must be positive" })
 )
 
-const TokenAuthSchema = Schema.Struct({
-  _tag: Schema.Literal("token"),
-  token: Schema.Redacted(NonWhitespaceString)
-})
+const TokenAuthSchema = Schema.Struct({ _tag: Schema.Literal("token"), token: Schema.Redacted(NonWhitespaceString) })
 
 const PasswordAuthSchema = Schema.Struct({
   _tag: Schema.Literal("password"),
@@ -117,56 +114,48 @@ export const HulyConfigSchema = Schema.Struct({
 
 type HulyConfig = Schema.Schema.Type<typeof HulyConfigSchema>
 
-export class ConfigValidationError extends Schema.TaggedError<ConfigValidationError>()(
-  "ConfigValidationError",
-  {
-    message: Schema.String,
-    field: Schema.optional(Schema.String),
-    cause: Schema.optional(Schema.Defect)
-  }
-) {}
+export class ConfigValidationError extends Schema.TaggedError<ConfigValidationError>()("ConfigValidationError", {
+  message: Schema.String,
+  field: Schema.optional(Schema.String),
+  cause: Schema.optional(Schema.Defect)
+}) {}
 
-const configValidationError = (
-  message: string,
-  field: string
-): ConfigValidationError => new ConfigValidationError({ message, field })
+const configValidationError = (message: string, field: string): ConfigValidationError =>
+  new ConfigValidationError({ message, field })
 
-const decodeHeaderRecord = (
-  headers: unknown
-): Effect.Effect<HeaderRecord, ConfigValidationError> =>
+const decodeHeaderRecord = (headers: unknown): Effect.Effect<HeaderRecord, ConfigValidationError> =>
   Schema.decodeUnknown(HeaderRecordSchema)(headers).pipe(
-    Effect.mapError((cause) =>
-      new ConfigValidationError({
-        message: `Invalid HTTP request headers: ${cause.message}`,
-        field: "headers",
-        cause
-      })
+    Effect.mapError(
+      (cause) =>
+        new ConfigValidationError({
+          message: `Invalid HTTP request headers: ${cause.message}`,
+          field: "headers",
+          cause
+        })
     )
   )
 
-const parseUrlHeaderConfig = (
-  headers: HeaderRecord
-): Effect.Effect<UrlHeaderConfig, ConfigValidationError> =>
-  Effect.gen(function*() {
+const parseUrlHeaderConfig = (headers: HeaderRecord): Effect.Effect<UrlHeaderConfig, ConfigValidationError> =>
+  Effect.gen(function* () {
     const hulyHeaders = Object.entries(headers).filter(([name]) => name.toLowerCase().startsWith("x-huly-"))
     if (hulyHeaders.length === 0) return { _tag: "NoUrlHeaders" }
 
-    const normalized = yield* Effect.forEach(hulyHeaders, ([rawName, value]): Effect.Effect<
-      readonly [HulyConfigHeader, HeaderValue],
-      ConfigValidationError
-    > => {
-      const name = rawName.toLowerCase()
-      if (!isHulyConfigHeader(name)) {
-        return Effect.fail(
-          configValidationError(
-            `Unsupported Huly config header "${rawName}". Supported headers: ${HULY_CONFIG_HEADERS.join(", ")}.`,
-            rawName
+    const normalized = yield* Effect.forEach(
+      hulyHeaders,
+      ([rawName, value]): Effect.Effect<readonly [HulyConfigHeader, HeaderValue], ConfigValidationError> => {
+        const name = rawName.toLowerCase()
+        if (!isHulyConfigHeader(name)) {
+          return Effect.fail(
+            configValidationError(
+              `Unsupported Huly config header "${rawName}". Supported headers: ${HULY_CONFIG_HEADERS.join(", ")}.`,
+              rawName
+            )
           )
-        )
-      }
+        }
 
-      return Effect.succeed([name, value])
-    })
+        return Effect.succeed([name, value])
+      }
+    )
 
     const normalizedNames = normalized.map(([name]) => name)
     const duplicateName = normalizedNames.find((name, index) => normalizedNames.indexOf(name) !== index)
@@ -178,35 +167,32 @@ const parseUrlHeaderConfig = (
     }
 
     const normalizedHeaders = new Map(normalized)
-    const configEntries = yield* Effect.forEach(HULY_CONFIG_HEADERS, (headerName): Effect.Effect<
-      ConfigMapEntry | undefined,
-      ConfigValidationError
-    > => {
-      const value = normalizedHeaders.get(headerName)
-      if (value === undefined) {
-        if (REQUIRED_HULY_CONFIG_HEADERS.includes(headerName)) {
-          return Effect.fail(
-            configValidationError(
-              `Missing required Huly config header "${headerName}". When any x-huly-* header is present, `
-                + `${REQUIRED_HULY_CONFIG_HEADERS.join(", ")} must all be provided.`,
-              headerName
+    const configEntries = yield* Effect.forEach(
+      HULY_CONFIG_HEADERS,
+      (headerName): Effect.Effect<ConfigMapEntry | undefined, ConfigValidationError> => {
+        const value = normalizedHeaders.get(headerName)
+        if (value === undefined) {
+          if (REQUIRED_HULY_CONFIG_HEADERS.includes(headerName)) {
+            return Effect.fail(
+              configValidationError(
+                `Missing required Huly config header "${headerName}". When any x-huly-* header is present, ` +
+                  `${REQUIRED_HULY_CONFIG_HEADERS.join(", ")} must all be provided.`,
+                headerName
+              )
             )
+          }
+          return Effect.succeed(undefined)
+        }
+
+        if (typeof value !== "string") {
+          return Effect.fail(
+            configValidationError(`Huly config header "${headerName}" must have exactly one value.`, headerName)
           )
         }
-        return Effect.succeed(undefined)
-      }
 
-      if (typeof value !== "string") {
-        return Effect.fail(
-          configValidationError(
-            `Huly config header "${headerName}" must have exactly one value.`,
-            headerName
-          )
-        )
+        return Effect.succeed([headerToEnvName[headerName], value])
       }
-
-      return Effect.succeed([headerToEnvName[headerName], value])
-    })
+    )
 
     return { _tag: "UrlHeaders", entries: new Map(configEntries.filter(isConfigMapEntry)) }
   })
@@ -229,9 +215,7 @@ export const hulyConfigProviderFromHeaders = (
   decodeHeaderRecord(headers).pipe(
     Effect.flatMap(parseUrlHeaderConfig),
     Effect.flatMap((config) =>
-      config._tag === "NoUrlHeaders"
-        ? Effect.succeed(undefined)
-        : Effect.succeed(configProviderFromUrlHeaders(config))
+      config._tag === "NoUrlHeaders" ? Effect.succeed(undefined) : Effect.succeed(configProviderFromUrlHeaders(config))
     )
   )
 
@@ -264,12 +248,13 @@ const HulyConfigFromEnv = Config.all({
 })
 
 const loadConfig: Effect.Effect<HulyConfig, ConfigValidationError> = HulyConfigFromEnv.pipe(
-  Effect.mapError((e) =>
-    new ConfigValidationError({
-      message: `Configuration error: ${e.message}`,
-      field: extractFieldFromConfigError(e),
-      cause: e
-    })
+  Effect.mapError(
+    (e) =>
+      new ConfigValidationError({
+        message: `Configuration error: ${e.message}`,
+        field: extractFieldFromConfigError(e),
+        cause: e
+      })
   )
 )
 
@@ -280,10 +265,7 @@ const extractFieldFromConfigError = (error: ConfigError.ConfigError): string | u
   return match?.[1]
 }
 
-export class HulyConfigService extends Context.Tag("@hulymcp/HulyConfig")<
-  HulyConfigService,
-  HulyConfig
->() {
+export class HulyConfigService extends Context.Tag("@hulymcp/HulyConfig")<HulyConfigService, HulyConfig>() {
   static readonly DEFAULT_TIMEOUT = DEFAULT_HULY_CONNECTION_TIMEOUT
 
   static readonly layer: Layer.Layer<HulyConfigService, ConfigValidationError> = Layer.effect(

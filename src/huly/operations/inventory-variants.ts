@@ -41,17 +41,18 @@ import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 export const listInventoryVariants = (
   params: ListInventoryVariantsParams
 ): Effect.Effect<ListInventoryVariantsResult, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
-    const query: StrictDocumentQuery<HulyInventoryVariant> = params.product === undefined
-      ? {}
-      : yield* Effect.map(
-        resolveProduct(client, params.product, params.category),
-        (product): StrictDocumentQuery<HulyInventoryVariant> => ({ attachedTo: product._id })
-      )
+    const query: StrictDocumentQuery<HulyInventoryVariant> =
+      params.product === undefined
+        ? {}
+        : yield* Effect.map(
+            resolveProduct(client, params.product, params.category),
+            (product): StrictDocumentQuery<HulyInventoryVariant> => ({ attachedTo: product._id })
+          )
     const variants = yield* findAllVariants(client, query)
-    const filtered = variants.filter((variant) =>
-      matchesText(variant.name, params.query) || matchesText(variant.sku, params.query)
+    const filtered = variants.filter(
+      (variant) => matchesText(variant.name, params.query) || matchesText(variant.sku, params.query)
     )
     return {
       variants: filtered.slice(0, clampLimit(params.limit)).map(toVariantSummary),
@@ -62,7 +63,7 @@ export const listInventoryVariants = (
 export const getInventoryVariant = (
   params: GetInventoryVariantParams
 ): Effect.Effect<InventoryVariantDetail, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const variant = yield* resolveVariant(client, params.variant, params.product, params.category)
     return toVariantDetail(variant)
@@ -71,7 +72,7 @@ export const getInventoryVariant = (
 export const createInventoryVariant = (
   params: CreateInventoryVariantParams
 ): Effect.Effect<InventoryCreatedResult, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const product = yield* resolveProduct(client, params.product, params.category)
     yield* ensureVariantAvailable(client, product._id, params.name, params.sku)
@@ -92,7 +93,7 @@ export const createInventoryVariant = (
 export const updateInventoryVariant = (
   params: UpdateInventoryVariantParams
 ): Effect.Effect<InventoryUpdatedResult, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_inventory_variant", params, UPDATE_INVENTORY_VARIANT_FIELDS)
     const client = yield* HulyClient
     const variant = yield* resolveVariant(client, params.variant, params.product, params.category)
@@ -114,7 +115,7 @@ export const updateInventoryVariant = (
 export const deleteInventoryVariant = (
   params: DeleteInventoryVariantParams
 ): Effect.Effect<InventoryDeletedResult, InventoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const variant = yield* resolveVariant(client, params.variant, params.product, params.category)
     const removeCollection = requireRemoveCollection(client)

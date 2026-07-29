@@ -121,10 +121,7 @@ const recruitingMediaClient: HulyClientOperations = {
   },
   findOne: (_class, query) => {
     const raw = query as Record<string, unknown>
-    if (
-      String(_class) === String(recruitIds.class.Vacancy)
-      && (raw._id === "vacancy-1" || raw.number === 1)
-    ) {
+    if (String(_class) === String(recruitIds.class.Vacancy) && (raw._id === "vacancy-1" || raw.number === 1)) {
       return Effect.succeed(mediaVacancy as never)
     }
     return Effect.succeed(undefined)
@@ -133,22 +130,24 @@ const recruitingMediaClient: HulyClientOperations = {
 
 describe("Recruiting MCP Tools", () => {
   it.effect("registers the complete expected tool tuple", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(recruitingTools.map((tool) => tool.name)).toEqual([...expectedRecruitingToolNames])
-    }))
+    })
+  )
 
   it.effect("uses the recruiting category for every tool", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(recruitingTools).toHaveLength(expectedRecruitingToolNames.length)
       for (const tool of recruitingTools) {
         expect(tool.category).toBe("recruiting")
         expect(tool.description.length).toBeGreaterThan(20)
         expect(tool.inputSchema).toBeDefined()
       }
-    }))
+    })
+  )
 
   it.effect("encodes list vacancy success responses", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = recruitingTools.find((candidate) => candidate.name === "list_recruiting_vacancies")
       expect(tool).toBeDefined()
       if (tool === undefined) return
@@ -156,42 +155,36 @@ describe("Recruiting MCP Tools", () => {
       const response = yield* Effect.promise(() => tool.handler({}, noopHulyClient, noopStorageClient))
 
       expect(response.isError).toBeUndefined()
-      expect(response.content[0].text).toBe("{\"vacancies\":[],\"total\":0}")
-    }))
+      expect(response.content[0].text).toBe('{"vacancies":[],"total":0}')
+    })
+  )
 
   it.effect("encodes list recruiting comments success responses", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = recruitingTools.find((candidate) => candidate.name === "list_recruiting_comments")
       expect(tool).toBeDefined()
       if (tool === undefined) return
 
       const response = yield* Effect.promise(() =>
-        tool.handler(
-          { target: { kind: "vacancy", vacancy: "VCN-1" } },
-          recruitingMediaClient,
-          noopStorageClient
-        )
+        tool.handler({ target: { kind: "vacancy", vacancy: "VCN-1" } }, recruitingMediaClient, noopStorageClient)
       )
 
       expect(response.isError).toBeUndefined()
-      expect(response.content[0].text).toContain("\"target\":{\"kind\":\"vacancy\"")
-      expect(response.content[0].text).toContain("\"comments\":[]")
+      expect(response.content[0].text).toContain('"target":{"kind":"vacancy"')
+      expect(response.content[0].text).toContain('"comments":[]')
       expect(response.structuredContent?.result).toBeDefined()
-    }))
+    })
+  )
 
   it.effect("maps recruiting wrapper scoped misses to invalid params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = recruitingTools.find((candidate) => candidate.name === "update_recruiting_comment")
       expect(tool).toBeDefined()
       if (tool === undefined) return
 
       const response = yield* Effect.promise(() =>
         tool.handler(
-          {
-            target: { kind: "vacancy", vacancy: "VCN-1" },
-            commentId: "comment-missing",
-            body: "Updated"
-          },
+          { target: { kind: "vacancy", vacancy: "VCN-1" }, commentId: "comment-missing", body: "Updated" },
           recruitingMediaClient,
           noopStorageClient
         )
@@ -201,5 +194,6 @@ describe("Recruiting MCP Tools", () => {
       expect(response._meta?.errorCode).toBe(-32602)
       expect(response.content[0].text).toContain("Comment 'comment-missing' not found")
       expect(response.content[0].text).toContain("Recruiting vacancy")
-    }))
+    })
+  )
 })

@@ -40,13 +40,10 @@ interface HttpTransportConfig {
 /**
  * Error during HTTP transport operations.
  */
-export class HttpTransportError extends Schema.TaggedError<HttpTransportError>()(
-  "HttpTransportError",
-  {
-    message: Schema.String,
-    cause: Schema.optional(Schema.Defect)
-  }
-) {}
+export class HttpTransportError extends Schema.TaggedError<HttpTransportError>()("HttpTransportError", {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Defect)
+}) {}
 
 /**
  * HTTP server abstraction for DI/testing.
@@ -61,11 +58,7 @@ export interface HttpServerFactory {
    * Start listening on the given port/host.
    * Returns the underlying http.Server for shutdown.
    */
-  readonly listen: (
-    app: Express,
-    port: number,
-    host: string
-  ) => Effect.Effect<http.Server, HttpTransportError>
+  readonly listen: (app: Express, port: number, host: string) => Effect.Effect<http.Server, HttpTransportError>
 
   readonly writeError?: (message: string) => void
 }
@@ -138,22 +131,11 @@ const isAuthorizedMcpRequest = (req: Request, authToken: string | undefined): bo
 
 const writeUnauthorized = (res: Response): void => {
   res.setHeader("WWW-Authenticate", "Bearer")
-  res.status(HTTP_UNAUTHORIZED).json({
-    jsonrpc: "2.0",
-    error: { code: -32000, message: "Unauthorized" },
-    id: null
-  })
+  res.status(HTTP_UNAUTHORIZED).json({ jsonrpc: "2.0", error: { code: -32000, message: "Unauthorized" }, id: null })
 }
 
 const writeMethodNotAllowed = (res: Response, message: string): void => {
-  res.status(HTTP_METHOD_NOT_ALLOWED).json({
-    jsonrpc: "2.0",
-    error: {
-      code: -32000,
-      message
-    },
-    id: null
-  })
+  res.status(HTTP_METHOD_NOT_ALLOWED).json({ jsonrpc: "2.0", error: { code: -32000, message }, id: null })
 }
 
 /**
@@ -219,14 +201,13 @@ export const createMcpHandlers = (
       })
     } catch (error) {
       if (!res.headersSent) {
-        res.status(HTTP_INTERNAL_SERVER_ERROR).json({
-          jsonrpc: "2.0",
-          error: {
-            code: -32603,
-            message: `Internal server error: ${String(error)}`
-          },
-          id: null
-        })
+        res
+          .status(HTTP_INTERNAL_SERVER_ERROR)
+          .json({
+            jsonrpc: "2.0",
+            error: { code: -32603, message: `Internal server error: ${String(error)}` },
+            id: null
+          })
       }
     }
   }
@@ -255,19 +236,12 @@ export const createMcpHandlers = (
 /**
  * Close an HTTP server with proper error handling.
  */
-const closeHttpServer = (
-  server: http.Server
-): Effect.Effect<void, HttpTransportError> =>
+const closeHttpServer = (server: http.Server): Effect.Effect<void, HttpTransportError> =>
   Effect.async<void, HttpTransportError>((resume) => {
     server.close((err?: Error) => {
       if (err) {
         resume(
-          Effect.fail(
-            new HttpTransportError({
-              message: `Error closing HTTP server: ${err.message}`,
-              cause: err
-            })
-          )
+          Effect.fail(new HttpTransportError({ message: `Error closing HTTP server: ${err.message}`, cause: err }))
         )
       } else {
         resume(Effect.void)
@@ -288,17 +262,14 @@ export const startHttpTransport = (
   dependencies?: Partial<HttpTransportDependencies>,
   createProtocolHandlers?: HttpProtocolHandlerFactory
 ): Effect.Effect<void, HttpTransportError, HttpServerFactoryService | Scope.Scope> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const factory = yield* HttpServerFactoryService
     const writeError: (message: string) => void = dependencies?.writeError ?? factory.writeError ?? writeStderr
 
     const app = factory.createApp(config.host)
     const handlers = createMcpHandlers(
       createServer,
-      {
-        createTransport: dependencies?.createTransport ?? defaultTransportDependencies.createTransport,
-        writeError
-      },
+      { createTransport: dependencies?.createTransport ?? defaultTransportDependencies.createTransport, writeError },
       config.authToken,
       createProtocolHandlers
     )
@@ -306,16 +277,14 @@ export const startHttpTransport = (
     app.get("/mcp", handlers.get)
     app.delete("/mcp", handlers.delete)
 
-    yield* Effect.acquireRelease(
-      factory.listen(app, config.port, config.host),
-      (srv) =>
-        closeHttpServer(srv).pipe(
-          Effect.catchAll((err) =>
-            Effect.sync(() => {
-              writeError(`Server close error: ${err.message}\n`)
-            })
-          )
+    yield* Effect.acquireRelease(factory.listen(app, config.port, config.host), (srv) =>
+      closeHttpServer(srv).pipe(
+        Effect.catchAll((err) =>
+          Effect.sync(() => {
+            writeError(`Server close error: ${err.message}\n`)
+          })
         )
+      )
     )
 
     // Log startup (to stderr, not stdout which is reserved)

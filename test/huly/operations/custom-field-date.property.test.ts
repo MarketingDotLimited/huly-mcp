@@ -32,13 +32,10 @@ describe("custom field date parsing properties", () => {
 
   it("round-trips every generated in-contract epoch-millisecond string to its numeric value", () => {
     fc.assert(
-      fc.property(
-        fc.integer({ min: 0, max: CUSTOM_FIELD_DATE_MAX_TIMESTAMP }),
-        (timestamp) => {
-          const result = Effect.runSync(parseCustomFieldDateValue(String(timestamp)))
-          expect(result).toBe(timestamp)
-        }
-      ),
+      fc.property(fc.integer({ min: 0, max: CUSTOM_FIELD_DATE_MAX_TIMESTAMP }), (timestamp) => {
+        const result = Effect.runSync(parseCustomFieldDateValue(String(timestamp)))
+        expect(result).toBe(timestamp)
+      }),
       { numRuns: 500 }
     )
   })

@@ -61,9 +61,11 @@ const accountRoleMap: Record<AccountRole, HulyAccountRole> = {
   ADMIN: HulyAccountRole.Admin
 }
 
-type MappedAccountRole = typeof accountRoleMap[keyof typeof accountRoleMap]
+type MappedAccountRole = (typeof accountRoleMap)[keyof typeof accountRoleMap]
 type ExactAccountRoleMapping = [HulyAccountRole] extends [MappedAccountRole]
-  ? [MappedAccountRole] extends [HulyAccountRole] ? true : never
+  ? [MappedAccountRole] extends [HulyAccountRole]
+    ? true
+    : never
   : never
 
 const exactAccountRoleMapping = <T extends true>(value: T): T => value
@@ -105,7 +107,7 @@ const toCreateAccessLinkOptions = (params: CreateAccessLinkParams): CreateAccess
 export const listWorkspaceMembers = (
   params: ListWorkspaceMembersParams
 ): Effect.Effect<Array<WorkspaceMember>, ListWorkspaceMembersError, WorkspaceClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ops = yield* WorkspaceClient
     const limit = clampLimit(params.limit)
 
@@ -116,15 +118,16 @@ export const listWorkspaceMembers = (
     const result = yield* Effect.forEach(
       limitedMembers,
       (member) =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const personInfoResult = yield* ops.getPersonInfo(member.person).pipe(Effect.option)
-          const { email, name }: { email: string | undefined; name: string | undefined } =
-            Option.isSome(personInfoResult)
-              ? {
+          const { email, name }: { email: string | undefined; name: string | undefined } = Option.isSome(
+            personInfoResult
+          )
+            ? {
                 name: personInfoResult.value.name,
                 email: personInfoResult.value.socialIds.find((s) => s.type === "email")?.value
               }
-              : { name: undefined, email: undefined }
+            : { name: undefined, email: undefined }
 
           return {
             personId: PersonUuid.make(member.person),
@@ -141,20 +144,16 @@ export const listWorkspaceMembers = (
 export const updateMemberRole = (
   params: UpdateMemberRoleParams
 ): Effect.Effect<UpdateMemberRoleResult, UpdateMemberRoleError, WorkspaceClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ops = yield* WorkspaceClient
 
     yield* ops.updateWorkspaceRole(params.accountId, toHulyAccountRole(params.role))
 
-    return {
-      accountId: AccountId.make(params.accountId),
-      role: params.role,
-      updated: true
-    }
+    return { accountId: AccountId.make(params.accountId), role: params.role, updated: true }
   })
 
 export const getWorkspaceInfo = (): Effect.Effect<WorkspaceInfo, GetWorkspaceInfoError, WorkspaceClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ops = yield* WorkspaceClient
 
     const info = yield* ops.getWorkspaceInfo(false)
@@ -175,26 +174,28 @@ export const getWorkspaceInfo = (): Effect.Effect<WorkspaceInfo, GetWorkspaceInf
 export const listWorkspaces = (
   params: ListWorkspacesParams
 ): Effect.Effect<Array<WorkspaceSummary>, ListWorkspacesError, WorkspaceClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ops = yield* WorkspaceClient
     const limit = clampLimit(params.limit)
 
     const workspaces = yield* ops.getUserWorkspaces()
 
-    return workspaces.slice(0, limit).map((ws) => ({
-      uuid: WorkspaceUuid.make(ws.uuid),
-      name: WorkspaceName.make(ws.name),
-      url: UrlString.make(ws.url),
-      region: ws.region !== undefined ? RegionId.make(ws.region) : undefined,
-      createdOn: ws.createdOn,
-      lastVisit: ws.lastVisit
-    }))
+    return workspaces
+      .slice(0, limit)
+      .map((ws) => ({
+        uuid: WorkspaceUuid.make(ws.uuid),
+        name: WorkspaceName.make(ws.name),
+        url: UrlString.make(ws.url),
+        region: ws.region !== undefined ? RegionId.make(ws.region) : undefined,
+        createdOn: ws.createdOn,
+        lastVisit: ws.lastVisit
+      }))
   })
 
 export const createWorkspace = (
   params: CreateWorkspaceParams
 ): Effect.Effect<CreateWorkspaceResult, CreateWorkspaceError, WorkspaceClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ops = yield* WorkspaceClient
 
     const loginInfo = yield* ops.createWorkspace(params.name, params.region)
@@ -207,7 +208,7 @@ export const createWorkspace = (
   })
 
 export const deleteWorkspace = (): Effect.Effect<DeleteWorkspaceResult, DeleteWorkspaceError, WorkspaceClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ops = yield* WorkspaceClient
 
     yield* ops.deleteWorkspace()
@@ -218,7 +219,7 @@ export const deleteWorkspace = (): Effect.Effect<DeleteWorkspaceResult, DeleteWo
 export const getUserProfile = (
   personUuid?: string
 ): Effect.Effect<UserProfile | null, GetUserProfileError | InvalidPersonUuidError, WorkspaceClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ops = yield* WorkspaceClient
 
     const validatedUuid = yield* validatePersonUuid(personUuid)
@@ -244,12 +245,12 @@ export const getUserProfile = (
 export const updateUserProfile = (
   params: UpdateUserProfileParams
 ): Effect.Effect<UpdateUserProfileResult, UpdateUserProfileError, WorkspaceClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_user_profile", params, UPDATE_USER_PROFILE_FIELDS)
 
     const ops = yield* WorkspaceClient
 
-    type UpdateUserProfileField = typeof UPDATE_USER_PROFILE_FIELDS[number]
+    type UpdateUserProfileField = (typeof UPDATE_USER_PROFILE_FIELDS)[number]
     type UserProfileUpdate = Parameters<typeof ops.setMyProfile>[0]
     type UpdateUserProfileEntries = {
       readonly [Field in UpdateUserProfileField]: DirectUpdateEntry<UpdateUserProfileField, UserProfileUpdate, Field>
@@ -259,9 +260,8 @@ export const updateUserProfile = (
       city: params.city === undefined ? {} : { city: params.city === null ? "" : params.city },
       country: params.country === undefined ? {} : { country: params.country === null ? "" : params.country },
       website: params.website === undefined ? {} : { website: params.website === null ? "" : params.website },
-      socialLinks: params.socialLinks === undefined
-        ? {}
-        : { socialLinks: params.socialLinks === null ? {} : params.socialLinks },
+      socialLinks:
+        params.socialLinks === undefined ? {} : { socialLinks: params.socialLinks === null ? {} : params.socialLinks },
       isPublic: params.isPublic === undefined ? {} : { isPublic: params.isPublic }
     } satisfies UpdateUserProfileEntries
     const profileUpdate: UserProfileUpdate = {}
@@ -275,55 +275,42 @@ export const updateUserProfile = (
 export const updateGuestSettings = (
   params: UpdateGuestSettingsParams
 ): Effect.Effect<UpdateGuestSettingsResult, UpdateGuestSettingsError, WorkspaceClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_guest_settings", params, UPDATE_GUEST_SETTINGS_FIELDS)
 
     const ops = yield* WorkspaceClient
 
-    type UpdateGuestSettingsField = typeof UPDATE_GUEST_SETTINGS_FIELDS[number]
+    type UpdateGuestSettingsField = (typeof UPDATE_GUEST_SETTINGS_FIELDS)[number]
     type UpdateGuestSettingsEntries = {
       readonly [Field in UpdateGuestSettingsField]: Effect.Effect<void, WorkspaceClientError>
     }
     const updateEntries = {
-      allowReadOnly: params.allowReadOnly === undefined
-        ? Effect.void
-        : ops.updateAllowReadOnlyGuests(params.allowReadOnly),
+      allowReadOnly:
+        params.allowReadOnly === undefined ? Effect.void : ops.updateAllowReadOnlyGuests(params.allowReadOnly),
       allowSignUp: params.allowSignUp === undefined ? Effect.void : ops.updateAllowGuestSignUp(params.allowSignUp)
     } satisfies UpdateGuestSettingsEntries
     yield* Effect.all(Object.values(updateEntries), { discard: true })
 
-    return {
-      updated: true,
-      allowReadOnly: params.allowReadOnly,
-      allowSignUp: params.allowSignUp
-    }
+    return { updated: true, allowReadOnly: params.allowReadOnly, allowSignUp: params.allowSignUp }
   })
 
 export const createAccessLink = (
   params: CreateAccessLinkParams
 ): Effect.Effect<CreateAccessLinkResult, CreateAccessLinkError, WorkspaceClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ops = yield* WorkspaceClient
     const role = params.role ?? DEFAULT_ACCESS_LINK_ROLE
 
     const link = yield* ops.createAccessLink(toHulyAccountRole(role), toCreateAccessLinkOptions(params))
 
-    return {
-      link: UrlString.make(link),
-      role,
-      spaces: params.spaces,
-      personalized: params.personalized
-    }
+    return { link: UrlString.make(link), role, spaces: params.spaces, personalized: params.personalized }
   })
 
 export const getRegions = (): Effect.Effect<Array<RegionInfo>, GetRegionsError, WorkspaceClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ops = yield* WorkspaceClient
 
     const regions = yield* ops.getRegionInfo()
 
-    return regions.map((r) => ({
-      region: RegionId.make(r.region),
-      name: r.name
-    }))
+    return regions.map((r) => ({ region: RegionId.make(r.region), name: r.name }))
   })

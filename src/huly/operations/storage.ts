@@ -32,7 +32,7 @@ type UploadFileError = StorageClientError | InvalidFileDataError | FileNotFoundE
 export const uploadFile = (
   params: UploadFileParams
 ): Effect.Effect<UploadFileResult, UploadFileError, HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const storageClient = yield* HulyStorageClient
 
     // Get file buffer from one of the sources (priority: filePath > fileUrl > data)
@@ -40,29 +40,20 @@ export const uploadFile = (
     const buffer: Buffer = params.filePath
       ? yield* readFromFilePath(params.filePath)
       : params.fileUrl
-      ? yield* fetchFromUrl(params.fileUrl)
-      : yield* decodeBase64(assertExists(params.data, "data required when no filePath/fileUrl"))
+        ? yield* fetchFromUrl(params.fileUrl)
+        : yield* decodeBase64(assertExists(params.data, "data required when no filePath/fileUrl"))
 
     // Upload to storage
-    const result = yield* storageClient.uploadFile(
-      params.filename,
-      buffer,
-      params.contentType
-    )
+    const result = yield* storageClient.uploadFile(params.filename, buffer, params.contentType)
 
-    return {
-      ...result,
-      blobId: BlobId.make(result.blobId)
-    }
+    return { ...result, blobId: BlobId.make(result.blobId) }
   })
 
 /**
  * Get the URL for accessing a file by its blob ID.
  */
-export const getFileUrl = (
-  blobId: string
-): Effect.Effect<string, never, HulyStorageClient> =>
-  Effect.gen(function*() {
+export const getFileUrl = (blobId: string): Effect.Effect<string, never, HulyStorageClient> =>
+  Effect.gen(function* () {
     const storageClient = yield* HulyStorageClient
     return storageClient.getFileUrl(blobId)
   })

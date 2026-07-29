@@ -77,17 +77,15 @@ type SkillWriteError =
 const candidateMatchesQuery = (candidate: Candidate, query: string | undefined): boolean => {
   const normalized = normalizeForComparison(query?.trim() ?? "")
   if (normalized === "") return true
-  return [
-    candidate.name,
-    candidate.title,
-    candidate.source
-  ].some((value) => value !== undefined && normalizeForComparison(value).includes(normalized))
+  return [candidate.name, candidate.title, candidate.source].some(
+    (value) => value !== undefined && normalizeForComparison(value).includes(normalized)
+  )
 }
 
 const listCandidateSkillsForObject = (
   candidate: Candidate
 ): Effect.Effect<ReadonlyArray<AttachedTagSummary>, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const tagRefs = yield* listTagReferencesForObject(client, {
       objectId: candidate._id,
@@ -99,7 +97,7 @@ const listCandidateSkillsForObject = (
   })
 
 const toCandidateDetail = (candidate: Candidate): Effect.Effect<CandidateDetail, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const [email, skills] = yield* Effect.all([
       candidateEmail(client, candidate._id),
@@ -132,7 +130,7 @@ const toSkillSummary = (tag: TagElement) => ({
 export const listRecruitingCandidates = (
   params: ListRecruitingCandidatesParams
 ): Effect.Effect<ListRecruitingCandidatesResult, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const candidates = yield* client.findAll<Candidate>(
       recruitIds.mixin.Candidate,
@@ -153,7 +151,7 @@ export const listRecruitingCandidates = (
 export const getRecruitingCandidate = (
   params: GetRecruitingCandidateParams
 ): Effect.Effect<CandidateDetail, CandidateReadError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     return yield* toCandidateDetail(yield* resolveCandidate(client, params.candidate))
   })
@@ -161,7 +159,7 @@ export const getRecruitingCandidate = (
 export const setRecruitingCandidateProfile = (
   params: SetRecruitingCandidateProfileParams
 ): Effect.Effect<RecruitingCandidateMutationResult, CandidateWriteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const person = yield* resolveCandidatePerson(client, params.candidate)
     const attributes: CandidateMixinAttributes = {
@@ -178,15 +176,14 @@ export const setRecruitingCandidateProfile = (
 export const listRecruitingSkills = (
   params: ListRecruitingSkillsParams
 ): Effect.Effect<ListRecruitingSkillsResult, SkillReadError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
-    const categoryFilter: StrictDocumentQuery<TagElement> = params.category === undefined
-      ? {}
-      : { category: yield* resolveTagCategoryRef(client, CANDIDATE_SKILL_TARGET_CLASS, params.category) }
+    const categoryFilter: StrictDocumentQuery<TagElement> =
+      params.category === undefined
+        ? {}
+        : { category: yield* resolveTagCategoryRef(client, CANDIDATE_SKILL_TARGET_CLASS, params.category) }
     const search = params.titleSearch?.trim() ?? ""
-    const titleFilter: StrictDocumentQuery<TagElement> = search === ""
-      ? {}
-      : { title: { $like: `%${search}%` } }
+    const titleFilter: StrictDocumentQuery<TagElement> = search === "" ? {} : { title: { $like: `%${search}%` } }
     const skillTags = yield* client.findAll<TagElement>(
       tags.class.TagElement,
       hulyQuery<TagElement>({
@@ -202,7 +199,7 @@ export const listRecruitingSkills = (
 export const listRecruitingCandidateSkills = (
   params: ListRecruitingCandidateSkillsParams
 ): Effect.Effect<ListRecruitingCandidateSkillsResult, CandidateReadError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const candidate = yield* resolveCandidate(client, params.candidate)
     const skills = yield* listCandidateSkillsForObject(candidate)
@@ -212,7 +209,7 @@ export const listRecruitingCandidateSkills = (
 export const addRecruitingCandidateSkill = (
   params: AddRecruitingCandidateSkillParams
 ): Effect.Effect<RecruitingSkillAttachResult, SkillWriteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const person = yield* resolveCandidatePerson(client, params.candidate)
     const { candidate } = yield* ensureCandidateMixin(client, person, {})
@@ -236,7 +233,7 @@ export const addRecruitingCandidateSkill = (
 export const removeRecruitingCandidateSkill = (
   params: RemoveRecruitingCandidateSkillParams
 ): Effect.Effect<RecruitingSkillDetachResult, SkillWriteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const person = yield* resolveCandidatePerson(client, params.candidate)
     const tag = toResolvedTagElement(

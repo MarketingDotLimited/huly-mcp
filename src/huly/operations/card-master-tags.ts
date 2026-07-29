@@ -30,15 +30,12 @@ const masterTagLookupCandidate = (
 ): MasterTagIdentifierValue => MasterTagIdentifier.make(String(value))
 
 export const masterTagDisplayName = (tag: CardMasterTagDoc): string =>
-  Either.getOrElse(
-    decodeHulyModelLabelTail(tag.label),
-    () => String(tag.label)
-  )
+  Either.getOrElse(decodeHulyModelLabelTail(tag.label), () => String(tag.label))
 
 const matchesMasterTagIdentifier = (tag: CardMasterTagDoc, identifier: MasterTagIdentifierValue): boolean =>
-  masterTagLookupCandidate(tag._id) === identifier
-  || masterTagLookupCandidate(tag.label) === identifier
-  || masterTagLookupCandidate(masterTagDisplayName(tag)) === identifier
+  masterTagLookupCandidate(tag._id) === identifier ||
+  masterTagLookupCandidate(tag.label) === identifier ||
+  masterTagLookupCandidate(masterTagDisplayName(tag)) === identifier
 
 const addDescendant = (
   descendants: MutableDescendantsByAncestor,
@@ -93,24 +90,23 @@ export const fetchMasterTagsForSpace = (
   client: HulyClient["Type"],
   cardSpace: HulyCardSpace
 ): Effect.Effect<ReadonlyArray<CardMasterTagDoc>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const typeRefs = cardSpace.types
     if (typeRefs.length === 0) return []
 
     const query: StrictDocumentQuery<CardMasterTagDoc> = { kind: ClassifierKind.CLASS }
-    const allClasses = yield* client.findAll<CardMasterTagDoc>(
-      classRef,
-      hulyQuery(query),
-      { sort: { _id: SortingOrder.Ascending } }
-    )
+    const allClasses = yield* client.findAll<CardMasterTagDoc>(classRef, hulyQuery(query), {
+      sort: { _id: SortingOrder.Ascending }
+    })
     const descendantsByAncestor = buildDescendantsByAncestor(allClasses)
     const spaceTypeIds = collectDescendants(new Set(typeRefs.map(cardClassId)), descendantsByAncestor)
     const cardRootIds = collectDescendants(new Set([cardClassId(cardPlugin.class.Card)]), descendantsByAncestor)
 
-    return allClasses.filter((tag) =>
-      tag._id !== cardPlugin.class.Card
-      && spaceTypeIds.has(cardClassId(tag._id))
-      && cardRootIds.has(cardClassId(tag._id))
+    return allClasses.filter(
+      (tag) =>
+        tag._id !== cardPlugin.class.Card &&
+        spaceTypeIds.has(cardClassId(tag._id)) &&
+        cardRootIds.has(cardClassId(tag._id))
     )
   })
 
@@ -119,20 +115,14 @@ export const findMasterTag = (
   cardSpace: HulyCardSpace,
   identifier: MasterTagIdentifierValue
 ): Effect.Effect<CardMasterTagDoc, MasterTagNotFoundError | HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const masterTags = yield* fetchMasterTagsForSpace(client, cardSpace)
     if (masterTags.length === 0) {
-      return yield* new MasterTagNotFoundError({
-        identifier,
-        cardSpace: cardSpace.name
-      })
+      return yield* new MasterTagNotFoundError({ identifier, cardSpace: cardSpace.name })
     }
 
     const masterTag = masterTags.find((tag) => matchesMasterTagIdentifier(tag, identifier))
     if (masterTag !== undefined) return masterTag
 
-    return yield* new MasterTagNotFoundError({
-      identifier,
-      cardSpace: cardSpace.name
-    })
+    return yield* new MasterTagNotFoundError({ identifier, cardSpace: cardSpace.name })
   })

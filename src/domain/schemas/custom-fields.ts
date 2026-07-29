@@ -24,17 +24,12 @@ export const ListCustomFieldsParamsSchema = Schema.Struct({
       description: `Maximum number of fields to return (default: ${CUSTOM_FIELDS_DEFAULT_LIMIT})`
     })
   )
-}).annotations({
-  title: "ListCustomFieldsParams",
-  description: "Parameters for listing custom field definitions"
-})
+}).annotations({ title: "ListCustomFieldsParams", description: "Parameters for listing custom field definitions" })
 
 export type ListCustomFieldsParams = Schema.Schema.Type<typeof ListCustomFieldsParamsSchema>
 
 export const GetCustomFieldValuesParamsSchema = Schema.Struct({
-  objectId: DocId.annotations({
-    description: "Document ID to read custom field values from"
-  }),
+  objectId: DocId.annotations({ description: "Document ID to read custom field values from" }),
   objectClass: ObjectClassName.annotations({
     description:
       "Class of the document (e.g. 'tracker:class:Issue', 'card:class:Card', or a dynamic master tag class ID)"
@@ -47,16 +42,12 @@ export const GetCustomFieldValuesParamsSchema = Schema.Struct({
 export type GetCustomFieldValuesParams = Schema.Schema.Type<typeof GetCustomFieldValuesParamsSchema>
 
 export const SetCustomFieldParamsSchema = Schema.Struct({
-  objectId: DocId.annotations({
-    description: "Document ID to set the custom field value on"
-  }),
+  objectId: DocId.annotations({ description: "Document ID to set the custom field value on" }),
   objectClass: ObjectClassName.annotations({
     description:
       "Class of the document (e.g. 'tracker:class:Issue', 'card:class:Card', or a dynamic master tag class ID)"
   }),
-  fieldId: CustomFieldId.annotations({
-    description: "Custom field attribute ID (the _id from list_custom_fields)"
-  }),
+  fieldId: CustomFieldId.annotations({ description: "Custom field attribute ID (the _id from list_custom_fields)" }),
   value: Schema.String.annotations({
     description:
       "Value to set. Strings are passed as-is. For numbers, pass a numeric string (e.g. '42'). For dates, pass a real ISO calendar date in YYYY-MM-DD form (stored as UTC midnight) or a canonical non-negative epoch-millisecond string from 0 through 8640000000000000. Date-times, time-zone suffixes, signs, whitespace, decimals, and exponents are rejected. For booleans, pass 'true' or 'false'. For enums, pass the enum value string."
@@ -69,21 +60,15 @@ export const SetCustomFieldParamsSchema = Schema.Struct({
 export type SetCustomFieldParams = Schema.Schema.Type<typeof SetCustomFieldParamsSchema>
 
 const CUSTOM_FIELD_PRIMITIVE_TYPE_NAMES = ["string", "number", "boolean", "date", "markup"] as const
-export type PrimitiveCustomFieldTypeName = typeof CUSTOM_FIELD_PRIMITIVE_TYPE_NAMES[number]
+export type PrimitiveCustomFieldTypeName = (typeof CUSTOM_FIELD_PRIMITIVE_TYPE_NAMES)[number]
 
-const CUSTOM_FIELD_TYPE_NAMES = [
-  ...CUSTOM_FIELD_PRIMITIVE_TYPE_NAMES,
-  "enum",
-  "array",
-  "ref",
-  "unknown"
-] as const
+const CUSTOM_FIELD_TYPE_NAMES = [...CUSTOM_FIELD_PRIMITIVE_TYPE_NAMES, "enum", "array", "ref", "unknown"] as const
 
 export const CustomFieldTypeNameSchema = Schema.Literal(...CUSTOM_FIELD_TYPE_NAMES).annotations({
   description: `Custom field type: ${enumValuesDescription(CUSTOM_FIELD_TYPE_NAMES)}`
 })
 
-export type CustomFieldTypeName = typeof CUSTOM_FIELD_TYPE_NAMES[number]
+export type CustomFieldTypeName = (typeof CUSTOM_FIELD_TYPE_NAMES)[number]
 export const CustomFieldValueSchema = Schema.Struct({
   fieldId: CustomFieldId,
   label: Schema.String,
@@ -118,7 +103,9 @@ export const ArrayCustomFieldTypeDetailsSchema = CustomFieldTypeDetailsRecordSch
 )
 export type ArrayCustomFieldTypeDetails = Schema.Schema.Type<typeof ArrayCustomFieldTypeDetailsSchema>
 export const RefCustomFieldTypeDetailsSchema = CustomFieldTypeDetailsRecordSchema.pipe(
-  Schema.filter((details) => Object.hasOwn(details, "to") ? undefined : "ref custom field typeDetails must include to")
+  Schema.filter((details) =>
+    Object.hasOwn(details, "to") ? undefined : "ref custom field typeDetails must include to"
+  )
 )
 export type RefCustomFieldTypeDetails = Schema.Schema.Type<typeof RefCustomFieldTypeDetailsSchema>
 export const UnknownCustomFieldTypeDetailsSchema = CustomFieldTypeDetailsRecordSchema

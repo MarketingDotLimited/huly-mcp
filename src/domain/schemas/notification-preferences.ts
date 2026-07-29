@@ -48,13 +48,13 @@ export type NotificationTypeSetting = Schema.Schema.Type<typeof NotificationType
 
 export const ListNotificationProvidersParamsSchema = Schema.Struct({
   limit: Schema.optional(
-    LimitParam.annotations({
-      description: `Maximum number of providers to return (default: ${DEFAULT_LIMIT})`
-    })
+    LimitParam.annotations({ description: `Maximum number of providers to return (default: ${DEFAULT_LIMIT})` })
   ),
-  includeUnavailable: Schema.optional(Schema.Boolean.annotations({
-    description: "Include providers that the workspace may not currently expose as configurable settings."
-  }))
+  includeUnavailable: Schema.optional(
+    Schema.Boolean.annotations({
+      description: "Include providers that the workspace may not currently expose as configurable settings."
+    })
+  )
 }).annotations({
   title: "ListNotificationProvidersParams",
   description: "Parameters for listing notification providers such as inbox, push, and sound."
@@ -68,16 +68,13 @@ export const ListNotificationTypesParamsSchema = Schema.Struct({
       description: `Maximum number of notification types to return (default: ${DEFAULT_LIMIT})`
     })
   ),
-  includeHidden: Schema.optional(Schema.Boolean.annotations({
-    description: "Include hidden/internal notification types."
-  })),
-  objectClass: Schema.optional(ObjectClassName.annotations({
-    description: "Filter to notification types for this Huly object class."
-  }))
-}).annotations({
-  title: "ListNotificationTypesParams",
-  description: "Parameters for listing notification types."
-})
+  includeHidden: Schema.optional(
+    Schema.Boolean.annotations({ description: "Include hidden/internal notification types." })
+  ),
+  objectClass: Schema.optional(
+    ObjectClassName.annotations({ description: "Filter to notification types for this Huly object class." })
+  )
+}).annotations({ title: "ListNotificationTypesParams", description: "Parameters for listing notification types." })
 
 export type ListNotificationTypesParams = Schema.Schema.Type<typeof ListNotificationTypesParamsSchema>
 
@@ -85,9 +82,7 @@ export const UpdateNotificationTypeSettingParamsSchema = Schema.Struct({
   providerId: NotificationProviderId.annotations({
     description: "Notification provider ID, such as notification:providers:InboxNotificationProvider."
   }),
-  typeId: NotificationTypeIdSchema.annotations({
-    description: "Notification type ID to configure."
-  }),
+  typeId: NotificationTypeIdSchema.annotations({ description: "Notification type ID to configure." }),
   enabled: Schema.Boolean.annotations({
     description: "Whether to enable or disable this notification type for the provider."
   })
@@ -121,12 +116,12 @@ const ObjectNotificationSubscriptionParamsSchema = Schema.Struct({
   objectId: DocId.annotations({
     description: "Internal Huly object ID to subscribe/unsubscribe the authenticated account to."
   }),
-  objectClass: ObjectClassName.annotations({
-    description: "Internal Huly object class for objectId."
-  }),
-  space: Schema.optional(DocId.annotations({
-    description: "Optional object space ID. If omitted, the operation reads the object to determine the space."
-  }))
+  objectClass: ObjectClassName.annotations({ description: "Internal Huly object class for objectId." }),
+  space: Schema.optional(
+    DocId.annotations({
+      description: "Optional object space ID. If omitted, the operation reads the object to determine the space."
+    })
+  )
 }).annotations({
   title: "ObjectNotificationSubscriptionParams",
   description: "Parameters for subscribing or unsubscribing the authenticated account to object notifications."

@@ -20,11 +20,11 @@ import { corePersonId, docRef, spaceRef } from "../../helpers/huly-sdk.js"
 const accountUuid = (value: string): AccountUuid => value as AccountUuid
 
 // HulyClientOperations requires generic SDK methods; these empty fixtures never inspect or construct SDK documents.
-const emptyFindAll: HulyClientOperations["findAll"] =
-  (() => Effect.succeed(toFindResult([])) as Effect.Effect<FindResult<never>>) as HulyClientOperations["findAll"]
+const emptyFindAll: HulyClientOperations["findAll"] = (() =>
+  Effect.succeed(toFindResult([])) as Effect.Effect<FindResult<never>>) as HulyClientOperations["findAll"]
 
-const emptyFindOne: HulyClientOperations["findOne"] =
-  (() => Effect.succeed(undefined)) as HulyClientOperations["findOne"]
+const emptyFindOne: HulyClientOperations["findOne"] = (() =>
+  Effect.succeed(undefined)) as HulyClientOperations["findOne"]
 
 const hulyClient: HulyClientOperations = {
   getAccountUuid: () => accountUuid("00000000-0000-4000-8000-000000000000"),
@@ -74,11 +74,12 @@ const hulyClientWithInventoryProduct: HulyClientOperations = {
   // HulyClientOperations is generic over every SDK Doc; this fixture only needs Product rows and returns an empty result otherwise.
   findAll: ((_class: unknown, query: Record<string, unknown>) => {
     if (_class === inventory.class.Product) {
-      const matches = productDoc._id === query._id
-        ? [productDoc]
-        : productDoc.name === query.name
-        ? [productDoc, duplicateProductDoc]
-        : []
+      const matches =
+        productDoc._id === query._id
+          ? [productDoc]
+          : productDoc.name === query.name
+            ? [productDoc, duplicateProductDoc]
+            : []
       return Effect.succeed(toFindResult(matches))
     }
     return Effect.succeed(toFindResult([]))
@@ -106,7 +107,7 @@ const toolInputPropertyDescription = (toolName: string, propertyName: string): s
 
 describe("inventory MCP tools", () => {
   it.effect("registers inventory tools in the inventory category", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const names = new Set(
         toolRegistry.definitions.filter((tool) => tool.category === "inventory").map((tool) => tool.name)
       )
@@ -145,7 +146,8 @@ describe("inventory MCP tools", () => {
           "delete_inventory_variant"
         ])
       )
-    }))
+    })
+  )
 
   it("preserves LLM-facing descriptions on inventory product media input schemas", () => {
     expect(toolInputPropertyDescription("add_inventory_product_attachment", "product")).toContain(
@@ -157,17 +159,18 @@ describe("inventory MCP tools", () => {
   })
 
   it.effect("returns encoded structured inventory list responses", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.promise(() =>
         toolRegistry.handleToolCall(makeToolName("list_inventory_categories"), {}, hulyClient, storageClient)
       )
 
       expect(result?.isError).toBeUndefined()
-      expect(result?.content[0]?.text).toBe("{\"categories\":[],\"total\":0}")
-    }))
+      expect(result?.content[0]?.text).toBe('{"categories":[],"total":0}')
+    })
+  )
 
   it.effect("returns encoded structured product attachment wrapper responses", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.promise(() =>
         toolRegistry.handleToolCall(
           makeToolName("list_inventory_product_attachments"),
@@ -179,12 +182,13 @@ describe("inventory MCP tools", () => {
 
       expect(result?.isError).toBeUndefined()
       expect(result?.content[0]?.text).toBe(
-        "{\"product\":{\"id\":\"prod-camera\",\"name\":\"Camera\",\"category\":\"cat-electronics\"},\"attachments\":[],\"total\":0}"
+        '{"product":{"id":"prod-camera","name":"Camera","category":"cat-electronics"},"attachments":[],"total":0}'
       )
-    }))
+    })
+  )
 
   it.effect("maps inventory not-found errors to invalid params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.promise(() =>
         toolRegistry.handleToolCall(
           makeToolName("get_inventory_category"),
@@ -197,10 +201,11 @@ describe("inventory MCP tools", () => {
       expect(result?.isError).toBe(true)
       expect(result?._meta?.errorCode).toBe(McpErrorCode.InvalidParams)
       expect(result?.content[0]?.text).toContain("Inventory category 'Missing' not found")
-    }))
+    })
+  )
 
   it.effect("maps product wrapper not-found and ambiguous errors to invalid params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const attachmentResult = yield* Effect.promise(() =>
         toolRegistry.handleToolCall(
           makeToolName("get_inventory_product_attachment"),
@@ -237,5 +242,6 @@ describe("inventory MCP tools", () => {
       expect(ambiguousResult?.isError).toBe(true)
       expect(ambiguousResult?._meta?.errorCode).toBe(McpErrorCode.InvalidParams)
       expect(ambiguousResult?.content[0]?.text).toContain("Inventory product 'Camera' matched 2 products")
-    }))
+    })
+  )
 })

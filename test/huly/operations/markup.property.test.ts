@@ -63,11 +63,8 @@ const attrsArbitrary: fc.Arbitrary<Attrs> = fc.dictionary(
 const optionalAttrsArbitrary = fc.option(attrsArbitrary, { nil: undefined })
 
 const supportedMarkArbitrary: fc.Arbitrary<MarkupMark> = fc
-  .record({
-    type: supportedMarkTypeArbitrary,
-    attrs: optionalAttrsArbitrary
-  })
-  .map(({ attrs, type }) => attrs === undefined ? { type } : { type, attrs })
+  .record({ type: supportedMarkTypeArbitrary, attrs: optionalAttrsArbitrary })
+  .map(({ attrs, type }) => (attrs === undefined ? { type } : { type, attrs }))
 
 const inlineCommentMarkArbitrary: fc.Arbitrary<RuntimeMarkupMark> = optionalAttrsArbitrary.map((attrs) =>
   attrs === undefined ? { type: INLINE_COMMENT_MARK_TYPE } : { type: INLINE_COMMENT_MARK_TYPE, attrs }
@@ -78,15 +75,11 @@ const runtimeMarkArbitrary: fc.Arbitrary<RuntimeMarkupMark> = fc.oneof(
   inlineCommentMarkArbitrary
 )
 
-const optionalSupportedMarksArbitrary = fc.option(
-  fc.array(supportedMarkArbitrary, { maxLength: 4 }),
-  { nil: undefined }
-)
+const optionalSupportedMarksArbitrary = fc.option(fc.array(supportedMarkArbitrary, { maxLength: 4 }), {
+  nil: undefined
+})
 
-const optionalRuntimeMarksArbitrary = fc.option(
-  fc.array(runtimeMarkArbitrary, { maxLength: 5 }),
-  { nil: undefined }
-)
+const optionalRuntimeMarksArbitrary = fc.option(fc.array(runtimeMarkArbitrary, { maxLength: 5 }), { nil: undefined })
 
 const leafNodeTypeArbitrary = fc.constantFrom(
   MarkupNodeType.text,
@@ -120,13 +113,7 @@ const buildMarkupNode = ({ attrs, content, marks, text, type }: MarkupNodeParts)
   ...(text === undefined ? {} : { text })
 })
 
-const buildRuntimeMarkupNode = ({
-  attrs,
-  content,
-  marks,
-  text,
-  type
-}: RuntimeMarkupNodeParts): RuntimeMarkupNode => ({
+const buildRuntimeMarkupNode = ({ attrs, content, marks, text, type }: RuntimeMarkupNodeParts): RuntimeMarkupNode => ({
   type,
   ...(content === undefined ? {} : { content }),
   ...(marks === undefined ? {} : { marks }),
@@ -143,13 +130,7 @@ const supportedMarkupNodeArbitrary = (maxDepth: number): fc.Arbitrary<MarkupNode
       attrs: optionalAttrsArbitrary
     })
     .map(({ attrs, marks, text, type }) =>
-      buildMarkupNode({
-        type,
-        content: undefined,
-        marks,
-        attrs,
-        text: type === MarkupNodeType.text ? text : undefined
-      })
+      buildMarkupNode({ type, content: undefined, marks, attrs, text: type === MarkupNodeType.text ? text : undefined })
     )
 
   if (maxDepth <= 0) {
@@ -164,15 +145,7 @@ const supportedMarkupNodeArbitrary = (maxDepth: number): fc.Arbitrary<MarkupNode
       marks: optionalSupportedMarksArbitrary,
       attrs: optionalAttrsArbitrary
     })
-    .map(({ attrs, content, marks, type }) =>
-      buildMarkupNode({
-        type,
-        content,
-        marks,
-        attrs,
-        text: undefined
-      })
-    )
+    .map(({ attrs, content, marks, type }) => buildMarkupNode({ type, content, marks, attrs, text: undefined }))
 
   return fc.oneof(leaf, container)
 }
@@ -207,15 +180,7 @@ const runtimeMarkupNodeArbitrary = (maxDepth: number): fc.Arbitrary<RuntimeMarku
       marks: optionalRuntimeMarksArbitrary,
       attrs: optionalAttrsArbitrary
     })
-    .map(({ attrs, content, marks, type }) =>
-      buildRuntimeMarkupNode({
-        type,
-        content,
-        marks,
-        attrs,
-        text: undefined
-      })
-    )
+    .map(({ attrs, content, marks, type }) => buildRuntimeMarkupNode({ type, content, marks, attrs, text: undefined }))
 
   return fc.oneof(leaf, container)
 }
@@ -227,13 +192,7 @@ const runtimeRootArbitrary = fc
     attrs: optionalAttrsArbitrary
   })
   .map(({ attrs, content, marks }) =>
-    buildRuntimeMarkupNode({
-      type: MarkupNodeType.doc,
-      content,
-      marks,
-      attrs,
-      text: undefined
-    })
+    buildRuntimeMarkupNode({ type: MarkupNodeType.doc, content, marks, attrs, text: undefined })
   )
 
 const supportedRootArbitrary = fc
@@ -243,13 +202,7 @@ const supportedRootArbitrary = fc
     attrs: optionalAttrsArbitrary
   })
   .map(({ attrs, content, marks }) =>
-    buildMarkupNode({
-      type: MarkupNodeType.doc,
-      content,
-      marks,
-      attrs,
-      text: undefined
-    })
+    buildMarkupNode({ type: MarkupNodeType.doc, content, marks, attrs, text: undefined })
   )
 
 const generatedInlineCommentMark = {
@@ -262,9 +215,7 @@ const toRuntimeMarkupNode = (node: RuntimeMarkupNode): MarkupNode => markupToJSO
 const addInlineCommentMarksAtEveryNode = (node: RuntimeMarkupNode): RuntimeMarkupNode => ({
   ...node,
   marks: [...(node.marks ?? []), generatedInlineCommentMark],
-  ...(node.content === undefined
-    ? {}
-    : { content: node.content.map(addInlineCommentMarksAtEveryNode) })
+  ...(node.content === undefined ? {} : { content: node.content.map(addInlineCommentMarksAtEveryNode) })
 })
 
 const collectAllMarks = (node: MarkupNode): Array<MarkupMark> => [
@@ -325,10 +276,7 @@ describe("sanitizeNodeForMarkdown properties", () => {
         supportedMarkupNodeArbitrary(3),
         runtimeMarkupNodeArbitrary(3).map((node) => toRuntimeMarkupNode(addInlineCommentMarksAtEveryNode(node))),
         (unchangedChild, changedChild) => {
-          const root: MarkupNode = {
-            type: MarkupNodeType.doc,
-            content: [unchangedChild, changedChild]
-          }
+          const root: MarkupNode = { type: MarkupNodeType.doc, content: [unchangedChild, changedChild] }
 
           const sanitized = sanitizeNodeForMarkdown(root)
 

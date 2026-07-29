@@ -10,8 +10,7 @@ export const storageTools = [
   defineStorageTool(
     {
       name: "upload_file",
-      description:
-        `Upload a file to Huly storage. Provide one source: ${UPLOAD_SOURCE_SEMANTICS} Returns the blob ID and URL.`,
+      description: `Upload a file to Huly storage. Provide one source: ${UPLOAD_SOURCE_SEMANTICS} Returns the blob ID and URL.`,
       category: CATEGORY,
       inputSchema: uploadFileParamsJsonSchema,
       resultSchema: UploadFileResultSchema

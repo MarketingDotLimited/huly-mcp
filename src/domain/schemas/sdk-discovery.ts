@@ -19,14 +19,7 @@ export const DEFAULT_CUSTOM_FIELDS_ONLY = false
 
 const KnownClassifierKindValues = ["class", "interface", "mixin"] as const
 const ClassifierKindValues = [...KnownClassifierKindValues, "unknown"] as const
-const NormalizedScalarAttributeTypeKindValues = [
-  "string",
-  "number",
-  "boolean",
-  "date",
-  "markup",
-  "unknown"
-] as const
+const NormalizedScalarAttributeTypeKindValues = ["string", "number", "boolean", "date", "markup", "unknown"] as const
 const NormalizedAttributeTypeKindValues = [
   ...NormalizedScalarAttributeTypeKindValues,
   "ref",
@@ -35,7 +28,7 @@ const NormalizedAttributeTypeKindValues = [
   "collection"
 ] as const
 
-type HulyKnownClassifierKindLiteral = typeof KnownClassifierKindValues[number]
+type HulyKnownClassifierKindLiteral = (typeof KnownClassifierKindValues)[number]
 
 const HulySdkClassifierKindPairs = [
   [ClassifierKind.CLASS, "class"],
@@ -54,10 +47,9 @@ export const HulySdkClassifierKindSchema = Schema.transformLiterals(...HulySdkCl
 export type HulySdkClassifierKind = Schema.Schema.Type<typeof HulySdkClassifierKindSchema>
 
 export const HulyAttributeTypeKindSchema = Schema.Literal(...NormalizedAttributeTypeKindValues).annotations({
-  description:
-    `Normalized MCP attribute type family derived from Huly type descriptor classes, not Huly SDK enum values: ${
-      enumValuesDescription(NormalizedAttributeTypeKindValues)
-    }`
+  description: `Normalized MCP attribute type family derived from Huly type descriptor classes, not Huly SDK enum values: ${enumValuesDescription(
+    NormalizedAttributeTypeKindValues
+  )}`
 })
 export type HulyAttributeTypeKind = Schema.Schema.Type<typeof HulyAttributeTypeKindSchema>
 
@@ -67,13 +59,17 @@ export type HulyModelSearch = Schema.Schema.Type<typeof HulyModelSearch>
 const TypeDetailsSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
 
 const HulyAttributeTypeBaseFields = {
-  classId: Schema.optional(ObjectClassName.annotations({
-    description: "Raw Huly type class ID, such as core:class:RefTo or core:class:TypeString"
-  })),
-  raw: Schema.optional(TypeDetailsSchema.annotations({
-    description:
-      "Decoded raw Huly type descriptor, present only when the type family could not be determined (kind: unknown)"
-  }))
+  classId: Schema.optional(
+    ObjectClassName.annotations({
+      description: "Raw Huly type class ID, such as core:class:RefTo or core:class:TypeString"
+    })
+  ),
+  raw: Schema.optional(
+    TypeDetailsSchema.annotations({
+      description:
+        "Decoded raw Huly type descriptor, present only when the type family could not be determined (kind: unknown)"
+    })
+  )
 } as const
 
 const HulyScalarAttributeTypeSchema = Schema.Struct({
@@ -84,25 +80,19 @@ const HulyScalarAttributeTypeSchema = Schema.Struct({
 const HulyRefAttributeTypeSchema = Schema.Struct({
   kind: Schema.Literal("ref"),
   ...HulyAttributeTypeBaseFields,
-  refTo: ObjectClassName.annotations({
-    description: "Target class when kind is ref"
-  })
+  refTo: ObjectClassName.annotations({ description: "Target class when kind is ref" })
 })
 
 const HulyEnumAttributeTypeSchema = Schema.Struct({
   kind: Schema.Literal("enum"),
   ...HulyAttributeTypeBaseFields,
-  enumId: HulyEnumId.annotations({
-    description: "Enum document ID when kind is enum"
-  })
+  enumId: HulyEnumId.annotations({ description: "Enum document ID when kind is enum" })
 })
 
 const HulyCollectionAttributeTypeSchema = Schema.Struct({
   kind: Schema.Literal("collection"),
   ...HulyAttributeTypeBaseFields,
-  collectionOf: ObjectClassName.annotations({
-    description: "Attached document class when kind is collection"
-  })
+  collectionOf: ObjectClassName.annotations({ description: "Attached document class when kind is collection" })
 })
 
 // An array element is itself a decoded attribute type, so the schema is recursive: an element may be a
@@ -140,11 +130,12 @@ type HulyAttributeTypeEncoded =
 const HulyArrayAttributeTypeSchema = Schema.Struct({
   kind: Schema.Literal("array"),
   ...HulyAttributeTypeBaseFields,
-  arrayOf: Schema.suspend((): Schema.Schema<HulyAttributeType, HulyAttributeTypeEncoded> => HulyAttributeTypeSchema)
-    .annotations({
-      identifier: "HulyAttributeType",
-      description: "Decoded element type when kind is array, recursively shaped like any attribute type"
-    })
+  arrayOf: Schema.suspend(
+    (): Schema.Schema<HulyAttributeType, HulyAttributeTypeEncoded> => HulyAttributeTypeSchema
+  ).annotations({
+    identifier: "HulyAttributeType",
+    description: "Decoded element type when kind is array, recursively shaped like any attribute type"
+  })
 })
 
 export const HulyAttributeTypeSchema: Schema.Schema<HulyAttributeType, HulyAttributeTypeEncoded> = Schema.Union(
@@ -153,10 +144,7 @@ export const HulyAttributeTypeSchema: Schema.Schema<HulyAttributeType, HulyAttri
   HulyEnumAttributeTypeSchema,
   HulyCollectionAttributeTypeSchema,
   HulyArrayAttributeTypeSchema
-).annotations({
-  identifier: "HulyAttributeType",
-  description: "Decoded Huly model attribute type descriptor."
-})
+).annotations({ identifier: "HulyAttributeType", description: "Decoded Huly model attribute type descriptor." })
 
 export const HulyClassToolHintSchema = Schema.Struct({
   category: NonEmptyString,
@@ -219,18 +207,20 @@ const sdkDiscoveryLimitDescription = (entity: string): string =>
   `Maximum number of ${entity} to return after filtering (default: ${SDK_DISCOVERY_DEFAULT_LIMIT}, max: ${MAX_LIMIT})`
 
 export const ListHulyClassesParamsSchema = Schema.Struct({
-  query: Schema.optional(HulyModelSearch.annotations({
-    description: "Case-insensitive substring match against class ID or label"
-  })),
-  kind: Schema.optional(HulyClassifierKindSchema.annotations({
-    description: "Filter by class, interface, or mixin. unknown is only returned for unexpected model values."
-  })),
-  domain: Schema.optional(HulyDomainName.annotations({
-    description: "Filter by Huly storage domain, such as tracker, document, card, contact, or model"
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: sdkDiscoveryLimitDescription("classes")
-  }))
+  query: Schema.optional(
+    HulyModelSearch.annotations({ description: "Case-insensitive substring match against class ID or label" })
+  ),
+  kind: Schema.optional(
+    HulyClassifierKindSchema.annotations({
+      description: "Filter by class, interface, or mixin. unknown is only returned for unexpected model values."
+    })
+  ),
+  domain: Schema.optional(
+    HulyDomainName.annotations({
+      description: "Filter by Huly storage domain, such as tracker, document, card, contact, or model"
+    })
+  ),
+  limit: Schema.optional(LimitParam.annotations({ description: sdkDiscoveryLimitDescription("classes") }))
 }).annotations({
   title: "ListHulyClassesParams",
   description: "Parameters for discovering Huly class, interface, and mixin IDs from the workspace model"
@@ -247,9 +237,11 @@ export const GetHulyClassParamsSchema = Schema.Struct({
   class: ObjectClassName.annotations({
     description: "Exact Huly class, interface, or mixin ID returned by list_huly_classes"
   }),
-  includeInheritedAttributes: Schema.optional(Schema.Boolean.annotations({
-    description: `Include attributes declared on parent classes. Defaults to ${DEFAULT_INCLUDE_INHERITED_ATTRIBUTES}.`
-  }))
+  includeInheritedAttributes: Schema.optional(
+    Schema.Boolean.annotations({
+      description: `Include attributes declared on parent classes. Defaults to ${DEFAULT_INCLUDE_INHERITED_ATTRIBUTES}.`
+    })
+  )
 }).annotations({
   title: "GetHulyClassParams",
   description: "Parameters for reading one Huly class and its model attributes"
@@ -264,22 +256,23 @@ export const GetHulyClassResultSchema = Schema.Struct({
 export type GetHulyClassResult = Schema.Schema.Type<typeof GetHulyClassResultSchema>
 
 export const ListHulyAttributesParamsSchema = Schema.Struct({
-  class: Schema.optional(ObjectClassName.annotations({
-    description: "Only return attributes declared directly on this class, interface, or mixin ID"
-  })),
-  query: Schema.optional(HulyModelSearch.annotations({
-    description: "Case-insensitive substring match against attribute ID, name, label, owner class ID, or type target"
-  })),
-  customOnly: Schema.optional(Schema.Boolean.annotations({
-    description: `Only return attributes marked as custom fields. Defaults to ${DEFAULT_CUSTOM_FIELDS_ONLY}.`
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: sdkDiscoveryLimitDescription("attributes")
-  }))
-}).annotations({
-  title: "ListHulyAttributesParams",
-  description: "Parameters for discovering Huly model attributes"
-})
+  class: Schema.optional(
+    ObjectClassName.annotations({
+      description: "Only return attributes declared directly on this class, interface, or mixin ID"
+    })
+  ),
+  query: Schema.optional(
+    HulyModelSearch.annotations({
+      description: "Case-insensitive substring match against attribute ID, name, label, owner class ID, or type target"
+    })
+  ),
+  customOnly: Schema.optional(
+    Schema.Boolean.annotations({
+      description: `Only return attributes marked as custom fields. Defaults to ${DEFAULT_CUSTOM_FIELDS_ONLY}.`
+    })
+  ),
+  limit: Schema.optional(LimitParam.annotations({ description: sdkDiscoveryLimitDescription("attributes") }))
+}).annotations({ title: "ListHulyAttributesParams", description: "Parameters for discovering Huly model attributes" })
 export type ListHulyAttributesParams = Schema.Schema.Type<typeof ListHulyAttributesParamsSchema>
 
 export const ListHulyAttributesResultSchema = Schema.Struct({
@@ -289,19 +282,14 @@ export const ListHulyAttributesResultSchema = Schema.Struct({
 export type ListHulyAttributesResult = Schema.Schema.Type<typeof ListHulyAttributesResultSchema>
 
 export const ListHulyEnumsParamsSchema = Schema.Struct({
-  enum: Schema.optional(HulyEnumId.annotations({
-    description: "Exact enum document ID"
-  })),
-  query: Schema.optional(HulyModelSearch.annotations({
-    description: "Case-insensitive substring match against enum ID, enum name, or enum values"
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: sdkDiscoveryLimitDescription("enums")
-  }))
-}).annotations({
-  title: "ListHulyEnumsParams",
-  description: "Parameters for discovering Huly model enum definitions"
-})
+  enum: Schema.optional(HulyEnumId.annotations({ description: "Exact enum document ID" })),
+  query: Schema.optional(
+    HulyModelSearch.annotations({
+      description: "Case-insensitive substring match against enum ID, enum name, or enum values"
+    })
+  ),
+  limit: Schema.optional(LimitParam.annotations({ description: sdkDiscoveryLimitDescription("enums") }))
+}).annotations({ title: "ListHulyEnumsParams", description: "Parameters for discovering Huly model enum definitions" })
 export type ListHulyEnumsParams = Schema.Schema.Type<typeof ListHulyEnumsParamsSchema>
 
 export const ListHulyEnumsResultSchema = Schema.Struct({

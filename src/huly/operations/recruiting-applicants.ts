@@ -91,15 +91,13 @@ type ApplicantCreateError =
 type ApplicantUpdateError = ApplicantReadError | PersonNotAnEmployeeError
 type ApplicantDeleteError = ApplicantReadError | RecruitingMutationUnsupportedError
 
-const resolveOptionalVacancy = (
-  client: HulyClient["Type"],
-  identifier: ListRecruitingApplicantsParams["vacancy"]
-) => identifier === undefined ? Effect.succeed(undefined) : resolveVacancy(client, identifier)
+const resolveOptionalVacancy = (client: HulyClient["Type"], identifier: ListRecruitingApplicantsParams["vacancy"]) =>
+  identifier === undefined ? Effect.succeed(undefined) : resolveVacancy(client, identifier)
 
 const resolveOptionalCandidate = (
   client: HulyClient["Type"],
   identifier: ListRecruitingApplicantsParams["candidate"]
-) => identifier === undefined ? Effect.succeed(undefined) : resolveCandidatePerson(client, identifier)
+) => (identifier === undefined ? Effect.succeed(undefined) : resolveCandidatePerson(client, identifier))
 
 const resolveAssignee = (
   client: HulyClient["Type"],
@@ -108,7 +106,7 @@ const resolveAssignee = (
   Ref<Employee>,
   HulyClientError | PersonIdentifierAmbiguousError | PersonNotAnEmployeeError | PersonNotFoundError
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<Employee>(
       contact.mixin.Employee,
       hulyQuery<Employee>({ _id: toRef<Employee>(assignee) })
@@ -137,23 +135,23 @@ const applicantStatusFilter = (
 ) =>
   status === undefined || vacancy === undefined
     ? Effect.succeed({})
-    : Effect.gen(function*() {
-      const statuses = yield* getVacancyStatuses(client, vacancy)
-      return { status: yield* resolveRecruitingStatusByName(statuses, status, toVacancyRef(vacancy).identifier) }
-    })
+    : Effect.gen(function* () {
+        const statuses = yield* getVacancyStatuses(client, vacancy)
+        return { status: yield* resolveRecruitingStatusByName(statuses, status, toVacancyRef(vacancy).identifier) }
+      })
 
 const applicantMatchesStatusName = (
   statusName: string | undefined,
   requested: ListRecruitingApplicantsParams["status"]
 ): boolean =>
-  requested === undefined
-  || (statusName !== undefined && normalizeForComparison(statusName) === normalizeForComparison(requested))
+  requested === undefined ||
+  (statusName !== undefined && normalizeForComparison(statusName) === normalizeForComparison(requested))
 
 const applicantDetail = (
   client: HulyClient["Type"],
   applicant: Applicant
 ): Effect.Effect<ApplicantDetail, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ref = yield* applicantRefFromDoc(client, applicant)
     const assignee = yield* findPersonByApplicantAssignee(client, applicant.assignee)
     return {
@@ -179,7 +177,7 @@ const resolveApplicantLocator = (
   | RecruitingVacancyIdentifierAmbiguousError
   | RecruitingVacancyNotFoundError
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const vacancy = yield* resolveOptionalVacancy(client, params.vacancy)
     const candidate = yield* resolveOptionalCandidate(client, params.candidate)
     return yield* findApplicant(client, params.applicant, vacancy, candidate)
@@ -188,7 +186,7 @@ const resolveApplicantLocator = (
 export const listRecruitingApplicants = (
   params: ListRecruitingApplicantsParams
 ): Effect.Effect<ListRecruitingApplicantsResult, ApplicantReadError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const vacancy = yield* resolveOptionalVacancy(client, params.vacancy)
     const candidate = yield* resolveOptionalCandidate(client, params.candidate)
@@ -200,19 +198,16 @@ export const listRecruitingApplicants = (
       ...(candidate === undefined ? {} : { attachedTo: toRef<Candidate>(candidate._id) }),
       ...statusFilter
     }
-    const applicants = yield* client.findAll<Applicant>(
-      recruitIds.class.Applicant,
-      hulyQuery(query),
-      {
-        ...(requiresInMemoryStatusFilter ? {} : { limit }),
-        sort: { modifiedOn: SortingOrder.Descending }
-      }
-    )
+    const applicants = yield* client.findAll<Applicant>(recruitIds.class.Applicant, hulyQuery(query), {
+      ...(requiresInMemoryStatusFilter ? {} : { limit }),
+      sort: { modifiedOn: SortingOrder.Descending }
+    })
     const refs = yield* Effect.forEach(applicants, (applicant) =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const ref = yield* applicantRefFromDoc(client, applicant)
         return applicantMatchesStatusName(ref.status, params.status) ? ref : undefined
-      }))
+      })
+    )
     const items = refs.filter((ref) => ref !== undefined).slice(0, limit)
     return { applicants: items, total: Count.make(items.length) }
   })
@@ -220,7 +215,7 @@ export const listRecruitingApplicants = (
 export const getRecruitingApplicant = (
   params: GetRecruitingApplicantParams
 ): Effect.Effect<ApplicantDetail, ApplicantReadError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     return yield* applicantDetail(client, yield* resolveApplicantLocator(client, params))
   })
@@ -228,7 +223,7 @@ export const getRecruitingApplicant = (
 export const createRecruitingApplicant = (
   params: CreateRecruitingApplicantParams
 ): Effect.Effect<RecruitingApplicantMutationResult, ApplicantCreateError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const vacancy = yield* resolveVacancy(client, params.vacancy)
     const person = yield* resolveCandidatePerson(client, params.candidate)
@@ -241,9 +236,10 @@ export const createRecruitingApplicant = (
     }
 
     const statuses = yield* getVacancyStatuses(client, vacancy)
-    const status = params.status === undefined
-      ? yield* resolveDefaultRecruitingStatus(statuses, toVacancyRef(vacancy).identifier)
-      : yield* resolveRecruitingStatusByName(statuses, params.status, toVacancyRef(vacancy).identifier)
+    const status =
+      params.status === undefined
+        ? yield* resolveDefaultRecruitingStatus(statuses, toVacancyRef(vacancy).identifier)
+        : yield* resolveRecruitingStatusByName(statuses, params.status, toVacancyRef(vacancy).identifier)
     const statusName = yield* statusNameForApplicant(statuses, status)
     const assignee = params.assignee === undefined ? null : yield* resolveAssignee(client, params.assignee)
     const number = yield* incrementSequence(client, recruitIds.class.Applicant, "applicant")
@@ -296,25 +292,27 @@ const buildApplicantUpdate = (
   ApplicantUpdateError,
   Diagnostics
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const vacancy = yield* client.findOne<Vacancy>(recruitIds.class.Vacancy, { _id: applicant.space })
     if (vacancy === undefined) {
       return yield* new RecruitingModelMissingError({
         message: `Applicant '${applicant.identifier}' references missing vacancy '${applicant.space}'`
       })
     }
-    const status = params.status === undefined
-      ? {}
-      : {
-        status: yield* resolveRecruitingStatusByName(
-          yield* getVacancyStatuses(client, vacancy),
-          params.status,
-          toVacancyRef(vacancy).identifier
-        )
-      }
-    const assignee = params.assignee === undefined
-      ? {}
-      : { assignee: params.assignee === null ? null : yield* resolveAssignee(client, params.assignee) }
+    const status =
+      params.status === undefined
+        ? {}
+        : {
+            status: yield* resolveRecruitingStatusByName(
+              yield* getVacancyStatuses(client, vacancy),
+              params.status,
+              toVacancyRef(vacancy).identifier
+            )
+          }
+    const assignee =
+      params.assignee === undefined
+        ? {}
+        : { assignee: params.assignee === null ? null : yield* resolveAssignee(client, params.assignee) }
     return {
       ...status,
       ...assignee,
@@ -326,7 +324,7 @@ const buildApplicantUpdate = (
 export const updateRecruitingApplicant = (
   params: UpdateRecruitingApplicantParams
 ): Effect.Effect<RecruitingApplicantMutationResult, ApplicantUpdateError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const applicant = yield* resolveApplicantLocator(client, params)
     const update = yield* buildApplicantUpdate(client, applicant, params)
@@ -337,7 +335,7 @@ export const updateRecruitingApplicant = (
 export const deleteRecruitingApplicant = (
   params: DeleteRecruitingApplicantParams
 ): Effect.Effect<DeleteRecruitingApplicantResult, ApplicantDeleteError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const removeCollection = client.removeCollection
     if (removeCollection === undefined) {

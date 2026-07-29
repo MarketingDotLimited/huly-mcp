@@ -36,7 +36,7 @@ export interface CliRunnerPorts {
   ) => Effect.Effect<A, E | CliRuntimeError>
 }
 
-const errorMessage = (error: unknown): string => error instanceof Error ? error.message : String(error)
+const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error))
 
 const jsonBytes = (value: unknown): number | undefined => {
   try {
@@ -46,7 +46,8 @@ const jsonBytes = (value: unknown): number | undefined => {
   }
 }
 
-const cliAuthMethodFromEnv = (): "token" | "password" => process.env["HULY_TOKEN"] === undefined ? "password" : "token"
+const cliAuthMethodFromEnv = (): "token" | "password" =>
+  process.env["HULY_TOKEN"] === undefined ? "password" : "token"
 
 const cliTelemetryErrorTag = (error: CliInputError | CliRuntimeError): string => error._tag
 
@@ -62,20 +63,16 @@ const downloadAttachmentToFile = (
   attachmentIdField: string,
   output: string
 ): Effect.Effect<void, CliRuntimeError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const attachmentIdValue = resultField(success, attachmentIdField)
     const attachmentId = typeof attachmentIdValue === "string" ? attachmentIdValue : undefined
     if (attachmentId === undefined) {
-      return yield* new CliRuntimeError({
-        message: `Attachment download result is missing ${attachmentIdField}.`
-      })
+      return yield* new CliRuntimeError({ message: `Attachment download result is missing ${attachmentIdField}.` })
     }
 
     const attachmentDoc = yield* findAttachmentForScope(bundle.hulyClient, AttachmentId.make(attachmentId), {
       classRef: attachment.class.Attachment
-    }).pipe(
-      Effect.mapError((error) => new CliRuntimeError({ message: errorMessage(error) }))
-    )
+    }).pipe(Effect.mapError((error) => new CliRuntimeError({ message: errorMessage(error) })))
     const downloadFile = bundle.storageClient.downloadFile
     if (downloadFile === undefined) {
       return yield* new CliRuntimeError({ message: "Storage client does not support attachment downloads." })
@@ -110,10 +107,7 @@ const defaultRunnerPorts: CliRunnerPorts = {
 }
 /* c8 ignore stop */
 
-const confirmationMessage = (
-  spec: CliCommandSpec,
-  operation: CliOperation
-): string | undefined => {
+const confirmationMessage = (spec: CliCommandSpec, operation: CliOperation): string | undefined => {
   const catalogConfirmation = spec.behavior?.confirmation
   if (catalogConfirmation?.type === "requires-yes") return catalogConfirmation.message
   return resolveAnnotations(operation).destructiveHint === true ? `${spec.path.join(" ")} requires --yes.` : undefined
@@ -124,7 +118,7 @@ export const runCliToolWithPorts = (
   toolName: CliToolName,
   parsed: ParsedCliCommandLine
 ): Effect.Effect<void, CliInputError | CliRuntimeError, TelemetryService> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const spec: CliCommandSpec = cliCommandCatalog[toolName]
     const operation = ports.getOperation(toolName)
     const telemetry = yield* TelemetryService
@@ -139,11 +133,8 @@ export const runCliToolWithPorts = (
       transport: "cli"
     })
 
-    const captureToolCalled = (
-      status: "success" | "error",
-      errorTag?: string
-    ): Effect.Effect<void> =>
-      Effect.gen(function*() {
+    const captureToolCalled = (status: "success" | "error", errorTag?: string): Effect.Effect<void> =>
+      Effect.gen(function* () {
         const finishedAt = yield* Clock.currentTimeMillis
         telemetry.toolCalled({
           toolName,
@@ -155,7 +146,7 @@ export const runCliToolWithPorts = (
         })
       })
 
-    const command = Effect.gen(function*() {
+    const command = Effect.gen(function* () {
       const invocation = yield* buildCliInvocation(operation, spec, parsed)
       inputBytes = jsonBytes(invocation.input)
       const requiredConfirmationMessage = confirmationMessage(spec, operation)
@@ -167,15 +158,10 @@ export const runCliToolWithPorts = (
       }
 
       const response = yield* ports.useClientBundle((bundle) =>
-        Effect.gen(function*() {
-          const result = yield* operation.execute(
-            invocation.input,
-            bundle.hulyClient,
-            bundle.storageClient,
-            bundle.workspaceClient
-          ).pipe(
-            Effect.mapError((failure) => new CliRuntimeError({ message: formatOperationFailure(failure) }))
-          )
+        Effect.gen(function* () {
+          const result = yield* operation
+            .execute(invocation.input, bundle.hulyClient, bundle.storageClient, bundle.workspaceClient)
+            .pipe(Effect.mapError((failure) => new CliRuntimeError({ message: formatOperationFailure(failure) })))
 
           const fileOutput = spec.behavior?.fileOutput
           if (fileOutput?.type === "attachment-download" && invocation.globals.output !== undefined) {

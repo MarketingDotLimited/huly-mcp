@@ -50,10 +50,11 @@ describe("CLI catalog", () => {
     const duplicates = [...byPath.entries()].filter(([, toolNames]) => toolNames.length > 1)
     const prefixConflicts = catalogEntries().flatMap(([toolName, spec]) =>
       catalogEntries()
-        .filter(([otherToolName, otherSpec]) =>
-          toolName !== otherToolName
-          && spec.path.length < otherSpec.path.length
-          && spec.path.every((segment, index) => otherSpec.path[index] === segment)
+        .filter(
+          ([otherToolName, otherSpec]) =>
+            toolName !== otherToolName &&
+            spec.path.length < otherSpec.path.length &&
+            spec.path.every((segment, index) => otherSpec.path[index] === segment)
         )
         .map(([otherToolName]) => [toolName, otherToolName])
     )
@@ -69,12 +70,10 @@ describe("CLI catalog", () => {
   })
 
   it("explains upload source locations in attachment commands", () => {
-    for (
-      const description of [
-        cliCommandCatalog.add_issue_attachment.description,
-        cliCommandCatalog.add_document_attachment.description
-      ]
-    ) {
+    for (const description of [
+      cliCommandCatalog.add_issue_attachment.description,
+      cliCommandCatalog.add_document_attachment.description
+    ]) {
       expect(description).toContain("MCP server host")
       expect(description).toContain("client-local base64")
       expect(description).toContain("fetched by the MCP server")

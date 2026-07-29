@@ -21,22 +21,20 @@ import { clampLimit } from "./query-helpers.js"
 export const fulltextSearch = (
   params: FulltextSearchParams
 ): Effect.Effect<FulltextSearchResult, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const limit = clampLimit(params.limit)
 
-    const raw = yield* client.searchFulltext(
-      { query: params.query },
-      { limit }
-    )
+    const raw = yield* client.searchFulltext({ query: params.query }, { limit })
 
     const results = yield* parseSearchResult(raw).pipe(
-      Effect.mapError((parseError) =>
-        new HulyConnectionError({
-          message: `searchFulltext response failed schema validation: ${parseError.message}`,
-          cause: parseError
-        })
+      Effect.mapError(
+        (parseError) =>
+          new HulyConnectionError({
+            message: `searchFulltext response failed schema validation: ${parseError.message}`,
+            cause: parseError
+          })
       )
     )
 

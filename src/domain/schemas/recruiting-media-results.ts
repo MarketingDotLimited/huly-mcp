@@ -24,11 +24,7 @@ import {
   UrlString
 } from "./shared.js"
 
-const RecruitingTargetBaseSchema = {
-  objectClass: ObjectClassName,
-  space: SpaceId,
-  display: NonEmptyString
-} as const
+const RecruitingTargetBaseSchema = { objectClass: ObjectClassName, space: SpaceId, display: NonEmptyString } as const
 
 export const RecruitingResolvedTargetSchema = Schema.Union(
   Schema.Struct({
@@ -151,8 +147,6 @@ export type AddRecruitingAttachmentResult = Schema.Schema.Type<typeof AddRecruit
 export type UpdateRecruitingAttachmentResult = Schema.Schema.Type<typeof UpdateRecruitingAttachmentResultSchema>
 export type DeleteRecruitingAttachmentResult = Schema.Schema.Type<typeof DeleteRecruitingAttachmentResultSchema>
 export type ListRecruitingActivityResult = Schema.Schema.Type<typeof ListRecruitingActivityResultSchema>
-export type ListRecruitingRelatedIssuesResult = Schema.Schema.Type<
-  typeof ListRecruitingRelatedIssuesResultSchema
->
+export type ListRecruitingRelatedIssuesResult = Schema.Schema.Type<typeof ListRecruitingRelatedIssuesResultSchema>
 export type AddRecruitingRelatedIssueResult = Schema.Schema.Type<typeof AddRecruitingRelatedIssueResultSchema>
 export type RemoveRecruitingRelatedIssueResult = Schema.Schema.Type<typeof RemoveRecruitingRelatedIssueResultSchema>

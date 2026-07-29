@@ -52,41 +52,30 @@ type EditDocumentError =
 export const editDocument = (
   params: EditDocumentParams
 ): Effect.Effect<EditDocumentResult, EditDocumentError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const hasTitleOrContent = params.title !== undefined || params.content !== undefined
     const hasOldText = params.old_text !== undefined
     const hasNewText = params.new_text !== undefined
     const hasSearchReplace = hasOldText && hasNewText
 
     if (params.content !== undefined && (hasOldText || hasNewText)) {
-      return yield* new DocumentEditModeError({
-        reason: "content cannot be combined with old_text or new_text"
-      })
+      return yield* new DocumentEditModeError({ reason: "content cannot be combined with old_text or new_text" })
     }
 
     if (hasOldText !== hasNewText) {
-      return yield* new DocumentEditModeError({
-        reason: "old_text and new_text must be provided together"
-      })
+      return yield* new DocumentEditModeError({ reason: "old_text and new_text must be provided together" })
     }
 
     if (hasOldText && params.old_text.trim() === "") {
-      return yield* new DocumentEditModeError({
-        reason: "old_text must be non-empty"
-      })
+      return yield* new DocumentEditModeError({ reason: "old_text must be non-empty" })
     }
 
     if (params.replace_all !== undefined && !hasSearchReplace) {
-      return yield* new DocumentEditModeError({
-        reason: "replace_all requires both old_text and new_text"
-      })
+      return yield* new DocumentEditModeError({ reason: "replace_all requires both old_text and new_text" })
     }
 
     if (!hasTitleOrContent && !hasSearchReplace) {
-      return yield* new NoUpdateFieldsError({
-        operation: "edit_document",
-        fields: EDIT_DOCUMENT_UPDATE_FIELD_GROUPS
-      })
+      return yield* new NoUpdateFieldsError({ operation: "edit_document", fields: EDIT_DOCUMENT_UPDATE_FIELD_GROUPS })
     }
 
     const { client, doc, teamspace } = yield* findTeamspaceAndDocument(params)
@@ -129,13 +118,7 @@ export const editDocument = (
         return yield* new DocumentEmptyContentError({ identifier: params.document })
       }
 
-      const currentContent: string = yield* client.fetchMarkup(
-        doc._class,
-        doc._id,
-        "content",
-        doc.content,
-        "markdown"
-      )
+      const currentContent: string = yield* client.fetchMarkup(doc._class, doc._id, "content", doc.content, "markdown")
 
       const occurrences = countOccurrences(currentContent, params.old_text)
 
@@ -172,12 +155,7 @@ export const editDocument = (
     const url = buildDocumentUrlFromConfig(client.workbenchUrlConfig, finalTitle, DocumentId.make(doc._id))
 
     if (Object.keys(updateOps).length > 0) {
-      yield* client.updateDoc(
-        documentPlugin.class.Document,
-        teamspace._id,
-        doc._id,
-        updateOps
-      )
+      yield* client.updateDoc(documentPlugin.class.Document, teamspace._id, doc._id, updateOps)
     }
 
     return { id: DocumentId.make(doc._id), updated: true, url }

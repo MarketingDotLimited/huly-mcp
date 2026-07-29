@@ -65,12 +65,7 @@ const statusDocArbitrary = fc.record({
   _id: hulyRefArbitrary.map((id) => toRef<Status>(DocId.make(id))),
   marker: fc.string({ maxLength: 20 })
 })
-const finiteNonNegativeArbitrary = fc.double({
-  min: 0,
-  max: 1_000_000,
-  noNaN: true,
-  noDefaultInfinity: true
-})
+const finiteNonNegativeArbitrary = fc.double({ min: 0, max: 1_000_000, noNaN: true, noDefaultInfinity: true })
 
 const escapedCharacterSet = new Set(["\\", "%", "_"])
 
@@ -180,10 +175,7 @@ describe("pure Huly operation helper properties", () => {
   it("parseIssueIdentifier leaves malformed identifiers unresolved", () => {
     fc.assert(
       fc.property(nonMatchingIssueIdentifierArbitrary, projectIdentifierArbitrary, (identifier, project) => {
-        expect(parseIssueIdentifier(identifier, project)).toEqual({
-          fullIdentifier: identifier.trim(),
-          number: null
-        })
+        expect(parseIssueIdentifier(identifier, project)).toEqual({ fullIdentifier: identifier.trim(), number: null })
       }),
       propertyTestParameters
     )
@@ -207,16 +199,20 @@ describe("pure Huly operation helper properties", () => {
 
   it("uniqueStatusRefs preserves first occurrence order and removes duplicates", () => {
     fc.assert(
-      fc.property(fc.array(hulyRefArbitrary.map((id) => toRef<Status>(DocId.make(id))), { maxLength: 50 }), (refs) => {
-        const unique = uniqueStatusRefs(refs)
-        const firstIndexes = firstIndexesByStatusRef(refs)
+      fc.property(
+        fc.array(
+          hulyRefArbitrary.map((id) => toRef<Status>(DocId.make(id))),
+          { maxLength: 50 }
+        ),
+        (refs) => {
+          const unique = uniqueStatusRefs(refs)
+          const firstIndexes = firstIndexesByStatusRef(refs)
 
-        expect(unique).toHaveLength(firstIndexes.size)
-        expect(new Set(unique).size).toBe(unique.length)
-        expect(unique.map((ref) => firstIndexes.get(ref))).toEqual(
-          [...firstIndexes.values()]
-        )
-      }),
+          expect(unique).toHaveLength(firstIndexes.size)
+          expect(new Set(unique).size).toBe(unique.length)
+          expect(unique.map((ref) => firstIndexes.get(ref))).toEqual([...firstIndexes.values()])
+        }
+      ),
       propertyTestParameters
     )
   })
@@ -241,9 +237,12 @@ describe("pure Huly operation helper properties", () => {
     expect(zeroAsUnset(NonNegativeNumber.make(0))).toBeUndefined()
 
     fc.assert(
-      fc.property(finiteNonNegativeArbitrary.filter((value) => value > 0), (value) => {
-        expect(zeroAsUnset(NonNegativeNumber.make(value))).toBe(value)
-      }),
+      fc.property(
+        finiteNonNegativeArbitrary.filter((value) => value > 0),
+        (value) => {
+          expect(zeroAsUnset(NonNegativeNumber.make(value))).toBe(value)
+        }
+      ),
       propertyTestParameters
     )
   })
@@ -266,20 +265,14 @@ describe("pure Huly operation helper properties", () => {
         const options = {
           limit,
           showArchived,
-          lookup: {
-            space: core.class.Space,
-            reviewer: core.class.Space
-          }
+          lookup: { space: core.class.Space, reviewer: core.class.Space }
         } satisfies FindOptions<LookupFixtureDoc>
         const lookup: Lookup<LookupFixtureDoc> = { reviewer: core.class.Doc }
 
         expect(withLookup<LookupFixtureDoc>(options, lookup)).toEqual({
           limit,
           showArchived,
-          lookup: {
-            space: core.class.Space,
-            reviewer: core.class.Doc
-          }
+          lookup: { space: core.class.Space, reviewer: core.class.Doc }
         })
       }),
       propertyTestParameters
@@ -299,9 +292,7 @@ describe("pure Huly operation helper properties", () => {
     fc.assert(
       fc.property(
         fc.double({ min: MAX_LIMIT, noNaN: true, noDefaultInfinity: true }).filter((limit) => limit > MAX_LIMIT),
-        (
-          limit
-        ) => {
+        (limit) => {
           expect(clampLimit(limit)).toBe(MAX_LIMIT)
         }
       ),
@@ -344,12 +335,7 @@ describe("pure Huly operation helper properties", () => {
           const summary = toAttachedTagSummary(tagRef)
           const decoded = assertDecodeSuccess(AttachedTagSummarySchema, summary)
 
-          expect(decoded).toMatchObject({
-            id,
-            tag,
-            title: title.trim(),
-            color: normalizeColorCode(color)
-          })
+          expect(decoded).toMatchObject({ id, tag, title: title.trim(), color: normalizeColorCode(color) })
           expect("weight" in decoded).toBe(weight !== undefined)
           if (weight !== undefined) {
             expect(decoded.weight).toBe(weight)
@@ -376,12 +362,7 @@ describe("pure Huly operation helper properties", () => {
     )
     assertEnumMappingProperties(
       TestCasePriorityValues,
-      [
-        TestCasePriority.Low,
-        TestCasePriority.Medium,
-        TestCasePriority.High,
-        TestCasePriority.Urgent
-      ],
+      [TestCasePriority.Low, TestCasePriority.Medium, TestCasePriority.High, TestCasePriority.Urgent],
       testCasePriorityToString,
       stringToTestCasePriority
     )
@@ -399,12 +380,7 @@ describe("pure Huly operation helper properties", () => {
     )
     assertEnumMappingProperties(
       TestRunStatusValues,
-      [
-        TestRunStatus.Untested,
-        TestRunStatus.Blocked,
-        TestRunStatus.Passed,
-        TestRunStatus.Failed
-      ],
+      [TestRunStatus.Untested, TestRunStatus.Blocked, TestRunStatus.Passed, TestRunStatus.Failed],
       testRunStatusToString,
       stringToTestRunStatus
     )

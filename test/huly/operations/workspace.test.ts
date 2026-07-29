@@ -46,7 +46,7 @@ const mkWorkspaceInfo = (overrides?: Partial<WorkspaceInfoWithStatus>): Workspac
 
 describe("listWorkspaceMembers", () => {
   it.effect("returns members with person info", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = WorkspaceClient.testLayer({
         getWorkspaceMembers: () =>
           Effect.succeed([
@@ -55,15 +55,9 @@ describe("listWorkspaceMembers", () => {
           ]),
         getPersonInfo: (account) => {
           if (account === mkPersonUuid("person-1")) {
-            return Effect.succeed({
-              name: "Alice",
-              socialIds: [{ type: "email", value: "alice@test.com" }]
-            } as never)
+            return Effect.succeed({ name: "Alice", socialIds: [{ type: "email", value: "alice@test.com" }] } as never)
           }
-          return Effect.succeed({
-            name: "Bob",
-            socialIds: []
-          } as never)
+          return Effect.succeed({ name: "Bob", socialIds: [] } as never)
         }
       })
 
@@ -79,15 +73,13 @@ describe("listWorkspaceMembers", () => {
       expect(assertAt(result, 1).role).toBe(AccountRole.User)
       expect(assertAt(result, 1).name).toBe("Bob")
       expect(assertAt(result, 1).email).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("handles person info failure gracefully via Effect.option", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = WorkspaceClient.testLayer({
-        getWorkspaceMembers: () =>
-          Effect.succeed([
-            { person: mkAccountUuid("person-1"), role: AccountRole.User }
-          ]),
+        getWorkspaceMembers: () => Effect.succeed([{ person: mkAccountUuid("person-1"), role: AccountRole.User }]),
         getPersonInfo: () => Effect.fail({ _tag: "HulyConnectionError", message: "fail" } as never)
       })
 
@@ -97,10 +89,11 @@ describe("listWorkspaceMembers", () => {
       expect(assertAt(result, 0).personId).toBe("person-1")
       expect(assertAt(result, 0).name).toBeUndefined()
       expect(assertAt(result, 0).email).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("respects limit", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const members = Array.from({ length: 10 }, (_, i) => ({
         person: mkAccountUuid(`person-${i}`),
         role: AccountRole.User
@@ -114,12 +107,13 @@ describe("listWorkspaceMembers", () => {
       const result = yield* listWorkspaceMembers({ limit: 3 }).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(3)
-    }))
+    })
+  )
 })
 
 describe("updateMemberRole", () => {
   it.effect("updates role and returns result", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       let capturedAccount: string | undefined
       let capturedRole: AccountRole | undefined
 
@@ -140,17 +134,16 @@ describe("updateMemberRole", () => {
       expect(result.updated).toBe(true)
       expect(capturedAccount).toBe("acc-1")
       expect(capturedRole).toBe(AccountRole.Maintainer)
-    }))
+    })
+  )
 })
 
 describe("getWorkspaceInfo", () => {
   it.effect("returns mapped workspace info", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const wsInfo = mkWorkspaceInfo()
 
-      const testLayer = WorkspaceClient.testLayer({
-        getWorkspaceInfo: () => Effect.succeed(wsInfo)
-      })
+      const testLayer = WorkspaceClient.testLayer({ getWorkspaceInfo: () => Effect.succeed(wsInfo) })
 
       const result = yield* getWorkspaceInfo().pipe(Effect.provide(testLayer))
 
@@ -163,34 +156,32 @@ describe("getWorkspaceInfo", () => {
       expect(result.allowGuestSignUp).toBe(false)
       expect(result.version).toBe("1.2.3")
       expect(result.mode).toBe("active")
-    }))
+    })
+  )
 
   it.effect("handles undefined region", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const wsInfo = mkWorkspaceInfo()
       delete (wsInfo as { region?: unknown }).region
 
-      const testLayer = WorkspaceClient.testLayer({
-        getWorkspaceInfo: () => Effect.succeed(wsInfo)
-      })
+      const testLayer = WorkspaceClient.testLayer({ getWorkspaceInfo: () => Effect.succeed(wsInfo) })
 
       const result = yield* getWorkspaceInfo().pipe(Effect.provide(testLayer))
 
       expect(result.region).toBeUndefined()
-    }))
+    })
+  )
 })
 
 describe("listWorkspaces", () => {
   it.effect("returns workspace summaries", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const workspaces = [
         mkWorkspaceInfo({ uuid: "ws-1" as WorkspaceInfoWithStatus["uuid"], name: "WS 1", lastVisit: 1700000001000 }),
         mkWorkspaceInfo({ uuid: "ws-2" as WorkspaceInfoWithStatus["uuid"], name: "WS 2" })
       ]
 
-      const testLayer = WorkspaceClient.testLayer({
-        getUserWorkspaces: () => Effect.succeed(workspaces)
-      })
+      const testLayer = WorkspaceClient.testLayer({ getUserWorkspaces: () => Effect.succeed(workspaces) })
 
       const result = yield* listWorkspaces({}).pipe(Effect.provide(testLayer))
 
@@ -199,27 +190,27 @@ describe("listWorkspaces", () => {
       expect(assertAt(result, 0).name).toBe("WS 1")
       expect(assertAt(result, 0).lastVisit).toBe(1700000001000)
       expect(assertAt(result, 1).uuid).toBe("ws-2")
-    }))
+    })
+  )
 
   it.effect("respects limit", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const workspaces = Array.from({ length: 10 }, (_, i) =>
-        mkWorkspaceInfo({ uuid: `ws-${i}` as WorkspaceInfoWithStatus["uuid"], name: `WS ${i}` }))
+        mkWorkspaceInfo({ uuid: `ws-${i}` as WorkspaceInfoWithStatus["uuid"], name: `WS ${i}` })
+      )
 
-      const testLayer = WorkspaceClient.testLayer({
-        getUserWorkspaces: () =>
-          Effect.succeed(workspaces)
-      })
+      const testLayer = WorkspaceClient.testLayer({ getUserWorkspaces: () => Effect.succeed(workspaces) })
 
       const result = yield* listWorkspaces({ limit: 2 }).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(2)
-    }))
+    })
+  )
 })
 
 describe("createWorkspace", () => {
   it.effect("creates workspace and returns result", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       let capturedName: string | undefined
       let capturedRegion: string | undefined
 
@@ -227,10 +218,7 @@ describe("createWorkspace", () => {
         createWorkspace: (name, region) => {
           capturedName = name
           capturedRegion = region
-          return Effect.succeed({
-            workspace: "new-ws-uuid",
-            workspaceUrl: "new-workspace"
-          } as WorkspaceLoginInfo)
+          return Effect.succeed({ workspace: "new-ws-uuid", workspaceUrl: "new-workspace" } as WorkspaceLoginInfo)
         }
       })
 
@@ -243,12 +231,13 @@ describe("createWorkspace", () => {
       expect(result.name).toBe("New Workspace")
       expect(capturedName).toBe("New Workspace")
       expect(capturedRegion).toBe("eu-west")
-    }))
+    })
+  )
 })
 
 describe("deleteWorkspace", () => {
   it.effect("deletes workspace and returns result", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       let deleteCalled = false
 
       const testLayer = WorkspaceClient.testLayer({
@@ -262,23 +251,23 @@ describe("deleteWorkspace", () => {
 
       expect(result.deleted).toBe(true)
       expect(deleteCalled).toBe(true)
-    }))
+    })
+  )
 })
 
 describe("getUserProfile", () => {
   it.effect("returns null when profile not found", () =>
-    Effect.gen(function*() {
-      const testLayer = WorkspaceClient.testLayer({
-        getUserProfile: () => Effect.succeed(null)
-      })
+    Effect.gen(function* () {
+      const testLayer = WorkspaceClient.testLayer({ getUserProfile: () => Effect.succeed(null) })
 
       const result = yield* getUserProfile().pipe(Effect.provide(testLayer))
 
       expect(result).toBeNull()
-    }))
+    })
+  )
 
   it.effect("returns mapped profile when found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const profile: WorkspaceClientUserProfile = {
         uuid: mkPersonUuid("user-uuid-1234-5678-9abc-def012345678"),
         firstName: "John",
@@ -312,10 +301,11 @@ describe("getUserProfile", () => {
       expect(result!.website).toBe("https://example.com")
       expect(result!.socialLinks).toEqual({ github: "johndoe" })
       expect(result!.isPublic).toBe(true)
-    }))
+    })
+  )
 
   it.effect("normalizes nullable profile fields to undefined", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const profile: WorkspaceClientUserProfile = {
         uuid: mkPersonUuid("user-uuid-1234-5678-9abc-def012345678"),
         firstName: "John",
@@ -328,9 +318,7 @@ describe("getUserProfile", () => {
         isPublic: false
       }
 
-      const testLayer = WorkspaceClient.testLayer({
-        getUserProfile: () => Effect.succeed(profile)
-      })
+      const testLayer = WorkspaceClient.testLayer({ getUserProfile: () => Effect.succeed(profile) })
 
       const result = yield* getUserProfile().pipe(Effect.provide(testLayer))
 
@@ -341,33 +329,34 @@ describe("getUserProfile", () => {
       expect(result!.website).toBeUndefined()
       expect(result!.socialLinks).toBeUndefined()
       expect(result!.isPublic).toBe(false)
-    }))
+    })
+  )
 
   it.effect("fails with InvalidPersonUuidError for bad UUID format", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = WorkspaceClient.testLayer({})
 
-      const error = yield* Effect.flip(
-        getUserProfile("not-a-valid-uuid").pipe(Effect.provide(testLayer))
-      )
+      const error = yield* Effect.flip(getUserProfile("not-a-valid-uuid").pipe(Effect.provide(testLayer)))
 
       expect(error._tag).toBe("InvalidPersonUuidError")
       expect((error as InvalidPersonUuidError).uuid).toBe("not-a-valid-uuid")
-    }))
+    })
+  )
 })
 
 describe("updateUserProfile", () => {
   it.effect("fails when no fields provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = WorkspaceClient.testLayer({})
 
       const error = yield* Effect.flip(updateUserProfile({}).pipe(Effect.provide(testLayer)))
 
       expect(error._tag).toBe("NoUpdateFieldsError")
-    }))
+    })
+  )
 
   it.effect("updates provided fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       let capturedProfile: Record<string, unknown> | undefined
 
       const testLayer = WorkspaceClient.testLayer({
@@ -391,10 +380,11 @@ describe("updateUserProfile", () => {
       expect(capturedProfile?.country).toBe("UK")
       expect(capturedProfile?.website).toBe("https://new.example.com")
       expect(capturedProfile?.isPublic).toBe(false)
-    }))
+    })
+  )
 
   it.effect("clears fields when null values provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       let capturedProfile: Record<string, unknown> | undefined
 
       const testLayer = WorkspaceClient.testLayer({
@@ -418,10 +408,11 @@ describe("updateUserProfile", () => {
       expect(capturedProfile?.country).toBe("")
       expect(capturedProfile?.website).toBe("")
       expect(capturedProfile?.socialLinks).toEqual({})
-    }))
+    })
+  )
 
   it.effect("updates socialLinks", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       let capturedProfile: Record<string, unknown> | undefined
 
       const testLayer = WorkspaceClient.testLayer({
@@ -431,27 +422,29 @@ describe("updateUserProfile", () => {
         }
       })
 
-      const result = yield* updateUserProfile({
-        socialLinks: { github: "user", twitter: "user" }
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* updateUserProfile({ socialLinks: { github: "user", twitter: "user" } }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.updated).toBe(true)
       expect(capturedProfile?.socialLinks).toEqual({ github: "user", twitter: "user" })
-    }))
+    })
+  )
 })
 
 describe("updateGuestSettings", () => {
   it.effect("fails when no settings provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = WorkspaceClient.testLayer({})
 
       const error = yield* Effect.flip(updateGuestSettings({}).pipe(Effect.provide(testLayer)))
 
       expect(error._tag).toBe("NoUpdateFieldsError")
-    }))
+    })
+  )
 
   it.effect("updates allowReadOnly", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       let readOnlyCalled = false
 
       const testLayer = WorkspaceClient.testLayer({
@@ -467,10 +460,11 @@ describe("updateGuestSettings", () => {
       expect(result.updated).toBe(true)
       expect(result.allowReadOnly).toBe(true)
       expect(readOnlyCalled).toBe(true)
-    }))
+    })
+  )
 
   it.effect("updates allowSignUp", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       let signUpCalled = false
 
       const testLayer = WorkspaceClient.testLayer({
@@ -486,10 +480,11 @@ describe("updateGuestSettings", () => {
       expect(result.updated).toBe(true)
       expect(result.allowSignUp).toBe(false)
       expect(signUpCalled).toBe(true)
-    }))
+    })
+  )
 
   it.effect("updates both settings", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       let readOnlyCalled = false
       let signUpCalled = false
 
@@ -511,12 +506,13 @@ describe("updateGuestSettings", () => {
       expect(result.updated).toBe(true)
       expect(readOnlyCalled).toBe(true)
       expect(signUpCalled).toBe(true)
-    }))
+    })
+  )
 })
 
 describe("createAccessLink", () => {
   it.effect("creates guest link with defaults", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       let capturedRole: AccountRole | undefined
 
       const testLayer = WorkspaceClient.testLayer({
@@ -532,19 +528,20 @@ describe("createAccessLink", () => {
       expect(result.role).toBe("GUEST")
       expect(result.spaces).toBeUndefined()
       expect(capturedRole).toBe(AccountRole.Guest)
-    }))
+    })
+  )
 
   it.effect("passes anonymous link options and space restrictions", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       let capturedRole: AccountRole | undefined
       let capturedOptions:
         | {
-          readonly spaces?: ReadonlyArray<SpaceId>
-          readonly personalized?: boolean
-          readonly notBefore?: number
-          readonly expiration?: number
-          readonly navigateUrl?: string
-        }
+            readonly spaces?: ReadonlyArray<SpaceId>
+            readonly personalized?: boolean
+            readonly notBefore?: number
+            readonly expiration?: number
+            readonly navigateUrl?: string
+          }
         | undefined
 
       const testLayer = WorkspaceClient.testLayer({
@@ -576,10 +573,11 @@ describe("createAccessLink", () => {
         expiration: 2,
         personalized: false
       })
-    }))
+    })
+  )
 
   it.effect("forwards a personalized guest's first and last name", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       let capturedOptions: { readonly firstName?: string; readonly lastName?: string } | undefined
 
       const testLayer = WorkspaceClient.testLayer({
@@ -589,28 +587,25 @@ describe("createAccessLink", () => {
         }
       })
 
-      const result = yield* createAccessLink({
-        firstName: "Ada",
-        lastName: "Lovelace",
-        personalized: true
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* createAccessLink({ firstName: "Ada", lastName: "Lovelace", personalized: true }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.link).toBe("https://huly.test/named")
       expect(capturedOptions).toEqual({ firstName: "Ada", lastName: "Lovelace", personalized: true })
-    }))
+    })
+  )
 })
 
 describe("getRegions", () => {
   it.effect("returns mapped region info", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const regions: Array<HulyRegionInfo> = [
         { region: "us-east", name: "US East" },
         { region: "eu-west", name: "EU West" }
       ]
 
-      const testLayer = WorkspaceClient.testLayer({
-        getRegionInfo: () => Effect.succeed(regions)
-      })
+      const testLayer = WorkspaceClient.testLayer({ getRegionInfo: () => Effect.succeed(regions) })
 
       const result = yield* getRegions().pipe(Effect.provide(testLayer))
 
@@ -619,16 +614,16 @@ describe("getRegions", () => {
       expect(assertAt(result, 0).name).toBe("US East")
       expect(assertAt(result, 1).region).toBe("eu-west")
       expect(assertAt(result, 1).name).toBe("EU West")
-    }))
+    })
+  )
 
   it.effect("returns empty array when no regions", () =>
-    Effect.gen(function*() {
-      const testLayer = WorkspaceClient.testLayer({
-        getRegionInfo: () => Effect.succeed([])
-      })
+    Effect.gen(function* () {
+      const testLayer = WorkspaceClient.testLayer({ getRegionInfo: () => Effect.succeed([]) })
 
       const result = yield* getRegions().pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(0)
-    }))
+    })
+  )
 })

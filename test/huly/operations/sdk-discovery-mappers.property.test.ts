@@ -163,22 +163,25 @@ const validAttributeTypeArbitrary = fc.oneof(
 describe("SDK discovery mapper properties", () => {
   it("directAncestorRefs preserves extends-before-implements order while dropping duplicates and self references", () => {
     const directAncestorFixtureArbitrary = hulyRefStringArbitrary.chain((classId) =>
-      fc.boolean().chain((singleExtends) =>
-        fc.record({
-          classId: fc.constant(classId),
-          extendedInput: fc.array(hulyRefStringArbitrary, { maxLength: 12 }),
-          implementedInput: fc.array(hulyRefStringArbitrary, { maxLength: 12 }),
-          scalarExtends: singleExtends ? nonSelfRefArbitrary(classId) : fc.constant(undefined),
-          singleExtends: fc.constant(singleExtends)
-        })
-      )
+      fc
+        .boolean()
+        .chain((singleExtends) =>
+          fc.record({
+            classId: fc.constant(classId),
+            extendedInput: fc.array(hulyRefStringArbitrary, { maxLength: 12 }),
+            implementedInput: fc.array(hulyRefStringArbitrary, { maxLength: 12 }),
+            scalarExtends: singleExtends ? nonSelfRefArbitrary(classId) : fc.constant(undefined),
+            singleExtends: fc.constant(singleExtends)
+          })
+        )
     )
 
     fc.assert(
       fc.property(
         directAncestorFixtureArbitrary,
         ({ classId, extendedInput, implementedInput, scalarExtends, singleExtends }) => {
-          const extended = [classId, scalarExtends, ...extendedInput].flatMap((ref) => ref === undefined ? [] : [ref])
+          const extended = [classId, scalarExtends, ...extendedInput]
+            .flatMap((ref) => (ref === undefined ? [] : [ref]))
             .map(toDirectAncestorRef)
           const implemented = [classId, ...implementedInput].map(toDirectAncestorRef)
           const doc = makeClassDoc({
@@ -249,13 +252,9 @@ describe("SDK discovery mapper properties", () => {
         invalidNonEmptyStringArbitrary,
         fc.integer({ min: 10_000, max: 20_000 }),
         (classId, label, shortLabel, pluralLabel, unknownKind) => {
-          const summary = toClassSummary(makeClassDoc({
-            _id: classId,
-            label,
-            shortLabel,
-            pluralLabel,
-            kind: unknownKind
-          }))
+          const summary = toClassSummary(
+            makeClassDoc({ _id: classId, label, shortLabel, pluralLabel, kind: unknownKind })
+          )
 
           assertDecodeSuccess(HulyClassSummarySchema, summary)
           expect(summary.label).toBe(classId)
@@ -289,10 +288,7 @@ describe("SDK discovery mapper properties", () => {
             domain,
             shortLabel,
             pluralLabel,
-            firstClassToolHints: [{
-              category: hintCategory,
-              exampleTools: [hintTool]
-            }],
+            firstClassToolHints: [{ category: hintCategory, exampleTools: [hintTool] }],
             routingHints: []
           })
 
@@ -382,7 +378,7 @@ describe("SDK discovery mapper properties", () => {
             "refTo" in type ? type.refTo : undefined,
             "enumId" in type ? type.enumId : undefined,
             "collectionOf" in type ? type.collectionOf : undefined
-          ].flatMap((value) => value === undefined ? [] : [String(value)])
+          ].flatMap((value) => (value === undefined ? [] : [String(value)]))
 
           expectSearchTextContains(attributeSearchText(summary), [
             `attr:${tail}`,
@@ -406,11 +402,7 @@ describe("SDK discovery mapper properties", () => {
         attributeNameArbitrary,
         fc.array(fc.oneof(enumValueArbitrary, invalidNonEmptyStringArbitrary), { maxLength: 25 }),
         (tail, name, enumValues) => {
-          const doc = makeEnum({
-            _id: `test:enum:${tail}`,
-            name,
-            enumValues
-          })
+          const doc = makeEnum({ _id: `test:enum:${tail}`, name, enumValues })
           const summary = toEnumSummary(doc)
           const expectedValues = enumValues.flatMap((value) =>
             typeof value === "string" && value.trim() !== "" ? [value.trim()] : []
@@ -435,11 +427,7 @@ describe("SDK discovery mapper properties", () => {
         attributeNameArbitrary,
         fc.array(enumValueArbitrary, { maxLength: 12 }),
         (tail, name, values) => {
-          const summary = assertDecodeSuccess(HulyEnumSummarySchema, {
-            enumId: `test:enum:${tail}`,
-            name,
-            values
-          })
+          const summary = assertDecodeSuccess(HulyEnumSummarySchema, { enumId: `test:enum:${tail}`, name, values })
 
           expectSearchTextContains(enumSearchText(summary), [summary.enumId, summary.name, ...summary.values])
         }
@@ -466,7 +454,8 @@ describe("SDK discovery mapper properties", () => {
 
     fc.assert(
       fc.property(
-        fc.string({ minLength: 1, maxLength: 30 })
+        fc
+          .string({ minLength: 1, maxLength: 30 })
           .filter((value) => !["class", "interface", "mixin", "unknown"].includes(value)),
         (invalidKind) => {
           assertDecodeFailure(HulyClassifierKindSchema, invalidKind)
@@ -483,11 +472,9 @@ describe("SDK discovery mapper edge cases", () => {
     toAttributeSummary(makeAttribute({ _id: "attr:edge", attributeOf: "test:class:Owner", type }), owner)
 
   it("includes decoded short and plural labels when present", () => {
-    const summary = toClassSummary(makeClassDoc({
-      _id: "test:class:Foo",
-      shortLabel: "core:label:Short",
-      pluralLabel: "core:label:Plural"
-    }))
+    const summary = toClassSummary(
+      makeClassDoc({ _id: "test:class:Foo", shortLabel: "core:label:Short", pluralLabel: "core:label:Plural" })
+    )
     expect(summary).toMatchObject({ shortLabel: "Short", pluralLabel: "Plural" })
   })
 

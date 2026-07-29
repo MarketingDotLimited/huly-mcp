@@ -52,33 +52,31 @@ const ApplicantTargetLocatorSchema = Schema.Struct({
   applicant: ApplicantIdentifier.annotations({
     description: "Applicant locator: raw _id, APP-<number>, or bare number."
   }),
-  vacancy: Schema.optional(VacancyIdentifier.annotations({
-    description: "Optional vacancy locator to disambiguate applicant numbers."
-  })),
-  candidate: Schema.optional(CandidateIdentifier.annotations({
-    description: "Optional candidate locator to disambiguate applicant numbers."
-  }))
+  vacancy: Schema.optional(
+    VacancyIdentifier.annotations({ description: "Optional vacancy locator to disambiguate applicant numbers." })
+  ),
+  candidate: Schema.optional(
+    CandidateIdentifier.annotations({ description: "Optional candidate locator to disambiguate applicant numbers." })
+  )
 })
 const ReviewTargetLocatorSchema = Schema.Struct({
   kind: Schema.Literal("review"),
   review: ReviewIdentifier.annotations({
     description: "Review locator: raw _id, RVE-<number>, bare number, or exact title."
   }),
-  candidate: Schema.optional(CandidateIdentifier.annotations({
-    description: "Optional candidate locator to disambiguate reviews."
-  })),
-  application: Schema.optional(ApplicantIdentifier.annotations({
-    description: "Optional application/applicant locator to disambiguate reviews."
-  }))
+  candidate: Schema.optional(
+    CandidateIdentifier.annotations({ description: "Optional candidate locator to disambiguate reviews." })
+  ),
+  application: Schema.optional(
+    ApplicantIdentifier.annotations({ description: "Optional application/applicant locator to disambiguate reviews." })
+  )
 })
 const OpinionTargetLocatorSchema = Schema.Struct({
   kind: Schema.Literal("opinion"),
-  opinion: OpinionIdentifier.annotations({
-    description: "Opinion locator: raw _id, OPE-<number>, or bare number."
-  }),
-  review: Schema.optional(ReviewIdentifier.annotations({
-    description: "Optional review locator to disambiguate opinions."
-  }))
+  opinion: OpinionIdentifier.annotations({ description: "Opinion locator: raw _id, OPE-<number>, or bare number." }),
+  review: Schema.optional(
+    ReviewIdentifier.annotations({ description: "Optional review locator to disambiguate opinions." })
+  )
 })
 
 const RecruitingCommentTargetSchema = Schema.Union(
@@ -114,54 +112,38 @@ const RecruitingRelatedIssueTargetSchema = Schema.Union(
 export type RecruitingRelatedIssueTarget = Schema.Schema.Type<typeof RecruitingRelatedIssueTargetSchema>
 
 const RecruitingAttachmentFileFields = {
-  filename: AttachmentFileName.annotations({
-    description: "Name of the file to attach to the Recruiting object."
-  }),
-  contentType: MimeType.annotations({
-    description: "MIME type of the file, such as image/png or application/pdf."
-  }),
-  filePath: Schema.optional(LocalFilePath.annotations({
-    description: UPLOAD_FILE_PATH_DESCRIPTION
-  })),
-  fileUrl: Schema.optional(UrlString.annotations({
-    description: UPLOAD_FILE_URL_DESCRIPTION
-  })),
-  data: Schema.optional(Base64FileData.annotations({
-    description: UPLOAD_BASE64_DATA_DESCRIPTION
-  })),
-  description: Schema.optional(AttachmentDescription.annotations({
-    description: "Optional attachment description."
-  })),
-  pinned: Schema.optional(Schema.Boolean.annotations({
-    description: "Whether the attachment should be pinned."
-  }))
+  filename: AttachmentFileName.annotations({ description: "Name of the file to attach to the Recruiting object." }),
+  contentType: MimeType.annotations({ description: "MIME type of the file, such as image/png or application/pdf." }),
+  filePath: Schema.optional(LocalFilePath.annotations({ description: UPLOAD_FILE_PATH_DESCRIPTION })),
+  fileUrl: Schema.optional(UrlString.annotations({ description: UPLOAD_FILE_URL_DESCRIPTION })),
+  data: Schema.optional(Base64FileData.annotations({ description: UPLOAD_BASE64_DATA_DESCRIPTION })),
+  description: Schema.optional(AttachmentDescription.annotations({ description: "Optional attachment description." })),
+  pinned: Schema.optional(Schema.Boolean.annotations({ description: "Whether the attachment should be pinned." }))
 } as const
 
 const RECRUITING_ATTACHMENT_FILE_SOURCE_FIELDS = ["filePath", "fileUrl", "data"] as const
-const recruitingAttachmentExactlyOneFileSourceMessage = `Provide exactly one of ${
-  RECRUITING_ATTACHMENT_FILE_SOURCE_FIELDS.join(", ")
-}.`
+const recruitingAttachmentExactlyOneFileSourceMessage = `Provide exactly one of ${RECRUITING_ATTACHMENT_FILE_SOURCE_FIELDS.join(
+  ", "
+)}.`
 const requireExactlyOneAttachmentFileSource = (params: {
   readonly filePath?: unknown
   readonly fileUrl?: unknown
   readonly data?: unknown
 }) =>
-  RECRUITING_ATTACHMENT_FILE_SOURCE_FIELDS.filter((field) => params[field] !== undefined).length === 1
-  || recruitingAttachmentExactlyOneFileSourceMessage
+  RECRUITING_ATTACHMENT_FILE_SOURCE_FIELDS.filter((field) => params[field] !== undefined).length === 1 ||
+  recruitingAttachmentExactlyOneFileSourceMessage
 
 const ListRecruitingCommentsParamsSchema = Schema.Struct({
   target: RecruitingCommentTargetSchema,
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of comments to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of comments to return (default: ${DEFAULT_LIMIT}).` })
+  )
 })
 export type ListRecruitingCommentsParams = Schema.Schema.Type<typeof ListRecruitingCommentsParamsSchema>
 
 const AddRecruitingCommentParamsSchema = Schema.Struct({
   target: RecruitingCommentTargetSchema,
-  body: NonEmptyString.annotations({
-    description: `Comment body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
-  })
+  body: NonEmptyString.annotations({ description: `Comment body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}` })
 })
 export type AddRecruitingCommentParams = Schema.Schema.Type<typeof AddRecruitingCommentParamsSchema>
 
@@ -186,9 +168,9 @@ export type DeleteRecruitingCommentParams = Schema.Schema.Type<typeof DeleteRecr
 
 const ListRecruitingAttachmentsParamsSchema = Schema.Struct({
   target: RecruitingAttachmentTargetSchema,
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of attachments to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of attachments to return (default: ${DEFAULT_LIMIT}).` })
+  )
 })
 export type ListRecruitingAttachmentsParams = Schema.Schema.Type<typeof ListRecruitingAttachmentsParamsSchema>
 
@@ -213,13 +195,9 @@ const UpdateRecruitingAttachmentParamsSchema = Schema.Struct({
     description: "Attachment ID. Must belong directly to the resolved Recruiting target."
   }),
   description: Schema.optional(
-    Schema.NullOr(AttachmentDescription).annotations({
-      description: "New description; use null to clear it."
-    })
+    Schema.NullOr(AttachmentDescription).annotations({ description: "New description; use null to clear it." })
   ),
-  pinned: Schema.optional(Schema.Boolean.annotations({
-    description: "Pin or unpin the attachment."
-  }))
+  pinned: Schema.optional(Schema.Boolean.annotations({ description: "Pin or unpin the attachment." }))
 }).pipe(
   Schema.filter((params) =>
     hasAtLeastOneDefined(params, UPDATE_RECRUITING_ATTACHMENT_FIELDS)
@@ -228,31 +206,28 @@ const UpdateRecruitingAttachmentParamsSchema = Schema.Struct({
   )
 )
 export type UpdateRecruitingAttachmentParams = Schema.Schema.Type<typeof UpdateRecruitingAttachmentParamsSchema>
-assertUpdateFields<UpdateRecruitingAttachmentParams>()(
-  ["target", "attachmentId"],
-  UPDATE_RECRUITING_ATTACHMENT_FIELDS
-)
+assertUpdateFields<UpdateRecruitingAttachmentParams>()(["target", "attachmentId"], UPDATE_RECRUITING_ATTACHMENT_FIELDS)
 
 const DeleteRecruitingAttachmentParamsSchema = GetRecruitingAttachmentParamsSchema
 export type DeleteRecruitingAttachmentParams = GetRecruitingAttachmentParams
 
 const ListRecruitingActivityParamsSchema = Schema.Struct({
   target: RecruitingActivityTargetSchema,
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of activity messages to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  limit: Schema.optional(
+    LimitParam.annotations({
+      description: `Maximum number of activity messages to return (default: ${DEFAULT_LIMIT}).`
+    })
+  )
 })
 export type ListRecruitingActivityParams = Schema.Schema.Type<typeof ListRecruitingActivityParamsSchema>
 
-const RecruitingRelatedIssueFields = {
-  target: RecruitingRelatedIssueTargetSchema
-} as const
+const RecruitingRelatedIssueFields = { target: RecruitingRelatedIssueTargetSchema } as const
 
 const ListRecruitingRelatedIssuesParamsSchema = Schema.Struct({
   ...RecruitingRelatedIssueFields,
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of related issues to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of related issues to return (default: ${DEFAULT_LIMIT}).` })
+  )
 })
 export type ListRecruitingRelatedIssuesParams = Schema.Schema.Type<typeof ListRecruitingRelatedIssuesParamsSchema>
 
@@ -261,9 +236,11 @@ const AddRecruitingRelatedIssueParamsSchema = Schema.Struct({
   issue: IssueIdentifier.annotations({
     description: "Issue identifier, such as HULY-123, or a numeric issue number when project is also provided."
   }),
-  project: Schema.optional(ProjectIdentifier.annotations({
-    description: "Project identifier. Optional when issue already includes a project prefix like HULY-123."
-  }))
+  project: Schema.optional(
+    ProjectIdentifier.annotations({
+      description: "Project identifier. Optional when issue already includes a project prefix like HULY-123."
+    })
+  )
 })
 export type AddRecruitingRelatedIssueParams = Schema.Schema.Type<typeof AddRecruitingRelatedIssueParamsSchema>
 

@@ -42,7 +42,7 @@ const filteredViewDoc: FilteredView = {
   modifiedBy: core.account.System,
   name: "Mine",
   location: { path: ["board"] },
-  filters: "[{\"key\":\"status\"}]",
+  filters: '[{"key":"status"}]',
   viewletId: toRef<Viewlet>("viewlet-kanban"),
   sharable: false,
   users: [account],
@@ -101,21 +101,29 @@ const makeClient = (fixture: ClientFixture): HulyClientOperations => ({
   markupUrlConfig: testMarkupUrlConfig,
   workbenchUrlConfig: testWorkbenchUrlConfig,
   findAll: <T extends Doc>(_class: Ref<Class<T>>) =>
-    Effect.succeed(toFindResult(toTypedDocs<T>(
-      String(_class) === String(view.class.FilteredView)
-        ? fixture.filteredViews ?? []
-        : String(_class) === String(view.class.ViewletPreference)
-        ? fixture.preferences ?? []
-        : []
-    ))),
+    Effect.succeed(
+      toFindResult(
+        toTypedDocs<T>(
+          String(_class) === String(view.class.FilteredView)
+            ? (fixture.filteredViews ?? [])
+            : String(_class) === String(view.class.ViewletPreference)
+              ? (fixture.preferences ?? [])
+              : []
+        )
+      )
+    ),
   findAllInModel: <T extends Doc>(_class: Ref<Class<T>>) =>
-    Effect.succeed(toFindResult(toTypedDocs<T>(
-      String(_class) === String(view.class.Viewlet)
-        ? fixture.viewlets ?? []
-        : String(_class) === String(view.class.ViewletDescriptor)
-        ? fixture.descriptors ?? []
-        : []
-    ))),
+    Effect.succeed(
+      toFindResult(
+        toTypedDocs<T>(
+          String(_class) === String(view.class.Viewlet)
+            ? (fixture.viewlets ?? [])
+            : String(_class) === String(view.class.ViewletDescriptor)
+              ? (fixture.descriptors ?? [])
+              : []
+        )
+      )
+    ),
   findOne: () => Effect.succeed(undefined),
   createDoc: () => Effect.die(new Error("not implemented")),
   updateDoc: () => Effect.die(new Error("not implemented")),
@@ -136,7 +144,7 @@ const toTypedDocs = <T extends Doc>(docs: ReadonlyArray<Doc>): Array<T> => {
 
 describe("view MCP tools", () => {
   it.effect("registers view tools in order", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const filtered = viewRegistry()
 
       expect(filtered.definitions.map((tool) => tool.name)).toEqual([
@@ -145,10 +153,11 @@ describe("view MCP tools", () => {
         "list_viewlets"
       ])
       expect(toolDefinition("list_filtered_views").category).toBe("views")
-    }))
+    })
+  )
 
   it.effect("serializes filtered view responses as structured content", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const registry = viewRegistry()
       const result = yield* Effect.promise(() =>
         registry.handleToolCall(
@@ -161,88 +170,85 @@ describe("view MCP tools", () => {
 
       expect(result?.isError).toBeUndefined()
       expect(result?.structuredContent?.result).toEqual({
-        filteredViews: [{
-          id: "filtered-view-1",
-          name: "Mine",
-          attachedTo: String(board.app.Board),
-          visibility: "own",
-          sharable: false,
-          users: 1,
-          viewletId: "viewlet-kanban"
-        }],
+        filteredViews: [
+          {
+            id: "filtered-view-1",
+            name: "Mine",
+            attachedTo: String(board.app.Board),
+            visibility: "own",
+            sharable: false,
+            users: 1,
+            viewletId: "viewlet-kanban"
+          }
+        ],
         total: 1
       })
-    }))
+    })
+  )
 
   it.effect("serializes viewlet responses with descriptors and preferences", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const registry = viewRegistry()
       const result = yield* Effect.promise(() =>
         registry.handleToolCall(
           makeToolName("list_viewlets"),
           { attachTo: String(board.class.Card) },
-          makeClient({
-            viewlets: [viewletDoc],
-            descriptors: [descriptorDoc],
-            preferences: [preferenceDoc]
-          }),
+          makeClient({ viewlets: [viewletDoc], descriptors: [descriptorDoc], preferences: [preferenceDoc] }),
           storageClient
         )
       )
 
       expect(result?.isError).toBeUndefined()
       expect(result?.structuredContent?.result).toEqual({
-        viewlets: [{
-          id: "viewlet-kanban",
-          attachTo: String(board.class.Card),
-          descriptor: "descriptor-kanban",
-          title: "Kanban",
-          variant: "kanban",
-          config: ["title"],
-          descriptorInfo: {
-            id: "descriptor-kanban",
-            label: "view:string:Kanban",
-            component: "view:component:Kanban"
-          },
-          preferences: [{
-            id: "viewlet-pref-1",
-            attachedTo: "viewlet-kanban",
-            config: ["title"]
-          }]
-        }],
+        viewlets: [
+          {
+            id: "viewlet-kanban",
+            attachTo: String(board.class.Card),
+            descriptor: "descriptor-kanban",
+            title: "Kanban",
+            variant: "kanban",
+            config: ["title"],
+            descriptorInfo: {
+              id: "descriptor-kanban",
+              label: "view:string:Kanban",
+              component: "view:component:Kanban"
+            },
+            preferences: [{ id: "viewlet-pref-1", attachedTo: "viewlet-kanban", config: ["title"] }]
+          }
+        ],
         total: 1
       })
-    }))
+    })
+  )
 
   it.effect("surfaces descriptor metadata warnings in the MCP envelope", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const registry = viewRegistry()
       const result = yield* Effect.promise(() =>
         registry.handleToolCall(
           makeToolName("list_viewlets"),
           { attachTo: String(board.class.Card) },
-          makeClient({
-            viewlets: [viewletDoc],
-            descriptors: [],
-            preferences: []
-          }),
+          makeClient({ viewlets: [viewletDoc], descriptors: [], preferences: [] }),
           storageClient
         )
       )
 
       expect(result?.isError).toBeUndefined()
-      expect(result?.structuredContent?.warnings).toEqual([{
-        code: ViewletDescriptorMetadataDegradedWarningCode,
-        message:
-          "Huly did not return descriptor metadata for 1 viewlet descriptor ref(s): descriptor-kanban. The affected viewlets omit descriptorInfo; use descriptor ids, titles, and variants instead of inferring label or component metadata."
-      }])
+      expect(result?.structuredContent?.warnings).toEqual([
+        {
+          code: ViewletDescriptorMetadataDegradedWarningCode,
+          message:
+            "Huly did not return descriptor metadata for 1 viewlet descriptor ref(s): descriptor-kanban. The affected viewlets omit descriptorInfo; use descriptor ids, titles, and variants instead of inferring label or component metadata."
+        }
+      ])
       expect(JSON.parse(assertAt(assertExists(result).content, 1).text)).toEqual({
         warnings: result?.structuredContent?.warnings
       })
-    }))
+    })
+  )
 
   it.effect("maps generic view domain errors to invalid params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const registry = viewRegistry()
       const result = yield* Effect.promise(() =>
         registry.handleToolCall(
@@ -256,21 +262,24 @@ describe("view MCP tools", () => {
       expect(result?.isError).toBe(true)
       expect(result?._meta?.errorCode).toBe(McpErrorCode.InvalidParams)
       expect(assertAt(assertExists(result).content, 0).text).toContain("Filtered view 'Missing' not found")
-    }))
+    })
+  )
 
   it.effect("rejects invalid view output before returning structured content", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = viewTools.find((definition) => definition.name === "list_filtered_views")
       expect(tool).toBeDefined()
-      const result = yield* Effect.promise(() =>
-        tool?.handler({}, makeClient({ filteredViews: [makeInvalidFilteredViewDoc()] }), storageClient)
-          ?? Promise.resolve(undefined)
+      const result = yield* Effect.promise(
+        () =>
+          tool?.handler({}, makeClient({ filteredViews: [makeInvalidFilteredViewDoc()] }), storageClient) ??
+          Promise.resolve(undefined)
       )
 
       expect(result?.isError).toBe(true)
       expect(result?._meta?.errorCode).toBe(McpErrorCode.InternalError)
       expect(assertAt(assertExists(result).content, 0).text).toContain("invalid output")
-    }))
+    })
+  )
 })
 
 const makeInvalidFilteredViewDoc = (): FilteredView => ({

@@ -26,9 +26,7 @@ export const ListDmMessagesParamsSchema = Schema.Struct({
       "Direct-message conversation: either the DM `_id` or a participant display name (e.g. `Kerr,Shannon`). A participant name resolves only to a one-to-one DM with the authenticated account."
   }),
   limit: Schema.optional(
-    LimitParam.annotations({
-      description: `Maximum number of messages to return (default: ${DEFAULT_LIMIT})`
-    })
+    LimitParam.annotations({ description: `Maximum number of messages to return (default: ${DEFAULT_LIMIT})` })
   )
 }).annotations({
   title: "ListDmMessagesParams",
@@ -44,9 +42,7 @@ export const SendDmMessageParamsSchema = Schema.Struct({
     description:
       "Direct-message conversation: either the DM `_id` or a participant display name (e.g. `Kerr,Shannon`). A participant name resolves only to a one-to-one DM with the authenticated account."
   }),
-  body: NonEmptyString.annotations({
-    description: `Message body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
-  })
+  body: NonEmptyString.annotations({ description: `Message body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}` })
 }).annotations({
   title: "SendDmMessageParams",
   description: "Parameters for sending a message to a direct-message conversation"
@@ -61,16 +57,11 @@ export const UpdateDmMessageParamsSchema = Schema.Struct({
     description:
       "Direct-message conversation: either the DM `_id` or a participant display name. A participant name resolves only to a one-to-one DM with the authenticated account."
   }),
-  messageId: MessageId.annotations({
-    description: "Message ID to update"
-  }),
+  messageId: MessageId.annotations({ description: "Message ID to update" }),
   body: NonEmptyString.annotations({
     description: `New message body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
   })
-}).annotations({
-  title: "UpdateDmMessageParams",
-  description: "Parameters for updating a direct-message message"
-})
+}).annotations({ title: "UpdateDmMessageParams", description: "Parameters for updating a direct-message message" })
 
 export type UpdateDmMessageParams = Schema.Schema.Type<typeof UpdateDmMessageParamsSchema>
 
@@ -81,13 +72,8 @@ export const DeleteDmMessageParamsSchema = Schema.Struct({
     description:
       "Direct-message conversation: either the DM `_id` or a participant display name. A participant name resolves only to a one-to-one DM with the authenticated account."
   }),
-  messageId: MessageId.annotations({
-    description: "Message ID to delete"
-  })
-}).annotations({
-  title: "DeleteDmMessageParams",
-  description: "Parameters for deleting a direct-message message"
-})
+  messageId: MessageId.annotations({ description: "Message ID to delete" })
+}).annotations({ title: "DeleteDmMessageParams", description: "Parameters for deleting a direct-message message" })
 
 export type DeleteDmMessageParams = Schema.Schema.Type<typeof DeleteDmMessageParamsSchema>
 
@@ -126,23 +112,11 @@ export const ListDmMessagesResultSchema = Schema.Struct({
   total: ListTotal
 })
 export type ListDmMessagesResult = Schema.Schema.Type<typeof ListDmMessagesResultSchema>
-export const SendDmMessageResultSchema = Schema.Struct({
-  id: MessageId,
-  dmId: ChannelId
-})
+export const SendDmMessageResultSchema = Schema.Struct({ id: MessageId, dmId: ChannelId })
 export type SendDmMessageResult = Schema.Schema.Type<typeof SendDmMessageResultSchema>
-export const UpdateDmMessageResultSchema = Schema.Struct({
-  id: MessageId,
-  updated: Schema.Boolean
-})
+export const UpdateDmMessageResultSchema = Schema.Struct({ id: MessageId, updated: Schema.Boolean })
 export type UpdateDmMessageResult = Schema.Schema.Type<typeof UpdateDmMessageResultSchema>
-export const DeleteDmMessageResultSchema = Schema.Struct({
-  id: MessageId,
-  deleted: Schema.Boolean
-})
+export const DeleteDmMessageResultSchema = Schema.Struct({ id: MessageId, deleted: Schema.Boolean })
 export type DeleteDmMessageResult = Schema.Schema.Type<typeof DeleteDmMessageResultSchema>
-export const CreateDirectMessageResultSchema = Schema.Struct({
-  id: ChannelId,
-  created: Schema.Boolean
-})
+export const CreateDirectMessageResultSchema = Schema.Struct({ id: ChannelId, created: Schema.Boolean })
 export type CreateDirectMessageResult = Schema.Schema.Type<typeof CreateDirectMessageResultSchema>

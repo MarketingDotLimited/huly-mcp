@@ -45,15 +45,10 @@ const attachedToClassQuery = (
 ): Ref<Class<Doc>> | { readonly $in: Array<Ref<Class<Doc>>> } => {
   const additionalClasses = target.additionalAttachedToClasses ?? []
   const classes = [...new Set([target.attachedToClass, ...additionalClasses])]
-  return classes.length === 1
-    ? target.attachedToClass
-    : { $in: [...classes] }
+  return classes.length === 1 ? target.attachedToClass : { $in: [...classes] }
 }
 
-const toComment = (
-  client: HulyClient["Type"],
-  message: ChatMessage
-) => ({
+const toComment = (client: HulyClient["Type"], message: ChatMessage) => ({
   id: message._id,
   body: optionalMarkupToMarkdown(message.message, client.markupUrlConfig, ""),
   authorId: message.modifiedBy,
@@ -67,20 +62,21 @@ const decodeComments = (
   comments: ReadonlyArray<ReturnType<typeof toComment>>
 ): Effect.Effect<ReadonlyArray<Comment>, HulyConnectionError> =>
   Schema.decodeUnknown(Schema.Array(CommentSchema))(comments).pipe(
-    Effect.mapError((parseError) =>
-      new HulyConnectionError({
-        message: `${context} comments response failed schema validation: ${parseError.message}`,
-        cause: parseError
-      })
+    Effect.mapError(
+      (parseError) =>
+        new HulyConnectionError({
+          message: `${context} comments response failed schema validation: ${parseError.message}`,
+          cause: parseError
+        })
     )
   )
 
 export const listAttachedCommentsPage = (
   target: AttachedCommentTarget,
-  limit?: number | undefined,
+  limit?: number,
   context = "Attached"
 ): Effect.Effect<AttachedCommentsPage, HulyClientError | HulyConnectionError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const messages = yield* target.client.findAll<ChatMessage>(
       chunter.class.ChatMessage,
       hulyQuery<ChatMessage>({
@@ -89,24 +85,20 @@ export const listAttachedCommentsPage = (
         attachedToClass: attachedToClassQuery(target),
         collection: target.collection
       }),
-      {
-        limit: clampLimit(limit),
-        sort: { createdOn: SortingOrder.Ascending },
-        total: true
-      }
+      { limit: clampLimit(limit), sort: { createdOn: SortingOrder.Ascending }, total: true }
     )
-    const comments = yield* decodeComments(context, messages.map((message) => toComment(target.client, message)))
-    return {
-      comments: [...comments],
-      total: Count.make(findResultTotal(messages))
-    }
+    const comments = yield* decodeComments(
+      context,
+      messages.map((message) => toComment(target.client, message))
+    )
+    return { comments: [...comments], total: Count.make(findResultTotal(messages)) }
   })
 
 export const addAttachedComment = (
   target: AttachedCommentTarget,
   body: string
 ): Effect.Effect<CommentIdType, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const commentId: Ref<ChatMessage> = generateId()
     const commentData: AttachedData<ChatMessage> = {
       message: markdownToMarkupString(body, target.client.markupUrlConfig)
@@ -130,7 +122,7 @@ const findAttachedComment = <E>(
   commentId: CommentIdType,
   notFound: () => E
 ): Effect.Effect<ChatMessage, HulyClientError | E> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const comment = yield* target.client.findOne<ChatMessage>(
       chunter.class.ChatMessage,
       hulyQuery<ChatMessage>({
@@ -151,16 +143,13 @@ export const updateAttachedComment = <E>(
   body: string,
   notFound: () => E
 ): Effect.Effect<boolean, HulyClientError | E> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const comment = yield* findAttachedComment(target, commentId, notFound)
     const newMarkup = markdownToMarkupString(body, target.client.markupUrlConfig)
     if (newMarkup === comment.message) return false
 
     const now = yield* Clock.currentTimeMillis
-    const updateOps: DocumentUpdate<ChatMessage> = {
-      message: newMarkup,
-      editedOn: now
-    }
+    const updateOps: DocumentUpdate<ChatMessage> = { message: newMarkup, editedOn: now }
     yield* target.client.updateDoc(chunter.class.ChatMessage, target.space, comment._id, updateOps)
     return true
   })
@@ -170,7 +159,7 @@ export const deleteAttachedComment = <E>(
   commentId: CommentIdType,
   notFound: () => E
 ): Effect.Effect<void, HulyClientError | E> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const comment = yield* findAttachedComment(target, commentId, notFound)
     yield* target.client.removeDoc(chunter.class.ChatMessage, target.space, comment._id)
   })

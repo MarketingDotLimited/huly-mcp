@@ -11,10 +11,7 @@ class AssertionError extends Error {
 /**
  * Asserts value is not null/undefined. Returns the value or throws AssertionError.
  */
-export const assertExists = <T>(
-  value: T | null | undefined,
-  message?: string
-): T => {
+export const assertExists = <T>(value: T | null | undefined, message?: string): T => {
   if (value === null || value === undefined) {
     throw new AssertionError(message ?? "Expected value to exist")
   }
@@ -39,14 +36,10 @@ export const assertNotNull = <T>(value: T | null, message?: string): T => {
 /**
  * Asserts array has exactly one element. Returns that element or throws.
  */
-export const getOnlyOne = <T>(
-  arr: ReadonlyArray<T>,
-  message?: string | ((arr: ReadonlyArray<T>) => string)
-): T => {
+export const getOnlyOne = <T>(arr: ReadonlyArray<T>, message?: string | ((arr: ReadonlyArray<T>) => string)): T => {
   if (!isSingle(arr)) {
-    const msg = typeof message === "function"
-      ? message(arr)
-      : message ?? `Expected exactly 1 element, got ${arr.length}`
+    const msg =
+      typeof message === "function" ? message(arr) : (message ?? `Expected exactly 1 element, got ${arr.length}`)
     throw new AssertionError(msg)
   }
   return arr[0]
@@ -69,10 +62,7 @@ export const assertAt = <T>(arr: ReadonlyArray<T>, index: number, message?: stri
 /**
  * Asserts array is non-empty. Returns the array with narrowed type.
  */
-export const assertNonEmpty = <T>(
-  arr: ReadonlyArray<T>,
-  message?: string
-): readonly [T, ...Array<T>] => {
+export const assertNonEmpty = <T>(arr: ReadonlyArray<T>, message?: string): readonly [T, ...Array<T>] => {
   if (isNonEmpty(arr)) {
     return arr
   }
@@ -99,31 +89,21 @@ export const isPair = <T>(arr: ReadonlyArray<T>): arr is readonly [T, T] => arr.
  * Returns Option.none() for empty, Option.some(element) for single.
  * Throws if array has 2+ elements.
  */
-export const getOneOrNone = <T>(
-  arr: ReadonlyArray<T>,
-  message?: string
-): Option.Option<T> => {
+export const getOneOrNone = <T>(arr: ReadonlyArray<T>, message?: string): Option.Option<T> => {
   if (arr.length === 0) {
     return Option.none()
   }
   if (isSingle(arr)) {
     return Option.some(arr[0])
   }
-  throw new AssertionError(
-    message ?? `Expected 0 or 1 elements, got ${arr.length}`
-  )
+  throw new AssertionError(message ?? `Expected 0 or 1 elements, got ${arr.length}`)
 }
 
 /**
  * Effect version: asserts value exists, fails with custom error if not.
  */
-export const assertExistsEffect = <T, E>(
-  value: T | null | undefined,
-  onNone: () => E
-): Effect.Effect<T, E> =>
-  value !== null && value !== undefined
-    ? Effect.succeed(value)
-    : Effect.fail(onNone())
+export const assertExistsEffect = <T, E>(value: T | null | undefined, onNone: () => E): Effect.Effect<T, E> =>
+  value !== null && value !== undefined ? Effect.succeed(value) : Effect.fail(onNone())
 
 /**
  * Effect version: gets exactly one element, fails with custom error otherwise.
@@ -131,15 +111,13 @@ export const assertExistsEffect = <T, E>(
 export const getOnlyOneEffect = <T, E>(
   arr: ReadonlyArray<T>,
   onError: (arr: ReadonlyArray<T>) => E
-): Effect.Effect<T, E> => isSingle(arr) ? Effect.succeed(arr[0]) : Effect.fail(onError(arr))
+): Effect.Effect<T, E> => (isSingle(arr) ? Effect.succeed(arr[0]) : Effect.fail(onError(arr)))
 
 /**
  * Effect version: gets first element, fails with custom error if empty.
  */
-export const getFirstEffect = <T, E>(
-  arr: ReadonlyArray<T>,
-  onEmpty: () => E
-): Effect.Effect<T, E> => isNonEmpty(arr) ? Effect.succeed(arr[0]) : Effect.fail(onEmpty())
+export const getFirstEffect = <T, E>(arr: ReadonlyArray<T>, onEmpty: () => E): Effect.Effect<T, E> =>
+  isNonEmpty(arr) ? Effect.succeed(arr[0]) : Effect.fail(onEmpty())
 
 /**
  * Effect version: gets 0 or 1 elements as Option, fails if 2+.

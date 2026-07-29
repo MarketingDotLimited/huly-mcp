@@ -24,7 +24,7 @@ export const findChannel = (
   ChannelNotFoundError | HulyClientError,
   HulyClient
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const channel = yield* findByNameOrId(

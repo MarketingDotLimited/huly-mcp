@@ -23,10 +23,7 @@ import { parsePrimarySocialIdentityProjection } from "./primary-social-identity.
 import { hulyQuery } from "./query-helpers.js"
 import { toRef, toSocialIdentityRef } from "./sdk-boundary.js"
 
-const EmployeeProjectionSchema = Schema.Struct({
-  _id: PersonId,
-  active: Schema.Literal(true)
-})
+const EmployeeProjectionSchema = Schema.Struct({ _id: PersonId, active: Schema.Literal(true) })
 const CalendarProjectionSchema = Schema.Struct({
   _id: CalendarId,
   _class: Schema.Literal(calendar.class.Calendar, calendar.class.ExternalCalendar),
@@ -94,70 +91,65 @@ const parseCalendar = (
     Effect.mapError(() => new PlannerSchedulingPrerequisiteError({ prerequisite: "personal calendar" }))
   )
 
-const resolvePlannerSchedulingContext = Effect.fn("PlannerScheduling.resolveContext")(
-  function*(client: HulyClient["Type"]): Effect.fn.Return<PlannerSchedulingContext, PlannerWorkSlotError> {
-    const rawPrimarySocialIdentity = yield* client.findOne<SocialIdentity>(
-      contact.class.SocialIdentity,
-      hulyQuery<SocialIdentity>({ _id: toSocialIdentityRef(client.getPrimarySocialId()) })
-    )
-    if (rawPrimarySocialIdentity === undefined) {
-      return yield* missingPrerequisite("primary social identity")
-    }
-    const primarySocialIdentity = yield* parsePrimarySocialIdentityProjection(rawPrimarySocialIdentity).pipe(
-      Effect.mapError(() => new PlannerSchedulingPrerequisiteError({ prerequisite: "primary social identity" }))
-    )
-
-    const rawEmployee = yield* client.findOne<Employee>(
-      contact.mixin.Employee,
-      hulyQuery<Employee>({ _id: toRef<Employee>(primarySocialIdentity.attachedTo) })
-    )
-    if (rawEmployee === undefined) {
-      return yield* missingPrerequisite("employee identity")
-    }
-    const employee = yield* parseEmployee(rawEmployee)
-
-    const defaultCalendar = yield* getDefaultCalendarRef(client)
-    const rawPersonalCalendar = yield* client.findOne<HulyCalendar>(
-      calendar.class.Calendar,
-      hulyQuery<HulyCalendar>({
-        _id: defaultCalendar,
-        user: toSocialIdentityRef(primarySocialIdentity._id),
-        hidden: false,
-        access: { $in: [AccessLevel.Owner, AccessLevel.Writer] }
-      })
-    )
-    if (rawPersonalCalendar === undefined) {
-      return yield* missingPrerequisite("personal calendar")
-    }
-    const personalCalendar = yield* parseCalendar(rawPersonalCalendar)
-
-    return {
-      calendar: personalCalendar._id,
-      employee: employee._id,
-      primarySocialIdentity: primarySocialIdentity._id
-    }
+const resolvePlannerSchedulingContext = Effect.fn("PlannerScheduling.resolveContext")(function* (
+  client: HulyClient["Type"]
+): Effect.fn.Return<PlannerSchedulingContext, PlannerWorkSlotError> {
+  const rawPrimarySocialIdentity = yield* client.findOne<SocialIdentity>(
+    contact.class.SocialIdentity,
+    hulyQuery<SocialIdentity>({ _id: toSocialIdentityRef(client.getPrimarySocialId()) })
+  )
+  if (rawPrimarySocialIdentity === undefined) {
+    return yield* missingPrerequisite("primary social identity")
   }
-)
+  const primarySocialIdentity = yield* parsePrimarySocialIdentityProjection(rawPrimarySocialIdentity).pipe(
+    Effect.mapError(() => new PlannerSchedulingPrerequisiteError({ prerequisite: "primary social identity" }))
+  )
+
+  const rawEmployee = yield* client.findOne<Employee>(
+    contact.mixin.Employee,
+    hulyQuery<Employee>({ _id: toRef<Employee>(primarySocialIdentity.attachedTo) })
+  )
+  if (rawEmployee === undefined) {
+    return yield* missingPrerequisite("employee identity")
+  }
+  const employee = yield* parseEmployee(rawEmployee)
+
+  const defaultCalendar = yield* getDefaultCalendarRef(client)
+  const rawPersonalCalendar = yield* client.findOne<HulyCalendar>(
+    calendar.class.Calendar,
+    hulyQuery<HulyCalendar>({
+      _id: defaultCalendar,
+      user: toSocialIdentityRef(primarySocialIdentity._id),
+      hidden: false,
+      access: { $in: [AccessLevel.Owner, AccessLevel.Writer] }
+    })
+  )
+  if (rawPersonalCalendar === undefined) {
+    return yield* missingPrerequisite("personal calendar")
+  }
+  const personalCalendar = yield* parseCalendar(rawPersonalCalendar)
+
+  return { calendar: personalCalendar._id, employee: employee._id, primarySocialIdentity: primarySocialIdentity._id }
+})
 
 const plannerVisibility = (visibility: TodoVisibility): HulyVisibility =>
   visibility === "public" ? "public" : "freeBusy"
 
-const parseWorkSlotData = (
-  value: unknown
-): Effect.Effect<PlannerWorkSlotData, HulyConnectionError> =>
+const parseWorkSlotData = (value: unknown): Effect.Effect<PlannerWorkSlotData, HulyConnectionError> =>
   Schema.decodeUnknown(PlannerWorkSlotDataSchema)(value).pipe(
-    Effect.mapError((parseError) =>
-      new HulyConnectionError({
-        message: `Planner work slot payload failed schema validation: ${parseError.message}`,
-        cause: parseError
-      })
+    Effect.mapError(
+      (parseError) =>
+        new HulyConnectionError({
+          message: `Planner work slot payload failed schema validation: ${parseError.message}`,
+          cause: parseError
+        })
     )
   )
 
 export const createPlannerWorkSlot = (
   params: PlannerWorkSlotInput
 ): Effect.Effect<WorkSlotCreationResult, PlannerWorkSlotError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const context = yield* resolvePlannerSchedulingContext(client)
     const slotId: Ref<HulyWorkSlot> = generateId()

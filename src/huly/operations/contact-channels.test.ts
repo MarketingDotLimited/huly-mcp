@@ -119,13 +119,14 @@ const matchesId = (docId: string, filter: unknown): boolean => {
 }
 
 const filterChannels = (channels: ReadonlyArray<Channel>, query: unknown): Array<Channel> =>
-  channels.filter((channel) =>
-    matchesId(channel._id, queryValue(query, "_id"))
-    && matchesId(String(channel.attachedTo), queryValue(query, "attachedTo"))
-    && (queryValue(query, "attachedToClass") === undefined
-      || channel.attachedToClass === queryValue(query, "attachedToClass"))
-    && (queryValue(query, "provider") === undefined || channel.provider === queryValue(query, "provider"))
-    && (queryValue(query, "value") === undefined || channel.value === queryValue(query, "value"))
+  channels.filter(
+    (channel) =>
+      matchesId(channel._id, queryValue(query, "_id")) &&
+      matchesId(String(channel.attachedTo), queryValue(query, "attachedTo")) &&
+      (queryValue(query, "attachedToClass") === undefined ||
+        channel.attachedToClass === queryValue(query, "attachedToClass")) &&
+      (queryValue(query, "provider") === undefined || channel.provider === queryValue(query, "provider")) &&
+      (queryValue(query, "value") === undefined || channel.value === queryValue(query, "value"))
   )
 
 const testLayer = (state: TestState) => {
@@ -135,22 +136,21 @@ const testLayer = (state: TestState) => {
   const nextChannelNumber = { value: 1 }
 
   // HulyClientOperations methods are generic; this fixture only implements the classes exercised here.
-  const findAllSupportedClass = (
-    tag: SupportedContactClassTag,
-    query: unknown
-  ): Effect.Effect<FindResult<Doc>> => {
+  const findAllSupportedClass = (tag: SupportedContactClassTag, query: unknown): Effect.Effect<FindResult<Doc>> => {
     switch (tag) {
       case "person": {
-        const result = persons.filter((person) =>
-          matchesId(person._id, queryValue(query, "_id"))
-          && (queryValue(query, "name") === undefined || person.name === queryValue(query, "name"))
+        const result = persons.filter(
+          (person) =>
+            matchesId(person._id, queryValue(query, "_id")) &&
+            (queryValue(query, "name") === undefined || person.name === queryValue(query, "name"))
         )
         return Effect.succeed(toFindResult(result.map((doc) => doc as Doc)))
       }
       case "organization": {
-        const result = organizations.filter((organization) =>
-          matchesId(organization._id, queryValue(query, "_id"))
-          && (queryValue(query, "name") === undefined || organization.name === queryValue(query, "name"))
+        const result = organizations.filter(
+          (organization) =>
+            matchesId(organization._id, queryValue(query, "_id")) &&
+            (queryValue(query, "name") === undefined || organization.name === queryValue(query, "name"))
         )
         return Effect.succeed(toFindResult(result.map((doc) => doc as Doc)))
       }
@@ -178,9 +178,7 @@ const testLayer = (state: TestState) => {
     _class: Ref<Class<Doc>>,
     query: Parameters<HulyClientOperations["findAll"]>[1],
     options?: FindOptions<Doc>
-  ) => Effect.map(findAllImpl(_class, query, options), (result) => result.at(0))) as HulyClientOperations[
-    "findOne"
-  ]
+  ) => Effect.map(findAllImpl(_class, query, options), (result) => result.at(0))) as HulyClientOperations["findOne"]
 
   const addCollectionImpl = ((
     _class: Ref<Class<Doc>>,
@@ -193,12 +191,7 @@ const testLayer = (state: TestState) => {
     const channelAttributes = attributes as { readonly provider?: Channel["provider"]; readonly value?: string }
     const id = testRef<Channel>(`new-channel-${nextChannelNumber.value}`)
     nextChannelNumber.value += 1
-    const newChannel = mockChannel({
-      _id: id,
-      attachedTo,
-      attachedToClass,
-      value: channelAttributes.value ?? ""
-    })
+    const newChannel = mockChannel({ _id: id, attachedTo, attachedToClass, value: channelAttributes.value ?? "" })
     channels.push(
       channelAttributes.provider === undefined
         ? newChannel
@@ -208,12 +201,7 @@ const testLayer = (state: TestState) => {
   }) as HulyClientOperations["addCollection"]
 
   // The fake updateDoc accepts the SDK operation shape and narrows to channel updates for this suite.
-  const updateDocImpl = ((
-    _class: Ref<Class<Doc>>,
-    _space: Ref<Doc>,
-    objectId: Ref<Doc>,
-    operations: unknown
-  ) => {
+  const updateDocImpl = ((_class: Ref<Class<Doc>>, _space: Ref<Doc>, objectId: Ref<Doc>, operations: unknown) => {
     const channelOperations = operations as { readonly provider?: Channel["provider"]; readonly value?: string }
     const index = channels.findIndex((channel) => channel._id === objectId)
     if (index >= 0) {
@@ -282,18 +270,12 @@ describe("Contact Channel Operations", () => {
       listOrganizationChannels({ organizationId: "org-1" }).pipe(Effect.provide(layer))
     )
 
-    expect(person.channels).toEqual([{
-      channelId: "channel-1",
-      provider: "email",
-      value: "jane@example.com",
-      items: 2,
-      lastMessage: 100
-    }])
-    expect(organization.channels).toEqual([{
-      channelId: "org-channel-1",
-      provider: "homepage",
-      value: "https://example.com"
-    }])
+    expect(person.channels).toEqual([
+      { channelId: "channel-1", provider: "email", value: "jane@example.com", items: 2, lastMessage: 100 }
+    ])
+    expect(organization.channels).toEqual([
+      { channelId: "org-channel-1", provider: "homepage", value: "https://example.com" }
+    ])
   })
 
   it("resolves person channels by exact email and exact display name", async () => {
@@ -313,9 +295,7 @@ describe("Contact Channel Operations", () => {
     const layer = testLayer({ persons: [mockPerson()], channels })
 
     const existing = await Effect.runPromise(
-      addPersonChannel({ person: "person-1", provider: "email", value: "jane@example.com" }).pipe(
-        Effect.provide(layer)
-      )
+      addPersonChannel({ person: "person-1", provider: "email", value: "jane@example.com" }).pipe(Effect.provide(layer))
     )
     const added = await Effect.runPromise(
       addPersonChannel({ person: "person-1", provider: "phone", value: "+15551234" }).pipe(Effect.provide(layer))
@@ -339,11 +319,7 @@ describe("Contact Channel Operations", () => {
 
     expect(result.id).toBe("org-1")
     expect(result.added).toBe(true)
-    expect(result.channel).toEqual({
-      channelId: "new-channel-1",
-      provider: "homepage",
-      value: "https://example.com"
-    })
+    expect(result.channel).toEqual({ channelId: "new-channel-1", provider: "homepage", value: "https://example.com" })
   })
 
   it("updates by channelId and by provider plus value", async () => {
@@ -351,10 +327,11 @@ describe("Contact Channel Operations", () => {
     const layer = testLayer({ persons: [mockPerson()], channels })
 
     const byId = await Effect.runPromise(
-      updatePersonChannel({ person: "person-1", channelId: ChannelId.make("channel-1"), newValue: "jane@new.test" })
-        .pipe(
-          Effect.provide(layer)
-        )
+      updatePersonChannel({
+        person: "person-1",
+        channelId: ChannelId.make("channel-1"),
+        newValue: "jane@new.test"
+      }).pipe(Effect.provide(layer))
     )
     const byProviderValue = await Effect.runPromise(
       updatePersonChannel({
@@ -381,9 +358,7 @@ describe("Contact Channel Operations", () => {
         person: "person-1",
         channelId: ChannelId.make("channel-1"),
         newValue: "jane@example.com"
-      }).pipe(
-        Effect.provide(layer)
-      )
+      }).pipe(Effect.provide(layer))
     )
 
     expect(result.updated).toBe(false)
@@ -395,11 +370,9 @@ describe("Contact Channel Operations", () => {
     const invalidRemove: Parameters<typeof removePersonChannel>[0] = { person: "person-1" }
 
     const updated = await Effect.runPromise(
-      updatePersonChannel({
-        person: "person-1",
-        channelId: ChannelId.make("channel-1"),
-        newProvider: "profile"
-      }).pipe(Effect.provide(layer))
+      updatePersonChannel({ person: "person-1", channelId: ChannelId.make("channel-1"), newProvider: "profile" }).pipe(
+        Effect.provide(layer)
+      )
     )
     const missingById = await Effect.runPromise(
       removePersonChannel({ person: "person-1", channelId: ChannelId.make("missing-channel") }).pipe(
@@ -408,11 +381,7 @@ describe("Contact Channel Operations", () => {
     )
     const invalid = await Effect.runPromiseExit(removePersonChannel(invalidRemove).pipe(Effect.provide(layer)))
 
-    expect(updated.channel).toEqual({
-      channelId: "channel-1",
-      provider: "profile",
-      value: "jane@example.com"
-    })
+    expect(updated.channel).toEqual({ channelId: "channel-1", provider: "profile", value: "jane@example.com" })
     expect(missingById).toEqual({ personId: "person-1", removed: false, channelId: "missing-channel" })
     expect(failureTag(invalid)).toBe("InvalidContactChannelLocatorError")
   })
@@ -420,20 +389,13 @@ describe("Contact Channel Operations", () => {
   it("rejects provider-only updates to email when the existing value is not an email", async () => {
     const layer = testLayer({
       persons: [mockPerson()],
-      channels: [
-        mockChannel({
-          provider: contact.channelProvider.Phone,
-          value: "+15551234"
-        })
-      ]
+      channels: [mockChannel({ provider: contact.channelProvider.Phone, value: "+15551234" })]
     })
 
     const invalid = await Effect.runPromiseExit(
-      updatePersonChannel({
-        person: "person-1",
-        channelId: ChannelId.make("channel-1"),
-        newProvider: "email"
-      }).pipe(Effect.provide(layer))
+      updatePersonChannel({ person: "person-1", channelId: ChannelId.make("channel-1"), newProvider: "email" }).pipe(
+        Effect.provide(layer)
+      )
     )
 
     expect(failureTag(invalid)).toBe("InvalidContactChannelValueError")
@@ -581,12 +543,9 @@ describe("Contact Channel Operations", () => {
     }
 
     const missingProviderValue = await Effect.runPromiseExit(
-      updatePersonChannel({
-        person: "person-1",
-        provider: "phone",
-        value: "+1555",
-        newValue: "+1666"
-      }).pipe(Effect.provide(layer))
+      updatePersonChannel({ person: "person-1", provider: "phone", value: "+1555", newValue: "+1666" }).pipe(
+        Effect.provide(layer)
+      )
     )
     const invalid = await Effect.runPromiseExit(updatePersonChannel(invalidLocator).pipe(Effect.provide(layer)))
     const noUpdateFields = await Effect.runPromiseExit(

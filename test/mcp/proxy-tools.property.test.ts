@@ -29,21 +29,14 @@ const generatedTool = (name: string): RegisteredTool => {
   const definition = createToolDefinition({
     name,
     description: "alpha generated tool",
-    inputSchema: {
-      type: "object",
-      properties: { shared: { type: "string" } },
-      additionalProperties: false
-    },
+    inputSchema: { type: "object", properties: { shared: { type: "string" } }, additionalProperties: false },
     outputSchema: generatedOutputSchema,
     category: "generated"
   })
 
   return {
     ...definition,
-    operation: {
-      ...definition,
-      execute: () => Effect.succeed({ result: { ok: true }, warnings: [] })
-    },
+    operation: { ...definition, execute: () => Effect.succeed({ result: { ok: true }, warnings: [] }) },
     handler: async () => createSuccessResponse({ ok: true })
   }
 }

@@ -57,12 +57,7 @@ const resolveLocalRef = (rootSchema: object, schema: unknown): unknown => {
   return rootSchema.$defs[name] ?? schema
 }
 
-const schemaHasType = (
-  rootSchema: object,
-  schema: unknown,
-  typeName: string,
-  depth = 0
-): boolean => {
+const schemaHasType = (rootSchema: object, schema: unknown, typeName: string, depth = 0): boolean => {
   if (depth > MAX_SCHEMA_REF_DEPTH || !isRecord(schema)) return false
   const resolved = resolveLocalRef(rootSchema, schema)
   if (!isRecord(resolved)) return false
@@ -73,7 +68,8 @@ const schemaHasType = (
   for (const variantKey of ["allOf", "anyOf", "oneOf"]) {
     const variants = resolved[variantKey]
     if (
-      Array.isArray(variants) && variants.some((variant) => schemaHasType(rootSchema, variant, typeName, depth + 1))
+      Array.isArray(variants) &&
+      variants.some((variant) => schemaHasType(rootSchema, variant, typeName, depth + 1))
     ) {
       return true
     }
@@ -89,12 +85,10 @@ export const fieldAcceptsNull = (rootSchema: object, field: FieldSpec): boolean 
   schemaHasType(rootSchema, field.schema, "null")
 
 export const fieldAcceptsNumber = (rootSchema: object, field: FieldSpec): boolean =>
-  schemaHasType(rootSchema, field.schema, "integer")
-  || schemaHasType(rootSchema, field.schema, "number")
+  schemaHasType(rootSchema, field.schema, "integer") || schemaHasType(rootSchema, field.schema, "number")
 
 export const fieldAcceptsString = (rootSchema: object, field: FieldSpec): boolean =>
   schemaHasType(rootSchema, field.schema, "string")
 
 export const fieldAcceptsJson = (rootSchema: object, field: FieldSpec): boolean =>
-  schemaHasType(rootSchema, field.schema, "array")
-  || schemaHasType(rootSchema, field.schema, "object")
+  schemaHasType(rootSchema, field.schema, "array") || schemaHasType(rootSchema, field.schema, "object")

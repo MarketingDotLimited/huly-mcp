@@ -77,10 +77,7 @@ const ALLOWED_CONTENT_TYPES = new Set([
   "application/octet-stream"
 ])
 
-export const validateFileSize = (
-  buffer: Buffer,
-  filename: string
-): Effect.Effect<void, FileTooLargeError> =>
+export const validateFileSize = (buffer: Buffer, filename: string): Effect.Effect<void, FileTooLargeError> =>
   buffer.length > MAX_FILE_SIZE
     ? Effect.fail(new FileTooLargeError({ filename, size: buffer.length, maxSize: MAX_FILE_SIZE }))
     : Effect.void
@@ -187,16 +184,16 @@ export class HulyStorageClient extends Context.Tag("@hulymcp/HulyStorageClient")
     HulyConfigService | HulySdk
   > = Layer.scoped(
     HulyStorageClient,
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const config = yield* HulyConfigService
       const sdk = yield* HulySdk
 
       const authOptions = authToOptions(config.auth, config.workspace)
 
-      const { baseUrl, storageClient, workspaceId } = yield* connectStorageWithRetry({
-        url: config.url,
-        ...authOptions
-      }, sdk)
+      const { baseUrl, storageClient, workspaceId } = yield* connectStorageWithRetry(
+        { url: config.url, ...authOptions },
+        sdk
+      )
 
       const operations: HulyStorageOperations = {
         uploadFile: (filename, data, contentType) =>
@@ -210,42 +207,24 @@ export class HulyStorageClient extends Context.Tag("@hulymcp/HulyStorageClient")
                 url: buildFileUrl(baseUrl, workspaceId, blob._id)
               }
             },
-            catch: (e) =>
-              new FileUploadError({
-                message: `File upload failed: ${String(e)}`,
-                cause: e
-              })
+            catch: (e) => new FileUploadError({ message: `File upload failed: ${String(e)}`, cause: e })
           }),
 
         downloadFile: (blobId) =>
           Effect.tryPromise({
             try: async () => streamToBuffer(await storageClient.get(blobId)),
-            catch: (e) =>
-              new FileFetchError({
-                fileUrl: blobId,
-                reason: String(e)
-              })
+            catch: (e) => new FileFetchError({ fileUrl: blobId, reason: String(e) })
           }),
 
         downloadFileBounded: (blobId, maxBytes) =>
           Effect.tryPromise({
             try: async () => streamToBoundedBuffer(await storageClient.get(blobId), maxBytes),
-            catch: () =>
-              new FileFetchError({
-                fileUrl: blobId,
-                reason: "storage adapter download failed"
-              })
+            catch: () => new FileFetchError({ fileUrl: blobId, reason: "storage adapter download failed" })
           }).pipe(
             Effect.flatMap((result) =>
               result._tag === "WithinLimit"
                 ? Effect.succeed(result.bytes)
-                : Effect.fail(
-                  new FileTooLargeError({
-                    filename: blobId,
-                    size: result.observedSize,
-                    maxSize: maxBytes
-                  })
-                )
+                : Effect.fail(new FileTooLargeError({ filename: blobId, size: result.observedSize, maxSize: maxBytes }))
             )
           ),
 
@@ -256,22 +235,14 @@ export class HulyStorageClient extends Context.Tag("@hulymcp/HulyStorageClient")
     })
   )
 
-  static readonly layer: Layer.Layer<
-    HulyStorageClient,
-    StorageClientError,
-    HulyConfigService
-  > = HulyStorageClient.layerWithDependencies.pipe(Layer.provide(HulySdk.defaultLayer))
+  static readonly layer: Layer.Layer<HulyStorageClient, StorageClientError, HulyConfigService> =
+    HulyStorageClient.layerWithDependencies.pipe(Layer.provide(HulySdk.defaultLayer))
 
   /**
    * Create a test layer for unit testing.
    */
-  static testLayer(
-    mockOperations: Partial<HulyStorageOperations>
-  ): Layer.Layer<HulyStorageClient> {
-    const noopUploadFile = (): Effect.Effect<
-      UploadFileResult,
-      StorageClientError
-    > =>
+  static testLayer(mockOperations: Partial<HulyStorageOperations>): Layer.Layer<HulyStorageClient> {
+    const noopUploadFile = (): Effect.Effect<UploadFileResult, StorageClientError> =>
       Effect.succeed({
         blobId: toRef<Blob>("test-blob-id"),
         contentType: "application/octet-stream",
@@ -292,12 +263,7 @@ export class HulyStorageClient extends Context.Tag("@hulymcp/HulyStorageClient")
       getFileUrl: noopGetFileUrl
     }
 
-    return Layer.succeed(HulyStorageClient, {
-      ...defaultOps,
-      ...mockOperations,
-      downloadFile,
-      downloadFileBounded
-    })
+    return Layer.succeed(HulyStorageClient, { ...defaultOps, ...mockOperations, downloadFile, downloadFileBounded })
   }
 }
 
@@ -305,9 +271,7 @@ export class HulyStorageClient extends Context.Tag("@hulymcp/HulyStorageClient")
 
 const isErrnoException = (e: unknown): e is NodeJS.ErrnoException => e instanceof Error && "code" in e
 
-type StorageConnectionConfig = {
-  url: string
-} & AuthOptions
+type StorageConnectionConfig = { url: string } & AuthOptions
 
 interface StorageConnection {
   storageClient: StorageClient
@@ -334,37 +298,29 @@ const streamToBuffer = async (stream: Readable): Promise<Buffer> => {
 }
 
 type BoundedStreamRead =
-  | {
-    readonly _tag: "WithinLimit"
-    readonly bytes: Buffer
-  }
-  | {
-    readonly _tag: "LimitExceeded"
-    readonly observedSize: AttachmentByteSize
-  }
+  | { readonly _tag: "WithinLimit"; readonly bytes: Buffer }
+  | { readonly _tag: "LimitExceeded"; readonly observedSize: AttachmentByteSize }
 
-const makeBufferedBoundedDownload = (
-  downloadFile: NonNullable<HulyStorageOperations["downloadFile"]>
-): NonNullable<HulyStorageOperations["downloadFileBounded"]> =>
-(blobId, maxBytes) =>
-  downloadFile(blobId).pipe(
-    Effect.flatMap((bytes) =>
-      bytes.length <= maxBytes
-        ? Effect.succeed(bytes)
-        : Effect.fail(
-          new FileTooLargeError({
-            filename: blobId,
-            size: AttachmentByteSize.make(maxBytes + 1),
-            maxSize: maxBytes
-          })
-        )
+const makeBufferedBoundedDownload =
+  (
+    downloadFile: NonNullable<HulyStorageOperations["downloadFile"]>
+  ): NonNullable<HulyStorageOperations["downloadFileBounded"]> =>
+  (blobId, maxBytes) =>
+    downloadFile(blobId).pipe(
+      Effect.flatMap((bytes) =>
+        bytes.length <= maxBytes
+          ? Effect.succeed(bytes)
+          : Effect.fail(
+              new FileTooLargeError({
+                filename: blobId,
+                size: AttachmentByteSize.make(maxBytes + 1),
+                maxSize: maxBytes
+              })
+            )
+      )
     )
-  )
 
-const streamToBoundedBuffer = async (
-  stream: Readable,
-  maxBytes: AttachmentByteSize
-): Promise<BoundedStreamRead> => {
+const streamToBoundedBuffer = async (stream: Readable, maxBytes: AttachmentByteSize): Promise<BoundedStreamRead> => {
   const chunks: Array<Buffer> = []
   const retainedLimit = maxBytes + 1
   let retainedBytes = 0
@@ -376,16 +332,10 @@ const streamToBoundedBuffer = async (
     retainedBytes += retained.length
     if (retainedBytes > maxBytes) {
       stream.destroy()
-      return {
-        _tag: "LimitExceeded",
-        observedSize: AttachmentByteSize.make(retainedBytes)
-      }
+      return { _tag: "LimitExceeded", observedSize: AttachmentByteSize.make(retainedBytes) }
     }
   }
-  return {
-    _tag: "WithinLimit",
-    bytes: Buffer.concat(chunks, retainedBytes)
-  }
+  return { _tag: "WithinLimit", bytes: Buffer.concat(chunks, retainedBytes) }
 }
 
 const connectStorageClient = async (
@@ -395,29 +345,16 @@ const connectStorageClient = async (
   // Use the same authentication flow as HulyClient to get workspace token
   const { url, ...authOptions } = config
   const serverConfig = await sdk.loadServerConfig(url)
-  const { token, workspaceId } = await sdk.getWorkspaceToken(
-    url,
-    authOptions,
-    serverConfig
-  )
+  const { token, workspaceId } = await sdk.getWorkspaceToken(url, authOptions, serverConfig)
 
   // Construct URLs for file operations
   const filesUrl = buildStorageFileTemplate(url, workspaceId)
   const uploadUrl = concatLink(url, serverConfig.UPLOAD_URL)
 
   // Create storage client with proper authentication
-  const storageClient: StorageClient = sdk.createStorageClient(
-    filesUrl,
-    uploadUrl,
-    token,
-    workspaceId
-  )
+  const storageClient: StorageClient = sdk.createStorageClient(filesUrl, uploadUrl, token, workspaceId)
 
-  return {
-    baseUrl: url,
-    storageClient,
-    workspaceId
-  }
+  return { baseUrl: url, storageClient, workspaceId }
 }
 
 const connectStorageWithRetry = (
@@ -429,9 +366,7 @@ const connectStorageWithRetry = (
 /**
  * Decode base64 data to Buffer with validation.
  */
-export const decodeBase64 = (
-  base64Data: string
-): Effect.Effect<Buffer, InvalidFileDataError> =>
+export const decodeBase64 = (base64Data: string): Effect.Effect<Buffer, InvalidFileDataError> =>
   Effect.try({
     try: () => {
       const dataUrlMatch = base64Data.match(
@@ -457,27 +392,20 @@ export const decodeBase64 = (
 
       return buffer
     },
-    catch: (e) =>
-      new InvalidFileDataError({
-        message: `Invalid base64 data: ${String(e)}`
-      })
+    catch: (e) => new InvalidFileDataError({ message: `Invalid base64 data: ${String(e)}` })
   })
 
 /**
  * Read file from local filesystem.
  */
-export const readFromFilePath = (
-  filePath: string
-): Effect.Effect<Buffer, FileNotFoundError | InvalidFileDataError> =>
+export const readFromFilePath = (filePath: string): Effect.Effect<Buffer, FileNotFoundError | InvalidFileDataError> =>
   Effect.tryPromise({
     try: () => fs.readFile(path.resolve(filePath)),
     catch: (e) => {
       if (isErrnoException(e) && e.code === "ENOENT") {
         return new FileNotFoundError({ filePath })
       }
-      return new InvalidFileDataError({
-        message: `Failed to read file ${filePath}: ${String(e)}`
-      })
+      return new InvalidFileDataError({ message: `Failed to read file ${filePath}: ${String(e)}` })
     }
   })
 

@@ -32,7 +32,7 @@ const spaceMapById = (
   client: HulyClient["Type"],
   ids: ReadonlyArray<Ref<Space>>
 ): Effect.Effect<ReadonlyMap<string, GenericSpace>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const uniqueIds = [...new Set(ids.map(String))]
     if (uniqueIds.length === 0) return new Map<string, GenericSpace>()
 
@@ -60,45 +60,47 @@ const warnMissingAttachedSpaces = (
   items: ReadonlyArray<SpacePreferenceProjection>,
   spacesById: ReadonlyMap<string, GenericSpace>
 ): Effect.Effect<void> => {
-  const missingIds = [...new Set(items.map((item) => String(item.attachedTo)).filter((id) => !spacesById.has(id)))]
-    .sort()
+  const missingIds = [
+    ...new Set(items.map((item) => String(item.attachedTo)).filter((id) => !spacesById.has(id)))
+  ].sort()
   if (missingIds.length === 0) return Effect.void
 
   return diagnostics.warnAgent({
     code: SpacePreferenceMetadataDegradedWarningCode,
-    message:
-      `Some SpacePreference attached space metadata was omitted because ${missingIds.length} attached space id(s) could not be resolved: ${
-        missingIds.join(", ")
-      }. Results still include raw attachedTo space IDs.`
+    message: `Some SpacePreference attached space metadata was omitted because ${missingIds.length} attached space id(s) could not be resolved: ${missingIds.join(
+      ", "
+    )}. Results still include raw attachedTo space IDs.`
   })
 }
 
-const listQuery = (
-  targetSpace: GenericSpace | undefined
-): StrictDocumentQuery<HulySpacePreference> =>
+const listQuery = (targetSpace: GenericSpace | undefined): StrictDocumentQuery<HulySpacePreference> =>
   targetSpace === undefined ? {} : { attachedTo: spaceRef(targetSpace._id) }
 
 export const listSpacePreferences = (
   params: ListSpacePreferencesParams
 ): Effect.Effect<ListSpacePreferencesResult, SpacePreferenceError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const diagnostics = yield* Diagnostics
-    const targetSpace = params.space === undefined
-      ? undefined
-      : yield* findSpace(client, {
-        space: params.space,
-        ...(params.includeArchived === undefined ? {} : { includeArchived: params.includeArchived }),
-        ...(params.class === undefined ? {} : { class: params.class }),
-        ...(params.type === undefined ? {} : { type: params.type })
-      })
+    const targetSpace =
+      params.space === undefined
+        ? undefined
+        : yield* findSpace(client, {
+            space: params.space,
+            ...(params.includeArchived === undefined ? {} : { includeArchived: params.includeArchived }),
+            ...(params.class === undefined ? {} : { class: params.class }),
+            ...(params.type === undefined ? {} : { type: params.type })
+          })
 
     const preferences = yield* client.findAll<HulySpacePreference>(
       preference.class.SpacePreference,
       hulyQuery(listQuery(targetSpace)),
       { limit: clampLimit(params.limit), sort: { modifiedOn: SortingOrder.Descending }, total: true }
     )
-    const spacesById = yield* spaceMapById(client, preferences.map((item) => item.attachedTo))
+    const spacesById = yield* spaceMapById(
+      client,
+      preferences.map((item) => item.attachedTo)
+    )
     yield* warnMissingAttachedSpaces(diagnostics, preferences, spacesById)
 
     return {
@@ -110,7 +112,7 @@ export const listSpacePreferences = (
 export const getSpacePreference = (
   params: GetSpacePreferenceParams
 ): Effect.Effect<GetSpacePreferenceResult, SpacePreferenceError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const targetSpace = yield* findSpace(client, params)
     const item = yield* client.findOne<HulySpacePreference>(
@@ -119,15 +121,8 @@ export const getSpacePreference = (
     )
 
     if (item === undefined) {
-      return {
-        present: false,
-        attachedTo: SpaceId.make(targetSpace._id),
-        attachedSpace: toSpaceSummary(targetSpace)
-      }
+      return { present: false, attachedTo: SpaceId.make(targetSpace._id), attachedSpace: toSpaceSummary(targetSpace) }
     }
 
-    return {
-      present: true,
-      preference: preferenceResult(item, targetSpace)
-    }
+    return { present: true, preference: preferenceResult(item, targetSpace) }
   })

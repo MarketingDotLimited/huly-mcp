@@ -31,19 +31,14 @@ type DocRelationError =
 export const linkDocumentToIssue = (
   params: LinkDocumentToIssueParams
 ): Effect.Effect<LinkDocumentToIssueResult, DocRelationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const [{ client, issue, project }, { doc }] = yield* Effect.all([
       findProjectAndIssue({ project: params.project, identifier: params.issueIdentifier }),
       findTeamspaceAndDocument({ teamspace: params.teamspace, document: params.document })
     ])
 
     if (hasRelationById(issue.relations, doc._id)) {
-      return {
-        issue: issue.identifier,
-        document: doc._id,
-        documentTitle: doc.title,
-        linked: false
-      }
+      return { issue: issue.identifier, document: doc._id, documentTitle: doc.title, linked: false }
     }
 
     yield* client.updateDoc(
@@ -54,30 +49,20 @@ export const linkDocumentToIssue = (
       { $push: { relations: makeRelatedDocEntry(doc._id, documentPlugin.class.Document) } } as DocumentUpdate<HulyIssue>
     )
 
-    return {
-      issue: issue.identifier,
-      document: doc._id,
-      documentTitle: doc.title,
-      linked: true
-    }
+    return { issue: issue.identifier, document: doc._id, documentTitle: doc.title, linked: true }
   })
 
 export const unlinkDocumentFromIssue = (
   params: UnlinkDocumentFromIssueParams
 ): Effect.Effect<UnlinkDocumentFromIssueResult, DocRelationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const [{ client, issue, project }, { doc }] = yield* Effect.all([
       findProjectAndIssue({ project: params.project, identifier: params.issueIdentifier }),
       findTeamspaceAndDocument({ teamspace: params.teamspace, document: params.document })
     ])
 
     if (!hasRelationById(issue.relations, doc._id)) {
-      return {
-        issue: issue.identifier,
-        document: doc._id,
-        documentTitle: doc.title,
-        unlinked: false
-      }
+      return { issue: issue.identifier, document: doc._id, documentTitle: doc.title, unlinked: false }
     }
 
     yield* client.updateDoc(
@@ -88,10 +73,5 @@ export const unlinkDocumentFromIssue = (
       { $pull: { relations: { _id: toRef<Doc>(doc._id) } } } as DocumentUpdate<HulyIssue>
     )
 
-    return {
-      issue: issue.identifier,
-      document: doc._id,
-      documentTitle: doc.title,
-      unlinked: true
-    }
+    return { issue: issue.identifier, document: doc._id, documentTitle: doc.title, unlinked: true }
   })

@@ -47,25 +47,18 @@ export const ApprovalRequestCollection = NonEmptyString.pipe(Schema.brand("Appro
 })
 export type ApprovalRequestCollection = Schema.Schema.Type<typeof ApprovalRequestCollection>
 
-export const ApprovalRequestStatusSchema = Schema.Literal(
-  "Active",
-  "Completed",
-  "Rejected",
-  "Cancelled"
-).annotations({
+export const ApprovalRequestStatusSchema = Schema.Literal("Active", "Completed", "Rejected", "Cancelled").annotations({
   title: "ApprovalRequestStatus",
   description: "Generic approval request status from @hcengineering/request."
 })
 export type ApprovalRequestStatus = Schema.Schema.Type<typeof ApprovalRequestStatusSchema>
 
 export const ApprovalPersonRefSchema = Schema.Struct({
-  id: PersonId.annotations({
-    description: "Raw Huly contact Person _id referenced by the approval request."
-  }),
+  id: PersonId.annotations({ description: "Raw Huly contact Person _id referenced by the approval request." }),
   name: optionalOutput(PersonName),
-  email: optionalOutput(Email.annotations({
-    description: "Best email channel found for the person, if resolvable and email-shaped."
-  })),
+  email: optionalOutput(
+    Email.annotations({ description: "Best email channel found for the person, if resolvable and email-shaped." })
+  ),
   url: optionalOutput(UrlString)
 }).annotations({
   title: "ApprovalPersonRef",
@@ -75,20 +68,26 @@ export const ApprovalPersonRefSchema = Schema.Struct({
 export type ApprovalPersonRef = Schema.Schema.Type<typeof ApprovalPersonRefSchema>
 
 export const ListApprovalRequestsParamsSchema = Schema.Struct({
-  status: Schema.optional(ApprovalRequestStatusSchema.annotations({
-    description: "Optional approval request status filter."
-  })),
-  attachedTo: Schema.optional(DocId.annotations({
-    description:
-      "Optional raw Huly document _id from Request.attachedTo. Use this when you already know the target document id."
-  })),
-  attachedToClass: Schema.optional(ObjectClassName.annotations({
-    description:
-      "Optional raw Huly class id from Request.attachedToClass, for example tracker:class:Issue. Use with attachedTo when possible."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of approval requests to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  status: Schema.optional(
+    ApprovalRequestStatusSchema.annotations({ description: "Optional approval request status filter." })
+  ),
+  attachedTo: Schema.optional(
+    DocId.annotations({
+      description:
+        "Optional raw Huly document _id from Request.attachedTo. Use this when you already know the target document id."
+    })
+  ),
+  attachedToClass: Schema.optional(
+    ObjectClassName.annotations({
+      description:
+        "Optional raw Huly class id from Request.attachedToClass, for example tracker:class:Issue. Use with attachedTo when possible."
+    })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({
+      description: `Maximum number of approval requests to return (default: ${DEFAULT_LIMIT}).`
+    })
+  )
 }).annotations({
   title: "ListApprovalRequestsParams",
   description:
@@ -97,41 +96,44 @@ export const ListApprovalRequestsParamsSchema = Schema.Struct({
 export type ListApprovalRequestsParams = Schema.Schema.Type<typeof ListApprovalRequestsParamsSchema>
 
 export const GetApprovalRequestParamsSchema = Schema.Struct({
-  request: ApprovalRequestId.annotations({
-    description: "Approval Request document _id."
-  })
-}).annotations({
-  title: "GetApprovalRequestParams",
-  description: "Read one generic approval Request document by _id."
-})
+  request: ApprovalRequestId.annotations({ description: "Approval Request document _id." })
+}).annotations({ title: "GetApprovalRequestParams", description: "Read one generic approval Request document by _id." })
 export type GetApprovalRequestParams = Schema.Schema.Type<typeof GetApprovalRequestParamsSchema>
 
 export const AddApprovalRequestParamsSchema = Schema.Struct({
-  attachedTo: DocId.annotations({
-    description: "Raw Huly target document _id that the approval request attaches to."
-  }),
+  attachedTo: DocId.annotations({ description: "Raw Huly target document _id that the approval request attaches to." }),
   attachedToClass: ObjectClassName.annotations({
     description: "Raw Huly target document class id, for example tracker:class:Issue."
   }),
-  space: Schema.optional(SpaceId.annotations({
-    description: "Raw Huly space id for the target document. Omit it to resolve the target document and use its space."
-  })),
-  collection: Schema.optional(ApprovalRequestCollection.annotations({
-    description: "Parent collection name for the attached request. Defaults to requests."
-  })),
-  requested: Schema.Array(ApprovalRequestPersonIdentifier).pipe(Schema.minItems(1)).annotations({
-    description: "People who must decide the approval. Duplicates are collapsed after resolution."
-  }),
-  requiredApprovesCount: Schema.optional(PositiveInteger.annotations({
-    description: "Number of approvals required to complete the request. Defaults to the unique requested person count."
-  })),
+  space: Schema.optional(
+    SpaceId.annotations({
+      description:
+        "Raw Huly space id for the target document. Omit it to resolve the target document and use its space."
+    })
+  ),
+  collection: Schema.optional(
+    ApprovalRequestCollection.annotations({
+      description: "Parent collection name for the attached request. Defaults to requests."
+    })
+  ),
+  requested: Schema.Array(ApprovalRequestPersonIdentifier)
+    .pipe(Schema.minItems(1))
+    .annotations({ description: "People who must decide the approval. Duplicates are collapsed after resolution." }),
+  requiredApprovesCount: Schema.optional(
+    PositiveInteger.annotations({
+      description:
+        "Number of approvals required to complete the request. Defaults to the unique requested person count."
+    })
+  ),
   tx: SdkOpenPayload.annotations({
     description:
       "Opaque Huly SDK transaction applied by Huly when the approval request completes. Pass a real SDK tx payload."
   }),
-  rejectedTx: Schema.optional(SdkOpenPayload.annotations({
-    description: "Optional opaque Huly SDK transaction applied by Huly when the approval request is rejected."
-  }))
+  rejectedTx: Schema.optional(
+    SdkOpenPayload.annotations({
+      description: "Optional opaque Huly SDK transaction applied by Huly when the approval request is rejected."
+    })
+  )
 }).annotations({
   title: "AddApprovalRequestParams",
   description:
@@ -140,23 +142,16 @@ export const AddApprovalRequestParamsSchema = Schema.Struct({
 export type AddApprovalRequestParams = Schema.Schema.Type<typeof AddApprovalRequestParamsSchema>
 
 export const AddApprovalRequestCommentParamsSchema = Schema.Struct({
-  request: ApprovalRequestId.annotations({
-    description: "Approval Request document _id."
-  }),
+  request: ApprovalRequestId.annotations({ description: "Approval Request document _id." }),
   body: ApprovalRequestBody
-}).annotations({
-  title: "AddApprovalRequestCommentParams",
-  description: "Add a plain comment to an approval request."
-})
+}).annotations({ title: "AddApprovalRequestCommentParams", description: "Add a plain comment to an approval request." })
 export type AddApprovalRequestCommentParams = Schema.Schema.Type<typeof AddApprovalRequestCommentParamsSchema>
 
 export const ApproveApprovalRequestParamsSchema = Schema.Struct({
-  request: ApprovalRequestId.annotations({
-    description: "Approval Request document _id."
-  }),
-  comment: Schema.optional(ApprovalRequestBody.annotations({
-    description: "Optional decision comment to attach before approving."
-  }))
+  request: ApprovalRequestId.annotations({ description: "Approval Request document _id." }),
+  comment: Schema.optional(
+    ApprovalRequestBody.annotations({ description: "Optional decision comment to attach before approving." })
+  )
 }).annotations({
   title: "ApproveApprovalRequestParams",
   description: "Approve an active approval request as the current Huly actor."
@@ -164,12 +159,8 @@ export const ApproveApprovalRequestParamsSchema = Schema.Struct({
 export type ApproveApprovalRequestParams = Schema.Schema.Type<typeof ApproveApprovalRequestParamsSchema>
 
 export const RejectApprovalRequestParamsSchema = Schema.Struct({
-  request: ApprovalRequestId.annotations({
-    description: "Approval Request document _id."
-  }),
-  comment: ApprovalRequestBody.annotations({
-    description: "Required rejection decision comment."
-  })
+  request: ApprovalRequestId.annotations({ description: "Approval Request document _id." }),
+  comment: ApprovalRequestBody.annotations({ description: "Required rejection decision comment." })
 }).annotations({
   title: "RejectApprovalRequestParams",
   description: "Reject an active approval request as the current Huly actor."
@@ -177,9 +168,7 @@ export const RejectApprovalRequestParamsSchema = Schema.Struct({
 export type RejectApprovalRequestParams = Schema.Schema.Type<typeof RejectApprovalRequestParamsSchema>
 
 export const CancelApprovalRequestParamsSchema = Schema.Struct({
-  request: ApprovalRequestId.annotations({
-    description: "Approval Request document _id."
-  })
+  request: ApprovalRequestId.annotations({ description: "Approval Request document _id." })
 }).annotations({
   title: "CancelApprovalRequestParams",
   description: "Cancel an active approval request created by the current Huly actor."
@@ -188,23 +177,13 @@ export type CancelApprovalRequestParams = Schema.Schema.Type<typeof CancelApprov
 
 export const ApprovalRequestSummarySchema = Schema.Struct({
   id: ApprovalRequestId,
-  class: ObjectClassName.annotations({
-    description: "Raw Huly class id for the returned Request document."
-  }),
+  class: ObjectClassName.annotations({ description: "Raw Huly class id for the returned Request document." }),
   status: ApprovalRequestStatusSchema,
-  attachedTo: DocId.annotations({
-    description: "Raw Huly document _id stored in Request.attachedTo."
-  }),
-  attachedToClass: ObjectClassName.annotations({
-    description: "Raw Huly class id stored in Request.attachedToClass."
-  }),
+  attachedTo: DocId.annotations({ description: "Raw Huly document _id stored in Request.attachedTo." }),
+  attachedToClass: ObjectClassName.annotations({ description: "Raw Huly class id stored in Request.attachedToClass." }),
   collection: ApprovalRequestCollection,
-  space: SpaceId.annotations({
-    description: "Raw Huly space id stored in Request.space."
-  }),
-  requiredApprovesCount: Count.annotations({
-    description: "Number of approvals required to complete the request."
-  }),
+  space: SpaceId.annotations({ description: "Raw Huly space id stored in Request.space." }),
+  requiredApprovesCount: Count.annotations({ description: "Number of approvals required to complete the request." }),
   requested: Schema.Array(ApprovalPersonRefSchema),
   approved: Schema.Array(ApprovalPersonRefSchema),
   rejected: optionalOutput(ApprovalPersonRefSchema),
@@ -225,12 +204,10 @@ export const ApprovalRequestDetailSchema = Schema.extend(
         description: "Approval timestamps from Request.approvedDates, aligned with approved people when present."
       })
     ),
-    tx: SdkOpenPayload.annotations({
-      description: "Raw SDK transaction payload that the approval request refers to."
-    }),
-    rejectedTx: optionalOutput(SdkOpenPayload.annotations({
-      description: "Raw SDK rejection transaction payload, when present."
-    }))
+    tx: SdkOpenPayload.annotations({ description: "Raw SDK transaction payload that the approval request refers to." }),
+    rejectedTx: optionalOutput(
+      SdkOpenPayload.annotations({ description: "Raw SDK rejection transaction payload, when present." })
+    )
   })
 ).annotations({
   title: "ApprovalRequestDetail",
@@ -278,9 +255,11 @@ const ApprovedApprovalRequestMutationResultSchema = Schema.Union(
     request: ApprovalRequestId,
     action: Schema.Literal("approved"),
     changed: Schema.Literal(true),
-    comment: optionalOutput(MessageId.annotations({
-      description: "ChatMessage id when the approval call created an optional decision comment."
-    }))
+    comment: optionalOutput(
+      MessageId.annotations({
+        description: "ChatMessage id when the approval call created an optional decision comment."
+      })
+    )
   }),
   Schema.Struct({
     request: ApprovalRequestId,

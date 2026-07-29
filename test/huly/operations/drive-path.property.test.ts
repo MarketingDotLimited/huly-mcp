@@ -18,11 +18,7 @@ describe("Drive path rewriting properties", () => {
           const movedFolderId = "folder-moving"
           const descendantPath = [...relativeParents, movedFolderId, ...oldMovedFolderPath]
 
-          const rewritten = rewriteMovedFolderDescendantPath(
-            descendantPath,
-            movedFolderId,
-            newMovedFolderPath
-          )
+          const rewritten = rewriteMovedFolderDescendantPath(descendantPath, movedFolderId, newMovedFolderPath)
 
           expect(rewritten).toEqual([...relativeParents, movedFolderId, ...newMovedFolderPath])
         }

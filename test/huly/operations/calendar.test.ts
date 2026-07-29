@@ -147,12 +147,7 @@ const makeRoom = (overrides?: Partial<HulyRoom>): HulyRoom =>
   })
 
 const makeMeeting = (overrides?: Partial<HulyMeeting>): HulyMeeting =>
-  asMeeting({
-    ...makeEvent(),
-    _class: love.mixin.Meeting,
-    room: "room-1" as Ref<HulyRoom>,
-    ...overrides
-  })
+  asMeeting({ ...makeEvent(), _class: love.mixin.Meeting, room: "room-1" as Ref<HulyRoom>, ...overrides })
 
 // --- Test Helpers ---
 
@@ -204,7 +199,7 @@ const createTestLayer = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       if (q._id && typeof q._id === "object" && "$in" in (q._id as Record<string, unknown>)) {
         const ids = assertExists((q._id as { readonly $in?: ReadonlyArray<string> }).$in)
-        const matched = persons.filter(p => ids.includes(p._id))
+        const matched = persons.filter((p) => ids.includes(p._id))
         return Effect.succeed(toFindResult(matched))
       }
       return Effect.succeed(toFindResult(persons))
@@ -218,21 +213,21 @@ const createTestLayer = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === calendar.class.Event) {
       const q = query as Record<string, unknown>
-      const found = events.find(e => e.eventId === q.eventId)
+      const found = events.find((e) => e.eventId === q.eventId)
       return Effect.succeed(found)
     }
     if (_class === calendar.class.ReccuringEvent) {
       const q = query as Record<string, unknown>
-      const found = recurringEvents.find(e => e.eventId === q.eventId)
+      const found = recurringEvents.find((e) => e.eventId === q.eventId)
       return Effect.succeed(found)
     }
     if (_class === calendar.class.Calendar) {
       const q = query as Record<string, unknown>
       if (q._id !== undefined) {
-        return Effect.succeed(calendars.find(c => c._id === q._id))
+        return Effect.succeed(calendars.find((c) => c._id === q._id))
       }
       if (q.name !== undefined) {
-        return Effect.succeed(calendars.find(c => c.name === q.name))
+        return Effect.succeed(calendars.find((c) => c.name === q.name))
       }
       return Effect.succeed(calendars.at(0))
     }
@@ -241,33 +236,35 @@ const createTestLayer = (config: MockConfig) => {
     }
     if (_class === contact.class.Person) {
       const q = query as Record<string, unknown>
-      return Effect.succeed(persons.find(p => p._id === q._id))
+      return Effect.succeed(persons.find((p) => p._id === q._id))
     }
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
   const markupContent = config.markupContent ?? {}
-  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = (
-    (_objectClass: unknown, _objectId: unknown, _objectAttr: unknown, id: unknown) => {
-      const content = markupContent[id as string] ?? ""
-      return Effect.succeed(content)
-    }
-  ) as HulyClientOperations["fetchMarkup"]
+  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = ((
+    _objectClass: unknown,
+    _objectId: unknown,
+    _objectAttr: unknown,
+    id: unknown
+  ) => {
+    const content = markupContent[id as string] ?? ""
+    return Effect.succeed(content)
+  }) as HulyClientOperations["fetchMarkup"]
 
-  const updateDocImpl: HulyClientOperations["updateDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown, operations: unknown) => {
-      if (config.captureUpdateDoc) {
-        config.captureUpdateDoc.operations = operations as Record<string, unknown>
-      }
-      return Effect.succeed({} as never)
-    }
-  ) as HulyClientOperations["updateDoc"]
-
-  const removeDocImpl: HulyClientOperations["removeDoc"] = ((
+  const updateDocImpl: HulyClientOperations["updateDoc"] = ((
     _class: unknown,
     _space: unknown,
-    objectId: unknown
+    _objectId: unknown,
+    operations: unknown
   ) => {
+    if (config.captureUpdateDoc) {
+      config.captureUpdateDoc.operations = operations as Record<string, unknown>
+    }
+    return Effect.succeed({} as never)
+  }) as HulyClientOperations["updateDoc"]
+
+  const removeDocImpl: HulyClientOperations["removeDoc"] = ((_class: unknown, _space: unknown, objectId: unknown) => {
     if (config.captureRemoveDoc) {
       config.captureRemoveDoc.id = objectId as string
     }
@@ -330,7 +327,7 @@ const createTestLayer = (config: MockConfig) => {
 
 describe("listEvents", () => {
   it.effect("returns event summaries", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const events = [
         makeEvent({ eventId: "evt-1", title: "Meeting", date: Timestamp.make(1000), dueDate: Timestamp.make(2000) }),
         makeEvent({ eventId: "evt-2", title: "Lunch", date: Timestamp.make(3000), dueDate: Timestamp.make(4000) })
@@ -342,19 +339,21 @@ describe("listEvents", () => {
       expect(result).toHaveLength(2)
       expect(assertAt(result, 0).title).toBe("Meeting")
       expect(assertAt(result, 1).title).toBe("Lunch")
-    }))
+    })
+  )
 
   it.effect("returns empty array when no events", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({})
 
       const result = yield* listEvents({}).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("summarizes legacy events without eventId or calendar", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const eventWithoutCalendar = makeEvent({
         eventId: "" as HulyEvent["eventId"],
         _id: "legacy-event-doc" as Ref<HulyEvent>,
@@ -366,39 +365,41 @@ describe("listEvents", () => {
 
       expect(assertAt(result, 0).eventId).toBe("legacy-event-doc")
       expect(assertAt(result, 0).calendarId).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("summarizes meeting rooms from love meeting mixins", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ _id: "event-1" as Ref<HulyEvent>, eventId: "evt-1" })
       const result = yield* listEvents({}).pipe(
-        Effect.provide(createTestLayer({
-          events: [event],
-          meetings: [makeMeeting({ _id: "event-1" as Ref<HulyMeeting> })],
-          rooms: [makeRoom()]
-        }))
+        Effect.provide(
+          createTestLayer({
+            events: [event],
+            meetings: [makeMeeting({ _id: "event-1" as Ref<HulyMeeting> })],
+            rooms: [makeRoom()]
+          })
+        )
       )
 
       expect(assertAt(result, 0).meetingRoom).toEqual({ roomId: "room-1", name: "Focus Room" })
-    }))
+    })
+  )
 
   it.effect("skips legacy events without any usable id", () =>
-    Effect.gen(function*() {
-      const event = makeEvent({
-        eventId: "" as HulyEvent["eventId"],
-        _id: "" as Ref<HulyEvent>
-      })
+    Effect.gen(function* () {
+      const event = makeEvent({ eventId: "" as HulyEvent["eventId"], _id: "" as Ref<HulyEvent> })
       const testLayer = createTestLayer({ events: [event] })
 
       const result = yield* listEvents({}).pipe(Effect.provide(testLayer))
 
       expect(result).toEqual([])
-    }))
+    })
+  )
 })
 
 describe("getEvent", () => {
   it.effect("returns full event with participants", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const person = makePerson({ _id: "person-1" as Ref<Person>, name: "Alice" })
       const event = makeEvent({
         eventId: "evt-1",
@@ -421,44 +422,50 @@ describe("getEvent", () => {
       expect(result.timeZone).toBe("UTC")
       expect(result.participants).toHaveLength(1)
       expect(assertAt(assertExists(result.participants), 0).name).toBe("Alice")
-    }))
+    })
+  )
 
   it.effect("returns event without description when not set", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1", description: "" as HulyEvent["description"] })
       const testLayer = createTestLayer({ events: [event] })
 
       const result = yield* getEvent({ eventId: eventBrandId("evt-1") }).pipe(Effect.provide(testLayer))
 
       expect(result.description).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("maps event reminders when present", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1", reminders: [1700000300000] })
       const result = yield* getEvent({ eventId: eventBrandId("evt-1") }).pipe(
         Effect.provide(createTestLayer({ events: [event] }))
       )
 
       expect(result.reminders).toEqual([1700000300000])
-    }))
+    })
+  )
 
   it.effect("maps event meeting room from love meeting mixin", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ _id: "event-1" as Ref<HulyEvent>, eventId: "evt-1" })
       const result = yield* getEvent({ eventId: eventBrandId("evt-1") }).pipe(
-        Effect.provide(createTestLayer({
-          events: [event],
-          meetings: [makeMeeting({ _id: "event-1" as Ref<HulyMeeting> })],
-          rooms: []
-        }))
+        Effect.provide(
+          createTestLayer({
+            events: [event],
+            meetings: [makeMeeting({ _id: "event-1" as Ref<HulyMeeting> })],
+            rooms: []
+          })
+        )
       )
 
       expect(result.meetingRoom).toEqual({ roomId: "room-1", name: undefined })
-    }))
+    })
+  )
 
   it.effect("omits optional event metadata when Huly leaves it unset", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEventWithoutMetadata()
       const result = yield* getEvent({ eventId: eventBrandId(event.eventId) }).pipe(
         Effect.provide(createTestLayer({ events: [event] }))
@@ -467,10 +474,11 @@ describe("getEvent", () => {
       expect(result.modifiedOn).toBeUndefined()
       expect(result.createdOn).toBeUndefined()
       expect(result.timeZone).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("fails with EventNotFoundError when event does not exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({})
 
       const error = yield* Effect.flip(
@@ -479,30 +487,31 @@ describe("getEvent", () => {
 
       expect(error._tag).toBe("EventNotFoundError")
       expect((error as EventNotFoundError).eventId).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("createEvent", () => {
   it.effect("creates event with minimal params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const testLayer = createTestLayer({ captureAddCollection })
       const startDate = Timestamp.make(1700000000000)
       const ONE_HOUR_MS = 3600000
 
-      const result = yield* createEvent({
-        title: calendarEventTitle("New Event"),
-        date: startDate
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* createEvent({ title: calendarEventTitle("New Event"), date: startDate }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.eventId).toBeDefined()
       expect(captureAddCollection.attributes?.title).toBe("New Event")
       expect(captureAddCollection.attributes?.allDay).toBe(false)
       expect(captureAddCollection.attributes?.dueDate).toBe(startDate + ONE_HOUR_MS)
-    }))
+    })
+  )
 
   it.effect("creates event with all optional params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const testLayer = createTestLayer({ captureAddCollection })
 
@@ -519,10 +528,11 @@ describe("createEvent", () => {
       expect(captureAddCollection.attributes?.allDay).toBe(true)
       expect(captureAddCollection.attributes?.location).toBe("Room 42")
       expect(captureAddCollection.attributes?.visibility).toBe("private")
-    }))
+    })
+  )
 
   it.effect("creates event with stable calendar fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const testLayer = createTestLayer({ captureAddCollection })
 
@@ -542,10 +552,11 @@ describe("createEvent", () => {
       expect(captureAddCollection.attributes?.access).toBe(AccessLevel.Reader)
       expect(captureAddCollection.attributes?.timeZone).toBe("UTC")
       expect(captureAddCollection.attributes?.blockTime).toBe(true)
-    }))
+    })
+  )
 
   it.effect("creates event descriptions with native references", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const captureUploadMarkup: MockConfig["captureUploadMarkup"] = {}
       const testLayer = createTestLayer({ captureAddCollection, captureUploadMarkup })
@@ -559,17 +570,14 @@ describe("createEvent", () => {
 
       expect(capturedMarkupReferenceNodes(captureUploadMarkup.markup)[0]).toMatchObject({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "HULY-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
       expect(captureAddCollection.attributes?.description).toBe("markup-ref-123")
-    }))
+    })
+  )
 
   it.effect("ignores malformed create visibility defensively", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
       yield* createEvent({
@@ -579,10 +587,11 @@ describe("createEvent", () => {
       }).pipe(Effect.provide(createTestLayer({ captureAddCollection })))
 
       expect(captureAddCollection.attributes?.visibility).toBe("workspace")
-    }))
+    })
+  )
 
   it.effect("defaults dueDate to date + 1 hour when not provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const testLayer = createTestLayer({ captureAddCollection })
       const startDate = Timestamp.make(1700000000000)
@@ -591,12 +600,13 @@ describe("createEvent", () => {
       yield* createEvent({ title: calendarEventTitle("Quick Event"), date: startDate }).pipe(Effect.provide(testLayer))
 
       expect(captureAddCollection.attributes?.dueDate).toBe(startDate + ONE_HOUR_MS)
-    }))
+    })
+  )
 })
 
 describe("updateEvent", () => {
   it.effect("updates event title", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1", title: "Old Title" })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const testLayer = createTestLayer({ events: [event], captureUpdateDoc })
@@ -609,81 +619,81 @@ describe("updateEvent", () => {
       expect(result.eventId).toBe("evt-1")
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.title).toBe("New Title")
-    }))
+    })
+  )
 
   it.effect("fails when no fields provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1" })
       const testLayer = createTestLayer({ events: [event] })
 
-      const error = yield* Effect.flip(
-        updateEvent({ eventId: eventBrandId("evt-1") }).pipe(Effect.provide(testLayer))
-      )
+      const error = yield* Effect.flip(updateEvent({ eventId: eventBrandId("evt-1") }).pipe(Effect.provide(testLayer)))
 
       expect(error._tag).toBe("NoUpdateFieldsError")
-    }))
+    })
+  )
 
   it.effect("clears description with empty string", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1", description: "old-desc" as HulyEvent["description"] })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const testLayer = createTestLayer({ events: [event], captureUpdateDoc })
 
-      const result = yield* updateEvent({
-        eventId: eventBrandId("evt-1"),
-        description: "   "
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* updateEvent({ eventId: eventBrandId("evt-1"), description: "   " }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.description).toBe("")
-    }))
+    })
+  )
 
   it.effect("clears description with null", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1", description: "old-desc" as HulyEvent["description"] })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      const result = yield* updateEvent({
-        eventId: eventBrandId("evt-1"),
-        description: null
-      }).pipe(Effect.provide(createTestLayer({ events: [event], captureUpdateDoc })))
+      const result = yield* updateEvent({ eventId: eventBrandId("evt-1"), description: null }).pipe(
+        Effect.provide(createTestLayer({ events: [event], captureUpdateDoc }))
+      )
 
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.description).toBe("")
-    }))
+    })
+  )
 
   it.effect("clears optional location with unset when set to null", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1", location: "Old room" })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      yield* updateEvent({
-        eventId: eventBrandId("evt-1"),
-        location: null
-      }).pipe(Effect.provide(createTestLayer({ events: [event], captureUpdateDoc })))
+      yield* updateEvent({ eventId: eventBrandId("evt-1"), location: null }).pipe(
+        Effect.provide(createTestLayer({ events: [event], captureUpdateDoc }))
+      )
 
       expect(captureUpdateDoc.operations).toEqual({ $unset: { location: "" } })
-    }))
+    })
+  )
 
   it.effect("updates description in place when event already has one", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1", description: "existing-markup-ref" as HulyEvent["description"] })
       const captureUpdateMarkup: MockConfig["captureUpdateMarkup"] = {}
       const captureUploadMarkup: MockConfig["captureUploadMarkup"] = {}
       const testLayer = createTestLayer({ events: [event], captureUpdateMarkup, captureUploadMarkup })
 
-      const result = yield* updateEvent({
-        eventId: eventBrandId("evt-1"),
-        description: "Updated description"
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* updateEvent({ eventId: eventBrandId("evt-1"), description: "Updated description" }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.updated).toBe(true)
       expect(captureUpdateMarkup.called).toBe(true)
       expect(captureUploadMarkup.called).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("updates existing event descriptions with native references", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1", description: "existing-markup-ref" as HulyEvent["description"] })
       const captureUpdateMarkup: MockConfig["captureUpdateMarkup"] = {}
       const captureUploadMarkup: MockConfig["captureUploadMarkup"] = {}
@@ -696,36 +706,33 @@ describe("updateEvent", () => {
 
       expect(capturedMarkupReferenceNodes(captureUpdateMarkup.markup)[0]).toMatchObject({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "HULY-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
       expect(captureUploadMarkup.called).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("uploads new description when event has none", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1", description: "" as HulyEvent["description"] })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const captureUploadMarkup: MockConfig["captureUploadMarkup"] = {}
       const captureUpdateMarkup: MockConfig["captureUpdateMarkup"] = {}
       const testLayer = createTestLayer({ events: [event], captureUpdateDoc, captureUploadMarkup, captureUpdateMarkup })
 
-      const result = yield* updateEvent({
-        eventId: eventBrandId("evt-1"),
-        description: "Brand new description"
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* updateEvent({ eventId: eventBrandId("evt-1"), description: "Brand new description" }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.updated).toBe(true)
       expect(captureUploadMarkup.called).toBe(true)
       expect(captureUpdateMarkup.called).toBeUndefined()
       expect(captureUpdateDoc.operations?.description).toBe("markup-ref-123")
-    }))
+    })
+  )
 
   it.effect("uploads missing event descriptions with native references", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1", description: "" as HulyEvent["description"] })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const captureUploadMarkup: MockConfig["captureUploadMarkup"] = {}
@@ -735,27 +742,21 @@ describe("updateEvent", () => {
         eventId: eventBrandId("evt-1"),
         description:
           "See [HULY-1](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-1&label=HULY-1)."
-      }).pipe(Effect.provide(createTestLayer({
-        events: [event],
-        captureUpdateDoc,
-        captureUploadMarkup,
-        captureUpdateMarkup
-      })))
+      }).pipe(
+        Effect.provide(createTestLayer({ events: [event], captureUpdateDoc, captureUploadMarkup, captureUpdateMarkup }))
+      )
 
       expect(capturedMarkupReferenceNodes(captureUploadMarkup.markup)[0]).toMatchObject({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "HULY-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
       expect(captureUpdateMarkup.called).toBeUndefined()
       expect(captureUpdateDoc.operations?.description).toBe("markup-ref-123")
-    }))
+    })
+  )
 
   it.effect("updates stable event fields and participant collections", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const person1 = makePerson({ _id: "person-1" as Ref<Person>, name: "Alice" })
       const person2 = makePerson({ _id: "person-2" as Ref<Person>, name: "Bob" })
       const targetCalendar = makeCalendar({ _id: "cal-2" as Ref<HulyCalendar>, name: "Team" })
@@ -794,51 +795,47 @@ describe("updateEvent", () => {
       expect(captureUpdateDoc.operations?.timeZone).toBe("Europe/London")
       expect(captureUpdateDoc.operations?.blockTime).toBe(true)
       expect(captureUpdateDoc.operations?.calendar).toBe("cal-2")
-    }))
+    })
+  )
 
   it.effect("moves an event by calendar name", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const targetCalendar = makeCalendar({ _id: "cal-2" as Ref<HulyCalendar>, name: "Team" })
       const event = makeEvent({ eventId: "evt-1" })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      yield* updateEvent({
-        eventId: eventBrandId("evt-1"),
-        calendarName: CalendarName.make("Team")
-      }).pipe(
-        Effect.provide(createTestLayer({
-          events: [event],
-          calendars: [makeCalendar(), targetCalendar],
-          captureUpdateDoc
-        }))
+      yield* updateEvent({ eventId: eventBrandId("evt-1"), calendarName: CalendarName.make("Team") }).pipe(
+        Effect.provide(
+          createTestLayer({ events: [event], calendars: [makeCalendar(), targetCalendar], captureUpdateDoc })
+        )
       )
 
       expect(captureUpdateDoc.operations?.calendar).toBe("cal-2")
-    }))
+    })
+  )
 
   it.effect("updates participants by name locator and handles empty participant replacement", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const person = makePerson({ _id: "person-1" as Ref<Person>, name: "Alice" })
       const event = makeEvent({ eventId: "evt-1", participants: ["person-1" as Ref<Contact>] })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      yield* updateEvent({
-        eventId: eventBrandId("evt-1"),
-        participants: [{ name: PersonName.make("Alice") }]
-      }).pipe(Effect.provide(createTestLayer({ events: [event], persons: [person], captureUpdateDoc })))
+      yield* updateEvent({ eventId: eventBrandId("evt-1"), participants: [{ name: PersonName.make("Alice") }] }).pipe(
+        Effect.provide(createTestLayer({ events: [event], persons: [person], captureUpdateDoc }))
+      )
 
       expect(captureUpdateDoc.operations?.participants).toEqual(["person-1"])
 
-      yield* updateEvent({
-        eventId: eventBrandId("evt-1"),
-        participants: []
-      }).pipe(Effect.provide(createTestLayer({ events: [event], persons: [person], captureUpdateDoc })))
+      yield* updateEvent({ eventId: eventBrandId("evt-1"), participants: [] }).pipe(
+        Effect.provide(createTestLayer({ events: [event], persons: [person], captureUpdateDoc }))
+      )
 
       expect(captureUpdateDoc.operations?.participants).toEqual([])
-    }))
+    })
+  )
 
   it.effect("updates external participant collections when the event has none", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1" })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
@@ -855,23 +852,24 @@ describe("updateEvent", () => {
       }).pipe(Effect.provide(createTestLayer({ events: [event], captureUpdateDoc })))
 
       expect(captureUpdateDoc.operations?.externalParticipants).toEqual([])
-    }))
+    })
+  )
 
   it.effect("ignores malformed update visibility defensively", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1" })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      yield* updateEvent({
-        eventId: eventBrandId("evt-1"),
-        visibility: "workspace" as never
-      }).pipe(Effect.provide(createTestLayer({ events: [event], captureUpdateDoc })))
+      yield* updateEvent({ eventId: eventBrandId("evt-1"), visibility: "workspace" as never }).pipe(
+        Effect.provide(createTestLayer({ events: [event], captureUpdateDoc }))
+      )
 
       expect(captureUpdateDoc.operations).toEqual({ visibility: "workspace" })
-    }))
+    })
+  )
 
   it.effect("fails when participant personId cannot be resolved", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1" })
       const error = yield* Effect.flip(
         updateEvent({
@@ -881,38 +879,39 @@ describe("updateEvent", () => {
       )
 
       expect(error._tag).toBe("PersonNotFoundError")
-    }))
+    })
+  )
 
   it.effect("fails defensively for an empty participant locator object", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1" })
       // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- direct-operation defensive test bypasses schema validation intentionally
       const emptyLocator = {} as never
       const error = yield* Effect.flip(
-        updateEvent({
-          eventId: eventBrandId("evt-1"),
-          participants: [emptyLocator]
-        }).pipe(Effect.provide(createTestLayer({ events: [event], persons: [] })))
+        updateEvent({ eventId: eventBrandId("evt-1"), participants: [emptyLocator] }).pipe(
+          Effect.provide(createTestLayer({ events: [event], persons: [] }))
+        )
       )
 
       expect(error._tag).toBe("PersonNotFoundError")
-    }))
+    })
+  )
 
   it.effect("fails when participant name cannot be resolved", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1" })
       const error = yield* Effect.flip(
-        updateEvent({
-          eventId: eventBrandId("evt-1"),
-          participants: [{ name: PersonName.make("Nobody") }]
-        }).pipe(Effect.provide(createTestLayer({ events: [event], persons: [] })))
+        updateEvent({ eventId: eventBrandId("evt-1"), participants: [{ name: PersonName.make("Nobody") }] }).pipe(
+          Effect.provide(createTestLayer({ events: [event], persons: [] }))
+        )
       )
 
       expect(error._tag).toBe("PersonNotFoundError")
-    }))
+    })
+  )
 
   it.effect("fails with EventNotFoundError when event does not exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({})
 
       const error = yield* Effect.flip(
@@ -923,12 +922,13 @@ describe("updateEvent", () => {
 
       expect(error._tag).toBe("EventNotFoundError")
       expect((error as EventNotFoundError).eventId).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("deleteEvent", () => {
   it.effect("deletes event", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1" })
       const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
       const testLayer = createTestLayer({ events: [event], captureRemoveDoc })
@@ -938,10 +938,11 @@ describe("deleteEvent", () => {
       expect(result.eventId).toBe("evt-1")
       expect(result.deleted).toBe(true)
       expect(captureRemoveDoc.id).toBe("event-1")
-    }))
+    })
+  )
 
   it.effect("fails with EventNotFoundError when event does not exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({})
 
       const error = yield* Effect.flip(
@@ -950,12 +951,13 @@ describe("deleteEvent", () => {
 
       expect(error._tag).toBe("EventNotFoundError")
       expect((error as EventNotFoundError).eventId).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("listRecurringEvents", () => {
   it.effect("returns recurring event summaries", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const recurringEvents = [
         makeRecurringEvent({ eventId: "recur-1", title: "Weekly Standup", rules: [{ freq: "WEEKLY" }] }),
         makeRecurringEvent({ eventId: "recur-2", title: "Monthly Review", rules: [{ freq: "MONTHLY" }] })
@@ -967,57 +969,54 @@ describe("listRecurringEvents", () => {
       expect(result).toHaveLength(2)
       expect(assertAt(result, 0).title).toBe("Weekly Standup")
       expect(assertAt(assertAt(result, 0).rules, 0).freq).toBe("WEEKLY")
-    }))
+    })
+  )
 
   it.effect("returns empty array when no recurring events", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({})
 
       const result = yield* listRecurringEvents({}).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("returns recurring events without timezone when Huly omits it", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listRecurringEvents({}).pipe(
-        Effect.provide(createTestLayer({
-          recurringEvents: [makeRecurringEventWithoutTimeZone()]
-        }))
+        Effect.provide(createTestLayer({ recurringEvents: [makeRecurringEventWithoutTimeZone()] }))
       )
 
       expect(assertAt(result, 0).timeZone).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("returns recurring events without modified timestamp when Huly omits it", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const { modifiedOn: _modifiedOn, ...recurringEventWithoutModifiedOn } = makeRecurringEvent()
       const result = yield* listRecurringEvents({}).pipe(
-        Effect.provide(createTestLayer({
-          recurringEvents: [asRecurringEvent(recurringEventWithoutModifiedOn)]
-        }))
+        Effect.provide(createTestLayer({ recurringEvents: [asRecurringEvent(recurringEventWithoutModifiedOn)] }))
       )
 
       expect(assertAt(result, 0).modifiedOn).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("brands full SDK recurring rule numeric fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listRecurringEvents({}).pipe(
-        Effect.provide(createTestLayer({
-          recurringEvents: [
-            makeRecurringEvent({
-              rules: [{
-                freq: "YEARLY",
-                count: 4,
-                interval: 2,
-                byMonthDay: [1, 31],
-                byMonth: [0, 11],
-                bySetPos: [-1, 1]
-              }]
-            })
-          ]
-        }))
+        Effect.provide(
+          createTestLayer({
+            recurringEvents: [
+              makeRecurringEvent({
+                rules: [
+                  { freq: "YEARLY", count: 4, interval: 2, byMonthDay: [1, 31], byMonth: [0, 11], bySetPos: [-1, 1] }
+                ]
+              })
+            ]
+          })
+        )
       )
 
       expect(assertAt(assertAt(result, 0).rules, 0)).toMatchObject({
@@ -1027,32 +1026,29 @@ describe("listRecurringEvents", () => {
         byMonth: [0, 11],
         bySetPos: [-1, 1]
       })
-    }))
+    })
+  )
 
   it.effect("rejects invalid Huly recurring rule fields on read", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         listRecurringEvents({}).pipe(
-          Effect.provide(createTestLayer({
-            recurringEvents: [
-              makeRecurringEvent({
-                rules: [{
-                  freq: "MONTHLY",
-                  byMonthDay: [-1]
-                }]
-              })
-            ]
-          }))
+          Effect.provide(
+            createTestLayer({
+              recurringEvents: [makeRecurringEvent({ rules: [{ freq: "MONTHLY", byMonthDay: [-1] }] })]
+            })
+          )
         )
       )
 
       expect(error._tag).toBe("HulyConnectionError")
-    }))
+    })
+  )
 })
 
 describe("createRecurringEvent", () => {
   it.effect("creates recurring event with rules", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const testLayer = createTestLayer({ captureAddCollection })
 
@@ -1065,10 +1061,11 @@ describe("createRecurringEvent", () => {
       expect(result.eventId).toBeDefined()
       expect(captureAddCollection.attributes?.title).toBe("Daily Standup")
       expect(captureAddCollection.attributes?.rules).toEqual([{ freq: "DAILY" }])
-    }))
+    })
+  )
 
   it.effect("creates recurring event descriptions with native references", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const captureUploadMarkup: MockConfig["captureUploadMarkup"] = {}
 
@@ -1082,17 +1079,14 @@ describe("createRecurringEvent", () => {
 
       expect(capturedMarkupReferenceNodes(captureUploadMarkup.markup)[0]).toMatchObject({
         type: "reference",
-        attrs: {
-          id: "issue-1",
-          objectclass: "tracker:class:Issue",
-          label: "HULY-1"
-        }
+        attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
       expect(captureAddCollection.attributes?.description).toBe("markup-ref-123")
-    }))
+    })
+  )
 
   it.effect("creates recurring event with all optional fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const person = makePerson({ _id: "person-1" as Ref<Person>, name: "Alice" })
       const testLayer = createTestLayer({ captureAddCollection, persons: [person] })
@@ -1121,12 +1115,13 @@ describe("createRecurringEvent", () => {
       expect(captureAddCollection.attributes?.reminders).toEqual([1700000300000])
       expect(captureAddCollection.attributes?.access).toBe(AccessLevel.Reader)
       expect(captureAddCollection.attributes?.blockTime).toBe(true)
-    }))
+    })
+  )
 })
 
 describe("listEventInstances", () => {
   it.effect("returns instances of recurring event", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const recurringEvent = makeRecurringEvent({ eventId: "recur-1" })
       const instances = [
         makeRecurringInstance({ eventId: "inst-1", recurringEventId: "recur-1", title: "Instance 1" }),
@@ -1134,16 +1129,17 @@ describe("listEventInstances", () => {
       ]
       const testLayer = createTestLayer({ recurringEvents: [recurringEvent], recurringInstances: instances })
 
-      const result = yield* listEventInstances({
-        recurringEventId: eventBrandId("recur-1")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* listEventInstances({ recurringEventId: eventBrandId("recur-1") }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result).toHaveLength(2)
       expect(assertAt(result, 0).recurringEventId).toBe("recur-1")
-    }))
+    })
+  )
 
   it.effect("returns instances with participants when requested", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const person = makePerson({ _id: "person-1" as Ref<Person>, name: "Bob" })
       const recurringEvent = makeRecurringEvent({ eventId: "recur-1" })
       const instances = [
@@ -1167,18 +1163,14 @@ describe("listEventInstances", () => {
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).participants).toHaveLength(1)
       expect(assertAt(assertExists(assertAt(result, 0).participants), 0).name).toBe("Bob")
-    }))
+    })
+  )
 
   it.effect("returns empty participants when no participants exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const recurringEvent = makeRecurringEvent({ eventId: "recur-1" })
-      const instances = [
-        makeRecurringInstance({ eventId: "inst-1", recurringEventId: "recur-1", participants: [] })
-      ]
-      const testLayer = createTestLayer({
-        recurringEvents: [recurringEvent],
-        recurringInstances: instances
-      })
+      const instances = [makeRecurringInstance({ eventId: "inst-1", recurringEventId: "recur-1", participants: [] })]
+      const testLayer = createTestLayer({ recurringEvents: [recurringEvent], recurringInstances: instances })
 
       const result = yield* listEventInstances({
         recurringEventId: eventBrandId("recur-1"),
@@ -1187,10 +1179,11 @@ describe("listEventInstances", () => {
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).participants).toEqual([])
-    }))
+    })
+  )
 
   it.effect("fails with RecurringEventNotFoundError when recurring event does not exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({})
 
       const error = yield* Effect.flip(
@@ -1199,5 +1192,6 @@ describe("listEventInstances", () => {
 
       expect(error._tag).toBe("RecurringEventNotFoundError")
       expect((error as RecurringEventNotFoundError).eventId).toBe("nonexistent")
-    }))
+    })
+  )
 })

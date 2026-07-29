@@ -74,14 +74,7 @@ const coordinates = (
   objectClass: Ref<Class<Doc>>,
   space: Ref<Space>,
   display: NonEmptyString
-): RecruitingTargetCoordinates => ({
-  client,
-  target,
-  objectId,
-  objectClass,
-  space,
-  display
-})
+): RecruitingTargetCoordinates => ({ client, target, objectId, objectClass, space, display })
 
 const vacancyTarget = (client: HulyClient["Type"], vacancy: Vacancy): RecruitingTargetCoordinates => {
   const ref = toVacancyRef(vacancy)
@@ -129,7 +122,7 @@ const applicantTarget = (
   client: HulyClient["Type"],
   applicant: Applicant
 ): Effect.Effect<RecruitingTargetCoordinates, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ref = yield* applicantRefFromDoc(client, applicant)
     return coordinates(
       client,
@@ -152,7 +145,7 @@ const reviewTarget = (
   client: HulyClient["Type"],
   review: Review
 ): Effect.Effect<RecruitingTargetCoordinates, HulyClientError | RecruitingModelMissingError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ref = yield* reviewRefFromDoc(client, review)
     return coordinates(
       client,
@@ -176,7 +169,7 @@ const opinionTarget = (
   opinion: Opinion,
   review: Review
 ): Effect.Effect<RecruitingTargetCoordinates, HulyClientError | RecruitingModelMissingError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const ref = yield* opinionRefFromDoc(client, opinion, review)
     return coordinates(
       client,
@@ -197,13 +190,9 @@ const opinionTarget = (
 
 export const resolveRecruitingTarget = (
   client: HulyClient["Type"],
-  params:
-    | RecruitingActivityTarget
-    | RecruitingAttachmentTarget
-    | RecruitingCommentTarget
-    | RecruitingRelatedIssueTarget
+  params: RecruitingActivityTarget | RecruitingAttachmentTarget | RecruitingCommentTarget | RecruitingRelatedIssueTarget
 ): Effect.Effect<RecruitingTargetCoordinates, RecruitingResolvedTargetError, Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     switch (params.kind) {
       case "vacancy":
         return vacancyTarget(client, yield* resolveVacancy(client, params.vacancy))
@@ -213,17 +202,15 @@ export const resolveRecruitingTarget = (
       }
       case "applicant": {
         const vacancy = params.vacancy === undefined ? undefined : yield* resolveVacancy(client, params.vacancy)
-        const candidate = params.candidate === undefined
-          ? undefined
-          : yield* resolveCandidatePerson(client, params.candidate)
+        const candidate =
+          params.candidate === undefined ? undefined : yield* resolveCandidatePerson(client, params.candidate)
         return yield* applicantTarget(client, yield* findApplicant(client, params.applicant, vacancy, candidate))
       }
       case "review":
         return yield* reviewTarget(client, yield* resolveReviewLocator(client, params))
       case "opinion": {
-        const review = params.review === undefined ? undefined : yield* resolveReviewLocator(client, {
-          review: params.review
-        })
+        const review =
+          params.review === undefined ? undefined : yield* resolveReviewLocator(client, { review: params.review })
         const opinion = yield* findOpinion(client, params.opinion, review)
         return yield* opinionTarget(client, opinion, review ?? (yield* parentReviewFromOpinion(client, opinion)))
       }

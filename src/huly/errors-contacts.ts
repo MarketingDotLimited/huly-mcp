@@ -13,12 +13,9 @@ const AmbiguousMatchCount = Count.pipe(Schema.greaterThanOrEqualTo(MIN_AMBIGUOUS
 /**
  * Person (assignee) not found.
  */
-export class PersonNotFoundError extends Schema.TaggedError<PersonNotFoundError>()(
-  "PersonNotFoundError",
-  {
-    identifier: Schema.String
-  }
-) {
+export class PersonNotFoundError extends Schema.TaggedError<PersonNotFoundError>()("PersonNotFoundError", {
+  identifier: Schema.String
+}) {
   override get message(): string {
     return `Person '${this.identifier}' not found`
   }
@@ -29,10 +26,7 @@ export class PersonNotFoundError extends Schema.TaggedError<PersonNotFoundError>
  */
 export class PersonIdentifierAmbiguousError extends Schema.TaggedError<PersonIdentifierAmbiguousError>()(
   "PersonIdentifierAmbiguousError",
-  {
-    identifier: Schema.String,
-    matches: AmbiguousMatchCount
-  }
+  { identifier: Schema.String, matches: AmbiguousMatchCount }
 ) {
   override get message(): string {
     return `Person identifier '${this.identifier}' matched ${this.matches} people; use an exact email address instead`
@@ -44,9 +38,7 @@ export class PersonIdentifierAmbiguousError extends Schema.TaggedError<PersonIde
  */
 export class OrganizationNotFoundError extends Schema.TaggedError<OrganizationNotFoundError>()(
   "OrganizationNotFoundError",
-  {
-    identifier: Schema.String
-  }
+  { identifier: Schema.String }
 ) {
   override get message(): string {
     return `Organization '${this.identifier}' not found`
@@ -58,10 +50,7 @@ export class OrganizationNotFoundError extends Schema.TaggedError<OrganizationNo
  */
 export class OrganizationIdentifierAmbiguousError extends Schema.TaggedError<OrganizationIdentifierAmbiguousError>()(
   "OrganizationIdentifierAmbiguousError",
-  {
-    identifier: Schema.String,
-    matches: AmbiguousMatchCount
-  }
+  { identifier: Schema.String, matches: AmbiguousMatchCount }
 ) {
   override get message(): string {
     return `Organization identifier '${this.identifier}' matched ${this.matches} organizations; use the organization ID instead`
@@ -73,9 +62,7 @@ export class OrganizationIdentifierAmbiguousError extends Schema.TaggedError<Org
  */
 export class InvalidContactProviderError extends Schema.TaggedError<InvalidContactProviderError>()(
   "InvalidContactProviderError",
-  {
-    provider: Schema.String
-  }
+  { provider: Schema.String }
 ) {
   override get message(): string {
     return `Invalid contact provider: '${this.provider}'`
@@ -87,10 +74,7 @@ export class InvalidContactProviderError extends Schema.TaggedError<InvalidConta
  */
 export class ContactChannelNotFoundError extends Schema.TaggedError<ContactChannelNotFoundError>()(
   "ContactChannelNotFoundError",
-  {
-    ownerIdentifier: Schema.String,
-    channelIdentifier: Schema.String
-  }
+  { ownerIdentifier: Schema.String, channelIdentifier: Schema.String }
 ) {
   override get message(): string {
     return `Contact channel '${this.channelIdentifier}' not found for '${this.ownerIdentifier}'`
@@ -100,16 +84,10 @@ export class ContactChannelNotFoundError extends Schema.TaggedError<ContactChann
 /**
  * Contact channel provider+value locator matched multiple channel docs.
  */
-export class ContactChannelIdentifierAmbiguousError
-  extends Schema.TaggedError<ContactChannelIdentifierAmbiguousError>()(
-    "ContactChannelIdentifierAmbiguousError",
-    {
-      ownerIdentifier: Schema.String,
-      channelIdentifier: Schema.String,
-      matches: AmbiguousMatchCount
-    }
-  )
-{
+export class ContactChannelIdentifierAmbiguousError extends Schema.TaggedError<ContactChannelIdentifierAmbiguousError>()(
+  "ContactChannelIdentifierAmbiguousError",
+  { ownerIdentifier: Schema.String, channelIdentifier: Schema.String, matches: AmbiguousMatchCount }
+) {
   override get message(): string {
     return `Contact channel '${this.channelIdentifier}' matched ${this.matches} channels for '${this.ownerIdentifier}'; use channelId instead`
   }
@@ -120,10 +98,7 @@ export class ContactChannelIdentifierAmbiguousError
  */
 export class InvalidContactChannelLocatorError extends Schema.TaggedError<InvalidContactChannelLocatorError>()(
   "InvalidContactChannelLocatorError",
-  {
-    ownerIdentifier: Schema.String,
-    reason: Schema.String
-  }
+  { ownerIdentifier: Schema.String, reason: Schema.String }
 ) {
   override get message(): string {
     return `Invalid contact channel locator for '${this.ownerIdentifier}': ${this.reason}`
@@ -135,11 +110,7 @@ export class InvalidContactChannelLocatorError extends Schema.TaggedError<Invali
  */
 export class ContactChannelConflictError extends Schema.TaggedError<ContactChannelConflictError>()(
   "ContactChannelConflictError",
-  {
-    ownerIdentifier: Schema.String,
-    provider: Schema.String,
-    value: Schema.String
-  }
+  { ownerIdentifier: Schema.String, provider: Schema.String, value: Schema.String }
 ) {
   override get message(): string {
     return `Contact channel '${this.provider}:${this.value}' already exists for '${this.ownerIdentifier}'`
@@ -151,10 +122,7 @@ export class ContactChannelConflictError extends Schema.TaggedError<ContactChann
  */
 export class InvalidContactChannelValueError extends Schema.TaggedError<InvalidContactChannelValueError>()(
   "InvalidContactChannelValueError",
-  {
-    provider: Schema.String,
-    value: Schema.String
-  }
+  { provider: Schema.String, value: Schema.String }
 ) {
   override get message(): string {
     return `Invalid value '${this.value}' for contact channel provider '${this.provider}'`
@@ -164,12 +132,9 @@ export class InvalidContactChannelValueError extends Schema.TaggedError<InvalidC
 /**
  * Invalid PersonUuid format.
  */
-export class InvalidPersonUuidError extends Schema.TaggedError<InvalidPersonUuidError>()(
-  "InvalidPersonUuidError",
-  {
-    uuid: Schema.String
-  }
-) {
+export class InvalidPersonUuidError extends Schema.TaggedError<InvalidPersonUuidError>()("InvalidPersonUuidError", {
+  uuid: Schema.String
+}) {
   override get message(): string {
     return `Invalid PersonUuid format: '${this.uuid}'`
   }

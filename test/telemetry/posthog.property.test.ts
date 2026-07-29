@@ -12,11 +12,11 @@ type TelemetryOperation =
 
 type TimelineEntry =
   | {
-    readonly distinctId: string
-    readonly event: string
-    readonly properties: Record<string, unknown>
-    readonly type: "capture"
-  }
+      readonly distinctId: string
+      readonly event: string
+      readonly properties: Record<string, unknown>
+      readonly type: "capture"
+    }
   | { readonly timeoutMs: number | undefined; readonly type: "shutdown" }
 
 const categoryArbitrary = fc.stringMatching(/^[a-z][a-z0-9_-]{0,16}$/)
@@ -57,18 +57,10 @@ const operationArbitrary = fc.oneof(
   toolCalledArbitrary.map((props): TelemetryOperation => ({ props, type: "toolCalled" }))
 ) satisfies fc.Arbitrary<TelemetryOperation>
 
-const makeDependencies = (
-  timeline: Array<TimelineEntry>,
-  rejectShutdown: boolean
-): PostHogTelemetryDependencies => ({
+const makeDependencies = (timeline: Array<TimelineEntry>, rejectShutdown: boolean): PostHogTelemetryDependencies => ({
   createClient: () => ({
     capture: (event) => {
-      timeline.push({
-        distinctId: event.distinctId,
-        event: event.event,
-        properties: event.properties,
-        type: "capture"
-      })
+      timeline.push({ distinctId: event.distinctId, event: event.event, properties: event.properties, type: "capture" })
     },
     shutdown: (timeoutMs) => {
       timeline.push({ timeoutMs, type: "shutdown" })
@@ -79,10 +71,7 @@ const makeDependencies = (
   writeDebug: () => {}
 })
 
-const applyOperation = (
-  telemetry: ReturnType<typeof createPostHogTelemetry>,
-  operation: TelemetryOperation
-): void => {
+const applyOperation = (telemetry: ReturnType<typeof createPostHogTelemetry>, operation: TelemetryOperation): void => {
   switch (operation.type) {
     case "sessionStart":
       telemetry.sessionStart(operation.props)
@@ -180,17 +169,19 @@ describe("createPostHogTelemetry properties", () => {
         const captures = captureEntries(timeline)
 
         expect(captures.map((entry) => entry.event)).toEqual(expectedEvents(operations))
-        expect(captures.map((entry) => {
-          const {
-            $ip: _ip,
-            package_name: _packageName,
-            session_id: _sessionId,
-            surface: _surface,
-            version: _version,
-            ...eventProperties
-          } = entry.properties
-          return eventProperties
-        })).toEqual(expectedEventProperties(operations))
+        expect(
+          captures.map((entry) => {
+            const {
+              $ip: _ip,
+              package_name: _packageName,
+              session_id: _sessionId,
+              surface: _surface,
+              version: _version,
+              ...eventProperties
+            } = entry.properties
+            return eventProperties
+          })
+        ).toEqual(expectedEventProperties(operations))
         expect(captures.filter((entry) => entry.event === "first_list_tools")).toHaveLength(
           operations.some((operation) => operation.type === "firstListTools") ? 1 : 0
         )

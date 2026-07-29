@@ -208,10 +208,7 @@ const withoutCreator = (request: HulyApprovalRequest): HulyApprovalRequest => {
   return requestWithoutCreator
 }
 
-const docsForClass = (
-  classId: unknown,
-  data: WriteLayerData
-): ReadonlyArray<Doc> => {
+const docsForClass = (classId: unknown, data: WriteLayerData): ReadonlyArray<Doc> => {
   if (classId === requestPlugin.class.Request) return data.requests
   if (classId === contact.class.Person) return data.people
   if (classId === contact.mixin.Employee) return data.employees
@@ -247,10 +244,7 @@ const testLayer = (config: WriteLayerConfig = {}) => {
     return Effect.succeed(toFindResult(docsAs<T>(limited), matched.length))
   }
 
-  const findOne: HulyClientOperations["findOne"] = <T extends Doc>(
-    classId: Ref<Class<T>>,
-    query: DocumentQuery<T>
-  ) => {
+  const findOne: HulyClientOperations["findOne"] = <T extends Doc>(classId: Ref<Class<T>>, query: DocumentQuery<T>) => {
     const matched = docsForClass(classId, data).find((doc) => matchesQuery(doc, recordFromPort(query)))
     // The class-ref dispatch above is the runtime witness for T in this fake client.
     return Effect.succeed(matched as T | undefined)
@@ -289,11 +283,7 @@ const testLayer = (config: WriteLayerConfig = {}) => {
     _collection: string,
     operations: DocumentUpdate<P>
   ) => {
-    config.captures?.updates.push({
-      classId: String(classId),
-      objectId: String(objectId),
-      operations
-    })
+    config.captures?.updates.push({ classId: String(classId), objectId: String(objectId), operations })
     return Effect.succeed(toRef<T>("parent-id"))
   }
 
@@ -317,7 +307,7 @@ const emptyCaptures = (): Captures => ({ adds: [], updates: [], mixins: [] })
 
 describe("approval request write operations", () => {
   it.effect("creates approval requests with resolved target space and requested people", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
       const result = yield* addApprovalRequest({
         attachedTo: DocId.make("issue-1"),
@@ -343,10 +333,11 @@ describe("approval request write operations", () => {
         status: HulyRequestStatus.Active,
         tx: expect.objectContaining({ _id: "approve-tx" })
       })
-    }))
+    })
+  )
 
   it.effect("creates approval requests with explicit space, collection, rejected tx, and default threshold", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
       const result = yield* addApprovalRequest({
         attachedTo: DocId.make("issue-1"),
@@ -375,10 +366,11 @@ describe("approval request write operations", () => {
         tx: expect.objectContaining({ _id: "approve-tx" }),
         rejectedTx: expect.objectContaining({ _id: "reject-tx" })
       })
-    }))
+    })
+  )
 
   it.effect("rejects invalid approval thresholds after requested people are de-duplicated", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const exit = yield* addApprovalRequest({
         attachedTo: DocId.make("issue-1"),
         attachedToClass: ObjectClassName.make("tracker:class:Issue"),
@@ -391,10 +383,11 @@ describe("approval request write operations", () => {
       if (Exit.isFailure(exit)) {
         expect(exit.cause.toString()).toContain(ApprovalRequestInvalidApprovalThresholdError.name)
       }
-    }))
+    })
+  )
 
   it.effect("fails create when a requested person cannot be resolved", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const exit = yield* addApprovalRequest({
         attachedTo: DocId.make("issue-1"),
         attachedToClass: ObjectClassName.make("tracker:class:Issue"),
@@ -406,10 +399,11 @@ describe("approval request write operations", () => {
       if (Exit.isFailure(exit)) {
         expect(exit.cause.toString()).toContain(PersonNotFoundError.name)
       }
-    }))
+    })
+  )
 
   it.effect("fails create when the target document cannot be resolved", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const exit = yield* addApprovalRequest({
         attachedTo: DocId.make("missing-issue"),
         attachedToClass: ObjectClassName.make("tracker:class:Issue"),
@@ -421,10 +415,11 @@ describe("approval request write operations", () => {
       if (Exit.isFailure(exit)) {
         expect(exit.cause.toString()).toContain(ApprovalRequestTargetNotFoundError.name)
       }
-    }))
+    })
+  )
 
   it.effect("adds plain comments without decision mixins", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
       const result = yield* addApprovalRequestComment({
         request: ApprovalRequestId.make("request-1"),
@@ -439,10 +434,11 @@ describe("approval request write operations", () => {
         collection: "comments"
       })
       expect(captures.mixins).toEqual([])
-    }))
+    })
+  )
 
   it.effect("fails comments when the approval request cannot be found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const exit = yield* addApprovalRequestComment({
         request: ApprovalRequestId.make("missing-request"),
         body: "Where did it go?"
@@ -452,10 +448,11 @@ describe("approval request write operations", () => {
       if (Exit.isFailure(exit)) {
         expect(exit.cause.toString()).toContain(ApprovalRequestNotFoundError.name)
       }
-    }))
+    })
+  )
 
   it.effect("approves as the current employee and creates a decision comment", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
       const result = yield* approveApprovalRequest({
         request: ApprovalRequestId.make("request-1"),
@@ -464,63 +461,42 @@ describe("approval request write operations", () => {
 
       expect(result).toMatchObject({ action: "approved", changed: true, comment: expect.any(String) })
       expect(captures.adds).toHaveLength(1)
-      expect(captures.mixins).toEqual([
-        expect.objectContaining({ mixin: requestPlugin.mixin.RequestDecisionComment })
-      ])
-      expect(assertAt(captures.updates, 0).operations).toMatchObject({
-        $push: { approved: "person-1" }
-      })
-    }))
+      expect(captures.mixins).toEqual([expect.objectContaining({ mixin: requestPlugin.mixin.RequestDecisionComment })])
+      expect(assertAt(captures.updates, 0).operations).toMatchObject({ $push: { approved: "person-1" } })
+    })
+  )
 
   it.effect("approves without an optional decision comment", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
-      const result = yield* approveApprovalRequest({
-        request: ApprovalRequestId.make("request-1")
-      }).pipe(Effect.provide(testLayer({ captures })))
-
-      expect(result).toEqual({
-        request: "request-1",
-        action: "approved",
-        changed: true
-      })
-      expect(captures.adds).toEqual([])
-      expect(captures.mixins).toEqual([])
-      expect(assertAt(captures.updates, 0).operations).toMatchObject({
-        $push: { approved: "person-1" }
-      })
-    }))
-
-  it.effect("returns changed=false when the current employee already approved", () =>
-    Effect.gen(function*() {
-      const captures = emptyCaptures()
-      const result = yield* approveApprovalRequest({
-        request: ApprovalRequestId.make("request-1")
-      }).pipe(
-        Effect.provide(testLayer({
-          captures,
-          requests: [makeRequest({ approved: [toRef<HulyPerson>("person-1")] })]
-        }))
+      const result = yield* approveApprovalRequest({ request: ApprovalRequestId.make("request-1") }).pipe(
+        Effect.provide(testLayer({ captures }))
       )
 
-      expect(result).toEqual({
-        request: "request-1",
-        action: "approved",
-        changed: false,
-        status: "Active"
-      })
+      expect(result).toEqual({ request: "request-1", action: "approved", changed: true })
+      expect(captures.adds).toEqual([])
+      expect(captures.mixins).toEqual([])
+      expect(assertAt(captures.updates, 0).operations).toMatchObject({ $push: { approved: "person-1" } })
+    })
+  )
+
+  it.effect("returns changed=false when the current employee already approved", () =>
+    Effect.gen(function* () {
+      const captures = emptyCaptures()
+      const result = yield* approveApprovalRequest({ request: ApprovalRequestId.make("request-1") }).pipe(
+        Effect.provide(testLayer({ captures, requests: [makeRequest({ approved: [toRef<HulyPerson>("person-1")] })] }))
+      )
+
+      expect(result).toEqual({ request: "request-1", action: "approved", changed: false, status: "Active" })
       expect(captures.updates).toEqual([])
       expect(captures.adds).toEqual([])
-    }))
+    })
+  )
 
   it.effect("fails approval when the current employee is not requested", () =>
-    Effect.gen(function*() {
-      const exit = yield* approveApprovalRequest({
-        request: ApprovalRequestId.make("request-1")
-      }).pipe(
-        Effect.provide(testLayer({
-          requests: [makeRequest({ requested: [toRef<HulyPerson>("person-2")] })]
-        })),
+    Effect.gen(function* () {
+      const exit = yield* approveApprovalRequest({ request: ApprovalRequestId.make("request-1") }).pipe(
+        Effect.provide(testLayer({ requests: [makeRequest({ requested: [toRef<HulyPerson>("person-2")] })] })),
         Effect.exit
       )
 
@@ -528,17 +504,16 @@ describe("approval request write operations", () => {
       if (Exit.isFailure(exit)) {
         expect(exit.cause.toString()).toContain(ApprovalRequestApproverNotRequestedError.name)
       }
-    }))
+    })
+  )
 
   it.effect("fails rejection when the current employee is not requested", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const exit = yield* rejectApprovalRequest({
         request: ApprovalRequestId.make("request-1"),
         comment: "Needs changes"
       }).pipe(
-        Effect.provide(testLayer({
-          requests: [makeRequest({ requested: [toRef<HulyPerson>("person-2")] })]
-        })),
+        Effect.provide(testLayer({ requests: [makeRequest({ requested: [toRef<HulyPerson>("person-2")] })] })),
         Effect.exit
       )
 
@@ -546,13 +521,12 @@ describe("approval request write operations", () => {
       if (Exit.isFailure(exit)) {
         expect(exit.cause.toString()).toContain(ApprovalRequestApproverNotRequestedError.name)
       }
-    }))
+    })
+  )
 
   it.effect("fails approval when the current actor cannot be resolved to an employee", () =>
-    Effect.gen(function*() {
-      const missingIdentity = yield* approveApprovalRequest({
-        request: ApprovalRequestId.make("request-1")
-      }).pipe(
+    Effect.gen(function* () {
+      const missingIdentity = yield* approveApprovalRequest({ request: ApprovalRequestId.make("request-1") }).pipe(
         Effect.provide(testLayer({ socialIdentities: [] })),
         Effect.exit
       )
@@ -562,9 +536,7 @@ describe("approval request write operations", () => {
         expect(missingIdentity.cause.toString()).toContain(PersonNotFoundError.name)
       }
 
-      const missingEmployee = yield* approveApprovalRequest({
-        request: ApprovalRequestId.make("request-1")
-      }).pipe(
+      const missingEmployee = yield* approveApprovalRequest({ request: ApprovalRequestId.make("request-1") }).pipe(
         Effect.provide(testLayer({ employees: [] })),
         Effect.exit
       )
@@ -573,16 +545,13 @@ describe("approval request write operations", () => {
       if (Exit.isFailure(missingEmployee)) {
         expect(missingEmployee.cause.toString()).toContain(PersonNotFoundError.name)
       }
-    }))
+    })
+  )
 
   it.effect("fails active mutations when the request is not active", () =>
-    Effect.gen(function*() {
-      const exit = yield* approveApprovalRequest({
-        request: ApprovalRequestId.make("request-1")
-      }).pipe(
-        Effect.provide(testLayer({
-          requests: [makeRequest({ status: HulyRequestStatus.Cancelled })]
-        })),
+    Effect.gen(function* () {
+      const exit = yield* approveApprovalRequest({ request: ApprovalRequestId.make("request-1") }).pipe(
+        Effect.provide(testLayer({ requests: [makeRequest({ status: HulyRequestStatus.Cancelled })] })),
         Effect.exit
       )
 
@@ -590,18 +559,16 @@ describe("approval request write operations", () => {
       if (Exit.isFailure(exit)) {
         expect(exit.cause.toString()).toContain(ApprovalRequestNotActiveError.name)
       }
-    }))
+    })
+  )
 
   it.effect("fails active mutations when collection updates are unavailable", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
       const exit = yield* approveApprovalRequest({
         request: ApprovalRequestId.make("request-1"),
         comment: "Approved"
-      }).pipe(
-        Effect.provide(testLayer({ captures, omitUpdateCollection: true })),
-        Effect.exit
-      )
+      }).pipe(Effect.provide(testLayer({ captures, omitUpdateCollection: true })), Effect.exit)
 
       expect(Exit.isFailure(exit)).toBe(true)
       if (Exit.isFailure(exit)) {
@@ -609,10 +576,11 @@ describe("approval request write operations", () => {
       }
       expect(captures.adds).toEqual([])
       expect(captures.mixins).toEqual([])
-    }))
+    })
+  )
 
   it.effect("rejects with a decision comment and cancels creator-owned active requests", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const rejectCaptures = emptyCaptures()
       const rejected = yield* rejectApprovalRequest({
         request: ApprovalRequestId.make("request-1"),
@@ -627,88 +595,65 @@ describe("approval request write operations", () => {
       expect(rejectCaptures.mixins).toHaveLength(1)
 
       const cancelCaptures = emptyCaptures()
-      const cancelled = yield* cancelApprovalRequest({
-        request: ApprovalRequestId.make("request-1")
-      }).pipe(Effect.provide(testLayer({ captures: cancelCaptures })))
+      const cancelled = yield* cancelApprovalRequest({ request: ApprovalRequestId.make("request-1") }).pipe(
+        Effect.provide(testLayer({ captures: cancelCaptures }))
+      )
 
-      expect(cancelled).toEqual({
-        request: "request-1",
-        action: "cancelled",
-        changed: true,
-        status: "Cancelled"
-      })
+      expect(cancelled).toEqual({ request: "request-1", action: "cancelled", changed: true, status: "Cancelled" })
       expect(assertAt(cancelCaptures.updates, 0).operations).toMatchObject({ status: HulyRequestStatus.Cancelled })
-    }))
+    })
+  )
 
   it.effect("cancels requests created by the current account id", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
-      const result = yield* cancelApprovalRequest({
-        request: ApprovalRequestId.make("request-1")
-      }).pipe(
-        Effect.provide(testLayer({
-          captures,
-          requests: [makeRequest({ createdBy: corePersonId("00000000-0000-4000-8000-000000000000") })]
-        }))
+      const result = yield* cancelApprovalRequest({ request: ApprovalRequestId.make("request-1") }).pipe(
+        Effect.provide(
+          testLayer({
+            captures,
+            requests: [makeRequest({ createdBy: corePersonId("00000000-0000-4000-8000-000000000000") })]
+          })
+        )
       )
 
-      expect(result).toEqual({
-        request: "request-1",
-        action: "cancelled",
-        changed: true,
-        status: "Cancelled"
-      })
+      expect(result).toEqual({ request: "request-1", action: "cancelled", changed: true, status: "Cancelled" })
       expect(assertAt(captures.updates, 0).operations).toMatchObject({ status: HulyRequestStatus.Cancelled })
-    }))
+    })
+  )
 
   it.effect("cancels requests created by the current employee person id", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
-      const result = yield* cancelApprovalRequest({
-        request: ApprovalRequestId.make("request-1")
-      }).pipe(
-        Effect.provide(testLayer({
-          captures,
-          requests: [makeRequest({ createdBy: corePersonId("person-1") })]
-        }))
+      const result = yield* cancelApprovalRequest({ request: ApprovalRequestId.make("request-1") }).pipe(
+        Effect.provide(testLayer({ captures, requests: [makeRequest({ createdBy: corePersonId("person-1") })] }))
       )
 
-      expect(result).toEqual({
-        request: "request-1",
-        action: "cancelled",
-        changed: true,
-        status: "Cancelled"
-      })
+      expect(result).toEqual({ request: "request-1", action: "cancelled", changed: true, status: "Cancelled" })
       expect(assertAt(captures.updates, 0).operations).toMatchObject({ status: HulyRequestStatus.Cancelled })
-    }))
+    })
+  )
 
   it.effect("cancels requests created by a secondary social id for the current account", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captures = emptyCaptures()
-      const result = yield* cancelApprovalRequest({
-        request: ApprovalRequestId.make("request-1")
-      }).pipe(
-        Effect.provide(testLayer({
-          accountSocialIds: [actor, otherActor],
-          captures,
-          requests: [makeRequest({ createdBy: otherActor })]
-        }))
+      const result = yield* cancelApprovalRequest({ request: ApprovalRequestId.make("request-1") }).pipe(
+        Effect.provide(
+          testLayer({
+            accountSocialIds: [actor, otherActor],
+            captures,
+            requests: [makeRequest({ createdBy: otherActor })]
+          })
+        )
       )
 
-      expect(result).toEqual({
-        request: "request-1",
-        action: "cancelled",
-        changed: true,
-        status: "Cancelled"
-      })
+      expect(result).toEqual({ request: "request-1", action: "cancelled", changed: true, status: "Cancelled" })
       expect(assertAt(captures.updates, 0).operations).toMatchObject({ status: HulyRequestStatus.Cancelled })
-    }))
+    })
+  )
 
   it.effect("fails cancel when the current actor is not the creator", () =>
-    Effect.gen(function*() {
-      const exit = yield* cancelApprovalRequest({
-        request: ApprovalRequestId.make("request-1")
-      }).pipe(
+    Effect.gen(function* () {
+      const exit = yield* cancelApprovalRequest({ request: ApprovalRequestId.make("request-1") }).pipe(
         Effect.provide(testLayer({ requests: [makeRequest({ createdBy: otherActor })] })),
         Effect.exit
       )
@@ -717,13 +662,12 @@ describe("approval request write operations", () => {
       if (Exit.isFailure(exit)) {
         expect(exit.cause.toString()).toContain(ApprovalRequestCancelUnauthorizedError.name)
       }
-    }))
+    })
+  )
 
   it.effect("fails cancel when the creator is unknown", () =>
-    Effect.gen(function*() {
-      const exit = yield* cancelApprovalRequest({
-        request: ApprovalRequestId.make("request-1")
-      }).pipe(
+    Effect.gen(function* () {
+      const exit = yield* cancelApprovalRequest({ request: ApprovalRequestId.make("request-1") }).pipe(
         Effect.provide(testLayer({ requests: [withoutCreator(makeRequest())] })),
         Effect.exit
       )
@@ -732,5 +676,6 @@ describe("approval request write operations", () => {
       if (Exit.isFailure(exit)) {
         expect(exit.cause.toString()).toContain("an unknown creator")
       }
-    }))
+    })
+  )
 })

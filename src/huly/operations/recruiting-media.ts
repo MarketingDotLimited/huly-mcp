@@ -74,26 +74,16 @@ const attachmentScope = (target: RecruitingTargetCoordinates): AttachmentCollect
 const scopedCommentNotFound = (
   target: RecruitingTargetCoordinates,
   commentId: DeleteRecruitingCommentParams["commentId"]
-) =>
-  new RecruitingCommentNotFoundError({
-    target: target.display,
-    commentId
-  })
+) => new RecruitingCommentNotFoundError({ target: target.display, commentId })
 
-const scopedAttachmentNotFound = (
-  target: RecruitingTargetCoordinates,
-  attachmentId: AttachmentId
-) =>
-  new RecruitingAttachmentNotFoundError({
-    target: target.display,
-    attachmentId
-  })
+const scopedAttachmentNotFound = (target: RecruitingTargetCoordinates, attachmentId: AttachmentId) =>
+  new RecruitingAttachmentNotFoundError({ target: target.display, attachmentId })
 
 const removeRecruitingAttachment = (
   target: RecruitingTargetCoordinates,
   attachmentId: AttachmentId
 ): Effect.Effect<void, HulyDomainError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const media = yield* findAttachmentForScope(target.client, attachmentId, attachmentScope(target)).pipe(
       Effect.catchTag("AttachmentNotFoundError", () => scopedAttachmentNotFound(target, attachmentId))
     )
@@ -116,7 +106,7 @@ const removeRecruitingAttachment = (
 export const listRecruitingComments = (
   params: ListRecruitingCommentsParams
 ): Effect.Effect<ListRecruitingCommentsResult, HulyDomainError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const target = yield* resolveRecruitingTarget(client, params.target)
     const page = yield* listAttachedCommentsPage(commentsTarget(target), params.limit, "Recruiting")
@@ -126,7 +116,7 @@ export const listRecruitingComments = (
 export const addRecruitingComment = (
   params: AddRecruitingCommentParams
 ): Effect.Effect<AddRecruitingCommentResult, HulyDomainError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const target = yield* resolveRecruitingTarget(client, params.target)
     const commentId = yield* addAttachedComment(commentsTarget(target), params.body)
@@ -136,14 +126,11 @@ export const addRecruitingComment = (
 export const updateRecruitingComment = (
   params: UpdateRecruitingCommentParams
 ): Effect.Effect<UpdateRecruitingCommentResult, HulyDomainError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const target = yield* resolveRecruitingTarget(client, params.target)
-    const updated = yield* updateAttachedComment(
-      commentsTarget(target),
-      params.commentId,
-      params.body,
-      () => scopedCommentNotFound(target, params.commentId)
+    const updated = yield* updateAttachedComment(commentsTarget(target), params.commentId, params.body, () =>
+      scopedCommentNotFound(target, params.commentId)
     )
     return { target: target.target, commentId: params.commentId, updated }
   })
@@ -151,13 +138,11 @@ export const updateRecruitingComment = (
 export const deleteRecruitingComment = (
   params: DeleteRecruitingCommentParams
 ): Effect.Effect<DeleteRecruitingCommentResult, HulyDomainError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const target = yield* resolveRecruitingTarget(client, params.target)
-    yield* deleteAttachedComment(
-      commentsTarget(target),
-      params.commentId,
-      () => scopedCommentNotFound(target, params.commentId)
+    yield* deleteAttachedComment(commentsTarget(target), params.commentId, () =>
+      scopedCommentNotFound(target, params.commentId)
     )
     return { target: target.target, commentId: params.commentId, deleted: true }
   })
@@ -165,7 +150,7 @@ export const deleteRecruitingComment = (
 export const listRecruitingAttachments = (
   params: ListRecruitingAttachmentsParams
 ): Effect.Effect<ListRecruitingAttachmentsResult, HulyDomainError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const target = yield* resolveRecruitingTarget(client, params.target)
     const page = yield* listAttachmentPageForScope(target.client, attachmentScope(target), params.limit)
@@ -175,7 +160,7 @@ export const listRecruitingAttachments = (
 export const getRecruitingAttachment = (
   params: GetRecruitingAttachmentParams
 ): Effect.Effect<GetRecruitingAttachmentResult, HulyDomainError, HulyClient | HulyStorageClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const storageClient = yield* HulyStorageClient
     const target = yield* resolveRecruitingTarget(client, params.target)
@@ -184,16 +169,14 @@ export const getRecruitingAttachment = (
       storageClient,
       params.attachmentId,
       attachmentScope(target)
-    ).pipe(
-      Effect.catchTag("AttachmentNotFoundError", () => scopedAttachmentNotFound(target, params.attachmentId))
-    )
+    ).pipe(Effect.catchTag("AttachmentNotFoundError", () => scopedAttachmentNotFound(target, params.attachmentId)))
     return { target: target.target, attachment: attachmentResult }
   })
 
 export const addRecruitingAttachment = (
   params: AddRecruitingAttachmentParams
 ): Effect.Effect<AddRecruitingAttachmentResult, HulyDomainError, HulyClient | HulyStorageClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const target = yield* resolveRecruitingTarget(client, params.target)
     const result = yield* uploadAndAttach(params, {
@@ -203,26 +186,16 @@ export const addRecruitingAttachment = (
       attachmentClassRef: attachment.class.Attachment,
       collection: "attachments"
     })
-    return {
-      target: target.target,
-      attachmentId: result.attachmentId,
-      blobId: result.blobId,
-      url: result.url
-    }
+    return { target: target.target, attachmentId: result.attachmentId, blobId: result.blobId, url: result.url }
   })
 
 export const updateRecruitingAttachment = (
   params: UpdateRecruitingAttachmentParams
 ): Effect.Effect<UpdateRecruitingAttachmentResult, HulyDomainError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const target = yield* resolveRecruitingTarget(client, params.target)
-    yield* updateAttachmentForScope(
-      target.client,
-      params.attachmentId,
-      params,
-      attachmentScope(target)
-    ).pipe(
+    yield* updateAttachmentForScope(target.client, params.attachmentId, params, attachmentScope(target)).pipe(
       Effect.catchTag("AttachmentNotFoundError", () => scopedAttachmentNotFound(target, params.attachmentId))
     )
     return { target: target.target, attachmentId: params.attachmentId, updated: true }
@@ -231,7 +204,7 @@ export const updateRecruitingAttachment = (
 export const deleteRecruitingAttachment = (
   params: DeleteRecruitingAttachmentParams
 ): Effect.Effect<DeleteRecruitingAttachmentResult, HulyDomainError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const target = yield* resolveRecruitingTarget(client, params.target)
     yield* removeRecruitingAttachment(target, params.attachmentId)
@@ -241,20 +214,13 @@ export const deleteRecruitingAttachment = (
 export const listRecruitingActivity = (
   params: ListRecruitingActivityParams
 ): Effect.Effect<ListRecruitingActivityResult, HulyDomainError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const target = yield* resolveRecruitingTarget(client, params.target)
     const messages = yield* target.client.findAll<HulyActivityMessage>(
       activity.class.ActivityMessage,
-      hulyQuery<HulyActivityMessage>({
-        attachedTo: target.objectId,
-        attachedToClass: target.objectClass
-      }),
-      {
-        limit: clampLimit(params.limit),
-        sort: { modifiedOn: SortingOrder.Descending },
-        total: true
-      }
+      hulyQuery<HulyActivityMessage>({ attachedTo: target.objectId, attachedToClass: target.objectClass }),
+      { limit: clampLimit(params.limit), sort: { modifiedOn: SortingOrder.Descending }, total: true }
     )
     return {
       target: target.target,

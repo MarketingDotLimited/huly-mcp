@@ -39,11 +39,7 @@ const makeDocument = (overrides?: Partial<HulyDocument>): HulyDocument =>
     ...overrides
   }) as unknown as HulyDocument
 
-const makeBlob = (id: string): Blob =>
-  ({
-    _id: id as Ref<Blob>,
-    _class: core.class.Blob
-  }) as unknown as Blob
+const makeBlob = (id: string): Blob => ({ _id: id as Ref<Blob>, _class: core.class.Blob }) as unknown as Blob
 
 const markupText = (text: string): string =>
   JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text }] }] })
@@ -51,10 +47,12 @@ const markupText = (text: string): string =>
 const markupWithThread = (threadId: string, text: string): string =>
   JSON.stringify({
     type: "doc",
-    content: [{
-      type: "paragraph",
-      content: [{ type: "text", text, marks: [{ type: INLINE_COMMENT_MARK_TYPE, attrs: { thread: threadId } }] }]
-    }]
+    content: [
+      {
+        type: "paragraph",
+        content: [{ type: "text", text, marks: [{ type: INLINE_COMMENT_MARK_TYPE, attrs: { thread: threadId } }] }]
+      }
+    ]
   })
 
 const makeReply = (id: string, thread: string, createdBy: string | undefined, message: string): HulyThreadMessage =>
@@ -117,100 +115,101 @@ const PARAMS = { teamspace: teamspaceIdentifier("Docs"), document: documentIdent
 
 describe("listInlineComments", () => {
   it.effect("fails when the teamspace is not found", () =>
-    Effect.gen(function*() {
-      const err = yield* Effect.flip(
-        listInlineComments(PARAMS).pipe(Effect.provide(buildLayer({ teamspaces: [] })))
-      )
+    Effect.gen(function* () {
+      const err = yield* Effect.flip(listInlineComments(PARAMS).pipe(Effect.provide(buildLayer({ teamspaces: [] }))))
       expect(err._tag).toBe("TeamspaceNotFoundError")
-    }))
+    })
+  )
 
   it.effect("fails when the document is not found", () =>
-    Effect.gen(function*() {
-      const err = yield* Effect.flip(
-        listInlineComments(PARAMS).pipe(Effect.provide(buildLayer({ documents: [] })))
-      )
+    Effect.gen(function* () {
+      const err = yield* Effect.flip(listInlineComments(PARAMS).pipe(Effect.provide(buildLayer({ documents: [] }))))
       expect(err._tag).toBe("DocumentNotFoundError")
-    }))
+    })
+  )
 
   it.effect("returns empty when the document has no content", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listInlineComments(PARAMS).pipe(
         Effect.provide(buildLayer({ documents: [makeDocument({ content: null })] }))
       )
       expect(result).toEqual({ comments: [], total: 0 })
-    }))
+    })
+  )
 
   it.effect("preserves fetchMarkup failures as HulyConnectionError", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const err = yield* Effect.flip(
         listInlineComments(PARAMS).pipe(
-          Effect.provide(buildLayer({
-            documents: [makeDocument()],
-            fetchMarkupError: new HulyConnectionError({ message: "fetchMarkup failed: HTTP error 500" })
-          }))
+          Effect.provide(
+            buildLayer({
+              documents: [makeDocument()],
+              fetchMarkupError: new HulyConnectionError({ message: "fetchMarkup failed: HTTP error 500" })
+            })
+          )
         )
       )
       expect(err).toBeInstanceOf(HulyConnectionError)
       expect(err.message).toBe("fetchMarkup failed: HTTP error 500")
-    }))
+    })
+  )
 
   it.effect("maps empty content from a missing blob to DocumentContentCorruptedError", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const err = yield* Effect.flip(
-        listInlineComments(PARAMS).pipe(
-          Effect.provide(buildLayer({
-            documents: [makeDocument()],
-            markup: ""
-          }))
-        )
+        listInlineComments(PARAMS).pipe(Effect.provide(buildLayer({ documents: [makeDocument()], markup: "" })))
       )
       expect(err._tag).toBe("DocumentContentCorruptedError")
-    }))
+    })
+  )
 
   it.effect("returns empty when readable stored content is empty", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listInlineComments(PARAMS).pipe(
-        Effect.provide(buildLayer({
-          documents: [makeDocument()],
-          blobs: [makeBlob("doc-1-content-1700000000000")],
-          markup: ""
-        }))
+        Effect.provide(
+          buildLayer({ documents: [makeDocument()], blobs: [makeBlob("doc-1-content-1700000000000")], markup: "" })
+        )
       )
       expect(result).toEqual({ comments: [], total: 0 })
-    }))
+    })
+  )
 
   it.effect("returns empty when the content has no inline comment marks", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listInlineComments(PARAMS).pipe(
         Effect.provide(buildLayer({ documents: [makeDocument()], markup: markupText("plain text") }))
       )
       expect(result).toEqual({ comments: [], total: 0 })
-    }))
+    })
+  )
 
   it.effect("returns comment threads without replies when includeReplies is omitted", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listInlineComments(PARAMS).pipe(
         Effect.provide(buildLayer({ documents: [makeDocument()], markup: markupWithThread("thread-1", "commented") }))
       )
       expect(result.total).toBe(1)
       expect(assertAt(result.comments, 0)).toEqual({ threadId: "thread-1", text: "commented" })
-    }))
+    })
+  )
 
   it.effect("includes replies with resolved and unresolved sender names", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listInlineComments({ ...PARAMS, includeReplies: true }).pipe(
-        Effect.provide(buildLayer({
-          documents: [makeDocument()],
-          markup: markupWithThread("thread-1", "commented"),
-          replies: [
-            makeReply("reply-1", "thread-1", "social-1", markupText("Looks good")),
-            makeReply("reply-2", "thread-1", undefined, markupText("Anonymous"))
-          ],
-          socialIdentities: [
-            ({ _id: "social-1" as Ref<SocialIdentity>, attachedTo: "person-1" }) as unknown as SocialIdentity
-          ],
-          persons: [({ _id: "person-1", name: "Alice" }) as unknown as Person]
-        }))
+        Effect.provide(
+          buildLayer({
+            documents: [makeDocument()],
+            markup: markupWithThread("thread-1", "commented"),
+            replies: [
+              makeReply("reply-1", "thread-1", "social-1", markupText("Looks good")),
+              makeReply("reply-2", "thread-1", undefined, markupText("Anonymous"))
+            ],
+            socialIdentities: [
+              { _id: "social-1" as Ref<SocialIdentity>, attachedTo: "person-1" } as unknown as SocialIdentity
+            ],
+            persons: [{ _id: "person-1", name: "Alice" } as unknown as Person]
+          })
+        )
       )
 
       expect(result.total).toBe(1)
@@ -220,17 +219,17 @@ describe("listInlineComments", () => {
       expect(comment.replies?.[0]).toMatchObject({ id: "reply-1", sender: "Alice" })
       expect(comment.replies?.[0]?.body).toContain("Looks good")
       expect(comment.replies?.[1]).toMatchObject({ id: "reply-2", sender: undefined })
-    }))
+    })
+  )
 
   it.effect("includes an empty replies array when includeReplies is set but none exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listInlineComments({ ...PARAMS, includeReplies: true }).pipe(
-        Effect.provide(buildLayer({
-          documents: [makeDocument()],
-          markup: markupWithThread("thread-1", "commented"),
-          replies: []
-        }))
+        Effect.provide(
+          buildLayer({ documents: [makeDocument()], markup: markupWithThread("thread-1", "commented"), replies: [] })
+        )
       )
       expect(result.comments[0]?.replies).toEqual([])
-    }))
+    })
+  )
 })

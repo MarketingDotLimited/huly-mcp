@@ -117,10 +117,7 @@ const sanitizeContentForMarkdown = (content: Array<MarkupNode> | undefined): San
   }
 
   const sanitized = content.map(sanitizeNodeForMarkdown)
-  return {
-    content: sanitized,
-    changed: sanitized.some((node, index) => node !== content[index])
-  }
+  return { content: sanitized, changed: sanitized.some((node, index) => node !== content[index]) }
 }
 
 export const sanitizeNodeForMarkdown = (node: MarkupNode): MarkupNode => {
@@ -169,10 +166,7 @@ const hasAnyNativeReferenceQueryField = (query: URLSearchParams): boolean =>
 
 const parseUrlPair = (href: string, refUrl: UrlString): ParsedUrlPair | undefined => {
   try {
-    return {
-      candidateUrl: new URL(href),
-      refUrl: new URL(refUrl)
-    }
+    return { candidateUrl: new URL(href), refUrl: new URL(refUrl) }
   } catch {
     return undefined
   }
@@ -180,10 +174,9 @@ const parseUrlPair = (href: string, refUrl: UrlString): ParsedUrlPair | undefine
 
 const parseNativeReferenceQuery = (
   query: URLSearchParams
-): { readonly _tag: "missing"; readonly missing: ReadonlyArray<string> } | {
-  readonly _tag: "reference"
-  readonly reference: ParsedBrowseReference
-} => {
+):
+  | { readonly _tag: "missing"; readonly missing: ReadonlyArray<string> }
+  | { readonly _tag: "reference"; readonly reference: ParsedBrowseReference } => {
   const id = trimmedQueryValue(query, "_id")
   const objectClass = trimmedQueryValue(query, "_class")
   const label = trimmedQueryValue(query, "label")
@@ -200,11 +193,7 @@ const parseNativeReferenceQuery = (
 
   return {
     _tag: "reference",
-    reference: {
-      id: DocId.make(id),
-      objectClass: ObjectClassName.make(objectClass),
-      label: NonEmptyString.make(label)
-    }
+    reference: { id: DocId.make(id), objectClass: ObjectClassName.make(objectClass), label: NonEmptyString.make(label) }
   }
 }
 
@@ -232,10 +221,7 @@ const parseNativeBrowseReferenceHref = (href: string, urls: MarkupUrlConfig): Br
     return { _tag: "malformed", reason: `reference missing ${parsedQuery.missing.join(", ")}` }
   }
 
-  return {
-    _tag: "reference",
-    reference: parsedQuery.reference
-  }
+  return { _tag: "reference", reference: parsedQuery.reference }
 }
 
 const linkHref = (node: MarkupNode): string | undefined => {
@@ -244,18 +230,11 @@ const linkHref = (node: MarkupNode): string | undefined => {
   return typeof href === "string" ? href : undefined
 }
 
-const referenceNodeFromTextNode = (
-  node: MarkupNode,
-  reference: ParsedBrowseReference
-): MarkupNode => {
+const referenceNodeFromTextNode = (node: MarkupNode, reference: ParsedBrowseReference): MarkupNode => {
   const nonLinkMarks = node.marks?.filter((mark) => mark.type !== MarkupMarkType.link)
   return {
     type: MarkupNodeType.reference,
-    attrs: {
-      id: reference.id,
-      objectclass: reference.objectClass,
-      label: reference.label
-    },
+    attrs: { id: reference.id, objectclass: reference.objectClass, label: reference.label },
     ...(nonLinkMarks !== undefined && nonLinkMarks.length > 0 ? { marks: nonLinkMarks } : {})
   }
 }
@@ -268,11 +247,7 @@ const transformNativeReferenceLinks = (node: MarkupNode, urls: MarkupUrlConfig):
       return { node, malformedReferences: [parsed.reason], changed: false }
     }
     if (parsed._tag === "reference") {
-      return {
-        node: referenceNodeFromTextNode(node, parsed.reference),
-        malformedReferences: [],
-        changed: true
-      }
+      return { node: referenceNodeFromTextNode(node, parsed.reference), malformedReferences: [], changed: true }
     }
   }
 
@@ -295,10 +270,7 @@ export const markdownToMarkupStringWithHulyLinks = (
 ): MarkdownWithHulyLinksResult => {
   const json = markdownToMarkup(markdown, markdownInputUrlConfig(urls))
   const transformed = transformMarkupNodeNativeReferenceLinks(json, urls)
-  return {
-    markup: jsonAsMarkup(transformed.node),
-    malformedReferences: transformed.malformedReferences
-  }
+  return { markup: jsonAsMarkup(transformed.node), malformedReferences: transformed.malformedReferences }
 }
 
 export const transformMarkupNodeNativeReferenceLinks = (
@@ -306,17 +278,14 @@ export const transformMarkupNodeNativeReferenceLinks = (
   urls: MarkupUrlConfig
 ): NativeReferenceLinkTransform => {
   const transformed = transformNativeReferenceLinks(node, urls)
-  return {
-    node: transformed.node,
-    malformedReferences: transformed.malformedReferences
-  }
+  return { node: transformed.node, malformedReferences: transformed.malformedReferences }
 }
 
 export const optionalMarkdownToMarkup = (
   md: string | undefined | null,
   urls: MarkupUrlConfig,
   fallback: Markup | "" = ""
-): Markup | "" => md && md.trim() !== "" ? markdownToMarkupString(md, urls) : fallback
+): Markup | "" => (md && md.trim() !== "" ? markdownToMarkupString(md, urls) : fallback)
 
 export function optionalMarkupToMarkdown(
   markup: Markup | undefined | null,

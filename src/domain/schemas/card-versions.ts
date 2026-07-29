@@ -47,9 +47,7 @@ export const CardVersionSummarySchema = Schema.Struct({
 export type CardVersionSummary = Schema.Schema.Type<typeof CardVersionSummarySchema>
 
 export const ListCardVersionsParamsSchema = Schema.Struct({
-  cardSpace: CardSpaceIdentifier.annotations({
-    description: "Exact card-space name or ID."
-  }),
+  cardSpace: CardSpaceIdentifier.annotations({ description: "Exact card-space name or ID." }),
   card: CardIdentifier.annotations({
     description:
       "Any card version ID or exact title. The server resolves its internal version-chain identity automatically."
@@ -77,7 +75,7 @@ export const ListCardVersionsResultSchema = ListCardVersionsResultBaseSchema.pip
     if (result.versions.length > result.total) {
       return "versions page cannot contain more entries than total."
     }
-    if (result.hasMore !== (result.versions.length < result.total)) {
+    if (result.hasMore !== result.versions.length < result.total) {
       return "hasMore must truthfully indicate whether total exceeds the returned page."
     }
     return undefined

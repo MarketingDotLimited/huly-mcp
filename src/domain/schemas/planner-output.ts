@@ -18,9 +18,7 @@ import {
 } from "./shared.js"
 
 export const TodoAttachmentSummarySchema = Schema.Union(
-  Schema.Struct({
-    type: Schema.Literal("none")
-  }),
+  Schema.Struct({ type: Schema.Literal("none") }),
   Schema.Struct({
     type: Schema.Literal("issue"),
     id: IssueId,
@@ -28,11 +26,7 @@ export const TodoAttachmentSummarySchema = Schema.Union(
     identifier: IssueIdentifier,
     title: TodoAttachmentTitle
   }),
-  Schema.Struct({
-    type: Schema.Literal("unknown"),
-    id: DocId,
-    class: ObjectClassName
-  })
+  Schema.Struct({ type: Schema.Literal("unknown"), id: DocId, class: ObjectClassName })
 )
 export type TodoAttachmentSummary = Schema.Schema.Type<typeof TodoAttachmentSummarySchema>
 export const TodoOwnerSummarySchema = Schema.Struct({
@@ -62,27 +56,13 @@ export const TodoDetailSchema = Schema.Struct({
   modifiedOn: Schema.optional(Timestamp)
 })
 export type TodoDetail = Schema.Schema.Type<typeof TodoDetailSchema>
-export const CreateTodoResultSchema = Schema.Struct({
-  todoId: TodoId
-})
+export const CreateTodoResultSchema = Schema.Struct({ todoId: TodoId })
 export type CreateTodoResult = Schema.Schema.Type<typeof CreateTodoResultSchema>
-export const TodoMutationResultSchema = Schema.Struct({
-  todoId: TodoId,
-  updated: Schema.Boolean
-})
+export const TodoMutationResultSchema = Schema.Struct({ todoId: TodoId, updated: Schema.Boolean })
 export type TodoMutationResult = Schema.Schema.Type<typeof TodoMutationResultSchema>
-export const DeleteTodoResultSchema = Schema.Struct({
-  todoId: TodoId,
-  deleted: Schema.Boolean
-})
+export const DeleteTodoResultSchema = Schema.Struct({ todoId: TodoId, deleted: Schema.Boolean })
 export type DeleteTodoResult = Schema.Schema.Type<typeof DeleteTodoResultSchema>
-export const ScheduleTodoResultSchema = Schema.Struct({
-  todoId: TodoId,
-  workSlotId: WorkSlotId
-})
+export const ScheduleTodoResultSchema = Schema.Struct({ todoId: TodoId, workSlotId: WorkSlotId })
 export type ScheduleTodoResult = Schema.Schema.Type<typeof ScheduleTodoResultSchema>
-export const UnscheduleTodoResultSchema = Schema.Struct({
-  todoId: Schema.optional(TodoId),
-  removed: Count
-})
+export const UnscheduleTodoResultSchema = Schema.Struct({ todoId: Schema.optional(TodoId), removed: Count })
 export type UnscheduleTodoResult = Schema.Schema.Type<typeof UnscheduleTodoResultSchema>

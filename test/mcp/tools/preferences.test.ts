@@ -46,10 +46,7 @@ const spacePreference: HulySpacePreference = {
   attachedTo: toRef<Space>("space-1")
 }
 
-const findAll: HulyClientOperations["findAll"] = <T extends Doc>(
-  classId: Ref<Class<T>>,
-  _query: DocumentQuery<T>
-) => {
+const findAll: HulyClientOperations["findAll"] = <T extends Doc>(classId: Ref<Class<T>>, _query: DocumentQuery<T>) => {
   if (classId === preference.class.SpacePreference) {
     // The class ref selects the SpacePreference fixture for T.
     // eslint-disable-next-line no-restricted-syntax -- brands erased at runtime; class branch selects T
@@ -110,44 +107,46 @@ const findTool = (name: string) => {
 
 describe("preferenceTools", () => {
   it.effect("exports space preference tools in the preferences category and registers them globally", () =>
-    Effect.gen(function*() {
-      expect(preferenceTools.map((tool) => tool.name)).toEqual([
-        "list_space_preferences",
-        "get_space_preference"
-      ])
+    Effect.gen(function* () {
+      expect(preferenceTools.map((tool) => tool.name)).toEqual(["list_space_preferences", "get_space_preference"])
       for (const tool of preferenceTools) {
         expect(tool.category).toBe("preferences")
         expect(TOOL_DEFINITIONS[tool.name]).toBe(tool)
         expect(resolveAnnotations(tool).readOnlyHint).toBe(true)
       }
-    }))
+    })
+  )
 
   it.effect("list_space_preferences handler encodes successful structured output", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.promise(() =>
         findTool("list_space_preferences").handler({}, hulyClient, storageClient)
       )
 
       expect(result.isError).toBeUndefined()
       expect(result.structuredContent?.result).toMatchObject({
-        preferences: [{
-          preferenceId: "pref-1",
-          attachedTo: "space-1",
-          attachedSpace: { id: "space-1", name: "General" },
-          class: preference.class.SpacePreference
-        }],
+        preferences: [
+          {
+            preferenceId: "pref-1",
+            attachedTo: "space-1",
+            attachedSpace: { id: "space-1", name: "General" },
+            class: preference.class.SpacePreference
+          }
+        ],
         total: 1
       })
       expect(JSON.parse(assertAt(result.content, 0).text)).toMatchObject({ total: 1 })
-    }))
+    })
+  )
 
   it.effect("get_space_preference maps validation errors to invalid params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.promise(() =>
         findTool("get_space_preference").handler({}, hulyClient, storageClient)
       )
 
       expect(result.isError).toBe(true)
       expect(assertAt(result.content, 0).text).toContain("Invalid parameters for get_space_preference")
-    }))
+    })
+  )
 })

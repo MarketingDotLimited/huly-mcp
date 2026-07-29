@@ -27,13 +27,16 @@ export interface ToolScopeSummary {
 }
 
 const normalizeCsv = (raw: string): ReadonlyArray<string> => {
-  const normalized = raw.split(",").map((part) => part.trim().toLowerCase()).filter((part) => part !== "")
+  const normalized = raw
+    .split(",")
+    .map((part) => part.trim().toLowerCase())
+    .filter((part) => part !== "")
   return [...new Set(normalized)]
 }
 
-const orderedCategories = (
-  definitions: ReadonlyArray<ToolScopeToolDefinition>
-): ReadonlyArray<ToolCategory> => [...new Set(definitions.map((definition) => definition.category))]
+const orderedCategories = (definitions: ReadonlyArray<ToolScopeToolDefinition>): ReadonlyArray<ToolCategory> => [
+  ...new Set(definitions.map((definition) => definition.category))
+]
 
 const knownValueMap = <T extends string>(values: ReadonlyArray<T>): ReadonlyMap<string, T> =>
   new Map(values.map((value) => [value, value]))
@@ -43,31 +46,19 @@ const resolveRequested = <T extends string>(
   known: ReadonlyMap<string, T>,
   unknownMessage: (name: string) => string,
   writeError: (message: string) => void
-): {
-  readonly enabled: ReadonlyArray<T>
-  readonly ignored: ReadonlyArray<string>
-} =>
-  requested.reduce<{
-    readonly enabled: ReadonlyArray<T>
-    readonly ignored: ReadonlyArray<string>
-  }>((acc, name) => {
-    const knownValue = known.get(name)
-    if (knownValue !== undefined) {
-      return {
-        ...acc,
-        enabled: [...acc.enabled, knownValue]
+): { readonly enabled: ReadonlyArray<T>; readonly ignored: ReadonlyArray<string> } =>
+  requested.reduce<{ readonly enabled: ReadonlyArray<T>; readonly ignored: ReadonlyArray<string> }>(
+    (acc, name) => {
+      const knownValue = known.get(name)
+      if (knownValue !== undefined) {
+        return { ...acc, enabled: [...acc.enabled, knownValue] }
       }
-    }
 
-    writeError(unknownMessage(name))
-    return {
-      ...acc,
-      ignored: [...acc.ignored, name]
-    }
-  }, {
-    enabled: [],
-    ignored: []
-  })
+      writeError(unknownMessage(name))
+      return { ...acc, ignored: [...acc.ignored, name] }
+    },
+    { enabled: [], ignored: [] }
+  )
 
 export const resolveToolScope = (
   rawEnv: ToolScopeRawEnv,
@@ -97,9 +88,9 @@ export const resolveToolScope = (
   const enabledCategories = new Set(toolsets.enabled)
   const enabledToolNames = new Set(tools.enabled)
   const visibleRegisteredToolCount = filteringActive
-    ? definitions.filter((definition) =>
-      enabledCategories.has(definition.category) || enabledToolNames.has(definition.name)
-    ).length
+    ? definitions.filter(
+        (definition) => enabledCategories.has(definition.category) || enabledToolNames.has(definition.name)
+      ).length
     : definitions.length
 
   return {

@@ -93,11 +93,7 @@ const card = (overrides?: Partial<HulyCard>): HulyCard => ({
   ...overrides
 })
 
-const chatMessage = (
-  id: string,
-  body: string,
-  overrides?: Partial<ChatMessage>
-): ChatMessage => ({
+const chatMessage = (id: string, body: string, overrides?: Partial<ChatMessage>): ChatMessage => ({
   _id: toRef<ChatMessage>(id),
   _class: chunter.class.ChatMessage,
   space: SPACE_ID,
@@ -126,17 +122,15 @@ const matchesValue = (actual: unknown, expected: unknown): boolean => {
 const matchesQuery = <T extends Doc>(doc: T, query: DocumentQuery<T>): boolean =>
   Object.entries(query).every(([key, value]) => matchesValue(Reflect.get(doc, key), value))
 
-const docsForClass = <T extends Doc>(
-  state: CardCommentState,
-  classRef: Ref<Class<T>>
-): ReadonlyArray<T> => {
-  const docs: ReadonlyArray<Doc> = classRef === cardPlugin.class.CardSpace
-    ? state.cardSpaces
-    : classRef === cardPlugin.class.Card
-    ? state.cards
-    : classRef === chunter.class.ChatMessage
-    ? state.messages
-    : []
+const docsForClass = <T extends Doc>(state: CardCommentState, classRef: Ref<Class<T>>): ReadonlyArray<T> => {
+  const docs: ReadonlyArray<Doc> =
+    classRef === cardPlugin.class.CardSpace
+      ? state.cardSpaces
+      : classRef === cardPlugin.class.Card
+        ? state.cards
+        : classRef === chunter.class.ChatMessage
+          ? state.messages
+          : []
   // Huly's runtime class ref selects the homogeneous fixture collection, but
   // TypeScript cannot narrow the SDK's phantom generic from that equality.
 
@@ -149,18 +143,15 @@ const makeLayer = (state: CardCommentState): Layer.Layer<HulyClient> => {
     query: DocumentQuery<T>,
     options?: FindOptions<T>
   ) => {
-    const docs = docsForClass(state, classRef)
-      .filter((doc) => matchesQuery(doc, query))
+    const docs = docsForClass(state, classRef).filter((doc) => matchesQuery(doc, query))
     const limit = options?.limit ?? docs.length
     const page = findResult(docs.slice(0, limit))
     page.total = docs.length
     return Effect.succeed(page)
   }
 
-  const findOne: HulyClientOperations["findOne"] = <T extends Doc>(
-    classRef: Ref<Class<T>>,
-    query: DocumentQuery<T>
-  ) => Effect.map(findAll(classRef, query, { limit: 1 }), (docs) => docs.at(0))
+  const findOne: HulyClientOperations["findOne"] = <T extends Doc>(classRef: Ref<Class<T>>, query: DocumentQuery<T>) =>
+    Effect.map(findAll(classRef, query, { limit: 1 }), (docs) => docs.at(0))
 
   const addCollection: HulyClientOperations["addCollection"] = <T extends Doc, P extends AttachedDoc>(
     classRef: Ref<Class<P>>,
@@ -242,19 +233,14 @@ const baseState = (): CardCommentState => ({
 
 describe("card comment operations", () => {
   it.effect("lists only genuine card comments across concrete and base card attachment classes", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = baseState()
       state.messages.push(
         chatMessage("native-comment", "Native", { createdOn: 1 }),
-        chatMessage("base-comment", "Compatible", {
-          attachedToClass: cardPlugin.class.Card,
-          createdOn: 2
-        }),
+        chatMessage("base-comment", "Compatible", { attachedToClass: cardPlugin.class.Card, createdOn: 2 }),
         chatMessage("other-card", "Leak", { attachedTo: toRef<Doc>("card-2") }),
         chatMessage("other-collection", "Activity", { collection: "activity" }),
-        chatMessage("other-class", "Wrong class", {
-          attachedToClass: toRef<Class<Doc>>("tracker:class:Issue")
-        })
+        chatMessage("other-class", "Wrong class", { attachedToClass: toRef<Class<Doc>>("tracker:class:Issue") })
       )
       const params = yield* parseListCardCommentsParams({
         cardSpace: "Product Strategy",
@@ -266,16 +252,16 @@ describe("card comment operations", () => {
 
       expect(result).toMatchObject({ cardId: "card-1", total: 2 })
       expect(result.comments.map((comment) => comment.id)).toEqual(["native-comment"])
-    }))
+    })
+  )
 
   it.effect("adds markdown with native references using the concrete card class", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = baseState()
       const params = yield* parseAddCardCommentParams({
         cardSpace: "card-space-1",
         card: "card-1",
-        body:
-          "See [another card](https://test.invalid/browse?workspace=test&_class=master-tag-1&_id=card-2&label=Other)."
+        body: "See [another card](https://test.invalid/browse?workspace=test&_class=master-tag-1&_id=card-2&label=Other)."
       })
 
       const result = yield* addCardComment(params).pipe(Effect.provide(makeLayer(state)))
@@ -290,16 +276,13 @@ describe("card comment operations", () => {
       })
       expect(capturedMarkupReferenceNodes(created.message)).toContainEqual({
         type: "reference",
-        attrs: {
-          id: "card-2",
-          label: "Other",
-          objectclass: "master-tag-1"
-        }
+        attrs: { id: "card-2", label: "Other", objectclass: "master-tag-1" }
       })
-    }))
+    })
+  )
 
   it.effect("updates and deletes only comments belonging to the resolved card", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = baseState()
       state.messages.push(
         chatMessage("comment-1", "Initial", { attachedToClass: cardPlugin.class.Card }),
@@ -322,10 +305,11 @@ describe("card comment operations", () => {
       expect(state.updatedIds).toEqual(["comment-1"])
       expect(state.removals).toEqual(["comment-1"])
       expect(state.messages.map((message) => message._id)).toContain("foreign-comment")
-    }))
+    })
+  )
 
   it.effect("returns distinct card-space, card, and card-comment not-found failures", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = baseState()
       const missingSpace = yield* parseListCardCommentsParams({ cardSpace: "Missing", card: "card-1" })
       const missingCard = yield* parseListCardCommentsParams({ cardSpace: "Product Strategy", card: "Missing" })
@@ -339,12 +323,7 @@ describe("card comment operations", () => {
         Exit.fail(new CardSpaceNotFoundError({ identifier: missingSpace.cardSpace }))
       )
       expect(yield* Effect.exit(listCardComments(missingCard).pipe(Effect.provide(makeLayer(state))))).toEqual(
-        Exit.fail(
-          new CardNotFoundError({
-            identifier: missingCard.card,
-            cardSpace: missingCard.cardSpace
-          })
-        )
+        Exit.fail(new CardNotFoundError({ identifier: missingCard.card, cardSpace: missingCard.cardSpace }))
       )
       expect(yield* Effect.exit(deleteCardComment(missingComment).pipe(Effect.provide(makeLayer(state))))).toEqual(
         Exit.fail(
@@ -362,47 +341,37 @@ describe("card comment operations", () => {
           cardSpace: missingComment.cardSpace
         }).message
       ).toBe("Comment 'missing' not found on card 'Decision Record' in card space 'Product Strategy'")
-    }))
+    })
+  )
 
   it.effect("reports the resolved card-space name when an ID-located card is missing", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = { ...baseState(), cards: [] }
-      const params = yield* parseListCardCommentsParams({
-        cardSpace: "card-space-1",
-        card: "Missing"
-      })
+      const params = yield* parseListCardCommentsParams({ cardSpace: "card-space-1", card: "Missing" })
 
-      const error = yield* Effect.flip(
-        listCardComments(params).pipe(Effect.provide(makeLayer(state)))
-      )
+      const error = yield* Effect.flip(listCardComments(params).pipe(Effect.provide(makeLayer(state))))
 
       expect(error).toEqual(
-        new CardNotFoundError({
-          identifier: params.card,
-          cardSpace: CardSpaceIdentifier.make("Product Strategy")
-        })
+        new CardNotFoundError({ identifier: params.card, cardSpace: CardSpaceIdentifier.make("Product Strategy") })
       )
       expect(error.message).toBe("Card 'Missing' not found in card space 'Product Strategy'")
-    }))
+    })
+  )
 
   it.effect("propagates malformed resolved card-space names as typed boundary failures", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = { ...baseState(), cardSpaces: [cardSpace({ name: "" })], cards: [] }
-      const params = yield* parseListCardCommentsParams({
-        cardSpace: "card-space-1",
-        card: "Missing"
-      })
+      const params = yield* parseListCardCommentsParams({ cardSpace: "card-space-1", card: "Missing" })
 
-      const error = yield* Effect.flip(
-        listCardComments(params).pipe(Effect.provide(makeLayer(state)))
-      )
+      const error = yield* Effect.flip(listCardComments(params).pipe(Effect.provide(makeLayer(state))))
 
       expect(error).toBeInstanceOf(HulyError)
       expect(error.message).toBe("Resolved card space has an invalid name")
-    }))
+    })
+  )
 
   it.effect("reports resolved names when an ID-located card comment is missing", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = baseState()
       const params = yield* parseDeleteCardCommentParams({
         cardSpace: "card-space-1",
@@ -410,9 +379,7 @@ describe("card comment operations", () => {
         commentId: "missing"
       })
 
-      const error = yield* Effect.flip(
-        deleteCardComment(params).pipe(Effect.provide(makeLayer(state)))
-      )
+      const error = yield* Effect.flip(deleteCardComment(params).pipe(Effect.provide(makeLayer(state))))
 
       expect(error).toEqual(
         new CardCommentNotFoundError({
@@ -424,10 +391,11 @@ describe("card comment operations", () => {
       expect(error.message).toBe(
         "Comment 'missing' not found on card 'Decision Record' in card space 'Product Strategy'"
       )
-    }))
+    })
+  )
 
   it.effect("propagates malformed resolved card titles as typed boundary failures", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const state = { ...baseState(), cards: [card({ title: "" })] }
       const params = yield* parseDeleteCardCommentParams({
         cardSpace: "card-space-1",
@@ -435,11 +403,10 @@ describe("card comment operations", () => {
         commentId: "missing"
       })
 
-      const error = yield* Effect.flip(
-        deleteCardComment(params).pipe(Effect.provide(makeLayer(state)))
-      )
+      const error = yield* Effect.flip(deleteCardComment(params).pipe(Effect.provide(makeLayer(state))))
 
       expect(error).toBeInstanceOf(HulyError)
       expect(error.message).toBe("Resolved card has an invalid title")
-    }))
+    })
+  )
 })

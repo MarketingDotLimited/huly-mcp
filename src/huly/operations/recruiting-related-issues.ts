@@ -26,7 +26,7 @@ import { type RecruitingTargetCoordinates, resolveRecruitingTarget } from "./rec
 import { hasRelationById, makeRelatedDocEntry } from "./relations.js"
 import { toRef } from "./sdk-boundary.js"
 
-type RelatedIssueParams = AddRecruitingRelatedIssueParams | RemoveRecruitingRelatedIssueParams
+type RelatedIssueParams = AddRecruitingRelatedIssueParams
 
 type ResolvedRelatedIssue = {
   readonly client: HulyClient["Type"]
@@ -52,7 +52,7 @@ const issueTimestamps = (issue: HulyIssue) => ({
 const resolveRelatedIssue = (
   params: RelatedIssueParams
 ): Effect.Effect<ResolvedRelatedIssue, HulyDomainError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (params.project !== undefined) {
       return yield* findProjectAndIssue({ project: params.project, identifier: params.issue })
     }
@@ -81,7 +81,7 @@ const resolveRelatedIssue = (
 export const listRecruitingRelatedIssues = (
   params: ListRecruitingRelatedIssuesParams
 ): Effect.Effect<ListRecruitingRelatedIssuesResult, HulyDomainError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const target = yield* resolveRecruitingTarget(client, params.target)
     const issues = yield* target.client.findAll<HulyIssue>(
@@ -91,10 +91,7 @@ export const listRecruitingRelatedIssues = (
     )
     return {
       target: target.target,
-      relatedIssues: issues.map((issue) => ({
-        issue: issueSummary(issue),
-        ...issueTimestamps(issue)
-      })),
+      relatedIssues: issues.map((issue) => ({ issue: issueSummary(issue), ...issueTimestamps(issue) })),
       total: Count.make(findResultTotal(issues))
     }
   })
@@ -102,65 +99,41 @@ export const listRecruitingRelatedIssues = (
 export const addRecruitingRelatedIssue = (
   params: AddRecruitingRelatedIssueParams
 ): Effect.Effect<AddRecruitingRelatedIssueResult, HulyDomainError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const target = yield* resolveRecruitingTarget(client, params.target)
     const { issue, project } = yield* resolveRelatedIssue(params)
     if (hasRelationById(issue.relations, target.objectId)) {
-      return {
-        target: target.target,
-        issueId: DocId.make(issue._id),
-        created: false,
-        existing: true
-      }
+      return { target: target.target, issueId: DocId.make(issue._id), created: false, existing: true }
     }
 
     // DocumentUpdate<HulyIssue> cast needed on $push/$pull literals: TS cannot infer which arm
     // of the complex intersection type (Partial<Data<T>> & PushOptions<T> & ...) applies.
     /* eslint-disable no-restricted-syntax -- see above */
-    yield* client.updateDoc(
-      tracker.class.Issue,
-      project._id,
-      issue._id,
-      { $push: { relations: targetRelatedDocument(target) } } as DocumentUpdate<HulyIssue>
-    )
+    yield* client.updateDoc(tracker.class.Issue, project._id, issue._id, {
+      $push: { relations: targetRelatedDocument(target) }
+    } as DocumentUpdate<HulyIssue>)
     /* eslint-enable no-restricted-syntax */
 
-    return {
-      target: target.target,
-      issueId: DocId.make(issue._id),
-      created: true,
-      existing: false
-    }
+    return { target: target.target, issueId: DocId.make(issue._id), created: true, existing: false }
   })
 
 export const removeRecruitingRelatedIssue = (
   params: RemoveRecruitingRelatedIssueParams
 ): Effect.Effect<RemoveRecruitingRelatedIssueResult, HulyDomainError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const target = yield* resolveRecruitingTarget(client, params.target)
     const { issue, project } = yield* resolveRelatedIssue(params)
     if (!hasRelationById(issue.relations, target.objectId)) {
-      return {
-        target: target.target,
-        issueId: DocId.make(issue._id),
-        deleted: false
-      }
+      return { target: target.target, issueId: DocId.make(issue._id), deleted: false }
     }
 
     /* eslint-disable no-restricted-syntax -- see addRecruitingRelatedIssue */
-    yield* client.updateDoc(
-      tracker.class.Issue,
-      project._id,
-      issue._id,
-      { $pull: { relations: { _id: toRef<Doc>(target.objectId) } } } as DocumentUpdate<HulyIssue>
-    )
+    yield* client.updateDoc(tracker.class.Issue, project._id, issue._id, {
+      $pull: { relations: { _id: toRef<Doc>(target.objectId) } }
+    } as DocumentUpdate<HulyIssue>)
     /* eslint-enable no-restricted-syntax */
 
-    return {
-      target: target.target,
-      issueId: DocId.make(issue._id),
-      deleted: true
-    }
+    return { target: target.target, issueId: DocId.make(issue._id), deleted: true }
   })

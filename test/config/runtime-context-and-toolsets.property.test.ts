@@ -9,10 +9,9 @@ import { CATEGORY_NAMES, toolRegistry } from "../../src/mcp/tools/index.js"
 import { propertyTestParameters } from "../helpers/property.js"
 
 const secretArbitrary = fc.uuid().map((value) => `secret-${value}`)
-const hostnameArbitrary = fc.tuple(
-  fc.stringMatching(/^[a-z][a-z0-9]{0,8}$/),
-  fc.constantFrom("example.com", "huly.app", "internal.test")
-).map(([subdomain, domain]) => `${subdomain}.${domain}`)
+const hostnameArbitrary = fc
+  .tuple(fc.stringMatching(/^[a-z][a-z0-9]{0,8}$/), fc.constantFrom("example.com", "huly.app", "internal.test"))
+  .map(([subdomain, domain]) => `${subdomain}.${domain}`)
 const protocolArbitrary = fc.constantFrom("http", "https")
 const validTimeoutStringArbitrary = fc.integer({ min: 1, max: Number.MAX_SAFE_INTEGER }).map(String)
 const invalidNumericTimeoutStringArbitrary = fc.oneof(
@@ -92,13 +91,14 @@ describe("sanitized runtime context properties", () => {
         secretArbitrary,
         secretArbitrary,
         (host, protocol, user, password, token, querySecret) => {
-          const context = sanitizeHulyRuntimeConfigFromHeaders({
-            "x-huly-url": `${protocol}://${user}:${password}@${host}/path?token=${querySecret}#${querySecret}`,
-            "x-huly-workspace": "workspace",
-            "x-huly-token": token
-          }, {
-            HULY_TOKEN: `env-${token}`
-          })
+          const context = sanitizeHulyRuntimeConfigFromHeaders(
+            {
+              "x-huly-url": `${protocol}://${user}:${password}@${host}/path?token=${querySecret}#${querySecret}`,
+              "x-huly-workspace": "workspace",
+              "x-huly-token": token
+            },
+            { HULY_TOKEN: `env-${token}` }
+          )
 
           expectNoLeak(context, [user, password, token, `env-${token}`, querySecret])
           expect(context.huly.url).toEqual({
@@ -170,19 +170,19 @@ const knownCategories = [...CATEGORY_NAMES]
 const knownToolNames = toolRegistry.definitions.map((tool) => tool.name)
 const knownCategoryArbitrary = fc.constantFrom(...knownCategories)
 const knownToolNameArbitrary = fc.constantFrom(...knownToolNames)
-const unknownCategoryArbitrary = fc.stringMatching(/^[a-z][a-z0-9_-]{1,20}$/).filter(
-  (name) => !CATEGORY_NAMES.has(name)
-)
-const unknownToolNameArbitrary = fc.stringMatching(/^[a-z][a-z0-9_]{1,30}$/).filter(
-  (name) => !toolRegistry.tools.has(name)
-)
+const unknownCategoryArbitrary = fc
+  .stringMatching(/^[a-z][a-z0-9_-]{1,20}$/)
+  .filter((name) => !CATEGORY_NAMES.has(name))
+const unknownToolNameArbitrary = fc
+  .stringMatching(/^[a-z][a-z0-9_]{1,30}$/)
+  .filter((name) => !toolRegistry.tools.has(name))
 
 const decoratedCsv = (values: ReadonlyArray<string>): string =>
-  values.map((value, index) => index % 2 === 0 ? value.toUpperCase() : ` ${value} `).join(",")
+  values.map((value, index) => (index % 2 === 0 ? value.toUpperCase() : ` ${value} `)).join(",")
 
-const uniqueLower = (
-  values: ReadonlyArray<string>
-): ReadonlyArray<string> => [...new Set(values.map((value) => value.toLowerCase()))]
+const uniqueLower = (values: ReadonlyArray<string>): ReadonlyArray<string> => [
+  ...new Set(values.map((value) => value.toLowerCase()))
+]
 
 describe("tool scope parser properties", () => {
   it("normalizes and de-duplicates known and unknown toolsets and tools", () => {
@@ -193,10 +193,7 @@ describe("tool scope parser properties", () => {
         (requestedCategories, requestedTools) => {
           const warnings: Array<string> = []
           const result = resolveToolScope(
-            {
-              toolsets: decoratedCsv(requestedCategories),
-              tools: decoratedCsv(requestedTools)
-            },
+            { toolsets: decoratedCsv(requestedCategories), tools: decoratedCsv(requestedTools) },
             toolRegistry.definitions,
             (message) => {
               warnings.push(message)
@@ -226,19 +223,9 @@ describe("tool scope parser properties", () => {
         fc.array(unknownCategoryArbitrary, { minLength: 1, maxLength: 8 }),
         fc.array(unknownToolNameArbitrary, { maxLength: 8 }),
         (unknownCategories, unknownTools) => {
-          const inactive = resolveToolScope(
-            {
-              toolsets: "",
-              tools: ""
-            },
-            toolRegistry.definitions,
-            () => {}
-          )
+          const inactive = resolveToolScope({ toolsets: "", tools: "" }, toolRegistry.definitions, () => {})
           const activeInvalid = resolveToolScope(
-            {
-              toolsets: decoratedCsv(unknownCategories),
-              tools: decoratedCsv(unknownTools)
-            },
+            { toolsets: decoratedCsv(unknownCategories), tools: decoratedCsv(unknownTools) },
             toolRegistry.definitions,
             () => {}
           )

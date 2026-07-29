@@ -17,7 +17,7 @@ import {
 
 describe("clear-field update contract", () => {
   it.effect("accepts null for every clearable field added to the public update schemas", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const space = yield* parseUpdateSpaceParams({ description: null, space: "General" })
       const channel = yield* parseUpdateChannelParams({ channel: "general", topic: null })
       const event = yield* parseUpdateEventParams({ description: null, eventId: "event-1", location: null })
@@ -29,11 +29,7 @@ describe("clear-field update contract", () => {
         template: "Bug"
       })
       const component = yield* parseUpdateComponentParams({ component: "Backend", description: null, project: "TEST" })
-      const milestone = yield* parseUpdateMilestoneParams({
-        description: null,
-        milestone: "Sprint 1",
-        project: "TEST"
-      })
+      const milestone = yield* parseUpdateMilestoneParams({ description: null, milestone: "Sprint 1", project: "TEST" })
       const tag = yield* parseUpdateTagParams({ description: null, tag: "bug", targetClass: "tracker:class:Issue" })
       const label = yield* parseUpdateLabelParams({ description: null, label: "bug" })
       const card = yield* parseUpdateCardParams({ card: "Roadmap", cardSpace: "Cards", content: null })
@@ -50,5 +46,6 @@ describe("clear-field update contract", () => {
       expect(tag.description).toBeNull()
       expect(label.description).toBeNull()
       expect(card.content).toBeNull()
-    }))
+    })
+  )
 })

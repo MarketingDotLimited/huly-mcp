@@ -32,7 +32,7 @@ export const toDriveItemSummary = (
   path: string,
   client: HulyClientOperations
 ): Effect.Effect<DriveItemSummary, HulyClientError, HulyStorageClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const storage = yield* HulyStorageClient
     const currentVersion = isFile(item)
       ? yield* client.findOne<FileVersion>(drive.class.FileVersion, hulyQuery<FileVersion>({ _id: item.file }))
@@ -52,10 +52,10 @@ export const toDriveItemSummary = (
       ...(currentVersion === undefined
         ? {}
         : {
-          size: Count.make(currentVersion.size),
-          contentType: MimeType.make(currentVersion.type),
-          downloadUrl: UrlString.make(storage.getFileUrl(currentVersion.file))
-        })
+            size: Count.make(currentVersion.size),
+            contentType: MimeType.make(currentVersion.type),
+            downloadUrl: UrlString.make(storage.getFileUrl(currentVersion.file))
+          })
     }
   })
 

@@ -89,7 +89,7 @@ const resolveFilteredView = (
   filteredViews: ReadonlyArray<FilteredView>,
   identifier: FilteredViewIdentifier
 ): Effect.Effect<FilteredView, FilteredViewError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const value = String(identifier)
     const byId = filteredViews.filter((filteredView) => filteredView._id === value)
     const byIdMatch = byId[0]
@@ -107,7 +107,7 @@ const resolveViewlets = (
   viewlets: ReadonlyArray<Viewlet>,
   identifier: ViewletIdentifier | undefined
 ): Effect.Effect<Array<Viewlet>, ViewletError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (identifier === undefined) return [...viewlets]
     const value = String(identifier)
     const byId = viewlets.filter((item) => item._id === value)
@@ -161,8 +161,9 @@ const missingDescriptorIds = (
   viewlets: ReadonlyArray<Viewlet>,
   descriptorsById: ReadonlyMap<ViewletDescriptor["_id"], ViewletDescriptor>
 ): Array<ViewletDescriptor["_id"]> =>
-  [...new Set(viewlets.map((viewlet) => viewlet.descriptor))]
-    .filter((descriptorId) => !descriptorsById.has(descriptorId))
+  [...new Set(viewlets.map((viewlet) => viewlet.descriptor))].filter(
+    (descriptorId) => !descriptorsById.has(descriptorId)
+  )
 
 const warnMissingDescriptorMetadata = (
   diagnostics: Diagnostics["Type"],
@@ -171,16 +172,16 @@ const warnMissingDescriptorMetadata = (
   ids.length === 0
     ? Effect.void
     : diagnostics.warnAgent({
-      code: ViewletDescriptorMetadataDegradedWarningCode,
-      message: `Huly did not return descriptor metadata for ${ids.length} viewlet descriptor ref(s): ${
-        ids.join(", ")
-      }. The affected viewlets omit descriptorInfo; use descriptor ids, titles, and variants instead of inferring label or component metadata.`
-    })
+        code: ViewletDescriptorMetadataDegradedWarningCode,
+        message: `Huly did not return descriptor metadata for ${ids.length} viewlet descriptor ref(s): ${ids.join(
+          ", "
+        )}. The affected viewlets omit descriptorInfo; use descriptor ids, titles, and variants instead of inferring label or component metadata.`
+      })
 
 export const listFilteredViews = (
   params: ListFilteredViewsParams
 ): Effect.Effect<ListFilteredViewsResult, HulyClientError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const account = client.getAccountUuid()
     const nameSearch = params.nameSearch?.trim() ?? ""
@@ -188,11 +189,10 @@ export const listFilteredViews = (
       ...(params.attachedTo === undefined ? {} : { attachedTo: params.attachedTo }),
       ...(nameSearch === "" ? {} : { name: { $like: `%${escapeLikeWildcards(nameSearch)}%` } })
     }
-    const filteredViews = yield* client.findAll<FilteredView>(
-      view.class.FilteredView,
-      hulyQuery(query),
-      { sort: { modifiedOn: SortingOrder.Descending }, total: true }
-    )
+    const filteredViews = yield* client.findAll<FilteredView>(view.class.FilteredView, hulyQuery(query), {
+      sort: { modifiedOn: SortingOrder.Descending },
+      total: true
+    })
     const visible = filterByVisibility(filteredViews, params.visibility, account)
     const limited = visible.slice(0, clampLimit(params.limit))
     return {
@@ -204,15 +204,12 @@ export const listFilteredViews = (
 export const getFilteredView = (
   params: GetFilteredViewParams
 ): Effect.Effect<FilteredViewDetail, FilteredViewError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const query: StrictDocumentQuery<FilteredView> = {
       ...(params.attachedTo === undefined ? {} : { attachedTo: params.attachedTo })
     }
-    const filteredViews = yield* client.findAll<FilteredView>(
-      view.class.FilteredView,
-      hulyQuery(query)
-    )
+    const filteredViews = yield* client.findAll<FilteredView>(view.class.FilteredView, hulyQuery(query))
     const filteredView = yield* resolveFilteredView(filteredViews, params.filteredView)
     return toFilteredViewDetail(filteredView, client.getAccountUuid())
   })
@@ -220,31 +217,30 @@ export const getFilteredView = (
 export const listViewlets = (
   params: ListViewletsParams
 ): Effect.Effect<ListViewletsResult, ViewletError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const diagnostics = yield* Diagnostics
     const query: StrictDocumentQuery<Viewlet> = {
       ...(params.attachTo === undefined ? {} : { attachTo: toClassRef<Doc>(params.attachTo) })
     }
-    const allViewlets = yield* client.findAllInModel<Viewlet>(
-      view.class.Viewlet,
-      hulyQuery(query)
-    )
+    const allViewlets = yield* client.findAllInModel<Viewlet>(view.class.Viewlet, hulyQuery(query))
     const resolved = yield* resolveViewlets(allViewlets, params.viewlet)
     const limited = resolved.slice(0, clampLimit(params.limit))
     const descriptorIds = [...new Set(limited.map((item) => item.descriptor))]
-    const descriptors = descriptorIds.length === 0
-      ? []
-      : yield* client.findAllInModel<ViewletDescriptor>(
-        view.class.ViewletDescriptor,
-        hulyQuery<ViewletDescriptor>({ _id: { $in: descriptorIds } })
-      )
-    const preferences = limited.length === 0
-      ? []
-      : yield* client.findAll<ViewletPreference>(
-        view.class.ViewletPreference,
-        hulyQuery<ViewletPreference>({ attachedTo: { $in: limited.map((item) => item._id) } })
-      )
+    const descriptors =
+      descriptorIds.length === 0
+        ? []
+        : yield* client.findAllInModel<ViewletDescriptor>(
+            view.class.ViewletDescriptor,
+            hulyQuery<ViewletDescriptor>({ _id: { $in: descriptorIds } })
+          )
+    const preferences =
+      limited.length === 0
+        ? []
+        : yield* client.findAll<ViewletPreference>(
+            view.class.ViewletPreference,
+            hulyQuery<ViewletPreference>({ attachedTo: { $in: limited.map((item) => item._id) } })
+          )
     const descriptorsById = new Map(descriptors.map((descriptor) => [descriptor._id, descriptor]))
     yield* warnMissingDescriptorMetadata(diagnostics, missingDescriptorIds(limited, descriptorsById))
     const preferencesFor = (viewletId: Viewlet["_id"]) =>

@@ -22,7 +22,7 @@ import { parseJsonSchemaRecord } from "../../src/domain/schemas/json-schema.js"
 
 describe("approval request schemas", () => {
   it.effect("parses list/get approval request params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const listed = yield* parseListApprovalRequestsParams({
         status: "Active",
         attachedTo: "issue-1",
@@ -38,19 +38,21 @@ describe("approval request schemas", () => {
         limit: 10
       })
       expect(detailed.request).toBe("request-1")
-    }))
+    })
+  )
 
   it.effect("rejects unsupported statuses and empty ids", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const badStatus = yield* parseListApprovalRequestsParams({ status: "Pending" }).pipe(Effect.exit)
       const emptyRequest = yield* parseGetApprovalRequestParams({ request: "" }).pipe(Effect.exit)
 
       expect(Exit.isFailure(badStatus)).toBe(true)
       expect(Exit.isFailure(emptyRequest)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("parses approval request write params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const created = yield* parseAddApprovalRequestParams({
         attachedTo: "issue-1",
         attachedToClass: "tracker:class:Issue",
@@ -67,10 +69,11 @@ describe("approval request schemas", () => {
       expect(approved.comment).toBe("Approved")
       expect(rejected.comment).toBe("No")
       expect(cancelled.request).toBe("request-1")
-    }))
+    })
+  )
 
   it.effect("rejects empty requested people and missing rejection comments", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const noRequested = yield* parseAddApprovalRequestParams({
         attachedTo: "issue-1",
         attachedToClass: "tracker:class:Issue",
@@ -81,7 +84,8 @@ describe("approval request schemas", () => {
 
       expect(Exit.isFailure(noRequested)).toBe(true)
       expect(Exit.isFailure(noRejectComment)).toBe(true)
-    }))
+    })
+  )
 
   it("emits client-safe JSON Schema for approval request tool inputs", () => {
     expect(parseJsonSchemaRecord(listApprovalRequestsParamsJsonSchema)).toBeDefined()
@@ -89,37 +93,20 @@ describe("approval request schemas", () => {
     expect(parseJsonSchemaRecord(addApprovalRequestParamsJsonSchema)).toBeDefined()
     expect(listApprovalRequestsParamsJsonSchema).toMatchObject({
       type: "object",
-      properties: {
-        status: {},
-        attachedTo: {},
-        attachedToClass: {},
-        limit: {}
-      }
+      properties: { status: {}, attachedTo: {}, attachedToClass: {}, limit: {} }
     })
-    expect(getApprovalRequestParamsJsonSchema).toMatchObject({
-      type: "object",
-      required: ["request"]
-    })
+    expect(getApprovalRequestParamsJsonSchema).toMatchObject({ type: "object", required: ["request"] })
     expect(addApprovalRequestParamsJsonSchema).toMatchObject({
       type: "object",
       required: ["attachedTo", "attachedToClass", "requested", "tx"]
     })
-    expect(approveApprovalRequestParamsJsonSchema).toMatchObject({
-      type: "object",
-      required: ["request"]
-    })
-    expect(rejectApprovalRequestParamsJsonSchema).toMatchObject({
-      type: "object",
-      required: ["request", "comment"]
-    })
-    expect(cancelApprovalRequestParamsJsonSchema).toMatchObject({
-      type: "object",
-      required: ["request"]
-    })
+    expect(approveApprovalRequestParamsJsonSchema).toMatchObject({ type: "object", required: ["request"] })
+    expect(rejectApprovalRequestParamsJsonSchema).toMatchObject({ type: "object", required: ["request", "comment"] })
+    expect(cancelApprovalRequestParamsJsonSchema).toMatchObject({ type: "object", required: ["request"] })
   })
 
   it.effect("validates detail output while preserving opaque SDK tx payloads", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const decoded = yield* Schema.decodeUnknown(ApprovalRequestDetailSchema)({
         id: "request-1",
         class: "request:class:Request",
@@ -140,10 +127,11 @@ describe("approval request schemas", () => {
 
       expect(decoded.tx).toEqual({ _class: "core:class:Tx", nested: { objectId: "issue-1" } })
       expect(decoded.requested[0]?.email).toBe("jane@example.com")
-    }))
+    })
+  )
 
   it.effect("validates mutation output variants and rejects impossible action fields", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const decoded = yield* Schema.decodeUnknown(ApprovalRequestMutationResultSchema)({
         request: "request-1",
         action: "rejected",
@@ -166,5 +154,6 @@ describe("approval request schemas", () => {
         comment: "comment-1"
       })
       expect(Exit.isFailure(impossible)).toBe(true)
-    }))
+    })
+  )
 })

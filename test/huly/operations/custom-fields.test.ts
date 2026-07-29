@@ -83,28 +83,35 @@ const createTestLayer = (config: MockConfig) => {
     return Effect.succeed(config.doc)
   }) as HulyClientOperations["findOne"]
 
-  const updateDocImpl: HulyClientOperations["updateDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown, operations: unknown) => {
-      if (config.captureUpdateDoc) {
-        ;(config.captureUpdateDoc as { operations?: Record<string, unknown> }).operations = operations as Record<
-          string,
-          unknown
-        >
-      }
-      return Effect.succeed({} as never)
+  const updateDocImpl: HulyClientOperations["updateDoc"] = ((
+    _class: unknown,
+    _space: unknown,
+    _objectId: unknown,
+    operations: unknown
+  ) => {
+    if (config.captureUpdateDoc) {
+      ;(config.captureUpdateDoc as { operations?: Record<string, unknown> }).operations = operations as Record<
+        string,
+        unknown
+      >
     }
-  ) as HulyClientOperations["updateDoc"]
+    return Effect.succeed({} as never)
+  }) as HulyClientOperations["updateDoc"]
 
-  const updateMixinImpl: HulyClientOperations["updateMixin"] = (
-    (_objectId: unknown, _objectClass: unknown, _objectSpace: unknown, mixin: unknown, attributesUpdate: unknown) => {
-      if (config.captureUpdateMixin) {
-        ;(config.captureUpdateMixin as { mixin?: string; attributes?: Record<string, unknown> }).mixin = String(mixin)
-        ;(config.captureUpdateMixin as { mixin?: string; attributes?: Record<string, unknown> }).attributes =
-          attributesUpdate as Record<string, unknown>
-      }
-      return Effect.succeed({} as never)
+  const updateMixinImpl: HulyClientOperations["updateMixin"] = ((
+    _objectId: unknown,
+    _objectClass: unknown,
+    _objectSpace: unknown,
+    mixin: unknown,
+    attributesUpdate: unknown
+  ) => {
+    if (config.captureUpdateMixin) {
+      ;(config.captureUpdateMixin as { mixin?: string; attributes?: Record<string, unknown> }).mixin = String(mixin)
+      ;(config.captureUpdateMixin as { mixin?: string; attributes?: Record<string, unknown> }).attributes =
+        attributesUpdate as Record<string, unknown>
     }
-  ) as HulyClientOperations["updateMixin"]
+    return Effect.succeed({} as never)
+  }) as HulyClientOperations["updateMixin"]
 
   return HulyClient.testLayer({
     findAll: findAllImpl,
@@ -116,7 +123,7 @@ const createTestLayer = (config: MockConfig) => {
 
 describe("custom-fields operations", () => {
   it.effect("lists custom fields through the decoded metadata boundary", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const attr = makeAttribute({
         _id: "attr-enum",
         name: "priorityBand",
@@ -142,18 +149,14 @@ describe("custom-fields operations", () => {
           ownerClassId: "tracker:mixin:IssueTypeData",
           ownerLabel: "Issue Type Data",
           type: "enum",
-          typeDetails: {
-            _class: "core:class:EnumOf",
-            enumRef: "enum:priority",
-            label: "Priority",
-            of: "enum:priority"
-          }
+          typeDetails: { _class: "core:class:EnumOf", enumRef: "enum:priority", label: "Priority", of: "enum:priority" }
         }
       ])
-    }))
+    })
+  )
 
   it.effect("preserves typed custom field typeDetails for array, ref, and unknown metadata", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const attrs = [
         makeAttribute({
           _id: "attr-array",
@@ -175,9 +178,7 @@ describe("custom-fields operations", () => {
         })
       ]
 
-      const result = yield* listCustomFields({}).pipe(
-        Effect.provide(createTestLayer({ attributes: attrs }))
-      )
+      const result = yield* listCustomFields({}).pipe(Effect.provide(createTestLayer({ attributes: attrs })))
       const encoded = yield* Schema.encodeUnknown(ListCustomFieldsResultSchema)(result)
 
       expect(encoded).toEqual([
@@ -188,11 +189,7 @@ describe("custom-fields operations", () => {
           ownerClassId: "tracker:mixin:IssueTypeData",
           ownerLabel: "tracker:mixin:IssueTypeData",
           type: "array",
-          typeDetails: {
-            _class: "core:class:ArrOf",
-            itemLabel: "Reviewer",
-            of: { _class: "core:class:TypeString" }
-          }
+          typeDetails: { _class: "core:class:ArrOf", itemLabel: "Reviewer", of: { _class: "core:class:TypeString" } }
         },
         {
           id: "attr-ref",
@@ -213,10 +210,11 @@ describe("custom-fields operations", () => {
           typeDetails: { _class: "custom:class:Weird", foo: "bar" }
         }
       ])
-    }))
+    })
+  )
 
   it.effect("reads custom field values from a decoded document map", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const attr = makeAttribute({
         _id: "attr-bool",
         name: "qaApproved",
@@ -230,18 +228,12 @@ describe("custom-fields operations", () => {
         objectClass: objectClassName("tracker:class:Issue")
       }).pipe(Effect.provide(createTestLayer({ attributes: [attr], doc })))
 
-      expect(result).toEqual([
-        {
-          fieldId: "attr-bool",
-          label: "QA Approved",
-          value: true,
-          type: "boolean"
-        }
-      ])
-    }))
+      expect(result).toEqual([{ fieldId: "attr-bool", label: "QA Approved", value: true, type: "boolean" }])
+    })
+  )
 
   it.effect("sets custom field values through mixin updates with parsed values", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const attr = makeAttribute({
         _id: "attr-bool",
         name: "qaApproved",
@@ -261,16 +253,7 @@ describe("custom-fields operations", () => {
         objectClass: objectClassName("tracker:class:Issue"),
         fieldId: customFieldId("attr-bool"),
         value: "true"
-      }).pipe(
-        Effect.provide(
-          createTestLayer({
-            attributes: [attr],
-            doc,
-            classDocs: [ownerClass],
-            captureUpdateMixin
-          })
-        )
-      )
+      }).pipe(Effect.provide(createTestLayer({ attributes: [attr], doc, classDocs: [ownerClass], captureUpdateMixin })))
 
       expect(result).toEqual({
         objectId: "issue-1",
@@ -281,10 +264,11 @@ describe("custom-fields operations", () => {
       })
       expect(captureUpdateMixin.mixin).toBe("tracker:mixin:IssueTypeData")
       expect(captureUpdateMixin.attributes).toEqual({ qaApproved: true })
-    }))
+    })
+  )
 
   it.effect("parses strict ISO calendar and epoch-millisecond date values before updating Huly", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const attr = makeAttribute({
         _id: "attr-date",
         name: "targetDate",
@@ -296,11 +280,7 @@ describe("custom-fields operations", () => {
         label: "tracker:class:Issue Type Data",
         kind: ClassifierKind.MIXIN
       })
-      const baseConfig = {
-        attributes: [attr],
-        doc: makeDoc({ _id: "issue-1" }),
-        classDocs: [ownerClass]
-      }
+      const baseConfig = { attributes: [attr], doc: makeDoc({ _id: "issue-1" }), classDocs: [ownerClass] }
       const isoCapture: { attributes?: Record<string, unknown> } = {}
       const isoResult = yield* setCustomField({
         objectId: docId("issue-1"),
@@ -322,19 +302,13 @@ describe("custom-fields operations", () => {
 
       expect(epochResult.value).toBe(1_719_792_000_000)
       expect(epochCapture.attributes).toEqual({ targetDate: 1_719_792_000_000 })
-    }))
+    })
+  )
 
   it.effect("rejects invalid and timezone-adjacent date values before any Huly update", () =>
-    Effect.gen(function*() {
-      const attr = makeAttribute({
-        _id: "attr-date",
-        name: "targetDate",
-        type: { _class: "core:class:TypeDate" }
-      })
-      const ownerClass = makeDoc({
-        _id: "tracker:mixin:IssueTypeData",
-        kind: ClassifierKind.MIXIN
-      })
+    Effect.gen(function* () {
+      const attr = makeAttribute({ _id: "attr-date", name: "targetDate", type: { _class: "core:class:TypeDate" } })
+      const ownerClass = makeDoc({ _id: "tracker:mixin:IssueTypeData", kind: ClassifierKind.MIXIN })
       const invalidValues = [
         "",
         " ",
@@ -372,12 +346,13 @@ describe("custom-fields operations", () => {
         expect(error._tag).toBe("InvalidCustomFieldDateValueError")
         expect(captureUpdateMixin.attributes).toBeUndefined()
       }
-    }))
+    })
+  )
 })
 
 describe("custom-fields branch coverage", () => {
   it.effect("lists primitive string and number fields filtered by targetClass", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const attrs = [
         makeAttribute({
           _id: "attr-str",
@@ -396,16 +371,18 @@ describe("custom-fields branch coverage", () => {
         Effect.provide(createTestLayer({ attributes: attrs }))
       )
       expect(result.map((field) => field.type)).toEqual(["string", "number"])
-    }))
+    })
+  )
 
   it.effect("returns an empty list when there are no custom attributes", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listCustomFields({}).pipe(Effect.provide(createTestLayer({ attributes: [] })))
       expect(result).toEqual([])
-    }))
+    })
+  )
 
   it.effect("falls back to the attribute name when the label cannot be decoded", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const attr = makeAttribute({
         _id: "attr-raw",
         name: "raw",
@@ -414,10 +391,11 @@ describe("custom-fields branch coverage", () => {
       })
       const result = yield* listCustomFields({}).pipe(Effect.provide(createTestLayer({ attributes: [attr] })))
       expect(result[0]?.label).toBe("raw")
-    }))
+    })
+  )
 
   it.effect("defaults a non-numeric class kind to CLASS when resolving owner labels", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const attr = makeAttribute({
         _id: "attr-c",
         name: "c",
@@ -429,21 +407,22 @@ describe("custom-fields branch coverage", () => {
         Effect.provide(createTestLayer({ attributes: [attr], classDocs: [ownerClass] }))
       )
       expect(result[0]?.ownerLabel).toBe("Issue")
-    }))
+    })
+  )
 
   it.effect("reports object-not-found when reading values for a missing document", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
-        getCustomFieldValues({
-          objectId: docId("ghost"),
-          objectClass: objectClassName("tracker:class:Issue")
-        }).pipe(Effect.provide(createTestLayer({ attributes: [], doc: undefined })))
+        getCustomFieldValues({ objectId: docId("ghost"), objectClass: objectClassName("tracker:class:Issue") }).pipe(
+          Effect.provide(createTestLayer({ attributes: [], doc: undefined }))
+        )
       )
       expect(error._tag).toBe("CustomFieldObjectNotFoundError")
-    }))
+    })
+  )
 
   it.effect("reports field-not-found when setting an unknown field", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const error = yield* Effect.flip(
         setCustomField({
           objectId: docId("issue-1"),
@@ -453,10 +432,11 @@ describe("custom-fields branch coverage", () => {
         }).pipe(Effect.provide(createTestLayer({ attributes: [], doc: makeDoc() })))
       )
       expect(error._tag).toBe("CustomFieldNotFoundError")
-    }))
+    })
+  )
 
   it.effect("reports object-not-found when setting a field on a missing document", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const attr = makeAttribute({ _id: "attr-1", type: { _class: "core:class:TypeString" } })
       const error = yield* Effect.flip(
         setCustomField({
@@ -467,10 +447,11 @@ describe("custom-fields branch coverage", () => {
         }).pipe(Effect.provide(createTestLayer({ attributes: [attr], doc: undefined })))
       )
       expect(error._tag).toBe("CustomFieldObjectNotFoundError")
-    }))
+    })
+  )
 
   it.effect("updates a non-mixin field via updateDoc with a string value", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const attr = makeAttribute({
         _id: "attr-str",
         name: "code",
@@ -487,10 +468,11 @@ describe("custom-fields branch coverage", () => {
       }).pipe(Effect.provide(createTestLayer({ attributes: [attr], doc, classDocs: [], captureUpdateDoc })))
       expect(result.value).toBe("ABC")
       expect(captureUpdateDoc.operations).toEqual({ code: "ABC" })
-    }))
+    })
+  )
 
   it.effect("parses numeric and non-numeric values for a number field", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const attr = makeAttribute({ _id: "attr-num", name: "points", type: { _class: "core:class:TypeNumber" } })
       const ownerClass = makeDoc({
         _id: "tracker:mixin:IssueTypeData",
@@ -517,5 +499,6 @@ describe("custom-fields branch coverage", () => {
         value: "not-a-number"
       }).pipe(Effect.provide(createTestLayer(baseConfig)))
       expect(fallback.value).toBe("not-a-number")
-    }))
+    })
+  )
 })

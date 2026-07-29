@@ -48,7 +48,7 @@ const toResult = (
 export const createGroupDirectMessage = (
   params: CreateGroupDirectMessageParams
 ): Effect.Effect<CreateGroupDirectMessageResult, CreateGroupDirectMessageError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const me = client.getAccountUuid()
     const resolved = yield* Effect.forEach(params.people, (person) => resolveEmployeeAccountUuid(client, person))

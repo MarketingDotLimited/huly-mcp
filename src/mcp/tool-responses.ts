@@ -3,11 +3,7 @@ import { Schema } from "effect"
 import { type McpImageContent, McpImageContentSchema } from "../domain/schemas/attachments.js"
 import type { ToolWarning } from "../domain/schemas/tool-warnings.js"
 
-export const McpErrorCode = {
-  InvalidParams: -32602,
-  InternalError: -32603,
-  ResourceNotFound: -32002
-} as const
+export const McpErrorCode = { InvalidParams: -32602, InternalError: -32603, ResourceNotFound: -32002 } as const
 export type McpErrorCode = (typeof McpErrorCode)[keyof typeof McpErrorCode]
 
 interface ErrorMetadata {
@@ -25,10 +21,7 @@ interface McpToolResponseBase {
 }
 
 interface McpToolSuccessResponse extends McpToolResponseBase {
-  structuredContent?: {
-    readonly result: unknown
-    readonly warnings?: ReadonlyArray<ToolWarning>
-  }
+  structuredContent?: { readonly result: unknown; readonly warnings?: ReadonlyArray<ToolWarning> }
   readonly imageContent?: McpImageContent
   readonly isError?: false
 }
@@ -43,10 +36,7 @@ export type McpToolResponse = McpToolSuccessResponse | McpToolErrorResponse
 type McpWireImageContent = Schema.Schema.Encoded<typeof McpImageContentSchema>
 type McpWireSuccessResponse = {
   readonly content: [McpTextContent, ...Array<McpTextContent | McpWireImageContent>]
-  readonly structuredContent?: {
-    readonly result: unknown
-    readonly warnings?: ReadonlyArray<ToolWarning>
-  }
+  readonly structuredContent?: { readonly result: unknown; readonly warnings?: ReadonlyArray<ToolWarning> }
   readonly isError?: false
 }
 type McpWireErrorResponse = Omit<McpToolErrorResponse, "_meta">
@@ -87,19 +77,14 @@ const createSuccessResponseBase = <T>(
   structuredContent: warnings.length > 0 ? { result, warnings } : { result }
 })
 
-export const createSuccessResponse = <T>(
-  result: T,
-  warnings: ReadonlyArray<ToolWarning> = []
-): McpToolResponse => createSuccessResponseBase(result, warnings)
+export const createSuccessResponse = <T>(result: T, warnings: ReadonlyArray<ToolWarning> = []): McpToolResponse =>
+  createSuccessResponseBase(result, warnings)
 
 export const createImageSuccessResponse = <T>(
   result: T,
   imageContent: McpImageContent,
   warnings: ReadonlyArray<ToolWarning> = []
-): McpToolResponse => ({
-  ...createSuccessResponseBase(result, warnings),
-  imageContent
-})
+): McpToolResponse => ({ ...createSuccessResponseBase(result, warnings), imageContent })
 
 const appendWarningContent = (
   content: McpTextContentList,
@@ -117,20 +102,14 @@ export const appendToolWarnings = (
 ): McpToolResponse => {
   if (warnings.length === 0) return response
   if (response.isError === true || response.structuredContent === undefined) {
-    return {
-      ...response,
-      content: appendWarningContent(response.content, warnings, false)
-    }
+    return { ...response, content: appendWarningContent(response.content, warnings, false) }
   }
   const existingWarnings = response.structuredContent.warnings ?? []
   const combinedWarnings = [...existingWarnings, ...warnings]
   return {
     ...response,
     content: appendWarningContent(response.content, combinedWarnings, existingWarnings.length > 0),
-    structuredContent: {
-      result: response.structuredContent.result,
-      warnings: combinedWarnings
-    }
+    structuredContent: { result: response.structuredContent.result, warnings: combinedWarnings }
   }
 }
 
@@ -145,15 +124,13 @@ export function toMcpResponse(response: McpToolSuccessResponse): McpWireSuccessR
 export function toMcpResponse(response: McpToolResponse): McpWireResponse
 export function toMcpResponse(response: McpToolResponse): McpWireResponse {
   return response.isError === true
-    ? {
-      content: response.content,
-      isError: true
-    }
+    ? { content: response.content, isError: true }
     : {
-      content: response.imageContent === undefined
-        ? response.content
-        : [...response.content, Schema.encodeSync(McpImageContentSchema)(response.imageContent)],
-      ...(response.structuredContent === undefined ? {} : { structuredContent: response.structuredContent }),
-      ...(response.isError === undefined ? {} : { isError: response.isError })
-    }
+        content:
+          response.imageContent === undefined
+            ? response.content
+            : [...response.content, Schema.encodeSync(McpImageContentSchema)(response.imageContent)],
+        ...(response.structuredContent === undefined ? {} : { structuredContent: response.structuredContent }),
+        ...(response.isError === undefined ? {} : { isError: response.isError })
+      }
 }

@@ -22,20 +22,16 @@ export const PreviewDeletionParamsSchema = Schema.Struct({
     description:
       "Entity identifier within the project. Required for issue (e.g., 'PROJ-123' or number), component (label or ID), milestone (label or ID). Ignored for entityType='project'."
   })
-}).pipe(
-  Schema.filter((params) => {
-    if (params.entityType !== "project" && (params.identifier === undefined || params.identifier.trim() === "")) {
-      return {
-        path: ["identifier"],
-        message: `identifier is required when entityType is '${params.entityType}'`
-      }
-    }
-    return undefined
-  })
-).annotations({
-  title: "PreviewDeletionParams",
-  description: "Parameters for previewing deletion impact"
 })
+  .pipe(
+    Schema.filter((params) => {
+      if (params.entityType !== "project" && (params.identifier === undefined || params.identifier.trim() === "")) {
+        return { path: ["identifier"], message: `identifier is required when entityType is '${params.entityType}'` }
+      }
+      return undefined
+    })
+  )
+  .annotations({ title: "PreviewDeletionParams", description: "Parameters for previewing deletion impact" })
 
 export type PreviewDeletionParams = Schema.Schema.Type<typeof PreviewDeletionParamsSchema>
 export const DeletionImpactSchema = Schema.Struct({

@@ -30,17 +30,15 @@ import { toRef } from "./sdk-boundary.js"
 type ListProjectTargetPreferencesError = HulyClientError | ProjectNotFoundError
 type UpsertProjectTargetPreferenceError = HulyClientError | ProjectNotFoundError
 
-type ProjectTargetPreferenceProjection =
-  & Pick<HulyProjectTargetPreference, "_id" | "attachedTo" | "usedOn">
-  & {
-    readonly props?: HulyProjectTargetPreference["props"] | undefined
-  }
+type ProjectTargetPreferenceProjection = Pick<HulyProjectTargetPreference, "_id" | "attachedTo" | "usedOn"> & {
+  readonly props?: HulyProjectTargetPreference["props"] | undefined
+}
 
 const projectMapById = (
   client: HulyClient["Type"],
   ids: ReadonlyArray<Ref<HulyProject>>
 ): Effect.Effect<ReadonlyMap<Ref<HulyProject>, HulyProject>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const uniqueIds = [...new Set(ids)]
     if (uniqueIds.length === 0) return new Map<Ref<HulyProject>, HulyProject>()
 
@@ -84,17 +82,18 @@ const mergeProps = (
 export const listProjectTargetPreferences = (
   params: ListProjectTargetPreferencesParams
 ): Effect.Effect<ListProjectTargetPreferencesResult, ListProjectTargetPreferencesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = params.project === undefined ? undefined : (yield* findProject(params.project)).project
     const preferences = yield* client.findAll<HulyProjectTargetPreference>(
       tracker.class.ProjectTargetPreference,
-      hulyQuery<HulyProjectTargetPreference>(
-        project === undefined ? {} : { attachedTo: project._id }
-      ),
+      hulyQuery<HulyProjectTargetPreference>(project === undefined ? {} : { attachedTo: project._id }),
       { limit: clampLimit(params.limit), sort: { usedOn: SortingOrder.Descending }, total: true }
     )
-    const projects = yield* projectMapById(client, preferences.map((preference) => preference.attachedTo))
+    const projects = yield* projectMapById(
+      client,
+      preferences.map((preference) => preference.attachedTo)
+    )
 
     return {
       preferences: preferences.map((preference) => preferenceResult(preference, projects.get(preference.attachedTo))),
@@ -105,7 +104,7 @@ export const listProjectTargetPreferences = (
 export const upsertProjectTargetPreference = (
   params: UpsertProjectTargetPreferenceParams
 ): Effect.Effect<UpsertProjectTargetPreferenceResult, UpsertProjectTargetPreferenceError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, project } = yield* findProject(params.project)
     const usedOn = yield* Clock.currentTimeMillis
     const existing = yield* client.findOne<HulyProjectTargetPreference>(
@@ -120,31 +119,15 @@ export const upsertProjectTargetPreference = (
         usedOn,
         props: mergeProps(undefined, params.props)
       }
-      yield* client.createDoc(
-        tracker.class.ProjectTargetPreference,
-        toRef<Space>(project._id),
-        data,
-        preferenceId
-      )
-      return {
-        preference: preferenceResult({ ...data, _id: preferenceId }, project),
-        created: true
-      }
+      yield* client.createDoc(tracker.class.ProjectTargetPreference, toRef<Space>(project._id), data, preferenceId)
+      return { preference: preferenceResult({ ...data, _id: preferenceId }, project), created: true }
     }
 
     const update: DocumentUpdate<HulyProjectTargetPreference> = {
       usedOn,
       props: mergeProps(existing.props, params.props)
     }
-    yield* client.updateDoc(
-      tracker.class.ProjectTargetPreference,
-      toRef<Space>(existing.space),
-      existing._id,
-      update
-    )
+    yield* client.updateDoc(tracker.class.ProjectTargetPreference, toRef<Space>(existing.space), existing._id, update)
 
-    return {
-      preference: preferenceResult({ ...existing, ...update }, project),
-      created: false
-    }
+    return { preference: preferenceResult({ ...existing, ...update }, project), created: false }
   })

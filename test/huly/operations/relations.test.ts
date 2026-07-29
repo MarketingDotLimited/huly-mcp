@@ -28,23 +28,24 @@ const stringRecordValue = (value: unknown, key: string): string | undefined => {
 
 const inQueryValues = (value: unknown): ReadonlyArray<string> | undefined => {
   const values = recordValue(value, "$in")
-  return Array.isArray(values) && values.every(item => typeof item === "string") ? values : undefined
+  return Array.isArray(values) && values.every((item) => typeof item === "string") ? values : undefined
 }
 
 const hasBlockedByRelatedDocQuery = (query: unknown, id: string): boolean => {
   const blockedBy = recordValue(query, "blockedBy")
-  return recordValue(blockedBy, "_id") === id
-    && recordValue(blockedBy, "_class") === tracker.class.Issue
+  return recordValue(blockedBy, "_id") === id && recordValue(blockedBy, "_class") === tracker.class.Issue
 }
 
 const hasBlockedByDotQuery = (query: unknown, id: string): boolean => recordValue(query, "blockedBy._id") === id
 
 const hasBlockingIssueProjection = (options: unknown): boolean => {
   const projection = recordValue(options, "projection")
-  return recordValue(projection, "_id") === 1
-    && recordValue(projection, "_class") === 1
-    && recordValue(projection, "identifier") === 1
-    && recordValue(projection, "blockedBy") === 1
+  return (
+    recordValue(projection, "_id") === 1 &&
+    recordValue(projection, "_class") === 1 &&
+    recordValue(projection, "identifier") === 1 &&
+    recordValue(projection, "blockedBy") === 1
+  )
 }
 
 const makeProject = (overrides?: Partial<HulyProject>): HulyProject => {
@@ -138,17 +139,8 @@ interface MockConfig {
   issues?: Array<HulyIssue>
   documents?: Array<HulyDocument>
   teamspaces?: Array<HulyTeamspace>
-  capturedFindAllQueries?: Array<{
-    _class: unknown
-    query: unknown
-    options: unknown
-  }>
-  capturedUpdateDocs?: Array<{
-    _class: unknown
-    space: unknown
-    objectId: unknown
-    operations: unknown
-  }>
+  capturedFindAllQueries?: Array<{ _class: unknown; query: unknown; options: unknown }>
+  capturedUpdateDocs?: Array<{ _class: unknown; space: unknown; objectId: unknown; operations: unknown }>
 }
 
 const createTestLayerWithMocks = (config: MockConfig) => {
@@ -164,12 +156,12 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     if (_class === tracker.class.Issue) {
       const inValues = inQueryValues(recordValue(query, "_id"))
       if (inValues !== undefined) {
-        const filtered = issues.filter(i => inValues.includes(i._id))
+        const filtered = issues.filter((i) => inValues.includes(i._id))
         return Effect.succeed(toFindResult(filtered))
       }
       const blockedByRelatedId = stringRecordValue(recordValue(query, "blockedBy"), "_id")
       if (blockedByRelatedId !== undefined) {
-        const filtered = issues.filter(i => i.blockedBy?.some(ref => ref._id === blockedByRelatedId))
+        const filtered = issues.filter((i) => i.blockedBy?.some((ref) => ref._id === blockedByRelatedId))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(issues))
@@ -177,14 +169,14 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     if (_class === documentPlugin.class.Document) {
       const inValues = inQueryValues(recordValue(query, "_id"))
       if (inValues !== undefined) {
-        const filtered = documents.filter(d => inValues.includes(d._id))
+        const filtered = documents.filter((d) => inValues.includes(d._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(documents))
     }
     if (_class === documentPlugin.class.Teamspace) {
       const inValues = inQueryValues(recordValue(query, "_id"))
-      const filtered = inValues === undefined ? teamspaces : teamspaces.filter(ts => inValues.includes(ts._id))
+      const filtered = inValues === undefined ? teamspaces : teamspaces.filter((ts) => inValues.includes(ts._id))
       return Effect.succeed(toFindResult(filtered))
     }
     return Effect.succeed(toFindResult([]))
@@ -193,15 +185,14 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === tracker.class.Project) {
       const identifier = (query as Record<string, unknown>).identifier as string
-      const found = projects.find(p => p.identifier === identifier)
+      const found = projects.find((p) => p.identifier === identifier)
       return Effect.succeed(found)
     }
     if (_class === tracker.class.Issue) {
       const q = query as Record<string, unknown>
       if (q.identifier || q.number) {
-        const found = issues.find(i =>
-          (q.identifier && i.identifier === q.identifier)
-          || (q.number && i.number === q.number)
+        const found = issues.find(
+          (i) => (q.identifier && i.identifier === q.identifier) || (q.number && i.number === q.number)
         )
         return Effect.succeed(found)
       }
@@ -220,16 +211,12 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     return Effect.succeed({} as TxResult)
   }) as HulyClientOperations["updateDoc"]
 
-  return HulyClient.testLayer({
-    findAll: findAllImpl,
-    findOne: findOneImpl,
-    updateDoc: updateDocImpl
-  })
+  return HulyClient.testLayer({ findAll: findAllImpl, findOne: findOneImpl, updateDoc: updateDocImpl })
 }
 
 describe("addIssueRelation", () => {
   it.effect("uses same-project lookup when the target identifier has no parseable project prefix", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const source = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -251,10 +238,11 @@ describe("addIssueRelation", () => {
       )
 
       expect(error._tag).toBe("IssueNotFoundError")
-    }))
+    })
+  )
 
   it.effect("adds 'blocks' relation — pushes source into target's blockedBy", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const source = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -294,10 +282,11 @@ describe("addIssueRelation", () => {
       expect(pushOps.blockedBy).toBeDefined()
       const pushed = pushOps.blockedBy as { _id: string }
       expect(pushed._id).toBe("issue-1")
-    }))
+    })
+  )
 
   it.effect("adds 'is-blocked-by' relation — pushes target into source's blockedBy", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const source = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -332,10 +321,11 @@ describe("addIssueRelation", () => {
       const pushOps = ops.$push as Record<string, unknown>
       const pushed = pushOps.blockedBy as { _id: string }
       expect(pushed._id).toBe("issue-2")
-    }))
+    })
+  )
 
   it.effect("adds 'relates-to' relation — bidirectional, two updateDoc calls", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const source = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -373,10 +363,11 @@ describe("addIssueRelation", () => {
       expect(assertAt(captured, 1).objectId).toBe("issue-2")
       const ops1 = assertAt(captured, 1).operations as DocumentUpdate<HulyIssue>
       expect(assertExists((ops1.$push as Record<string, { _id: string }>).relations)._id).toBe("issue-1")
-    }))
+    })
+  )
 
   it.effect("returns added=false when 'blocks' relation already exists", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const source = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -407,10 +398,11 @@ describe("addIssueRelation", () => {
 
       expect(result.added).toBe(false)
       expect(captured).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("returns added=false when 'relates-to' relation already exists", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const source = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -442,18 +434,13 @@ describe("addIssueRelation", () => {
 
       expect(result.added).toBe(false)
       expect(captured).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("resolves cross-project target identifiers", () =>
-    Effect.gen(function*() {
-      const sourceProject = makeProject({
-        _id: "proj-1" as Ref<HulyProject>,
-        identifier: "SRC"
-      })
-      const targetProject = makeProject({
-        _id: "proj-2" as Ref<HulyProject>,
-        identifier: "TGT"
-      })
+    Effect.gen(function* () {
+      const sourceProject = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "SRC" })
+      const targetProject = makeProject({ _id: "proj-2" as Ref<HulyProject>, identifier: "TGT" })
       const source = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
         space: "proj-1" as Ref<HulyProject>,
@@ -484,12 +471,13 @@ describe("addIssueRelation", () => {
       expect(result.targetIssue).toBe("TGT-5")
       expect(captured).toHaveLength(1)
       expect(assertAt(captured, 0).objectId).toBe("issue-2")
-    }))
+    })
+  )
 })
 
 describe("removeIssueRelation", () => {
   it.effect("removes 'blocks' relation — pulls from target's blockedBy", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const source = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -527,10 +515,11 @@ describe("removeIssueRelation", () => {
       expect(pullOps.blockedBy).toBeDefined()
       const pulled = pullOps.blockedBy as { _id: string }
       expect(pulled._id).toBe("issue-1")
-    }))
+    })
+  )
 
   it.effect("removes 'is-blocked-by' relation — pulls from source's blockedBy", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const source = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -566,10 +555,11 @@ describe("removeIssueRelation", () => {
       const pullOps = ops.$pull as Record<string, unknown>
       const pulled = pullOps.blockedBy as { _id: string }
       expect(pulled._id).toBe("issue-2")
-    }))
+    })
+  )
 
   it.effect("removes 'relates-to' relation — pulls from both sides", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const source = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -609,10 +599,11 @@ describe("removeIssueRelation", () => {
       expect(assertAt(captured, 1).objectId).toBe("issue-2")
       const ops1 = assertAt(captured, 1).operations as DocumentUpdate<HulyIssue>
       expect(assertExists((ops1.$pull as Record<string, { _id: string }>).relations)._id).toBe("issue-1")
-    }))
+    })
+  )
 
   it.effect("returns removed=false when relation doesn't exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const source = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -642,12 +633,13 @@ describe("removeIssueRelation", () => {
 
       expect(result.removed).toBe(false)
       expect(captured).toHaveLength(0)
-    }))
+    })
+  )
 })
 
 describe("listIssueRelations", () => {
   it.effect("returns resolved relations with identifiers", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -669,10 +661,7 @@ describe("listIssueRelations", () => {
         identifier: "TEST-3",
         number: 3
       })
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue, blocker, related]
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue, blocker, related] })
 
       const result = yield* listIssueRelations({
         project: projectIdentifier("TEST"),
@@ -687,10 +676,11 @@ describe("listIssueRelations", () => {
       expect(assertAt(result.relations, 0).identifier).toBe("TEST-3")
       expect(assertAt(result.relations, 0)._id).toBe("issue-3")
       expect(result.documents).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("resolves document relations and falls back when a document is missing", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -733,10 +723,11 @@ describe("listIssueRelations", () => {
         title: "doc-missing",
         teamspace: "doc-missing"
       })
-    }))
+    })
+  )
 
   it.effect("skips the teamspace lookup when no related document resolves", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -755,10 +746,11 @@ describe("listIssueRelations", () => {
 
       expect(result.documents).toHaveLength(1)
       expect(assertAt(result.documents, 0)).toMatchObject({ _id: "doc-gone", title: "doc-gone", teamspace: "doc-gone" })
-    }))
+    })
+  )
 
   it.effect("returns issues blocked by the current issue", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -794,14 +786,15 @@ describe("listIssueRelations", () => {
       expect(capturedFindAllQueries.some(({ query }) => hasBlockedByRelatedDocQuery(query, "issue-1"))).toBe(true)
       expect(capturedFindAllQueries.some(({ query }) => hasBlockedByDotQuery(query, "issue-1"))).toBe(false)
       expect(
-        capturedFindAllQueries.some(({ options, query }) =>
-          hasBlockedByRelatedDocQuery(query, "issue-1") && hasBlockingIssueProjection(options)
+        capturedFindAllQueries.some(
+          ({ options, query }) => hasBlockedByRelatedDocQuery(query, "issue-1") && hasBlockingIssueProjection(options)
         )
       ).toBe(true)
-    }))
+    })
+  )
 
   it.effect("returns empty arrays when no relations exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -809,10 +802,7 @@ describe("listIssueRelations", () => {
         identifier: "TEST-1",
         number: 1
       })
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue]
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue] })
 
       const result = yield* listIssueRelations({
         project: projectIdentifier("TEST"),
@@ -823,10 +813,11 @@ describe("listIssueRelations", () => {
       expect(result.blocks).toHaveLength(0)
       expect(result.relations).toHaveLength(0)
       expect(result.documents).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("falls back to _id when issue is not resolvable", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -835,10 +826,7 @@ describe("listIssueRelations", () => {
         number: 1,
         blockedBy: [{ _id: "deleted-issue" as Ref<Doc>, _class: tracker.class.Issue }]
       })
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue]
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue] })
 
       const result = yield* listIssueRelations({
         project: projectIdentifier("TEST"),
@@ -849,10 +837,11 @@ describe("listIssueRelations", () => {
       expect(assertAt(result.blockedBy, 0).identifier).toBe("deleted-issue")
       expect(assertAt(result.blockedBy, 0)._id).toBe("deleted-issue")
       expect(result.documents).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("partitions document refs from issue refs in relations", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -900,7 +889,8 @@ describe("listIssueRelations", () => {
       expect(assertAt(result.documents, 0).title).toBe("My Spec")
       expect(assertAt(result.documents, 0)._id).toBe("doc-1")
       expect(assertAt(result.documents, 0)._class).toBe(String(documentPlugin.class.Document))
-    }))
+    })
+  )
 })
 
 describe("relation state branch coverage", () => {
@@ -914,7 +904,7 @@ describe("relation state branch coverage", () => {
     })
 
   it.effect("returns added=false when an 'is-blocked-by' relation already exists", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const source = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
         space: "proj-1" as Ref<HulyProject>,
@@ -935,10 +925,11 @@ describe("relation state branch coverage", () => {
       )
       expect(result.added).toBe(false)
       expect(captured).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("returns removed=false when an 'is-blocked-by' relation is absent", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const source = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
         space: "proj-1" as Ref<HulyProject>,
@@ -958,10 +949,11 @@ describe("relation state branch coverage", () => {
       )
       expect(result.removed).toBe(false)
       expect(captured).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("returns removed=false when a 'relates-to' relation is absent", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const source = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
         space: "proj-1" as Ref<HulyProject>,
@@ -981,5 +973,6 @@ describe("relation state branch coverage", () => {
       )
       expect(result.removed).toBe(false)
       expect(captured).toHaveLength(0)
-    }))
+    })
+  )
 })

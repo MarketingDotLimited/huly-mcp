@@ -14,61 +14,37 @@ import {
 } from "./shared.js"
 
 const CardCommentTargetFields = {
-  cardSpace: CardSpaceIdentifier.annotations({
-    description: "Card space name or ID"
-  }),
-  card: CardIdentifier.annotations({
-    description: "Card title or ID"
-  })
+  cardSpace: CardSpaceIdentifier.annotations({ description: "Card space name or ID" }),
+  card: CardIdentifier.annotations({ description: "Card title or ID" })
 } as const
 
 export const ListCardCommentsParamsSchema = Schema.Struct({
   ...CardCommentTargetFields,
   limit: Schema.optional(
-    LimitParam.annotations({
-      description: `Maximum number of comments to return (default: ${DEFAULT_LIMIT})`
-    })
+    LimitParam.annotations({ description: `Maximum number of comments to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({
-  title: "ListCardCommentsParams",
-  description: "Parameters for listing comments on a card"
-})
+}).annotations({ title: "ListCardCommentsParams", description: "Parameters for listing comments on a card" })
 export type ListCardCommentsParams = Schema.Schema.Type<typeof ListCardCommentsParamsSchema>
 
 export const AddCardCommentParamsSchema = Schema.Struct({
   ...CardCommentTargetFields,
-  body: NonEmptyString.annotations({
-    description: `Comment body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
-  })
-}).annotations({
-  title: "AddCardCommentParams",
-  description: "Parameters for adding a comment to a card"
-})
+  body: NonEmptyString.annotations({ description: `Comment body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}` })
+}).annotations({ title: "AddCardCommentParams", description: "Parameters for adding a comment to a card" })
 export type AddCardCommentParams = Schema.Schema.Type<typeof AddCardCommentParamsSchema>
 
 export const UpdateCardCommentParamsSchema = Schema.Struct({
   ...CardCommentTargetFields,
-  commentId: CommentId.annotations({
-    description: "Card comment ID to update"
-  }),
+  commentId: CommentId.annotations({ description: "Card comment ID to update" }),
   body: NonEmptyString.annotations({
     description: `New comment body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
   })
-}).annotations({
-  title: "UpdateCardCommentParams",
-  description: "Parameters for updating a card comment"
-})
+}).annotations({ title: "UpdateCardCommentParams", description: "Parameters for updating a card comment" })
 export type UpdateCardCommentParams = Schema.Schema.Type<typeof UpdateCardCommentParamsSchema>
 
 export const DeleteCardCommentParamsSchema = Schema.Struct({
   ...CardCommentTargetFields,
-  commentId: CommentId.annotations({
-    description: "Card comment ID to delete"
-  })
-}).annotations({
-  title: "DeleteCardCommentParams",
-  description: "Parameters for deleting a card comment"
-})
+  commentId: CommentId.annotations({ description: "Card comment ID to delete" })
+}).annotations({ title: "DeleteCardCommentParams", description: "Parameters for deleting a card comment" })
 export type DeleteCardCommentParams = Schema.Schema.Type<typeof DeleteCardCommentParamsSchema>
 
 export const ListCardCommentsResultSchema = Schema.Struct({
@@ -78,10 +54,7 @@ export const ListCardCommentsResultSchema = Schema.Struct({
 })
 export type ListCardCommentsResult = Schema.Schema.Type<typeof ListCardCommentsResultSchema>
 
-export const AddCardCommentResultSchema = Schema.Struct({
-  cardId: CardId,
-  commentId: CommentId
-})
+export const AddCardCommentResultSchema = Schema.Struct({ cardId: CardId, commentId: CommentId })
 export type AddCardCommentResult = Schema.Schema.Type<typeof AddCardCommentResultSchema>
 
 export const UpdateCardCommentResultSchema = Schema.Struct({

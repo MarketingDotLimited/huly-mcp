@@ -81,9 +81,7 @@ export const ListHulyPluginConfigurationsResultSchema = Schema.Struct({
   pluginConfigurations: Schema.Array(HulyPluginConfigurationSummarySchema),
   total: Count
 })
-export type ListHulyPluginConfigurationsResult = Schema.Schema.Type<
-  typeof ListHulyPluginConfigurationsResultSchema
->
+export type ListHulyPluginConfigurationsResult = Schema.Schema.Type<typeof ListHulyPluginConfigurationsResultSchema>
 
 const HulySdkOpenDomainIndexMetadata = Schema.Unknown.annotations({
   description:
@@ -91,14 +89,8 @@ const HulySdkOpenDomainIndexMetadata = Schema.Unknown.annotations({
 })
 
 const HulyDomainIndexMetadataEntrySchema = Schema.Union(
-  Schema.Struct({
-    kind: Schema.Literal("field"),
-    key: HulyConfigurationMetadataKey
-  }),
-  Schema.Struct({
-    kind: Schema.Literal("sdk-open-metadata"),
-    metadata: HulySdkOpenDomainIndexMetadata
-  })
+  Schema.Struct({ kind: Schema.Literal("field"), key: HulyConfigurationMetadataKey }),
+  Schema.Struct({ kind: Schema.Literal("sdk-open-metadata"), metadata: HulySdkOpenDomainIndexMetadata })
 ).annotations({
   description: `Domain index entry summary. kind is one of ${DomainIndexMetadataKindValues.join(", ")}.`
 })
@@ -111,9 +103,7 @@ export const HulyDomainIndexConfigurationSummarySchema = Schema.Struct({
   indexes: Schema.Array(HulyDomainIndexMetadataEntrySchema),
   skip: Schema.Array(HulyConfigurationMetadataKey)
 })
-export type HulyDomainIndexConfigurationSummary = Schema.Schema.Type<
-  typeof HulyDomainIndexConfigurationSummarySchema
->
+export type HulyDomainIndexConfigurationSummary = Schema.Schema.Type<typeof HulyDomainIndexConfigurationSummarySchema>
 
 export const ListHulyDomainIndexConfigurationsResultSchema = Schema.Struct({
   domainIndexConfigurations: Schema.Array(HulyDomainIndexConfigurationSummarySchema),

@@ -79,10 +79,7 @@ describe("Calendar Schemas", () => {
     })
 
     it("rejects invalid weekday in wkst", () => {
-      const result = Schema.decodeUnknownEither(RecurringRuleSchema)({
-        freq: "WEEKLY",
-        wkst: "MONDAY"
-      })
+      const result = Schema.decodeUnknownEither(RecurringRuleSchema)({ freq: "WEEKLY", wkst: "MONDAY" })
       expect(Either.isLeft(result)).toBe(true)
 
       const jsonSchema = expectJsonSchemaObject(createEventParamsJsonSchema)
@@ -91,55 +88,37 @@ describe("Calendar Schemas", () => {
 
     it("rejects unsupported byDay values", () => {
       for (const byDay of [["XX"], ["1MO"], ["-1FR"]]) {
-        const result = Schema.decodeUnknownEither(RecurringRuleSchema)({
-          freq: "WEEKLY",
-          byDay
-        })
+        const result = Schema.decodeUnknownEither(RecurringRuleSchema)({ freq: "WEEKLY", byDay })
         expect(Either.isLeft(result)).toBe(true)
       }
     })
 
     it("rejects negative count", () => {
-      const result = Schema.decodeUnknownEither(RecurringRuleSchema)({
-        freq: "DAILY",
-        count: -5
-      })
+      const result = Schema.decodeUnknownEither(RecurringRuleSchema)({ freq: "DAILY", count: -5 })
       expect(Either.isLeft(result)).toBe(true)
     })
 
     it("rejects invalid month values", () => {
-      const result = Schema.decodeUnknownEither(RecurringRuleSchema)({
-        freq: "YEARLY",
-        byMonth: [-1, 12]
-      })
+      const result = Schema.decodeUnknownEither(RecurringRuleSchema)({ freq: "YEARLY", byMonth: [-1, 12] })
       expect(Either.isLeft(result)).toBe(true)
     })
 
     it("rejects invalid month day ordinals", () => {
       for (const byMonthDay of [[0], [-1], [32]]) {
-        const result = Schema.decodeUnknownEither(RecurringRuleSchema)({
-          freq: "MONTHLY",
-          byMonthDay
-        })
+        const result = Schema.decodeUnknownEither(RecurringRuleSchema)({ freq: "MONTHLY", byMonthDay })
         expect(Either.isLeft(result)).toBe(true)
       }
     })
 
     it("rejects invalid set-position ordinals", () => {
       for (const bySetPos of [[0], [367], [-367]]) {
-        const result = Schema.decodeUnknownEither(RecurringRuleSchema)({
-          freq: "MONTHLY",
-          bySetPos
-        })
+        const result = Schema.decodeUnknownEither(RecurringRuleSchema)({ freq: "MONTHLY", bySetPos })
         expect(Either.isLeft(result)).toBe(true)
       }
     })
 
     it("accepts Huly zero-based month indexes", () => {
-      const result = Schema.decodeUnknownEither(RecurringRuleSchema)({
-        freq: "YEARLY",
-        byMonth: [0, 11]
-      })
+      const result = Schema.decodeUnknownEither(RecurringRuleSchema)({ freq: "YEARLY", byMonth: [0, 11] })
       expect(Either.isRight(result)).toBe(true)
     })
   })
@@ -151,10 +130,7 @@ describe("Calendar Schemas", () => {
     })
 
     it("accepts from/to timestamps", () => {
-      const result = Schema.decodeUnknownEither(ListEventsParamsSchema)({
-        from: 1704067200000,
-        to: 1704153600000
-      })
+      const result = Schema.decodeUnknownEither(ListEventsParamsSchema)({ from: 1704067200000, to: 1704153600000 })
       expect(Either.isRight(result)).toBe(true)
     })
 
@@ -181,30 +157,22 @@ describe("Calendar Schemas", () => {
 
   describe("GetEventParamsSchema", () => {
     it("accepts valid eventId", () => {
-      const result = Schema.decodeUnknownEither(GetEventParamsSchema)({
-        eventId: "evt-123456"
-      })
+      const result = Schema.decodeUnknownEither(GetEventParamsSchema)({ eventId: "evt-123456" })
       expect(Either.isRight(result)).toBe(true)
     })
 
     it("rejects empty eventId", () => {
-      const result = Schema.decodeUnknownEither(GetEventParamsSchema)({
-        eventId: ""
-      })
+      const result = Schema.decodeUnknownEither(GetEventParamsSchema)({ eventId: "" })
       expect(Either.isLeft(result)).toBe(true)
     })
 
     it("rejects whitespace-only eventId", () => {
-      const result = Schema.decodeUnknownEither(GetEventParamsSchema)({
-        eventId: "   "
-      })
+      const result = Schema.decodeUnknownEither(GetEventParamsSchema)({ eventId: "   " })
       expect(Either.isLeft(result)).toBe(true)
     })
 
     it("trims eventId whitespace", () => {
-      const result = Schema.decodeUnknownEither(GetEventParamsSchema)({
-        eventId: "  evt-123  "
-      })
+      const result = Schema.decodeUnknownEither(GetEventParamsSchema)({ eventId: "  evt-123  " })
       expect(Either.isRight(result)).toBe(true)
       if (Either.isRight(result)) {
         expect(result.right.eventId).toBe("evt-123")
@@ -214,10 +182,7 @@ describe("Calendar Schemas", () => {
 
   describe("CreateEventParamsSchema", () => {
     it("accepts minimal valid event", () => {
-      const result = Schema.decodeUnknownEither(CreateEventParamsSchema)({
-        title: "Meeting",
-        date: 1704067200000
-      })
+      const result = Schema.decodeUnknownEither(CreateEventParamsSchema)({ title: "Meeting", date: 1704067200000 })
       expect(Either.isRight(result)).toBe(true)
     })
 
@@ -252,17 +217,12 @@ describe("Calendar Schemas", () => {
     })
 
     it("rejects empty title", () => {
-      const result = Schema.decodeUnknownEither(CreateEventParamsSchema)({
-        title: "",
-        date: 1704067200000
-      })
+      const result = Schema.decodeUnknownEither(CreateEventParamsSchema)({ title: "", date: 1704067200000 })
       expect(Either.isLeft(result)).toBe(true)
     })
 
     it("rejects missing date", () => {
-      const result = Schema.decodeUnknownEither(CreateEventParamsSchema)({
-        title: "Meeting"
-      })
+      const result = Schema.decodeUnknownEither(CreateEventParamsSchema)({ title: "Meeting" })
       expect(Either.isLeft(result)).toBe(true)
     })
 
@@ -285,9 +245,7 @@ describe("Calendar Schemas", () => {
 
   describe("UpdateEventParamsSchema", () => {
     it("rejects only eventId and advertises update-field requirement in JSON Schema", () => {
-      const result = Schema.decodeUnknownEither(UpdateEventParamsSchema)({
-        eventId: "evt-123"
-      })
+      const result = Schema.decodeUnknownEither(UpdateEventParamsSchema)({ eventId: "evt-123" })
       expect(Either.isLeft(result)).toBe(true)
 
       const jsonSchema = expectJsonSchemaObject(updateEventParamsJsonSchema)
@@ -324,10 +282,7 @@ describe("Calendar Schemas", () => {
     })
 
     it("rejects empty eventId", () => {
-      const result = Schema.decodeUnknownEither(UpdateEventParamsSchema)({
-        eventId: "",
-        title: "New Title"
-      })
+      const result = Schema.decodeUnknownEither(UpdateEventParamsSchema)({ eventId: "", title: "New Title" })
       expect(Either.isLeft(result)).toBe(true)
     })
   })
@@ -411,9 +366,7 @@ describe("Calendar Schemas", () => {
 
   describe("ListEventInstancesParamsSchema", () => {
     it("accepts valid params", () => {
-      const result = Schema.decodeUnknownEither(ListEventInstancesParamsSchema)({
-        recurringEventId: "rec-evt-123"
-      })
+      const result = Schema.decodeUnknownEither(ListEventInstancesParamsSchema)({ recurringEventId: "rec-evt-123" })
       expect(Either.isRight(result)).toBe(true)
     })
 
@@ -439,9 +392,7 @@ describe("Calendar Schemas", () => {
     })
 
     it("defaults includeParticipants to undefined when not provided", () => {
-      const result = Schema.decodeUnknownEither(ListEventInstancesParamsSchema)({
-        recurringEventId: "rec-evt-123"
-      })
+      const result = Schema.decodeUnknownEither(ListEventInstancesParamsSchema)({ recurringEventId: "rec-evt-123" })
       expect(Either.isRight(result)).toBe(true)
       if (Either.isRight(result)) {
         expect(result.right.includeParticipants).toBeUndefined()
@@ -449,17 +400,16 @@ describe("Calendar Schemas", () => {
     })
 
     it("rejects empty recurringEventId", () => {
-      const result = Schema.decodeUnknownEither(ListEventInstancesParamsSchema)({
-        recurringEventId: ""
-      })
+      const result = Schema.decodeUnknownEither(ListEventInstancesParamsSchema)({ recurringEventId: "" })
       expect(Either.isLeft(result)).toBe(true)
     })
   })
 
   describe("Schedule schemas", () => {
     it("accepts schedule list and get params", () => {
-      expect(Either.isRight(Schema.decodeUnknownEither(ListSchedulesParamsSchema)({ owner: "alice@example.com" })))
-        .toBe(true)
+      expect(
+        Either.isRight(Schema.decodeUnknownEither(ListSchedulesParamsSchema)({ owner: "alice@example.com" }))
+      ).toBe(true)
       expect(Either.isRight(Schema.decodeUnknownEither(GetScheduleParamsSchema)({ scheduleId: "schedule-1" }))).toBe(
         true
       )
@@ -537,9 +487,11 @@ describe("Calendar Schemas", () => {
 
       const jsonSchema = expectJsonSchemaObject(updateScheduleParamsJsonSchema)
       expect(jsonSchema.anyOf).toEqual(
-        expect.arrayContaining([{ required: ["title"] }, { required: ["availability"] }, {
-          required: ["calendarName"]
-        }])
+        expect.arrayContaining([
+          { required: ["title"] },
+          { required: ["availability"] },
+          { required: ["calendarName"] }
+        ])
       )
     })
   })

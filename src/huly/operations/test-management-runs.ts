@@ -105,7 +105,7 @@ const toResultSummary = (r: TestResult): TestResultSummary => ({
 export const listTestRuns = (
   params: ListTestRunsParams
 ): Effect.Effect<ListTestRunsResult, TestRunOpError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const limit = clampLimit(params.limit)
@@ -117,23 +117,13 @@ export const listTestRuns = (
     return { runs: runs.map(toRunSummary), total: listTotal(runs.total) }
   })
 
-export const getTestRun = (
-  params: GetTestRunParams
-): Effect.Effect<GetTestRunResult, TestRunMutateError, HulyClient> =>
-  Effect.gen(function*() {
+export const getTestRun = (params: GetTestRunParams): Effect.Effect<GetTestRunResult, TestRunMutateError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const run = yield* findTestRun(client, project, params.run)
-    const results = yield* client.findAll<TestResult>(
-      testManagement.class.TestResult,
-      { attachedTo: run._id }
-    )
-    const descriptionStr = yield* fetchDescription(
-      client,
-      testManagement.class.TestRun,
-      run._id,
-      run.description
-    )
+    const results = yield* client.findAll<TestResult>(testManagement.class.TestResult, { attachedTo: run._id })
+    const descriptionStr = yield* fetchDescription(client, testManagement.class.TestRun, run._id, run.description)
     return {
       id: TestRunId.make(run._id),
       name: run.name,
@@ -146,42 +136,36 @@ export const getTestRun = (
 export const createTestRun = (
   params: CreateTestRunParams
 ): Effect.Effect<CreateTestRunResult, TestRunOpError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const runId: Ref<TestRun> = generateId()
-    const descRef: MarkupBlobRef | null = params.description !== undefined && params.description.trim() !== ""
-      ? yield* uploadDescription(
-        client,
-        testManagement.class.TestRun,
-        runId,
-        params.description
-      )
-      : null
-    yield* client.createDoc(testManagement.class.TestRun, project._id, {
-      name: params.name,
-      description: descRef,
-      ...(params.dueDate !== undefined ? { dueDate: params.dueDate } : {})
-    }, runId)
+    const descRef: MarkupBlobRef | null =
+      params.description !== undefined && params.description.trim() !== ""
+        ? yield* uploadDescription(client, testManagement.class.TestRun, runId, params.description)
+        : null
+    yield* client.createDoc(
+      testManagement.class.TestRun,
+      project._id,
+      { name: params.name, description: descRef, ...(params.dueDate !== undefined ? { dueDate: params.dueDate } : {}) },
+      runId
+    )
     return { id: TestRunId.make(runId), name: params.name, created: true }
   })
 
 export const updateTestRun = (
   params: UpdateTestRunParams
 ): Effect.Effect<UpdateTestRunResult, UpdateTestRunError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_test_run", params, UPDATE_TEST_RUN_FIELDS)
 
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const run = yield* findTestRun(client, project, params.run)
-    type UpdateTestRunField = typeof UPDATE_TEST_RUN_FIELDS[number]
+    type UpdateTestRunField = (typeof UPDATE_TEST_RUN_FIELDS)[number]
     type UpdateTestRunEntries = {
       readonly name: Effect.Effect<
-        CoveredUpdateEntry<
-          "name",
-          DirectUpdateEntry<UpdateTestRunField, DocumentUpdate<TestRun>, "name">
-        >,
+        CoveredUpdateEntry<"name", DirectUpdateEntry<UpdateTestRunField, DocumentUpdate<TestRun>, "name">>,
         HulyClientError
       >
       readonly description: Effect.Effect<
@@ -192,35 +176,29 @@ export const updateTestRun = (
         HulyClientError
       >
       readonly dueDate: Effect.Effect<
-        CoveredUpdateEntry<
-          "dueDate",
-          DirectOrUnsetUpdateEntry<UpdateTestRunField, DocumentUpdate<TestRun>, "dueDate">
-        >,
+        CoveredUpdateEntry<"dueDate", DirectOrUnsetUpdateEntry<UpdateTestRunField, DocumentUpdate<TestRun>, "dueDate">>,
         HulyClientError
       >
     }
     const updateEntries = {
       name: Effect.succeed(coveredUpdateEntry("name", params.name === undefined ? {} : { name: params.name })),
-      description: Effect.gen(function*() {
+      description: Effect.gen(function* () {
         if (params.description === undefined) return coveredUpdateEntry("description", {})
         if (params.description === null) return coveredUpdateEntry("description", { description: null })
         return coveredUpdateEntry("description", {
-          description: yield* uploadDescription(
-            client,
-            testManagement.class.TestRun,
-            run._id,
-            params.description
-          )
+          description: yield* uploadDescription(client, testManagement.class.TestRun, run._id, params.description)
         })
       }),
-      dueDate: Effect.succeed(coveredUpdateEntry(
-        "dueDate",
-        params.dueDate === undefined
-          ? {}
-          : params.dueDate === null
-          ? { $unset: { dueDate: "" } }
-          : { dueDate: params.dueDate }
-      ))
+      dueDate: Effect.succeed(
+        coveredUpdateEntry(
+          "dueDate",
+          params.dueDate === undefined
+            ? {}
+            : params.dueDate === null
+              ? { $unset: { dueDate: "" } }
+              : { dueDate: params.dueDate }
+        )
+      )
     } satisfies UpdateTestRunEntries
     const ops: DocumentUpdate<TestRun> = mergeCoveredUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
     yield* client.updateDoc(testManagement.class.TestRun, project._id, run._id, ops)
@@ -230,7 +208,7 @@ export const updateTestRun = (
 export const deleteTestRun = (
   params: DeleteTestRunParams
 ): Effect.Effect<DeleteTestRunResult, TestRunMutateError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const run = yield* findTestRun(client, project, params.run)
@@ -241,7 +219,7 @@ export const deleteTestRun = (
 export const listTestResults = (
   params: ListTestResultsParams
 ): Effect.Effect<ListTestResultsResult, TestRunMutateError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const run = yield* findTestRun(client, project, params.run)
@@ -257,7 +235,7 @@ export const listTestResults = (
 export const getTestResult = (
   params: GetTestResultParams
 ): Effect.Effect<GetTestResultDetail, TestResultMutateError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const result = yield* findTestResult(client, project, params.result)
@@ -281,7 +259,7 @@ export const getTestResult = (
 export const createTestResult = (
   params: CreateTestResultParams
 ): Effect.Effect<CreateTestResultResult, CreateResultError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const run = yield* findTestRun(client, project, params.run)
@@ -290,9 +268,7 @@ export const createTestResult = (
     const resultAttrs: Record<string, unknown> = {
       name,
       testCase: tc._id,
-      status: params.status !== undefined
-        ? resolveStatusOrUntested(params.status)
-        : TestRunStatus.Untested,
+      status: params.status !== undefined ? resolveStatusOrUntested(params.status) : TestRunStatus.Untested,
       description: null
     }
     if (params.assignee !== undefined) {
@@ -314,19 +290,16 @@ export const createTestResult = (
 export const updateTestResult = (
   params: UpdateTestResultParams
 ): Effect.Effect<UpdateTestResultResult, UpdateTestResultError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_test_result", params, UPDATE_TEST_RESULT_FIELDS)
 
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const result = yield* findTestResult(client, project, params.result)
-    type UpdateTestResultField = typeof UPDATE_TEST_RESULT_FIELDS[number]
+    type UpdateTestResultField = (typeof UPDATE_TEST_RESULT_FIELDS)[number]
     type UpdateTestResultEntries = {
       readonly status: Effect.Effect<
-        CoveredUpdateEntry<
-          "status",
-          DirectUpdateEntry<UpdateTestResultField, DocumentUpdate<TestResult>, "status">
-        >,
+        CoveredUpdateEntry<"status", DirectUpdateEntry<UpdateTestResultField, DocumentUpdate<TestResult>, "status">>,
         HulyClientError
       >
       readonly assignee: Effect.Effect<
@@ -352,7 +325,7 @@ export const updateTestResult = (
           params.status === undefined ? {} : { status: resolveStatusOrUntested(params.status) }
         )
       ),
-      assignee: Effect.gen(function*() {
+      assignee: Effect.gen(function* () {
         if (params.assignee === undefined) return coveredUpdateEntry("assignee", {})
         if (params.assignee === null) {
           return coveredUpdateEntry("assignee", { $unset: { assignee: "" } })
@@ -361,16 +334,11 @@ export const updateTestResult = (
           assignee: toRef<Employee>((yield* resolveAssignee(params.assignee))._id)
         })
       }),
-      description: Effect.gen(function*() {
+      description: Effect.gen(function* () {
         if (params.description === undefined) return coveredUpdateEntry("description", {})
         if (params.description === null) return coveredUpdateEntry("description", { description: null })
         return coveredUpdateEntry("description", {
-          description: yield* uploadDescription(
-            client,
-            testManagement.class.TestResult,
-            result._id,
-            params.description
-          )
+          description: yield* uploadDescription(client, testManagement.class.TestResult, result._id, params.description)
         })
       })
     } satisfies UpdateTestResultEntries
@@ -382,7 +350,7 @@ export const updateTestResult = (
 export const deleteTestResult = (
   params: DeleteTestResultParams
 ): Effect.Effect<DeleteTestResultResult, TestResultMutateError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const result = yield* findTestResult(client, project, params.result)
@@ -390,56 +358,57 @@ export const deleteTestResult = (
     return { id: TestResultId.make(result._id), deleted: true }
   })
 
-export const runTestPlan = (
-  params: RunTestPlanParams
-): Effect.Effect<RunTestPlanResult, RunPlanError, HulyClient> =>
-  Effect.gen(function*() {
+export const runTestPlan = (params: RunTestPlanParams): Effect.Effect<RunTestPlanResult, RunPlanError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const plan = yield* findTestPlan(client, project, params.plan)
-    const items = yield* client.findAll<TestPlanItem>(
-      testManagement.class.TestPlanItem,
-      { attachedTo: plan._id }
-    )
+    const items = yield* client.findAll<TestPlanItem>(testManagement.class.TestPlanItem, { attachedTo: plan._id })
     // Pre-validate all test cases before creating server-side state
     // to avoid orphaned runs on partial failure.
-    const validated = yield* Effect.forEach(items, (item) =>
-      Effect.gen(function*() {
-        const tc = yield* client.findOne<TestCase>(
-          testManagement.class.TestCase,
-          { _id: item.testCase }
-        )
-        if (tc === undefined) {
-          return yield* new TestCaseNotFoundError({ identifier: item.testCase })
-        }
-        return { item, tc }
-      }), { concurrency: BATCH_CONCURRENCY })
+    const validated = yield* Effect.forEach(
+      items,
+      (item) =>
+        Effect.gen(function* () {
+          const tc = yield* client.findOne<TestCase>(testManagement.class.TestCase, { _id: item.testCase })
+          if (tc === undefined) {
+            return yield* new TestCaseNotFoundError({ identifier: item.testCase })
+          }
+          return { item, tc }
+        }),
+      { concurrency: BATCH_CONCURRENCY }
+    )
     const runId: Ref<TestRun> = generateId()
     const runName = params.runName ?? `${plan.name} - Run`
-    yield* client.createDoc(testManagement.class.TestRun, project._id, {
-      name: runName,
-      description: null,
-      ...(params.dueDate !== undefined ? { dueDate: params.dueDate } : {})
-    }, runId)
-    const results = yield* Effect.forEach(validated, ({ item, tc }) =>
-      Effect.gen(function*() {
-        const attrs: Record<string, unknown> = {
-          name: tc.name,
-          testCase: item.testCase,
-          status: TestRunStatus.Untested,
-          description: null
-        }
-        if (item.testSuite !== undefined) attrs.testSuite = item.testSuite
-        if (item.assignee !== undefined) attrs.assignee = item.assignee
-        return yield* client.addCollection(
-          testManagement.class.TestResult,
-          project._id,
-          runId,
-          testManagement.class.TestRun,
-          "results",
-          // eslint-disable-next-line no-restricted-syntax -- AttachedData<TestResult> SDK boundary cast
-          attrs as Parameters<typeof client.addCollection<TestRun, TestResult>>[5]
-        )
-      }), { concurrency: BATCH_CONCURRENCY })
+    yield* client.createDoc(
+      testManagement.class.TestRun,
+      project._id,
+      { name: runName, description: null, ...(params.dueDate !== undefined ? { dueDate: params.dueDate } : {}) },
+      runId
+    )
+    const results = yield* Effect.forEach(
+      validated,
+      ({ item, tc }) =>
+        Effect.gen(function* () {
+          const attrs: Record<string, unknown> = {
+            name: tc.name,
+            testCase: item.testCase,
+            status: TestRunStatus.Untested,
+            description: null
+          }
+          if (item.testSuite !== undefined) attrs.testSuite = item.testSuite
+          if (item.assignee !== undefined) attrs.assignee = item.assignee
+          return yield* client.addCollection(
+            testManagement.class.TestResult,
+            project._id,
+            runId,
+            testManagement.class.TestRun,
+            "results",
+            // eslint-disable-next-line no-restricted-syntax -- AttachedData<TestResult> SDK boundary cast
+            attrs as Parameters<typeof client.addCollection<TestRun, TestResult>>[5]
+          )
+        }),
+      { concurrency: BATCH_CONCURRENCY }
+    )
     return { runId: TestRunId.make(runId), name: runName, resultsCreated: Count.make(results.length) }
   })

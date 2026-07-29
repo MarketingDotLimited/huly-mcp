@@ -32,16 +32,13 @@ export const renderMarkdownWithNativeReferencesForWrite = (
   if (rendered.malformedReferences.length > 0) {
     return {
       _tag: "malformed",
-      reason: `malformed Huly native reference links in ${fieldName}: ${
-        malformedReferenceList(rendered.malformedReferences)
-      }`
+      reason: `malformed Huly native reference links in ${fieldName}: ${malformedReferenceList(
+        rendered.malformedReferences
+      )}`
     }
   }
 
-  return {
-    _tag: "success",
-    rendered: { markup: rendered.markup, format: "markup" }
-  }
+  return { _tag: "success", rendered: { markup: rendered.markup, format: "markup" } }
 }
 
 export const renderMarkdownPreservingNativeReferences = (

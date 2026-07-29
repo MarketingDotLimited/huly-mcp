@@ -75,32 +75,26 @@ export const BoardCardCoverSchema = Schema.Struct({
   color: Schema.Number.pipe(Schema.int(), Schema.between(0, MAX_COLOR_INDEX)).annotations({
     description: `Board card cover color index from 0 through ${MAX_COLOR_INDEX}.`
   }),
-  size: Schema.Literal("small", "large").annotations({
-    description: "Board card cover size."
-  })
-}).annotations({
-  title: "BoardCardCoverInput",
-  description: "Cover settings for a board card."
-})
+  size: Schema.Literal("small", "large").annotations({ description: "Board card cover size." })
+}).annotations({ title: "BoardCardCoverInput", description: "Cover settings for a board card." })
 export type BoardCardCoverInput = Schema.Schema.Type<typeof BoardCardCoverSchema>
 
 export const ListBoardsParamsSchema = Schema.Struct({
-  includeArchived: Schema.optional(Schema.Boolean.annotations({
-    description:
-      `Include archived boards in results (default: ${DEFAULT_INCLUDE_ARCHIVED}, showing only active boards).`
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of boards to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  includeArchived: Schema.optional(
+    Schema.Boolean.annotations({
+      description: `Include archived boards in results (default: ${DEFAULT_INCLUDE_ARCHIVED}, showing only active boards).`
+    })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of boards to return (default: ${DEFAULT_LIMIT}).` })
+  )
 }).annotations({
   title: "ListBoardsParams",
   description: "Parameters for listing Huly boards from the @hcengineering/board module."
 })
 export type ListBoardsParams = Schema.Schema.Type<typeof ListBoardsParamsSchema>
 
-export const GetBoardParamsSchema = Schema.Struct({
-  board: BoardRefSchema
-}).annotations({
+export const GetBoardParamsSchema = Schema.Struct({ board: BoardRefSchema }).annotations({
   title: "GetBoardParams",
   description: "Parameters for getting one board by _id or exact name."
 })
@@ -109,13 +103,15 @@ export type GetBoardParams = Schema.Schema.Type<typeof GetBoardParamsSchema>
 export const CreateBoardParamsSchema = Schema.Struct({
   name: BoardName.annotations({ description: "Board name. Creation is idempotent by exact active board name." }),
   description: Schema.optional(Schema.String.annotations({ description: "Plain text board description." })),
-  private: Schema.optional(Schema.Boolean.annotations({
-    description: `Whether the board is private (default: ${DEFAULT_PRIVATE}).`
-  })),
-  projectType: Schema.optional(ProjectTypeRefSchema.annotations({
-    description:
-      "Optional board project type _id or exact name. Omit to use the unambiguous project type whose descriptor is board.descriptors.BoardType."
-  }))
+  private: Schema.optional(
+    Schema.Boolean.annotations({ description: `Whether the board is private (default: ${DEFAULT_PRIVATE}).` })
+  ),
+  projectType: Schema.optional(
+    ProjectTypeRefSchema.annotations({
+      description:
+        "Optional board project type _id or exact name. Omit to use the unambiguous project type whose descriptor is board.descriptors.BoardType."
+    })
+  )
 }).annotations({
   title: "CreateBoardParams",
   description: "Parameters for creating a Huly board. Returns the existing active board when the name already exists."
@@ -131,20 +127,20 @@ export const UpdateBoardParamsSchema = Schema.Struct({
   name: Schema.optional(BoardName.annotations({ description: "New exact board name." })),
   description: Schema.optional(clearableText("New plain text board description.")),
   private: Schema.optional(Schema.Boolean.annotations({ description: "Whether the board is private." }))
-}).pipe(
-  Schema.filter((params) =>
-    hasAtLeastOneDefined(params, UPDATE_BOARD_FIELDS) ? undefined : atLeastOneUpdateFieldMessage(UPDATE_BOARD_FIELDS)
-  )
-).annotations({
-  title: "UpdateBoardParams",
-  description: `Parameters for updating a board. ${atLeastOneUpdateFieldMessage(UPDATE_BOARD_FIELDS)}`
 })
+  .pipe(
+    Schema.filter((params) =>
+      hasAtLeastOneDefined(params, UPDATE_BOARD_FIELDS) ? undefined : atLeastOneUpdateFieldMessage(UPDATE_BOARD_FIELDS)
+    )
+  )
+  .annotations({
+    title: "UpdateBoardParams",
+    description: `Parameters for updating a board. ${atLeastOneUpdateFieldMessage(UPDATE_BOARD_FIELDS)}`
+  })
 export type UpdateBoardParams = Schema.Schema.Type<typeof UpdateBoardParamsSchema>
 assertUpdateFields<UpdateBoardParams>()(["board"], UPDATE_BOARD_FIELDS)
 
-export const BoardMutationParamsSchema = Schema.Struct({
-  board: BoardRefSchema
-}).annotations({
+export const BoardMutationParamsSchema = Schema.Struct({ board: BoardRefSchema }).annotations({
   title: "BoardMutationParams",
   description: "Parameters for archiving or unarchiving a board."
 })
@@ -152,26 +148,21 @@ export type BoardMutationParams = Schema.Schema.Type<typeof BoardMutationParamsS
 
 export const ListBoardCardsParamsSchema = Schema.Struct({
   board: BoardRefSchema,
-  includeArchived: Schema.optional(Schema.Boolean.annotations({
-    description:
-      `Include archived board cards in results (default: ${DEFAULT_INCLUDE_ARCHIVED}, showing only active cards).`
-  })),
-  titleSearch: Schema.optional(Schema.String.annotations({
-    description: "Search board cards by title substring (case-insensitive SQL LIKE)."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of board cards to return (default: ${DEFAULT_LIMIT}).`
-  }))
-}).annotations({
-  title: "ListBoardCardsParams",
-  description: "Parameters for listing cards on one Huly board."
-})
+  includeArchived: Schema.optional(
+    Schema.Boolean.annotations({
+      description: `Include archived board cards in results (default: ${DEFAULT_INCLUDE_ARCHIVED}, showing only active cards).`
+    })
+  ),
+  titleSearch: Schema.optional(
+    Schema.String.annotations({ description: "Search board cards by title substring (case-insensitive SQL LIKE)." })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of board cards to return (default: ${DEFAULT_LIMIT}).` })
+  )
+}).annotations({ title: "ListBoardCardsParams", description: "Parameters for listing cards on one Huly board." })
 export type ListBoardCardsParams = Schema.Schema.Type<typeof ListBoardCardsParamsSchema>
 
-export const GetBoardCardParamsSchema = Schema.Struct({
-  board: BoardRefSchema,
-  card: BoardCardRefSchema
-}).annotations({
+export const GetBoardCardParamsSchema = Schema.Struct({ board: BoardRefSchema, card: BoardCardRefSchema }).annotations({
   title: "GetBoardCardParams",
   description: "Parameters for getting one board card scoped to a board."
 })
@@ -180,21 +171,28 @@ export type GetBoardCardParams = Schema.Schema.Type<typeof GetBoardCardParamsSch
 export const CreateBoardCardParamsSchema = Schema.Struct({
   board: BoardRefSchema,
   title: BoardCardTitle.annotations({ description: "Board card title." }),
-  description: Schema.optional(Schema.String.annotations({
-    description:
-      `Board card description in markdown. Stored as inline Huly Markup. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
-  })),
-  kind: Schema.optional(TaskTypeRefSchema.annotations({
-    description:
-      "Board card task type _id or exact task type name. Omit to use the unambiguous board card task type for the board project type."
-  })),
-  status: Schema.optional(NonEmptyString.annotations({
-    description:
-      "Workflow status _id or exact status name. Omit to use the first status configured on the board project type."
-  })),
-  assignee: Schema.optional(PersonRefInput.annotations({
-    description: "Assignee Employee _id, exact email address, or exact person display name."
-  })),
+  description: Schema.optional(
+    Schema.String.annotations({
+      description: `Board card description in markdown. Stored as inline Huly Markup. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
+    })
+  ),
+  kind: Schema.optional(
+    TaskTypeRefSchema.annotations({
+      description:
+        "Board card task type _id or exact task type name. Omit to use the unambiguous board card task type for the board project type."
+    })
+  ),
+  status: Schema.optional(
+    NonEmptyString.annotations({
+      description:
+        "Workflow status _id or exact status name. Omit to use the first status configured on the board project type."
+    })
+  ),
+  assignee: Schema.optional(
+    PersonRefInput.annotations({
+      description: "Assignee Employee _id, exact email address, or exact person display name."
+    })
+  ),
   members: Schema.optional(
     Schema.Array(MemberIdentifier).annotations({
       description: "Initial card members. Each entry accepts Employee _id, exact email, or exact person display name."
@@ -244,9 +242,11 @@ export const UpdateBoardCardParamsSchema = Schema.Struct({
   description: Schema.optional(
     clearableText(`New board card description in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`)
   ),
-  status: Schema.optional(NonEmptyString.annotations({
-    description: "New workflow status _id or exact status name in the board project type."
-  })),
+  status: Schema.optional(
+    NonEmptyString.annotations({
+      description: "New workflow status _id or exact status name in the board project type."
+    })
+  ),
   assignee: Schema.optional(
     Schema.NullOr(PersonRefInput).annotations({
       description: "New assignee Employee _id, exact email, or exact person display name; null unassigns."
@@ -258,45 +258,41 @@ export const UpdateBoardCardParamsSchema = Schema.Struct({
     })
   ),
   addMembers: Schema.optional(
-    Schema.Array(MemberIdentifier).pipe(Schema.minItems(1)).annotations({
-      description: "Members to add without replacing existing members."
-    })
+    Schema.Array(MemberIdentifier)
+      .pipe(Schema.minItems(1))
+      .annotations({ description: "Members to add without replacing existing members." })
   ),
   removeMembers: Schema.optional(
-    Schema.Array(MemberIdentifier).pipe(Schema.minItems(1)).annotations({
-      description: "Members to remove without replacing existing members."
-    })
+    Schema.Array(MemberIdentifier)
+      .pipe(Schema.minItems(1))
+      .annotations({ description: "Members to remove without replacing existing members." })
   ),
   location: Schema.optional(clearableText("New card location.")),
   cover: Schema.optional(
-    Schema.NullOr(BoardCardCoverSchema).annotations({
-      description: "New card cover; null clears the cover."
-    })
+    Schema.NullOr(BoardCardCoverSchema).annotations({ description: "New card cover; null clears the cover." })
   ),
   startDate: Schema.optional(
-    Schema.NullOr(Timestamp).annotations({
-      description: "New start date timestamp in milliseconds; null clears it."
-    })
+    Schema.NullOr(Timestamp).annotations({ description: "New start date timestamp in milliseconds; null clears it." })
   ),
   dueDate: Schema.optional(
-    Schema.NullOr(Timestamp).annotations({
-      description: "New due date timestamp in milliseconds; null clears it."
+    Schema.NullOr(Timestamp).annotations({ description: "New due date timestamp in milliseconds; null clears it." })
+  )
+})
+  .pipe(
+    Schema.filter((params) => {
+      if (!hasAtLeastOneDefined(params, UPDATE_BOARD_CARD_FIELDS)) {
+        return atLeastOneUpdateFieldMessage(UPDATE_BOARD_CARD_FIELDS)
+      }
+      if (params.members !== undefined && (params.addMembers !== undefined || params.removeMembers !== undefined)) {
+        return "Cannot provide members with addMembers or removeMembers. Replace all members or mutate members, not both."
+      }
+      return undefined
     })
   )
-}).pipe(
-  Schema.filter((params) => {
-    if (!hasAtLeastOneDefined(params, UPDATE_BOARD_CARD_FIELDS)) {
-      return atLeastOneUpdateFieldMessage(UPDATE_BOARD_CARD_FIELDS)
-    }
-    if (params.members !== undefined && (params.addMembers !== undefined || params.removeMembers !== undefined)) {
-      return "Cannot provide members with addMembers or removeMembers. Replace all members or mutate members, not both."
-    }
-    return undefined
+  .annotations({
+    title: "UpdateBoardCardParams",
+    description: `Parameters for updating a board card. ${atLeastOneUpdateFieldMessage(UPDATE_BOARD_CARD_FIELDS)}`
   })
-).annotations({
-  title: "UpdateBoardCardParams",
-  description: `Parameters for updating a board card. ${atLeastOneUpdateFieldMessage(UPDATE_BOARD_CARD_FIELDS)}`
-})
 export type UpdateBoardCardParams = Schema.Schema.Type<typeof UpdateBoardCardParamsSchema>
 assertUpdateFields<UpdateBoardCardParams>()(["board", "card"], UPDATE_BOARD_CARD_FIELDS)
 

@@ -74,15 +74,9 @@ type ContactChannelError =
   | InvalidContactProviderError
   | NoUpdateFieldsError
 
-type PersonChannelError =
-  | ContactChannelError
-  | PersonIdentifierAmbiguousError
-  | PersonNotFoundError
+type PersonChannelError = ContactChannelError | PersonIdentifierAmbiguousError | PersonNotFoundError
 
-type OrganizationChannelError =
-  | ContactChannelError
-  | OrganizationIdentifierAmbiguousError
-  | OrganizationNotFoundError
+type OrganizationChannelError = ContactChannelError | OrganizationIdentifierAmbiguousError | OrganizationNotFoundError
 
 type ListPersonChannelError =
   | HulyClientError
@@ -109,7 +103,7 @@ const resolveChannelByLocator = <Owner extends ChannelOwner>(
   owner: ResolvedOwner<Owner>,
   locator: ResolvedChannelLocator
 ): Effect.Effect<Channel, ContactChannelError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (locator._tag === "channelId") {
       return yield* Effect.flatMap(findChannelByIdForOwner(client, owner, locator.channelId), (channel) =>
         Option.match(channel, {
@@ -121,7 +115,8 @@ const resolveChannelByLocator = <Owner extends ChannelOwner>(
               })
             ),
           onSome: Effect.succeed
-        }))
+        })
+      )
     }
 
     const matches = yield* findExactChannels(client, owner, locator.provider, locator.value)
@@ -146,7 +141,7 @@ const findRemovableChannel = <Owner extends ChannelOwner>(
   owner: ResolvedOwner<Owner>,
   locator: ResolvedChannelLocator
 ): Effect.Effect<Option.Option<Channel>, ContactChannelError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (locator._tag === "channelId") {
       return yield* findChannelByIdForOwner(client, owner, locator.channelId)
     }
@@ -169,15 +164,11 @@ const ensureNoTargetConflict = <Owner extends ChannelOwner>(
   provider: ContactChannelProvider,
   value: string
 ): Effect.Effect<void, HulyClientError | ContactChannelConflictError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const matches = yield* findExactChannels(client, owner, provider, value)
     const conflicting = matches.some((channel) => channel._id !== currentChannelId)
     if (conflicting) {
-      return yield* new ContactChannelConflictError({
-        ownerIdentifier: owner.identifier,
-        provider,
-        value
-      })
+      return yield* new ContactChannelConflictError({ ownerIdentifier: owner.identifier, provider, value })
     }
   })
 
@@ -185,7 +176,7 @@ const listOwnerChannels = <Owner extends ChannelOwner>(
   client: HulyClient["Type"],
   owner: ResolvedOwner<Owner>
 ): Effect.Effect<ReadonlyArray<ContactChannelSummary>, HulyClientError | InvalidContactProviderError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const channels = yield* findChannelsForOwner(client, owner)
     return yield* Effect.all(channels.map(channelSummary))
   })
@@ -195,7 +186,7 @@ const addOwnerChannel = <Owner extends ChannelOwner>(
   owner: ResolvedOwner<Owner>,
   params: { readonly provider: ContactChannelProvider; readonly value: string }
 ): Effect.Effect<{ readonly added: boolean; readonly channel: ContactChannelSummary }, ContactChannelError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* validateProviderValue(params.provider, params.value)
 
     const existing = yield* findExactChannels(client, owner, params.provider, params.value)
@@ -214,11 +205,7 @@ const addOwnerChannel = <Owner extends ChannelOwner>(
 
     return {
       added: true,
-      channel: {
-        channelId: ChannelId.make(channelId),
-        provider: params.provider,
-        value: params.value
-      }
+      channel: { channelId: ChannelId.make(channelId), provider: params.provider, value: params.value }
     }
   })
 
@@ -227,7 +214,7 @@ const updateOwnerChannel = <Owner extends ChannelOwner>(
   owner: ResolvedOwner<Owner>,
   params: ChannelMutationParams
 ): Effect.Effect<{ readonly updated: boolean; readonly channel: ContactChannelSummary }, ContactChannelError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireChannelUpdateFields(params)
     const locator = yield* validateChannelLocator(owner.identifier, params)
     const channel = yield* resolveChannelByLocator(client, owner, locator)
@@ -247,10 +234,7 @@ const updateOwnerChannel = <Owner extends ChannelOwner>(
 
     yield* ensureNoTargetConflict(client, owner, channel._id, nextProvider, nextValue)
 
-    const operations: DocumentUpdate<Channel> = {
-      provider: nextProviderRef,
-      value: nextValue
-    }
+    const operations: DocumentUpdate<Channel> = { provider: nextProviderRef, value: nextValue }
 
     yield* client.updateDoc(contact.class.Channel, contact.space.Contacts, channel._id, operations)
 
@@ -262,13 +246,11 @@ const removeOwnerChannel = <Owner extends ChannelOwner>(
   owner: ResolvedOwner<Owner>,
   params: ChannelLocator
 ): Effect.Effect<RemoveOwnerChannelResult, ContactChannelError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const locator = yield* validateChannelLocator(owner.identifier, params)
     const channel = yield* findRemovableChannel(client, owner, locator)
     if (Option.isNone(channel)) {
-      return locator._tag === "channelId"
-        ? { removed: false, channelId: locator.channelId }
-        : { removed: false }
+      return locator._tag === "channelId" ? { removed: false, channelId: locator.channelId } : { removed: false }
     }
 
     yield* client.removeDoc(contact.class.Channel, contact.space.Contacts, channel.value._id)
@@ -278,19 +260,16 @@ const removeOwnerChannel = <Owner extends ChannelOwner>(
 export const listPersonChannels = (
   params: ListPersonChannelsParams
 ): Effect.Effect<ListPersonChannelsResult, ListPersonChannelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const owner = yield* resolvePersonOwner(client, params.person)
-    return {
-      personId: PersonId.make(owner.id),
-      channels: yield* listOwnerChannels(client, owner)
-    }
+    return { personId: PersonId.make(owner.id), channels: yield* listOwnerChannels(client, owner) }
   })
 
 export const addPersonChannel = (
   params: AddPersonChannelParams
 ): Effect.Effect<AddPersonChannelResult, PersonChannelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const owner = yield* resolvePersonOwner(client, params.person)
     const result = yield* addOwnerChannel(client, owner, params)
@@ -300,7 +279,7 @@ export const addPersonChannel = (
 export const updatePersonChannel = (
   params: UpdatePersonChannelParams
 ): Effect.Effect<UpdatePersonChannelResult, PersonChannelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const owner = yield* resolvePersonOwner(client, params.person)
     const result = yield* updateOwnerChannel(client, owner, params)
@@ -310,7 +289,7 @@ export const updatePersonChannel = (
 export const removePersonChannel = (
   params: RemovePersonChannelParams
 ): Effect.Effect<RemovePersonChannelResult, PersonChannelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const owner = yield* resolvePersonOwner(client, params.person)
     const result = yield* removeOwnerChannel(client, owner, params)
@@ -323,19 +302,16 @@ export const removePersonChannel = (
 export const listOrganizationChannels = (
   params: ListOrganizationChannelsParams
 ): Effect.Effect<ListOrganizationChannelsResult, ListOrganizationChannelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const owner = yield* resolveOrganizationOwner(client, params.organizationId)
-    return {
-      organizationId: OrganizationId.make(owner.id),
-      channels: yield* listOwnerChannels(client, owner)
-    }
+    return { organizationId: OrganizationId.make(owner.id), channels: yield* listOwnerChannels(client, owner) }
   })
 
 export const addOrganizationChannel = (
   params: AddOrganizationChannelParams
 ): Effect.Effect<AddOrganizationChannelResult, OrganizationChannelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const owner = yield* resolveOrganizationOwner(client, params.organizationId)
     const result = yield* addOwnerChannel(client, owner, params)
@@ -345,7 +321,7 @@ export const addOrganizationChannel = (
 export const updateOrganizationChannel = (
   params: UpdateOrganizationChannelParams
 ): Effect.Effect<UpdateOrganizationChannelResult, OrganizationChannelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const owner = yield* resolveOrganizationOwner(client, params.organizationId)
     const result = yield* updateOwnerChannel(client, owner, params)
@@ -355,7 +331,7 @@ export const updateOrganizationChannel = (
 export const removeOrganizationChannel = (
   params: RemoveOrganizationChannelParams
 ): Effect.Effect<RemoveOrganizationChannelResult, OrganizationChannelError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const owner = yield* resolveOrganizationOwner(client, params.organizationId)
     const result = yield* removeOwnerChannel(client, owner, params)

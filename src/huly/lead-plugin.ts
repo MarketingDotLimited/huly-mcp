@@ -22,11 +22,6 @@ const leadRef = (identifier: string): Ref<Class<Doc>> => identifier as Ref<Class
 const leadMixinRef = <T extends Doc>(identifier: string): Ref<Mixin<T>> => identifier as Ref<Mixin<T>>
 
 export const leadClassIds = {
-  class: {
-    Lead: leadRef("lead:class:Lead"),
-    Funnel: leadRef("lead:class:Funnel")
-  },
-  mixin: {
-    Customer: leadMixinRef<HulyOrganization>("lead:mixin:Customer")
-  }
+  class: { Lead: leadRef("lead:class:Lead"), Funnel: leadRef("lead:class:Funnel") },
+  mixin: { Customer: leadMixinRef<HulyOrganization>("lead:mixin:Customer") }
 } as const

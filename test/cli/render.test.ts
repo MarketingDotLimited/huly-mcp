@@ -4,10 +4,7 @@ import { describe, expect, it } from "vitest"
 import { renderOperationResult, renderOperationSuccess } from "../../packages/huly-cli/src/render.js"
 import { CanonicalBase64ImageData, SupportedAttachmentImageTypeSchema } from "../../src/domain/schemas/attachments.js"
 
-const globals = {
-  json: false,
-  yes: false
-}
+const globals = { json: false, yes: false }
 
 describe("CLI rendering", () => {
   it("renders arrays as concise tables", () => {
@@ -34,13 +31,7 @@ describe("CLI rendering", () => {
 
   it("renders object array properties with totals", () => {
     const output = renderOperationResult(
-      {
-        result: {
-          issues: [{ identifier: "HULY-1", title: "Bug" }],
-          total: 1
-        },
-        warnings: []
-      },
+      { result: { issues: [{ identifier: "HULY-1", title: "Bug" }], total: 1 }, warnings: [] },
       globals
     )
 
@@ -56,9 +47,7 @@ describe("CLI rendering", () => {
 
   it("renders empty and non-scalar values predictably", () => {
     expect(renderOperationResult({ result: [], warnings: [] }, globals)).toBe("No results.")
-    expect(renderOperationResult({ result: [{ nested: { value: true } }], warnings: [] }, globals)).toContain(
-      "nested"
-    )
+    expect(renderOperationResult({ result: [{ nested: { value: true } }], warnings: [] }, globals)).toContain("nested")
     expect(renderOperationResult({ result: null, warnings: [] }, globals)).toBe("null")
     expect(renderOperationResult({ result: undefined, warnings: [] }, globals)).toBe("")
     expect(renderOperationResult({ result: true, warnings: [] }, globals)).toBe("true")
@@ -67,20 +56,14 @@ describe("CLI rendering", () => {
       "empty: "
     )
     expect(renderOperationResult({ result: { nested: { value: true } }, warnings: [] }, globals)).toContain(
-      "{\"value\":true}"
+      '{"value":true}'
     )
   })
 
   it("renders JSON output as the raw operation result", () => {
-    const output = renderOperationResult(
-      {
-        result: { ok: true },
-        warnings: []
-      },
-      { json: true, yes: false }
-    )
+    const output = renderOperationResult({ result: { ok: true }, warnings: [] }, { json: true, yes: false })
 
-    expect(output).toBe("{\n  \"ok\": true\n}")
+    expect(output).toBe('{\n  "ok": true\n}')
   })
 
   it("renders a safe image descriptor without dumping base64 payload bytes", () => {
@@ -109,10 +92,7 @@ describe("CLI rendering", () => {
   it("renders warnings in human and JSON output", () => {
     const success = {
       result: { ok: true },
-      warnings: [{
-        code: "status_metadata_unresolved" as const,
-        message: "Status metadata was degraded."
-      }]
+      warnings: [{ code: "status_metadata_unresolved" as const, message: "Status metadata was degraded." }]
     }
 
     const human = renderOperationResult(success, globals)
@@ -120,10 +100,7 @@ describe("CLI rendering", () => {
 
     expect(human).toContain("Warnings:")
     expect(human).toContain("status_metadata_unresolved")
-    expect(json).toEqual({
-      result: { ok: true },
-      warnings: success.warnings
-    })
+    expect(json).toEqual({ result: { ok: true }, warnings: success.warnings })
   })
 
   it("logs rendered output through the Effect console service", async () => {
@@ -138,9 +115,7 @@ describe("CLI rendering", () => {
             Effect.sync(() => {
               logs.push(value)
             }),
-          unsafe: {
-            ...consoleService.unsafe
-          }
+          unsafe: { ...consoleService.unsafe }
         })
       )
     )

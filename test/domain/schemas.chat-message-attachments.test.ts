@@ -10,9 +10,7 @@ import {
   parseUpdateChatMessageAttachmentParams
 } from "../../src/domain/schemas/chat-message-attachments.js"
 
-type JsonSchemaRecord = {
-  readonly [key: string]: unknown
-}
+type JsonSchemaRecord = { readonly [key: string]: unknown }
 
 const asRecord = (value: unknown): JsonSchemaRecord => {
   expect(typeof value).toBe("object")
@@ -38,7 +36,7 @@ const targetVariant = (schema: unknown, kind: string): JsonSchemaRecord => {
 
 describe("chat message attachment schemas", () => {
   it.effect("accepts all chat attachment target kinds", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = yield* parseListChatMessageAttachmentsParams({
         target: { kind: "channel_message", channel: "general", messageId: "msg-1" }
       })
@@ -52,39 +50,47 @@ describe("chat message attachment schemas", () => {
       expect(channel.target.kind).toBe("channel_message")
       expect(dm.target.kind).toBe("dm_message")
       expect(reply.target.kind).toBe("thread_reply")
-    }))
+    })
+  )
 
   it.effect("rejects empty target locators", () =>
-    Effect.gen(function*() {
-      const channel = yield* Effect.flip(parseListChatMessageAttachmentsParams({
-        target: { kind: "channel_message", channel: " ", messageId: "msg-1" }
-      }))
-      const dm = yield* Effect.flip(parseListChatMessageAttachmentsParams({
-        target: { kind: "dm_message", dm: "", messageId: "msg-2" }
-      }))
-      const reply = yield* Effect.flip(parseListChatMessageAttachmentsParams({
-        target: { kind: "thread_reply", channel: "general", messageId: "msg-1", replyId: "" }
-      }))
+    Effect.gen(function* () {
+      const channel = yield* Effect.flip(
+        parseListChatMessageAttachmentsParams({ target: { kind: "channel_message", channel: " ", messageId: "msg-1" } })
+      )
+      const dm = yield* Effect.flip(
+        parseListChatMessageAttachmentsParams({ target: { kind: "dm_message", dm: "", messageId: "msg-2" } })
+      )
+      const reply = yield* Effect.flip(
+        parseListChatMessageAttachmentsParams({
+          target: { kind: "thread_reply", channel: "general", messageId: "msg-1", replyId: "" }
+        })
+      )
 
       expect(channel._tag).toBe("ParseError")
       expect(dm._tag).toBe("ParseError")
       expect(reply._tag).toBe("ParseError")
-    }))
+    })
+  )
 
   it.effect("requires exactly one upload source", () =>
-    Effect.gen(function*() {
-      const missing = yield* Effect.flip(parseAddChatMessageAttachmentParams({
-        target: { kind: "channel_message", channel: "general", messageId: "msg-1" },
-        filename: "log.txt",
-        contentType: "text/plain"
-      }))
-      const multiple = yield* Effect.flip(parseAddChatMessageAttachmentParams({
-        target: { kind: "channel_message", channel: "general", messageId: "msg-1" },
-        filename: "log.txt",
-        contentType: "text/plain",
-        filePath: "/tmp/log.txt",
-        data: "bG9n"
-      }))
+    Effect.gen(function* () {
+      const missing = yield* Effect.flip(
+        parseAddChatMessageAttachmentParams({
+          target: { kind: "channel_message", channel: "general", messageId: "msg-1" },
+          filename: "log.txt",
+          contentType: "text/plain"
+        })
+      )
+      const multiple = yield* Effect.flip(
+        parseAddChatMessageAttachmentParams({
+          target: { kind: "channel_message", channel: "general", messageId: "msg-1" },
+          filename: "log.txt",
+          contentType: "text/plain",
+          filePath: "/tmp/log.txt",
+          data: "bG9n"
+        })
+      )
       const parsed = yield* parseAddChatMessageAttachmentParams({
         target: { kind: "channel_message", channel: "general", messageId: "msg-1" },
         filename: "log.txt",
@@ -95,14 +101,17 @@ describe("chat message attachment schemas", () => {
       expect(missing._tag).toBe("ParseError")
       expect(multiple._tag).toBe("ParseError")
       expect(parsed.data).toBe("bG9n")
-    }))
+    })
+  )
 
   it.effect("rejects no-op attachment metadata updates", () =>
-    Effect.gen(function*() {
-      const error = yield* Effect.flip(parseUpdateChatMessageAttachmentParams({
-        target: { kind: "dm_message", dm: "dm-1", messageId: "msg-2" },
-        attachmentId: "attachment-1"
-      }))
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        parseUpdateChatMessageAttachmentParams({
+          target: { kind: "dm_message", dm: "dm-1", messageId: "msg-2" },
+          attachmentId: "attachment-1"
+        })
+      )
       const parsed = yield* parseUpdateChatMessageAttachmentParams({
         target: { kind: "dm_message", dm: "dm-1", messageId: "msg-2" },
         attachmentId: "attachment-1",
@@ -111,7 +120,8 @@ describe("chat message attachment schemas", () => {
 
       expect(error._tag).toBe("ParseError")
       expect(parsed.pinned).toBe(false)
-    }))
+    })
+  )
 
   it("exports LLM-first target JSON schema descriptions and add-tool metadata", () => {
     const channelTarget = targetVariant(listChatMessageAttachmentsParamsJsonSchema, "channel_message")

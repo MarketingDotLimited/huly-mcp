@@ -107,11 +107,9 @@ export const allTools = [
   ...testManagementPlansTools
 ] as const satisfies ReadonlyArray<RegisteredTool>
 
-export type McpToolName = typeof allTools[number]["name"]
+export type McpToolName = (typeof allTools)[number]["name"]
 
-export const CATEGORY_NAMES: ReadonlySet<ToolCategory> = new Set(
-  allTools.map((t) => t.category)
-)
+export const CATEGORY_NAMES: ReadonlySet<ToolCategory> = new Set(allTools.map((t) => t.category))
 
 type ToolRegistryData = {
   readonly tools: ReadonlyMap<string, RegisteredTool>
@@ -148,9 +146,7 @@ interface ToolRegistryScope {
 }
 
 const buildRegistry = (tools: ReadonlyArray<RegisteredTool>): ToolRegistry => {
-  const map = new Map<string, RegisteredTool>(
-    tools.map((t) => [t.name, t])
-  )
+  const map = new Map<string, RegisteredTool>(tools.map((t) => [t.name, t]))
   return {
     tools: map,
     definitions: tools,
@@ -192,17 +188,11 @@ export const operationRegistry: OperationRegistry = buildOperationRegistry(allTo
 export const createScopedRegistry = (scope: ToolRegistryScope): ToolRegistry => {
   if (!scope.filteringActive) return toolRegistry
 
-  return buildRegistry(
-    allTools.filter((t) => scope.categories.has(t.category) || scope.toolNames.has(t.name))
-  )
+  return buildRegistry(allTools.filter((t) => scope.categories.has(t.category) || scope.toolNames.has(t.name)))
 }
 
 export const createFilteredRegistry = (categories: ReadonlySet<ToolCategory>): ToolRegistry =>
-  createScopedRegistry({
-    filteringActive: true,
-    categories,
-    toolNames: new Set<string>()
-  })
+  createScopedRegistry({ filteringActive: true, categories, toolNames: new Set<string>() })
 
 export { resolveAnnotations }
 

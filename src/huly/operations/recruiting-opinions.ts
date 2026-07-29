@@ -77,7 +77,7 @@ export const opinionRefFromDoc = (
   opinion: Opinion,
   review: Review
 ): Effect.Effect<OpinionRef, HulyClientError | RecruitingModelMissingError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     return {
       id: OpinionId.make(opinion._id),
       identifier: opinionIdentifierFromNumber(opinion.number),
@@ -91,7 +91,7 @@ const opinionDetail = (
   opinion: Opinion,
   review: Review
 ): Effect.Effect<OpinionDetail, HulyClientError | RecruitingModelMissingError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const description = optionalMarkupToMarkdown(opinion.description, client.markupUrlConfig, undefined)
     const comments = optionalCount(opinion.comments)
     const attachments = optionalCount(opinion.attachments)
@@ -113,7 +113,7 @@ export const findOpinion = (
   Opinion,
   HulyClientError | RecruitingOpinionIdentifierAmbiguousError | RecruitingOpinionNotFoundError
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = yield* client.findOne<Opinion>(
       recruitIds.class.Opinion,
       hulyQuery<Opinion>({ _id: toRef<Opinion>(identifier) })
@@ -145,7 +145,7 @@ export const parentReviewFromOpinion = (client: HulyClient["Type"], opinion: Opi
 export const listRecruitingOpinions = (
   params: ListRecruitingOpinionsParams
 ): Effect.Effect<ListRecruitingOpinionsResult, OpinionReadError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const review = yield* findReview(client, params.review)
     const opinions = yield* client.findAll<Opinion>(
@@ -160,7 +160,7 @@ export const listRecruitingOpinions = (
 export const getRecruitingOpinion = (
   params: GetRecruitingOpinionParams
 ): Effect.Effect<OpinionDetail, OpinionReadError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const review = yield* resolveReview(client, params.review)
     const opinion = yield* findOpinion(client, params.opinion, review)
@@ -171,7 +171,7 @@ export const getRecruitingOpinion = (
 export const createRecruitingOpinion = (
   params: CreateRecruitingOpinionParams
 ): Effect.Effect<RecruitingOpinionMutationResult, OpinionWriteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const review = yield* findReview(client, params.review)
     const number = yield* incrementSequence(client, recruitIds.class.Opinion, "opinion")
@@ -179,9 +179,8 @@ export const createRecruitingOpinion = (
     const data: AttachedData<Opinion> = {
       number,
       value: params.value,
-      description: params.description === undefined
-        ? ""
-        : markdownToMarkupString(params.description, client.markupUrlConfig)
+      description:
+        params.description === undefined ? "" : markdownToMarkupString(params.description, client.markupUrlConfig)
     }
     yield* client.addCollection(
       recruitIds.class.Opinion,
@@ -205,7 +204,7 @@ export const createRecruitingOpinion = (
 export const updateRecruitingOpinion = (
   params: UpdateRecruitingOpinionParams
 ): Effect.Effect<RecruitingOpinionMutationResult, OpinionWriteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const updateCollection = client.updateCollection
     if (updateCollection === undefined) {
@@ -216,11 +215,12 @@ export const updateRecruitingOpinion = (
     const parent = review ?? (yield* parentReviewFromOpinion(client, opinion))
     const operations: DocumentUpdate<Opinion> = {
       ...(params.value === undefined ? {} : { value: params.value }),
-      ...(params.description === undefined ? {} : {
-        description: params.description === null
-          ? ""
-          : markdownToMarkupString(params.description, client.markupUrlConfig)
-      })
+      ...(params.description === undefined
+        ? {}
+        : {
+            description:
+              params.description === null ? "" : markdownToMarkupString(params.description, client.markupUrlConfig)
+          })
     }
     yield* updateCollection(
       recruitIds.class.Opinion,
@@ -237,7 +237,7 @@ export const updateRecruitingOpinion = (
 export const deleteRecruitingOpinion = (
   params: DeleteRecruitingOpinionParams
 ): Effect.Effect<DeleteRecruitingOpinionResult, OpinionWriteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const removeCollection = client.removeCollection
     if (removeCollection === undefined) {

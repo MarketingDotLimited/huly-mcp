@@ -26,10 +26,7 @@ type ToolCalledProperties = {
   readonly edit_mode?: string
 }
 
-type FirstListToolsProperties = {
-  readonly client_kind?: string
-  readonly resolved_mode?: string
-}
+type FirstListToolsProperties = { readonly client_kind?: string; readonly resolved_mode?: string }
 
 type TelemetryEvent =
   | { readonly event: "session_start"; readonly properties: SessionStartProperties }
@@ -54,11 +51,7 @@ export interface PostHogTelemetryDependencies {
 
 const defaultDependencies: PostHogTelemetryDependencies = {
   createClient: () =>
-    new PostHog(POSTHOG_API_KEY, {
-      host: "https://us.i.posthog.com",
-      flushAt: 10,
-      flushInterval: 60000
-    }),
+    new PostHog(POSTHOG_API_KEY, { host: "https://us.i.posthog.com", flushAt: 10, flushInterval: 60000 }),
   createSessionId: () => crypto.randomUUID(),
   writeDebug: (message) => {
     console.error(message)
@@ -121,12 +114,9 @@ export const createPostHogTelemetry = (
         props === undefined
           ? { event: "first_list_tools" }
           : {
-            event: "first_list_tools",
-            properties: {
-              client_kind: props.clientKind,
-              resolved_mode: props.resolvedMode
+              event: "first_list_tools",
+              properties: { client_kind: props.clientKind, resolved_mode: props.resolvedMode }
             }
-          }
       )
     },
 

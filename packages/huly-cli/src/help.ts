@@ -9,10 +9,7 @@ const rootHelpFlags = new Set(["--help", "-h"])
 
 const commandRows = (): ReadonlyArray<HelpRow> =>
   Object.values(cliCommandCatalog)
-    .map((spec) => ({
-      command: spec.path.join(" "),
-      description: spec.description
-    }))
+    .map((spec) => ({ command: spec.path.join(" "), description: spec.description }))
     .sort((left, right) => left.command.localeCompare(right.command))
 
 const padCommand = (rows: ReadonlyArray<HelpRow>, command: string): string => {
@@ -25,9 +22,7 @@ export const isRootHelpRequest = (argv: ReadonlyArray<string>): boolean =>
 
 export const renderRootHelp = (version: string): string => {
   const rows = commandRows()
-  const commands = rows
-    .map((row) => `  ${padCommand(rows, row.command)}  ${row.description}`)
-    .join("\n")
+  const commands = rows.map((row) => `  ${padCommand(rows, row.command)}  ${row.description}`).join("\n")
 
   return [
     `Huly CLI ${version}`,

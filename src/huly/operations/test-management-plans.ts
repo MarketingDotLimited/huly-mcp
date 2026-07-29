@@ -52,10 +52,7 @@ type PlanMutateError = PlanOpError | TestPlanNotFoundError
 type UpdatePlanError = PlanMutateError | NoUpdateFieldsError
 type AddItemError = PlanMutateError | TestCaseNotFoundError | PersonNotFoundError
 
-const toPlanSummary = (p: TestPlan): TestPlanSummary => ({
-  id: TestPlanId.make(p._id),
-  name: p.name
-})
+const toPlanSummary = (p: TestPlan): TestPlanSummary => ({ id: TestPlanId.make(p._id), name: p.name })
 
 const toItemSummary = (item: TestPlanItem): TestPlanItemSummary => ({
   id: TestPlanItemId.make(item._id),
@@ -67,7 +64,7 @@ const toItemSummary = (item: TestPlanItem): TestPlanItemSummary => ({
 export const listTestPlans = (
   params: ListTestPlansParams
 ): Effect.Effect<ListTestPlansResult, PlanOpError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const limit = clampLimit(params.limit)
@@ -79,23 +76,13 @@ export const listTestPlans = (
     return { plans: plans.map(toPlanSummary), total: listTotal(plans.total) }
   })
 
-export const getTestPlan = (
-  params: GetTestPlanParams
-): Effect.Effect<GetTestPlanResult, PlanMutateError, HulyClient> =>
-  Effect.gen(function*() {
+export const getTestPlan = (params: GetTestPlanParams): Effect.Effect<GetTestPlanResult, PlanMutateError, HulyClient> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const plan = yield* findTestPlan(client, project, params.plan)
-    const items = yield* client.findAll<TestPlanItem>(
-      testManagement.class.TestPlanItem,
-      { attachedTo: plan._id }
-    )
-    const descriptionStr = yield* fetchDescription(
-      client,
-      testManagement.class.TestPlan,
-      plan._id,
-      plan.description
-    )
+    const items = yield* client.findAll<TestPlanItem>(testManagement.class.TestPlanItem, { attachedTo: plan._id })
+    const descriptionStr = yield* fetchDescription(client, testManagement.class.TestPlan, plan._id, plan.description)
     return {
       id: TestPlanId.make(plan._id),
       name: plan.name,
@@ -107,42 +94,40 @@ export const getTestPlan = (
 export const createTestPlan = (
   params: CreateTestPlanParams
 ): Effect.Effect<CreateTestPlanResult, PlanOpError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
-    const existing = yield* client.findOne<TestPlan>(
-      testManagement.class.TestPlan,
-      { name: params.name, space: project._id }
-    )
+    const existing = yield* client.findOne<TestPlan>(testManagement.class.TestPlan, {
+      name: params.name,
+      space: project._id
+    })
     if (existing !== undefined) {
       return { id: TestPlanId.make(existing._id), name: existing.name, created: false }
     }
     const planId: Ref<TestPlan> = generateId()
-    const descRef: MarkupBlobRef | null = params.description !== undefined && params.description.trim() !== ""
-      ? yield* uploadDescription(
-        client,
-        testManagement.class.TestPlan,
-        planId,
-        params.description
-      )
-      : null
-    yield* client.createDoc(testManagement.class.TestPlan, project._id, {
-      name: params.name,
-      description: descRef
-    }, planId)
+    const descRef: MarkupBlobRef | null =
+      params.description !== undefined && params.description.trim() !== ""
+        ? yield* uploadDescription(client, testManagement.class.TestPlan, planId, params.description)
+        : null
+    yield* client.createDoc(
+      testManagement.class.TestPlan,
+      project._id,
+      { name: params.name, description: descRef },
+      planId
+    )
     return { id: TestPlanId.make(planId), name: params.name, created: true }
   })
 
 export const updateTestPlan = (
   params: UpdateTestPlanParams
 ): Effect.Effect<UpdateTestPlanResult, UpdatePlanError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_test_plan", params, UPDATE_TEST_PLAN_FIELDS)
 
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const plan = yield* findTestPlan(client, project, params.plan)
-    type UpdateTestPlanField = typeof UPDATE_TEST_PLAN_FIELDS[number]
+    type UpdateTestPlanField = (typeof UPDATE_TEST_PLAN_FIELDS)[number]
     type UpdateTestPlanEntries = {
       readonly [Field in UpdateTestPlanField]: Effect.Effect<
         DirectUpdateEntry<UpdateTestPlanField, DocumentUpdate<TestPlan>, Field>,
@@ -151,16 +136,11 @@ export const updateTestPlan = (
     }
     const updateEntries = {
       name: Effect.succeed(params.name === undefined ? {} : { name: params.name }),
-      description: Effect.gen(function*() {
+      description: Effect.gen(function* () {
         if (params.description === undefined) return {}
         if (params.description === null) return { description: null }
         return {
-          description: yield* uploadDescription(
-            client,
-            testManagement.class.TestPlan,
-            plan._id,
-            params.description
-          )
+          description: yield* uploadDescription(client, testManagement.class.TestPlan, plan._id, params.description)
         }
       })
     } satisfies UpdateTestPlanEntries
@@ -172,7 +152,7 @@ export const updateTestPlan = (
 export const deleteTestPlan = (
   params: DeleteTestPlanParams
 ): Effect.Effect<DeleteTestPlanResult, PlanMutateError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const plan = yield* findTestPlan(client, project, params.plan)
@@ -183,7 +163,7 @@ export const deleteTestPlan = (
 export const addTestPlanItem = (
   params: AddTestPlanItemParams
 ): Effect.Effect<AddTestPlanItemResult, AddItemError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const plan = yield* findTestPlan(client, project, params.plan)
@@ -211,14 +191,13 @@ export const addTestPlanItem = (
 export const removeTestPlanItem = (
   params: RemoveTestPlanItemParams
 ): Effect.Effect<RemoveTestPlanItemResult, PlanMutateError | TestPlanItemNotFoundError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const plan = yield* findTestPlan(client, project, params.plan)
-    const item = yield* client.findOne<TestPlanItem>(
-      testManagement.class.TestPlanItem,
-      { _id: toRef<TestPlanItem>(params.item) }
-    )
+    const item = yield* client.findOne<TestPlanItem>(testManagement.class.TestPlanItem, {
+      _id: toRef<TestPlanItem>(params.item)
+    })
     if (item === undefined || item.attachedTo !== plan._id) {
       return yield* new TestPlanItemNotFoundError({ identifier: params.item, plan: plan._id })
     }

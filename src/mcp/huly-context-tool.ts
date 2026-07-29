@@ -23,10 +23,7 @@ const emptyInputSchema: {
   readonly additionalProperties: false
 } = { type: "object", properties: {}, additionalProperties: false }
 
-export const VersionToolResultSchema = Schema.Struct({
-  current: NonEmptyString,
-  latest: NonEmptyString
-})
+export const VersionToolResultSchema = Schema.Struct({ current: NonEmptyString, latest: NonEmptyString })
 
 export const versionToolDefinition = {
   name: VERSION_TOOL_NAME,
@@ -60,18 +57,8 @@ export const getHulyContextToolDefinition = {
   }
 }
 
-export const parseToolsets = (
-  raw: string | undefined,
-  writeError: (message: string) => void
-): ToolScopeSummary =>
-  resolveToolScope(
-    {
-      toolsets: raw ?? "",
-      tools: ""
-    },
-    toolRegistry.definitions,
-    writeError
-  )
+export const parseToolsets = (raw: string | undefined, writeError: (message: string) => void): ToolScopeSummary =>
+  resolveToolScope({ toolsets: raw ?? "", tools: "" }, toolRegistry.definitions, writeError)
 
 const builtinToolNames: ReadonlyArray<BuiltinToolName> = BUILTIN_TOOL_NAME_LITERALS
 
@@ -103,11 +90,7 @@ const defaultToolExposureContext = (registry: ToolRegistry): ToolExposureContext
 })
 
 export const buildHulyContext = (
-  config: {
-    readonly transport: "stdio" | "http"
-    readonly httpPort?: number
-    readonly httpHost?: string
-  },
+  config: { readonly transport: "stdio" | "http"; readonly httpPort?: number; readonly httpHost?: string },
   registry: ToolRegistry,
   toolScope: ToolScopeSummary,
   runtimeConfig: SanitizedHulyRuntimeConfigContext,
@@ -124,19 +107,13 @@ export const buildHulyContext = (
     proxyToolNames: exposureContext.proxyToolNames
   }
   return {
-    package: {
-      name: NPM_PACKAGE_NAME,
-      version: nonEmptyOrDefault(VERSION, "0.0.0-dev")
-    },
+    package: { name: NPM_PACKAGE_NAME, version: nonEmptyOrDefault(VERSION, "0.0.0-dev") },
     transport: {
       type: config.transport,
       ...(config.transport === "http"
         ? {
-          http: {
-            host: nonEmptyOrDefault(config.httpHost, "127.0.0.1"),
-            port: config.httpPort ?? DEFAULT_HTTP_PORT
+            http: { host: nonEmptyOrDefault(config.httpHost, "127.0.0.1"), port: config.httpPort ?? DEFAULT_HTTP_PORT }
           }
-        }
         : {})
     },
     huly: runtimeConfig.huly,

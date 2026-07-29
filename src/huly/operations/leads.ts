@@ -72,10 +72,7 @@ interface HulyLead extends Doc {
   createdOn: number
 }
 
-type StatusInfo = {
-  _id: Ref<Status>
-  name: string
-}
+type StatusInfo = { _id: Ref<Status>; name: string }
 
 type HulyCustomer = Contact | HulyOrganization
 
@@ -88,14 +85,8 @@ const statusInfosWithFallbacks = (
   resolveByStatusRef(
     statusRefs,
     statusDocs,
-    (statusDoc) => ({
-      _id: statusDoc._id,
-      name: statusDoc.name
-    }),
-    (statusRef) => ({
-      _id: statusRef,
-      name: workflowStatusFromRef(statusRef).name
-    })
+    (statusDoc) => ({ _id: statusDoc._id, name: statusDoc.name }),
+    (statusRef) => ({ _id: statusRef, name: workflowStatusFromRef(statusRef).name })
   )
 
 // Huly lead descriptions are stored as blob-backed markup refs. The client
@@ -125,11 +116,10 @@ const findFunnel = (
   client: HulyClient["Type"],
   funnelIdentifier: FunnelReference
 ): Effect.Effect<HulyFunnel, FunnelNotFoundError | HulyClientError> =>
-  Effect.gen(function*() {
-    const byId = yield* client.findOne<HulyFunnel>(
-      leadClassIds.class.Funnel,
-      { _id: toRef<HulyFunnel>(funnelIdentifier) }
-    )
+  Effect.gen(function* () {
+    const byId = yield* client.findOne<HulyFunnel>(leadClassIds.class.Funnel, {
+      _id: toRef<HulyFunnel>(funnelIdentifier)
+    })
     if (byId !== undefined) return byId
 
     // Upstream Huly Funnel is a Project-derived space without a tracker-style
@@ -153,12 +143,10 @@ const getFunnelStatuses = (
   client: HulyClient["Type"],
   funnel: HulyFunnel
 ): Effect.Effect<ReadonlyArray<StatusInfo>, HulyClientError | HulyConnectionError, Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (funnel.type === undefined) {
       return yield* Effect.fail(
-        new HulyConnectionError({
-          message: `Funnel '${funnel._id}' is missing its ProjectType reference`
-        })
+        new HulyConnectionError({ message: `Funnel '${funnel._id}' is missing its ProjectType reference` })
       )
     }
 
@@ -169,18 +157,14 @@ const getFunnelStatuses = (
 
     if (projectType?.statuses === undefined) {
       return yield* Effect.fail(
-        new HulyConnectionError({
-          message: `Funnel '${funnel._id}' references a ProjectType without statuses`
-        })
+        new HulyConnectionError({ message: `Funnel '${funnel._id}' references a ProjectType without statuses` })
       )
     }
 
     const statusRefs = uniqueStatusRefs(projectType.statuses.map((status) => status._id))
     if (statusRefs.length === 0) {
       return yield* Effect.fail(
-        new HulyConnectionError({
-          message: `Funnel '${funnel._id}' ProjectType has no statuses`
-        })
+        new HulyConnectionError({ message: `Funnel '${funnel._id}' ProjectType has no statuses` })
       )
     }
 
@@ -196,10 +180,10 @@ const resolveStatusName = (
   return statusDoc !== undefined
     ? Effect.succeed(StatusName.make(statusDoc.name))
     : Effect.fail(
-      new HulyConnectionError({
-        message: `Lead references status '${statusId}', but that status is not defined on the funnel ProjectType`
-      })
-    )
+        new HulyConnectionError({
+          message: `Lead references status '${statusId}', but that status is not defined on the funnel ProjectType`
+        })
+      )
 }
 
 const resolveStatusByName = (
@@ -208,9 +192,7 @@ const resolveStatusByName = (
   funnel: string
 ): Effect.Effect<Ref<Status>, InvalidStatusError> => {
   const normalizedInput = normalizeForComparison(statusName)
-  const matchingStatus = statuses.find(
-    (status) => normalizeForComparison(status.name) === normalizedInput
-  )
+  const matchingStatus = statuses.find((status) => normalizeForComparison(status.name) === normalizedInput)
   if (matchingStatus === undefined) {
     return Effect.fail(new InvalidStatusError({ status: statusName, project: funnel }))
   }
@@ -221,7 +203,7 @@ const findCustomer = (
   client: HulyClient["Type"],
   customerId: Ref<Contact>
 ): Effect.Effect<HulyCustomer | undefined, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const contactCustomer = yield* client.findOne<Contact>(contact.class.Contact, { _id: customerId })
     if (contactCustomer !== undefined) {
       return contactCustomer
@@ -237,23 +219,17 @@ type ListFunnelsError = HulyClientError
 export const listFunnels = (
   params: ListFunnelsParams
 ): Effect.Effect<ListFunnelsResult, ListFunnelsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
-    const query: DocumentQuery<HulyFunnel> = params.includeArchived !== true
-      ? { archived: false }
-      : {}
+    const query: DocumentQuery<HulyFunnel> = params.includeArchived !== true ? { archived: false } : {}
 
     const limit = clampLimit(params.limit)
 
-    const funnels = yield* client.findAll<HulyFunnel>(
-      leadClassIds.class.Funnel,
-      query,
-      {
-        limit,
-        sort: { name: SortingOrder.Ascending }
-      }
-    )
+    const funnels = yield* client.findAll<HulyFunnel>(leadClassIds.class.Funnel, query, {
+      limit,
+      sort: { name: SortingOrder.Ascending }
+    })
 
     const summaries: ReadonlyArray<FunnelSummary> = funnels.map((funnel) => ({
       identifier: FunnelIdentifier.make(funnel._id),
@@ -265,76 +241,55 @@ export const listFunnels = (
     return { funnels: summaries, total: listTotal(funnels.total) }
   })
 
-type ListLeadsError =
-  | HulyClientError
-  | HulyConnectionError
-  | FunnelNotFoundError
-  | InvalidStatusError
+type ListLeadsError = HulyClientError | HulyConnectionError | FunnelNotFoundError | InvalidStatusError
 
 export const listLeads = (
   params: ListLeadsParams
 ): Effect.Effect<Array<LeadSummary>, ListLeadsError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const funnel = yield* findFunnel(client, params.funnel)
     const statuses = yield* getFunnelStatuses(client, funnel)
 
-    const baseQuery: DocumentQuery<HulyLead> = {
-      space: funnelAsSpace(funnel)
-    }
+    const baseQuery: DocumentQuery<HulyLead> = { space: funnelAsSpace(funnel) }
 
-    const statusFilter = params.status !== undefined
-      ? { status: yield* resolveStatusByName(statuses, params.status, params.funnel) }
-      : {}
+    const statusFilter =
+      params.status !== undefined ? { status: yield* resolveStatusByName(statuses, params.status, params.funnel) } : {}
 
     const assigneeParam = params.assignee
 
-    const assigneeFilter = assigneeParam !== undefined
-      ? yield* Effect.gen(function*() {
-        const assigneePerson = yield* findPersonByEmailOrName(client, assigneeParam)
-        return assigneePerson !== undefined
-          ? { assignee: assigneePerson._id }
-          : undefined
-      })
-      : {}
+    const assigneeFilter =
+      assigneeParam !== undefined
+        ? yield* Effect.gen(function* () {
+            const assigneePerson = yield* findPersonByEmailOrName(client, assigneeParam)
+            return assigneePerson !== undefined ? { assignee: assigneePerson._id } : undefined
+          })
+        : {}
 
     if (assigneeFilter === undefined) return []
 
-    const titleFilter = params.titleSearch !== undefined && params.titleSearch.trim() !== ""
-      ? { title: { $like: `%${escapeLikeWildcards(params.titleSearch)}%` } }
-      : {}
+    const titleFilter =
+      params.titleSearch !== undefined && params.titleSearch.trim() !== ""
+        ? { title: { $like: `%${escapeLikeWildcards(params.titleSearch)}%` } }
+        : {}
 
-    const query: DocumentQuery<HulyLead> = {
-      ...baseQuery,
-      ...statusFilter,
-      ...assigneeFilter,
-      ...titleFilter
-    }
+    const query: DocumentQuery<HulyLead> = { ...baseQuery, ...statusFilter, ...assigneeFilter, ...titleFilter }
 
     const limit = clampLimit(params.limit)
 
-    type LeadWithLookup = WithLookup<HulyLead> & {
-      $lookup?: { assignee?: Person; attachedTo?: HulyCustomer }
-    }
+    type LeadWithLookup = WithLookup<HulyLead> & { $lookup?: { assignee?: Person; attachedTo?: HulyCustomer } }
 
-    const leads = yield* client.findAll<LeadWithLookup>(
-      leadClassIds.class.Lead,
-      query,
-      {
-        limit,
-        sort: { modifiedOn: SortingOrder.Descending },
-        // Upstream lead views resolve attachedTo through the Customer mixin.
-        // Reference:
-        // https://github.com/hcengineering/platform/blob/b9657d53d130a2ed8034c1b71ab0cf8b7a0b4994/models/lead/src/index.ts#L357-L360
-        lookup: {
-          assignee: contact.class.Person,
-          attachedTo: leadClassIds.mixin.Customer
-        }
-      }
-    )
+    const leads = yield* client.findAll<LeadWithLookup>(leadClassIds.class.Lead, query, {
+      limit,
+      sort: { modifiedOn: SortingOrder.Descending },
+      // Upstream lead views resolve attachedTo through the Customer mixin.
+      // Reference:
+      // https://github.com/hcengineering/platform/blob/b9657d53d130a2ed8034c1b71ab0cf8b7a0b4994/models/lead/src/index.ts#L357-L360
+      lookup: { assignee: contact.class.Person, attachedTo: leadClassIds.mixin.Customer }
+    })
 
     const rawSummaries = yield* Effect.forEach(leads, (lead) =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const status = yield* resolveStatusName(statuses, lead.status)
 
         return {
@@ -345,30 +300,26 @@ export const listLeads = (
           customer: lead.$lookup?.attachedTo?.name,
           modifiedOn: lead.modifiedOn
         }
-      }))
+      })
+    )
 
     const validated = yield* Schema.decodeUnknown(Schema.Array(LeadSummarySchema))(rawSummaries).pipe(
-      Effect.mapError((parseError) =>
-        new HulyConnectionError({
-          message: `listLeads response failed schema validation: ${parseError.message}`,
-          cause: parseError
-        })
+      Effect.mapError(
+        (parseError) =>
+          new HulyConnectionError({
+            message: `listLeads response failed schema validation: ${parseError.message}`,
+            cause: parseError
+          })
       )
     )
 
     return [...validated]
   })
 
-type GetLeadError =
-  | HulyClientError
-  | HulyConnectionError
-  | FunnelNotFoundError
-  | LeadNotFoundError
+type GetLeadError = HulyClientError | HulyConnectionError | FunnelNotFoundError | LeadNotFoundError
 
-export const getLead = (
-  params: GetLeadParams
-): Effect.Effect<LeadDetail, GetLeadError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+export const getLead = (params: GetLeadParams): Effect.Effect<LeadDetail, GetLeadError, HulyClient | Diagnostics> =>
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const funnel = yield* findFunnel(client, params.funnel)
     const statuses = yield* getFunnelStatuses(client, funnel)
@@ -376,34 +327,30 @@ export const getLead = (
       Effect.orDie
     )
 
-    const lead = yield* client.findOne<HulyLead>(
-      leadClassIds.class.Lead,
-      { space: funnelAsSpace(funnel), identifier: leadIdentifier }
-    )
+    const lead = yield* client.findOne<HulyLead>(leadClassIds.class.Lead, {
+      space: funnelAsSpace(funnel),
+      identifier: leadIdentifier
+    })
 
     if (lead === undefined) {
-      return yield* new LeadNotFoundError({
-        identifier: params.identifier,
-        funnel: FunnelIdentifier.make(funnel._id)
-      })
+      return yield* new LeadNotFoundError({ identifier: params.identifier, funnel: FunnelIdentifier.make(funnel._id) })
     }
 
     const status = yield* resolveStatusName(statuses, lead.status)
 
-    const person = lead.assignee !== null
-      ? yield* client.findOne<Person>(contact.class.Person, { _id: lead.assignee })
-      : undefined
+    const person =
+      lead.assignee !== null ? yield* client.findOne<Person>(contact.class.Person, { _id: lead.assignee }) : undefined
 
     const customer = yield* findCustomer(client, toRef<Contact>(lead.attachedTo))
 
     const description = lead.description
       ? yield* client.fetchMarkup(
-        leadClassIds.class.Lead,
-        lead._id,
-        "description",
-        markupBlobRefAsMarkupRef(lead.description),
-        "markdown"
-      )
+          leadClassIds.class.Lead,
+          lead._id,
+          "description",
+          markupBlobRefAsMarkupRef(lead.description),
+          "markdown"
+        )
       : undefined
 
     return yield* parseLeadDetailSchema({
@@ -418,11 +365,12 @@ export const getLead = (
       modifiedOn: lead.modifiedOn,
       createdOn: lead.createdOn
     }).pipe(
-      Effect.mapError((parseError) =>
-        new HulyConnectionError({
-          message: `getLead response failed schema validation: ${parseError.message}`,
-          cause: parseError
-        })
+      Effect.mapError(
+        (parseError) =>
+          new HulyConnectionError({
+            message: `getLead response failed schema validation: ${parseError.message}`,
+            cause: parseError
+          })
       )
     )
   })

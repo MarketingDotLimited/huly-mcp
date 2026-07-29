@@ -48,7 +48,7 @@ type DeleteProjectError = ProjectNotFoundError | HulyClientError
 export const listProjects = (
   params: ListProjectsParams
 ): Effect.Effect<ListProjectsResult, ListProjectsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const query: DocumentQuery<HulyProject> = {}
@@ -58,22 +58,14 @@ export const listProjects = (
 
     const limit = clampLimit(params.limit)
 
-    const projects = yield* client.findAll<HulyProject>(
-      tracker.class.Project,
-      query,
-      {
-        limit,
-        sort: {
-          name: SortingOrder.Ascending
-        }
-      }
-    )
+    const projects = yield* client.findAll<HulyProject>(tracker.class.Project, query, {
+      limit,
+      sort: { name: SortingOrder.Ascending }
+    })
 
     const total = projects.total
 
-    const validated = yield* Schema.decodeUnknown(
-      Schema.Array(ProjectSummarySchema)
-    )(
+    const validated = yield* Schema.decodeUnknown(Schema.Array(ProjectSummarySchema))(
       projects.map((project) => ({
         identifier: project.identifier,
         name: project.name,
@@ -81,29 +73,25 @@ export const listProjects = (
         archived: project.archived
       }))
     ).pipe(
-      Effect.mapError((parseError) =>
-        new HulyConnectionError({
-          message: `listProjects response failed schema validation: ${parseError.message}`,
-          cause: parseError
-        })
+      Effect.mapError(
+        (parseError) =>
+          new HulyConnectionError({
+            message: `listProjects response failed schema validation: ${parseError.message}`,
+            cause: parseError
+          })
       )
     )
 
-    return {
-      projects: validated,
-      total: listTotal(total)
-    }
+    return { projects: validated, total: listTotal(total) }
   })
 
 export const getProject = (
   params: GetProjectParams
 ): Effect.Effect<Project, GetProjectError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { defaultStatusId, project, statuses } = yield* findProjectWithStatuses(params.project)
 
-    const defaultStatus = defaultStatusId !== undefined
-      ? statuses.find(s => s._id === defaultStatusId)
-      : undefined
+    const defaultStatus = defaultStatusId !== undefined ? statuses.find((s) => s._id === defaultStatusId) : undefined
 
     return yield* parseProject({
       identifier: project.identifier,
@@ -111,13 +99,14 @@ export const getProject = (
       description: project.description || undefined,
       archived: project.archived,
       defaultStatus: defaultStatus?.name,
-      statuses: statuses.map(s => s.name)
+      statuses: statuses.map((s) => s.name)
     }).pipe(
-      Effect.mapError((parseError) =>
-        new HulyConnectionError({
-          message: `getProject response failed schema validation: ${parseError.message}`,
-          cause: parseError
-        })
+      Effect.mapError(
+        (parseError) =>
+          new HulyConnectionError({
+            message: `getProject response failed schema validation: ${parseError.message}`,
+            cause: parseError
+          })
       )
     )
   })
@@ -127,10 +116,10 @@ type ListStatusesError = ProjectNotFoundError | HulyClientError | HulyConnection
 export const listStatuses = (
   params: ListStatusesParams
 ): Effect.Effect<ListStatusesResult, ListStatusesError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { defaultStatusId, statuses } = yield* findProjectWithStatuses(params.project)
 
-    const details: Array<StatusDetail> = statuses.map(s => ({
+    const details: Array<StatusDetail> = statuses.map((s) => ({
       name: StatusName.make(s.name),
       category: s.category,
       isDefault: s._id === defaultStatusId
@@ -142,20 +131,13 @@ export const listStatuses = (
 export const createProject = (
   params: CreateProjectParams
 ): Effect.Effect<CreateProjectResult, CreateProjectError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
-    const existing = yield* client.findOne<HulyProject>(
-      tracker.class.Project,
-      { identifier: params.identifier }
-    )
+    const existing = yield* client.findOne<HulyProject>(tracker.class.Project, { identifier: params.identifier })
 
     if (existing !== undefined) {
-      return {
-        identifier: ProjectIdentifier.make(existing.identifier),
-        name: existing.name,
-        created: false
-      }
+      return { identifier: ProjectIdentifier.make(existing.identifier), name: existing.name, created: false }
     }
 
     const projectId: Ref<HulyProject> = generateId()
@@ -189,46 +171,31 @@ export const createProject = (
     // toRef bridges the phantom-typed Ref boundary.
     const spaceRef = toRef<Space>(projectId)
 
-    yield* client.createDoc(
-      tracker.class.Project,
-      spaceRef,
-      projectData,
-      projectId
-    )
+    yield* client.createDoc(tracker.class.Project, spaceRef, projectData, projectId)
 
-    return {
-      identifier: ProjectIdentifier.make(params.identifier),
-      name: params.name,
-      created: true
-    }
+    return { identifier: ProjectIdentifier.make(params.identifier), name: params.name, created: true }
   })
 
 export const updateProject = (
   params: UpdateProjectParams
 ): Effect.Effect<UpdateProjectResult, UpdateProjectError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_project", params, UPDATE_PROJECT_FIELDS)
 
     const { client, project } = yield* findProject(params.project)
 
-    type UpdateProjectField = typeof UPDATE_PROJECT_FIELDS[number]
+    type UpdateProjectField = (typeof UPDATE_PROJECT_FIELDS)[number]
     type UpdateProjectEntries = {
       readonly [Field in UpdateProjectField]: DirectUpdateEntry<UpdateProjectField, DocumentUpdate<HulyProject>, Field>
     }
     const updateEntries = {
       name: params.name === undefined ? {} : { name: params.name },
-      description: params.description === undefined
-        ? {}
-        : { description: params.description === null ? "" : params.description }
+      description:
+        params.description === undefined ? {} : { description: params.description === null ? "" : params.description }
     } satisfies UpdateProjectEntries
     const updateOps: DocumentUpdate<HulyProject> = mergeUpdateEntries(Object.values(updateEntries))
 
-    yield* client.updateDoc(
-      tracker.class.Project,
-      toRef<Space>(project._id),
-      project._id,
-      updateOps
-    )
+    yield* client.updateDoc(tracker.class.Project, toRef<Space>(project._id), project._id, updateOps)
 
     return { identifier: ProjectIdentifier.make(project.identifier), updated: true }
   })
@@ -236,14 +203,10 @@ export const updateProject = (
 export const deleteProject = (
   params: DeleteProjectParams
 ): Effect.Effect<DeleteProjectResult, DeleteProjectError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const { client, project } = yield* findProject(params.project)
 
-    yield* client.removeDoc(
-      tracker.class.Project,
-      toRef<Space>(project._id),
-      project._id
-    )
+    yield* client.removeDoc(tracker.class.Project, toRef<Space>(project._id), project._id)
 
     return { identifier: ProjectIdentifier.make(project.identifier), deleted: true }
   })

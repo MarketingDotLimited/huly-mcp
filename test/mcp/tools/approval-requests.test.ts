@@ -111,10 +111,10 @@ const hulyClient: HulyClientOperations = {
   getPrimarySocialId: () => actor,
   markupUrlConfig: testMarkupUrlConfig,
   workbenchUrlConfig: testWorkbenchUrlConfig,
-  findAll: (<T extends Doc>(classId: Ref<Class<T>>) => Effect.succeed(toFindResult(docsForSdkClass(classId)))),
-  findAllInModel: (<T extends Doc>() => Effect.succeed(toFindResult<T>([]))),
-  findOne:
-    (<T extends Doc>(classId: Ref<Class<T>>, _query: DocumentQuery<T>) => Effect.succeed(docsForSdkClass(classId)[0])),
+  findAll: <T extends Doc>(classId: Ref<Class<T>>) => Effect.succeed(toFindResult(docsForSdkClass(classId))),
+  findAllInModel: <T extends Doc>() => Effect.succeed(toFindResult<T>([])),
+  findOne: <T extends Doc>(classId: Ref<Class<T>>, _query: DocumentQuery<T>) =>
+    Effect.succeed(docsForSdkClass(classId)[0]),
   createDoc: () => Effect.die(new Error("not implemented")),
   updateDoc: () => Effect.die(new Error("not implemented")),
   addCollection: (<T extends Doc, P extends AttachedDoc>(
@@ -151,7 +151,7 @@ const findTool = (name: string) => {
 
 describe("approvalRequestTools", () => {
   it.effect("exports approval request tools in the approvals category and registers them globally", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(approvalRequestTools.map((tool) => tool.name)).toEqual([
         "list_approval_requests",
         "get_approval_request",
@@ -173,39 +173,44 @@ describe("approvalRequestTools", () => {
       expect(resolveAnnotations(findTool("reject_approval_request")).idempotentHint).toBe(false)
       expect(resolveAnnotations(findTool("cancel_approval_request")).destructiveHint).toBe(false)
       expect(resolveAnnotations(findTool("cancel_approval_request")).idempotentHint).toBe(false)
-    }))
+    })
+  )
 
   it.effect("list_approval_requests handler encodes successful structured output", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.promise(() =>
         findTool("list_approval_requests").handler({ limit: 5 }, hulyClient, storageClient)
       )
 
       expect(result.isError).toBeUndefined()
       expect(result.structuredContent?.result).toMatchObject({
-        requests: [{
-          id: "request-1",
-          status: "Active",
-          attachedTo: "issue-1",
-          requested: [{ id: "person-1", email: "jane@example.com" }]
-        }],
+        requests: [
+          {
+            id: "request-1",
+            status: "Active",
+            attachedTo: "issue-1",
+            requested: [{ id: "person-1", email: "jane@example.com" }]
+          }
+        ],
         total: 1
       })
       expect(JSON.parse(assertAt(result.content, 0).text)).toMatchObject({ total: 1 })
-    }))
+    })
+  )
 
   it.effect("get_approval_request maps validation errors to invalid params", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* Effect.promise(() =>
         findTool("get_approval_request").handler({}, hulyClient, storageClient)
       )
 
       expect(result.isError).toBe(true)
       expect(assertAt(result.content, 0).text).toContain("Invalid parameters for get_approval_request")
-    }))
+    })
+  )
 
   it.effect("add_approval_request_comment handler encodes mutation output", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       addCaptures.length = 0
       const result = yield* Effect.promise(() =>
         findTool("add_approval_request_comment").handler(
@@ -223,5 +228,6 @@ describe("approvalRequestTools", () => {
         comment: expect.any(String)
       })
       expect(addCaptures).toEqual([{ classId: chunter.class.ChatMessage, collection: "comments" }])
-    }))
+    })
+  )
 })

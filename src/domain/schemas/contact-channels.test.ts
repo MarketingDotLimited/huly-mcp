@@ -77,12 +77,7 @@ describe("Contact Channel Schemas", () => {
         value: "+15551234",
         newProvider: "telegram"
       })
-      expect(result).toEqual({
-        person: "person-1",
-        provider: "phone",
-        value: "+15551234",
-        newProvider: "telegram"
-      })
+      expect(result).toEqual({ person: "person-1", provider: "phone", value: "+15551234", newProvider: "telegram" })
     })
 
     it("rejects missing and mixed locators", () => {
@@ -139,9 +134,7 @@ describe("Contact Channel Schemas", () => {
     })
 
     it("rejects neither locator and both locator shapes", () => {
-      const neither = Effect.runSync(
-        Effect.either(parseRemovePersonChannelParams({ person: "person-1" }))
-      )
+      const neither = Effect.runSync(Effect.either(parseRemovePersonChannelParams({ person: "person-1" })))
       const both = Effect.runSync(
         Effect.either(
           parseRemovePersonChannelParams({

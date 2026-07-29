@@ -12,7 +12,7 @@ const findTool = (name: string) => {
 
 describe("processTools", () => {
   it.effect("exports process read and write tools in the processes category", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(processTools.map((tool) => tool.name)).toEqual([
         "list_processes",
         "get_process",
@@ -23,37 +23,34 @@ describe("processTools", () => {
       for (const tool of processTools) {
         expect(tool.category).toBe("processes")
       }
-    }))
+    })
+  )
 
   it.effect("start_process schema and annotations describe a non-idempotent write", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = findTool("start_process")
 
-      expect(tool.inputSchema).toMatchObject({
-        type: "object",
-        required: ["process", "card"]
-      })
+      expect(tool.inputSchema).toMatchObject({ type: "object", required: ["process", "card"] })
       expect(tool.annotations).toMatchObject({
         readOnlyHint: false,
         destructiveHint: false,
         idempotentHint: false,
         openWorldHint: false
       })
-    }))
+    })
+  )
 
   it.effect("cancel_execution schema and annotations describe an idempotent write", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = findTool("cancel_execution")
 
-      expect(tool.inputSchema).toMatchObject({
-        type: "object",
-        required: ["execution"]
-      })
+      expect(tool.inputSchema).toMatchObject({ type: "object", required: ["execution"] })
       expect(tool.annotations).toMatchObject({
         readOnlyHint: false,
         destructiveHint: false,
         idempotentHint: true,
         openWorldHint: false
       })
-    }))
+    })
+  )
 })

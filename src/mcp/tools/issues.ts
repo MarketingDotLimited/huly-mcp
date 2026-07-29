@@ -103,10 +103,9 @@ export const issueTools = [
   defineTool(
     {
       name: "list_issues",
-      description:
-        `Query Huly issues with optional filters. Returns issues sorted by modification date (newest first). Supports filtering by project, exact workflow status name (status), Huly SDK task.statusCategory key (statusCategory: ${
-          enumValuesDescription(StatusCategoryValues)
-        }), assignee, component, a human-readable attached label title (label, exact and case-insensitive), parentIssue (to list children of a specific issue), and isTopLevel (to return only native top-level issues). The label filter is applied before the result limit. Supports searching by title substring (titleSearch) and description content (descriptionSearch). Each result includes deterministic label summaries with title and available color; missing labels are an empty array, duplicate titles collapse case-insensitively while preferring a valid color, and unusable partial attachments are omitted with a tool warning.`,
+      description: `Query Huly issues with optional filters. Returns issues sorted by modification date (newest first). Supports filtering by project, exact workflow status name (status), Huly SDK task.statusCategory key (statusCategory: ${enumValuesDescription(
+        StatusCategoryValues
+      )}), assignee, component, a human-readable attached label title (label, exact and case-insensitive), parentIssue (to list children of a specific issue), and isTopLevel (to return only native top-level issues). The label filter is applied before the result limit. Supports searching by title substring (titleSearch) and description content (descriptionSearch). Each result includes deterministic label summaries with title and available color; missing labels are an empty array, duplicate titles collapse case-insensitively while preferring a valid color, and unusable partial attachments are omitted with a tool warning.`,
       category: CATEGORY,
       inputSchema: listIssuesParamsJsonSchema,
       resultSchema: ListIssuesResultSchema
@@ -225,9 +224,9 @@ export const issueTools = [
     {
       name: "create_issue_template",
       description:
-        "Create a new issue template in a Huly project. Templates define default values for new issues. Template and child descriptions support markdown. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT
-        + " Optionally include children (sub-task templates) that will become sub-issues when creating issues from this template. Returns the created template ID and title.",
+        "Create a new issue template in a Huly project. Templates define default values for new issues. Template and child descriptions support markdown. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT +
+        " Optionally include children (sub-task templates) that will become sub-issues when creating issues from this template. Returns the created template ID and title.",
       category: CATEGORY,
       inputSchema: createIssueTemplateParamsJsonSchema,
       resultSchema: CreateIssueTemplateResultSchema
@@ -239,9 +238,9 @@ export const issueTools = [
     {
       name: "create_issue_from_template",
       description:
-        "Create a new issue from a template. Applies template defaults, allowing overrides for specific fields. Description override supports markdown. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT
-        + " If the template has children (sub-task templates), sub-issues are created automatically unless includeChildren is set to false. Returns the created issue identifier and count of children created.",
+        "Create a new issue from a template. Applies template defaults, allowing overrides for specific fields. Description override supports markdown. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT +
+        " If the template has children (sub-task templates), sub-issues are created automatically unless includeChildren is set to false. Returns the created issue identifier and count of children created.",
       category: CATEGORY,
       inputSchema: createIssueFromTemplateParamsJsonSchema,
       resultSchema: CreateIssueFromTemplateResultSchema
@@ -253,8 +252,8 @@ export const issueTools = [
     {
       name: "update_issue_template",
       description:
-        "Update fields on an existing Huly issue template. Only provided fields are modified. Description supports markdown. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
+        "Update fields on an existing Huly issue template. Only provided fields are modified. Description supports markdown. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT,
       category: CATEGORY,
       inputSchema: updateIssueTemplateParamsJsonSchema,
       resultSchema: UpdateIssueTemplateResultSchema
@@ -277,9 +276,9 @@ export const issueTools = [
     {
       name: "add_template_child",
       description:
-        "Add a child (sub-task) template to an issue template. The child defines default values for sub-issues created when using create_issue_from_template. Child description supports markdown. "
-        + HULY_NATIVE_REFERENCE_MARKDOWN_INPUT
-        + " Returns the child template ID.",
+        "Add a child (sub-task) template to an issue template. The child defines default values for sub-issues created when using create_issue_from_template. Child description supports markdown. " +
+        HULY_NATIVE_REFERENCE_MARKDOWN_INPUT +
+        " Returns the child template ID.",
       category: CATEGORY,
       inputSchema: addTemplateChildParamsJsonSchema,
       resultSchema: AddTemplateChildResultSchema

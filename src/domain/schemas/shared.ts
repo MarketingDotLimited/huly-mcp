@@ -14,12 +14,11 @@ export const NonNegativeInteger = Schema.NonNegativeInt.annotations({
 })
 export type NonNegativeInteger = Schema.Schema.Type<typeof NonNegativeInteger>
 
-export const PositiveInteger = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand("PositiveInteger"))
-  .annotations({
-    identifier: "PositiveInteger",
-    title: "PositiveInteger",
-    description: "Integer greater than zero."
-  })
+export const PositiveInteger = Schema.Number.pipe(
+  Schema.int(),
+  Schema.positive(),
+  Schema.brand("PositiveInteger")
+).annotations({ identifier: "PositiveInteger", title: "PositiveInteger", description: "Integer greater than zero." })
 export type PositiveInteger = Schema.Schema.Type<typeof PositiveInteger>
 
 export const Integer = Schema.Number.pipe(Schema.int(), Schema.brand("Integer")).annotations({
@@ -55,11 +54,7 @@ export const Timestamp = NonNegativeInteger.pipe(Schema.brand("Timestamp")).anno
 })
 export type Timestamp = Schema.Schema.Type<typeof Timestamp>
 
-export const LimitParam = Schema.Number.pipe(
-  Schema.int(),
-  Schema.positive(),
-  Schema.lessThanOrEqualTo(MAX_LIMIT)
-)
+export const LimitParam = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.lessThanOrEqualTo(MAX_LIMIT))
 
 export const EmptyParamsSchema = Schema.Struct({}).annotations({
   jsonSchema: { type: "object", properties: {}, additionalProperties: false }
@@ -88,44 +83,35 @@ export const hasMutuallyExclusiveFields = <K extends string>(
   fields: ReadonlyArray<K>
 ): boolean => fields.every((field) => params[field] !== undefined)
 
-export const withAtLeastOneRequired = <K extends string>(
-  schema: object,
-  fields: ReadonlyArray<K>
-): object => ({
+export const withAtLeastOneRequired = <K extends string>(schema: object, fields: ReadonlyArray<K>): object => ({
   ...schema,
   anyOf: fields.map((field) => ({ required: [field] }))
 })
 
-export const withMutuallyExclusiveFields = <K extends string>(
-  schema: object,
-  fields: ReadonlyArray<K>
-): object => ({
+export const withMutuallyExclusiveFields = <K extends string>(schema: object, fields: ReadonlyArray<K>): object => ({
   ...schema,
   not: { required: [...fields] }
 })
 
-type UpdateFieldExactness<
-  Params,
-  NonUpdateFields extends ReadonlyArray<string>,
-  Fields extends ReadonlyArray<string>
-> = Exclude<Extract<keyof Params, string>, NonUpdateFields[number] | Fields[number]> extends never ? Extract<
-    NonUpdateFields[number],
-    Fields[number]
-  > extends never ? unknown : {
-    readonly __overlappingUpdateFields: Extract<NonUpdateFields[number], Fields[number]>
-  }
-  : {
-    readonly __missingUpdateFields: Exclude<Extract<keyof Params, string>, NonUpdateFields[number] | Fields[number]>
-  }
+type UpdateFieldExactness<Params, NonUpdateFields extends ReadonlyArray<string>, Fields extends ReadonlyArray<string>> =
+  Exclude<Extract<keyof Params, string>, NonUpdateFields[number] | Fields[number]> extends never
+    ? Extract<NonUpdateFields[number], Fields[number]> extends never
+      ? unknown
+      : { readonly __overlappingUpdateFields: Extract<NonUpdateFields[number], Fields[number]> }
+    : {
+        readonly __missingUpdateFields: Exclude<Extract<keyof Params, string>, NonUpdateFields[number] | Fields[number]>
+      }
 
-export const assertUpdateFields = <Params>() =>
-<
-  const NonUpdateFields extends ReadonlyArray<Extract<keyof Params, string>>,
-  const Fields extends ReadonlyArray<Extract<keyof Params, string>>
->(
-  _nonUpdateFields: NonUpdateFields,
-  fields: Fields & UpdateFieldExactness<Params, NonUpdateFields, Fields>
-): Fields => fields
+export const assertUpdateFields =
+  <Params>() =>
+  <
+    const NonUpdateFields extends ReadonlyArray<Extract<keyof Params, string>>,
+    const Fields extends ReadonlyArray<Extract<keyof Params, string>>
+  >(
+    _nonUpdateFields: NonUpdateFields,
+    fields: Fields & UpdateFieldExactness<Params, NonUpdateFields, Fields>
+  ): Fields =>
+    fields
 
 // === Tier 1: Huly Internal Refs (opaque IDs from _id) ===
 
@@ -346,9 +332,7 @@ export type SpaceTypeIdentifier = Schema.Schema.Type<typeof SpaceTypeIdentifier>
 // === Tier 3: Constrained String Domains ===
 
 export const Email = Schema.NonEmptyString.pipe(
-  Schema.pattern(/^[^@]+@[^@]+$/, {
-    message: () => "must contain exactly one @"
-  }),
+  Schema.pattern(/^[^@]+@[^@]+$/, { message: () => "must contain exactly one @" }),
   Schema.brand("Email")
 )
 export type Email = Schema.Schema.Type<typeof Email>

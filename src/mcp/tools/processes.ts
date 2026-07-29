@@ -70,12 +70,7 @@ export const processTools = [
         "Start a new active Huly Process workflow execution on a card/document. Accepts process ID or exact process name, and card/document ID or exact title; ambiguous names or titles fail with candidate IDs. This is not idempotent: each successful call creates a new execution unless the process forbids parallel active executions for the same card, in which case the existing active execution ID is returned in a typed error.",
       category: CATEGORY,
       inputSchema: startProcessParamsJsonSchema,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: false
-      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
       resultSchema: StartProcessResultSchema
     },
     parseStartProcessParams,
@@ -88,12 +83,7 @@ export const processTools = [
         "Idempotently cancel one Huly Process execution by execution ID. Active executions are marked cancelled; already-cancelled executions succeed with cancelled=false; completed executions fail without changing history.",
       category: CATEGORY,
       inputSchema: cancelExecutionParamsJsonSchema,
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false
-      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
       resultSchema: CancelExecutionResultSchema
     },
     parseCancelExecutionParams,

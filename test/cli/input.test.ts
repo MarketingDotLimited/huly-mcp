@@ -24,11 +24,13 @@ const runCliEffect = <A, E>(effect: Effect.Effect<A, E, NodeContext.NodeContext>
   Effect.runPromise(effect.pipe(Effect.provide(NodeContext.layer)))
 
 const invoke = (name: CliToolName, raw: ReadonlyArray<string>) =>
-  runCliEffect(Effect.gen(function*() {
-    const tool = getTool(name)
-    const parsed = yield* parseCliCommandLine(tool, cliCommandCatalog[name], raw)
-    return yield* buildCliInvocation(tool, cliCommandCatalog[name], parsed)
-  }))
+  runCliEffect(
+    Effect.gen(function* () {
+      const tool = getTool(name)
+      const parsed = yield* parseCliCommandLine(tool, cliCommandCatalog[name], raw)
+      return yield* buildCliInvocation(tool, cliCommandCatalog[name], parsed)
+    })
+  )
 
 const rejected = async (promise: Promise<unknown>): Promise<unknown> => {
   try {
@@ -39,13 +41,9 @@ const rejected = async (promise: Promise<unknown>): Promise<unknown> => {
   }
 }
 
-const errorMessage = (error: unknown): string => error instanceof Error ? error.message : String(error)
+const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error))
 
-const schemaSpec: CliCommandSpec = {
-  path: ["schema"],
-  positional: [],
-  description: "Schema coercion fixture"
-}
+const schemaSpec: CliCommandSpec = { path: ["schema"], positional: [], description: "Schema coercion fixture" }
 
 describe("CLI input merging", () => {
   it("merges JSON input first and lets positionals plus explicit options override it", async () => {
@@ -58,7 +56,7 @@ describe("CLI input merging", () => {
         "PROJ",
         "PROJ-7",
         "--input-json",
-        "{\"project\":\"OLD\",\"identifier\":\"OLD-1\",\"title\":\"old\",\"estimation\":10}",
+        '{"project":"OLD","identifier":"OLD-1","title":"old","estimation":10}',
         "--title",
         "new title",
         "--estimation",
@@ -102,7 +100,7 @@ describe("CLI input merging", () => {
 
   it("coerces generated positional values with their schema fields", async () => {
     const pinned = await invoke("pin_attachment", ["attachment-1", "true"])
-    const members = await invoke("add_channel_members", ["channel-1", "[\"person@example.com\"]"])
+    const members = await invoke("add_channel_members", ["channel-1", '["person@example.com"]'])
     const malformedMembers = await rejected(invoke("add_channel_members", ["channel-1", "person@example.com"]))
 
     expect(pinned.input).toEqual({ attachmentId: "attachment-1", pinned: true })
@@ -113,7 +111,7 @@ describe("CLI input merging", () => {
   it("reads JSON input files before explicit options", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "huly-cli-json-"))
     const inputPath = path.join(dir, "input.json")
-    await fs.writeFile(inputPath, "{\"query\":\"old\",\"limit\":1}", "utf8")
+    await fs.writeFile(inputPath, '{"query":"old","limit":1}', "utf8")
 
     try {
       const invocation = await invoke("fulltext_search", [
@@ -125,10 +123,7 @@ describe("CLI input merging", () => {
         "--json"
       ])
 
-      expect(invocation.input).toEqual({
-        query: "new query",
-        limit: 3
-      })
+      expect(invocation.input).toEqual({ query: "new query", limit: 3 })
       expect(invocation.globals).toEqual({ json: true, yes: false })
     } finally {
       await fs.rm(dir, { force: true, recursive: true })
@@ -146,11 +141,7 @@ describe("CLI input merging", () => {
       "--yes"
     ])
 
-    expect(invocation.input).toEqual({
-      project: "HULY",
-      issueIdentifier: "HULY-1",
-      commentId: "comment-1"
-    })
+    expect(invocation.input).toEqual({ project: "HULY", issueIdentifier: "HULY-1", commentId: "comment-1" })
     expect(invocation.globals).toEqual({ json: false, yes: true })
   })
 
@@ -159,7 +150,7 @@ describe("CLI input merging", () => {
       "HULY",
       "HULY-1",
       "--input-json",
-      "{\"project\":\"HULY\"}",
+      '{"project":"HULY"}',
       "--description",
       "null",
       "--json=false",
@@ -171,16 +162,8 @@ describe("CLI input merging", () => {
     const invocation = await invoke("update_issue", raw)
     const negatedBoolean = await invoke("list_issues", ["--no-has-assignee"])
 
-    expect(invocation.input).toEqual({
-      project: "HULY",
-      identifier: "HULY-1",
-      description: null
-    })
-    expect(invocation.globals).toEqual({
-      json: false,
-      output: "download.bin",
-      yes: false
-    })
+    expect(invocation.input).toEqual({ project: "HULY", identifier: "HULY-1", description: null })
+    expect(invocation.globals).toEqual({ json: false, output: "download.bin", yes: false })
     expect(negatedBoolean.input).toEqual({ hasAssignee: false })
   })
 
@@ -201,21 +184,11 @@ describe("CLI input merging", () => {
         }
       }
     }
-    const refRaw = [
-      "--count",
-      "2",
-      "--enabled=false",
-      "--tags",
-      "[\"bug\",\"cli\"]"
-    ]
+    const refRaw = ["--count", "2", "--enabled=false", "--tags", '["bug","cli"]']
     const parsed = await runCliEffect(parseCliCommandLine(refTool, schemaSpec, refRaw))
     const invocation = await runCliEffect(buildCliInvocation(refTool, schemaSpec, parsed))
 
-    expect(invocation.input).toEqual({
-      count: 2,
-      enabled: false,
-      tags: ["bug", "cli"]
-    })
+    expect(invocation.input).toEqual({ count: 2, enabled: false, tags: ["bug", "cli"] })
   })
 
   it("handles edge JSON Schema shapes used by generated tool schemas", async () => {
@@ -235,17 +208,8 @@ describe("CLI input merging", () => {
           stringOrNumber: { anyOf: [{ type: "string" }, { type: "number" }] },
           primitiveSchema: true
         },
-        anyOf: [
-          null,
-          {
-            properties: {
-              unionFlag: { type: "boolean" }
-            }
-          }
-        ],
-        $defs: {
-          NonRecord: true
-        }
+        anyOf: [null, { properties: { unionFlag: { type: "boolean" } } }],
+        $defs: { NonRecord: true }
       }
     }
 
@@ -299,13 +263,15 @@ describe("CLI input merging", () => {
   })
 
   it("exposes input errors as typed CLI errors", async () => {
-    const error = await Effect.runPromise(Effect.flip(
-      buildCliInvocation(getTool("fulltext_search"), cliCommandCatalog.fulltext_search, {
-        options: [],
-        positionals: ["one", "two"],
-        raw: ["one", "two"]
-      })
-    ))
+    const error = await Effect.runPromise(
+      Effect.flip(
+        buildCliInvocation(getTool("fulltext_search"), cliCommandCatalog.fulltext_search, {
+          options: [],
+          positionals: ["one", "two"],
+          raw: ["one", "two"]
+        })
+      )
+    )
 
     expect(error).toBeInstanceOf(CliInputError)
     expect(error.message).toContain("Too many positional arguments")
@@ -317,10 +283,9 @@ describe("CLI input merging", () => {
     const missingValue = await rejected(invoke("list_issues", ["--project"]))
     const invalidBoolean = await rejected(invoke("list_issues", ["--has-assignee=maybe"]))
     const invalidNumber = await rejected(invoke("list_issues", ["--limit", "many"]))
-    const missingFile = await rejected(invoke("update_issue", [
-      "--description-file",
-      "/tmp/huly-cli-missing-description-file"
-    ]))
+    const missingFile = await rejected(
+      invoke("update_issue", ["--description-file", "/tmp/huly-cli-missing-description-file"])
+    )
     const invalidNegation = await rejected(invoke("list_issues", ["--no-limit"]))
 
     expect(errorMessage(invalidJson)).toContain("--input-json must contain a JSON object")
@@ -333,64 +298,44 @@ describe("CLI input merging", () => {
   })
 
   it("reports invalid JSON for object and array-like option values", async () => {
-    const error = await rejected(invoke("update_issue", [
-      "HULY",
-      "HULY-1",
-      "--title",
-      "{not json"
-    ]))
+    const error = await rejected(invoke("update_issue", ["HULY", "HULY-1", "--title", "{not json"]))
 
     expect(errorMessage(error)).toContain("has invalid JSON")
   })
 
   it("handles parsed option edge cases from generated descriptors", async () => {
     const tool = getTool("list_issues")
-    const noPositionalInput = await runCliEffect(buildCliInvocation(tool, {
-      path: ["fixture"],
-      positional: ["project"],
-      description: "Fixture"
-    }, {
-      options: [],
-      positionals: [],
-      raw: []
-    }))
-    const positionalWithoutSchemaField = await runCliEffect(buildCliInvocation(tool, {
-      path: ["fixture"],
-      positional: ["notInSchema"],
-      description: "Fixture"
-    }, {
-      options: [],
-      positionals: ["raw-value"],
-      raw: ["raw-value"]
-    }))
-    const manualBoolean = await runCliEffect(buildCliInvocation(tool, cliCommandCatalog.list_issues, {
-      options: [{
-        _tag: "FieldOption",
-        fieldName: "hasAssignee",
-        optionName: "has-assignee",
-        value: "true"
-      }],
-      positionals: [],
-      raw: ["--has-assignee=true"]
-    }))
-    const unknownOptions = await runCliEffect(buildCliInvocation(tool, cliCommandCatalog.list_issues, {
-      options: [
-        {
-          _tag: "BooleanFieldOption",
-          fieldName: "missingBoolean",
-          optionName: "missing-boolean",
-          value: true
-        },
-        {
-          _tag: "FieldOption",
-          fieldName: "missingText",
-          optionName: "missing-text",
-          value: "ignored"
-        }
-      ],
-      positionals: [],
-      raw: ["--missing-boolean"]
-    }))
+    const noPositionalInput = await runCliEffect(
+      buildCliInvocation(
+        tool,
+        { path: ["fixture"], positional: ["project"], description: "Fixture" },
+        { options: [], positionals: [], raw: [] }
+      )
+    )
+    const positionalWithoutSchemaField = await runCliEffect(
+      buildCliInvocation(
+        tool,
+        { path: ["fixture"], positional: ["notInSchema"], description: "Fixture" },
+        { options: [], positionals: ["raw-value"], raw: ["raw-value"] }
+      )
+    )
+    const manualBoolean = await runCliEffect(
+      buildCliInvocation(tool, cliCommandCatalog.list_issues, {
+        options: [{ _tag: "FieldOption", fieldName: "hasAssignee", optionName: "has-assignee", value: "true" }],
+        positionals: [],
+        raw: ["--has-assignee=true"]
+      })
+    )
+    const unknownOptions = await runCliEffect(
+      buildCliInvocation(tool, cliCommandCatalog.list_issues, {
+        options: [
+          { _tag: "BooleanFieldOption", fieldName: "missingBoolean", optionName: "missing-boolean", value: true },
+          { _tag: "FieldOption", fieldName: "missingText", optionName: "missing-text", value: "ignored" }
+        ],
+        positionals: [],
+        raw: ["--missing-boolean"]
+      })
+    )
 
     expect(noPositionalInput.input).toEqual({})
     expect(positionalWithoutSchemaField.input).toEqual({ notInSchema: "raw-value" })
@@ -401,26 +346,21 @@ describe("CLI input merging", () => {
   it("reports invalid boolean-only positional values", async () => {
     const booleanTool = {
       ...getTool("list_issues"),
-      inputSchema: {
-        type: "object",
-        properties: {
-          enabled: { type: "boolean" }
-        }
-      }
+      inputSchema: { type: "object", properties: { enabled: { type: "boolean" } } }
     }
     const error = await rejected(
       runCliEffect(
-        Effect.gen(function*() {
-          const parsed = yield* parseCliCommandLine(booleanTool, {
-            path: ["fixture"],
-            positional: ["enabled"],
-            description: "Fixture"
-          }, ["maybe"])
-          return yield* buildCliInvocation(booleanTool, {
-            path: ["fixture"],
-            positional: ["enabled"],
-            description: "Fixture"
-          }, parsed)
+        Effect.gen(function* () {
+          const parsed = yield* parseCliCommandLine(
+            booleanTool,
+            { path: ["fixture"], positional: ["enabled"], description: "Fixture" },
+            ["maybe"]
+          )
+          return yield* buildCliInvocation(
+            booleanTool,
+            { path: ["fixture"], positional: ["enabled"], description: "Fixture" },
+            parsed
+          )
         })
       )
     )
@@ -431,17 +371,12 @@ describe("CLI input merging", () => {
   it("reports invalid JSON for JSON-only schema fields", async () => {
     const refTool = {
       ...getTool("list_issues"),
-      inputSchema: {
-        type: "object",
-        properties: {
-          tags: { type: "array", items: { type: "string" } }
-        }
-      }
+      inputSchema: { type: "object", properties: { tags: { type: "array", items: { type: "string" } } } }
     }
 
     const error = await rejected(
       runCliEffect(
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const parsed = yield* parseCliCommandLine(refTool, schemaSpec, ["--tags", "not-json"])
           return yield* buildCliInvocation(refTool, schemaSpec, parsed)
         })

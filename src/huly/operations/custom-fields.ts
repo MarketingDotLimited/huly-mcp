@@ -119,10 +119,7 @@ const decodeCustomFieldAttribute = (attr: AnyAttribute): DecodedCustomFieldAttri
 const decodeClassInfo = (value: Doc): DecodedClassInfo => {
   const record = decodeSdkRecord(value)
   const kind = typeof record.kind === "number" ? record.kind : ClassifierKind.CLASS
-  return {
-    label: modelLabelOrDefault(record.label, String(value._id)),
-    kind
-  }
+  return { label: modelLabelOrDefault(record.label, String(value._id)), kind }
 }
 
 const decodeCustomFieldDocument = (doc: Doc): DecodedCustomFieldDocument => ({
@@ -134,27 +131,19 @@ const resolveClassInfo = (
   client: HulyClient["Type"],
   classId: ObjectClassName
 ): Effect.Effect<DecodedClassInfo, HulyClientError> =>
-  Effect.gen(function*() {
-    const cls = yield* client.findOne<Doc>(
-      classRef,
-      { _id: toRef<Doc>(classId) }
-    )
-    return cls !== undefined
-      ? decodeClassInfo(cls)
-      : { label: classId, kind: ClassifierKind.CLASS }
+  Effect.gen(function* () {
+    const cls = yield* client.findOne<Doc>(classRef, { _id: toRef<Doc>(classId) })
+    return cls !== undefined ? decodeClassInfo(cls) : { label: classId, kind: ClassifierKind.CLASS }
   })
 
 const batchResolveClassLabels = (
   client: HulyClient["Type"],
   classIds: ReadonlyArray<ObjectClassName>
 ): Effect.Effect<Map<ObjectClassName, string>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (classIds.length === 0) return new Map()
 
-    const classes = yield* client.findAll<Doc>(
-      classRef,
-      { _id: { $in: classIds.map(toRef<Doc>) } }
-    )
+    const classes = yield* client.findAll<Doc>(classRef, { _id: { $in: classIds.map(toRef<Doc>) } })
 
     const labels = new Map<ObjectClassName, string>()
     for (const cls of classes) {
@@ -198,56 +187,27 @@ const labelForOwner = (labels: ReadonlyMap<ObjectClassName, string>, ownerClassI
   return label
 }
 
-const toCustomFieldInfo = (
-  attr: DecodedCustomFieldAttribute,
-  ownerLabel: string
-): CustomFieldInfo => {
-  const base = {
-    id: attr.id,
-    name: attr.name,
-    label: attr.label,
-    ownerClassId: attr.ownerClassId,
-    ownerLabel
-  }
+const toCustomFieldInfo = (attr: DecodedCustomFieldAttribute, ownerLabel: string): CustomFieldInfo => {
+  const base = { id: attr.id, name: attr.name, label: attr.label, ownerClassId: attr.ownerClassId, ownerLabel }
 
   switch (attr.typeDescriptor.typeName) {
     case "enum":
-      return {
-        ...base,
-        type: "enum",
-        typeDetails: attr.typeDescriptor.typeDetails
-      }
+      return { ...base, type: "enum", typeDetails: attr.typeDescriptor.typeDetails }
     case "array":
-      return {
-        ...base,
-        type: "array",
-        typeDetails: attr.typeDescriptor.typeDetails
-      }
+      return { ...base, type: "array", typeDetails: attr.typeDescriptor.typeDetails }
     case "ref":
-      return {
-        ...base,
-        type: "ref",
-        typeDetails: attr.typeDescriptor.typeDetails
-      }
+      return { ...base, type: "ref", typeDetails: attr.typeDescriptor.typeDetails }
     case "unknown":
-      return {
-        ...base,
-        type: "unknown",
-        typeDetails: attr.typeDescriptor.typeDetails
-      }
+      return { ...base, type: "unknown", typeDetails: attr.typeDescriptor.typeDetails }
     default:
-      return {
-        ...base,
-        type: attr.typeDescriptor.typeName,
-        typeDetails: {}
-      }
+      return { ...base, type: attr.typeDescriptor.typeName, typeDetails: {} }
   }
 }
 
 export const listCustomFields = (
   params: ListCustomFieldsParams
 ): Effect.Effect<Array<CustomFieldInfo>, ListCustomFieldsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit ?? CUSTOM_FIELDS_DEFAULT_LIMIT)
 
@@ -256,17 +216,15 @@ export const listCustomFields = (
       query.attributeOf = params.targetClass
     }
 
-    const customAttrs = yield* client.findAll<AnyAttribute>(
-      core.class.Attribute,
-      query,
-      { limit, sort: { modifiedOn: SortingOrder.Descending } }
-    )
+    const customAttrs = yield* client.findAll<AnyAttribute>(core.class.Attribute, query, {
+      limit,
+      sort: { modifiedOn: SortingOrder.Descending }
+    })
 
     const decodedAttrs = customAttrs.map(decodeCustomFieldAttribute)
-    const ownerLabels = yield* batchResolveClassLabels(
-      client,
-      [...new Set(decodedAttrs.map((attr) => attr.ownerClassId))]
-    )
+    const ownerLabels = yield* batchResolveClassLabels(client, [
+      ...new Set(decodedAttrs.map((attr) => attr.ownerClassId))
+    ])
 
     return decodedAttrs.map((attr) => toCustomFieldInfo(attr, labelForOwner(ownerLabels, attr.ownerClassId)))
   })
@@ -274,7 +232,7 @@ export const listCustomFields = (
 export const getCustomFieldValues = (
   params: GetCustomFieldValuesParams
 ): Effect.Effect<Array<CustomFieldValue>, GetCustomFieldValuesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const objectClassRef = toRef<Class<Doc>>(params.objectClass)
     const objectRef = toRef<Doc>(params.objectId)
@@ -285,10 +243,7 @@ export const getCustomFieldValues = (
     ])
 
     if (doc === undefined) {
-      return yield* new CustomFieldObjectNotFoundError({
-        objectId: params.objectId,
-        objectClass: params.objectClass
-      })
+      return yield* new CustomFieldObjectNotFoundError({ objectId: params.objectId, objectClass: params.objectClass })
     }
 
     const decodedDoc = decodeCustomFieldDocument(doc)
@@ -308,16 +263,13 @@ export const getCustomFieldValues = (
 export const setCustomField = (
   params: SetCustomFieldParams
 ): Effect.Effect<SetCustomFieldResult, SetCustomFieldError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const objectClassRef = toRef<Class<Doc>>(params.objectClass)
     const objectRef = toRef<Doc>(params.objectId)
 
     const [attr, doc] = yield* Effect.all([
-      client.findOne<AnyAttribute>(
-        core.class.Attribute,
-        { _id: toRef<AnyAttribute>(params.fieldId), isCustom: true }
-      ),
+      client.findOne<AnyAttribute>(core.class.Attribute, { _id: toRef<AnyAttribute>(params.fieldId), isCustom: true }),
       client.findOne<Doc>(objectClassRef, { _id: objectRef })
     ])
 
@@ -326,10 +278,7 @@ export const setCustomField = (
     }
 
     if (doc === undefined) {
-      return yield* new CustomFieldObjectNotFoundError({
-        objectId: params.objectId,
-        objectClass: params.objectClass
-      })
+      return yield* new CustomFieldObjectNotFoundError({ objectId: params.objectId, objectClass: params.objectClass })
     }
 
     const decodedAttr = decodeCustomFieldAttribute(attr)
@@ -345,22 +294,13 @@ export const setCustomField = (
       // Huly updateMixin expects the mixin class as Ref<Class<Doc>>. Brands are erased at runtime.
       // eslint-disable-next-line no-restricted-syntax -- SDK boundary cast for mixin class ref
       const mixinRef = toRef<Doc>(decodedAttr.ownerClassId) as Ref<Class<Doc>>
-      yield* client.updateMixin(
-        objectRef,
-        objectClassRef,
-        decodedDoc.space,
-        mixinRef,
-        {
-          [decodedAttr.name]: writeValue
-        }
-      )
+      yield* client.updateMixin(objectRef, objectClassRef, decodedDoc.space, mixinRef, {
+        [decodedAttr.name]: writeValue
+      })
     } else {
-      yield* client.updateDoc(
-        toRef<Class<Doc>>(decodedAttr.ownerClassId),
-        decodedDoc.space,
-        objectRef,
-        { [decodedAttr.name]: writeValue }
-      )
+      yield* client.updateDoc(toRef<Class<Doc>>(decodedAttr.ownerClassId), decodedDoc.space, objectRef, {
+        [decodedAttr.name]: writeValue
+      })
     }
 
     return {

@@ -78,10 +78,7 @@ export const tagTools = [
         "Delete a generic Huly tag definition by ID or exact title, resolved within targetClass. This deletes the tag definition, not only one object's tag reference.",
       category: CATEGORY,
       inputSchema: deleteTagParamsJsonSchema,
-      annotations: {
-        destructiveHint: true,
-        idempotentHint: false
-      },
+      annotations: { destructiveHint: true, idempotentHint: false },
       resultSchema: DeleteTagResultSchema
     },
     parseDeleteTagParams,
@@ -106,9 +103,7 @@ export const tagTools = [
         "Attach a generic Huly tag to one raw object collection. Requires targetClass for the tag definition and objectId/objectClass/space/collection for the TagReference. Idempotent for the same object, collection, and tag.",
       category: CATEGORY,
       inputSchema: attachTagParamsJsonSchema,
-      annotations: {
-        idempotentHint: true
-      },
+      annotations: { idempotentHint: true },
       resultSchema: AttachTagResultSchema
     },
     parseAttachTagParams,

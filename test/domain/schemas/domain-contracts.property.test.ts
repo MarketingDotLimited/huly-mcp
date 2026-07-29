@@ -148,11 +148,7 @@ const expectDecodeFailure = (schema: Schema.Schema.AnyNoContext, input: unknown)
   expect(Schema.decodeUnknownEither(schema)(input)._tag).toBe("Left")
 }
 
-const expectDecodeFailureContaining = (
-  schema: Schema.Schema.AnyNoContext,
-  input: unknown,
-  message: string
-): void => {
+const expectDecodeFailureContaining = (schema: Schema.Schema.AnyNoContext, input: unknown, message: string): void => {
   const decoded = Schema.decodeUnknownEither(schema)(input)
 
   expect(decoded._tag).toBe("Left")
@@ -172,60 +168,58 @@ const caseVariant = (value: string): fc.Arbitrary<string> =>
   fc.array(fc.boolean(), { minLength: value.length, maxLength: value.length }).map((upperByIndex) =>
     value
       .split("")
-      .map((char, index) => upperByIndex[index] === true ? char.toUpperCase() : char.toLowerCase())
+      .map((char, index) => (upperByIndex[index] === true ? char.toUpperCase() : char.toLowerCase()))
       .join("")
   )
 
-const priorityInputArbitrary = fc.constantFrom(...IssuePriorityValues).chain((priority) =>
-  priority === "no-priority"
-    ? fc.constantFrom("no-priority", "no_priority", "no priority", "nopriority", "NO-PRIORITY", "No Priority")
-    : caseVariant(priority)
-      .map((variant) => variant)
-      .map((variant) => variant)
-).chain((variant) =>
-  fc.record({
-    left: fc.constantFrom("", " "),
-    right: fc.constantFrom("", " ")
-  }).map(({ left, right }) => `${left}${variant}${right}`)
-)
+const priorityInputArbitrary = fc
+  .constantFrom(...IssuePriorityValues)
+  .chain((priority) =>
+    priority === "no-priority"
+      ? fc.constantFrom("no-priority", "no_priority", "no priority", "nopriority", "NO-PRIORITY", "No Priority")
+      : caseVariant(priority)
+          .map((variant) => variant)
+          .map((variant) => variant)
+  )
+  .chain((variant) =>
+    fc
+      .record({ left: fc.constantFrom("", " "), right: fc.constantFrom("", " ") })
+      .map(({ left, right }) => `${left}${variant}${right}`)
+  )
 
 const invalidPriorityArbitrary = fc.stringMatching(/^x[A-Za-z0-9 _-]{0,16}$/)
 
 const leadDigitsArbitrary = fc.nat({ max: 999_999 }).map(String)
 const leadInputArbitrary = leadDigitsArbitrary.chain((digits) =>
-  fc.record({
-    prefix: fc.constantFrom("", "LEAD-", "lead-", "Lead-"),
-    left: fc.stringMatching(/^\s{0,2}$/),
-    right: fc.stringMatching(/^\s{0,2}$/)
-  }).map(({ left, prefix, right }) => ({
-    input: `${left}${prefix}${digits}${right}`,
-    expected: `LEAD-${digits}`
-  }))
+  fc
+    .record({
+      prefix: fc.constantFrom("", "LEAD-", "lead-", "Lead-"),
+      left: fc.stringMatching(/^\s{0,2}$/),
+      right: fc.stringMatching(/^\s{0,2}$/)
+    })
+    .map(({ left, prefix, right }) => ({ input: `${left}${prefix}${digits}${right}`, expected: `LEAD-${digits}` }))
 )
 
 const unixSecondsArbitrary = fc.integer({ min: 0, max: 9_999_999_998 })
-const anonymousValidityWindowArbitrary = fc.integer({ min: 1, max: 86_400 }).chain((duration) =>
-  fc.integer({ min: 0, max: 9_999_999_999 - duration }).map((notBefore) => ({
-    duration,
-    notBefore
-  }))
-)
+const anonymousValidityWindowArbitrary = fc
+  .integer({ min: 1, max: 86_400 })
+  .chain((duration) =>
+    fc.integer({ min: 0, max: 9_999_999_999 - duration }).map((notBefore) => ({ duration, notBefore }))
+  )
 
 const optionalStringArbitrary = fc.option(fc.string({ maxLength: 20 }), { nil: undefined })
 const optionalNonEmptyStringArbitrary = fc.option(nonWhitespaceStringArbitrary, { nil: undefined })
 const optionalBooleanArbitrary = fc.option(fc.boolean(), { nil: undefined })
 
-const editDocumentParamsArbitrary = fc.record({
-  title: optionalNonEmptyStringArbitrary,
-  content: optionalStringArbitrary,
-  old_text: optionalStringArbitrary,
-  new_text: optionalStringArbitrary,
-  replace_all: optionalBooleanArbitrary
-}).map((params) => ({
-  teamspace: "Engineering",
-  document: "Runbook",
-  ...params
-}))
+const editDocumentParamsArbitrary = fc
+  .record({
+    title: optionalNonEmptyStringArbitrary,
+    content: optionalStringArbitrary,
+    old_text: optionalStringArbitrary,
+    new_text: optionalStringArbitrary,
+    replace_all: optionalBooleanArbitrary
+  })
+  .map((params) => ({ teamspace: "Engineering", document: "Runbook", ...params }))
 
 const modelEditDocumentAcceptance = (params: {
   readonly title?: string | undefined
@@ -241,11 +235,11 @@ const modelEditDocumentAcceptance = (params: {
   const hasUpdateField = params.title !== undefined || hasContent || hasSearchReplace
 
   return !(
-    hasContent && (hasOldText || hasNewText)
-    || hasOldText !== hasNewText
-    || params.replace_all !== undefined && !hasOldText
-    || !hasUpdateField
-    || hasOldText && params.old_text.trim() === ""
+    (hasContent && (hasOldText || hasNewText)) ||
+    hasOldText !== hasNewText ||
+    (params.replace_all !== undefined && !hasOldText) ||
+    !hasUpdateField ||
+    (hasOldText && params.old_text.trim() === "")
   )
 }
 
@@ -389,13 +383,7 @@ const updateSchemaCases: ReadonlyArray<UpdateSchemaCase> = [
     jsonSchema: updateSpaceParamsJsonSchema,
     base: { space: "Engineering" },
     fields: UPDATE_SPACE_FIELDS,
-    values: {
-      archived: true,
-      autoJoin: true,
-      description: "Updated",
-      name: "Updated",
-      private: true
-    }
+    values: { archived: true, autoJoin: true, description: "Updated", name: "Updated", private: true }
   },
   {
     name: "UpdateTagCategoryParamsSchema",
@@ -427,14 +415,7 @@ const updateSchemaCases: ReadonlyArray<UpdateSchemaCase> = [
     jsonSchema: updateTestCaseParamsJsonSchema,
     base: { project: "QA", testCase: "Login" },
     fields: UPDATE_TEST_CASE_FIELDS,
-    values: {
-      assignee: null,
-      description: null,
-      name: "Updated",
-      priority: "low",
-      status: "draft",
-      type: "functional"
-    }
+    values: { assignee: null, description: null, name: "Updated", priority: "low", status: "draft", type: "functional" }
   },
   {
     name: "UpdateTestPlanParamsSchema",
@@ -598,11 +579,13 @@ describe("access-link and document state-machine properties", () => {
   it("edit_document JSON Schema advertises the same update groups and old_text constraints", () => {
     expect(jsonSchemaRequiredFields(editDocumentParamsJsonSchema)).toEqual(["title", "content", "old_text", "new_text"])
     expect(editDocumentParamsJsonSchema.anyOf).toContainEqual({ required: ["old_text", "new_text"] })
-    expect(editDocumentParamsJsonSchema.allOf).toEqual(expect.arrayContaining([
-      { if: { required: ["old_text"] }, then: { required: ["new_text"] } },
-      { if: { required: ["new_text"] }, then: { required: ["old_text"] } },
-      { if: { required: ["replace_all"] }, then: { required: ["old_text", "new_text"] } }
-    ]))
+    expect(editDocumentParamsJsonSchema.allOf).toEqual(
+      expect.arrayContaining([
+        { if: { required: ["old_text"] }, then: { required: ["new_text"] } },
+        { if: { required: ["new_text"] }, then: { required: ["old_text"] } },
+        { if: { required: ["replace_all"] }, then: { required: ["old_text", "new_text"] } }
+      ])
+    )
 
     const properties = parseJsonSchemaRecord(editDocumentParamsJsonSchema.properties) ?? {}
     const oldText = parseJsonSchemaRecord(properties.old_text) ?? {}
@@ -635,7 +618,8 @@ describe("update schema runtime and JSON Schema agreement", () => {
             (testCase.mutuallyExclusiveFieldSets ?? []).some((fieldSet) =>
               fieldSet.every((field) => fields.includes(field))
             )
-          ) return
+          )
+            return
 
           const payload = Object.fromEntries(fields.map((field) => [field, testCase.values[field]]))
 

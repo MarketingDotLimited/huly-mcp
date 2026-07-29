@@ -38,14 +38,10 @@ const findCategoryByIdOrLabel = (
   client: HulyClient["Type"],
   idOrLabel: string
 ): Effect.Effect<HulyTagCategory | undefined, HulyClientError> =>
-  Effect.gen(function*() {
-    const cat = (yield* client.findOne<HulyTagCategory>(
-      tags.class.TagCategory,
-      { _id: toRef<HulyTagCategory>(idOrLabel) }
-    )) ?? (yield* client.findOne<HulyTagCategory>(
-      tags.class.TagCategory,
-      { label: idOrLabel }
-    ))
+  Effect.gen(function* () {
+    const cat =
+      (yield* client.findOne<HulyTagCategory>(tags.class.TagCategory, { _id: toRef<HulyTagCategory>(idOrLabel) })) ??
+      (yield* client.findOne<HulyTagCategory>(tags.class.TagCategory, { label: idOrLabel }))
 
     return cat
   })
@@ -54,7 +50,7 @@ const findCategoryOrFail = (
   client: HulyClient["Type"],
   idOrLabel: string
 ): Effect.Effect<HulyTagCategory, TagCategoryNotFoundError | HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const cat = yield* findCategoryByIdOrLabel(client, idOrLabel)
     if (cat === undefined) {
       return yield* new TagCategoryNotFoundError({ identifier: idOrLabel })
@@ -73,7 +69,7 @@ const toSummary = (c: HulyTagCategory): TagCategorySummary => ({
 export const listTagCategories = (
   params: ListTagCategoriesParams
 ): Effect.Effect<Array<TagCategorySummary>, ListTagCategoriesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit)
 
@@ -82,14 +78,10 @@ export const listTagCategories = (
       query.targetClass = toRef<Class<Doc>>(params.targetClass)
     }
 
-    const categories = yield* client.findAll<HulyTagCategory>(
-      tags.class.TagCategory,
-      query,
-      {
-        limit,
-        sort: { modifiedOn: SortingOrder.Descending }
-      }
-    )
+    const categories = yield* client.findAll<HulyTagCategory>(tags.class.TagCategory, query, {
+      limit,
+      sort: { modifiedOn: SortingOrder.Descending }
+    })
 
     return categories.map(toSummary)
   })
@@ -97,16 +89,14 @@ export const listTagCategories = (
 export const createTagCategory = (
   params: CreateTagCategoryParams
 ): Effect.Effect<CreateTagCategoryResult, CreateTagCategoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
-    const targetClass = params.targetClass !== undefined
-      ? toRef<Class<Doc>>(params.targetClass)
-      : defaultTargetClassRef
+    const targetClass = params.targetClass !== undefined ? toRef<Class<Doc>>(params.targetClass) : defaultTargetClassRef
 
-    const existing = yield* client.findOne<HulyTagCategory>(
-      tags.class.TagCategory,
-      { label: params.label, targetClass }
-    )
+    const existing = yield* client.findOne<HulyTagCategory>(tags.class.TagCategory, {
+      label: params.label,
+      targetClass
+    })
 
     if (existing !== undefined) {
       return { id: TagCategoryId.make(existing._id), label: existing.label, created: false }
@@ -128,12 +118,7 @@ export const createTagCategory = (
       default: params.default ?? DEFAULT_TAG_CATEGORY_FLAG
     }
 
-    yield* client.createDoc(
-      tags.class.TagCategory,
-      toRef<Space>(core.space.Workspace),
-      catData,
-      catId
-    )
+    yield* client.createDoc(tags.class.TagCategory, toRef<Space>(core.space.Workspace), catData, catId)
 
     return { id: TagCategoryId.make(catId), label: params.label, created: true }
   })
@@ -141,14 +126,14 @@ export const createTagCategory = (
 export const updateTagCategory = (
   params: UpdateTagCategoryParams
 ): Effect.Effect<UpdateTagCategoryResult, UpdateTagCategoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_tag_category", params, UPDATE_TAG_CATEGORY_FIELDS)
 
     const client = yield* HulyClient
 
     const cat = yield* findCategoryOrFail(client, params.category)
 
-    type UpdateTagCategoryField = typeof UPDATE_TAG_CATEGORY_FIELDS[number]
+    type UpdateTagCategoryField = (typeof UPDATE_TAG_CATEGORY_FIELDS)[number]
     type UpdateTagCategoryEntries = {
       readonly [Field in UpdateTagCategoryField]: DirectUpdateEntry<
         UpdateTagCategoryField,
@@ -162,12 +147,7 @@ export const updateTagCategory = (
     } satisfies UpdateTagCategoryEntries
     const updateOps: DocumentUpdate<HulyTagCategory> = mergeUpdateEntries(Object.values(updateEntries))
 
-    yield* client.updateDoc(
-      tags.class.TagCategory,
-      toRef<Space>(core.space.Workspace),
-      cat._id,
-      updateOps
-    )
+    yield* client.updateDoc(tags.class.TagCategory, toRef<Space>(core.space.Workspace), cat._id, updateOps)
 
     return { id: TagCategoryId.make(cat._id), updated: true }
   })
@@ -175,18 +155,14 @@ export const updateTagCategory = (
 export const deleteTagCategory = (
   params: DeleteTagCategoryParams
 ): Effect.Effect<DeleteTagCategoryResult, DeleteTagCategoryError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
 
     const cat = yield* findCategoryOrFail(client, params.category)
 
     // Huly does NOT cascade-delete TagElements when their category is removed.
     // Labels will be orphaned with a dangling category ref.
-    yield* client.removeDoc(
-      tags.class.TagCategory,
-      toRef<Space>(core.space.Workspace),
-      cat._id
-    )
+    yield* client.removeDoc(tags.class.TagCategory, toRef<Space>(core.space.Workspace), cat._id)
 
     return { id: TagCategoryId.make(cat._id), deleted: true }
   })

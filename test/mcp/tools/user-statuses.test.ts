@@ -60,14 +60,15 @@ const findTool = (name: string) => {
 
 describe("userStatusTools", () => {
   it.effect("exports list_user_statuses in the user-statuses category", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(userStatusTools).toHaveLength(1)
       expect(userStatusTools[0].name).toBe("list_user_statuses")
       expect(userStatusTools[0].category).toBe("user-statuses")
-    }))
+    })
+  )
 
   it.effect("handler encodes successful output", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = findTool("list_user_statuses")
       const result = yield* Effect.promise(() => tool.handler({ limit: 5 }, hulyClient, storageClient))
 
@@ -77,21 +78,20 @@ describe("userStatusTools", () => {
         total: number
       }
       expect(parsed).toEqual({
-        statuses: [{
-          id: "user-status-1",
-          user: "11111111-1111-4111-8111-111111111111",
-          online: true,
-          modifiedOn: 1700000000000
-        }],
+        statuses: [
+          { id: "user-status-1", user: "11111111-1111-4111-8111-111111111111", online: true, modifiedOn: 1700000000000 }
+        ],
         total: 1
       })
-    }))
+    })
+  )
 
   it.effect("invalid params map through MCP error response", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tool = findTool("list_user_statuses")
       const result = yield* Effect.promise(() => tool.handler({ user: "" }, hulyClient, storageClient))
 
       expect(result.isError).toBe(true)
-    }))
+    })
+  )
 })

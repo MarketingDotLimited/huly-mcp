@@ -5,7 +5,7 @@ import { attachmentTools } from "../../../src/mcp/tools/attachments.js"
 
 describe("attachment tools", () => {
   it("registers saved attachment and drawing tools", () => {
-    const names = new Set(attachmentTools.map(tool => tool.name))
+    const names = new Set(attachmentTools.map((tool) => tool.name))
     const expected = [
       "save_attachment",
       "unsave_attachment",

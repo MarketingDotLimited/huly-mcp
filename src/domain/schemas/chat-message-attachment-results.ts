@@ -53,9 +53,7 @@ export const ChatMessageAttachmentResolvedTargetSchema = Schema.Union(
   description:
     "Resolved Huly chat message attachment target. objectId/objectClass/space identify the exact object whose attachments collection is being read or mutated."
 })
-export type ChatMessageAttachmentResolvedTarget = Schema.Schema.Type<
-  typeof ChatMessageAttachmentResolvedTargetSchema
->
+export type ChatMessageAttachmentResolvedTarget = Schema.Schema.Type<typeof ChatMessageAttachmentResolvedTargetSchema>
 
 export const ListChatMessageAttachmentsResultSchema = Schema.Struct({
   target: ChatMessageAttachmentResolvedTargetSchema,
@@ -83,14 +81,8 @@ export const DeleteChatMessageAttachmentResultSchema = Schema.Struct({
   deleted: Schema.Boolean
 })
 
-export type ListChatMessageAttachmentsResult = Schema.Schema.Type<
-  typeof ListChatMessageAttachmentsResultSchema
->
+export type ListChatMessageAttachmentsResult = Schema.Schema.Type<typeof ListChatMessageAttachmentsResultSchema>
 export type GetChatMessageAttachmentResult = Schema.Schema.Type<typeof GetChatMessageAttachmentResultSchema>
 export type AddChatMessageAttachmentResult = Schema.Schema.Type<typeof AddChatMessageAttachmentResultSchema>
-export type UpdateChatMessageAttachmentResult = Schema.Schema.Type<
-  typeof UpdateChatMessageAttachmentResultSchema
->
-export type DeleteChatMessageAttachmentResult = Schema.Schema.Type<
-  typeof DeleteChatMessageAttachmentResultSchema
->
+export type UpdateChatMessageAttachmentResult = Schema.Schema.Type<typeof UpdateChatMessageAttachmentResultSchema>
+export type DeleteChatMessageAttachmentResult = Schema.Schema.Type<typeof DeleteChatMessageAttachmentResultSchema>

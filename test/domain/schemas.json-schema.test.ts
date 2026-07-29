@@ -19,20 +19,12 @@ describe("JSON schema helpers", () => {
   it("adds descriptions only to matching object properties", () => {
     const schema = {
       type: "object",
-      properties: {
-        name: { type: "string" },
-        count: { type: "number" },
-        passthrough: true
-      }
+      properties: { name: { type: "string" }, count: { type: "number" }, passthrough: true }
     }
 
     expect(withJsonSchemaPropertyDescriptions(schema, { name: "Name" })).toEqual({
       type: "object",
-      properties: {
-        name: { type: "string", description: "Name" },
-        count: { type: "number" },
-        passthrough: true
-      }
+      properties: { name: { type: "string", description: "Name" }, count: { type: "number" }, passthrough: true }
     })
   })
 })

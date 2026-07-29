@@ -98,67 +98,54 @@ describe("Error Mapping to MCP", () => {
   describe("mapDomainErrorToMcp", () => {
     describe("InvalidParams errors (-32602)", () => {
       it.effect("maps IssueNotFoundError with its errorTag", () =>
-        Effect.gen(function*() {
-          const error = new IssueNotFoundError({
-            identifier: "HULY-123",
-            project: "HULY"
-          })
+        Effect.gen(function* () {
+          const error = new IssueNotFoundError({ identifier: "HULY-123", project: "HULY" })
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
           expect(response._meta.errorTag).toBe("IssueNotFoundError")
-          expect(assertAt(response.content, 0).text).toBe(
-            "Issue 'HULY-123' not found in project 'HULY'"
-          )
-        }))
+          expect(assertAt(response.content, 0).text).toBe("Issue 'HULY-123' not found in project 'HULY'")
+        })
+      )
 
       it.effect("maps ProjectNotFoundError with descriptive message", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const error = new ProjectNotFoundError({ identifier: "MISSING" })
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
           expect(assertAt(response.content, 0).text).toBe("Project 'MISSING' not found")
-        }))
+        })
+      )
 
       it.effect("maps InvalidStatusError with descriptive message", () =>
-        Effect.gen(function*() {
-          const error = new InvalidStatusError({
-            status: "bogus",
-            project: "HULY"
-          })
+        Effect.gen(function* () {
+          const error = new InvalidStatusError({ status: "bogus", project: "HULY" })
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
-          expect(assertAt(response.content, 0).text).toBe(
-            "Invalid status 'bogus' for project 'HULY'"
-          )
-        }))
+          expect(assertAt(response.content, 0).text).toBe("Invalid status 'bogus' for project 'HULY'")
+        })
+      )
 
       it.effect("maps PersonNotFoundError with descriptive message", () =>
-        Effect.gen(function*() {
-          const error = new PersonNotFoundError({
-            identifier: "john@example.com"
-          })
+        Effect.gen(function* () {
+          const error = new PersonNotFoundError({ identifier: "john@example.com" })
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
           expect(response._meta.errorTag).toBe("PersonNotFoundError")
-          expect(assertAt(response.content, 0).text).toBe(
-            "Person 'john@example.com' not found"
-          )
-        }))
+          expect(assertAt(response.content, 0).text).toBe("Person 'john@example.com' not found")
+        })
+      )
 
       it.effect("maps PersonIdentifierAmbiguousError with descriptive message", () =>
-        Effect.gen(function*() {
-          const error = new PersonIdentifierAmbiguousError({
-            identifier: "Smith,Bill",
-            matches: Count.make(2)
-          })
+        Effect.gen(function* () {
+          const error = new PersonIdentifierAmbiguousError({ identifier: "Smith,Bill", matches: Count.make(2) })
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
@@ -167,24 +154,23 @@ describe("Error Mapping to MCP", () => {
           expect(assertAt(response.content, 0).text).toBe(
             "Person identifier 'Smith,Bill' matched 2 people; use an exact email address instead"
           )
-        }))
+        })
+      )
 
       it.effect("maps OrganizationNotFoundError with descriptive message", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const error = new OrganizationNotFoundError({ identifier: "Acme" })
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
           expect(assertAt(response.content, 0).text).toBe("Organization 'Acme' not found")
-        }))
+        })
+      )
 
       it.effect("maps OrganizationIdentifierAmbiguousError with descriptive message", () =>
-        Effect.gen(function*() {
-          const error = new OrganizationIdentifierAmbiguousError({
-            identifier: "Acme",
-            matches: Count.make(2)
-          })
+        Effect.gen(function* () {
+          const error = new OrganizationIdentifierAmbiguousError({ identifier: "Acme", matches: Count.make(2) })
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
@@ -192,54 +178,55 @@ describe("Error Mapping to MCP", () => {
           expect(assertAt(response.content, 0).text).toBe(
             "Organization identifier 'Acme' matched 2 organizations; use the organization ID instead"
           )
-        }))
+        })
+      )
 
       it.effect("maps InvalidContactProviderError with descriptive message", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const error = new InvalidContactProviderError({ provider: "fax" })
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
           expect(assertAt(response.content, 0).text).toBe("Invalid contact provider: 'fax'")
-        }))
+        })
+      )
 
       it.effect("maps InvalidFileDataError with descriptive message", () =>
-        Effect.gen(function*() {
-          const error = new InvalidFileDataError({
-            message: "Invalid base64 encoding"
-          })
+        Effect.gen(function* () {
+          const error = new InvalidFileDataError({ message: "Invalid base64 encoding" })
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
           expect(assertAt(response.content, 0).text).toBe("Invalid base64 encoding")
-        }))
+        })
+      )
 
       it.effect("maps FileNotFoundError with descriptive message", () =>
-        Effect.gen(function*() {
-          const error = new FileNotFoundError({
-            filePath: "/path/to/missing.txt"
-          })
+        Effect.gen(function* () {
+          const error = new FileNotFoundError({ filePath: "/path/to/missing.txt" })
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
           expect(assertAt(response.content, 0).text).toContain("/path/to/missing.txt")
-        }))
+        })
+      )
 
       it.effect("maps FunnelNotFoundError with descriptive message", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const error = new FunnelNotFoundError({ identifier: funnelReference("sales") })
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
           expect(assertAt(response.content, 0).text).toBe("Funnel 'sales' not found")
-        }))
+        })
+      )
 
       it.effect("maps LeadNotFoundError with descriptive message", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const error = new LeadNotFoundError({
             identifier: leadIdentifier("LEAD-9"),
             funnel: funnelIdentifier("funnel-1")
@@ -249,25 +236,24 @@ describe("Error Mapping to MCP", () => {
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
           expect(assertAt(response.content, 0).text).toBe("Lead 'LEAD-9' not found in funnel 'funnel-1'")
-        }))
+        })
+      )
 
       it.effect("maps CalendarNotAccessibleError with descriptive message", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const error = new CalendarNotAccessibleError({ calendarId: "cal-9" })
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
           expect(assertAt(response.content, 0).text).toBe("Calendar 'cal-9' not found or not accessible")
-        }))
+        })
+      )
 
       it.effect("maps typed space role lookup errors as invalid params with errorTag", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const errors = [
-            new SpaceNotTypedError({
-              id: SpaceId.make("space-1"),
-              name: NonEmptyString.make("General")
-            }),
+            new SpaceNotTypedError({ id: SpaceId.make("space-1"), name: NonEmptyString.make("General") }),
             new SpaceRoleNotFoundError({
               identifier: NonEmptyString.make("Admins"),
               spaceType: SpaceTypeId.make("space-type-1")
@@ -290,10 +276,11 @@ describe("Error Mapping to MCP", () => {
             expect(response._meta.errorTag).toBe(error._tag)
             expect(assertAt(response.content, 0).text).toBe(error.message)
           }
-        }))
+        })
+      )
 
       it.effect("maps DirectMessageNotFoundError with descriptive message", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const error = new DirectMessageNotFoundError({ identifier: "Kerr,Shannon" })
           const response = mapDomainErrorToMcp(error)
 
@@ -301,10 +288,11 @@ describe("Error Mapping to MCP", () => {
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
           expect(response._meta.errorTag).toBe("DirectMessageNotFoundError")
           expect(assertAt(response.content, 0).text).toBe("Direct message 'Kerr,Shannon' not found")
-        }))
+        })
+      )
 
       it.effect("maps DirectMessageIdentifierAmbiguousError with descriptive message", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const error = new DirectMessageIdentifierAmbiguousError({
             identifier: "Kerr,Shannon",
             matches: Count.make(2)
@@ -317,10 +305,11 @@ describe("Error Mapping to MCP", () => {
           expect(assertAt(response.content, 0).text).toBe(
             "Direct message 'Kerr,Shannon' is ambiguous (2 matches); use the DM _id"
           )
-        }))
+        })
+      )
 
       it.effect("maps process lookup errors with descriptive messages", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const processCandidate = {
             id: ProcessId.make("process-approval"),
             name: NonEmptyString.make("Approval"),
@@ -331,28 +320,13 @@ describe("Error Mapping to MCP", () => {
             id: MasterTagId.make("card:class:Document"),
             name: NonEmptyString.make("Document")
           }
-          const cardCandidate = {
-            id: CardId.make("card-1"),
-            title: NonEmptyString.make("Contract")
-          }
+          const cardCandidate = { id: CardId.make("card-1"), title: NonEmptyString.make("Contract") }
           const errors = [
-            new ProcessNotFoundError({
-              identifier: "Missing",
-              candidates: [processCandidate]
-            }),
-            new ProcessIdentifierAmbiguousError({
-              identifier: "Approval",
-              candidates: [processCandidate]
-            }),
+            new ProcessNotFoundError({ identifier: "Missing", candidates: [processCandidate] }),
+            new ProcessIdentifierAmbiguousError({ identifier: "Approval", candidates: [processCandidate] }),
             new ProcessMasterTagNotFoundError({ identifier: "Contract" }),
-            new ProcessMasterTagAmbiguousError({
-              identifier: "Document",
-              candidates: [masterTagCandidate]
-            }),
-            new ProcessCardIdentifierAmbiguousError({
-              identifier: "Contract",
-              candidates: [cardCandidate]
-            }),
+            new ProcessMasterTagAmbiguousError({ identifier: "Document", candidates: [masterTagCandidate] }),
+            new ProcessCardIdentifierAmbiguousError({ identifier: "Contract", candidates: [cardCandidate] }),
             new ProcessCardNotFoundError({ identifier: "Missing Card" })
           ]
 
@@ -364,10 +338,11 @@ describe("Error Mapping to MCP", () => {
             expect(response._meta.errorTag).toBe(error._tag)
             expect(assertAt(response.content, 0).text).toBe(error.message)
           }
-        }))
+        })
+      )
 
       it.effect("maps generic association and relation lookup errors with descriptive messages", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const errors = [
             new AssociationNotFoundError({ identifier: "relates" }),
             new AssociationIdentifierAmbiguousError({
@@ -391,16 +366,11 @@ describe("Error Mapping to MCP", () => {
             new GenericObjectIdentifierAmbiguousError({
               field: "target",
               identifier: "Spec",
-              candidates: [{
-                id: DocId.make("doc-1"),
-                class: ObjectClassName.make("document:class:Document"),
-                display: "Spec"
-              }]
+              candidates: [
+                { id: DocId.make("doc-1"), class: ObjectClassName.make("document:class:Document"), display: "Spec" }
+              ]
             }),
-            new GenericObjectLocatorInvalidError({
-              field: "source",
-              reason: "raw object locator requires class"
-            }),
+            new GenericObjectLocatorInvalidError({ field: "source", reason: "raw object locator requires class" }),
             new GenericObjectNotFoundError({
               field: "target",
               identifier: "missing-doc",
@@ -416,14 +386,12 @@ describe("Error Mapping to MCP", () => {
             expect(response._meta.errorTag).toBe(error._tag)
             expect(assertAt(response.content, 0).text).toBe(error.message)
           }
-        }))
+        })
+      )
 
       it.effect("maps DocumentContentCorruptedError with repair instruction", () =>
-        Effect.gen(function*() {
-          const error = new DocumentContentCorruptedError({
-            identifier: "Spec",
-            causeMessage: "missing markup blob"
-          })
+        Effect.gen(function* () {
+          const error = new DocumentContentCorruptedError({ identifier: "Spec", causeMessage: "missing markup blob" })
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
@@ -432,10 +400,11 @@ describe("Error Mapping to MCP", () => {
           expect(assertAt(response.content, 0).text).toBe(
             "Document content is unreadable or corrupted. Use edit_document with the full content field to replace and repair it."
           )
-        }))
+        })
+      )
 
       it.effect("maps recruiting lookup and model errors as invalid params", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const errors = [
             new RecruitingVacancyNotFoundError({ identifier: VacancyIdentifier.make("VCN-1") }),
             new RecruitingVacancyIdentifierAmbiguousError({
@@ -469,12 +438,13 @@ describe("Error Mapping to MCP", () => {
             expect(response._meta.errorTag).toBe(error._tag)
             expect(assertAt(response.content, 0).text).toBe(error.message)
           }
-        }))
+        })
+      )
     })
 
     describe("InternalError errors (-32603)", () => {
       it.effect("preserves actionable invalid activity record details", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const error = new ActivityRecordInvalidError({
             operation: "list_activity",
             recordIndex: Count.make(2),
@@ -486,10 +456,11 @@ describe("Error Mapping to MCP", () => {
           expect(response._meta.errorCode).toBe(McpErrorCode.InternalError)
           expect(response._meta.errorTag).toBe("ActivityRecordInvalidError")
           expect(assertAt(response.content, 0).text).toBe(error.message)
-        }))
+        })
+      )
 
       it.effect("maps HulyConnectionError with errorTag", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const error = new HulyConnectionError({ message: "Network timeout" })
           const response = mapDomainErrorToMcp(error)
 
@@ -499,10 +470,11 @@ describe("Error Mapping to MCP", () => {
           expect(assertAt(response.content, 0).text).toBe(
             "Connection error while communicating with Huly. Verify HULY_URL, workspace, and network connectivity before retrying."
           )
-        }))
+        })
+      )
 
       it.effect("preserves known resolver failures and hides arbitrary resolver rejections", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const unavailable = mapClientResolutionErrorToMcp(
             new HulyUnavailableError({
               endpointOrigin: normalizeHulyOrigin("https://huly.app"),
@@ -512,14 +484,16 @@ describe("Error Mapping to MCP", () => {
           const unknown = mapClientResolutionErrorToMcp(new Error("token=secret"))
           const auth = mapClientResolutionErrorToMcp(new HulyAuthError({ message: "secret" }))
           const fiberFailure = yield* Effect.promise(() =>
-            Effect.runPromise(Effect.fail(
-              new HulyUnavailableError({
-                endpointOrigin: normalizeHulyOrigin("https://huly.app"),
-                failureKind: "timeout"
-              })
-            )).then(
+            Effect.runPromise(
+              Effect.fail(
+                new HulyUnavailableError({
+                  endpointOrigin: normalizeHulyOrigin("https://huly.app"),
+                  failureKind: "timeout"
+                })
+              )
+            ).then(
               () => Promise.reject(new Error("expected failure")),
-              error => Promise.resolve(error)
+              (error) => Promise.resolve(error)
             )
           )
           const fromFiber = mapClientResolutionErrorToMcp(fiberFailure)
@@ -528,10 +502,11 @@ describe("Error Mapping to MCP", () => {
           expect(assertAt(unknown.content, 0).text).toBe("Failed to initialize Huly clients")
           expect(assertAt(auth.content, 0).text).toBe("Authentication error: secret")
           expect(assertAt(fromFiber.content, 0).text).toContain("Cannot reach hosted Huly")
-        }))
+        })
+      )
 
       it.effect("maps default-cloud unavailability without exposing backend details", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const response = mapDomainErrorToMcp(
             new HulyUnavailableError({
               endpointOrigin: normalizeHulyOrigin("https://huly.app"),
@@ -550,10 +525,11 @@ describe("Error Mapping to MCP", () => {
           expect(assertAt(response.content, 0).text).toContain("https://github.com/hcengineering/huly-selfhost")
           expect(assertAt(response.content, 0).text).toContain("HULY_URL")
           expect(JSON.stringify(response)).not.toContain("ECONNREFUSED")
-        }))
+        })
+      )
 
       it.effect("maps custom endpoint unavailability without mentioning hosted Huly", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const response = mapDomainErrorToMcp(
             new HulyUnavailableError({
               endpointOrigin: normalizeHulyOrigin("https://huly.example.test:8443"),
@@ -565,7 +541,8 @@ describe("Error Mapping to MCP", () => {
           expect(text).toContain("https://huly.example.test:8443")
           expect(text).toContain("HULY_CONNECTION_TIMEOUT")
           expect(text).not.toContain("hosted Huly")
-        }))
+        })
+      )
 
       it.effect("adds default-cloud timeout and DNS guidance", () =>
         Effect.sync(() => {
@@ -576,18 +553,16 @@ describe("Error Mapping to MCP", () => {
             })
           )
           const dns = mapDomainErrorToMcp(
-            new HulyUnavailableError({
-              endpointOrigin: normalizeHulyOrigin("https://huly.app"),
-              failureKind: "dns"
-            })
+            new HulyUnavailableError({ endpointOrigin: normalizeHulyOrigin("https://huly.app"), failureKind: "dns" })
           )
 
           expect(assertAt(timeout.content, 0).text).toContain("HULY_CONNECTION_TIMEOUT")
           expect(assertAt(dns.content, 0).text).toContain("certificate, DNS, and proxy")
-        }))
+        })
+      )
 
       it.effect("maps HulyAuthError with errorTag", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const error = new HulyAuthError({ message: "Login failed" })
           const response = mapDomainErrorToMcp(error)
 
@@ -595,10 +570,11 @@ describe("Error Mapping to MCP", () => {
           expect(response._meta.errorCode).toBe(McpErrorCode.InternalError)
           expect(response._meta.errorTag).toBe("HulyAuthError")
           expect(assertAt(response.content, 0).text).toBe("Authentication error: Login failed")
-        }))
+        })
+      )
 
       it.effect("maps HulyError with errorTag", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const error = new HulyError({ message: "Something went wrong" })
           const response = mapDomainErrorToMcp(error)
 
@@ -606,29 +582,24 @@ describe("Error Mapping to MCP", () => {
           expect(response._meta.errorCode).toBe(McpErrorCode.InternalError)
           expect(response._meta.errorTag).toBe("HulyError")
           expect(assertAt(response.content, 0).text).toBe("Something went wrong")
-        }))
+        })
+      )
 
       it.effect("maps FileUploadError with errorTag", () =>
-        Effect.gen(function*() {
-          const error = new FileUploadError({
-            message: "Storage quota exceeded"
-          })
+        Effect.gen(function* () {
+          const error = new FileUploadError({ message: "Storage quota exceeded" })
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InternalError)
           expect(response._meta.errorTag).toBe("FileUploadError")
-          expect(assertAt(response.content, 0).text).toBe(
-            "File upload error: Storage quota exceeded"
-          )
-        }))
+          expect(assertAt(response.content, 0).text).toBe("File upload error: Storage quota exceeded")
+        })
+      )
 
       it.effect("maps FileFetchError with errorTag", () =>
-        Effect.gen(function*() {
-          const error = new FileFetchError({
-            fileUrl: "https://example.com/file.png",
-            reason: "404 Not Found"
-          })
+        Effect.gen(function* () {
+          const error = new FileFetchError({ fileUrl: "https://example.com/file.png", reason: "404 Not Found" })
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
@@ -636,76 +607,59 @@ describe("Error Mapping to MCP", () => {
           expect(response._meta.errorTag).toBe("FileFetchError")
           expect(assertAt(response.content, 0).text).toContain("https://example.com/file.png")
           expect(assertAt(response.content, 0).text).toContain("404 Not Found")
-        }))
+        })
+      )
     })
   })
 
   describe("mapParseErrorToMcp", () => {
     it.effect("maps parse error with tool name prefix", () =>
-      Effect.gen(function*() {
-        const TestSchema = Schema.Struct({
-          name: Schema.String,
-          age: Schema.Number
-        })
+      Effect.gen(function* () {
+        const TestSchema = Schema.Struct({ name: Schema.String, age: Schema.Number })
 
-        const error = yield* Effect.flip(
-          Schema.decodeUnknown(TestSchema)({ name: 123 })
-        )
+        const error = yield* Effect.flip(Schema.decodeUnknown(TestSchema)({ name: 123 }))
 
-        const response = mapParseErrorToMcp(
-          error,
-          "create_issue"
-        )
+        const response = mapParseErrorToMcp(error, "create_issue")
 
         expect(response.isError).toBe(true)
         expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
-        expect(assertAt(response.content, 0).text).toContain(
-          "Invalid parameters for create_issue"
-        )
-      }))
+        expect(assertAt(response.content, 0).text).toContain("Invalid parameters for create_issue")
+      })
+    )
 
     it.effect("maps parse error without tool name", () =>
-      Effect.gen(function*() {
-        const TestSchema = Schema.Struct({
-          name: Schema.String
-        })
+      Effect.gen(function* () {
+        const TestSchema = Schema.Struct({ name: Schema.String })
 
-        const error = yield* Effect.flip(
-          Schema.decodeUnknown(TestSchema)({})
-        )
+        const error = yield* Effect.flip(Schema.decodeUnknown(TestSchema)({}))
 
-        const response = mapParseErrorToMcp(
-          error
-        )
+        const response = mapParseErrorToMcp(error)
 
         expect(response.isError).toBe(true)
         expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
         expect(assertAt(response.content, 0).text).toContain("Invalid parameters:")
-      }))
+      })
+    )
   })
 
   describe("mapDomainCauseToMcp", () => {
     describe("Fail cause", () => {
       it.effect("handles HulyDomainError in Fail cause", () =>
-        Effect.gen(function*() {
-          const error = new IssueNotFoundError({
-            identifier: "TEST-1",
-            project: "TEST"
-          })
+        Effect.gen(function* () {
+          const error = new IssueNotFoundError({ identifier: "TEST-1", project: "TEST" })
           const cause = Cause.fail(error)
           const response = mapDomainCauseToMcp(cause)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
-          expect(assertAt(response.content, 0).text).toBe(
-            "Issue 'TEST-1' not found in project 'TEST'"
-          )
-        }))
+          expect(assertAt(response.content, 0).text).toBe("Issue 'TEST-1' not found in project 'TEST'")
+        })
+      )
     })
 
     describe("Die cause", () => {
       it.effect("returns UnexpectedError errorTag for defects", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const cause = Cause.die(new Error("boom"))
           const response = mapDomainCauseToMcp(cause as Cause.Cause<HulyError>)
 
@@ -713,41 +667,41 @@ describe("Error Mapping to MCP", () => {
           expect(response._meta.errorCode).toBe(McpErrorCode.InternalError)
           expect(response._meta.errorTag).toBe("UnexpectedError")
           expect(assertAt(response.content, 0).text).toBe("An unexpected error occurred")
-        }))
+        })
+      )
     })
 
     describe("Empty cause", () => {
       it.effect("returns generic error for empty cause", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const cause = Cause.empty
           const response = mapDomainCauseToMcp(cause as Cause.Cause<HulyError>)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InternalError)
           expect(assertAt(response.content, 0).text).toBe("An unexpected error occurred")
-        }))
+        })
+      )
     })
 
     describe("Sequential cause", () => {
       it.effect("extracts first meaningful error from sequential cause", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const error1 = new ProjectNotFoundError({ identifier: "PROJ" })
-          const error2 = new IssueNotFoundError({
-            identifier: "X",
-            project: "Y"
-          })
+          const error2 = new IssueNotFoundError({ identifier: "X", project: "Y" })
           const cause = Cause.sequential(Cause.fail(error1), Cause.fail(error2))
           const response = mapDomainCauseToMcp(cause)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
           expect(assertAt(response.content, 0).text).toBe("Project 'PROJ' not found")
-        }))
+        })
+      )
     })
 
     describe("Parallel cause", () => {
       it.effect("extracts first meaningful error from parallel cause", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const error1 = new InvalidStatusError({ status: "bad", project: "P" })
           const error2 = new HulyConnectionError({ message: "timeout" })
           const cause = Cause.parallel(Cause.fail(error1), Cause.fail(error2))
@@ -755,21 +709,18 @@ describe("Error Mapping to MCP", () => {
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
-          expect(assertAt(response.content, 0).text).toBe(
-            "Invalid status 'bad' for project 'P'"
-          )
-        }))
+          expect(assertAt(response.content, 0).text).toBe("Invalid status 'bad' for project 'P'")
+        })
+      )
     })
   })
 
   describe("mapParseCauseToMcp", () => {
     describe("Fail cause", () => {
       it.effect("handles ParseError in Fail cause", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const TestSchema = Schema.Struct({ x: Schema.Number })
-          const error = yield* Effect.flip(
-            Schema.decodeUnknown(TestSchema)({ x: "not a number" })
-          )
+          const error = yield* Effect.flip(Schema.decodeUnknown(TestSchema)({ x: "not a number" }))
 
           const cause = Cause.fail(error)
           const response = mapParseCauseToMcp(cause, "test_tool")
@@ -777,225 +728,220 @@ describe("Error Mapping to MCP", () => {
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
           expect(assertAt(response.content, 0).text).toContain("Invalid parameters")
-        }))
+        })
+      )
     })
 
     describe("Empty cause", () => {
       it.effect("returns generic error for empty cause", () =>
-        Effect.gen(function*() {
+        Effect.gen(function* () {
           const cause = Cause.empty
           const response = mapParseCauseToMcp(cause as Cause.Cause<ParseResult.ParseError>)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InternalError)
           expect(assertAt(response.content, 0).text).toBe("An unexpected error occurred")
-        }))
+        })
+      )
     })
   })
 
   describe("createSuccessResponse", () => {
     it.effect("creates success response with JSON content", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = { issues: [{ id: 1, title: "Test" }] }
         const response = createSuccessResponse(result)
 
         expect(response.isError).toBeUndefined()
         expect(assertAt(response.content, 0).type).toBe("text")
         expect(JSON.parse(assertAt(response.content, 0).text)).toEqual(result)
-      }))
+      })
+    )
 
     it.effect("formats JSON as compact single-line", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const result = { a: 1, b: 2 }
         const response = createSuccessResponse(result)
 
         expect(assertAt(response.content, 0).text).not.toContain("\n")
         expect(assertAt(response.content, 0).text).toBe(JSON.stringify(result))
-      }))
+      })
+    )
 
     it.effect("omits warnings fields and content blocks when there are no warnings", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const response = createSuccessResponse({ ok: true })
 
         expect(response.content).toHaveLength(1)
         expect(response.structuredContent).toEqual({ result: { ok: true } })
-      }))
+      })
+    )
 
     it.effect("includes warnings in structuredContent and a second text block when present", () =>
-      Effect.gen(function*() {
-        const warning = {
-          code: "status_metadata_unresolved" as const,
-          message: "Status metadata was degraded."
-        }
+      Effect.gen(function* () {
+        const warning = { code: "status_metadata_unresolved" as const, message: "Status metadata was degraded." }
         const response = createSuccessResponse({ ok: true }, [warning])
 
         expect(response.structuredContent).toEqual({ result: { ok: true }, warnings: [warning] })
         expect(response.content).toHaveLength(2)
         expect(JSON.parse(assertAt(response.content, 1).text)).toEqual({ warnings: [warning] })
-      }))
+      })
+    )
   })
 
   describe("appendToolWarnings", () => {
     it.effect("returns the original response when there are no warnings to append", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const original = createSuccessResponse({ ok: true })
 
         expect(appendToolWarnings(original, [])).toBe(original)
-      }))
+      })
+    )
 
     it.effect("appends a warning without changing a successful result", () =>
-      Effect.gen(function*() {
-        const warning = {
-          code: "hosted_huly_shutdown" as const,
-          message: "Hosted Huly is shutting down."
-        }
+      Effect.gen(function* () {
+        const warning = { code: "hosted_huly_shutdown" as const, message: "Hosted Huly is shutting down." }
         const response = appendToolWarnings(createSuccessResponse({ ok: true }), [warning])
 
         expect(response.isError).not.toBe(true)
         expect(response.structuredContent).toEqual({ result: { ok: true }, warnings: [warning] })
         expect(JSON.parse(assertAt(response.content, 0).text)).toEqual({ ok: true })
         expect(JSON.parse(assertAt(response.content, 1).text)).toEqual({ warnings: [warning] })
-      }))
+      })
+    )
 
     it.effect("preserves existing warnings when appending a warning", () =>
-      Effect.gen(function*() {
-        const existing = {
-          code: "status_metadata_unresolved" as const,
-          message: "Status metadata was degraded."
-        }
-        const appended = {
-          code: "hosted_huly_shutdown" as const,
-          message: "Hosted Huly is shutting down."
-        }
+      Effect.gen(function* () {
+        const existing = { code: "status_metadata_unresolved" as const, message: "Status metadata was degraded." }
+        const appended = { code: "hosted_huly_shutdown" as const, message: "Hosted Huly is shutting down." }
         const response = appendToolWarnings(createSuccessResponse({ ok: true }, [existing]), [appended])
 
-        expect(response.structuredContent).toEqual({
-          result: { ok: true },
-          warnings: [existing, appended]
-        })
+        expect(response.structuredContent).toEqual({ result: { ok: true }, warnings: [existing, appended] })
         expect(response.content).toHaveLength(2)
         expect(JSON.parse(assertAt(response.content, 1).text)).toEqual({ warnings: [existing, appended] })
-      }))
+      })
+    )
 
     it.effect("appends a visible warning to an error without changing its error status", () =>
-      Effect.gen(function*() {
-        const warning = {
-          code: "hosted_huly_shutdown" as const,
-          message: "Hosted Huly is shutting down."
-        }
+      Effect.gen(function* () {
+        const warning = { code: "hosted_huly_shutdown" as const, message: "Hosted Huly is shutting down." }
         const response = appendToolWarnings(createUnknownToolError("bogus_tool"), [warning])
 
         expect(response.isError).toBe(true)
         expect(response.structuredContent).toBeUndefined()
         expect(assertAt(response.content, 0).text).toBe("Unknown tool: bogus_tool")
         expect(JSON.parse(assertAt(response.content, 1).text)).toEqual({ warnings: [warning] })
-      }))
+      })
+    )
 
     it.effect("keeps a content-only success response content-only", () =>
-      Effect.gen(function*() {
-        const warning = {
-          code: "hosted_huly_shutdown" as const,
-          message: "Hosted Huly is shutting down."
-        }
+      Effect.gen(function* () {
+        const warning = { code: "hosted_huly_shutdown" as const, message: "Hosted Huly is shutting down." }
         const response = appendToolWarnings({ content: [{ type: "text", text: "ok" }] }, [warning])
 
         expect(response.isError).not.toBe(true)
         expect(response.structuredContent).toBeUndefined()
         expect(assertAt(response.content, 0).text).toBe("ok")
         expect(JSON.parse(assertAt(response.content, 1).text)).toEqual({ warnings: [warning] })
-      }))
+      })
+    )
   })
 
   describe("createUnknownToolError", () => {
     it.effect("creates error response for unknown tool with errorTag", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const response = createUnknownToolError("bogus_tool")
 
         expect(response.isError).toBe(true)
         expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
         expect(response._meta.errorTag).toBe("UnknownTool")
         expect(assertAt(response.content, 0).text).toBe("Unknown tool: bogus_tool")
-      }))
+      })
+    )
 
     it.effect("does not include structuredContent on error responses without warnings", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const response = createUnknownToolError("bogus_tool")
 
         expect(response.isError).toBe(true)
         expect(response.structuredContent).toBeUndefined()
         expect(response.content).toHaveLength(1)
-      }))
+      })
+    )
   })
 
   describe("error responses with warnings", () => {
     it.effect("keeps warnings in text content without structuredContent", () =>
-      Effect.gen(function*() {
-        const warning = {
-          code: "status_metadata_unresolved" as const,
-          message: "Status metadata was degraded."
-        }
+      Effect.gen(function* () {
+        const warning = { code: "status_metadata_unresolved" as const, message: "Status metadata was degraded." }
         const response = mapDomainErrorToMcp(new HulyError({ message: "failed after warning" }), [warning])
 
         expect(response.isError).toBe(true)
         expect(response.structuredContent).toBeUndefined()
         expect(assertAt(response.content, 0).text).toBe("failed after warning")
         expect(JSON.parse(assertAt(response.content, 1).text)).toEqual({ warnings: [warning] })
-      }))
+      })
+    )
   })
 
   describe("toMcpResponse", () => {
     it.effect("emits exactly one image block without base64 in structured metadata", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const base64 = CanonicalBase64ImageData.make("aW1hZ2UtYnl0ZXM=")
-        const wire = toMcpResponse(createImageSuccessResponse(
-          { attachmentId: "att-1", name: "shot.png", type: "image/png", size: 11 },
-          { type: "image", data: base64, mimeType: "image/png" }
-        ))
+        const wire = toMcpResponse(
+          createImageSuccessResponse(
+            { attachmentId: "att-1", name: "shot.png", type: "image/png", size: 11 },
+            { type: "image", data: base64, mimeType: "image/png" }
+          )
+        )
 
         expect(wire.content.filter((content) => content.type === "image")).toEqual([
           { type: "image", data: base64, mimeType: "image/png" }
         ])
         expect(JSON.stringify(wire.structuredContent)).not.toContain(base64)
-      }))
+      })
+    )
 
     it.effect("preserves warnings beside one image block", () =>
-      Effect.gen(function*() {
-        const warning = {
-          code: "status_metadata_unresolved" as const,
-          message: "Metadata warning."
-        }
-        const wire = toMcpResponse(createImageSuccessResponse(
-          { attachmentId: "att-1" },
-          { type: "image", data: CanonicalBase64ImageData.make("aW1hZ2U="), mimeType: "image/png" },
-          [warning]
-        ))
+      Effect.gen(function* () {
+        const warning = { code: "status_metadata_unresolved" as const, message: "Metadata warning." }
+        const wire = toMcpResponse(
+          createImageSuccessResponse(
+            { attachmentId: "att-1" },
+            { type: "image", data: CanonicalBase64ImageData.make("aW1hZ2U="), mimeType: "image/png" },
+            [warning]
+          )
+        )
 
         expect(wire.content.filter((content) => content.type === "image")).toHaveLength(1)
         expect(wire.structuredContent?.warnings).toEqual([warning])
-      }))
+      })
+    )
 
     it.effect("strips _meta from error response", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const response = createUnknownToolError("bogus_tool")
         const wire = toMcpResponse(response)
 
         expect(wire).not.toHaveProperty("_meta")
         expect(wire.isError).toBe(true)
         expect(assertAt(wire.content, 0).text).toBe("Unknown tool: bogus_tool")
-      }))
+      })
+    )
 
     it.effect("strips _meta from content-only success response", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const wire = toMcpResponse({
           content: [{ type: "text", text: "ok" }],
           _meta: { errorCode: McpErrorCode.InternalError }
         })
 
         expect(wire).toEqual({ content: [{ type: "text", text: "ok" }] })
-      }))
+      })
+    )
 
     it.effect("preserves explicit non-error marker while stripping _meta", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const wire = toMcpResponse({
           content: [{ type: "text", text: "ok" }],
           isError: false,
@@ -1003,15 +949,17 @@ describe("Error Mapping to MCP", () => {
         })
 
         expect(wire).toEqual({ content: [{ type: "text", text: "ok" }], isError: false })
-      }))
+      })
+    )
 
     it.effect("strips _meta from success response", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const response = createSuccessResponse({ ok: true })
         const wire = toMcpResponse(response)
 
         expect(wire).not.toHaveProperty("_meta")
         expect(wire.isError).toBeUndefined()
-      }))
+      })
+    )
   })
 })

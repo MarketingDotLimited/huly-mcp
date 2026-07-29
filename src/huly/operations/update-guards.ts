@@ -17,21 +17,17 @@ type EmptyUpdateEntry<Fields extends string> = {
   readonly [Field in Fields]?: never
 }
 
-export type DirectUpdateEntry<
-  Fields extends string,
-  Update extends object,
-  Field extends Fields & keyof Update
-> =
+export type DirectUpdateEntry<Fields extends string, Update extends object, Field extends Fields & keyof Update> =
   | EmptyUpdateEntry<Fields>
   | {
-    readonly [Key in Field]-?: Exclude<Update[Key], undefined>
-  }
+      readonly [Key in Field]-?: Exclude<Update[Key], undefined>
+    }
 
 export type DirectUpdateSubsetEntry<Fields extends string, Update extends object> =
   | EmptyUpdateEntry<Fields>
   | {
-    readonly [Field in Fields]?: Field extends keyof Update ? Exclude<Update[Field], undefined> : never
-  }
+      readonly [Field in Fields]?: Field extends keyof Update ? Exclude<Update[Field], undefined> : never
+    }
 
 type UnsetUpdateEntry<Field extends string> = {
   readonly $unset: {

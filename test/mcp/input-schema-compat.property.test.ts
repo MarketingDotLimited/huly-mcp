@@ -46,33 +46,35 @@ const nodeToSchema = (node: CompositionNode, index: number, origin = `branch-${i
     ...(node.children.length === 0
       ? {}
       : {
-        [compositionKey]: node.children.map((child, childIndex) =>
-          nodeToSchema(child, childIndex, `${origin}.${childIndex}`)
-        )
-      })
+          [compositionKey]: node.children.map((child, childIndex) =>
+            nodeToSchema(child, childIndex, `${origin}.${childIndex}`)
+          )
+        })
   }
 }
 
-const generatedSchemaArbitrary: fc.Arbitrary<McpInputSchema> = fc.record({
-  title: fc.string({ maxLength: 40 }),
-  description: fc.string({ maxLength: 80 }),
-  additionalProperties: fc.boolean(),
-  rootProperties: fc.uniqueArray(identifierArbitrary, { maxLength: 3 }),
-  rootDefs: fc.uniqueArray(identifierArbitrary, { maxLength: 3 }),
-  required: fc.uniqueArray(identifierArbitrary, { maxLength: 3 }),
-  branches: fc.array(compositionNodeArbitrary(3), { minLength: 1, maxLength: 4 })
-}).map(({ additionalProperties, branches, description, required, rootDefs, rootProperties, title }) => ({
-  type: "object",
-  title,
-  description,
-  additionalProperties,
-  required,
-  properties: objectFromKeys(rootProperties, "root"),
-  $defs: defsFromKeys(rootDefs, "root"),
-  anyOf: branches.slice(0, 1).map((branch, index) => nodeToSchema(branch, index)),
-  oneOf: branches.slice(1, 3).map((branch, index) => nodeToSchema(branch, index)),
-  allOf: branches.slice(3).map((branch, index) => nodeToSchema(branch, index))
-}))
+const generatedSchemaArbitrary: fc.Arbitrary<McpInputSchema> = fc
+  .record({
+    title: fc.string({ maxLength: 40 }),
+    description: fc.string({ maxLength: 80 }),
+    additionalProperties: fc.boolean(),
+    rootProperties: fc.uniqueArray(identifierArbitrary, { maxLength: 3 }),
+    rootDefs: fc.uniqueArray(identifierArbitrary, { maxLength: 3 }),
+    required: fc.uniqueArray(identifierArbitrary, { maxLength: 3 }),
+    branches: fc.array(compositionNodeArbitrary(3), { minLength: 1, maxLength: 4 })
+  })
+  .map(({ additionalProperties, branches, description, required, rootDefs, rootProperties, title }) => ({
+    type: "object",
+    title,
+    description,
+    additionalProperties,
+    required,
+    properties: objectFromKeys(rootProperties, "root"),
+    $defs: defsFromKeys(rootDefs, "root"),
+    anyOf: branches.slice(0, 1).map((branch, index) => nodeToSchema(branch, index)),
+    oneOf: branches.slice(1, 3).map((branch, index) => nodeToSchema(branch, index)),
+    allOf: branches.slice(3).map((branch, index) => nodeToSchema(branch, index))
+  }))
 
 const compositionBranches = (schema: Record<string, unknown>): ReadonlyArray<Record<string, unknown>> =>
   ROOT_COMPOSITION_KEYS.flatMap((key) => {
@@ -91,13 +93,10 @@ const descendants = (schema: Record<string, unknown>): ReadonlyArray<Record<stri
 const expectedMergedField = (schema: McpInputSchema, field: "properties" | "$defs"): Record<string, unknown> =>
   descendants(schema)
     .map((descendant) => descendant[field])
-    .reduce<Record<string, unknown>>(
-      (merged, value) => {
-        const record = parseJsonSchemaRecord(value)
-        return record === undefined ? merged : { ...record, ...merged }
-      },
-      {}
-    )
+    .reduce<Record<string, unknown>>((merged, value) => {
+      const record = parseJsonSchemaRecord(value)
+      return record === undefined ? merged : { ...record, ...merged }
+    }, {})
 
 describe("toClientCompatibleInputSchema properties", () => {
   it("removes root composition, recursively merges fields, preserves root metadata, and is idempotent", () => {

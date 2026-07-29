@@ -15,27 +15,18 @@ import { Count } from "../domain/schemas/shared.js"
 const MIN_AMBIGUOUS_TEMPLATE_MATCHES = 2
 const AmbiguousTemplateMatchCount = Count.pipe(Schema.greaterThanOrEqualTo(MIN_AMBIGUOUS_TEMPLATE_MATCHES))
 
-export class MessageTemplateCategoryNotFoundError extends Schema.TaggedError<
-  MessageTemplateCategoryNotFoundError
->()(
+export class MessageTemplateCategoryNotFoundError extends Schema.TaggedError<MessageTemplateCategoryNotFoundError>()(
   "MessageTemplateCategoryNotFoundError",
-  {
-    identifier: MessageTemplateCategoryIdentifier
-  }
+  { identifier: MessageTemplateCategoryIdentifier }
 ) {
   override get message(): string {
     return `Message template category '${this.identifier}' not found`
   }
 }
 
-export class MessageTemplateCategoryIdentifierAmbiguousError extends Schema.TaggedError<
-  MessageTemplateCategoryIdentifierAmbiguousError
->()(
+export class MessageTemplateCategoryIdentifierAmbiguousError extends Schema.TaggedError<MessageTemplateCategoryIdentifierAmbiguousError>()(
   "MessageTemplateCategoryIdentifierAmbiguousError",
-  {
-    identifier: MessageTemplateCategoryIdentifier,
-    matches: AmbiguousTemplateMatchCount
-  }
+  { identifier: MessageTemplateCategoryIdentifier, matches: AmbiguousTemplateMatchCount }
 ) {
   override get message(): string {
     return `Message template category '${this.identifier}' matched ${this.matches} categories; use the category ID`
@@ -44,10 +35,7 @@ export class MessageTemplateCategoryIdentifierAmbiguousError extends Schema.Tagg
 
 export class MessageTemplateNotFoundError extends Schema.TaggedError<MessageTemplateNotFoundError>()(
   "MessageTemplateNotFoundError",
-  {
-    identifier: MessageTemplateIdentifier,
-    category: Schema.optional(MessageTemplateCategoryIdentifier)
-  }
+  { identifier: MessageTemplateIdentifier, category: Schema.optional(MessageTemplateCategoryIdentifier) }
 ) {
   override get message(): string {
     return this.category === undefined
@@ -56,14 +44,9 @@ export class MessageTemplateNotFoundError extends Schema.TaggedError<MessageTemp
   }
 }
 
-export class MessageTemplateIdentifierAmbiguousError extends Schema.TaggedError<
-  MessageTemplateIdentifierAmbiguousError
->()(
+export class MessageTemplateIdentifierAmbiguousError extends Schema.TaggedError<MessageTemplateIdentifierAmbiguousError>()(
   "MessageTemplateIdentifierAmbiguousError",
-  {
-    identifier: MessageTemplateIdentifier,
-    matches: AmbiguousTemplateMatchCount
-  }
+  { identifier: MessageTemplateIdentifier, matches: AmbiguousTemplateMatchCount }
 ) {
   override get message(): string {
     return `Message template '${this.identifier}' matched ${this.matches} templates; provide category to disambiguate`
@@ -72,23 +55,16 @@ export class MessageTemplateIdentifierAmbiguousError extends Schema.TaggedError<
 
 export class TemplateFieldCategoryNotFoundError extends Schema.TaggedError<TemplateFieldCategoryNotFoundError>()(
   "TemplateFieldCategoryNotFoundError",
-  {
-    identifier: TemplateFieldCategoryIdentifier
-  }
+  { identifier: TemplateFieldCategoryIdentifier }
 ) {
   override get message(): string {
     return `Template field category '${this.identifier}' not found`
   }
 }
 
-export class TemplateFieldCategoryIdentifierAmbiguousError extends Schema.TaggedError<
-  TemplateFieldCategoryIdentifierAmbiguousError
->()(
+export class TemplateFieldCategoryIdentifierAmbiguousError extends Schema.TaggedError<TemplateFieldCategoryIdentifierAmbiguousError>()(
   "TemplateFieldCategoryIdentifierAmbiguousError",
-  {
-    identifier: TemplateFieldCategoryIdentifier,
-    matches: AmbiguousTemplateMatchCount
-  }
+  { identifier: TemplateFieldCategoryIdentifier, matches: AmbiguousTemplateMatchCount }
 ) {
   override get message(): string {
     return `Template field category '${this.identifier}' matched ${this.matches} categories; use the category ID`

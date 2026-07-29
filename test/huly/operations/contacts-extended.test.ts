@@ -174,13 +174,13 @@ const createTestLayer = (config: MockConfig) => {
         const idFilter = q._id as { $in?: Array<unknown> } | unknown
         if (typeof idFilter === "object" && idFilter !== null && "$in" in idFilter) {
           const ids = idFilter.$in as Array<unknown>
-          filtered = filtered.filter(p => ids.includes(p._id))
+          filtered = filtered.filter((p) => ids.includes(p._id))
         }
       }
       if (q.name !== undefined) {
         const nameFilter = q.name as { $like?: string } | string
         if (typeof nameFilter === "object" && "$like" in nameFilter) {
-          filtered = filtered.filter(p => matchesLike(p.name, nameFilter.$like!))
+          filtered = filtered.filter((p) => matchesLike(p.name, nameFilter.$like!))
         }
       }
       const opts = (options ?? {}) as { limit?: number }
@@ -196,27 +196,27 @@ const createTestLayer = (config: MockConfig) => {
         const attachedTo = q.attachedTo as { $in?: Array<unknown> } | unknown
         if (typeof attachedTo === "object" && attachedTo !== null && "$in" in attachedTo) {
           const ids = attachedTo.$in as Array<unknown>
-          filtered = filtered.filter(c => ids.includes(c.attachedTo))
+          filtered = filtered.filter((c) => ids.includes(c.attachedTo))
         } else {
-          filtered = filtered.filter(c => c.attachedTo === q.attachedTo)
+          filtered = filtered.filter((c) => c.attachedTo === q.attachedTo)
         }
       }
       if (q.provider !== undefined) {
-        filtered = filtered.filter(c => c.provider === q.provider)
+        filtered = filtered.filter((c) => c.provider === q.provider)
       }
       if (q.value !== undefined) {
         const value = q.value as { $like?: string } | string
         if (typeof value === "object" && "$like" in value) {
-          filtered = filtered.filter(c => matchesLike(c.value, value.$like!))
+          filtered = filtered.filter((c) => matchesLike(c.value, value.$like!))
         } else {
-          filtered = filtered.filter(c => c.value === value)
+          filtered = filtered.filter((c) => c.value === value)
         }
       }
       return Effect.succeed(toFindResult(filtered))
     }
     if (_class === contact.class.SocialIdentity) {
       const q = query as Record<string, unknown>
-      const filtered = socialIdentities.filter(identity => {
+      const filtered = socialIdentities.filter((identity) => {
         if (q.type !== undefined && identity.type !== q.type) return false
         if (q.value !== undefined && identity.value !== q.value) return false
         return true
@@ -238,7 +238,7 @@ const createTestLayer = (config: MockConfig) => {
       const idFilter = q._id as { $in?: Array<unknown> } | undefined
       const inValues = idFilter?.$in
       if (Array.isArray(inValues)) {
-        filtered = filtered.filter(o => inValues.includes(o._id))
+        filtered = filtered.filter((o) => inValues.includes(o._id))
       }
       if (opts.limit !== undefined) {
         filtered = filtered.slice(0, opts.limit)
@@ -247,7 +247,7 @@ const createTestLayer = (config: MockConfig) => {
     }
     if (_class === contact.class.Member) {
       const q = (query ?? {}) as Record<string, unknown>
-      const filtered = q.contact === undefined ? members : members.filter(m => m.contact === q.contact)
+      const filtered = q.contact === undefined ? members : members.filter((m) => m.contact === q.contact)
       return Effect.succeed(toFindResult(filtered))
     }
     return Effect.succeed(toFindResult([]))
@@ -256,17 +256,17 @@ const createTestLayer = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === contact.class.Person) {
       const q = query as Record<string, unknown>
-      const found = persons.find(p => p._id === q._id)
+      const found = persons.find((p) => p._id === q._id)
       return Effect.succeed(found)
     }
     if (_class === contact.class.SocialIdentity) {
       const q = query as Record<string, unknown>
-      const found = socialIdentities.find(identity => identity.type === q.type && identity.value === q.value)
+      const found = socialIdentities.find((identity) => identity.type === q.type && identity.value === q.value)
       return Effect.succeed(found)
     }
     if (_class === contact.class.Channel) {
       const q = query as Record<string, unknown>
-      const found = channels.find(channel => {
+      const found = channels.find((channel) => {
         if (q.provider !== undefined && channel.provider !== q.provider) return false
         if (q.value !== undefined) {
           const value = q.value as { $like?: string } | string
@@ -324,11 +324,7 @@ const createTestLayer = (config: MockConfig) => {
     return Effect.succeed({})
   }) as HulyClientOperations["updateDoc"]
 
-  const removeDocImpl: HulyClientOperations["removeDoc"] = ((
-    _class: unknown,
-    _space: unknown,
-    objectId: unknown
-  ) => {
+  const removeDocImpl: HulyClientOperations["removeDoc"] = ((_class: unknown, _space: unknown, objectId: unknown) => {
     if (config.captureRemoveDoc) {
       config.captureRemoveDoc.id = String(objectId)
     }
@@ -348,104 +344,91 @@ const createTestLayer = (config: MockConfig) => {
 describe("Contacts Extended Coverage", () => {
   describe("findPersonByExactEmailOrName", () => {
     it.effect("returns undefined when exact email has no identity or channel matches", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const testLayer = createTestLayer({ persons: [], channels: [], socialIdentities: [] })
 
-        const result = yield* Effect.gen(function*() {
+        const result = yield* Effect.gen(function* () {
           const client = yield* HulyClient
           return yield* findPersonByExactEmailOrName(client, Email.make("missing@example.com"))
         }).pipe(Effect.provide(testLayer))
 
         expect(result).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("returns undefined when exact email resolves ids but no matching person docs", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const identity = createMockSocialIdentity({
           value: "orphan@example.com",
           attachedTo: "orphan-person" as Ref<HulyPerson>
         })
         const testLayer = createTestLayer({ persons: [], socialIdentities: [identity] })
 
-        const result = yield* Effect.gen(function*() {
+        const result = yield* Effect.gen(function* () {
           const client = yield* HulyClient
           return yield* findPersonByExactEmailOrName(client, Email.make("orphan@example.com"))
         }).pipe(Effect.provide(testLayer))
 
         expect(result).toBeUndefined()
-      }))
+      })
+    )
   })
 
   describe("resolveAssignee", () => {
     it.effect("returns PersonNotFoundError when no contact lookup path matches", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const testLayer = createTestLayer({ persons: [], channels: [], socialIdentities: [] })
 
-        const error = yield* Effect.flip(
-          resolveAssignee("missing@example.com").pipe(Effect.provide(testLayer))
-        )
+        const error = yield* Effect.flip(resolveAssignee("missing@example.com").pipe(Effect.provide(testLayer)))
 
         expect(error._tag).toBe("PersonNotFoundError")
         if (error._tag !== "PersonNotFoundError") throw new Error("expected PersonNotFoundError")
         expect(error.identifier).toBe("missing@example.com")
-      }))
+      })
+    )
   })
 
   describe("getPerson by email (findPersonByEmail path)", () => {
     it.effect("finds person by SocialIdentity email when no email channel exists", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const mockPerson = createMockPerson()
         const socialIdentity = createMockSocialIdentity({
           value: "john@example.com",
           attachedTo: "person-123" as Ref<HulyPerson>
         })
 
-        const testLayer = createTestLayer({
-          persons: [mockPerson],
-          socialIdentities: [socialIdentity]
-        })
+        const testLayer = createTestLayer({ persons: [mockPerson], socialIdentities: [socialIdentity] })
 
-        const result = yield* getPerson({ email: Email.make("john@example.com") }).pipe(
-          Effect.provide(testLayer)
-        )
+        const result = yield* getPerson({ email: Email.make("john@example.com") }).pipe(Effect.provide(testLayer))
 
         expect(result.id).toBe("person-123")
         expect(result.firstName).toBe("John")
         expect(result.lastName).toBe("Doe")
-      }))
+      })
+    )
 
     it.effect("finds person by email when channel exists", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const mockPerson = createMockPerson()
-        const mockChannel = createMockChannel({
-          value: "john@example.com",
-          attachedTo: "person-123" as Ref<Doc>
-        })
+        const mockChannel = createMockChannel({ value: "john@example.com", attachedTo: "person-123" as Ref<Doc> })
 
-        const testLayer = createTestLayer({
-          persons: [mockPerson],
-          channels: [mockChannel]
-        })
+        const testLayer = createTestLayer({ persons: [mockPerson], channels: [mockChannel] })
 
-        const result = yield* getPerson({ email: Email.make("john@example.com") }).pipe(
-          Effect.provide(testLayer)
-        )
+        const result = yield* getPerson({ email: Email.make("john@example.com") }).pipe(Effect.provide(testLayer))
 
         expect(result.id).toBe("person-123")
         expect(result.email).toBe("john@example.com")
-      }))
+      })
+    )
 
     it.effect("does not treat SocialIdentity and email channel for the same person as ambiguous", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const mockPerson = createMockPerson()
         const socialIdentity = createMockSocialIdentity({
           value: "john@example.com",
           attachedTo: "person-123" as Ref<HulyPerson>
         })
-        const mockChannel = createMockChannel({
-          value: "john@example.com",
-          attachedTo: "person-123" as Ref<Doc>
-        })
+        const mockChannel = createMockChannel({ value: "john@example.com", attachedTo: "person-123" as Ref<Doc> })
 
         const testLayer = createTestLayer({
           persons: [mockPerson],
@@ -453,32 +436,22 @@ describe("Contacts Extended Coverage", () => {
           socialIdentities: [socialIdentity]
         })
 
-        const result = yield* getPerson({ email: Email.make("john@example.com") }).pipe(
-          Effect.provide(testLayer)
-        )
+        const result = yield* getPerson({ email: Email.make("john@example.com") }).pipe(Effect.provide(testLayer))
 
         expect(result.id).toBe("person-123")
         expect(result.email).toBe("john@example.com")
-      }))
+      })
+    )
 
     it.effect("returns PersonIdentifierAmbiguousError when SocialIdentity and channel point to different people", () =>
-      Effect.gen(function*() {
-        const socialPerson = createMockPerson({
-          _id: "person-social" as Ref<HulyPerson>,
-          name: "Social,Person"
-        })
-        const channelPerson = createMockPerson({
-          _id: "person-channel" as Ref<HulyPerson>,
-          name: "Channel,Person"
-        })
+      Effect.gen(function* () {
+        const socialPerson = createMockPerson({ _id: "person-social" as Ref<HulyPerson>, name: "Social,Person" })
+        const channelPerson = createMockPerson({ _id: "person-channel" as Ref<HulyPerson>, name: "Channel,Person" })
         const socialIdentity = createMockSocialIdentity({
           value: "shared@example.com",
           attachedTo: "person-social" as Ref<HulyPerson>
         })
-        const mockChannel = createMockChannel({
-          value: "shared@example.com",
-          attachedTo: "person-channel" as Ref<Doc>
-        })
+        const mockChannel = createMockChannel({ value: "shared@example.com", attachedTo: "person-channel" as Ref<Doc> })
 
         const testLayer = createTestLayer({
           persons: [socialPerson, channelPerson],
@@ -491,48 +464,42 @@ describe("Contacts Extended Coverage", () => {
         )
 
         expect(error._tag).toBe("PersonIdentifierAmbiguousError")
-      }))
+      })
+    )
 
     it.effect("returns PersonNotFoundError when email channel exists but person does not", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const mockChannel = createMockChannel({
           value: "orphan@example.com",
           attachedTo: "nonexistent-person" as Ref<Doc>
         })
 
-        const testLayer = createTestLayer({
-          persons: [],
-          channels: [mockChannel]
-        })
+        const testLayer = createTestLayer({ persons: [], channels: [mockChannel] })
 
         const error = yield* Effect.flip(
           getPerson({ email: Email.make("orphan@example.com") }).pipe(Effect.provide(testLayer))
         )
 
         expect(error._tag).toBe("PersonNotFoundError")
-      }))
+      })
+    )
 
     it.effect("returns PersonNotFoundError when no matching email channel", () =>
-      Effect.gen(function*() {
-        const testLayer = createTestLayer({
-          persons: [],
-          channels: []
-        })
+      Effect.gen(function* () {
+        const testLayer = createTestLayer({ persons: [], channels: [] })
 
         const error = yield* Effect.flip(
           getPerson({ email: Email.make("nobody@example.com") }).pipe(Effect.provide(testLayer))
         )
 
         expect(error._tag).toBe("PersonNotFoundError")
-      }))
+      })
+    )
 
     it.effect("includes the organizations a person belongs to", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const mockPerson = createMockPerson()
-        const mockChannel = createMockChannel({
-          value: "john@example.com",
-          attachedTo: "person-123" as Ref<Doc>
-        })
+        const mockChannel = createMockChannel({ value: "john@example.com", attachedTo: "person-123" as Ref<Doc> })
         const org = createMockOrganization()
         const member = createMockMember({ contact: "person-123" as Ref<Contact>, attachedTo: "org-1" as Ref<Doc> })
 
@@ -546,16 +513,14 @@ describe("Contacts Extended Coverage", () => {
         const result = yield* getPerson({ email: Email.make("john@example.com") }).pipe(Effect.provide(testLayer))
 
         expect(result.organizations).toEqual([{ id: "org-1", name: "Test Corp" }])
-      }))
+      })
+    )
   })
 
   describe("batchGetEmailsForPersons - duplicate channels", () => {
     it.effect("keeps only first email for a person when multiple channels exist", () =>
-      Effect.gen(function*() {
-        const person = createMockPerson({
-          _id: "person-dup" as Ref<HulyPerson>,
-          name: "Dup,Person"
-        })
+      Effect.gen(function* () {
+        const person = createMockPerson({ _id: "person-dup" as Ref<HulyPerson>, name: "Dup,Person" })
         const channel1 = createMockChannel({
           _id: "ch-1" as Ref<Channel>,
           attachedTo: "person-dup" as Ref<Doc>,
@@ -567,45 +532,32 @@ describe("Contacts Extended Coverage", () => {
           value: "second@example.com"
         })
 
-        const testLayer = createTestLayer({
-          persons: [person],
-          channels: [channel1, channel2]
-        })
+        const testLayer = createTestLayer({ persons: [person], channels: [channel1, channel2] })
 
         const result = yield* listPersons({ limit: 10 }).pipe(Effect.provide(testLayer))
 
         expect(result).toHaveLength(1)
         expect(assertAt(result, 0).email).toBe("first@example.com")
-      }))
+      })
+    )
 
     it.effect("omits invalid Huly email channel values from summaries", () =>
-      Effect.gen(function*() {
-        const person = createMockPerson({
-          _id: "person-invalid-email" as Ref<HulyPerson>,
-          name: "Invalid,Email"
-        })
-        const channel = createMockChannel({
-          attachedTo: "person-invalid-email" as Ref<Doc>,
-          value: ""
-        })
+      Effect.gen(function* () {
+        const person = createMockPerson({ _id: "person-invalid-email" as Ref<HulyPerson>, name: "Invalid,Email" })
+        const channel = createMockChannel({ attachedTo: "person-invalid-email" as Ref<Doc>, value: "" })
 
-        const testLayer = createTestLayer({
-          persons: [person],
-          channels: [channel]
-        })
+        const testLayer = createTestLayer({ persons: [person], channels: [channel] })
 
         const result = yield* listPersons({ limit: 10 }).pipe(Effect.provide(testLayer))
 
         expect(result).toHaveLength(1)
         expect(assertAt(result, 0).email).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("uses the first valid email when an earlier Huly channel value is invalid", () =>
-      Effect.gen(function*() {
-        const person = createMockPerson({
-          _id: "person-later-valid-email" as Ref<HulyPerson>,
-          name: "Later,Valid"
-        })
+      Effect.gen(function* () {
+        const person = createMockPerson({ _id: "person-later-valid-email" as Ref<HulyPerson>, name: "Later,Valid" })
         const invalidChannel = createMockChannel({
           _id: "ch-invalid" as Ref<Channel>,
           attachedTo: "person-later-valid-email" as Ref<Doc>,
@@ -617,138 +569,112 @@ describe("Contacts Extended Coverage", () => {
           value: "later@example.com"
         })
 
-        const testLayer = createTestLayer({
-          persons: [person],
-          channels: [invalidChannel, validChannel]
-        })
+        const testLayer = createTestLayer({ persons: [person], channels: [invalidChannel, validChannel] })
 
         const result = yield* listPersons({ limit: 10 }).pipe(Effect.provide(testLayer))
 
         expect(result).toHaveLength(1)
         expect(assertAt(result, 0).email).toBe("later@example.com")
-      }))
+      })
+    )
   })
 
   describe("listPersons with nameSearch", () => {
     it.effect("applies nameSearch filter", () =>
-      Effect.gen(function*() {
-        const person1 = createMockPerson({
-          _id: "person-1" as Ref<HulyPerson>,
-          name: "Doe,John"
-        })
-        const person2 = createMockPerson({
-          _id: "person-2" as Ref<HulyPerson>,
-          name: "Smith,Jane"
-        })
+      Effect.gen(function* () {
+        const person1 = createMockPerson({ _id: "person-1" as Ref<HulyPerson>, name: "Doe,John" })
+        const person2 = createMockPerson({ _id: "person-2" as Ref<HulyPerson>, name: "Smith,Jane" })
 
-        const testLayer = createTestLayer({
-          persons: [person1, person2],
-          channels: []
-        })
+        const testLayer = createTestLayer({ persons: [person1, person2], channels: [] })
 
-        const result = yield* listPersons({ nameSearch: "Doe", limit: 10 }).pipe(
-          Effect.provide(testLayer)
-        )
+        const result = yield* listPersons({ nameSearch: "Doe", limit: 10 }).pipe(Effect.provide(testLayer))
 
         expect(result).toHaveLength(1)
         expect(assertAt(result, 0).id).toBe("person-1")
         expect(assertAt(result, 0).name).toBe("Doe,John")
-      }))
+      })
+    )
 
     it.effect("ignores empty nameSearch", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const person1 = createMockPerson()
 
-        const testLayer = createTestLayer({
-          persons: [person1],
-          channels: []
-        })
+        const testLayer = createTestLayer({ persons: [person1], channels: [] })
 
-        const result = yield* listPersons({ nameSearch: "  ", limit: 10 }).pipe(
-          Effect.provide(testLayer)
-        )
+        const result = yield* listPersons({ nameSearch: "  ", limit: 10 }).pipe(Effect.provide(testLayer))
 
         expect(result).toHaveLength(1)
-      }))
+      })
+    )
 
     it.effect("applies a nameRegex filter", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const capturePersonQuery: MockConfig["capturePersonQuery"] = {}
         const testLayer = createTestLayer({ persons: [], channels: [], capturePersonQuery })
 
         yield* listPersons({ nameRegex: "Doe%", limit: 10 }).pipe(Effect.provide(testLayer))
 
         expect(capturePersonQuery.query?.name).toEqual({ $regex: "Doe%" })
-      }))
+      })
+    )
 
     it.effect("ignores a blank nameRegex", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const testLayer = createTestLayer({ persons: [createMockPerson()], channels: [] })
 
         const result = yield* listPersons({ nameRegex: "   ", limit: 10 }).pipe(Effect.provide(testLayer))
 
         expect(result).toHaveLength(1)
-      }))
+      })
+    )
   })
 
   describe("updatePerson name update branches", () => {
     it.effect("updates only lastName while keeping firstName", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const mockPerson = createMockPerson({ name: "Doe,John" })
         const capture: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayer({
-          persons: [mockPerson],
-          captureUpdateDoc: capture
-        })
+        const testLayer = createTestLayer({ persons: [mockPerson], captureUpdateDoc: capture })
 
-        const result = yield* updatePerson({
-          personId: PersonId.make("person-123"),
-          lastName: "Smith"
-        }).pipe(Effect.provide(testLayer))
+        const result = yield* updatePerson({ personId: PersonId.make("person-123"), lastName: "Smith" }).pipe(
+          Effect.provide(testLayer)
+        )
 
         expect(result.updated).toBe(true)
         expect(capture.operations?.name).toBe("Smith,John")
-      }))
+      })
+    )
 
     it.effect("updates city to a non-null value", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const mockPerson = createMockPerson({ city: "NYC" })
         const capture: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayer({
-          persons: [mockPerson],
-          captureUpdateDoc: capture
-        })
+        const testLayer = createTestLayer({ persons: [mockPerson], captureUpdateDoc: capture })
 
-        const result = yield* updatePerson({
-          personId: PersonId.make("person-123"),
-          city: "LA"
-        }).pipe(Effect.provide(testLayer))
+        const result = yield* updatePerson({ personId: PersonId.make("person-123"), city: "LA" }).pipe(
+          Effect.provide(testLayer)
+        )
 
         expect(result.updated).toBe(true)
         expect(capture.operations?.city).toBe("LA")
-      }))
+      })
+    )
   })
 
   describe("listEmployees", () => {
     it.effect("returns employee summaries with emails", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const emp = createMockEmployee({
           _id: "employee-1" as Ref<HulyEmployee>,
           name: "Smith,Jane",
           active: true,
           position: "Developer"
         })
-        const empChannel = createMockChannel({
-          attachedTo: "employee-1" as Ref<Doc>,
-          value: "jane@company.com"
-        })
+        const empChannel = createMockChannel({ attachedTo: "employee-1" as Ref<Doc>, value: "jane@company.com" })
 
-        const testLayer = createTestLayer({
-          employees: [emp],
-          channels: [empChannel]
-        })
+        const testLayer = createTestLayer({ employees: [emp], channels: [empChannel] })
 
         const result = yield* listEmployees({ limit: 10 }).pipe(Effect.provide(testLayer))
 
@@ -757,60 +683,54 @@ describe("Contacts Extended Coverage", () => {
         expect(assertAt(result, 0).email).toBe("jane@company.com")
         expect(assertAt(result, 0).active).toBe(true)
         expect(assertAt(result, 0).position).toBe("Developer")
-      }))
+      })
+    )
 
     it.effect("returns employees without email when no channel exists", () =>
-      Effect.gen(function*() {
-        const emp = createMockEmployee({
-          _id: "employee-2" as Ref<HulyEmployee>,
-          name: "Brown,Bob",
-          active: false
-        })
+      Effect.gen(function* () {
+        const emp = createMockEmployee({ _id: "employee-2" as Ref<HulyEmployee>, name: "Brown,Bob", active: false })
 
-        const testLayer = createTestLayer({
-          employees: [emp],
-          channels: []
-        })
+        const testLayer = createTestLayer({ employees: [emp], channels: [] })
 
         const result = yield* listEmployees({ limit: 10 }).pipe(Effect.provide(testLayer))
 
         expect(result).toHaveLength(1)
         expect(assertAt(result, 0).email).toBeUndefined()
         expect(assertAt(result, 0).active).toBe(false)
-      }))
+      })
+    )
 
     it.effect("returns employees with position undefined when not set", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const emp = createMockEmployee({
           _id: "employee-3" as Ref<HulyEmployee>,
           // eslint-disable-next-line no-restricted-syntax -- null doesn't overlap with string
           position: null as unknown as string
         })
 
-        const testLayer = createTestLayer({
-          employees: [emp],
-          channels: []
-        })
+        const testLayer = createTestLayer({ employees: [emp], channels: [] })
 
         const result = yield* listEmployees({ limit: 10 }).pipe(Effect.provide(testLayer))
 
         expect(result).toHaveLength(1)
         expect(assertAt(result, 0).position).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("returns empty array when no employees", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const testLayer = createTestLayer({ employees: [] })
 
         const result = yield* listEmployees({}).pipe(Effect.provide(testLayer))
 
         expect(result).toEqual([])
-      }))
+      })
+    )
   })
 
   describe("listOrganizations", () => {
     it.effect("returns organization summaries", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const org = createMockOrganization({
           _id: "org-1" as Ref<HulyOrganization>,
           name: "Acme Corp",
@@ -818,9 +738,7 @@ describe("Contacts Extended Coverage", () => {
           members: 10
         })
 
-        const testLayer = createTestLayer({
-          organizations: [org]
-        })
+        const testLayer = createTestLayer({ organizations: [org] })
 
         const result = yield* listOrganizations({ limit: 10 }).pipe(Effect.provide(testLayer))
 
@@ -828,19 +746,21 @@ describe("Contacts Extended Coverage", () => {
         expect(assertAt(result, 0).name).toBe("Acme Corp")
         expect(assertAt(result, 0).city).toBe("SF")
         expect(assertAt(result, 0).members).toBe(10)
-      }))
+      })
+    )
 
     it.effect("returns empty array when no organizations", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const testLayer = createTestLayer({ organizations: [] })
 
         const result = yield* listOrganizations({}).pipe(Effect.provide(testLayer))
 
         expect(result).toEqual([])
-      }))
+      })
+    )
 
     it.effect("respects limit", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const orgs = [
           createMockOrganization({ _id: "org-1" as Ref<HulyOrganization>, name: "Org 1" }),
           createMockOrganization({ _id: "org-2" as Ref<HulyOrganization>, name: "Org 2" }),
@@ -852,42 +772,33 @@ describe("Contacts Extended Coverage", () => {
         const result = yield* listOrganizations({ limit: 2 }).pipe(Effect.provide(testLayer))
 
         expect(result).toHaveLength(2)
-      }))
+      })
+    )
   })
 
   describe("createOrganization", () => {
     it.effect("creates organization without members", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const capture: MockConfig["captureCreateDoc"] = {}
 
-        const testLayer = createTestLayer({
-          captureCreateDoc: capture
-        })
+        const testLayer = createTestLayer({ captureCreateDoc: capture })
 
-        const result = yield* createOrganization({
-          name: "New Org"
-        }).pipe(Effect.provide(testLayer))
+        const result = yield* createOrganization({ name: "New Org" }).pipe(Effect.provide(testLayer))
 
         expect(result.id).toBeDefined()
         expect(capture.data?.name).toBe("New Org")
         expect(capture.data?.city).toBe("")
         expect(capture.data?.members).toBe(0)
-      }))
+      })
+    )
 
     it.effect("creates organization with member found by ID", () =>
-      Effect.gen(function*() {
-        const person = createMockPerson({
-          _id: "person-1" as Ref<HulyPerson>,
-          name: "Doe,John"
-        })
+      Effect.gen(function* () {
+        const person = createMockPerson({ _id: "person-1" as Ref<HulyPerson>, name: "Doe,John" })
         const captureCreateDoc: MockConfig["captureCreateDoc"] = {}
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
-        const testLayer = createTestLayer({
-          persons: [person],
-          captureCreateDoc,
-          captureAddCollection
-        })
+        const testLayer = createTestLayer({ persons: [person], captureCreateDoc, captureAddCollection })
 
         const result = yield* createOrganization({
           name: "Org With Members",
@@ -897,24 +808,19 @@ describe("Contacts Extended Coverage", () => {
         expect(result.id).toBeDefined()
         expect(captureAddCollection.class).toBe(contact.class.Member)
         expect(captureAddCollection.attributes?.contact).toBe("person-1")
-      }))
+      })
+    )
 
     it.effect("creates organization with member found by email", () =>
-      Effect.gen(function*() {
-        const person = createMockPerson({
-          _id: "person-email-1" as Ref<HulyPerson>,
-          name: "EmailPerson,Test"
-        })
-        const channel = createMockChannel({
-          attachedTo: "person-email-1" as Ref<Doc>,
-          value: "member@example.com"
-        })
+      Effect.gen(function* () {
+        const person = createMockPerson({ _id: "person-email-1" as Ref<HulyPerson>, name: "EmailPerson,Test" })
+        const channel = createMockChannel({ attachedTo: "person-email-1" as Ref<Doc>, value: "member@example.com" })
 
         // Override findOne to support email-based person lookup
         const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
           if (_class === contact.class.Person) {
             const q = query as Record<string, unknown>
-            const found = [person].find(p => p._id === q._id)
+            const found = [person].find((p) => p._id === q._id)
             return Effect.succeed(found)
           }
           return Effect.succeed(undefined)
@@ -928,9 +834,7 @@ describe("Contacts Extended Coverage", () => {
               typeof idFilter === "object" && idFilter !== null && "$in" in idFilter && Array.isArray(idFilter.$in)
                 ? idFilter.$in
                 : []
-            const filtered = ids.length > 0
-              ? [person].filter(p => ids.includes(p._id))
-              : []
+            const filtered = ids.length > 0 ? [person].filter((p) => ids.includes(p._id)) : []
             return Effect.succeed(toFindResult(filtered))
           }
           if (_class === contact.class.Channel) {
@@ -939,11 +843,11 @@ describe("Contacts Extended Coverage", () => {
             if (q.value !== undefined) {
               const value = q.value as { $like?: string } | string
               if (typeof value === "string") {
-                filtered = filtered.filter(c => c.value === value)
+                filtered = filtered.filter((c) => c.value === value)
               }
             }
             if (q.provider !== undefined) {
-              filtered = filtered.filter(c => c.provider === q.provider)
+              filtered = filtered.filter((c) => c.provider === q.provider)
             }
             return Effect.succeed(toFindResult(filtered))
           }
@@ -956,12 +860,7 @@ describe("Contacts Extended Coverage", () => {
         const testLayer = HulyClient.testLayer({
           findAll: findAllImpl,
           findOne: findOneImpl,
-          createDoc: ((
-            _class: unknown,
-            _space: unknown,
-            data: unknown,
-            id: unknown
-          ) => {
+          createDoc: ((_class: unknown, _space: unknown, data: unknown, id: unknown) => {
             captureCreateDoc.data = data as Record<string, unknown>
             return Effect.succeed((id ?? "new-id") as Ref<Doc>)
           }) as HulyClientOperations["createDoc"],
@@ -986,48 +885,41 @@ describe("Contacts Extended Coverage", () => {
 
         expect(result.id).toBeDefined()
         expect(captureAddCollection.attributes?.contact).toBe("person-email-1")
-      }))
+      })
+    )
 
     it.effect("fails when neither ID nor email matches", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const captureCreateDoc: MockConfig["captureCreateDoc"] = {}
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
-        const testLayer = createTestLayer({
-          persons: [],
-          channels: [],
-          captureCreateDoc,
-          captureAddCollection
-        })
+        const testLayer = createTestLayer({ persons: [], channels: [], captureCreateDoc, captureAddCollection })
 
         const error = yield* Effect.flip(
-          createOrganization({
-            name: "Org No Members",
-            members: [memberReference("nonexistent-ref")]
-          }).pipe(Effect.provide(testLayer))
+          createOrganization({ name: "Org No Members", members: [memberReference("nonexistent-ref")] }).pipe(
+            Effect.provide(testLayer)
+          )
         )
 
         expect(error._tag).toBe("PersonNotFoundError")
         expect(captureAddCollection.attributes).toBeUndefined()
-      }))
+      })
+    )
 
     it.effect("creates organization with empty members array", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const captureCreateDoc: MockConfig["captureCreateDoc"] = {}
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
-        const testLayer = createTestLayer({
-          captureCreateDoc,
-          captureAddCollection
-        })
+        const testLayer = createTestLayer({ captureCreateDoc, captureAddCollection })
 
-        const result = yield* createOrganization({
-          name: "Org Empty Members",
-          members: []
-        }).pipe(Effect.provide(testLayer))
+        const result = yield* createOrganization({ name: "Org Empty Members", members: [] }).pipe(
+          Effect.provide(testLayer)
+        )
 
         expect(result.id).toBeDefined()
         expect(captureAddCollection.attributes).toBeUndefined()
-      }))
+      })
+    )
   })
 })

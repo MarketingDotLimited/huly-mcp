@@ -17,15 +17,8 @@ export interface ChannelMutationParams extends ChannelLocator {
 }
 
 export type ResolvedChannelLocator =
-  | {
-    readonly _tag: "channelId"
-    readonly channelId: ChannelId
-  }
-  | {
-    readonly _tag: "providerValue"
-    readonly provider: ContactChannelProvider
-    readonly value: string
-  }
+  | { readonly _tag: "channelId"; readonly channelId: ChannelId }
+  | { readonly _tag: "providerValue"; readonly provider: ContactChannelProvider; readonly value: string }
 
 export const channelIdentifier = (locator: ResolvedChannelLocator): string =>
   locator._tag === "channelId" ? locator.channelId : `${locator.provider}:${locator.value}`
@@ -44,7 +37,7 @@ export const validateChannelLocator = (
   ownerIdentifier: string,
   locator: ChannelLocator
 ): Effect.Effect<ResolvedChannelLocator, InvalidContactChannelLocatorError | InvalidContactChannelValueError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const hasChannelId = locator.channelId !== undefined
     const hasProvider = locator.provider !== undefined
     const hasValue = locator.value !== undefined
@@ -56,15 +49,10 @@ export const validateChannelLocator = (
       yield* validateProviderValue(locator.provider, locator.value)
       return { _tag: "providerValue", provider: locator.provider, value: locator.value }
     }
-    return yield* new InvalidContactChannelLocatorError({
-      ownerIdentifier,
-      reason: INVALID_CHANNEL_LOCATOR_REASON
-    })
+    return yield* new InvalidContactChannelLocatorError({ ownerIdentifier, reason: INVALID_CHANNEL_LOCATOR_REASON })
   })
 
-export const requireChannelUpdateFields = (
-  params: ChannelMutationParams
-): Effect.Effect<void, NoUpdateFieldsError> =>
+export const requireChannelUpdateFields = (params: ChannelMutationParams): Effect.Effect<void, NoUpdateFieldsError> =>
   params.newProvider === undefined && params.newValue === undefined
     ? Effect.fail(new NoUpdateFieldsError({ operation: "update_contact_channel", fields: ["newProvider", "newValue"] }))
     : Effect.void

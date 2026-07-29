@@ -3,18 +3,10 @@ import { JSONSchema, Schema } from "effect"
 import { DocumentIdentifier, IssueIdentifier, ProjectIdentifier, TeamspaceIdentifier } from "./shared.js"
 
 const docRelationFields = {
-  project: ProjectIdentifier.annotations({
-    description: "Project identifier of the issue (e.g., 'HULY')"
-  }),
-  issueIdentifier: IssueIdentifier.annotations({
-    description: "Issue identifier (e.g., 'HULY-123')"
-  }),
-  teamspace: TeamspaceIdentifier.annotations({
-    description: "Teamspace containing the document (name or ID)"
-  }),
-  document: DocumentIdentifier.annotations({
-    description: "Document to link (title or ID)"
-  })
+  project: ProjectIdentifier.annotations({ description: "Project identifier of the issue (e.g., 'HULY')" }),
+  issueIdentifier: IssueIdentifier.annotations({ description: "Issue identifier (e.g., 'HULY-123')" }),
+  teamspace: TeamspaceIdentifier.annotations({ description: "Teamspace containing the document (name or ID)" }),
+  document: DocumentIdentifier.annotations({ description: "Document to link (title or ID)" })
 }
 
 export const LinkDocumentToIssueParamsSchema = Schema.Struct(docRelationFields).annotations({

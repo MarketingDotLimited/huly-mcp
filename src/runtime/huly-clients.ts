@@ -4,14 +4,10 @@ import { type ConfigValidationError, HulyConfigService } from "../config/config.
 import { HulyClient, type HulyClientError } from "../huly/client.js"
 import { HulyUnavailableError } from "../huly/errors.js"
 import { HulyStorageClient, type StorageClientError } from "../huly/storage.js"
-import { WorkspaceClient, type WorkspaceClientError } from "../huly/workspace-client.js"
+import { WorkspaceClient } from "../huly/workspace-client.js"
 import type { ClientBundle } from "../mcp/server.js"
 
-type HulyClientBundleError =
-  | ConfigValidationError
-  | HulyClientError
-  | StorageClientError
-  | WorkspaceClientError
+type HulyClientBundleError = ConfigValidationError | HulyClientError | StorageClientError
 
 export type CombinedClientLayer = Layer.Layer<
   HulyClient | HulyStorageClient | WorkspaceClient,
@@ -25,22 +21,13 @@ export type CombinedClientLayer = Layer.Layer<
 export const buildCombinedClientLayer = (): CombinedClientLayer => {
   const configLayer = HulyConfigService.layer
 
-  const hulyClientLayer = HulyClient.layer.pipe(
-    Layer.provide(configLayer)
-  )
+  const hulyClientLayer = HulyClient.layer.pipe(Layer.provide(configLayer))
 
-  const storageClientLayer = HulyStorageClient.layer.pipe(
-    Layer.provide(configLayer)
-  )
+  const storageClientLayer = HulyStorageClient.layer.pipe(Layer.provide(configLayer))
 
-  const workspaceClientLayer = WorkspaceClient.layer.pipe(
-    Layer.provide(configLayer)
-  )
+  const workspaceClientLayer = WorkspaceClient.layer.pipe(Layer.provide(configLayer))
 
-  return Layer.merge(
-    Layer.merge(hulyClientLayer, storageClientLayer),
-    workspaceClientLayer
-  )
+  return Layer.merge(Layer.merge(hulyClientLayer, storageClientLayer), workspaceClientLayer)
 }
 
 export const buildClientBundle = (
@@ -50,14 +37,8 @@ export const buildClientBundle = (
 
 export const buildScopedClientBundle = (
   combinedClientLayer: CombinedClientLayer
-): Effect.Effect<
-  {
-    readonly bundle: ClientBundle
-    readonly close: () => void
-  },
-  HulyClientBundleError
-> =>
-  Effect.gen(function*() {
+): Effect.Effect<{ readonly bundle: ClientBundle; readonly close: () => void }, HulyClientBundleError> =>
+  Effect.gen(function* () {
     const scope = yield* Scope.make()
     const close = () => {
       Effect.runFork(Scope.close(scope, Exit.void))
@@ -90,12 +71,12 @@ export const createClientResolver = (
       const acquisition = Effect.runPromise(buildClientBundle(combinedClientLayer))
       clientsPromise = acquisition
       void acquisition.catch((error: unknown) => {
-        const unavailable = error instanceof HulyUnavailableError || (
-          Runtime.isFiberFailure(error)
-          && Chunk.toArray(Cause.failures(error[Runtime.FiberFailureCauseId])).some(
-            failure => failure instanceof HulyUnavailableError
-          )
-        )
+        const unavailable =
+          error instanceof HulyUnavailableError ||
+          (Runtime.isFiberFailure(error) &&
+            Chunk.toArray(Cause.failures(error[Runtime.FiberFailureCauseId])).some(
+              (failure) => failure instanceof HulyUnavailableError
+            ))
         if (unavailable && clientsPromise === acquisition) clientsPromise = null
       })
     }

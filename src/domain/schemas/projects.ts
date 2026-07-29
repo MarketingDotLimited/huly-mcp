@@ -21,26 +21,20 @@ export const ProjectSummarySchema = Schema.Struct({
   name: NonEmptyString,
   description: Schema.optional(Schema.String),
   archived: Schema.Boolean
-}).annotations({
-  title: "ProjectSummary",
-  description: "Project summary for list operations"
-})
+}).annotations({ title: "ProjectSummary", description: "Project summary for list operations" })
 
 export type ProjectSummary = Schema.Schema.Type<typeof ProjectSummarySchema>
 
 export const ListProjectsParamsSchema = Schema.Struct({
-  includeArchived: Schema.optional(Schema.Boolean.annotations({
-    description: `Include archived projects in results (default: ${DEFAULT_INCLUDE_ARCHIVED}, showing only active)`
-  })),
-  limit: Schema.optional(
-    LimitParam.annotations({
-      description: `Maximum number of projects to return (default: ${DEFAULT_LIMIT})`
+  includeArchived: Schema.optional(
+    Schema.Boolean.annotations({
+      description: `Include archived projects in results (default: ${DEFAULT_INCLUDE_ARCHIVED}, showing only active)`
     })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of projects to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({
-  title: "ListProjectsParams",
-  description: "Parameters for listing projects"
-})
+}).annotations({ title: "ListProjectsParams", description: "Parameters for listing projects" })
 
 export type ListProjectsParams = Schema.Schema.Type<typeof ListProjectsParamsSchema>
 export const ListProjectsResultSchema = Schema.Struct({
@@ -56,10 +50,7 @@ export const ProjectSchema = Schema.Struct({
   archived: Schema.Boolean,
   defaultStatus: Schema.optional(StatusName),
   statuses: Schema.optional(Schema.Array(StatusName))
-}).annotations({
-  title: "Project",
-  description: "Full project with status information"
-})
+}).annotations({ title: "Project", description: "Full project with status information" })
 
 export type Project = Schema.Schema.Type<typeof ProjectSchema>
 export const GetProjectResultSchema = ProjectSchema
@@ -72,15 +63,13 @@ export type GetProjectParams = Schema.Schema.Type<typeof GetProjectParamsSchema>
 
 export const CreateProjectParamsSchema = Schema.Struct({
   name: NonEmptyString.annotations({ description: "Project name" }),
-  identifier: Schema.String.pipe(
-    Schema.pattern(/^[A-Z][A-Z0-9_]{0,4}$/)
-  ).annotations({
+  identifier: Schema.String.pipe(Schema.pattern(/^[A-Z][A-Z0-9_]{0,4}$/)).annotations({
     description: "Unique project identifier, 1-5 uppercase alphanumeric chars starting with letter (e.g., 'HULY', 'QA')"
   }),
   description: Schema.optional(Schema.String.annotations({ description: "Project description" })),
-  private: Schema.optional(Schema.Boolean.annotations({
-    description: `Whether project is private (default: ${DEFAULT_PRIVATE})`
-  }))
+  private: Schema.optional(
+    Schema.Boolean.annotations({ description: `Whether project is private (default: ${DEFAULT_PRIVATE})` })
+  )
 }).annotations({ title: "CreateProjectParams", description: "Parameters for creating a project" })
 export type CreateProjectParams = Schema.Schema.Type<typeof CreateProjectParamsSchema>
 
@@ -92,16 +81,18 @@ export const UpdateProjectParamsSchema = Schema.Struct({
   description: Schema.optional(
     Schema.NullOr(Schema.String).annotations({ description: "New description (null to clear)" })
   )
-}).pipe(
-  Schema.filter((params) =>
-    hasAtLeastOneDefined(params, UPDATE_PROJECT_FIELDS)
-      ? undefined
-      : atLeastOneUpdateFieldMessage(UPDATE_PROJECT_FIELDS)
-  )
-).annotations({
-  title: "UpdateProjectParams",
-  description: `Parameters for updating a project. ${atLeastOneUpdateFieldMessage(UPDATE_PROJECT_FIELDS)}`
 })
+  .pipe(
+    Schema.filter((params) =>
+      hasAtLeastOneDefined(params, UPDATE_PROJECT_FIELDS)
+        ? undefined
+        : atLeastOneUpdateFieldMessage(UPDATE_PROJECT_FIELDS)
+    )
+  )
+  .annotations({
+    title: "UpdateProjectParams",
+    description: `Parameters for updating a project. ${atLeastOneUpdateFieldMessage(UPDATE_PROJECT_FIELDS)}`
+  })
 export type UpdateProjectParams = Schema.Schema.Type<typeof UpdateProjectParamsSchema>
 assertUpdateFields<UpdateProjectParams>()(["project"], UPDATE_PROJECT_FIELDS)
 
@@ -119,15 +110,9 @@ export const StatusDetailSchema = Schema.Struct({
   name: StatusName,
   category: StatusCategoryValueSchema,
   isDefault: Schema.Boolean
-}).annotations({
-  title: "StatusDetail",
-  description: "Issue status with workflow category and default info"
-})
+}).annotations({ title: "StatusDetail", description: "Issue status with workflow category and default info" })
 export type StatusDetail = Schema.Schema.Type<typeof StatusDetailSchema>
-export const ListStatusesResultSchema = Schema.Struct({
-  statuses: Schema.Array(StatusDetailSchema),
-  total: ListTotal
-})
+export const ListStatusesResultSchema = Schema.Struct({ statuses: Schema.Array(StatusDetailSchema), total: ListTotal })
 export type ListStatusesResult = Schema.Schema.Type<typeof ListStatusesResultSchema>
 
 export const listProjectsParamsJsonSchema = JSONSchema.make(ListProjectsParamsSchema)
@@ -154,13 +139,7 @@ export const CreateProjectResultSchema = Schema.Struct({
   created: Schema.Boolean
 })
 export type CreateProjectResult = Schema.Schema.Type<typeof CreateProjectResultSchema>
-export const UpdateProjectResultSchema = Schema.Struct({
-  identifier: ProjectIdentifier,
-  updated: Schema.Boolean
-})
+export const UpdateProjectResultSchema = Schema.Struct({ identifier: ProjectIdentifier, updated: Schema.Boolean })
 export type UpdateProjectResult = Schema.Schema.Type<typeof UpdateProjectResultSchema>
-export const DeleteProjectResultSchema = Schema.Struct({
-  identifier: ProjectIdentifier,
-  deleted: Schema.Boolean
-})
+export const DeleteProjectResultSchema = Schema.Struct({ identifier: ProjectIdentifier, deleted: Schema.Boolean })
 export type DeleteProjectResult = Schema.Schema.Type<typeof DeleteProjectResultSchema>

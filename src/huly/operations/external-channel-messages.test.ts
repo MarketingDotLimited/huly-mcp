@@ -43,69 +43,77 @@ describe("external channel messages", () => {
       provider: "gmail",
       channel: "Inbox",
       limit: 1,
-      messages: [{
-        id: "external-message-1",
-        subject: "Build status",
-        bodyPreview: "Build completed",
-        sender: "ci@example.com",
-        senderId: "ci",
-        createdOn: 1,
-        modifiedOn: 2,
-        url: "https://example.com/message/external-message-1"
-      }]
+      messages: [
+        {
+          id: "external-message-1",
+          subject: "Build status",
+          bodyPreview: "Build completed",
+          sender: "ci@example.com",
+          senderId: "ci",
+          createdOn: 1,
+          modifiedOn: 2,
+          url: "https://example.com/message/external-message-1"
+        }
+      ]
     })
 
     expect(Either.isRight(result)).toBe(true)
   })
 
   it("rejects empty present external message text fields", () => {
-    const baseMessage = {
-      id: "external-message-1",
-      bodyPreview: "Build completed"
-    }
+    const baseMessage = { id: "external-message-1", bodyPreview: "Build completed" }
 
-    expect(Either.isLeft(decodeResult({
-      supported: true,
-      provider: "gmail",
-      channel: "Inbox",
-      limit: 1,
-      messages: [{ ...baseMessage, subject: "" }]
-    }))).toBe(true)
-    expect(Either.isLeft(decodeResult({
-      supported: true,
-      provider: "gmail",
-      channel: "Inbox",
-      limit: 1,
-      messages: [{ ...baseMessage, sender: "   " }]
-    }))).toBe(true)
-    expect(Either.isLeft(decodeResult({
-      supported: true,
-      provider: "telegram",
-      channel: "Ops",
-      limit: 1,
-      messages: [{ ...baseMessage, senderId: "" }]
-    }))).toBe(true)
+    expect(
+      Either.isLeft(
+        decodeResult({
+          supported: true,
+          provider: "gmail",
+          channel: "Inbox",
+          limit: 1,
+          messages: [{ ...baseMessage, subject: "" }]
+        })
+      )
+    ).toBe(true)
+    expect(
+      Either.isLeft(
+        decodeResult({
+          supported: true,
+          provider: "gmail",
+          channel: "Inbox",
+          limit: 1,
+          messages: [{ ...baseMessage, sender: "   " }]
+        })
+      )
+    ).toBe(true)
+    expect(
+      Either.isLeft(
+        decodeResult({
+          supported: true,
+          provider: "telegram",
+          channel: "Ops",
+          limit: 1,
+          messages: [{ ...baseMessage, senderId: "" }]
+        })
+      )
+    ).toBe(true)
   })
 
   it("rejects impossible unsupported result states", () => {
-    expect(Either.isLeft(decodeResult({
-      supported: false,
-      provider: "gmail",
-      channel: "Inbox",
-      limit: 5,
-      messages: [{
-        id: "fake-message",
-        bodyPreview: "Fake data"
-      }]
-    }))).toBe(true)
+    expect(
+      Either.isLeft(
+        decodeResult({
+          supported: false,
+          provider: "gmail",
+          channel: "Inbox",
+          limit: 5,
+          messages: [{ id: "fake-message", bodyPreview: "Fake data" }]
+        })
+      )
+    ).toBe(true)
 
-    expect(Either.isLeft(decodeResult({
-      supported: false,
-      provider: "telegram",
-      channel: "Ops",
-      limit: 5,
-      messages: []
-    }))).toBe(true)
+    expect(
+      Either.isLeft(decodeResult({ supported: false, provider: "telegram", channel: "Ops", limit: 5, messages: [] }))
+    ).toBe(true)
   })
 
   it("registers the MCP tool with the external message schema", () => {
@@ -117,7 +125,7 @@ describe("external channel messages", () => {
   })
 
   it.effect("returns normalized unsupported results for package-incompatible providers", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       for (const provider of ExternalChannelMessageProviderValues) {
         const result = yield* listExternalChannelMessages({
           provider,
@@ -125,23 +133,18 @@ describe("external channel messages", () => {
           limit: 5
         })
 
-        expect(result).toMatchObject({
-          provider,
-          channel: "Inbox",
-          limit: 5,
-          supported: false,
-          messages: []
-        })
+        expect(result).toMatchObject({ provider, channel: "Inbox", limit: 5, supported: false, messages: [] })
         if (!result.supported) {
           expect(result.unsupportedReason).toContain("package-incompatible")
           expect(result.unsupportedReason).toContain("@hcengineering/contact")
           expect(result.unsupportedReason).toContain("Huly Gmail or Telegram message SDK")
         }
       }
-    }))
+    })
+  )
 
   it.effect("uses a safe default limit and preserves the channel locator", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const result = yield* listExternalChannelMessages({
         provider: "telegram",
         channel: ChannelIdentifier.make("67d2a937b7bca552e9a87df3")
@@ -150,5 +153,6 @@ describe("external channel messages", () => {
       expect(result.limit).toBe(DEFAULT_EXTERNAL_CHANNEL_MESSAGE_LIMIT)
       expect(result.channel).toBe("67d2a937b7bca552e9a87df3")
       expect(result.messages).toEqual([])
-    }))
+    })
+  )
 })

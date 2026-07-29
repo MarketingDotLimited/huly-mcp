@@ -80,17 +80,15 @@ const resolvePersonIdentifier = (
   client: HulyClient["Type"],
   identifier: string
 ): Effect.Effect<HulyPerson, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const byId = Option.fromNullable(yield* findPersonById(client, identifier))
     return yield* Option.match(byId, {
       onNone: () =>
-        Effect.flatMap(
-          Effect.map(findPersonByEmail(client, identifier), Option.fromNullable),
-          (byEmail) =>
-            Option.match(byEmail, {
-              onNone: () => Effect.fail(new PersonNotFoundError({ identifier })),
-              onSome: Effect.succeed
-            })
+        Effect.flatMap(Effect.map(findPersonByEmail(client, identifier), Option.fromNullable), (byEmail) =>
+          Option.match(byEmail, {
+            onNone: () => Effect.fail(new PersonNotFoundError({ identifier })),
+            onSome: Effect.succeed
+          })
         ),
       onSome: Effect.succeed
     })
@@ -100,14 +98,14 @@ const resolvePersonIdentifiers = (
   client: HulyClient["Type"],
   identifiers: ReadonlyArray<string>
 ): Effect.Effect<Array<Ref<HulyPerson>>, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const resolvedPeople: Array<HulyPerson> = []
 
     for (const identifier of identifiers) {
       resolvedPeople.push(yield* resolvePersonIdentifier(client, identifier))
     }
 
-    return Array.from(new Set(resolvedPeople.map(person => person._id)))
+    return Array.from(new Set(resolvedPeople.map((person) => person._id)))
   })
 
 const findOrganizationMemberships = (
@@ -115,28 +113,22 @@ const findOrganizationMemberships = (
   organizationId: Ref<HulyOrganization>,
   personId: Ref<HulyPerson>
 ): Effect.Effect<Array<HulyMember>, HulyClientError> =>
-  client.findAll<HulyMember>(
-    contact.class.Member,
-    { attachedTo: organizationId, contact: personId }
-  )
+  client.findAll<HulyMember>(contact.class.Member, { attachedTo: organizationId, contact: personId })
 
 export const listOrganizations = (
   params: ListOrganizationsParams
 ): Effect.Effect<Array<OrganizationSummary>, ListOrganizationsError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit)
 
     const orgs = yield* client.findAll<HulyOrganization>(
       contact.class.Organization,
       {},
-      {
-        limit,
-        sort: { modifiedOn: SortingOrder.Descending }
-      }
+      { limit, sort: { modifiedOn: SortingOrder.Descending } }
     )
 
-    return orgs.map(org => {
+    return orgs.map((org) => {
       const id = OrganizationId.make(org._id)
       return {
         id,
@@ -152,12 +144,13 @@ export const listOrganizations = (
 export const createOrganization = (
   params: CreateOrganizationParams
 ): Effect.Effect<CreateOrganizationResult, CreateOrganizationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const orgId = generateId<HulyOrganization>()
-    const memberPersonIds = params.members !== undefined && params.members.length > 0
-      ? yield* resolvePersonIdentifiers(client, params.members)
-      : []
+    const memberPersonIds =
+      params.members !== undefined && params.members.length > 0
+        ? yield* resolvePersonIdentifiers(client, params.members)
+        : []
 
     const orgData: Data<HulyOrganization> = {
       name: params.name,
@@ -167,12 +160,7 @@ export const createOrganization = (
       avatarType: AvatarType.COLOR
     }
 
-    yield* client.createDoc(
-      contact.class.Organization,
-      contact.space.Contacts,
-      orgData,
-      orgId
-    )
+    yield* client.createDoc(contact.class.Organization, contact.space.Contacts, orgData, orgId)
 
     if (memberPersonIds.length > 0) {
       for (const personId of memberPersonIds) {
@@ -193,21 +181,22 @@ export const createOrganization = (
 export const getOrganization = (
   params: GetOrganizationParams
 ): Effect.Effect<GetOrganizationResult, GetOrganizationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const org = yield* resolveOrganizationByIdentifier(client, params.identifier)
 
     // description on Organization is a MarkupBlobRef (rich text stored separately).
     /* eslint-disable no-restricted-syntax -- SDK boundary: Huly types Organization.description as MarkupBlobRef, fetchMarkup wants MarkupRef; both are opaque ID strings. */
-    const descriptionText = org.description !== null
-      ? yield* client.fetchMarkup(
-        contact.class.Organization,
-        org._id,
-        "description",
-        org.description as unknown as MarkupRef,
-        "markdown"
-      )
-      : undefined
+    const descriptionText =
+      org.description !== null
+        ? yield* client.fetchMarkup(
+            contact.class.Organization,
+            org._id,
+            "description",
+            org.description as unknown as MarkupRef,
+            "markdown"
+          )
+        : undefined
     /* eslint-enable no-restricted-syntax */
 
     const id = OrganizationId.make(org._id)
@@ -227,13 +216,13 @@ export const getOrganization = (
 export const updateOrganization = (
   params: UpdateOrganizationParams
 ): Effect.Effect<UpdateOrganizationResult, UpdateOrganizationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_organization", params, UPDATE_ORGANIZATION_FIELDS)
 
     const client = yield* HulyClient
     const org = yield* resolveOrganizationByIdentifier(client, params.identifier)
 
-    type UpdateOrganizationField = typeof UPDATE_ORGANIZATION_FIELDS[number]
+    type UpdateOrganizationField = (typeof UPDATE_ORGANIZATION_FIELDS)[number]
     type UpdateOrganizationEntries = {
       readonly [Field in UpdateOrganizationField]: Effect.Effect<
         DirectUpdateEntry<UpdateOrganizationField, DocumentUpdate<HulyOrganization>, Field>,
@@ -243,7 +232,7 @@ export const updateOrganization = (
     const updateEntries = {
       name: Effect.succeed(params.name === undefined ? {} : { name: params.name }),
       city: Effect.succeed(params.city === undefined ? {} : { city: params.city === null ? "" : params.city }),
-      description: Effect.gen(function*() {
+      description: Effect.gen(function* () {
         if (params.description === undefined) return {}
         if (params.description === null || params.description === "") {
           return { description: null }
@@ -275,12 +264,7 @@ export const updateOrganization = (
     )
 
     if (Object.keys(updateOps).length > 0) {
-      yield* client.updateDoc(
-        contact.class.Organization,
-        contact.space.Contacts,
-        org._id,
-        updateOps
-      )
+      yield* client.updateDoc(contact.class.Organization, contact.space.Contacts, org._id, updateOps)
     }
 
     return { id: OrganizationId.make(org._id), updated: true }
@@ -289,15 +273,11 @@ export const updateOrganization = (
 export const deleteOrganization = (
   params: DeleteOrganizationParams
 ): Effect.Effect<DeleteOrganizationResult, DeleteOrganizationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const org = yield* resolveOrganizationByIdentifier(client, params.identifier)
 
-    yield* client.removeDoc(
-      contact.class.Organization,
-      contact.space.Contacts,
-      org._id
-    )
+    yield* client.removeDoc(contact.class.Organization, contact.space.Contacts, org._id)
 
     return { id: OrganizationId.make(org._id), deleted: true }
   })
@@ -309,7 +289,7 @@ export const deleteOrganization = (
 export const makeOrganizationCustomer = (
   params: GetOrganizationParams
 ): Effect.Effect<{ id: OrganizationId; applied: boolean }, GetOrganizationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const org = yield* resolveOrganizationByIdentifier(client, params.identifier)
 
@@ -334,7 +314,7 @@ export const makeOrganizationCustomer = (
 export const addOrganizationMember = (
   params: AddOrganizationMemberParams
 ): Effect.Effect<{ id: OrganizationId; added: boolean }, AddOrganizationMemberError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const org = yield* resolveOrganizationByIdentifier(client, params.organizationId)
 
@@ -360,49 +340,37 @@ export const addOrganizationMember = (
 export const listOrganizationMembers = (
   params: ListOrganizationMembersParams
 ): Effect.Effect<ListOrganizationMembersResult, GetOrganizationError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const org = yield* resolveOrganizationByIdentifier(client, params.organizationId)
 
-    const members = yield* client.findAll<HulyMember>(
-      contact.class.Member,
-      { attachedTo: org._id }
-    )
+    const members = yield* client.findAll<HulyMember>(contact.class.Member, { attachedTo: org._id })
 
     if (members.length === 0) {
       return { organizationId: OrganizationId.make(org._id), members: [] }
     }
 
-    const personIds = [...new Set(members.map(m => toRef<HulyPerson>(m.contact)))]
-    const persons = yield* client.findAll<HulyPerson>(
-      contact.class.Person,
-      { _id: { $in: personIds } }
-    )
+    const personIds = [...new Set(members.map((m) => toRef<HulyPerson>(m.contact)))]
+    const persons = yield* client.findAll<HulyPerson>(contact.class.Person, { _id: { $in: personIds } })
 
     const emails = yield* batchGetEmailsForPersons(client, personIds)
 
-    const entries: Array<OrganizationMemberEntry> = persons.map(p => {
+    const entries: Array<OrganizationMemberEntry> = persons.map((p) => {
       const email = emails.get(p._id)
-      const entry = {
-        personId: PersonId.make(p._id),
-        name: PersonName.make(p.name)
-      }
+      const entry = { personId: PersonId.make(p._id), name: PersonName.make(p.name) }
       return Option.match(Option.map(Option.fromNullable(email), Email.make), {
         onNone: () => entry,
         onSome: (memberEmail) => ({ ...entry, email: memberEmail })
       })
     })
 
-    return {
-      organizationId: OrganizationId.make(org._id),
-      members: entries
-    }
+    return { organizationId: OrganizationId.make(org._id), members: entries }
   })
 
 export const removeOrganizationMember = (
   params: RemoveOrganizationMemberParams
 ): Effect.Effect<RemoveOrganizationMemberResult, RemoveOrganizationMemberError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const org = yield* resolveOrganizationByIdentifier(client, params.organizationId)
 
@@ -415,11 +383,7 @@ export const removeOrganizationMember = (
     }
 
     for (const memberDoc of memberDocs) {
-      yield* client.removeDoc(
-        contact.class.Member,
-        contact.space.Contacts,
-        memberDoc._id
-      )
+      yield* client.removeDoc(contact.class.Member, contact.space.Contacts, memberDoc._id)
     }
 
     return { id: OrganizationId.make(org._id), removed: true }

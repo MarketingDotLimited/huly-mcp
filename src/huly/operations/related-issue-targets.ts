@@ -32,12 +32,10 @@ type RelatedIssueTargetError =
   | SpaceNotFoundError
   | HulyError
 
-type RelatedIssueTargetProjection =
-  & Pick<HulyRelatedIssueTarget, "_id" | "rule" | "space" | "modifiedOn">
-  & {
-    readonly target?: HulyRelatedIssueTarget["target"] | undefined
-    readonly createdOn?: HulyRelatedIssueTarget["createdOn"] | undefined
-  }
+type RelatedIssueTargetProjection = Pick<HulyRelatedIssueTarget, "_id" | "rule" | "space" | "modifiedOn"> & {
+  readonly target?: HulyRelatedIssueTarget["target"] | undefined
+  readonly createdOn?: HulyRelatedIssueTarget["createdOn"] | undefined
+}
 
 type RelatedIssueTargetQuery = StrictDocumentQuery<HulyRelatedIssueTarget> & {
   "rule.kind"?: HulyRelatedIssueTarget["rule"]["kind"]
@@ -49,7 +47,7 @@ const projectMapById = (
   client: HulyClient["Type"],
   ids: ReadonlyArray<Ref<HulyProject>>
 ): Effect.Effect<ReadonlyMap<Ref<HulyProject>, HulyProject>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const uniqueIds = [...new Set(ids)]
     if (uniqueIds.length === 0) return new Map<Ref<HulyProject>, HulyProject>()
     const projects = yield* client.findAll<HulyProject>(
@@ -65,7 +63,7 @@ const spaceMapById = (
   client: HulyClient["Type"],
   ids: ReadonlyArray<Ref<Space>>
 ): Effect.Effect<ReadonlyMap<Ref<Space>, GenericSpace>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const uniqueIds = [...new Set(ids)]
     if (uniqueIds.length === 0) return new Map<Ref<Space>, GenericSpace>()
     const spaces = yield* client.findAll<GenericSpace>(
@@ -82,10 +80,7 @@ const ruleResult = (
   spaces: ReadonlyMap<Ref<Space>, GenericSpace>
 ): RelatedIssueTargetRule => {
   if (target.rule.kind === "classRule") {
-    return {
-      kind: "classRule",
-      objectClass: ObjectClassName.make(target.rule.ofClass)
-    }
+    return { kind: "classRule", objectClass: ObjectClassName.make(target.rule.ofClass) }
   }
 
   const space = spaces.get(target.rule.space)
@@ -104,9 +99,10 @@ const targetResult = (
 ): RelatedIssueTarget => ({
   targetId: RelatedIssueTargetId.make(target._id),
   rule: ruleResult(target, spaces),
-  targetProject: target.target === undefined || target.target === null
-    ? null
-    : ProjectIdentifier.make(projects.get(target.target)?.identifier ?? String(target.target)),
+  targetProject:
+    target.target === undefined || target.target === null
+      ? null
+      : ProjectIdentifier.make(projects.get(target.target)?.identifier ?? String(target.target)),
   createdOn: target.createdOn === undefined ? undefined : Timestamp.make(target.createdOn),
   modifiedOn: Timestamp.make(target.modifiedOn)
 })
@@ -146,7 +142,7 @@ const renderSingleTarget = (
   client: HulyClient["Type"],
   target: RelatedIssueTargetProjection
 ): Effect.Effect<RelatedIssueTarget, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const projects = yield* projectMapById(
       client,
       target.target === undefined || target.target === null ? [] : [target.target]
@@ -158,7 +154,7 @@ const renderSingleTarget = (
 export const listRelatedIssueTargets = (
   params: ListRelatedIssueTargetsParams
 ): Effect.Effect<ListRelatedIssueTargetsResult, RelatedIssueTargetError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const query: RelatedIssueTargetQuery = {}
     if (params.space !== undefined) {
@@ -179,20 +175,17 @@ export const listRelatedIssueTargets = (
     const targetProjectIds = targets.flatMap((target) =>
       target.target === undefined || target.target === null ? [] : [target.target]
     )
-    const spaceIds = targets.flatMap((target) => target.rule.kind === "spaceRule" ? [target.rule.space] : [])
+    const spaceIds = targets.flatMap((target) => (target.rule.kind === "spaceRule" ? [target.rule.space] : []))
     const projects = yield* projectMapById(client, targetProjectIds)
     const spaces = yield* spaceMapById(client, spaceIds)
 
-    return {
-      targets: targets.map((target) => targetResult(target, projects, spaces)),
-      total: listTotal(targets.total)
-    }
+    return { targets: targets.map((target) => targetResult(target, projects, spaces)), total: listTotal(targets.total) }
   })
 
 export const setRelatedIssueTarget = (
   params: SetRelatedIssueTargetParams
 ): Effect.Effect<SetRelatedIssueTargetResult, RelatedIssueTargetError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const targetProject = yield* resolveTargetProject(params.targetProject)
     if (params.space !== undefined) {
@@ -212,10 +205,7 @@ export const setRelatedIssueTarget = (
           space: toRef<Space>(space._id),
           target: data.target
         }
-        return {
-          target: yield* renderSingleTarget(client, createdTarget),
-          created: true
-        }
+        return { target: yield* renderSingleTarget(client, createdTarget), created: true }
       }
 
       const update: DocumentUpdate<HulyRelatedIssueTarget> = { target: targetProject }
@@ -232,8 +222,7 @@ export const setRelatedIssueTarget = (
     const existing = yield* findClassRule(client, objectClass)
     if (existing === undefined) {
       return yield* new HulyError({
-        message:
-          `Related issue classRule for '${objectClassParam}' was not found. This tool does not create classRule targets.`
+        message: `Related issue classRule for '${objectClassParam}' was not found. This tool does not create classRule targets.`
       })
     }
     const update: DocumentUpdate<HulyRelatedIssueTarget> = { target: targetProject }
@@ -244,14 +233,12 @@ export const setRelatedIssueTarget = (
 export const deleteRelatedIssueSpaceTarget = (
   params: DeleteRelatedIssueSpaceTargetParams
 ): Effect.Effect<DeleteRelatedIssueSpaceTargetResult, RelatedIssueTargetError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const space = yield* findSpace(client, { space: params.space, includeArchived: true })
     const existing = yield* findSpaceRule(client, toRef<Space>(space._id))
     if (existing === undefined) {
-      return yield* new HulyError({
-        message: `Related issue spaceRule for space '${params.space}' was not found.`
-      })
+      return yield* new HulyError({ message: `Related issue spaceRule for space '${params.space}' was not found.` })
     }
     yield* client.removeDoc(tracker.class.RelatedIssueTarget, toRef<Space>(existing.space), existing._id)
     return { targetId: RelatedIssueTargetId.make(existing._id), deleted: true }

@@ -43,9 +43,7 @@ import { toRef } from "./sdk-boundary.js"
 export const descriptionAsMarkupRef = (desc: HulyEvent["description"]): MarkupBlobRef => desc as MarkupBlobRef
 
 // SDK: MarkupBlobRef (Ref<Blob>) is assignable to Markup (string); null maps to empty string.
-export const markupRefAsDescription = (
-  ref: MarkupBlobRef | null
-): HulyEvent["description"] => ref ?? ""
+export const markupRefAsDescription = (ref: MarkupBlobRef | null): HulyEvent["description"] => ref ?? ""
 
 export const emptyEventDescription: HulyEvent["description"] = ""
 
@@ -65,11 +63,13 @@ const CALENDAR_ACCESS_TO_WRITABLE = {
 } satisfies Record<HulyCalendar["access"], WritableCalendarAccess | undefined>
 
 type MappedWritableCalendarAccess = Exclude<
-  typeof CALENDAR_ACCESS_TO_WRITABLE[keyof typeof CALENDAR_ACCESS_TO_WRITABLE],
+  (typeof CALENDAR_ACCESS_TO_WRITABLE)[keyof typeof CALENDAR_ACCESS_TO_WRITABLE],
   undefined
 >
 type ExactWritableCalendarAccessMapping = [WritableCalendarAccess] extends [MappedWritableCalendarAccess]
-  ? [MappedWritableCalendarAccess] extends [WritableCalendarAccess] ? true : never
+  ? [MappedWritableCalendarAccess] extends [WritableCalendarAccess]
+    ? true
+    : never
   : never
 
 const exactWritableCalendarAccessMapping = <T extends true>(value: T): T => value
@@ -104,35 +104,24 @@ export const ONE_HOUR_MS = DEFAULT_EVENT_DURATION_MS
 const findWritablePersonalCalendars = (
   client: HulyClient["Type"]
 ): Effect.Effect<Array<HulyCalendar>, HulyClientError> =>
-  client.findAll<HulyCalendar>(
-    calendar.class.Calendar,
-    {
-      user: client.getPrimarySocialId(),
-      hidden: false,
-      access: { $in: [AccessLevel.Owner, AccessLevel.Writer] }
-    }
-  )
+  client.findAll<HulyCalendar>(calendar.class.Calendar, {
+    user: client.getPrimarySocialId(),
+    hidden: false,
+    access: { $in: [AccessLevel.Owner, AccessLevel.Writer] }
+  })
 
 export const findWritableCalendars = (
   client: HulyClient["Type"]
 ): Effect.Effect<Array<HulyCalendar>, HulyClientError> =>
-  client.findAll<HulyCalendar>(
-    calendar.class.Calendar,
-    {
-      hidden: false,
-      access: { $in: [AccessLevel.Owner, AccessLevel.Writer] }
-    }
-  )
+  client.findAll<HulyCalendar>(calendar.class.Calendar, {
+    hidden: false,
+    access: { $in: [AccessLevel.Owner, AccessLevel.Writer] }
+  })
 
-export const getDefaultCalendarRef = (
-  client: HulyClient["Type"]
-): Effect.Effect<Ref<HulyCalendar>, HulyClientError> =>
-  Effect.gen(function*() {
+export const getDefaultCalendarRef = (client: HulyClient["Type"]): Effect.Effect<Ref<HulyCalendar>, HulyClientError> =>
+  Effect.gen(function* () {
     const calendars = yield* findWritablePersonalCalendars(client)
-    const preference = yield* client.findOne<HulyPrimaryCalendar>(
-      calendar.class.PrimaryCalendar,
-      {}
-    )
+    const preference = yield* client.findOne<HulyPrimaryCalendar>(calendar.class.PrimaryCalendar, {})
 
     return getPrimaryCalendar(calendars, preference, client.getAccountUuid())
   })
@@ -142,7 +131,7 @@ export const resolveCalendarRef = (
   calendarId?: CalendarId,
   calendarName?: string
 ): Effect.Effect<Ref<HulyCalendar>, HulyClientError | CalendarNotAccessibleError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (calendarId === undefined && calendarName === undefined) {
       return yield* getDefaultCalendarRef(client)
     }
@@ -189,7 +178,7 @@ const resolveParticipantLocator = (
   client: HulyClient["Type"],
   locator: EventParticipantLocator
 ): Effect.Effect<Ref<Contact>, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (typeof locator === "string") {
       const person = yield* findPersonByExactEmailOrName(client, locator)
       if (person === undefined) return yield* new PersonMissing({ identifier: locator })
@@ -205,11 +194,12 @@ const resolveParticipantLocator = (
       return person._id
     }
 
-    const identifier = locator.email !== undefined
-      ? locator.email
-      : locator.name === undefined
-      ? undefined
-      : PersonName.make(locator.name)
+    const identifier =
+      locator.email !== undefined
+        ? locator.email
+        : locator.name === undefined
+          ? undefined
+          : PersonName.make(locator.name)
     if (identifier === undefined) return yield* new PersonMissing({ identifier: "empty participant locator" })
     const person = yield* findPersonByExactEmailOrName(client, identifier)
     if (person === undefined) return yield* new PersonMissing({ identifier })
@@ -220,7 +210,7 @@ export const resolveParticipantLocators = (
   client: HulyClient["Type"],
   locators: ReadonlyArray<EventParticipantLocator> | undefined
 ): Effect.Effect<Array<Ref<Contact>>, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (locators === undefined || locators.length === 0) return []
     const resolved = yield* Effect.all(locators.map((locator) => resolveParticipantLocator(client, locator)))
     return [...new Set(resolved)]
@@ -230,7 +220,7 @@ export const buildParticipants = (
   client: HulyClient["Type"],
   participantRefs: ReadonlyArray<Ref<Contact>>
 ): Effect.Effect<Array<Participant>, HulyClientError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     if (participantRefs.length === 0) return []
 
     const persons = yield* client.findAll<Person>(
@@ -238,10 +228,7 @@ export const buildParticipants = (
       hulyQuery<Person>({ _id: { $in: participantRefs.map(toRef<Person>) } })
     )
 
-    return persons.map(p => ({
-      id: PersonId.make(p._id),
-      name: PersonName.make(p.name)
-    }))
+    return persons.map((p) => ({ id: PersonId.make(p._id), name: PersonName.make(p.name) }))
   })
 
 interface ResolvedEventInputs {
@@ -264,7 +251,7 @@ export const resolveEventInputs = (
   ResolvedEventInputs,
   HulyClientError | CalendarNotAccessibleError | PersonIdentifierAmbiguousError | PersonNotFoundError
 > =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const calendarRef = yield* resolveCalendarRef(client, params.calendarId, params.calendarName)
 
     const participantRefs = Arr.isNonEmptyReadonlyArray(params.participants ?? [])
@@ -272,18 +259,19 @@ export const resolveEventInputs = (
       : []
 
     const description = params.description
-    const descriptionRef: MarkupBlobRef | null = description !== undefined && description.trim() !== ""
-      ? yield* Effect.gen(function*() {
-        const rendered = renderMarkdownPreservingNativeReferences(description, client.markupUrlConfig)
-        return yield* client.uploadMarkup(
-          eventClass,
-          toRef<Doc>(eventId),
-          "description",
-          rendered.markup,
-          rendered.format
-        )
-      })
-      : null
+    const descriptionRef: MarkupBlobRef | null =
+      description !== undefined && description.trim() !== ""
+        ? yield* Effect.gen(function* () {
+            const rendered = renderMarkdownPreservingNativeReferences(description, client.markupUrlConfig)
+            return yield* client.uploadMarkup(
+              eventClass,
+              toRef<Doc>(eventId),
+              "description",
+              rendered.markup,
+              rendered.format
+            )
+          })
+        : null
 
     return { calendarRef, participantRefs, descriptionRef }
   })

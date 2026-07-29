@@ -17,10 +17,7 @@ interface PartialScopeEnv {
 const resolveScoped = (env: PartialScopeEnv) => {
   const warnings: Array<string> = []
   const scope = resolveToolScope(
-    {
-      toolsets: env.toolsets ?? "",
-      tools: env.tools ?? ""
-    },
+    { toolsets: env.toolsets ?? "", tools: env.tools ?? "" },
     toolRegistry.definitions,
     (message) => {
       warnings.push(message)
@@ -63,10 +60,7 @@ describe("tool scope filtering", () => {
   })
 
   it("unions TOOLSETS and TOOLS while preserving registry order", () => {
-    const { registry } = resolveScoped({
-      toolsets: "issues",
-      tools: "list_documents"
-    })
+    const { registry } = resolveScoped({ toolsets: "issues", tools: "list_documents" })
     const names = registry.definitions.map((tool) => tool.name)
     const expected = toolRegistry.definitions
       .filter((tool) => tool.category === "issues" || tool.name === "list_documents")
@@ -78,10 +72,7 @@ describe("tool scope filtering", () => {
   })
 
   it("keeps only built-in tools visible when an active scope is all invalid", async () => {
-    const { registry, scope, warnings } = resolveScoped({
-      toolsets: "missing_category",
-      tools: "missing_tool"
-    })
+    const { registry, scope, warnings } = resolveScoped({ toolsets: "missing_category", tools: "missing_tool" })
     const handlers = createMcpProtocolHandlers(
       () => Promise.reject(new Error("clients must not resolve")),
       createNoopTelemetry(),
@@ -113,10 +104,7 @@ describe("tool scope filtering", () => {
   })
 
   it("reports toolsets and tool-name scope in get_huly_context", () => {
-    const { registry, scope } = resolveScoped({
-      toolsets: "issues",
-      tools: "list_documents,missing_tool"
-    })
+    const { registry, scope } = resolveScoped({ toolsets: "issues", tools: "list_documents,missing_tool" })
     const context = Schema.decodeUnknownSync(GetHulyContextResultSchema)(
       buildHulyContext({ transport: "stdio" }, registry, scope, sanitizeHulyRuntimeConfigFromEnv({}))
     )

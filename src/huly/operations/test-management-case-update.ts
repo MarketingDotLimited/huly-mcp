@@ -36,14 +36,14 @@ type UpdateTestCaseError =
 export const updateTestCase = (
   params: UpdateTestCaseParams
 ): Effect.Effect<UpdateTestCaseResult, UpdateTestCaseError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_test_case", params, UPDATE_TEST_CASE_FIELDS)
 
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const tc = yield* findTestCase(client, project, params.testCase)
 
-    type UpdateTestCaseField = typeof UPDATE_TEST_CASE_FIELDS[number]
+    type UpdateTestCaseField = (typeof UPDATE_TEST_CASE_FIELDS)[number]
     type UpdateTestCaseEntries = {
       readonly [Field in UpdateTestCaseField]: Effect.Effect<
         DirectUpdateEntry<UpdateTestCaseField, DocumentUpdate<TestCase>, Field>,
@@ -53,22 +53,17 @@ export const updateTestCase = (
     }
     const updateEntries = {
       name: Effect.succeed(params.name === undefined ? {} : { name: params.name }),
-      description: Effect.gen(function*() {
+      description: Effect.gen(function* () {
         if (params.description === undefined) return {}
         if (params.description === null) return { description: null }
         return {
-          description: yield* uploadDescription(
-            client,
-            testManagement.class.TestCase,
-            tc._id,
-            params.description
-          )
+          description: yield* uploadDescription(client, testManagement.class.TestCase, tc._id, params.description)
         }
       }),
       type: Effect.succeed(params.type === undefined ? {} : { type: resolveCaseType(params.type) }),
       priority: Effect.succeed(params.priority === undefined ? {} : { priority: resolveCasePriority(params.priority) }),
       status: Effect.succeed(params.status === undefined ? {} : { status: resolveCaseStatus(params.status) }),
-      assignee: Effect.gen(function*() {
+      assignee: Effect.gen(function* () {
         if (params.assignee === undefined) return {}
         if (params.assignee === null) {
           return { assignee: null }

@@ -2,16 +2,8 @@ import type { McpToolName } from "../../../src/mcp/tools/index.js"
 import type { CliCommandSpec } from "./catalog-types.js"
 
 export const businessReadOnlyCliCommandCatalogB = {
-  list_events: {
-    path: ["calendar", "events", "list"],
-    positional: [],
-    description: "List Events"
-  },
-  list_funnels: {
-    path: ["leads", "funnels", "list"],
-    positional: [],
-    description: "List Funnels"
-  },
+  list_events: { path: ["calendar", "events", "list"], positional: [], description: "List Events" },
+  list_funnels: { path: ["leads", "funnels", "list"], positional: [], description: "List Funnels" },
   list_inventory_categories: {
     path: ["inventory", "categories", "list"],
     positional: [],
@@ -47,11 +39,7 @@ export const businessReadOnlyCliCommandCatalogB = {
     positional: [],
     description: "List Inventory Variants"
   },
-  list_leads: {
-    path: ["leads", "list"],
-    positional: ["funnel"],
-    description: "List Leads"
-  },
+  list_leads: { path: ["leads", "list"], positional: ["funnel"], description: "List Leads" },
   list_master_tags: {
     path: ["cards", "master-tags", "list"],
     positional: ["cardSpace"],
@@ -62,26 +50,10 @@ export const businessReadOnlyCliCommandCatalogB = {
     positional: [],
     description: "List Meeting Minutes"
   },
-  list_office_defaults: {
-    path: ["office", "defaults", "list"],
-    positional: [],
-    description: "List Office Defaults"
-  },
-  list_office_floors: {
-    path: ["office", "floors", "list"],
-    positional: [],
-    description: "List Office Floors"
-  },
-  list_office_rooms: {
-    path: ["office", "rooms", "list"],
-    positional: [],
-    description: "List Office Rooms"
-  },
-  list_offices: {
-    path: ["office", "offices", "list"],
-    positional: [],
-    description: "List Offices"
-  },
+  list_office_defaults: { path: ["office", "defaults", "list"], positional: [], description: "List Office Defaults" },
+  list_office_floors: { path: ["office", "floors", "list"], positional: [], description: "List Office Floors" },
+  list_office_rooms: { path: ["office", "rooms", "list"], positional: [], description: "List Office Rooms" },
+  list_offices: { path: ["office", "offices", "list"], positional: [], description: "List Offices" },
   list_recruiting_activity: {
     path: ["recruiting", "activity", "list"],
     positional: ["target"],
@@ -157,54 +129,22 @@ export const businessReadOnlyCliCommandCatalogB = {
     positional: [],
     description: "List Recurring Events"
   },
-  list_schedules: {
-    path: ["calendar", "schedules", "list"],
-    positional: [],
-    description: "List Schedules"
-  },
-  list_test_cases: {
-    path: ["tests", "cases", "list"],
-    positional: ["project"],
-    description: "List Test Cases"
-  },
-  list_test_plans: {
-    path: ["tests", "plans", "list"],
-    positional: ["project"],
-    description: "List Test Plans"
-  },
-  list_test_projects: {
-    path: ["tests", "projects", "list"],
-    positional: [],
-    description: "List Test Projects"
-  },
+  list_schedules: { path: ["calendar", "schedules", "list"], positional: [], description: "List Schedules" },
+  list_test_cases: { path: ["tests", "cases", "list"], positional: ["project"], description: "List Test Cases" },
+  list_test_plans: { path: ["tests", "plans", "list"], positional: ["project"], description: "List Test Plans" },
+  list_test_projects: { path: ["tests", "projects", "list"], positional: [], description: "List Test Projects" },
   list_test_results: {
     path: ["tests", "results", "list"],
     positional: ["project", "run"],
     description: "List Test Results"
   },
-  list_test_runs: {
-    path: ["tests", "runs", "list"],
-    positional: ["project"],
-    description: "List Test Runs"
-  },
-  list_test_suites: {
-    path: ["tests", "suites", "list"],
-    positional: ["project"],
-    description: "List Test Suites"
-  },
+  list_test_runs: { path: ["tests", "runs", "list"], positional: ["project"], description: "List Test Runs" },
+  list_test_suites: { path: ["tests", "suites", "list"], positional: ["project"], description: "List Test Suites" },
   list_time_spend_reports: {
     path: ["time", "reports", "list"],
     positional: [],
     description: "List Time Spend Reports"
   },
-  list_todos: {
-    path: ["planner", "todos", "list"],
-    positional: [],
-    description: "List Todos"
-  },
-  list_work_slots: {
-    path: ["time", "work-slots", "list"],
-    positional: [],
-    description: "List Work Slots"
-  }
+  list_todos: { path: ["planner", "todos", "list"], positional: [], description: "List Todos" },
+  list_work_slots: { path: ["time", "work-slots", "list"], positional: [], description: "List Work Slots" }
 } as const satisfies Partial<Record<McpToolName, CliCommandSpec>>

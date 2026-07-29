@@ -130,10 +130,10 @@ const parseArgs = (argv: ReadonlyArray<string>): Args => {
   }
 
   if (
-    taskTypeNames.length === 0
-    && taskTypePrefixes.length === 0
-    && statusNames.length === 0
-    && statusPrefixes.length === 0
+    taskTypeNames.length === 0 &&
+    taskTypePrefixes.length === 0 &&
+    statusNames.length === 0 &&
+    statusPrefixes.length === 0
   ) {
     throw new Error(`At least one task type or status selector is required.\n${usage}`)
   }
@@ -161,13 +161,10 @@ const connect = async (): Promise<CleanupConnection> => {
   const workspace = requiredEnv("HULY_WORKSPACE")
   const serverConfig = await apiClient.loadServerConfig(url)
   const token = process.env["HULY_TOKEN"]
-  const auth = token !== undefined && token.trim() !== ""
-    ? { token, workspace }
-    : {
-      email: requiredEnv("HULY_EMAIL"),
-      password: requiredEnv("HULY_PASSWORD"),
-      workspace
-    }
+  const auth =
+    token !== undefined && token.trim() !== ""
+      ? { token, workspace }
+      : { email: requiredEnv("HULY_EMAIL"), password: requiredEnv("HULY_PASSWORD"), workspace }
   const { endpoint, token: workspaceToken, workspaceId } = await apiClient.getWorkspaceToken(url, auth, serverConfig)
   return {
     rest: { endpoint: endpoint.replace("ws", "http"), token: workspaceToken, workspaceId },
@@ -185,7 +182,7 @@ const isTotalArrayPayload = (
 
 const toOptionalLookupMap = (value: unknown): Record<string, Doc> | undefined =>
   // eslint-disable-next-line no-restricted-syntax -- REST TotalArray lookup maps are SDK DTOs revived from JSON.
-  isRecord(value) ? value as Record<string, Doc> : undefined
+  isRecord(value) ? (value as Record<string, Doc>) : undefined
 
 const totalArrayReviver = (_key: string, value: unknown): unknown => {
   if (!isTotalArrayPayload(value)) return value
@@ -218,10 +215,7 @@ const rawFindAll = async <T extends Doc>(
 
   const requestUrl = coreModule.concatLink(rest.endpoint, `/api/v1/find-all/${rest.workspaceId}?${params.toString()}`)
   const response = await fetch(requestUrl, {
-    headers: {
-      Authorization: `Bearer ${rest.token}`,
-      "Content-Type": "application/json"
-    },
+    headers: { Authorization: `Bearer ${rest.token}`, "Content-Type": "application/json" },
     method: "GET"
   })
   if (!response.ok) {
@@ -236,42 +230,42 @@ const rawFindAll = async <T extends Doc>(
 
 const normalize = (value: string): string => value.trim().toLowerCase()
 
-const matchesName = (
-  name: string,
-  exactNames: ReadonlyArray<string>,
-  prefixes: ReadonlyArray<string>
-): boolean => {
+const matchesName = (name: string, exactNames: ReadonlyArray<string>, prefixes: ReadonlyArray<string>): boolean => {
   const normalizedName = normalize(name)
-  return exactNames.some((exact) => normalizedName === normalize(exact))
-    || prefixes.some((prefix) => normalizedName.startsWith(normalize(prefix)))
+  return (
+    exactNames.some((exact) => normalizedName === normalize(exact)) ||
+    prefixes.some((prefix) => normalizedName.startsWith(normalize(prefix)))
+  )
 }
 
 const uniqueRefs = <T extends Doc>(refs: ReadonlyArray<Ref<T>>): Array<Ref<T>> =>
-  refs.reduce<Array<Ref<T>>>((unique, ref) => unique.includes(ref) ? unique : [...unique, ref], [])
+  refs.reduce<Array<Ref<T>>>((unique, ref) => (unique.includes(ref) ? unique : [...unique, ref]), [])
 
 const sameProjectStatus = (left: ProjectStatus, right: ProjectStatus): boolean =>
   left._id === right._id && left.taskType === right.taskType
 
 const uniqueProjectStatuses = (statuses: ReadonlyArray<ProjectStatus>): Array<ProjectStatus> =>
   statuses.reduce<Array<ProjectStatus>>(
-    (unique, status) => unique.some((existing) => sameProjectStatus(existing, status)) ? unique : [...unique, status],
+    (unique, status) => (unique.some((existing) => sameProjectStatus(existing, status)) ? unique : [...unique, status]),
     []
   )
 
 const isClassicProjectType = (projectType: ProjectType): boolean =>
-  projectType._id === tracker.ids.ClassingProjectType
-  || projectType.classic
-  || normalize(projectType.name) === normalize(DEFAULT_PROJECT_TYPE_NAME)
+  projectType._id === tracker.ids.ClassingProjectType ||
+  projectType.classic ||
+  normalize(projectType.name) === normalize(DEFAULT_PROJECT_TYPE_NAME)
 
 const resolveProjectType = (
   projectTypes: ReadonlyArray<ProjectType>,
   projectTypeRef: string | undefined
 ): ProjectType => {
-  const selected = projectTypeRef === undefined
-    ? projectTypes.filter(isClassicProjectType)
-    : projectTypes.filter((projectType) =>
-      projectType._id === projectTypeRef || normalize(projectType.name) === normalize(projectTypeRef)
-    )
+  const selected =
+    projectTypeRef === undefined
+      ? projectTypes.filter(isClassicProjectType)
+      : projectTypes.filter(
+          (projectType) =>
+            projectType._id === projectTypeRef || normalize(projectType.name) === normalize(projectTypeRef)
+        )
   if (selected.length !== 1 || selected[0] === undefined) {
     throw new Error(
       projectTypeRef === undefined
@@ -293,22 +287,14 @@ const findIssues = async (
   statusIds: ReadonlyArray<Ref<Status>>,
   titlePrefixes: ReadonlyArray<string>
 ): Promise<ReadonlyArray<HulyIssue>> => {
-  const byTaskType = taskTypeIds.length === 0
-    ? []
-    : await rawFindAll<HulyIssue>(
-      rest,
-      tracker.class.Issue,
-      { kind: { $in: [...taskTypeIds] } },
-      { limit: 1000 }
-    )
-  const byStatus = statusIds.length === 0
-    ? []
-    : await rawFindAll<HulyIssue>(
-      rest,
-      tracker.class.Issue,
-      { status: { $in: [...statusIds] } },
-      { limit: 1000 }
-    )
+  const byTaskType =
+    taskTypeIds.length === 0
+      ? []
+      : await rawFindAll<HulyIssue>(rest, tracker.class.Issue, { kind: { $in: [...taskTypeIds] } }, { limit: 1000 })
+  const byStatus =
+    statusIds.length === 0
+      ? []
+      : await rawFindAll<HulyIssue>(rest, tracker.class.Issue, { status: { $in: [...statusIds] } }, { limit: 1000 })
   const issuesById = new Map<string, HulyIssue>()
   for (const issue of [...byTaskType, ...byStatus]) {
     if (titleMatches(issue, titlePrefixes)) {
@@ -318,10 +304,7 @@ const findIssues = async (
   return [...issuesById.values()]
 }
 
-const loadArtifacts = async (
-  rest: RestReadClient,
-  args: Args
-): Promise<WorkflowArtifacts> => {
+const loadArtifacts = async (rest: RestReadClient, args: Args): Promise<WorkflowArtifacts> => {
   const projectTypes = await rawFindAll<ProjectType>(rest, task.class.ProjectType, {})
   const projectType = resolveProjectType([...projectTypes], args.projectType)
 
@@ -350,14 +333,10 @@ const loadArtifacts = async (
   }
 
   const statusIds = uniqueRefs(projectType.statuses.map((status) => status._id))
-  const statuses = statusIds.length === 0
-    ? []
-    : await rawFindAll<Status>(
-      rest,
-      core.class.Status,
-      { _id: { $in: statusIds } },
-      { limit: 1000 }
-    )
+  const statuses =
+    statusIds.length === 0
+      ? []
+      : await rawFindAll<Status>(rest, core.class.Status, { _id: { $in: statusIds } }, { limit: 1000 })
 
   return {
     projectType,
@@ -398,10 +377,7 @@ const maybeRemoveDoc = async <T extends Doc>(
   }
 }
 
-const removeWorkflowArtifacts = async (
-  connection: CleanupConnection,
-  args: Args
-): Promise<void> => {
+const removeWorkflowArtifacts = async (connection: CleanupConnection, args: Args): Promise<void> => {
   const { rest, tx } = connection
   const artifacts = await loadArtifacts(rest, args)
   const taskTypeIds = uniqueRefs(artifacts.taskTypes.map((taskType) => taskType._id))
@@ -432,7 +408,10 @@ const removeWorkflowArtifacts = async (
   if (!args.dryRun && args.issueTitlePrefixes.length > 0) {
     const remainingIssues = await findIssues(rest, taskTypeIds, statusIds, [])
     if (remainingIssues.length > 0) {
-      const sample = remainingIssues.slice(0, 10).map((issue) => `${issue.identifier}: ${issue.title}`).join(", ")
+      const sample = remainingIssues
+        .slice(0, 10)
+        .map((issue) => `${issue.identifier}: ${issue.title}`)
+        .join(", ")
       throw new Error(
         `Refusing workflow cleanup: ${remainingIssues.length} issues still use matched status/task type ids after test issue cleanup. Sample: ${sample}`
       )
@@ -442,22 +421,18 @@ const removeWorkflowArtifacts = async (
   }
 
   const updatedProjectTasks = artifacts.projectType.tasks.filter((taskTypeId) => !taskTypeIds.includes(taskTypeId))
-  const updatedProjectStatuses = uniqueProjectStatuses(artifacts.projectType.statuses).filter((status) =>
-    !statusIds.includes(status._id) && !taskTypeIds.includes(status.taskType)
+  const updatedProjectStatuses = uniqueProjectStatuses(artifacts.projectType.statuses).filter(
+    (status) => !statusIds.includes(status._id) && !taskTypeIds.includes(status.taskType)
   )
   if (
-    updatedProjectTasks.length !== artifacts.projectType.tasks.length
-    || updatedProjectStatuses.length !== artifacts.projectType.statuses.length
+    updatedProjectTasks.length !== artifacts.projectType.tasks.length ||
+    updatedProjectStatuses.length !== artifacts.projectType.statuses.length
   ) {
     console.log(`${args.dryRun ? "Would update" : "Updating"} project type refs`)
-    await maybeUpdateDoc(
-      tx,
-      args.dryRun,
-      task.class.ProjectType,
-      core.space.Model,
-      artifacts.projectType._id,
-      { tasks: updatedProjectTasks, statuses: updatedProjectStatuses }
-    )
+    await maybeUpdateDoc(tx, args.dryRun, task.class.ProjectType, core.space.Model, artifacts.projectType._id, {
+      tasks: updatedProjectTasks,
+      statuses: updatedProjectStatuses
+    })
   }
 
   const taskTypesToNormalize = await rawFindAll<TaskType>(
@@ -471,14 +446,9 @@ const removeWorkflowArtifacts = async (
     const updatedStatuses = uniqueRefs(taskType.statuses).filter((statusId) => !statusIds.includes(statusId))
     if (updatedStatuses.length !== taskType.statuses.length) {
       console.log(`${args.dryRun ? "Would update" : "Updating"} task type refs ${taskType.name}`)
-      await maybeUpdateDoc(
-        tx,
-        args.dryRun,
-        task.class.TaskType,
-        core.space.Model,
-        taskType._id,
-        { statuses: updatedStatuses }
-      )
+      await maybeUpdateDoc(tx, args.dryRun, task.class.TaskType, core.space.Model, taskType._id, {
+        statuses: updatedStatuses
+      })
     }
   }
 

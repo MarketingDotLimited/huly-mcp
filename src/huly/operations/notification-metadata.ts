@@ -94,14 +94,11 @@ const typeMetadataDefinition = {
   presentationFields: "label"
 } satisfies TypeMetadataDefinition
 
-const parseRows = <A, I>(
-  schema: Schema.Schema<A, I>,
-  rows: ReadonlyArray<unknown>
-): ParsedRows<A> => {
+const parseRows = <A, I>(schema: Schema.Schema<A, I>, rows: ReadonlyArray<unknown>): ParsedRows<A> => {
   const decode = Schema.decodeUnknownEither(schema)
   const parsed = rows.map((row) => decode(row))
   return {
-    rows: parsed.flatMap((row) => Either.isRight(row) ? [row.right] : []),
+    rows: parsed.flatMap((row) => (Either.isRight(row) ? [row.right] : [])),
     invalidRows: Count.make(parsed.filter(Either.isLeft).length)
   }
 }
@@ -154,9 +151,8 @@ const typeProjection = (type: TypeBoundary): PresentationProjection<Notification
   }
 }
 
-const totalOmittedFields = <A>(
-  projections: ReadonlyArray<PresentationProjection<A>>
-): Count => Count.make(projections.reduce((total, projection) => total + projection.omittedFields, 0))
+const totalOmittedFields = <A>(projections: ReadonlyArray<PresentationProjection<A>>): Count =>
+  Count.make(projections.reduce((total, projection) => total + projection.omittedFields, 0))
 
 type ProviderMetadataLoaderConfig = ProviderMetadataDefinition & {
   readonly query: StrictDocumentQuery<HulyNotificationProvider>
@@ -197,10 +193,7 @@ const loadTypeMetadata = (
 ): Effect.Effect<NotificationMetadataResult<TypeBoundary>, HulyClientError, Diagnostics> =>
   executeMetadataLoad({
     loadModelRows: () =>
-      client.findAllInModel<HulyNotificationType>(
-        config.classRef,
-        hulyQuery<HulyNotificationType>(config.query)
-      ),
+      client.findAllInModel<HulyNotificationType>(config.classRef, hulyQuery<HulyNotificationType>(config.query)),
     loadRemoteRows: () =>
       client.findAll<HulyNotificationType>(
         config.classRef,
@@ -240,53 +233,49 @@ export const loadNotificationProviders = (
     ...providerMetadataDefinition,
     query: {},
     options: { limit, sort: { order: SortingOrder.Ascending } }
-  }).pipe(Effect.flatMap((result) =>
-    Effect.gen(function*() {
-      const projections = result.rows.map(providerProjection)
-      yield* warnOmittedNotificationPresentationMetadata({
-        ...providerMetadataDefinition,
-        omittedFields: totalOmittedFields(projections),
-        authoritative: result.authoritative
+  }).pipe(
+    Effect.flatMap((result) =>
+      Effect.gen(function* () {
+        const projections = result.rows.map(providerProjection)
+        yield* warnOmittedNotificationPresentationMetadata({
+          ...providerMetadataDefinition,
+          omittedFields: totalOmittedFields(projections),
+          authoritative: result.authoritative
+        })
+        return {
+          ...result,
+          rows: EffectArray.sortBy(Order.mapInput(Order.number, (provider: NotificationProvider) => provider.order))(
+            projections.map((projection) => projection.summary)
+          ).slice(0, limit)
+        }
       })
-      return {
-        ...result,
-        rows: EffectArray.sortBy(
-          Order.mapInput(Order.number, (provider: NotificationProvider) => provider.order)
-        )(projections.map((projection) => projection.summary)).slice(0, limit)
-      }
-    })
-  ))
+    )
+  )
 
 export const loadNotificationTypes = (
   client: HulyClientOperations,
-  params: {
-    readonly limit?: number
-    readonly includeHidden?: boolean
-    readonly objectClass?: ObjectClassName
-  }
+  params: { readonly limit?: number; readonly includeHidden?: boolean; readonly objectClass?: ObjectClassName }
 ): Effect.Effect<NotificationMetadataResult<NotificationType>, HulyClientError, Diagnostics> => {
   const query: StrictDocumentQuery<HulyNotificationType> = {
     ...(params.includeHidden ? {} : { hidden: false }),
     ...(params.objectClass === undefined ? {} : { objectClass: toRef<Class<Doc>>(params.objectClass) })
   }
-  return loadMetadata(client, {
-    ...typeMetadataDefinition,
-    query,
-    options: { limit: clampLimit(params.limit) }
-  }).pipe(Effect.flatMap((result) =>
-    Effect.gen(function*() {
-      const projections = result.rows.map(typeProjection)
-      yield* warnOmittedNotificationPresentationMetadata({
-        ...typeMetadataDefinition,
-        omittedFields: totalOmittedFields(projections),
-        authoritative: result.authoritative
+  return loadMetadata(client, { ...typeMetadataDefinition, query, options: { limit: clampLimit(params.limit) } }).pipe(
+    Effect.flatMap((result) =>
+      Effect.gen(function* () {
+        const projections = result.rows.map(typeProjection)
+        yield* warnOmittedNotificationPresentationMetadata({
+          ...typeMetadataDefinition,
+          omittedFields: totalOmittedFields(projections),
+          authoritative: result.authoritative
+        })
+        return {
+          ...result,
+          rows: projections.map((projection) => projection.summary).slice(0, clampLimit(params.limit))
+        }
       })
-      return {
-        ...result,
-        rows: projections.map((projection) => projection.summary).slice(0, clampLimit(params.limit))
-      }
-    })
-  ))
+    )
+  )
 }
 
 type ProviderMetadataIdConfig = ProviderMetadataDefinition & {
@@ -301,17 +290,15 @@ type TypeMetadataIdConfig = TypeMetadataDefinition & {
 
 type NotificationMetadataIdConfig = ProviderMetadataIdConfig | TypeMetadataIdConfig
 
-const warnTrustedIdentifier = (
-  config: NotificationMetadataIdConfig
-): Effect.Effect<void, never, Diagnostics> =>
-  Effect.gen(function*() {
+const warnTrustedIdentifier = (config: NotificationMetadataIdConfig): Effect.Effect<void, never, Diagnostics> =>
+  Effect.gen(function* () {
     const diagnostics = yield* Diagnostics
     yield* diagnostics.warnAgent({
       code: NotificationMetadataDegradedWarningCode,
       message:
-        `Authoritative notification ${config._tag} definitions were unavailable, so this compatible REST operation `
-        + `trusted caller-supplied ${config._tag} ID '${config.identifier}'. Confirm the ID with list_notification_${config._tag}s `
-        + "after upgrading Huly or restoring model metadata; an invalid ID may leave the requested setting unchanged."
+        `Authoritative notification ${config._tag} definitions were unavailable, so this compatible REST operation ` +
+        `trusted caller-supplied ${config._tag} ID '${config.identifier}'. Confirm the ID with list_notification_${config._tag}s ` +
+        "after upgrading Huly or restoring model metadata; an invalid ID may leave the requested setting unchanged."
     })
   })
 
@@ -326,10 +313,7 @@ const requireProviderMetadataId = (
 ): Effect.Effect<NotificationProviderId, HulyClientError | NotificationProviderNotFoundError, Diagnostics> =>
   executeMetadataIdRequirement({
     loadModelRows: () =>
-      client.findAllInModel<HulyNotificationProvider>(
-        config.classRef,
-        hulyQuery<HulyNotificationProvider>({})
-      ),
+      client.findAllInModel<HulyNotificationProvider>(config.classRef, hulyQuery<HulyNotificationProvider>({})),
     loadRemoteRows: () =>
       client.findAll<HulyNotificationProvider>(
         config.classRef,
@@ -351,10 +335,7 @@ const requireTypeMetadataId = (
 ): Effect.Effect<NotificationTypeId, HulyClientError | NotificationTypeNotFoundError, Diagnostics> =>
   executeMetadataIdRequirement({
     loadModelRows: () =>
-      client.findAllInModel<HulyNotificationType>(
-        config.classRef,
-        hulyQuery<HulyNotificationType>({})
-      ),
+      client.findAllInModel<HulyNotificationType>(config.classRef, hulyQuery<HulyNotificationType>({})),
     loadRemoteRows: () =>
       client.findAll<HulyNotificationType>(
         config.classRef,

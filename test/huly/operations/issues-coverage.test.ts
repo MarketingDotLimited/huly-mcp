@@ -190,9 +190,9 @@ const createTestLayerWithMocks = (config: MockConfig) => {
         result = result.sort((a, b) => direction * (a.modifiedOn - b.modifiedOn))
       }
       if (opts?.lookup?.assignee) {
-        result = result.map(issue => {
+        result = result.map((issue) => {
           const assigneePerson = issue.assignee
-            ? persons.find(p => String(p._id) === String(issue.assignee))
+            ? persons.find((p) => String(p._id) === String(issue.assignee))
             : undefined
           return { ...issue, $lookup: { assignee: assigneePerson } }
         })
@@ -203,14 +203,14 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       const inQuery = q._id as { $in?: Array<Ref<Status>> } | undefined
       if (inQuery?.$in) {
-        const filtered = statuses.filter(s => inQuery.$in!.includes(s._id))
+        const filtered = statuses.filter((s) => inQuery.$in!.includes(s._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(statuses))
     }
     if (_class === contact.class.Channel) {
       const value = (query as Record<string, unknown>).value as string
-      const filtered = channels.filter(c => c.value === value)
+      const filtered = channels.filter((c) => c.value === value)
       return Effect.succeed(toFindResult(filtered))
     }
     if (_class === contact.class.Person) {
@@ -222,18 +222,13 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown, options?: unknown) => {
     if (_class === tracker.class.Project) {
       const identifier = (query as Record<string, unknown>).identifier as string
-      const found = projects.find(p => p.identifier === identifier)
+      const found = projects.find((p) => p.identifier === identifier)
       if (found === undefined) return Effect.succeed(undefined)
       const opts = options as { lookup?: Record<string, unknown> } | undefined
       if (opts?.lookup?.type) {
         const projectWithLookup = {
           ...found,
-          $lookup: {
-            type: {
-              _id: "project-type-1",
-              statuses: statuses.map(s => ({ _id: s._id }))
-            }
-          }
+          $lookup: { type: { _id: "project-type-1", statuses: statuses.map((s) => ({ _id: s._id })) } }
         }
         return Effect.succeed(projectWithLookup)
       }
@@ -241,29 +236,30 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     }
     if (_class === tracker.class.Issue) {
       const q = query as Record<string, unknown>
-      const found = issues.find(i =>
-        (q.identifier && i.identifier === q.identifier)
-        || (q.number && i.number === q.number)
-        || (q.space && i.space === q.space && !q.identifier && !q.number)
+      const found = issues.find(
+        (i) =>
+          (q.identifier && i.identifier === q.identifier) ||
+          (q.number && i.number === q.number) ||
+          (q.space && i.space === q.space && !q.identifier && !q.number)
       )
       return Effect.succeed(found)
     }
     if (_class === tracker.class.Component) {
       const q = query as Record<string, unknown>
-      const found = components.find(c => (q._id && c._id === q._id) || (q.label && c.label === q.label))
+      const found = components.find((c) => (q._id && c._id === q._id) || (q.label && c.label === q.label))
       return Effect.succeed(found)
     }
     if (_class === contact.class.Channel) {
       const q = query as Record<string, unknown>
       const value = q.value as string | { $like: string } | undefined
       if (typeof value === "string") {
-        const found = channels.find(c => c.value === value && (q.provider === undefined || c.provider === q.provider))
+        const found = channels.find((c) => c.value === value && (q.provider === undefined || c.provider === q.provider))
         return Effect.succeed(found)
       }
       if (value && typeof value === "object" && "$like" in value) {
         const pattern = value.$like.replace(/%/g, "")
-        const found = channels.find(c =>
-          c.value.includes(pattern) && (q.provider === undefined || c.provider === q.provider)
+        const found = channels.find(
+          (c) => c.value.includes(pattern) && (q.provider === undefined || c.provider === q.provider)
         )
         return Effect.succeed(found)
       }
@@ -272,17 +268,17 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     if (_class === contact.class.Person) {
       const q = query as Record<string, unknown>
       if (q._id) {
-        const found = persons.find(p => p._id === q._id)
+        const found = persons.find((p) => p._id === q._id)
         return Effect.succeed(found)
       }
       if (q.name) {
         if (typeof q.name === "string") {
-          const found = persons.find(p => p.name === q.name)
+          const found = persons.find((p) => p.name === q.name)
           return Effect.succeed(found)
         }
         if (typeof q.name === "object" && "$like" in (q.name as Record<string, unknown>)) {
           const pattern = assertExists((q.name as { readonly $like?: string }).$like).replace(/%/g, "")
-          const found = persons.find(p => p.name.includes(pattern))
+          const found = persons.find((p) => p.name.includes(pattern))
           return Effect.succeed(found)
         }
       }
@@ -291,24 +287,30 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
-  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = (
-    (_objectClass: unknown, _objectId: unknown, _objectAttr: unknown, id: unknown) => {
-      const content = (config.markupContent ?? {})[id as string] ?? ""
-      return Effect.succeed(content)
-    }
-  ) as HulyClientOperations["fetchMarkup"]
+  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = ((
+    _objectClass: unknown,
+    _objectId: unknown,
+    _objectAttr: unknown,
+    id: unknown
+  ) => {
+    const content = (config.markupContent ?? {})[id as string] ?? ""
+    return Effect.succeed(content)
+  }) as HulyClientOperations["fetchMarkup"]
 
-  const updateDocImpl: HulyClientOperations["updateDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown, operations: unknown) => {
-      if (config.captureUpdateDoc) {
-        config.captureUpdateDoc.operations = operations as Record<string, unknown>
-      }
-      const project = assertAt(projects, 0)
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- project may be undefined from array access
-      const sequence = (config.updateDocResult?.object?.sequence) ?? (project ? project.sequence + 1 : 1)
-      return Effect.succeed({ object: { sequence } } as never)
+  const updateDocImpl: HulyClientOperations["updateDoc"] = ((
+    _class: unknown,
+    _space: unknown,
+    _objectId: unknown,
+    operations: unknown
+  ) => {
+    if (config.captureUpdateDoc) {
+      config.captureUpdateDoc.operations = operations as Record<string, unknown>
     }
-  ) as HulyClientOperations["updateDoc"]
+    const project = assertAt(projects, 0)
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- project may be undefined from array access
+    const sequence = config.updateDocResult?.object?.sequence ?? (project ? project.sequence + 1 : 1)
+    return Effect.succeed({ object: { sequence } } as never)
+  }) as HulyClientOperations["updateDoc"]
 
   const addCollectionImpl: HulyClientOperations["addCollection"] = ((
     _class: unknown,
@@ -374,7 +376,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
 
 describe("Issues Coverage - resolveStatusName", () => {
   it.effect("round-trips minimal status metadata through its boundary schema", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const parsedWithCategory = yield* Schema.decodeUnknown(StatusMetadataSchema)({
         _id: "status-active",
         name: "Active",
@@ -388,17 +390,14 @@ describe("Issues Coverage - resolveStatusName", () => {
       const withoutCategory = yield* Schema.encode(StatusMetadataSchema)(parsedWithoutCategory)
       const brandedName: StatusName = parsedWithCategory.name
 
-      expect(withCategory).toEqual({
-        _id: "status-active",
-        name: "Active",
-        category: task.statusCategory.Active
-      })
+      expect(withCategory).toEqual({ _id: "status-active", name: "Active", category: task.statusCategory.Active })
       expect(brandedName).toBe("Active")
       expect(withoutCategory).toEqual({ _id: "status-todo", name: "Todo" })
-    }))
+    })
+  )
 
   it.effect("warns when authoritative status categories lose semantic fidelity", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const diagnostics = yield* makeDiagnosticsScope
       const statusRows = [
         { _id: "status-missing-category", name: "Missing" },
@@ -409,13 +408,13 @@ describe("Issues Coverage - resolveStatusName", () => {
         findAllInModel: () => Effect.succeed(toFindResult(statusRows as Array<never>))
       })
 
-      const result = yield* Effect.gen(function*() {
+      const result = yield* Effect.gen(function* () {
         const client = yield* HulyClient
-        return yield* findStatusDocs(client, statusRows.map((status) => status._id as Ref<Status>))
-      }).pipe(
-        Effect.provide(testLayer),
-        Effect.provideService(Diagnostics, diagnostics.service)
-      )
+        return yield* findStatusDocs(
+          client,
+          statusRows.map((status) => status._id as Ref<Status>)
+        )
+      }).pipe(Effect.provide(testLayer), Effect.provideService(Diagnostics, diagnostics.service))
       const warnings = yield* diagnostics.drainWarnings
 
       expect(result.map((status) => status.category)).toEqual([undefined, "", "task:statusCategory:Custom"])
@@ -424,60 +423,53 @@ describe("Issues Coverage - resolveStatusName", () => {
       expect(assertAt(warnings, 0).message).toContain("missing: 1")
       expect(assertAt(warnings, 0).message).toContain("empty: 1")
       expect(assertAt(warnings, 0).message).toContain("unrecognized: 1")
-    }))
+    })
+  )
 
   it.effect("does not warn for complete authoritative statuses with recognized categories", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const diagnostics = yield* makeDiagnosticsScope
       const testLayer = HulyClient.testLayer({
         findAllInModel: () =>
-          Effect.succeed(toFindResult([{
-            _id: "status-active",
-            name: "Active",
-            category: task.statusCategory.Active
-          }] as Array<never>))
+          Effect.succeed(
+            toFindResult([
+              { _id: "status-active", name: "Active", category: task.statusCategory.Active }
+            ] as Array<never>)
+          )
       })
 
-      yield* Effect.gen(function*() {
+      yield* Effect.gen(function* () {
         const client = yield* HulyClient
         return yield* findStatusDocs(client, ["status-active" as Ref<Status>])
-      }).pipe(
-        Effect.provide(testLayer),
-        Effect.provideService(Diagnostics, diagnostics.service)
-      )
+      }).pipe(Effect.provide(testLayer), Effect.provideService(Diagnostics, diagnostics.service))
 
       expect(yield* diagnostics.drainWarnings).toEqual([])
-    }))
+    })
+  )
 
   it.effect("reports model connection failure when neither metadata source resolves a status", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = HulyClient.testLayer({
         findAllInModel: () => Effect.fail(new HulyConnectionError({ message: "model offline" })),
         findAll: () => Effect.succeed(toFindResult([]))
       })
 
-      const result = yield* Effect.gen(function*() {
+      const result = yield* Effect.gen(function* () {
         const client = yield* HulyClient
         return yield* findStatusDocs(client, ["status-missing" as Ref<Status>])
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(result).toEqual([])
-    }))
+    })
+  )
 
   it.effect("returns Unknown for unresolvable status ID", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const openStatus = makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })
-      const issue = makeIssue({
-        identifier: "TEST-1",
-        status: "status-unknown" as Ref<Status>
-      })
+      const issue = makeIssue({ identifier: "TEST-1", status: "status-unknown" as Ref<Status> })
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue],
-        statuses: [openStatus]
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses: [openStatus] })
 
       const results = yield* listIssues({ project: projectIdentifier("TEST") }).pipe(
         Effect.provide(testLayer),
@@ -486,33 +478,20 @@ describe("Issues Coverage - resolveStatusName", () => {
 
       expect(results).toHaveLength(1)
       expect(results[0]?.status).toBe("Unknown")
-    }))
+    })
+  )
 })
 
 describe("Issues Coverage - listIssues status filters", () => {
   it.effect("active statusCategory includes only active statuses", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [
-        makeStatus({
-          _id: "status-open" as Ref<Status>,
-          name: "Open",
-          category: task.statusCategory.Active
-        }),
-        makeStatus({
-          _id: "status-done" as Ref<Status>,
-          name: "Done",
-          category: task.statusCategory.Won
-        }),
-        makeStatus({
-          _id: "status-canceled" as Ref<Status>,
-          name: "Canceled",
-          category: task.statusCategory.Lost
-        })
+        makeStatus({ _id: "status-open" as Ref<Status>, name: "Open", category: task.statusCategory.Active }),
+        makeStatus({ _id: "status-done" as Ref<Status>, name: "Done", category: task.statusCategory.Won }),
+        makeStatus({ _id: "status-canceled" as Ref<Status>, name: "Canceled", category: task.statusCategory.Lost })
       ]
-      const issues = [
-        makeIssue({ identifier: "TEST-1", status: "status-open" as Ref<Status> })
-      ]
+      const issues = [makeIssue({ identifier: "TEST-1", status: "status-open" as Ref<Status> })]
       const captureQuery: MockConfig["captureIssueQuery"] = {}
 
       const testLayer = createTestLayerWithMocks({
@@ -528,21 +507,16 @@ describe("Issues Coverage - listIssues status filters", () => {
       )
 
       expect(captureQuery.query?.status).toEqual({ $in: ["status-open"] })
-    }))
+    })
+  )
 
   it.effect("todo statusCategory includes only todo statuses", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [
-        makeStatus({
-          _id: "status-open" as Ref<Status>,
-          name: "Open",
-          category: task.statusCategory.ToDo
-        })
+        makeStatus({ _id: "status-open" as Ref<Status>, name: "Open", category: task.statusCategory.ToDo })
       ]
-      const issues = [
-        makeIssue({ identifier: "TEST-1", status: "status-open" as Ref<Status> })
-      ]
+      const issues = [makeIssue({ identifier: "TEST-1", status: "status-open" as Ref<Status> })]
       const captureQuery: MockConfig["captureIssueQuery"] = {}
 
       const testLayer = createTestLayerWithMocks({
@@ -558,28 +532,17 @@ describe("Issues Coverage - listIssues status filters", () => {
       )
 
       expect(captureQuery.query?.status).toEqual({ $in: ["status-open"] })
-    }))
+    })
+  )
 
   it.effect("statusCategory fails when status category metadata is unavailable", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
-      const statuses = [
-        makeStatus({
-          _id: "status-open" as Ref<Status>,
-          name: "Open"
-        })
-      ]
+      const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [makeIssue()],
-        statuses
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [makeIssue()], statuses })
 
-      const error = yield* listIssues({
-        project: projectIdentifier("TEST"),
-        statusCategory: "Active"
-      }).pipe(
+      const error = yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: "Active" }).pipe(
         Effect.provide(testLayer),
         Effect.flip,
         withDiagnostics
@@ -587,26 +550,17 @@ describe("Issues Coverage - listIssues status filters", () => {
 
       expect(error._tag).toBe("HulyConnectionError")
       expect(error.message).toContain("did not return complete status category metadata")
-    }))
+    })
+  )
 
   it.effect("done statusCategory includes only done statuses", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [
-        makeStatus({
-          _id: "status-open" as Ref<Status>,
-          name: "Open",
-          category: task.statusCategory.Active
-        }),
-        makeStatus({
-          _id: "status-done" as Ref<Status>,
-          name: "Done",
-          category: task.statusCategory.Won
-        })
+        makeStatus({ _id: "status-open" as Ref<Status>, name: "Open", category: task.statusCategory.Active }),
+        makeStatus({ _id: "status-done" as Ref<Status>, name: "Done", category: task.statusCategory.Won })
       ]
-      const issues = [
-        makeIssue({ identifier: "TEST-1", status: "status-done" as Ref<Status> })
-      ]
+      const issues = [makeIssue({ identifier: "TEST-1", status: "status-done" as Ref<Status> })]
       const captureQuery: MockConfig["captureIssueQuery"] = {}
 
       const testLayer = createTestLayerWithMocks({
@@ -621,55 +575,36 @@ describe("Issues Coverage - listIssues status filters", () => {
         withDiagnostics
       )
 
-      expect(captureQuery.query?.status).toEqual({
-        $in: ["status-done"]
-      })
-    }))
+      expect(captureQuery.query?.status).toEqual({ $in: ["status-done"] })
+    })
+  )
 
   it.effect("done statusCategory returns empty when no done statuses exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [
-        makeStatus({
-          _id: "status-open" as Ref<Status>,
-          name: "Open",
-          category: task.statusCategory.Active
-        })
+        makeStatus({ _id: "status-open" as Ref<Status>, name: "Open", category: task.statusCategory.Active })
       ]
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [makeIssue()],
-        statuses
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [makeIssue()], statuses })
 
-      const result = yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: "Won" })
-        .pipe(
-          Effect.provide(testLayer),
-          withDiagnostics
-        )
+      const result = yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: "Won" }).pipe(
+        Effect.provide(testLayer),
+        withDiagnostics
+      )
 
       expect(result).toEqual([])
-    }))
+    })
+  )
 
   it.effect("canceled statusCategory includes only canceled statuses", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [
-        makeStatus({
-          _id: "status-open" as Ref<Status>,
-          name: "Open",
-          category: task.statusCategory.Active
-        }),
-        makeStatus({
-          _id: "status-canceled" as Ref<Status>,
-          name: "Canceled",
-          category: task.statusCategory.Lost
-        })
+        makeStatus({ _id: "status-open" as Ref<Status>, name: "Open", category: task.statusCategory.Active }),
+        makeStatus({ _id: "status-canceled" as Ref<Status>, name: "Canceled", category: task.statusCategory.Lost })
       ]
-      const issues = [
-        makeIssue({ identifier: "TEST-1", status: "status-canceled" as Ref<Status> })
-      ]
+      const issues = [makeIssue({ identifier: "TEST-1", status: "status-canceled" as Ref<Status> })]
       const captureQuery: MockConfig["captureIssueQuery"] = {}
 
       const testLayer = createTestLayerWithMocks({
@@ -684,47 +619,36 @@ describe("Issues Coverage - listIssues status filters", () => {
         withDiagnostics
       )
 
-      expect(captureQuery.query?.status).toEqual({
-        $in: ["status-canceled"]
-      })
-    }))
+      expect(captureQuery.query?.status).toEqual({ $in: ["status-canceled"] })
+    })
+  )
 
   it.effect("canceled statusCategory returns empty when no canceled statuses exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [
-        makeStatus({
-          _id: "status-open" as Ref<Status>,
-          name: "Open",
-          category: task.statusCategory.Active
-        })
+        makeStatus({ _id: "status-open" as Ref<Status>, name: "Open", category: task.statusCategory.Active })
       ]
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [makeIssue()],
-        statuses
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [makeIssue()], statuses })
 
-      const result = yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: "Lost" })
-        .pipe(
-          Effect.provide(testLayer),
-          withDiagnostics
-        )
+      const result = yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: "Lost" }).pipe(
+        Effect.provide(testLayer),
+        withDiagnostics
+      )
 
       expect(result).toEqual([])
-    }))
+    })
+  )
 
   it.effect("custom status name resolves via resolveStatusByName", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [
         makeStatus({ _id: "status-review" as Ref<Status>, name: "In Review" }),
         makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })
       ]
-      const issues = [
-        makeIssue({ identifier: "TEST-1", status: "status-review" as Ref<Status> })
-      ]
+      const issues = [makeIssue({ identifier: "TEST-1", status: "status-review" as Ref<Status> })]
       const captureQuery: MockConfig["captureIssueQuery"] = {}
 
       const testLayer = createTestLayerWithMocks({
@@ -740,20 +664,15 @@ describe("Issues Coverage - listIssues status filters", () => {
       )
 
       expect(captureQuery.query?.status).toBe("status-review")
-    }))
+    })
+  )
 
   it.effect("custom status name fails with InvalidStatusError when not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
-      const statuses = [
-        makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })
-      ]
+      const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [],
-        statuses
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [], statuses })
 
       const error = yield* Effect.flip(
         listIssues({ project: projectIdentifier("TEST"), status: statusName("Nonexistent Status") }).pipe(
@@ -764,12 +683,13 @@ describe("Issues Coverage - listIssues status filters", () => {
 
       expect(error._tag).toBe("InvalidStatusError")
       expect((error as InvalidStatusError).status).toBe("Nonexistent Status")
-    }))
+    })
+  )
 })
 
 describe("Issues Coverage - listIssues assignee filter", () => {
   it.effect("returns empty when assignee not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
@@ -787,10 +707,11 @@ describe("Issues Coverage - listIssues assignee filter", () => {
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(result).toEqual([])
-    }))
+    })
+  )
 
   it.effect("sets assignee query when person found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const person = makePerson({ _id: "person-1" as Ref<Person>, name: "John Doe" })
       const channel = makeChannel({ attachedTo: "person-1" as Ref<Doc>, value: "john@example.com" })
@@ -813,12 +734,13 @@ describe("Issues Coverage - listIssues assignee filter", () => {
       )
 
       expect(captureQuery.query?.assignee).toBe("person-1")
-    }))
+    })
+  )
 })
 
 describe("Issues Coverage - listIssues titleSearch", () => {
   it.effect("sets $like query for titleSearch", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
       const captureQuery: MockConfig["captureIssueQuery"] = {}
@@ -836,10 +758,11 @@ describe("Issues Coverage - listIssues titleSearch", () => {
       )
 
       expect(captureQuery.query?.title).toEqual({ $like: "%bug fix%" })
-    }))
+    })
+  )
 
   it.effect("skips titleSearch when empty or whitespace-only", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
       const captureQuery: MockConfig["captureIssueQuery"] = {}
@@ -857,18 +780,15 @@ describe("Issues Coverage - listIssues titleSearch", () => {
       )
 
       expect(captureQuery.query?.title).toBeUndefined()
-    }))
+    })
+  )
 })
 
 describe("Issues Coverage - listIssues parent and summary branches", () => {
   it.effect("sets attachedTo when filtering by parentIssue", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
-      const parent = makeIssue({
-        _id: "parent-issue" as Ref<HulyIssue>,
-        identifier: "TEST-99",
-        number: 99
-      })
+      const parent = makeIssue({ _id: "parent-issue" as Ref<HulyIssue>, identifier: "TEST-99", number: 99 })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
       const captureQuery: MockConfig["captureIssueQuery"] = {}
 
@@ -879,16 +799,17 @@ describe("Issues Coverage - listIssues parent and summary branches", () => {
         captureIssueQuery: captureQuery
       })
 
-      yield* listIssues({
-        project: projectIdentifier("TEST"),
-        parentIssue: issueIdentifier("TEST-99")
-      }).pipe(Effect.provide(testLayer), withDiagnostics)
+      yield* listIssues({ project: projectIdentifier("TEST"), parentIssue: issueIdentifier("TEST-99") }).pipe(
+        Effect.provide(testLayer),
+        withDiagnostics
+      )
 
       expect(captureQuery.query?.attachedTo).toBe("parent-issue")
-    }))
+    })
+  )
 
   it.effect("returns parentIssue and subIssues when present in listed issues", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const parentInfo: IssueParentInfo = {
         identifier: "TEST-1",
@@ -896,18 +817,10 @@ describe("Issues Coverage - listIssues parent and summary branches", () => {
         parentTitle: "Parent",
         space: "project-1" as Ref<Space>
       }
-      const issue = makeIssue({
-        identifier: "TEST-2",
-        parents: [parentInfo],
-        subIssues: 3
-      })
+      const issue = makeIssue({ identifier: "TEST-2", parents: [parentInfo], subIssues: 3 })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue],
-        statuses
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses })
 
       const result = yield* listIssues({ project: projectIdentifier("TEST") }).pipe(
         Effect.provide(testLayer),
@@ -916,19 +829,16 @@ describe("Issues Coverage - listIssues parent and summary branches", () => {
 
       expect(assertAt(result, 0).parentIssue).toBe("TEST-1")
       expect(assertAt(result, 0).subIssues).toBe(3)
-    }))
+    })
+  )
 
   it.effect("omits malformed status metadata and uses a stable ref-derived status name", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const issue = makeIssue()
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "" })]
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue],
-        statuses
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses })
 
       const result = yield* listIssues({ project: projectIdentifier("TEST") }).pipe(
         Effect.provide(testLayer),
@@ -936,12 +846,13 @@ describe("Issues Coverage - listIssues parent and summary branches", () => {
       )
 
       expect(assertAt(result, 0).status).toBe("status-open")
-    }))
+    })
+  )
 })
 
 describe("Issues Coverage - listIssues descriptionSearch", () => {
   it.effect("sets $search query for descriptionSearch", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
       const captureQuery: MockConfig["captureIssueQuery"] = {}
@@ -959,10 +870,11 @@ describe("Issues Coverage - listIssues descriptionSearch", () => {
       )
 
       expect(captureQuery.query?.$search).toBe("error handling")
-    }))
+    })
+  )
 
   it.effect("skips descriptionSearch when empty or whitespace-only", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
       const captureQuery: MockConfig["captureIssueQuery"] = {}
@@ -980,12 +892,13 @@ describe("Issues Coverage - listIssues descriptionSearch", () => {
       )
 
       expect(captureQuery.query?.$search).toBeUndefined()
-    }))
+    })
+  )
 })
 
 describe("Issues Coverage - listIssues component filter", () => {
   it.effect("filters by component when found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
       const comp = makeComponent({ _id: "comp-1" as Ref<HulyComponent>, label: "Frontend" })
@@ -1005,10 +918,11 @@ describe("Issues Coverage - listIssues component filter", () => {
       )
 
       expect(captureQuery.query?.component).toBe("comp-1")
-    }))
+    })
+  )
 
   it.effect("returns empty when component not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
@@ -1025,12 +939,13 @@ describe("Issues Coverage - listIssues component filter", () => {
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(result).toEqual([])
-    }))
+    })
+  )
 })
 
 describe("Issues Coverage - extractUpdatedSequence", () => {
   it.effect("uses TxIncResult decoded sequence when updateDoc returns proper shape", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST", sequence: 5 })
 
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
@@ -1043,16 +958,17 @@ describe("Issues Coverage - extractUpdatedSequence", () => {
         updateDocResult: { object: { sequence: 42 } }
       })
 
-      const result = yield* createIssue({
-        project: projectIdentifier("TEST"),
-        title: "Sequence Test"
-      }).pipe(Effect.provide(testLayer), withDiagnostics)
+      const result = yield* createIssue({ project: projectIdentifier("TEST"), title: "Sequence Test" }).pipe(
+        Effect.provide(testLayer),
+        withDiagnostics
+      )
 
       expect(result.identifier).toBe("TEST-42")
-    }))
+    })
+  )
 
   it.effect("fails before creating an issue when updateDoc does not return the incremented sequence", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST", sequence: 10 })
       let addCollectionCalled = false
 
@@ -1067,10 +983,7 @@ describe("Issues Coverage - extractUpdatedSequence", () => {
         if (_class === tracker.class.Project) {
           const opts = options as { lookup?: Record<string, unknown> } | undefined
           if (opts?.lookup?.type) {
-            return Effect.succeed({
-              ...project,
-              $lookup: { type: { _id: "pt-1", statuses: [] } }
-            })
+            return Effect.succeed({ ...project, $lookup: { type: { _id: "pt-1", statuses: [] } } })
           }
           return Effect.succeed(project)
         }
@@ -1105,20 +1018,21 @@ describe("Issues Coverage - extractUpdatedSequence", () => {
       })
 
       const error = yield* Effect.flip(
-        createIssue({
-          project: projectIdentifier("TEST"),
-          title: "Missing Sequence"
-        }).pipe(Effect.provide(testLayer), withDiagnostics)
+        createIssue({ project: projectIdentifier("TEST"), title: "Missing Sequence" }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
       )
 
       expect(error.message).toContain("did not return the updated sequence")
       expect(addCollectionCalled).toBe(false)
-    }))
+    })
+  )
 })
 
 describe("Issues Coverage - resolveAssignee", () => {
   it.effect("fails with PersonNotFoundError when person not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST", sequence: 1 })
 
       const testLayer = createTestLayerWithMocks({
@@ -1140,10 +1054,11 @@ describe("Issues Coverage - resolveAssignee", () => {
 
       expect(error._tag).toBe("PersonNotFoundError")
       expect((error as PersonNotFoundError).identifier).toBe("ghost@example.com")
-    }))
+    })
+  )
 
   it.effect("resolves person successfully when found by email", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST", sequence: 1 })
       const person = makePerson({ _id: "person-1" as Ref<Person>, name: "Jane" })
       const channel = makeChannel({ attachedTo: "person-1" as Ref<Doc>, value: "jane@example.com" })
@@ -1167,16 +1082,15 @@ describe("Issues Coverage - resolveAssignee", () => {
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(captureAddCollection.attributes?.assignee).toBe("person-1")
-    }))
+    })
+  )
 })
 
 describe("Issues Coverage - resolveStatusByName", () => {
   it.effect("resolves status by case-insensitive name match", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST", sequence: 1 })
-      const statuses = [
-        makeStatus({ _id: "status-progress" as Ref<Status>, name: "In Progress" })
-      ]
+      const statuses = [makeStatus({ _id: "status-progress" as Ref<Status>, name: "In Progress" })]
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
       const testLayer = createTestLayerWithMocks({
@@ -1194,14 +1108,13 @@ describe("Issues Coverage - resolveStatusByName", () => {
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(captureAddCollection.attributes?.status).toBe("status-progress")
-    }))
+    })
+  )
 
   it.effect("fails with InvalidStatusError when status name not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST", sequence: 1 })
-      const statuses = [
-        makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })
-      ]
+      const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
       const testLayer = createTestLayerWithMocks({
         projects: [project],
@@ -1221,18 +1134,17 @@ describe("Issues Coverage - resolveStatusByName", () => {
       expect(error._tag).toBe("InvalidStatusError")
       expect((error as InvalidStatusError).status).toBe("Nonexistent")
       expect((error as InvalidStatusError).project).toBe("TEST")
-    }))
+    })
+  )
 })
 
 describe("Issues Coverage - createIssue full flow", () => {
   it.effect("creates issue with all optional params: priority, status, assignee, description", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST", sequence: 5 })
       const person = makePerson({ _id: "person-1" as Ref<Person>, name: "Dev" })
       const channel = makeChannel({ attachedTo: "person-1" as Ref<Doc>, value: "dev@example.com" })
-      const statuses = [
-        makeStatus({ _id: "status-progress" as Ref<Status>, name: "In Progress" })
-      ]
+      const statuses = [makeStatus({ _id: "status-progress" as Ref<Status>, name: "In Progress" })]
 
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const captureUploadMarkup: MockConfig["captureUploadMarkup"] = {}
@@ -1265,10 +1177,11 @@ describe("Issues Coverage - createIssue full flow", () => {
       expect(captureAddCollection.attributes?.description).toBe("markup-ref-123")
       expect(captureUploadMarkup.format).toBe("markup")
       expect(captureUploadMarkup.markup).not.toBe("# Details")
-    }))
+    })
+  )
 
   it.effect("skips status lookup when status not provided (uses findProject instead)", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({
         identifier: "TEST",
         sequence: 1,
@@ -1285,29 +1198,25 @@ describe("Issues Coverage - createIssue full flow", () => {
         updateDocResult: { object: { sequence: 2 } }
       })
 
-      yield* createIssue({
-        project: projectIdentifier("TEST"),
-        title: "Default Status"
-      }).pipe(Effect.provide(testLayer), withDiagnostics)
+      yield* createIssue({ project: projectIdentifier("TEST"), title: "Default Status" }).pipe(
+        Effect.provide(testLayer),
+        withDiagnostics
+      )
 
       expect(captureAddCollection.attributes?.status).toBe("status-default")
-    }))
+    })
+  )
 })
 
 describe("Issues Coverage - updateIssue branches", () => {
   it.effect("updates priority", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const issue = makeIssue({ identifier: "TEST-1", number: 1 })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue],
-        statuses,
-        captureUpdateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureUpdateDoc })
 
       yield* updateIssue({
         project: projectIdentifier("TEST"),
@@ -1316,21 +1225,17 @@ describe("Issues Coverage - updateIssue branches", () => {
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(captureUpdateDoc.operations?.priority).toBe(IssuePriority.Low)
-    }))
+    })
+  )
 
   it.effect("updates dueDate", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const issue = makeIssue({ identifier: "TEST-1", number: 1 })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue],
-        statuses,
-        captureUpdateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureUpdateDoc })
 
       yield* updateIssue({
         project: projectIdentifier("TEST"),
@@ -1339,21 +1244,17 @@ describe("Issues Coverage - updateIssue branches", () => {
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(captureUpdateDoc.operations?.dueDate).toBe(1800000000000)
-    }))
+    })
+  )
 
   it.effect("clears estimation with null", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const issue = makeIssue({ identifier: "TEST-1", number: 1, estimation: 5 })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue],
-        statuses,
-        captureUpdateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureUpdateDoc })
 
       yield* updateIssue({
         project: projectIdentifier("TEST"),
@@ -1362,23 +1263,17 @@ describe("Issues Coverage - updateIssue branches", () => {
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(captureUpdateDoc.operations?.estimation).toBe(0)
-    }))
+    })
+  )
 
   it.effect("updates status", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const issue = makeIssue({ identifier: "TEST-1", number: 1 })
-      const statuses = [
-        makeStatus({ _id: "status-done" as Ref<Status>, name: "Done" })
-      ]
+      const statuses = [makeStatus({ _id: "status-done" as Ref<Status>, name: "Done" })]
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue],
-        statuses,
-        captureUpdateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureUpdateDoc })
 
       yield* updateIssue({
         project: projectIdentifier("TEST"),
@@ -1387,10 +1282,11 @@ describe("Issues Coverage - updateIssue branches", () => {
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(captureUpdateDoc.operations?.status).toBe("status-done")
-    }))
+    })
+  )
 
   it.effect("updates assignee by email", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const issue = makeIssue({ identifier: "TEST-1", number: 1 })
       const person = makePerson({ _id: "person-1" as Ref<Person> })
@@ -1414,25 +1310,17 @@ describe("Issues Coverage - updateIssue branches", () => {
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(captureUpdateDoc.operations?.assignee).toBe("person-1")
-    }))
+    })
+  )
 
   it.effect("unassigns with null assignee", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
-      const issue = makeIssue({
-        identifier: "TEST-1",
-        number: 1,
-        assignee: "person-1" as Ref<Person>
-      })
+      const issue = makeIssue({ identifier: "TEST-1", number: 1, assignee: "person-1" as Ref<Person> })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue],
-        statuses,
-        captureUpdateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureUpdateDoc })
 
       yield* updateIssue({
         project: projectIdentifier("TEST"),
@@ -1441,25 +1329,17 @@ describe("Issues Coverage - updateIssue branches", () => {
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(captureUpdateDoc.operations?.assignee).toBeNull()
-    }))
+    })
+  )
 
   it.effect("clears description with empty string", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
-      const issue = makeIssue({
-        identifier: "TEST-1",
-        number: 1,
-        description: "old-ref" as MarkupBlobRef
-      })
+      const issue = makeIssue({ identifier: "TEST-1", number: 1, description: "old-ref" as MarkupBlobRef })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue],
-        statuses,
-        captureUpdateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureUpdateDoc })
 
       yield* updateIssue({
         project: projectIdentifier("TEST"),
@@ -1468,16 +1348,13 @@ describe("Issues Coverage - updateIssue branches", () => {
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(captureUpdateDoc.operations?.description).toBeNull()
-    }))
+    })
+  )
 
   it.effect("updates description in place when issue already has one", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
-      const issue = makeIssue({
-        identifier: "TEST-1",
-        number: 1,
-        description: "existing-markup" as MarkupBlobRef
-      })
+      const issue = makeIssue({ identifier: "TEST-1", number: 1, description: "existing-markup" as MarkupBlobRef })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const captureUpdateMarkup: MockConfig["captureUpdateMarkup"] = {}
@@ -1500,16 +1377,13 @@ describe("Issues Coverage - updateIssue branches", () => {
       expect(captureUpdateMarkup.format).toBe("markup")
       expect(captureUpdateMarkup.markup).not.toBe("# Updated")
       expect(captureUpdateDoc.operations?.description).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("uploads new description when issue has no existing one", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
-      const issue = makeIssue({
-        identifier: "TEST-1",
-        number: 1,
-        description: null
-      })
+      const issue = makeIssue({ identifier: "TEST-1", number: 1, description: null })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const captureUploadMarkup: MockConfig["captureUploadMarkup"] = {}
@@ -1532,38 +1406,32 @@ describe("Issues Coverage - updateIssue branches", () => {
       expect(captureUploadMarkup.format).toBe("markup")
       expect(captureUploadMarkup.markup).not.toBe("# New Desc")
       expect(captureUpdateDoc.operations?.description).toBe("markup-ref-123")
-    }))
+    })
+  )
 
   it.effect("fails when no changes provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const issue = makeIssue({ identifier: "TEST-1", number: 1 })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue],
-        statuses
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses })
 
       const error = yield* Effect.flip(
-        updateIssue({
-          project: projectIdentifier("TEST"),
-          identifier: issueIdentifier("TEST-1")
-        }).pipe(Effect.provide(testLayer), withDiagnostics)
+        updateIssue({ project: projectIdentifier("TEST"), identifier: issueIdentifier("TEST-1") }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
       )
 
       expect(error._tag).toBe("NoUpdateFieldsError")
-    }))
+    })
+  )
 
   it.effect("returns updated=true when only description updated in place (no updateDoc call)", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
-      const issue = makeIssue({
-        identifier: "TEST-1",
-        number: 1,
-        description: "existing-ref" as MarkupBlobRef
-      })
+      const issue = makeIssue({ identifier: "TEST-1", number: 1, description: "existing-ref" as MarkupBlobRef })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
       const captureUpdateMarkup: MockConfig["captureUpdateMarkup"] = {}
 
@@ -1583,21 +1451,17 @@ describe("Issues Coverage - updateIssue branches", () => {
       expect(result.updated).toBe(true)
       expect(captureUpdateMarkup.format).toBe("markup")
       expect(captureUpdateMarkup.markup).not.toBe("# Only desc changed")
-    }))
+    })
+  )
 
   it.effect("updates title field", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const issue = makeIssue({ identifier: "TEST-1", number: 1 })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue],
-        statuses,
-        captureUpdateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureUpdateDoc })
 
       const result = yield* updateIssue({
         project: projectIdentifier("TEST"),
@@ -1607,10 +1471,11 @@ describe("Issues Coverage - updateIssue branches", () => {
 
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.title).toBe("Brand New Title")
-    }))
+    })
+  )
 
   it.effect("fails with PersonNotFoundError for unknown assignee in updateIssue", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const issue = makeIssue({ identifier: "TEST-1", number: 1 })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
@@ -1633,26 +1498,18 @@ describe("Issues Coverage - updateIssue branches", () => {
 
       expect(error._tag).toBe("PersonNotFoundError")
       expect((error as PersonNotFoundError).identifier).toBe("unknown@example.com")
-    }))
+    })
+  )
 })
 
 describe("Issues Coverage - getIssue assignee person not found", () => {
   it.effect("returns undefined assignee when issue has assignee ref but person doc not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
-      const issue = makeIssue({
-        identifier: "TEST-1",
-        number: 1,
-        assignee: "person-gone" as Ref<Person>
-      })
+      const issue = makeIssue({ identifier: "TEST-1", number: 1, assignee: "person-gone" as Ref<Person> })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue],
-        statuses,
-        persons: []
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, persons: [] })
 
       const result = yield* getIssue({
         project: projectIdentifier("TEST"),
@@ -1661,12 +1518,13 @@ describe("Issues Coverage - getIssue assignee person not found", () => {
 
       expect(result.assignee).toBeUndefined()
       expect(result.assigneeRef).toBeUndefined()
-    }))
+    })
+  )
 })
 
 describe("Issues Coverage - getIssue detail branches", () => {
   it.effect("returns parentIssue, subIssues, and estimation when present", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const parentInfo: IssueParentInfo = {
         identifier: "TEST-1",
@@ -1674,20 +1532,10 @@ describe("Issues Coverage - getIssue detail branches", () => {
         parentTitle: "Parent",
         space: "project-1" as Ref<Space>
       }
-      const issue = makeIssue({
-        identifier: "TEST-2",
-        number: 2,
-        parents: [parentInfo],
-        subIssues: 2,
-        estimation: 8
-      })
+      const issue = makeIssue({ identifier: "TEST-2", number: 2, parents: [parentInfo], subIssues: 2, estimation: 8 })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue],
-        statuses
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses })
 
       const result = yield* getIssue({
         project: projectIdentifier("TEST"),
@@ -1697,43 +1545,34 @@ describe("Issues Coverage - getIssue detail branches", () => {
       expect(result.parentIssue).toBe("TEST-1")
       expect(result.subIssues).toBe(2)
       expect(result.estimation).toBe(8)
-    }))
+    })
+  )
 
   it.effect("returns IssueNotFoundError for a non-numeric identifier without fallback lookup", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [],
-        statuses
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [], statuses })
 
       const error = yield* Effect.flip(
-        getIssue({
-          project: projectIdentifier("TEST"),
-          identifier: issueIdentifier("NOT-A-NUMBER")
-        }).pipe(Effect.provide(testLayer), withDiagnostics)
+        getIssue({ project: projectIdentifier("TEST"), identifier: issueIdentifier("NOT-A-NUMBER") }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
       )
 
       expect(error._tag).toBe("IssueNotFoundError")
-    }))
+    })
+  )
 
   it.effect("uses a stable ref-derived status name when issue status metadata is malformed", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
-      const issue = makeIssue({
-        identifier: "TEST-1",
-        number: 1
-      })
+      const issue = makeIssue({ identifier: "TEST-1", number: 1 })
       const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "" })]
 
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue],
-        statuses
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses })
 
       const result = yield* getIssue({
         project: projectIdentifier("TEST"),
@@ -1741,5 +1580,6 @@ describe("Issues Coverage - getIssue detail branches", () => {
       }).pipe(Effect.provide(testLayer), withDiagnostics)
 
       expect(result.status).toBe("status-open")
-    }))
+    })
+  )
 })

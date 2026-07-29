@@ -83,9 +83,7 @@ describe("Contact Channel Provider Mapping", () => {
 
   it("returns typed errors for unknown provider refs", async () => {
     const mapped = fromContactChannelProviderRef("contact:channelProvider:Fax")
-    expect(typeof mapped === "object" && "_tag" in mapped ? mapped._tag : undefined).toBe(
-      "InvalidContactProviderError"
-    )
+    expect(typeof mapped === "object" && "_tag" in mapped ? mapped._tag : undefined).toBe("InvalidContactProviderError")
 
     const result = await Effect.runPromiseExit(channelSummary(channel("contact:channelProvider:Fax")))
     expect(Exit.isFailure(result)).toBe(true)

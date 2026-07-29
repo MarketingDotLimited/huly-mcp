@@ -7,14 +7,15 @@ import { assertExists } from "../../../src/utils/assertions.js"
 
 describe("plannerTools", () => {
   it.effect("exports planner tools in the planner category", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       expect(plannerTools.map((tool) => tool.name)).toContain("create_todo")
       expect(plannerTools.map((tool) => tool.name)).toContain("schedule_todo")
       expect(plannerTools.map((tool) => tool.name)).not.toContain("list_todo_automation_helpers")
       for (const tool of plannerTools) {
         expect(tool.category).toBe("planner")
       }
-    }))
+    })
+  )
 
   it("describes schedule_todo as a Planner-visible authenticated calendar operation", () => {
     const scheduleTool = assertExists(

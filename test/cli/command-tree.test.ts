@@ -1,6 +1,6 @@
 import { Command } from "@effect/cli"
 import { NodeContext } from "@effect/platform-node"
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { buildRootCommand } from "../../packages/huly-cli/src/command-tree.js"
@@ -9,12 +9,8 @@ import { TelemetryService } from "../../src/telemetry/telemetry.js"
 
 const runCommand = (argv: ReadonlyArray<string>): Promise<void> =>
   Effect.runPromise(
-    Command.run(buildRootCommand(argv), {
-      name: "Huly CLI",
-      version: "test"
-    })(["node", "huly", ...argv]).pipe(
-      Effect.provide(NodeContext.layer),
-      Effect.provide(TelemetryService.testLayer())
+    Command.run(buildRootCommand(argv), { name: "Huly CLI", version: "test" })(["node", "huly", ...argv]).pipe(
+      Effect.provide(Layer.mergeAll(NodeContext.layer, TelemetryService.testLayer()))
     )
   )
 
@@ -27,7 +23,7 @@ const rejected = async (promise: Promise<unknown>): Promise<unknown> => {
   }
 }
 
-const errorMessage = (error: unknown): string => error instanceof Error ? error.message : String(error)
+const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error))
 
 describe("CLI command tree", () => {
   it("accepts global options before generated subcommands", async () => {
@@ -57,7 +53,7 @@ describe("CLI command tree", () => {
         "messages",
         "attachments",
         "get",
-        "{\"messageId\":\"message-1\"}",
+        '{"messageId":"message-1"}',
         "attachment-1",
         "--output",
         "out.json"

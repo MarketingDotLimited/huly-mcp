@@ -20,23 +20,25 @@
   },
   "homepage": "https://huly-mcp.dearlordylord.com",
   "scripts": {
-    "prepare": "husky",
+    "prepare": "husky && node scripts/prepare-effect-tsgo.mjs",
     "start": "node dist/index.cjs",
     "build": "pnpm build:mcp && pnpm build:cli",
     "build:mcp": "PKG_VERSION=$(node -p \"require('./package.json').version\") && esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.cjs --external:ws \"--define:PKG_VERSION=\\\"$PKG_VERSION\\\"\"",
     "build:cli": "pnpm --filter @firfi/huly-cli build",
-    "typecheck": "tsc -p tsconfig.json --noEmit 2>&1 | { grep -E '^(src/|packages/|scripts/|test/)' && exit 1 || exit 0; }",
+    "typecheck": "pnpm typecheck:tsc && pnpm typecheck:effect",
+    "typecheck:tsc": "node node_modules/@typescript/native/bin/tsc -p tsconfig.json --noEmit 2>&1 | { grep -E '^(src/|packages/|scripts/|test/|tsconfig\\.json)' && exit 1 || exit 0; }",
+    "typecheck:effect": "effect-tsgo diagnostics --project tsconfig.json --strict --severity error,warning",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
-    "lint": "find src packages scripts test -name '*.ts' -print0 | xargs -0 eslint && jscpd src packages/huly-cli/src",
-    "lint:fix": "find src packages scripts test -name '*.ts' -print0 | xargs -0 eslint --fix",
-    "format": "find src packages scripts test -name '*.ts' -print0 | xargs -0 eslint --fix --rule '@effect/dprint: error'",
-    "check-format": "find src packages scripts test -name '*.ts' -print0 | xargs -0 eslint --rule '@effect/dprint: error'",
+    "lint": "find src packages scripts test -name '*.ts' -print0 | xargs -0 oxlint && dprint check && jscpd src packages/huly-cli/src",
+    "lint:fix": "find src packages scripts test -name '*.ts' -print0 | xargs -0 oxlint --fix && dprint fmt",
+    "format": "dprint fmt",
+    "check-format": "dprint check",
     "check-all": "pnpm build && pnpm typecheck && pnpm verify-schema-boundaries && pnpm circular && pnpm complexity && pnpm verify-registry-metadata && pnpm verify-registry-schema && pnpm verify-cli-integration-coverage && pnpm verify-sdk-parity && pnpm verify-readme && pnpm lint && pnpm test:coverage",
-    "circular": "madge --extensions ts --circular src packages/huly-cli/src",
-    "complexity": "eslint . --config eslint.complexity.config.mjs --suppressions-location eslint-complexity-suppressions.json",
-    "complexity:prune": "eslint . --config eslint.complexity.config.mjs --suppressions-location eslint-complexity-suppressions.json --prune-suppressions",
+    "circular": "dpdm --no-warning --no-tree --no-progress --exit-code circular:1 --transform 'src/**/*.ts' 'packages/huly-cli/src/**/*.ts'",
+    "complexity": "tsx scripts/check-oxlint-complexity.ts",
+    "complexity:prune": "tsx scripts/check-oxlint-complexity.ts --prune",
     "integration:cli": "bash scripts/integration_test_cli.sh",
     "local-release": "bash scripts/local_release.sh",
     "verify-version": "node -e \"const v=require('./package.json').version; const d=require('fs').readFileSync('dist/index.cjs','utf8'); if(!d.includes('\\\"'+v+'\\\"'))throw new Error('dist version mismatch: expected '+v)\"",
@@ -94,7 +96,10 @@
     "ws": "^8.18.0"
   },
   "lint-staged": {
-    "*.ts": "eslint --fix"
+    "*.ts": [
+      "oxlint --fix",
+      "dprint fmt"
+    ]
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -102,18 +107,17 @@
       "esbuild",
       "@parcel/watcher",
       "msgpackr-extract",
-      "unrs-resolver"
+      "unrs-resolver",
+      "dprint"
     ]
   },
   "devDependencies": {
     "@changesets/cli": "^2.30.0",
     "@effect/cli": "^0.73.1",
-    "@effect/eslint-plugin": "^0.3.2",
-    "@effect/language-service": "^0.73.1",
     "@effect/platform": "^0.94.2",
     "@effect/platform-node": "^0.104.1",
+    "@effect/tsgo": "^0.24.3",
     "@effect/vitest": "latest",
-    "@eslint/compat": "^2.0.2",
     "@hcengineering/account-client": "0.7.25",
     "@hcengineering/activity": "0.7.0",
     "@hcengineering/analytics": "0.7.3",
@@ -149,28 +153,23 @@
     "@types/express": "^5.0.6",
     "@types/node": "^25.1.0",
     "@types/ws": "^8.18.1",
-    "@typescript-eslint/parser": "^8.54.0",
+    "@typescript/native": "npm:typescript@^7.0.2",
     "@vitest/coverage-v8": "latest",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
+    "dpdm": "^4.2.0",
+    "dprint": "^0.55.2",
     "effect": "^3.19.15",
     "esbuild": "^0.27.2",
-    "eslint": "^9.39.2",
-    "eslint-import-resolver-typescript": "^4.4.4",
-    "eslint-plugin-functional": "^9.0.2",
-    "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-import-x": "^4.16.1",
-    "eslint-plugin-simple-import-sort": "^12.1.1",
-    "eslint-plugin-sort-destructure-keys": "^2.0.0",
     "fast-check": "^4.8.0",
     "husky": "^9.1.7",
     "jscpd": "^4.0.8",
     "lint-staged": "^16.2.7",
-    "madge": "^8.0.0",
+    "oxlint": "^1.76.0",
+    "oxlint-tsgolint": "^7.0.2001",
     "posthog-node": "^5.24.11",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.54.0",
+    "typescript-compiler-api": "npm:typescript@^5.9.3",
     "vitest": "latest"
   }
 }

@@ -22,17 +22,11 @@ const AmbiguousSpaceTypeMatchSchema = Schema.Struct({
   targetClass: ObjectClassName
 })
 
-const AmbiguousSpaceRoleMatchSchema = Schema.Struct({
-  id: RoleId,
-  name: NonEmptyString
-})
+const AmbiguousSpaceRoleMatchSchema = Schema.Struct({ id: RoleId, name: NonEmptyString })
 
-export class SpaceNotFoundError extends Schema.TaggedError<SpaceNotFoundError>()(
-  "SpaceNotFoundError",
-  {
-    identifier: NonEmptyString
-  }
-) {
+export class SpaceNotFoundError extends Schema.TaggedError<SpaceNotFoundError>()("SpaceNotFoundError", {
+  identifier: NonEmptyString
+}) {
   override get message(): string {
     return `Space '${this.identifier}' not found`
   }
@@ -53,12 +47,9 @@ export class SpaceIdentifierAmbiguousError extends Schema.TaggedError<SpaceIdent
   }
 }
 
-export class SpaceTypeNotFoundError extends Schema.TaggedError<SpaceTypeNotFoundError>()(
-  "SpaceTypeNotFoundError",
-  {
-    identifier: NonEmptyString
-  }
-) {
+export class SpaceTypeNotFoundError extends Schema.TaggedError<SpaceTypeNotFoundError>()("SpaceTypeNotFoundError", {
+  identifier: NonEmptyString
+}) {
   override get message(): string {
     return `Space type '${this.identifier}' not found`
   }
@@ -77,25 +68,19 @@ export class SpaceTypeIdentifierAmbiguousError extends Schema.TaggedError<SpaceT
   }
 }
 
-export class SpaceNotTypedError extends Schema.TaggedError<SpaceNotTypedError>()(
-  "SpaceNotTypedError",
-  {
-    id: SpaceId,
-    name: NonEmptyString
-  }
-) {
+export class SpaceNotTypedError extends Schema.TaggedError<SpaceNotTypedError>()("SpaceNotTypedError", {
+  id: SpaceId,
+  name: NonEmptyString
+}) {
   override get message(): string {
     return `Space '${this.name}' (${this.id}) is not typed; role members can only be changed on spaces with a SpaceType`
   }
 }
 
-export class SpaceRoleNotFoundError extends Schema.TaggedError<SpaceRoleNotFoundError>()(
-  "SpaceRoleNotFoundError",
-  {
-    identifier: NonEmptyString,
-    spaceType: SpaceTypeId
-  }
-) {
+export class SpaceRoleNotFoundError extends Schema.TaggedError<SpaceRoleNotFoundError>()("SpaceRoleNotFoundError", {
+  identifier: NonEmptyString,
+  spaceType: SpaceTypeId
+}) {
   override get message(): string {
     return `Role '${this.identifier}' not found in space type '${this.spaceType}'`
   }
@@ -117,12 +102,7 @@ export class SpaceRoleIdentifierAmbiguousError extends Schema.TaggedError<SpaceR
 
 export class SpaceRoleAssignmentsMalformedError extends Schema.TaggedError<SpaceRoleAssignmentsMalformedError>()(
   "SpaceRoleAssignmentsMalformedError",
-  {
-    space: SpaceId,
-    spaceType: SpaceTypeId,
-    targetClass: ObjectClassName,
-    reason: NonEmptyString
-  }
+  { space: SpaceId, spaceType: SpaceTypeId, targetClass: ObjectClassName, reason: NonEmptyString }
 ) {
   override get message(): string {
     return `Role assignments for space '${this.space}' and space type '${this.spaceType}' are malformed at '${this.targetClass}': ${this.reason}. Refusing to write role members to avoid access-control data loss.`

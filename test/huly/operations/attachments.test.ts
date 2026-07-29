@@ -47,98 +47,103 @@ import {
 // --- Mock Data Builders ---
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock builder
-const makeAttachment = (overrides?: Partial<HulyAttachment>): HulyAttachment => ({
-  _id: "att-1" as Ref<HulyAttachment>,
-  _class: attachment.class.Attachment,
-  space: "space-1" as Ref<Space>,
-  name: "test-file.pdf",
-  file: "blob-1" as Ref<Blob>,
-  type: "application/pdf",
-  size: 1024,
-  lastModified: 0,
-  pinned: false,
-  description: "A test file",
-  collection: "attachments",
-  attachedTo: "parent-1" as Ref<Doc>,
-  attachedToClass: "class-1" as Ref<Class<Doc>>,
-  modifiedBy: "user-1" as Doc["modifiedBy"],
-  modifiedOn: 0,
-  createdBy: "user-1" as Doc["createdBy"],
-  createdOn: 0,
-  ...overrides
-} as HulyAttachment)
+const makeAttachment = (overrides?: Partial<HulyAttachment>): HulyAttachment =>
+  ({
+    _id: "att-1" as Ref<HulyAttachment>,
+    _class: attachment.class.Attachment,
+    space: "space-1" as Ref<Space>,
+    name: "test-file.pdf",
+    file: "blob-1" as Ref<Blob>,
+    type: "application/pdf",
+    size: 1024,
+    lastModified: 0,
+    pinned: false,
+    description: "A test file",
+    collection: "attachments",
+    attachedTo: "parent-1" as Ref<Doc>,
+    attachedToClass: "class-1" as Ref<Class<Doc>>,
+    modifiedBy: "user-1" as Doc["modifiedBy"],
+    modifiedOn: 0,
+    createdBy: "user-1" as Doc["createdBy"],
+    createdOn: 0,
+    ...overrides
+  }) as HulyAttachment
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock builder
-const makeProject = (overrides?: Partial<HulyProject>): HulyProject => ({
-  _id: "project-1" as Ref<HulyProject>,
-  _class: tracker.class.Project,
-  space: "space-1" as Ref<Space>,
-  name: "Test Project",
-  identifier: "TEST",
-  sequence: 1,
-  defaultIssueStatus: "status-1" as Ref<Doc>,
-  defaultAssignee: undefined,
-  defaultTimeReportDay: 0,
-  modifiedBy: "user-1" as Doc["modifiedBy"],
-  modifiedOn: 0,
-  createdBy: "user-1" as Doc["createdBy"],
-  createdOn: 0,
-  archived: false,
-  private: false,
-  ...overrides
-} as HulyProject)
+const makeProject = (overrides?: Partial<HulyProject>): HulyProject =>
+  ({
+    _id: "project-1" as Ref<HulyProject>,
+    _class: tracker.class.Project,
+    space: "space-1" as Ref<Space>,
+    name: "Test Project",
+    identifier: "TEST",
+    sequence: 1,
+    defaultIssueStatus: "status-1" as Ref<Doc>,
+    defaultAssignee: undefined,
+    defaultTimeReportDay: 0,
+    modifiedBy: "user-1" as Doc["modifiedBy"],
+    modifiedOn: 0,
+    createdBy: "user-1" as Doc["createdBy"],
+    createdOn: 0,
+    archived: false,
+    private: false,
+    ...overrides
+  }) as HulyProject
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock builder
-const makeIssue = (overrides?: Partial<HulyIssue>): HulyIssue => ({
-  _id: "issue-1" as Ref<HulyIssue>,
-  _class: tracker.class.Issue,
-  space: "project-1" as Ref<HulyProject>,
-  title: "Test Issue",
-  identifier: "TEST-1",
-  number: 1,
-  status: "status-1" as Ref<Doc>,
-  priority: 0,
-  modifiedBy: "user-1" as Doc["modifiedBy"],
-  modifiedOn: 0,
-  createdBy: "user-1" as Doc["createdBy"],
-  createdOn: 0,
-  attachedTo: "parent-1" as Ref<Doc>,
-  attachedToClass: "class-1" as Ref<Class<Doc>>,
-  collection: "issues",
-  ...overrides
-} as HulyIssue)
+const makeIssue = (overrides?: Partial<HulyIssue>): HulyIssue =>
+  ({
+    _id: "issue-1" as Ref<HulyIssue>,
+    _class: tracker.class.Issue,
+    space: "project-1" as Ref<HulyProject>,
+    title: "Test Issue",
+    identifier: "TEST-1",
+    number: 1,
+    status: "status-1" as Ref<Doc>,
+    priority: 0,
+    modifiedBy: "user-1" as Doc["modifiedBy"],
+    modifiedOn: 0,
+    createdBy: "user-1" as Doc["createdBy"],
+    createdOn: 0,
+    attachedTo: "parent-1" as Ref<Doc>,
+    attachedToClass: "class-1" as Ref<Class<Doc>>,
+    collection: "issues",
+    ...overrides
+  }) as HulyIssue
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock builder
-const makeTeamspace = (overrides?: Partial<HulyTeamspace>): HulyTeamspace => ({
-  _id: "ts-1" as Ref<HulyTeamspace>,
-  _class: documentPlugin.class.Teamspace,
-  space: "space-1" as Ref<Space>,
-  name: "My Docs",
-  description: "Test teamspace",
-  archived: false,
-  private: false,
-  modifiedBy: "user-1" as Doc["modifiedBy"],
-  modifiedOn: 0,
-  createdBy: "user-1" as Doc["createdBy"],
-  createdOn: 0,
-  ...overrides
-} as HulyTeamspace)
+const makeTeamspace = (overrides?: Partial<HulyTeamspace>): HulyTeamspace =>
+  ({
+    _id: "ts-1" as Ref<HulyTeamspace>,
+    _class: documentPlugin.class.Teamspace,
+    space: "space-1" as Ref<Space>,
+    name: "My Docs",
+    description: "Test teamspace",
+    archived: false,
+    private: false,
+    modifiedBy: "user-1" as Doc["modifiedBy"],
+    modifiedOn: 0,
+    createdBy: "user-1" as Doc["createdBy"],
+    createdOn: 0,
+    ...overrides
+  }) as HulyTeamspace
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock builder
-const makeDocument = (overrides?: Partial<HulyDocument>): HulyDocument => ({
-  _id: "doc-1" as Ref<HulyDocument>,
-  _class: documentPlugin.class.Document,
-  space: "ts-1" as Ref<HulyTeamspace>,
-  title: "Test Doc",
-  content: null,
-  parent: documentPlugin.ids.NoParent,
-  rank: "0|aaa",
-  modifiedBy: "user-1" as Ref<Doc>,
-  modifiedOn: 0,
-  createdBy: "user-1" as Ref<Doc>,
-  createdOn: 0,
-  ...overrides
-} as HulyDocument)
+const makeDocument = (overrides?: Partial<HulyDocument>): HulyDocument =>
+  ({
+    _id: "doc-1" as Ref<HulyDocument>,
+    _class: documentPlugin.class.Document,
+    space: "ts-1" as Ref<HulyTeamspace>,
+    title: "Test Doc",
+    content: null,
+    parent: documentPlugin.ids.NoParent,
+    rank: "0|aaa",
+    modifiedBy: "user-1" as Ref<Doc>,
+    modifiedOn: 0,
+    createdBy: "user-1" as Ref<Doc>,
+    createdOn: 0,
+    ...overrides
+  }) as HulyDocument
 
 // --- Test Helpers ---
 
@@ -168,7 +173,7 @@ const createTestLayer = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       let filtered = [...attachments]
       if (q.attachedTo) {
-        filtered = filtered.filter(a => a.attachedTo === q.attachedTo)
+        filtered = filtered.filter((a) => a.attachedTo === q.attachedTo)
       }
       return Effect.succeed(toFindResult(filtered as Array<Doc>))
     }
@@ -176,7 +181,7 @@ const createTestLayer = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       let filtered = [...teamspaces]
       if (q.archived !== undefined) {
-        filtered = filtered.filter(ts => ts.archived === q.archived)
+        filtered = filtered.filter((ts) => ts.archived === q.archived)
       }
       return Effect.succeed(toFindResult(filtered as Array<Doc>))
     }
@@ -186,55 +191,53 @@ const createTestLayer = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === attachment.class.Attachment) {
       const q = query as Record<string, unknown>
-      const found = attachments.find(a => a._id === q._id)
+      const found = attachments.find((a) => a._id === q._id)
       return Effect.succeed(found)
     }
     if (_class === tracker.class.Project) {
       const q = query as Record<string, unknown>
-      const found = projects.find(p => p.identifier === q.identifier)
+      const found = projects.find((p) => p.identifier === q.identifier)
       return Effect.succeed(found)
     }
     if (_class === tracker.class.Issue) {
       const q = query as Record<string, unknown>
-      const found = issues.find(i =>
-        (q.identifier && i.identifier === q.identifier && i.space === q.space)
-        || (q.number !== undefined && i.number === q.number && i.space === q.space)
+      const found = issues.find(
+        (i) =>
+          (q.identifier && i.identifier === q.identifier && i.space === q.space) ||
+          (q.number !== undefined && i.number === q.number && i.space === q.space)
       )
       return Effect.succeed(found)
     }
     if (_class === documentPlugin.class.Teamspace) {
       const q = query as Record<string, unknown>
-      const found = teamspaces.find(ts =>
-        (q.name && ts.name === q.name)
-        || (q._id && ts._id === q._id)
-      )
+      const found = teamspaces.find((ts) => (q.name && ts.name === q.name) || (q._id && ts._id === q._id))
       return Effect.succeed(found)
     }
     if (_class === documentPlugin.class.Document) {
       const q = query as Record<string, unknown>
-      const found = documents.find(d =>
-        (q.space && q.title && d.space === q.space && d.title === q.title)
-        || (q.space && q._id && d.space === q.space && d._id === q._id)
+      const found = documents.find(
+        (d) =>
+          (q.space && q.title && d.space === q.space && d.title === q.title) ||
+          (q.space && q._id && d.space === q.space && d._id === q._id)
       )
       return Effect.succeed(found)
     }
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
-  const updateDocImpl: HulyClientOperations["updateDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown, operations: unknown) => {
-      if (config.captureUpdateDoc) {
-        config.captureUpdateDoc.operations = operations as Record<string, unknown>
-      }
-      return Effect.succeed({} as never)
-    }
-  ) as HulyClientOperations["updateDoc"]
-
-  const removeDocImpl: HulyClientOperations["removeDoc"] = ((
+  const updateDocImpl: HulyClientOperations["updateDoc"] = ((
     _class: unknown,
     _space: unknown,
-    objectId: unknown
+    _objectId: unknown,
+    operations: unknown
   ) => {
+    if (config.captureUpdateDoc) {
+      config.captureUpdateDoc.operations = operations as Record<string, unknown>
+    }
+    return Effect.succeed({} as never)
+  }) as HulyClientOperations["updateDoc"]
+
+  const removeDocImpl: HulyClientOperations["removeDoc"] = ((_class: unknown, _space: unknown, objectId: unknown) => {
     if (config.captureRemoveDoc) {
       config.captureRemoveDoc.id = objectId as string
     }
@@ -263,15 +266,16 @@ const createTestLayer = (config: MockConfig) => {
     addCollection: addCollectionImpl
   })
 
-  const storageLayer = config.downloadUnavailable === true
-    ? Layer.succeed(HulyStorageClient, {
-      uploadFile: () => Effect.die(new Error("upload not used by this read test")),
-      getFileUrl: config.getFileUrl ?? ((blobId) => `https://test.huly.io/files?file=${blobId}`)
-    })
-    : HulyStorageClient.testLayer({
-      ...(config.getFileUrl === undefined ? {} : { getFileUrl: config.getFileUrl }),
-      ...(config.downloadFile === undefined ? {} : { downloadFile: config.downloadFile })
-    })
+  const storageLayer =
+    config.downloadUnavailable === true
+      ? Layer.succeed(HulyStorageClient, {
+          uploadFile: () => Effect.die(new Error("upload not used by this read test")),
+          getFileUrl: config.getFileUrl ?? ((blobId) => `https://test.huly.io/files?file=${blobId}`)
+        })
+      : HulyStorageClient.testLayer({
+          ...(config.getFileUrl === undefined ? {} : { getFileUrl: config.getFileUrl }),
+          ...(config.downloadFile === undefined ? {} : { downloadFile: config.downloadFile })
+        })
 
   return Layer.merge(clientLayer, storageLayer)
 }
@@ -280,7 +284,7 @@ const createTestLayer = (config: MockConfig) => {
 
 describe("listAttachments", () => {
   it.effect("returns attachment summaries", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const attachments = [
         makeAttachment({
           _id: "att-1" as Ref<HulyAttachment>,
@@ -301,10 +305,11 @@ describe("listAttachments", () => {
       expect(assertAt(result, 0).name).toBe("file1.pdf")
       expect(assertAt(result, 0).metadata).toEqual({ source: "summary" })
       expect(assertAt(result, 1).name).toBe("file2.png")
-    }))
+    })
+  )
 
   it.effect("returns empty array when no attachments", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({})
 
       const result = yield* listAttachments({
@@ -313,10 +318,11 @@ describe("listAttachments", () => {
       }).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("handles null pinned and description via nullish coalescing", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const att = makeAttachment({
         _id: "att-null" as Ref<HulyAttachment>,
         attachedTo: "parent-1" as Ref<Doc>,
@@ -335,12 +341,13 @@ describe("listAttachments", () => {
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).pinned).toBeUndefined()
       expect(assertAt(result, 0).description).toBeUndefined()
-    }))
+    })
+  )
 })
 
 describe("getAttachment", () => {
   it.effect("returns full attachment with URL", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const att = makeAttachment({
         _id: "att-1" as Ref<HulyAttachment>,
         name: "report.pdf",
@@ -361,10 +368,11 @@ describe("getAttachment", () => {
       expect(result.readonly).toBe(true)
       expect(result.metadata).toEqual({ source: "detail" })
       expect(result.url).toContain("blob-123")
-    }))
+    })
+  )
 
   it.effect("fails with AttachmentNotFoundError when not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({})
 
       const error = yield* Effect.flip(
@@ -373,10 +381,11 @@ describe("getAttachment", () => {
 
       expect(error._tag).toBe("AttachmentNotFoundError")
       expect((error as AttachmentNotFoundError).attachmentId).toBe("nonexistent")
-    }))
+    })
+  )
 
   it.effect("handles null pinned and description via nullish coalescing", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const att = makeAttachment({
         _id: "att-null" as Ref<HulyAttachment>,
         file: "blob-null" as Ref<Blob>,
@@ -396,10 +405,11 @@ describe("getAttachment", () => {
       expect(result.id).toBe("att-null")
       expect(result.pinned).toBeUndefined()
       expect(result.description).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("maps absent optional SDK fields defensively", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const att = makeAttachment({
         _id: "att-optional" as Ref<HulyAttachment>,
         file: "blob-optional" as Ref<Blob>,
@@ -421,12 +431,13 @@ describe("getAttachment", () => {
       expect(result.description).toBeUndefined()
       expect(result.createdOn).toBeUndefined()
       expect(result.url).toBeUndefined()
-    }))
+    })
+  )
 })
 
 describe("addAttachment", () => {
   it.effect("uploads and attaches file via base64 data", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const testLayer = createTestLayer({ captureAddCollection })
 
@@ -447,10 +458,11 @@ describe("addAttachment", () => {
       expect(result.url.length).toBeGreaterThan(0)
       expect(captureAddCollection.attributes?.name).toBe("test.txt")
       expect(captureAddCollection.attributes?.type).toBe("text/plain")
-    }))
+    })
+  )
 
   it.effect("includes description in attachment data when provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
       const testLayer = createTestLayer({ captureAddCollection })
 
@@ -465,10 +477,11 @@ describe("addAttachment", () => {
       }).pipe(Effect.provide(testLayer))
 
       expect(captureAddCollection.attributes?.description).toBe("My attachment")
-    }))
+    })
+  )
 
   it.effect("dies when no file source is provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({})
 
       // The params schema guarantees one of filePath/fileUrl/data; calling the
@@ -485,10 +498,11 @@ describe("addAttachment", () => {
       if (exit._tag === "Failure") {
         expect(Cause.isDie(exit.cause)).toBe(true)
       }
-    }))
+    })
+  )
 
   it.effect("builds fileUrl source params and rejects a blocked URL", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({})
 
       // toFileSourceParams builds the fileUrl tag; the SSRF guard then rejects the
@@ -505,10 +519,11 @@ describe("addAttachment", () => {
       )
 
       expect(error._tag).toBe("FileFetchError")
-    }))
+    })
+  )
 
   it.effect("uploads file via filePath (covers toFileSourceParams filePath branch)", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const tmpDir = os.tmpdir()
       const tmpFile = path.join(tmpDir, `hulymcp-test-${0}.txt`)
       fs.writeFileSync(tmpFile, "file content for test")
@@ -530,12 +545,13 @@ describe("addAttachment", () => {
       } finally {
         fs.unlinkSync(tmpFile)
       }
-    }))
+    })
+  )
 })
 
 describe("updateAttachment", () => {
   it.effect("updates attachment description", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const att = makeAttachment({ _id: "att-1" as Ref<HulyAttachment> })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const testLayer = createTestLayer({ attachments: [att], captureUpdateDoc })
@@ -548,71 +564,72 @@ describe("updateAttachment", () => {
       expect(result.attachmentId).toBe("att-1")
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.description).toBe("Updated description")
-    }))
+    })
+  )
 
   it.effect("clears description with null", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const att = makeAttachment({ _id: "att-1" as Ref<HulyAttachment> })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const testLayer = createTestLayer({ attachments: [att], captureUpdateDoc })
 
-      const result = yield* updateAttachment({
-        attachmentId: attachmentBrandId("att-1"),
-        description: null
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* updateAttachment({ attachmentId: attachmentBrandId("att-1"), description: null }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.description).toBe("")
-    }))
+    })
+  )
 
   it.effect("updates pinned status", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const att = makeAttachment({ _id: "att-1" as Ref<HulyAttachment> })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const testLayer = createTestLayer({ attachments: [att], captureUpdateDoc })
 
-      const result = yield* updateAttachment({
-        attachmentId: attachmentBrandId("att-1"),
-        pinned: true
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* updateAttachment({ attachmentId: attachmentBrandId("att-1"), pinned: true }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.updated).toBe(true)
       expect(captureUpdateDoc.operations?.pinned).toBe(true)
-    }))
+    })
+  )
 
   it.effect("fails when no fields provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const att = makeAttachment({ _id: "att-1" as Ref<HulyAttachment> })
       const testLayer = createTestLayer({ attachments: [att] })
 
       const error = yield* Effect.flip(
-        updateAttachment({ attachmentId: attachmentBrandId("att-1") }).pipe(
-          Effect.provide(testLayer)
-        )
+        updateAttachment({ attachmentId: attachmentBrandId("att-1") }).pipe(Effect.provide(testLayer))
       )
 
       expect(error._tag).toBe("NoUpdateFieldsError")
-    }))
+    })
+  )
 
   it.effect("fails with AttachmentNotFoundError when not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({})
 
       const error = yield* Effect.flip(
-        updateAttachment({ attachmentId: attachmentBrandId("nonexistent"), description: attachmentDescription("x") })
-          .pipe(
-            Effect.provide(testLayer)
-          )
+        updateAttachment({
+          attachmentId: attachmentBrandId("nonexistent"),
+          description: attachmentDescription("x")
+        }).pipe(Effect.provide(testLayer))
       )
 
       expect(error._tag).toBe("AttachmentNotFoundError")
       expect((error as AttachmentNotFoundError).attachmentId).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("deleteAttachment", () => {
   it.effect("deletes attachment", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const att = makeAttachment({ _id: "att-1" as Ref<HulyAttachment> })
       const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
       const testLayer = createTestLayer({ attachments: [att], captureRemoveDoc })
@@ -624,10 +641,11 @@ describe("deleteAttachment", () => {
       expect(result.attachmentId).toBe("att-1")
       expect(result.deleted).toBe(true)
       expect(captureRemoveDoc.id).toBe("att-1")
-    }))
+    })
+  )
 
   it.effect("fails with AttachmentNotFoundError when not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({})
 
       const error = yield* Effect.flip(
@@ -636,43 +654,44 @@ describe("deleteAttachment", () => {
 
       expect(error._tag).toBe("AttachmentNotFoundError")
       expect((error as AttachmentNotFoundError).attachmentId).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("pinAttachment", () => {
   it.effect("pins attachment", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const att = makeAttachment({ _id: "att-1" as Ref<HulyAttachment>, pinned: false })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const testLayer = createTestLayer({ attachments: [att], captureUpdateDoc })
 
-      const result = yield* pinAttachment({
-        attachmentId: attachmentBrandId("att-1"),
-        pinned: true
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* pinAttachment({ attachmentId: attachmentBrandId("att-1"), pinned: true }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.attachmentId).toBe("att-1")
       expect(result.pinned).toBe(true)
       expect(captureUpdateDoc.operations?.pinned).toBe(true)
-    }))
+    })
+  )
 
   it.effect("unpins attachment", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const att = makeAttachment({ _id: "att-1" as Ref<HulyAttachment>, pinned: true })
       const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
       const testLayer = createTestLayer({ attachments: [att], captureUpdateDoc })
 
-      const result = yield* pinAttachment({
-        attachmentId: attachmentBrandId("att-1"),
-        pinned: false
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* pinAttachment({ attachmentId: attachmentBrandId("att-1"), pinned: false }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.pinned).toBe(false)
       expect(captureUpdateDoc.operations?.pinned).toBe(false)
-    }))
+    })
+  )
 
   it.effect("fails with AttachmentNotFoundError when not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({})
 
       const error = yield* Effect.flip(
@@ -680,12 +699,13 @@ describe("pinAttachment", () => {
       )
 
       expect(error._tag).toBe("AttachmentNotFoundError")
-    }))
+    })
+  )
 })
 
 describe("downloadAttachment", () => {
   it.effect("returns download URL and metadata", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const att = makeAttachment({
         _id: "att-1" as Ref<HulyAttachment>,
         name: "report.pdf",
@@ -704,10 +724,11 @@ describe("downloadAttachment", () => {
       expect(result.name).toBe("report.pdf")
       expect(result.type).toBe("application/pdf")
       expect(result.size).toBe(4096)
-    }))
+    })
+  )
 
   it.effect("fails with AttachmentNotFoundError when not found", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({})
 
       const error = yield* Effect.flip(
@@ -715,7 +736,8 @@ describe("downloadAttachment", () => {
       )
 
       expect(error._tag).toBe("AttachmentNotFoundError")
-    }))
+    })
+  )
 })
 
 describe("readAttachmentContent", () => {
@@ -731,7 +753,7 @@ describe("readAttachmentContent", () => {
     })
 
   it.effect("returns supported image content with actual byte metadata", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const requested: Array<string> = []
       const testLayer = createTestLayer({
         attachments: [makeImageAttachment({ size: 1 })],
@@ -741,25 +763,21 @@ describe("readAttachmentContent", () => {
         }
       })
 
-      const result = yield* readAttachmentContent({
-        attachmentId: attachmentBrandId("att-image")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* readAttachmentContent({ attachmentId: attachmentBrandId("att-image") }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(requested).toEqual(["blob-image"])
       expect(result).toEqual({
         _tag: "ImageAttachmentContent",
-        metadata: {
-          attachmentId: "att-image",
-          name: "screenshot.png",
-          type: "image/png",
-          size: imageBytes.length
-        },
+        metadata: { attachmentId: "att-image", name: "screenshot.png", type: "image/png", size: imageBytes.length },
         data: imageBytes.toString("base64")
       })
-    }))
+    })
+  )
 
   it.effect("reports an empty image download as unavailable instead of throwing", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({
         attachments: [makeImageAttachment({ size: 0 })],
         downloadFile: () => Effect.succeed(Buffer.alloc(0))
@@ -771,10 +789,11 @@ describe("readAttachmentContent", () => {
 
       expect(error._tag).toBe("AttachmentContentUnavailableError")
       expect(error.message).toContain("downloaded image data is empty")
-    }))
+    })
+  )
 
   it.effect("rejects unsupported image MIME types before download", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const requested: Array<string> = []
       const testLayer = createTestLayer({
         attachments: [makeImageAttachment({ type: "image/svg+xml" })],
@@ -791,10 +810,11 @@ describe("readAttachmentContent", () => {
       expect(error._tag).toBe("AttachmentContentTypeUnsupportedError")
       expect(error.message).toContain("download_attachment")
       expect(requested).toEqual([])
-    }))
+    })
+  )
 
   it.effect("reports invalid stored attachment metadata before download", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const requested: Array<string> = []
       const testLayer = createTestLayer({
         attachments: [makeImageAttachment({ size: -1 })],
@@ -811,10 +831,11 @@ describe("readAttachmentContent", () => {
       expect(error._tag).toBe("AttachmentContentUnavailableError")
       expect(error.message).toContain("stored attachment metadata is invalid")
       expect(requested).toEqual([])
-    }))
+    })
+  )
 
   it.effect("rejects oversized declared content before download", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const requested: Array<string> = []
       const testLayer = createTestLayer({
         attachments: [makeImageAttachment({ size: READ_ATTACHMENT_CONTENT_MAX_BYTES + 1 })],
@@ -831,10 +852,11 @@ describe("readAttachmentContent", () => {
       expect(error._tag).toBe("AttachmentContentTooLargeError")
       expect(error.message).toContain("download_attachment")
       expect(requested).toEqual([])
-    }))
+    })
+  )
 
   it.effect("rejects oversized downloaded content", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({
         attachments: [makeImageAttachment()],
         downloadFile: () => Effect.succeed(Buffer.alloc(READ_ATTACHMENT_CONTENT_MAX_BYTES + 1))
@@ -846,33 +868,27 @@ describe("readAttachmentContent", () => {
 
       expect(error._tag).toBe("AttachmentContentTooLargeError")
       expect(error.message).toContain("download_attachment")
-    }))
+    })
+  )
 
   it.effect("reports unavailable authenticated storage downloads as a typed failure", () =>
-    Effect.gen(function*() {
-      const testLayer = createTestLayer({
-        attachments: [makeImageAttachment()],
-        downloadUnavailable: true
-      })
+    Effect.gen(function* () {
+      const testLayer = createTestLayer({ attachments: [makeImageAttachment()], downloadUnavailable: true })
 
       const error = yield* Effect.flip(
         readAttachmentContent({ attachmentId: attachmentBrandId("att-image") }).pipe(Effect.provide(testLayer))
       )
 
       expect(error._tag).toBe("AttachmentContentUnavailableError")
-    }))
+    })
+  )
 
   it.effect("redacts storage adapter failure details from the typed attachment error", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayer({
         attachments: [makeImageAttachment()],
         downloadFile: () =>
-          Effect.fail(
-            new FileFetchError({
-              fileUrl: "blob-image",
-              reason: "S3 credential secret-value rejected"
-            })
-          )
+          Effect.fail(new FileFetchError({ fileUrl: "blob-image", reason: "S3 credential secret-value rejected" }))
       })
 
       const error = yield* Effect.flip(
@@ -882,12 +898,13 @@ describe("readAttachmentContent", () => {
       expect(error._tag).toBe("AttachmentContentUnavailableError")
       expect(error.message).toContain("authenticated storage download failed")
       expect(error.message).not.toContain("secret-value")
-    }))
+    })
+  )
 })
 
 describe("addIssueAttachment", () => {
   it.effect("uploads and attaches file to issue", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject({ _id: "project-1" as Ref<HulyProject>, identifier: "TEST" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -896,11 +913,7 @@ describe("addIssueAttachment", () => {
         space: "project-1" as Ref<HulyProject>
       })
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
-      const testLayer = createTestLayer({
-        projects: [project],
-        issues: [issue],
-        captureAddCollection
-      })
+      const testLayer = createTestLayer({ projects: [project], issues: [issue], captureAddCollection })
 
       const result = yield* addIssueAttachment({
         project: projectIdentifier("TEST"),
@@ -918,12 +931,13 @@ describe("addIssueAttachment", () => {
       expect(result.blobId.length).toBeGreaterThan(0)
       expect(captureAddCollection.attributes?.name).toBe("screenshot.png")
       expect(captureAddCollection.attributes?.type).toBe("image/png")
-    }))
+    })
+  )
 })
 
 describe("addDocumentAttachment", () => {
   it.effect("uploads and attaches file to document", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
       const doc = makeDocument({
         _id: "doc-1" as Ref<HulyDocument>,
@@ -931,11 +945,7 @@ describe("addDocumentAttachment", () => {
         space: "ts-1" as Ref<HulyTeamspace>
       })
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
-      const testLayer = createTestLayer({
-        teamspaces: [teamspace],
-        documents: [doc],
-        captureAddCollection
-      })
+      const testLayer = createTestLayer({ teamspaces: [teamspace], documents: [doc], captureAddCollection })
 
       const result = yield* addDocumentAttachment({
         teamspace: teamspaceIdentifier("My Docs"),
@@ -953,5 +963,6 @@ describe("addDocumentAttachment", () => {
       expect(result.blobId.length).toBeGreaterThan(0)
       expect(captureAddCollection.attributes?.name).toBe("data.csv")
       expect(captureAddCollection.attributes?.type).toBe("text/csv")
-    }))
+    })
+  )
 })

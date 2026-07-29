@@ -119,10 +119,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       }
       const q = query as Record<string, unknown>
       // Filter by attachedTo (issue id)
-      let filtered = messages.filter(m =>
-        m.attachedTo === q.attachedTo
-        && m.attachedToClass === q.attachedToClass
-      )
+      let filtered = messages.filter((m) => m.attachedTo === q.attachedTo && m.attachedToClass === q.attachedToClass)
       // Apply sorting if specified
       const opts = options as { sort?: Record<string, number> } | undefined
       if (opts?.sort?.createdOn !== undefined) {
@@ -137,21 +134,22 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === tracker.class.Project) {
       const identifier = (query as Record<string, unknown>).identifier as string
-      const found = projects.find(p => p.identifier === identifier)
+      const found = projects.find((p) => p.identifier === identifier)
       return Effect.succeed(found)
     }
     if (_class === tracker.class.Issue) {
       const q = query as Record<string, unknown>
-      const found = issues.find(i =>
-        (q.identifier && i.identifier === q.identifier)
-        || (q.number && i.number === q.number)
-        || (q.space && i.space === q.space && !q.identifier && !q.number)
+      const found = issues.find(
+        (i) =>
+          (q.identifier && i.identifier === q.identifier) ||
+          (q.number && i.number === q.number) ||
+          (q.space && i.space === q.space && !q.identifier && !q.number)
       )
       return Effect.succeed(found)
     }
     if (_class === chunter.class.ChatMessage) {
       const q = query as Record<string, unknown>
-      const found = messages.find(m => m._id === q._id && m.attachedTo === q.attachedTo)
+      const found = messages.find((m) => m._id === q._id && m.attachedTo === q.attachedTo)
       return Effect.succeed(found)
     }
     return Effect.succeed(undefined)
@@ -173,20 +171,19 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     return Effect.succeed((id ?? "new-comment-id") as Ref<Doc>)
   }) as HulyClientOperations["addCollection"]
 
-  const updateDocImpl: HulyClientOperations["updateDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown, operations: unknown) => {
-      if (config.captureUpdateDoc) {
-        config.captureUpdateDoc.operations = operations as Record<string, unknown>
-      }
-      return Effect.succeed({} as never)
-    }
-  ) as HulyClientOperations["updateDoc"]
-
-  const removeDocImpl: HulyClientOperations["removeDoc"] = ((
+  const updateDocImpl: HulyClientOperations["updateDoc"] = ((
     _class: unknown,
     _space: unknown,
-    objectId: unknown
+    _objectId: unknown,
+    operations: unknown
   ) => {
+    if (config.captureUpdateDoc) {
+      config.captureUpdateDoc.operations = operations as Record<string, unknown>
+    }
+    return Effect.succeed({} as never)
+  }) as HulyClientOperations["updateDoc"]
+
+  const removeDocImpl: HulyClientOperations["removeDoc"] = ((_class: unknown, _space: unknown, objectId: unknown) => {
     if (config.captureRemoveDoc) {
       config.captureRemoveDoc.id = objectId as string
     }
@@ -207,7 +204,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
 describe("listComments", () => {
   describe("basic functionality", () => {
     it.effect("returns comments for an issue", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
         const issue = makeIssue({
           _id: "issue-1" as Ref<HulyIssue>,
@@ -230,11 +227,7 @@ describe("listComments", () => {
           })
         ]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          messages
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages })
 
         const result = yield* listComments({
           project: projectIdentifier("TEST"),
@@ -245,18 +238,15 @@ describe("listComments", () => {
         // Sorted by createdOn ascending (oldest first)
         expect(assertAt(result, 0).body).toBe("First comment")
         expect(assertAt(result, 1).body).toBe("Second comment")
-      }))
+      })
+    )
 
     it.effect("returns empty array when issue has no comments", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          messages: []
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages: [] })
 
         const result = yield* listComments({
           project: projectIdentifier("TEST"),
@@ -264,10 +254,11 @@ describe("listComments", () => {
         }).pipe(Effect.provide(testLayer))
 
         expect(result).toHaveLength(0)
-      }))
+      })
+    )
 
     it.effect("transforms message to comment format", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
         const messages = [
@@ -282,11 +273,7 @@ describe("listComments", () => {
           })
         ]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          messages
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages })
 
         const result = yield* listComments({
           project: projectIdentifier("TEST"),
@@ -299,12 +286,13 @@ describe("listComments", () => {
         expect(assertAt(result, 0).createdOn).toBe(1706500000000)
         expect(assertAt(result, 0).modifiedOn).toBe(1706600000000)
         expect(assertAt(result, 0).editedOn).toBe(1706550000000)
-      }))
+      })
+    )
   })
 
   describe("identifier parsing", () => {
     it.effect("finds issue by full identifier HULY-123", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ _id: "proj-huly" as Ref<HulyProject>, identifier: "HULY" })
         const issue = makeIssue({
           _id: "issue-huly" as Ref<HulyIssue>,
@@ -312,18 +300,9 @@ describe("listComments", () => {
           number: 123,
           space: "proj-huly" as Ref<HulyProject>
         })
-        const messages = [
-          makeChatMessage({
-            message: "Found by full ID",
-            attachedTo: "issue-huly" as Ref<Doc>
-          })
-        ]
+        const messages = [makeChatMessage({ message: "Found by full ID", attachedTo: "issue-huly" as Ref<Doc> })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          messages
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages })
 
         const result = yield* listComments({
           project: projectIdentifier("HULY"),
@@ -331,10 +310,11 @@ describe("listComments", () => {
         }).pipe(Effect.provide(testLayer))
 
         expect(result).toHaveLength(1)
-      }))
+      })
+    )
 
     it.effect("finds issue by numeric identifier 42", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ _id: "proj-test" as Ref<HulyProject>, identifier: "TEST" })
         const issue = makeIssue({
           _id: "issue-42" as Ref<HulyIssue>,
@@ -350,11 +330,7 @@ describe("listComments", () => {
           })
         ]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          messages
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages })
 
         const result = yield* listComments({
           project: projectIdentifier("TEST"),
@@ -364,10 +340,11 @@ describe("listComments", () => {
         expect(result).toHaveLength(1)
         expect(assertAt(result, 0).id).toBe("msg-42")
         expect(assertAt(result, 0).body).toBe("Found by number")
-      }))
+      })
+    )
 
     it.effect("handles lowercase identifier test-5", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ _id: "proj-test" as Ref<HulyProject>, identifier: "TEST" })
         const issue = makeIssue({
           _id: "issue-5" as Ref<HulyIssue>,
@@ -375,18 +352,9 @@ describe("listComments", () => {
           number: 5,
           space: "proj-test" as Ref<HulyProject>
         })
-        const messages = [
-          makeChatMessage({
-            message: "Lowercase match",
-            attachedTo: "issue-5" as Ref<Doc>
-          })
-        ]
+        const messages = [makeChatMessage({ message: "Lowercase match", attachedTo: "issue-5" as Ref<Doc> })]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          messages
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages })
 
         const result = yield* listComments({
           project: projectIdentifier("TEST"),
@@ -394,12 +362,13 @@ describe("listComments", () => {
         }).pipe(Effect.provide(testLayer))
 
         expect(result).toHaveLength(1)
-      }))
+      })
+    )
   })
 
   describe("limit handling", () => {
     it.effect("uses default limit of 50", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
 
@@ -412,16 +381,16 @@ describe("listComments", () => {
           captureMessageQuery: captureQuery
         })
 
-        yield* listComments({
-          project: projectIdentifier("TEST"),
-          issueIdentifier: issueIdentifier("TEST-1")
-        }).pipe(Effect.provide(testLayer))
+        yield* listComments({ project: projectIdentifier("TEST"), issueIdentifier: issueIdentifier("TEST-1") }).pipe(
+          Effect.provide(testLayer)
+        )
 
         expect(captureQuery.options?.limit).toBe(50)
-      }))
+      })
+    )
 
     it.effect("enforces max limit of 200", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
 
@@ -441,10 +410,11 @@ describe("listComments", () => {
         }).pipe(Effect.provide(testLayer))
 
         expect(captureQuery.options?.limit).toBe(200)
-      }))
+      })
+    )
 
     it.effect("uses provided limit when under max", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
 
@@ -464,57 +434,50 @@ describe("listComments", () => {
         }).pipe(Effect.provide(testLayer))
 
         expect(captureQuery.options?.limit).toBe(25)
-      }))
+      })
+    )
   })
 
   describe("error handling", () => {
     it.effect("returns ProjectNotFoundError when project doesn't exist", () =>
-      Effect.gen(function*() {
-        const testLayer = createTestLayerWithMocks({
-          projects: [],
-          issues: [],
-          messages: []
-        })
+      Effect.gen(function* () {
+        const testLayer = createTestLayerWithMocks({ projects: [], issues: [], messages: [] })
 
         const error = yield* Effect.flip(
-          listComments({
-            project: projectIdentifier("NONEXISTENT"),
-            issueIdentifier: issueIdentifier("1")
-          }).pipe(Effect.provide(testLayer))
+          listComments({ project: projectIdentifier("NONEXISTENT"), issueIdentifier: issueIdentifier("1") }).pipe(
+            Effect.provide(testLayer)
+          )
         )
 
         expect(error._tag).toBe("ProjectNotFoundError")
         expect((error as ProjectNotFoundError).identifier).toBe("NONEXISTENT")
-      }))
+      })
+    )
 
     it.effect("returns IssueNotFoundError when issue doesn't exist", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [],
-          messages: []
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [], messages: [] })
 
         const error = yield* Effect.flip(
-          listComments({
-            project: projectIdentifier("TEST"),
-            issueIdentifier: issueIdentifier("TEST-999")
-          }).pipe(Effect.provide(testLayer))
+          listComments({ project: projectIdentifier("TEST"), issueIdentifier: issueIdentifier("TEST-999") }).pipe(
+            Effect.provide(testLayer)
+          )
         )
 
         expect(error._tag).toBe("IssueNotFoundError")
         expect((error as IssueNotFoundError).identifier).toBe("TEST-999")
         expect((error as IssueNotFoundError).project).toBe("TEST")
-      }))
+      })
+    )
   })
 })
 
 describe("addComment", () => {
   describe("basic functionality", () => {
     it.effect("adds a comment to an issue", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
         const issue = makeIssue({
           _id: "issue-1" as Ref<HulyIssue>,
@@ -525,11 +488,7 @@ describe("addComment", () => {
 
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          captureAddCollection
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], captureAddCollection })
 
         const result = yield* addComment({
           project: projectIdentifier("TEST"),
@@ -542,20 +501,17 @@ describe("addComment", () => {
         expect(captureAddCollection.attributes?.message).toBe(
           markdownToMarkupString("This is my new comment", testMarkupUrlConfig)
         )
-      }))
+      })
+    )
 
     it.effect("supports markdown in comment body", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
 
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          captureAddCollection
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], captureAddCollection })
 
         yield* addComment({
           project: projectIdentifier("TEST"),
@@ -566,49 +522,38 @@ describe("addComment", () => {
         const markdownBody = "# Heading\n\n- Item 1\n- Item 2\n\n```js\nconsole.log('test');\n```"
         const stored = captureAddCollection.attributes?.message as string
         expect(stored).toBe(markdownToMarkupString(markdownBody, testMarkupUrlConfig))
-      }))
+      })
+    )
 
     it.effect("preserves native references in added comment body", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          captureAddCollection
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], captureAddCollection })
 
         yield* addComment({
           project: projectIdentifier("TEST"),
           issueIdentifier: issueIdentifier("TEST-1"),
-          body:
-            "See [TEST-1](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-1&label=TEST-1)."
+          body: "See [TEST-1](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-1&label=TEST-1)."
         }).pipe(Effect.provide(testLayer))
 
         expect(capturedMarkupReferenceNodes(String(captureAddCollection.attributes?.message))).toContainEqual({
           type: "reference",
-          attrs: {
-            id: "issue-1",
-            objectclass: "tracker:class:Issue",
-            label: "TEST-1"
-          }
+          attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "TEST-1" }
         })
-      }))
+      })
+    )
 
     it.effect("returns comment ID and issue identifier", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "HULY" })
         const issue = makeIssue({ identifier: "HULY-42", number: 42 })
 
         const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          captureAddCollection
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], captureAddCollection })
 
         const result = yield* addComment({
           project: projectIdentifier("HULY"),
@@ -620,16 +565,14 @@ describe("addComment", () => {
         expect(result.commentId.length).toBeGreaterThan(0)
         expect(result.issueIdentifier).toBe("HULY-42")
         expect(captureAddCollection.id).toBe(result.commentId)
-      }))
+      })
+    )
   })
 
   describe("error handling", () => {
     it.effect("returns ProjectNotFoundError when project doesn't exist", () =>
-      Effect.gen(function*() {
-        const testLayer = createTestLayerWithMocks({
-          projects: [],
-          issues: []
-        })
+      Effect.gen(function* () {
+        const testLayer = createTestLayerWithMocks({ projects: [], issues: [] })
 
         const error = yield* Effect.flip(
           addComment({
@@ -641,16 +584,14 @@ describe("addComment", () => {
 
         expect(error._tag).toBe("ProjectNotFoundError")
         expect((error as ProjectNotFoundError).identifier).toBe("NONEXISTENT")
-      }))
+      })
+    )
 
     it.effect("returns IssueNotFoundError when issue doesn't exist", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: []
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [] })
 
         const error = yield* Effect.flip(
           addComment({
@@ -663,14 +604,15 @@ describe("addComment", () => {
         expect(error._tag).toBe("IssueNotFoundError")
         expect((error as IssueNotFoundError).identifier).toBe("TEST-999")
         expect((error as IssueNotFoundError).project).toBe("TEST")
-      }))
+      })
+    )
   })
 })
 
 describe("updateComment", () => {
   describe("basic functionality", () => {
     it.effect("updates an existing comment", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
         const issue = makeIssue({
           _id: "issue-1" as Ref<HulyIssue>,
@@ -688,12 +630,7 @@ describe("updateComment", () => {
 
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          messages,
-          captureUpdateDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages, captureUpdateDoc })
 
         const before = yield* Clock.currentTimeMillis
 
@@ -715,10 +652,11 @@ describe("updateComment", () => {
         const editedOn = captureUpdateDoc.operations?.editedOn as number
         expect(editedOn).toBeGreaterThanOrEqual(before)
         expect(editedOn).toBeLessThanOrEqual(after)
-      }))
+      })
+    )
 
     it.effect("sets editedOn timestamp", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
         const messages = [
@@ -731,12 +669,7 @@ describe("updateComment", () => {
 
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          messages,
-          captureUpdateDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages, captureUpdateDoc })
 
         const before = yield* Clock.currentTimeMillis
 
@@ -752,10 +685,11 @@ describe("updateComment", () => {
         const editedOn = captureUpdateDoc.operations?.editedOn as number
         expect(editedOn).toBeGreaterThanOrEqual(before)
         expect(editedOn).toBeLessThanOrEqual(after)
-      }))
+      })
+    )
 
     it.effect("supports markdown in updated body", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
         const messages = [
@@ -768,12 +702,7 @@ describe("updateComment", () => {
 
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          messages,
-          captureUpdateDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages, captureUpdateDoc })
 
         yield* updateComment({
           project: projectIdentifier("TEST"),
@@ -785,10 +714,11 @@ describe("updateComment", () => {
         expect(captureUpdateDoc.operations?.message).toBe(
           markdownToMarkupString("**Bold** and *italic*", testMarkupUrlConfig)
         )
-      }))
+      })
+    )
 
     it.effect("preserves native references in updated comment body", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
         const messages = [
@@ -800,33 +730,24 @@ describe("updateComment", () => {
         ]
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          messages,
-          captureUpdateDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages, captureUpdateDoc })
 
         yield* updateComment({
           project: projectIdentifier("TEST"),
           issueIdentifier: issueIdentifier("TEST-1"),
           commentId: commentBrandId("comment-1"),
-          body:
-            "See [TEST-2](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-2&label=TEST-2)."
+          body: "See [TEST-2](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AIssue&_id=issue-2&label=TEST-2)."
         }).pipe(Effect.provide(testLayer))
 
         expect(capturedMarkupReferenceNodes(String(captureUpdateDoc.operations?.message))).toContainEqual({
           type: "reference",
-          attrs: {
-            id: "issue-2",
-            objectclass: "tracker:class:Issue",
-            label: "TEST-2"
-          }
+          attrs: { id: "issue-2", objectclass: "tracker:class:Issue", label: "TEST-2" }
         })
-      }))
+      })
+    )
 
     it.effect("returns updated: false when body is unchanged", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
         const issue = makeIssue({
           _id: "issue-1" as Ref<HulyIssue>,
@@ -844,12 +765,7 @@ describe("updateComment", () => {
 
         const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          messages,
-          captureUpdateDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages, captureUpdateDoc })
 
         const result = yield* updateComment({
           project: projectIdentifier("TEST"),
@@ -862,17 +778,14 @@ describe("updateComment", () => {
         expect(result.issueIdentifier).toBe("TEST-1")
         expect(result.updated).toBe(false)
         expect(captureUpdateDoc.operations).toBeUndefined()
-      }))
+      })
+    )
   })
 
   describe("error handling", () => {
     it.effect("returns ProjectNotFoundError when project doesn't exist", () =>
-      Effect.gen(function*() {
-        const testLayer = createTestLayerWithMocks({
-          projects: [],
-          issues: [],
-          messages: []
-        })
+      Effect.gen(function* () {
+        const testLayer = createTestLayerWithMocks({ projects: [], issues: [], messages: [] })
 
         const error = yield* Effect.flip(
           updateComment({
@@ -885,17 +798,14 @@ describe("updateComment", () => {
 
         expect(error._tag).toBe("ProjectNotFoundError")
         expect((error as ProjectNotFoundError).identifier).toBe("NONEXISTENT")
-      }))
+      })
+    )
 
     it.effect("returns IssueNotFoundError when issue doesn't exist", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [],
-          messages: []
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [], messages: [] })
 
         const error = yield* Effect.flip(
           updateComment({
@@ -908,18 +818,15 @@ describe("updateComment", () => {
 
         expect(error._tag).toBe("IssueNotFoundError")
         expect((error as IssueNotFoundError).identifier).toBe("TEST-999")
-      }))
+      })
+    )
 
     it.effect("returns CommentNotFoundError when comment doesn't exist", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          messages: []
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages: [] })
 
         const error = yield* Effect.flip(
           updateComment({
@@ -934,18 +841,15 @@ describe("updateComment", () => {
         expect((error as CommentNotFoundError).commentId).toBe("nonexistent-comment")
         expect((error as CommentNotFoundError).issueIdentifier).toBe("TEST-1")
         expect((error as CommentNotFoundError).project).toBe("TEST")
-      }))
+      })
+    )
 
     it.effect("CommentNotFoundError has helpful message", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "HULY" })
         const issue = makeIssue({ identifier: "HULY-42", number: 42 })
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          messages: []
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages: [] })
 
         const error = yield* Effect.flip(
           updateComment({
@@ -959,14 +863,15 @@ describe("updateComment", () => {
         expect(error.message).toContain("missing-comment")
         expect(error.message).toContain("HULY-42")
         expect(error.message).toContain("HULY")
-      }))
+      })
+    )
   })
 })
 
 describe("deleteComment", () => {
   describe("basic functionality", () => {
     it.effect("deletes an existing comment", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
         const issue = makeIssue({
           _id: "issue-1" as Ref<HulyIssue>,
@@ -984,12 +889,7 @@ describe("deleteComment", () => {
 
         const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          messages,
-          captureRemoveDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages, captureRemoveDoc })
 
         const result = yield* deleteComment({
           project: projectIdentifier("TEST"),
@@ -1001,10 +901,11 @@ describe("deleteComment", () => {
         expect(result.issueIdentifier).toBe("TEST-1")
         expect(result.deleted).toBe(true)
         expect(captureRemoveDoc.id).toBe("comment-to-delete")
-      }))
+      })
+    )
 
     it.effect("finds issue by numeric identifier", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "HULY" })
         const issue = makeIssue({
           _id: "issue-99" as Ref<HulyIssue>,
@@ -1022,12 +923,7 @@ describe("deleteComment", () => {
 
         const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          messages,
-          captureRemoveDoc
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages, captureRemoveDoc })
 
         const result = yield* deleteComment({
           project: projectIdentifier("HULY"),
@@ -1037,17 +933,14 @@ describe("deleteComment", () => {
 
         expect(result.issueIdentifier).toBe("HULY-99")
         expect(result.deleted).toBe(true)
-      }))
+      })
+    )
   })
 
   describe("error handling", () => {
     it.effect("returns ProjectNotFoundError when project doesn't exist", () =>
-      Effect.gen(function*() {
-        const testLayer = createTestLayerWithMocks({
-          projects: [],
-          issues: [],
-          messages: []
-        })
+      Effect.gen(function* () {
+        const testLayer = createTestLayerWithMocks({ projects: [], issues: [], messages: [] })
 
         const error = yield* Effect.flip(
           deleteComment({
@@ -1059,17 +952,14 @@ describe("deleteComment", () => {
 
         expect(error._tag).toBe("ProjectNotFoundError")
         expect((error as ProjectNotFoundError).identifier).toBe("NONEXISTENT")
-      }))
+      })
+    )
 
     it.effect("returns IssueNotFoundError when issue doesn't exist", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [],
-          messages: []
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [], messages: [] })
 
         const error = yield* Effect.flip(
           deleteComment({
@@ -1081,18 +971,15 @@ describe("deleteComment", () => {
 
         expect(error._tag).toBe("IssueNotFoundError")
         expect((error as IssueNotFoundError).identifier).toBe("TEST-999")
-      }))
+      })
+    )
 
     it.effect("returns CommentNotFoundError when comment doesn't exist", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1", number: 1 })
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue],
-          messages: []
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages: [] })
 
         const error = yield* Effect.flip(
           deleteComment({
@@ -1104,10 +991,11 @@ describe("deleteComment", () => {
 
         expect(error._tag).toBe("CommentNotFoundError")
         expect((error as CommentNotFoundError).commentId).toBe("nonexistent-comment")
-      }))
+      })
+    )
 
     it.effect("only deletes comment attached to correct issue", () =>
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
         const issue1 = makeIssue({
           _id: "issue-1" as Ref<HulyIssue>,
@@ -1130,11 +1018,7 @@ describe("deleteComment", () => {
           })
         ]
 
-        const testLayer = createTestLayerWithMocks({
-          projects: [project],
-          issues: [issue1, issue2],
-          messages
-        })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue1, issue2], messages })
 
         // Try to delete comment from issue-1 (should fail - comment is on issue-2)
         const error = yield* Effect.flip(
@@ -1146,6 +1030,7 @@ describe("deleteComment", () => {
         )
 
         expect(error._tag).toBe("CommentNotFoundError")
-      }))
+      })
+    )
   })
 })

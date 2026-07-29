@@ -31,26 +31,18 @@ const parseDocumentedDateInput = (input: string): number | undefined => {
   return parseStrictIsoCalendarDate(input)
 }
 
-export const CustomFieldDateValueSchema = Schema.transformOrFail(
-  Schema.String,
-  CustomFieldDateTimestamp,
-  {
-    strict: true,
-    decode: (input, _options, ast) => {
-      const timestamp = parseDocumentedDateInput(input)
-      return timestamp === undefined
-        ? ParseResult.fail(
-          new ParseResult.Type(
-            ast,
-            input,
-            "Expected YYYY-MM-DD or a canonical non-negative epoch-millisecond string"
-          )
+export const CustomFieldDateValueSchema = Schema.transformOrFail(Schema.String, CustomFieldDateTimestamp, {
+  strict: true,
+  decode: (input, _options, ast) => {
+    const timestamp = parseDocumentedDateInput(input)
+    return timestamp === undefined
+      ? ParseResult.fail(
+          new ParseResult.Type(ast, input, "Expected YYYY-MM-DD or a canonical non-negative epoch-millisecond string")
         )
-        : ParseResult.succeed(timestamp)
-    },
-    encode: (timestamp) => ParseResult.succeed(String(timestamp))
-  }
-).annotations({
+      : ParseResult.succeed(timestamp)
+  },
+  encode: (timestamp) => ParseResult.succeed(String(timestamp))
+}).annotations({
   identifier: "CustomFieldDateValue",
   title: "CustomFieldDateValue",
   description:

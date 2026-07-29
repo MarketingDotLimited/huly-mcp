@@ -57,7 +57,7 @@ type DeleteActivityReplyError = HulyClientError | HulyError | ActivityMessageNot
 export const getActivityMessage = (
   params: GetActivityMessageParams
 ): Effect.Effect<ActivityMessage, GetActivityMessageError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const message = yield* findActivityMessage(client, params.messageId)
     return yield* toActivityMessage(message, client.markupUrlConfig, "get_activity_message", Count.make(0))
@@ -66,7 +66,7 @@ export const getActivityMessage = (
 export const pinActivityMessage = (
   params: PinActivityMessageParams
 ): Effect.Effect<PinActivityMessageResult, PinActivityMessageError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const message = yield* findActivityMessage(client, params.messageId)
 
@@ -81,7 +81,7 @@ export const pinActivityMessage = (
 export const listActivityFilters = (
   params: ListActivityFiltersParams
 ): Effect.Effect<Array<ActivityFilter>, ListActivityFiltersError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit)
     const filters = yield* client.findAll<HulyActivityMessagesFilter>(
@@ -90,7 +90,7 @@ export const listActivityFilters = (
       { limit, sort: { position: SortingOrder.Ascending } }
     )
 
-    return filters.map(filter => ({
+    return filters.map((filter) => ({
       id: ActivityFilterId.make(filter._id),
       label: typeof filter.label === "string" && filter.label.length > 0 ? DisplayText.make(filter.label) : undefined,
       position: ActivityFilterPosition.make(filter.position)
@@ -100,7 +100,7 @@ export const listActivityFilters = (
 export const listActivityReferences = (
   params: ListActivityReferencesParams
 ): Effect.Effect<Array<ActivityReference>, ListActivityReferencesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit)
     const sourceQuery = {
@@ -114,27 +114,26 @@ export const listActivityReferences = (
     // Huly's DocumentQuery supports Mongo-style `$or`; StrictDocumentQuery only
     // models document fields, so the combined direction intentionally uses the
     // SDK query type while the exact direction branches stay field-strict.
-    const query: DocumentQuery<HulyActivityReference> = params.direction === "from"
-      ? hulyQuery<HulyActivityReference>(sourceQuery)
-      : params.direction === "to"
-      ? hulyQuery<HulyActivityReference>(attachedQuery)
-      : { $or: [sourceQuery, attachedQuery] }
+    const query: DocumentQuery<HulyActivityReference> =
+      params.direction === "from"
+        ? hulyQuery<HulyActivityReference>(sourceQuery)
+        : params.direction === "to"
+          ? hulyQuery<HulyActivityReference>(attachedQuery)
+          : { $or: [sourceQuery, attachedQuery] }
 
-    const references = yield* client.findAll<HulyActivityReference>(
-      activity.class.ActivityReference,
-      query,
-      { limit, sort: { modifiedOn: SortingOrder.Descending } }
-    )
+    const references = yield* client.findAll<HulyActivityReference>(activity.class.ActivityReference, query, {
+      limit,
+      sort: { modifiedOn: SortingOrder.Descending }
+    })
 
-    return references.map(reference => ({
+    return references.map((reference) => ({
       id: ActivityReferenceId.make(reference._id),
       messageId: ActivityMessageId.make(reference._id),
       srcDocId: DocId.make(reference.srcDocId),
       srcDocClass: ObjectClassName.make(reference.srcDocClass),
       attachedDocId: reference.attachedDocId === undefined ? undefined : DocId.make(reference.attachedDocId),
-      attachedDocClass: reference.attachedDocClass === undefined
-        ? undefined
-        : ObjectClassName.make(reference.attachedDocClass),
+      attachedDocClass:
+        reference.attachedDocClass === undefined ? undefined : ObjectClassName.make(reference.attachedDocClass),
       message: ActivityMarkup.make(reference.message),
       modifiedOn: Timestamp.make(reference.modifiedOn)
     }))
@@ -143,7 +142,7 @@ export const listActivityReferences = (
 export const listActivityReplies = (
   params: ListActivityRepliesParams
 ): Effect.Effect<Array<ActivityMessage>, ListActivityRepliesError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const parent = yield* findActivityMessage(client, params.messageId)
     const limit = clampLimit(params.limit)
@@ -159,7 +158,7 @@ export const listActivityReplies = (
 export const addActivityReply = (
   params: AddActivityReplyParams
 ): Effect.Effect<AddActivityReplyResult, AddActivityReplyError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const parent = yield* findActivityMessage(client, params.messageId)
     const replyId: Ref<HulyThreadMessage> = generateId()
@@ -180,16 +179,13 @@ export const addActivityReply = (
       replyId
     )
 
-    return {
-      replyId: ActivityMessageId.make(replyId),
-      messageId: ActivityMessageId.make(parent._id)
-    }
+    return { replyId: ActivityMessageId.make(replyId), messageId: ActivityMessageId.make(parent._id) }
   })
 
 export const updateActivityReply = (
   params: UpdateActivityReplyParams
 ): Effect.Effect<UpdateActivityReplyResult, UpdateActivityReplyError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const reply = yield* findOneOrFail(
       client,
@@ -211,7 +207,7 @@ export const updateActivityReply = (
 export const deleteActivityReply = (
   params: DeleteActivityReplyParams
 ): Effect.Effect<DeleteActivityReplyResult, DeleteActivityReplyError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const client = yield* HulyClient
     const reply = yield* findOneOrFail(
       client,

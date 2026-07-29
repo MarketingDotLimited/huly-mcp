@@ -238,15 +238,16 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const findAllImpl: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown, _options: unknown) => {
     if (_class === activity.class.ActivityMessage) {
       const q = query as { attachedTo?: Ref<Doc>; attachedToClass?: Ref<Class<Doc>> }
-      const filtered = activityMessages.filter(m =>
-        (!q.attachedTo || m.attachedTo === q.attachedTo)
-        && (!q.attachedToClass || m.attachedToClass === q.attachedToClass)
+      const filtered = activityMessages.filter(
+        (m) =>
+          (!q.attachedTo || m.attachedTo === q.attachedTo) &&
+          (!q.attachedToClass || m.attachedToClass === q.attachedToClass)
       )
       return Effect.succeed(toFindResult(filtered))
     }
     if (_class === activity.class.Reaction) {
       const q = query as { attachedTo?: Ref<HulyActivityMessage> }
-      const filtered = reactions.filter(r => !q.attachedTo || r.attachedTo === q.attachedTo)
+      const filtered = reactions.filter((r) => !q.attachedTo || r.attachedTo === q.attachedTo)
       return Effect.succeed(toFindResult(filtered))
     }
     if (_class === activity.class.SavedMessage) {
@@ -261,58 +262,58 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown, query: unknown) => {
     if (_class === activity.class.ActivityMessage) {
       const q = query as { _id?: Ref<HulyActivityMessage> }
-      const found = activityMessages.find(m => q._id && m._id === q._id)
+      const found = activityMessages.find((m) => q._id && m._id === q._id)
       return Effect.succeed(found)
     }
     if (_class === activity.class.Reaction) {
       const q = query as { attachedTo?: Ref<HulyActivityMessage>; emoji?: string }
-      const found = reactions.find(r =>
-        (!q.attachedTo || r.attachedTo === q.attachedTo)
-        && (!q.emoji || r.emoji === q.emoji)
+      const found = reactions.find(
+        (r) => (!q.attachedTo || r.attachedTo === q.attachedTo) && (!q.emoji || r.emoji === q.emoji)
       )
       return Effect.succeed(found)
     }
     if (_class === activity.class.SavedMessage) {
       const q = query as { attachedTo?: Ref<HulyActivityMessage> }
-      const found = savedMessages.find(s => !q.attachedTo || s.attachedTo === q.attachedTo)
+      const found = savedMessages.find((s) => !q.attachedTo || s.attachedTo === q.attachedTo)
       return Effect.succeed(found)
     }
     if (_class === tracker.class.Project) {
       const q = query as { identifier?: string }
-      const found = projects.find(p => q.identifier && p.identifier === q.identifier)
+      const found = projects.find((p) => q.identifier && p.identifier === q.identifier)
       return Effect.succeed(found)
     }
     if (_class === tracker.class.Issue) {
       const q = query as { space?: Ref<HulyProject>; identifier?: string; number?: number }
-      const found = issues.find(i =>
-        (!q.space || i.space === q.space)
-        && (
-          (q.identifier !== undefined && i.identifier === q.identifier)
-          || (q.number !== undefined && i.number === q.number)
-        )
+      const found = issues.find(
+        (i) =>
+          (!q.space || i.space === q.space) &&
+          ((q.identifier !== undefined && i.identifier === q.identifier) ||
+            (q.number !== undefined && i.number === q.number))
       )
       return Effect.succeed(found)
     }
     if (_class === documentPlugin.class.Teamspace) {
       const q = query as { name?: string; _id?: Ref<HulyTeamspace>; archived?: boolean }
-      const found = teamspaces.find(ts =>
-        (q.archived === undefined || ts.archived === q.archived)
-        && ((q.name !== undefined && ts.name === q.name) || (q._id !== undefined && ts._id === q._id))
+      const found = teamspaces.find(
+        (ts) =>
+          (q.archived === undefined || ts.archived === q.archived) &&
+          ((q.name !== undefined && ts.name === q.name) || (q._id !== undefined && ts._id === q._id))
       )
       return Effect.succeed(found)
     }
     if (_class === documentPlugin.class.Document) {
       const q = query as { space?: Ref<HulyTeamspace>; title?: string; _id?: Ref<HulyDocument> }
-      const found = documents.find(doc =>
-        (!q.space || doc.space === q.space)
-        && ((q.title !== undefined && doc.title === q.title) || (q._id !== undefined && doc._id === q._id))
+      const found = documents.find(
+        (doc) =>
+          (!q.space || doc.space === q.space) &&
+          ((q.title !== undefined && doc.title === q.title) || (q._id !== undefined && doc._id === q._id))
       )
       return Effect.succeed(found)
     }
     if (_class === chunter.class.Channel) {
       const q = query as { name?: string; _id?: Ref<HulyChannel> }
-      const found = channels.find(channel =>
-        (q.name !== undefined && channel.name === q.name) || (q._id !== undefined && channel._id === q._id)
+      const found = channels.find(
+        (channel) => (q.name !== undefined && channel.name === q.name) || (q._id !== undefined && channel._id === q._id)
       )
       return Effect.succeed(found)
     }
@@ -348,14 +349,12 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     return Effect.succeed((id ?? "new-id") as Ref<Doc>)
   }) as HulyClientOperations["addCollection"]
 
-  const removeDocImpl: HulyClientOperations["removeDoc"] = (
-    (_class: unknown, _space: unknown, _objectId: unknown) => {
-      if (config.captureRemoveDoc) {
-        config.captureRemoveDoc.called = true
-      }
-      return Effect.succeed({})
+  const removeDocImpl: HulyClientOperations["removeDoc"] = ((_class: unknown, _space: unknown, _objectId: unknown) => {
+    if (config.captureRemoveDoc) {
+      config.captureRemoveDoc.called = true
     }
-  ) as HulyClientOperations["removeDoc"]
+    return Effect.succeed({})
+  }) as HulyClientOperations["removeDoc"]
 
   return HulyClient.testLayer({
     findAll: findAllImpl,
@@ -368,7 +367,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
 
 describe("listActivity", () => {
   it.effect("returns activity messages for an object", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const messages = [
         makeActivityMessage({
           _id: "msg-1" as Ref<HulyActivityMessage>,
@@ -394,10 +393,11 @@ describe("listActivity", () => {
       expect(result).toHaveLength(2)
       expect(assertAt(result, 0).id).toBe("msg-1")
       expect(assertAt(result, 1).id).toBe("msg-2")
-    }))
+    })
+  )
 
   it.effect("returns empty array when no activity exists", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ activityMessages: [] })
 
       const result = yield* listActivity({
@@ -406,10 +406,11 @@ describe("listActivity", () => {
       }).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("maps activity message fields correctly", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const msg = makeActivityMessage({
         _id: "msg-1" as Ref<HulyActivityMessage>,
         attachedTo: "obj-1" as Ref<Doc>,
@@ -441,27 +442,26 @@ describe("listActivity", () => {
         reactions: 3,
         editedOn: 1706500001000
       })
-    }))
+    })
+  )
 
   it.effect("projects complete reference and update activity metadata", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const reference = makeActivityMessage()
       const update = makeActivityMessage()
       const markup = JSON.stringify({
         type: "doc",
         content: [{ type: "paragraph", content: [{ type: "text", text: "Linked issue" }] }]
       })
-      for (
-        const [field, value] of Object.entries({
-          _id: "msg-reference",
-          _class: activity.class.ActivityReference,
-          message: markup,
-          srcDocId: "source-1",
-          srcDocClass: "tracker:class:Issue",
-          attachedDocId: "attached-1",
-          attachedDocClass: "document:class:Document"
-        })
-      ) {
+      for (const [field, value] of Object.entries({
+        _id: "msg-reference",
+        _class: activity.class.ActivityReference,
+        message: markup,
+        srcDocId: "source-1",
+        srcDocClass: "tracker:class:Issue",
+        attachedDocId: "attached-1",
+        attachedDocClass: "document:class:Document"
+      })) {
         Reflect.set(reference, field, value)
       }
       Reflect.set(update, "_id", "msg-update")
@@ -488,10 +488,11 @@ describe("listActivity", () => {
         messageClass: String(activity.class.DocUpdateMessage),
         action: "update"
       })
-    }))
+    })
+  )
 
   it.effect("omits absent and null reference metadata independently", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const reference = makeActivityMessage()
       Reflect.set(reference, "_class", activity.class.ActivityReference)
       Reflect.set(reference, "srcDocId", "source-1")
@@ -503,84 +504,69 @@ describe("listActivity", () => {
         objectClass: objectClassName("tracker:class:Issue")
       }).pipe(Effect.provide(createTestLayerWithMocks({ activityMessages: [reference] })))
 
-      expect(assertAt(result, 0)).toMatchObject({
-        srcDocId: "source-1",
-        attachedDocClass: "document:class:Document"
-      })
+      expect(assertAt(result, 0)).toMatchObject({ srcDocId: "source-1", attachedDocClass: "document:class:Document" })
       expect(assertAt(result, 0).srcDocClass).toBeUndefined()
       expect(assertAt(result, 0).attachedDocId).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("keeps required activity fields when optional SDK fields are absent", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const partial = makeActivityMessage()
       Reflect.set(partial, "_id", "msg-partial")
       for (const field of ["_class", "modifiedBy", "modifiedOn", "isPinned", "replies", "reactions"]) {
         Reflect.deleteProperty(partial, field)
       }
-      const testLayer = createTestLayerWithMocks({
-        activityMessages: [partial]
-      })
+      const testLayer = createTestLayerWithMocks({ activityMessages: [partial] })
 
       const result = yield* listActivity({
         objectId: docId("obj-1"),
         objectClass: objectClassName("tracker:class:Issue")
       }).pipe(Effect.provide(testLayer))
 
-      expect(result).toEqual([{
-        id: "msg-partial",
-        objectId: "obj-1",
-        objectClass: "tracker:class:Issue"
-      }])
-    }))
+      expect(result).toEqual([{ id: "msg-partial", objectId: "obj-1", objectClass: "tracker:class:Issue" }])
+    })
+  )
 
   it.effect("omits null optional activity fields while preserving explicit nullable editedOn", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const nullBearing = makeActivityMessage()
       Reflect.set(nullBearing, "_id", "msg-null")
-      for (
-        const field of [
-          "_class",
-          "modifiedBy",
-          "modifiedOn",
-          "isPinned",
-          "replies",
-          "reactions",
-          "editedOn",
-          "action",
-          "message",
-          "srcDocId",
-          "srcDocClass",
-          "attachedDocId",
-          "attachedDocClass"
-        ]
-      ) {
+      for (const field of [
+        "_class",
+        "modifiedBy",
+        "modifiedOn",
+        "isPinned",
+        "replies",
+        "reactions",
+        "editedOn",
+        "action",
+        "message",
+        "srcDocId",
+        "srcDocClass",
+        "attachedDocId",
+        "attachedDocClass"
+      ]) {
         Reflect.set(nullBearing, field, null)
       }
-      const testLayer = createTestLayerWithMocks({
-        activityMessages: [nullBearing]
-      })
+      const testLayer = createTestLayerWithMocks({ activityMessages: [nullBearing] })
 
       const result = yield* listActivity({
         objectId: docId("obj-1"),
         objectClass: objectClassName("tracker:class:Issue")
       }).pipe(Effect.provide(testLayer))
 
-      expect(result).toEqual([{
-        id: "msg-null",
-        objectId: "obj-1",
-        objectClass: "tracker:class:Issue",
-        editedOn: null
-      }])
-    }))
+      expect(result).toEqual([
+        { id: "msg-null", objectId: "obj-1", objectClass: "tracker:class:Issue", editedOn: null }
+      ])
+    })
+  )
 
   it.effect("fails with an actionable typed error when a required activity field is invalid", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const invalid = makeActivityMessage()
       Reflect.set(invalid, "_id", "")
-      const testLayer = createTestLayerWithMocks({
-        activityMessages: [invalid]
-      })
+      const testLayer = createTestLayerWithMocks({ activityMessages: [invalid] })
 
       const error = yield* listActivity({
         objectId: docId("obj-1"),
@@ -591,22 +577,14 @@ describe("listActivity", () => {
       expect(error.message).toContain("list_activity")
       expect(error.message).toContain("_id")
       expect(error.message).toContain("index 0")
-    }))
+    })
+  )
 
   it.effect("fails through the typed channel when activity markup uses an unsupported node", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const unsupportedMarkup = makeActivityMessage()
-      Reflect.set(
-        unsupportedMarkup,
-        "message",
-        JSON.stringify({
-          type: "doc",
-          content: [{ type: "bogus" }]
-        })
-      )
-      const testLayer = createTestLayerWithMocks({
-        activityMessages: [unsupportedMarkup]
-      })
+      Reflect.set(unsupportedMarkup, "message", JSON.stringify({ type: "doc", content: [{ type: "bogus" }] }))
+      const testLayer = createTestLayerWithMocks({ activityMessages: [unsupportedMarkup] })
 
       const error = yield* listActivity({
         objectId: docId("obj-1"),
@@ -617,10 +595,11 @@ describe("listActivity", () => {
       expect(error.message).toContain("list_activity")
       expect(error.message).toContain("index 0")
       expect(error.message).toContain("Token type `bogus` not supported")
-    }))
+    })
+  )
 
   it.effect("omits reply and reaction counts when absent on the message", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       // A bare message confirms absent optional metadata stays omitted.
       const msg: HulyActivityMessage = {
         _id: "msg-bare" as Ref<HulyActivityMessage>,
@@ -643,10 +622,11 @@ describe("listActivity", () => {
       expect(assertAt(result, 0).replies).toBeUndefined()
       expect(assertAt(result, 0).reactions).toBeUndefined()
       expect(assertAt(result, 0).editedOn).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("dies when no activity target mode is provided", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({})
 
       // Schema validation normally guarantees one target mode; calling the
@@ -657,10 +637,11 @@ describe("listActivity", () => {
       if (exit._tag === "Failure") {
         expect(Cause.isDie(exit.cause)).toBe(true)
       }
-    }))
+    })
+  )
 
   it.effect("filters by objectClass", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const messages = [
         makeActivityMessage({
           _id: "msg-1" as Ref<HulyActivityMessage>,
@@ -683,10 +664,11 @@ describe("listActivity", () => {
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).id).toBe("msg-1")
-    }))
+    })
+  )
 
   it.effect("resolves issue identifiers before listing activity", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const project = makeProject()
       const issue = makeIssue()
       const msg = makeActivityMessage({
@@ -694,11 +676,7 @@ describe("listActivity", () => {
         attachedTo: "issue-1" as Ref<Doc>,
         attachedToClass: tracker.class.Issue
       })
-      const testLayer = createTestLayerWithMocks({
-        projects: [project],
-        issues: [issue],
-        activityMessages: [msg]
-      })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], activityMessages: [msg] })
 
       const result = yield* listActivity({
         project: projectIdentifier("TEST"),
@@ -708,10 +686,11 @@ describe("listActivity", () => {
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).id).toBe("msg-issue")
       expect(assertAt(result, 0).objectClass).toBe(String(tracker.class.Issue))
-    }))
+    })
+  )
 
   it.effect("resolves document identifiers before listing activity", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const teamspace = makeTeamspace()
       const doc = makeDocument()
       const msg = makeActivityMessage({
@@ -719,11 +698,7 @@ describe("listActivity", () => {
         attachedTo: "doc-1" as Ref<Doc>,
         attachedToClass: documentPlugin.class.Document
       })
-      const testLayer = createTestLayerWithMocks({
-        teamspaces: [teamspace],
-        documents: [doc],
-        activityMessages: [msg]
-      })
+      const testLayer = createTestLayerWithMocks({ teamspaces: [teamspace], documents: [doc], activityMessages: [msg] })
 
       const result = yield* listActivity({
         teamspace: teamspaceIdentifier("Engineering"),
@@ -733,74 +708,65 @@ describe("listActivity", () => {
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).id).toBe("msg-doc")
       expect(assertAt(result, 0).objectClass).toBe(String(documentPlugin.class.Document))
-    }))
+    })
+  )
 
   it.effect("resolves channel identifiers before listing activity", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const channel = makeChannel()
       const msg = makeActivityMessage({
         _id: "msg-channel" as Ref<HulyActivityMessage>,
         attachedTo: "channel-1" as Ref<Doc>,
         attachedToClass: chunter.class.Channel
       })
-      const testLayer = createTestLayerWithMocks({
-        channels: [channel],
-        activityMessages: [msg]
-      })
+      const testLayer = createTestLayerWithMocks({ channels: [channel], activityMessages: [msg] })
 
-      const result = yield* listActivity({
-        channel: channelIdentifier("dev")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* listActivity({ channel: channelIdentifier("dev") }).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).id).toBe("msg-channel")
       expect(assertAt(result, 0).objectClass).toBe(String(chunter.class.Channel))
-    }))
+    })
+  )
 })
 
 describe("addReaction", () => {
   it.effect("adds reaction to an activity message", () =>
-    Effect.gen(function*() {
-      const msg = makeActivityMessage({
-        _id: "msg-1" as Ref<HulyActivityMessage>,
-        space: "space-1" as Ref<Space>
-      })
+    Effect.gen(function* () {
+      const msg = makeActivityMessage({ _id: "msg-1" as Ref<HulyActivityMessage>, space: "space-1" as Ref<Space> })
       const captureAddCollection: MockConfig["captureAddCollection"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        activityMessages: [msg],
-        captureAddCollection
-      })
+      const testLayer = createTestLayerWithMocks({ activityMessages: [msg], captureAddCollection })
 
-      const result = yield* addReaction({
-        messageId: activityMessageId("msg-1"),
-        emoji: emojiCode(":thumbsup:")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* addReaction({ messageId: activityMessageId("msg-1"), emoji: emojiCode(":thumbsup:") }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.messageId).toBe("msg-1")
       expect(result.reactionId).toBeDefined()
       expect(captureAddCollection.attributes?.emoji).toBe(":thumbsup:")
-    }))
+    })
+  )
 
   it.effect("returns ActivityMessageNotFoundError when message does not exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ activityMessages: [] })
 
       const error = yield* Effect.flip(
-        addReaction({
-          messageId: activityMessageId("nonexistent"),
-          emoji: emojiCode(":heart:")
-        }).pipe(Effect.provide(testLayer))
+        addReaction({ messageId: activityMessageId("nonexistent"), emoji: emojiCode(":heart:") }).pipe(
+          Effect.provide(testLayer)
+        )
       )
 
       expect(error._tag).toBe("ActivityMessageNotFoundError")
       expect((error as ActivityMessageNotFoundError).messageId).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("removeReaction", () => {
   it.effect("removes reaction from a message", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const reaction = makeReaction({
         attachedTo: "msg-1" as Ref<HulyActivityMessage>,
         emoji: ":thumbsup:",
@@ -808,10 +774,7 @@ describe("removeReaction", () => {
       })
       const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        reactions: [reaction],
-        captureRemoveDoc
-      })
+      const testLayer = createTestLayerWithMocks({ reactions: [reaction], captureRemoveDoc })
 
       const result = yield* removeReaction({
         messageId: activityMessageId("msg-1"),
@@ -821,26 +784,27 @@ describe("removeReaction", () => {
       expect(result.messageId).toBe("msg-1")
       expect(result.removed).toBe(true)
       expect(captureRemoveDoc.called).toBe(true)
-    }))
+    })
+  )
 
   it.effect("returns ReactionNotFoundError when reaction does not exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ reactions: [] })
 
       const error = yield* Effect.flip(
-        removeReaction({
-          messageId: activityMessageId("msg-1"),
-          emoji: emojiCode(":nonexistent:")
-        }).pipe(Effect.provide(testLayer))
+        removeReaction({ messageId: activityMessageId("msg-1"), emoji: emojiCode(":nonexistent:") }).pipe(
+          Effect.provide(testLayer)
+        )
       )
 
       expect(error._tag).toBe("ReactionNotFoundError")
       expect((error as ReactionNotFoundError).messageId).toBe("msg-1")
       expect((error as ReactionNotFoundError).emoji).toBe(":nonexistent:")
-    }))
+    })
+  )
 
   it.effect("matches on both messageId and emoji", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const reactions = [
         makeReaction({
           _id: "reaction-1" as Ref<HulyReaction>,
@@ -857,27 +821,27 @@ describe("removeReaction", () => {
       const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
       const testLayer = createTestLayerWithMocks({ reactions, captureRemoveDoc })
 
-      const result = yield* removeReaction({
-        messageId: activityMessageId("msg-1"),
-        emoji: emojiCode(":heart:")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* removeReaction({ messageId: activityMessageId("msg-1"), emoji: emojiCode(":heart:") }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(result.messageId).toBe("msg-1")
       expect(result.removed).toBe(true)
       expect(captureRemoveDoc.called).toBe(true)
 
-      const remainingReactions = yield* listReactions({
-        messageId: activityMessageId("msg-1")
-      }).pipe(Effect.provide(testLayer))
+      const remainingReactions = yield* listReactions({ messageId: activityMessageId("msg-1") }).pipe(
+        Effect.provide(testLayer)
+      )
 
       expect(remainingReactions).toHaveLength(2)
-      expect(remainingReactions.some(r => r.emoji === ":thumbsup:")).toBe(true)
-    }))
+      expect(remainingReactions.some((r) => r.emoji === ":thumbsup:")).toBe(true)
+    })
+  )
 })
 
 describe("listReactions", () => {
   it.effect("returns reactions for a message", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const reactions = [
         makeReaction({
           _id: "reaction-1" as Ref<HulyReaction>,
@@ -895,9 +859,7 @@ describe("listReactions", () => {
 
       const testLayer = createTestLayerWithMocks({ reactions })
 
-      const result = yield* listReactions({
-        messageId: activityMessageId("msg-1")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* listReactions({ messageId: activityMessageId("msg-1") }).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(2)
       expect(assertAt(result, 0)).toEqual({
@@ -912,43 +874,33 @@ describe("listReactions", () => {
         emoji: ":heart:",
         createdBy: "person-b"
       })
-    }))
+    })
+  )
 
   it.effect("returns empty array when no reactions exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ reactions: [] })
 
-      const result = yield* listReactions({
-        messageId: activityMessageId("msg-1")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* listReactions({ messageId: activityMessageId("msg-1") }).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(0)
-    }))
+    })
+  )
 
   it.effect("omits createdBy when Huly returns an empty reaction creator", () =>
-    Effect.gen(function*() {
-      const reactions = [
-        makeReaction({
-          createBy: "" as PersonId
-        })
-      ]
+    Effect.gen(function* () {
+      const reactions = [makeReaction({ createBy: "" as PersonId })]
 
       const testLayer = createTestLayerWithMocks({ reactions })
 
-      const result = yield* listReactions({
-        messageId: activityMessageId("msg-1")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* listReactions({ messageId: activityMessageId("msg-1") }).pipe(Effect.provide(testLayer))
 
-      expect(result).toEqual([{
-        id: "reaction-1",
-        messageId: "msg-1",
-        emoji: ":thumbsup:",
-        createdBy: undefined
-      }])
-    }))
+      expect(result).toEqual([{ id: "reaction-1", messageId: "msg-1", emoji: ":thumbsup:", createdBy: undefined }])
+    })
+  )
 
   it.effect("filters reactions by messageId", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const reactions = [
         makeReaction({
           _id: "reaction-1" as Ref<HulyReaction>,
@@ -964,102 +916,83 @@ describe("listReactions", () => {
 
       const testLayer = createTestLayerWithMocks({ reactions })
 
-      const result = yield* listReactions({
-        messageId: activityMessageId("msg-1")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* listReactions({ messageId: activityMessageId("msg-1") }).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(1)
       expect(assertAt(result, 0).id).toBe("reaction-1")
-    }))
+    })
+  )
 })
 
 describe("saveMessage", () => {
   it.effect("saves an activity message", () =>
-    Effect.gen(function*() {
-      const msg = makeActivityMessage({
-        _id: "msg-1" as Ref<HulyActivityMessage>
-      })
+    Effect.gen(function* () {
+      const msg = makeActivityMessage({ _id: "msg-1" as Ref<HulyActivityMessage> })
       const captureCreateDoc: MockConfig["captureCreateDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        activityMessages: [msg],
-        captureCreateDoc
-      })
+      const testLayer = createTestLayerWithMocks({ activityMessages: [msg], captureCreateDoc })
 
-      const result = yield* saveMessage({
-        messageId: activityMessageId("msg-1")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* saveMessage({ messageId: activityMessageId("msg-1") }).pipe(Effect.provide(testLayer))
 
       expect(result.messageId).toBe("msg-1")
       expect(result.savedId).toBeDefined()
       expect(captureCreateDoc.attributes?.attachedTo).toBe("msg-1")
-    }))
+    })
+  )
 
   it.effect("returns ActivityMessageNotFoundError when message does not exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ activityMessages: [] })
 
       const error = yield* Effect.flip(
-        saveMessage({
-          messageId: activityMessageId("nonexistent")
-        }).pipe(Effect.provide(testLayer))
+        saveMessage({ messageId: activityMessageId("nonexistent") }).pipe(Effect.provide(testLayer))
       )
 
       expect(error._tag).toBe("ActivityMessageNotFoundError")
       expect((error as ActivityMessageNotFoundError).messageId).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("unsaveMessage", () => {
   it.effect("removes a saved message", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const saved = makeSavedMessage({
         attachedTo: "msg-1" as Ref<HulyActivityMessage>,
         space: "workspace-1" as Ref<Space>
       })
       const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
 
-      const testLayer = createTestLayerWithMocks({
-        savedMessages: [saved],
-        captureRemoveDoc
-      })
+      const testLayer = createTestLayerWithMocks({ savedMessages: [saved], captureRemoveDoc })
 
-      const result = yield* unsaveMessage({
-        messageId: activityMessageId("msg-1")
-      }).pipe(Effect.provide(testLayer))
+      const result = yield* unsaveMessage({ messageId: activityMessageId("msg-1") }).pipe(Effect.provide(testLayer))
 
       expect(result.messageId).toBe("msg-1")
       expect(result.removed).toBe(true)
       expect(captureRemoveDoc.called).toBe(true)
-    }))
+    })
+  )
 
   it.effect("returns SavedMessageNotFoundError when saved message does not exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ savedMessages: [] })
 
       const error = yield* Effect.flip(
-        unsaveMessage({
-          messageId: activityMessageId("nonexistent")
-        }).pipe(Effect.provide(testLayer))
+        unsaveMessage({ messageId: activityMessageId("nonexistent") }).pipe(Effect.provide(testLayer))
       )
 
       expect(error._tag).toBe("SavedMessageNotFoundError")
       expect((error as SavedMessageNotFoundError).messageId).toBe("nonexistent")
-    }))
+    })
+  )
 })
 
 describe("listSavedMessages", () => {
   it.effect("returns saved messages", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const saved = [
-        makeSavedMessage({
-          _id: "saved-1" as Ref<HulySavedMessage>,
-          attachedTo: "msg-1" as Ref<HulyActivityMessage>
-        }),
-        makeSavedMessage({
-          _id: "saved-2" as Ref<HulySavedMessage>,
-          attachedTo: "msg-2" as Ref<HulyActivityMessage>
-        })
+        makeSavedMessage({ _id: "saved-1" as Ref<HulySavedMessage>, attachedTo: "msg-1" as Ref<HulyActivityMessage> }),
+        makeSavedMessage({ _id: "saved-2" as Ref<HulySavedMessage>, attachedTo: "msg-2" as Ref<HulyActivityMessage> })
       ]
 
       const testLayer = createTestLayerWithMocks({ savedMessages: saved })
@@ -1069,21 +1002,23 @@ describe("listSavedMessages", () => {
       expect(result).toHaveLength(2)
       expect(assertAt(result, 0)).toEqual({ id: "saved-1", messageId: "msg-1" })
       expect(assertAt(result, 1)).toEqual({ id: "saved-2", messageId: "msg-2" })
-    }))
+    })
+  )
 
   it.effect("returns empty array when no saved messages exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ savedMessages: [] })
 
       const result = yield* listSavedMessages({}).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(0)
-    }))
+    })
+  )
 })
 
 describe("listMentions", () => {
   it.effect("returns mentions for current user", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const mentions = [
         makeMention({
           _id: "mention-1" as Ref<UserMentionInfo>,
@@ -1116,14 +1051,16 @@ describe("listMentions", () => {
         userId: "person-2",
         content: "Cc @bob"
       })
-    }))
+    })
+  )
 
   it.effect("returns empty array when no mentions exist", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const testLayer = createTestLayerWithMocks({ mentions: [] })
 
       const result = yield* listMentions({}).pipe(Effect.provide(testLayer))
 
       expect(result).toHaveLength(0)
-    }))
+    })
+  )
 })

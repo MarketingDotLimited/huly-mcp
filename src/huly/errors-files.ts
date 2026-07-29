@@ -25,33 +25,24 @@ const RawByteCount = Schema.Number
 /**
  * File upload error - storage operation failed.
  */
-export class FileUploadError extends Schema.TaggedError<FileUploadError>()(
-  "FileUploadError",
-  {
-    message: RawErrorMessage,
-    cause: Schema.optional(Schema.Defect)
-  }
-) {}
+export class FileUploadError extends Schema.TaggedError<FileUploadError>()("FileUploadError", {
+  message: RawErrorMessage,
+  cause: Schema.optional(Schema.Defect)
+}) {}
 
 /**
  * Invalid file data error - e.g., malformed base64.
  */
-export class InvalidFileDataError extends Schema.TaggedError<InvalidFileDataError>()(
-  "InvalidFileDataError",
-  {
-    message: RawErrorMessage
-  }
-) {}
+export class InvalidFileDataError extends Schema.TaggedError<InvalidFileDataError>()("InvalidFileDataError", {
+  message: RawErrorMessage
+}) {}
 
 /**
  * File not found at specified path.
  */
-export class FileNotFoundError extends Schema.TaggedError<FileNotFoundError>()(
-  "FileNotFoundError",
-  {
-    filePath: RawFilePath
-  }
-) {
+export class FileNotFoundError extends Schema.TaggedError<FileNotFoundError>()("FileNotFoundError", {
+  filePath: RawFilePath
+}) {
   override get message(): string {
     return `File not found: ${this.filePath}`
   }
@@ -60,13 +51,10 @@ export class FileNotFoundError extends Schema.TaggedError<FileNotFoundError>()(
 /**
  * Failed to fetch file from URL.
  */
-export class FileFetchError extends Schema.TaggedError<FileFetchError>()(
-  "FileFetchError",
-  {
-    fileUrl: RawFileUrl,
-    reason: RawFileFetchReason
-  }
-) {
+export class FileFetchError extends Schema.TaggedError<FileFetchError>()("FileFetchError", {
+  fileUrl: RawFileUrl,
+  reason: RawFileFetchReason
+}) {
   override get message(): string {
     return `Failed to fetch file from ${this.fileUrl}: ${this.reason}`
   }
@@ -75,12 +63,9 @@ export class FileFetchError extends Schema.TaggedError<FileFetchError>()(
 /**
  * Attachment not found.
  */
-export class AttachmentNotFoundError extends Schema.TaggedError<AttachmentNotFoundError>()(
-  "AttachmentNotFoundError",
-  {
-    attachmentId: RawAttachmentIdentifier
-  }
-) {
+export class AttachmentNotFoundError extends Schema.TaggedError<AttachmentNotFoundError>()("AttachmentNotFoundError", {
+  attachmentId: RawAttachmentIdentifier
+}) {
   override get message(): string {
     return `Attachment '${this.attachmentId}' not found`
   }
@@ -88,10 +73,7 @@ export class AttachmentNotFoundError extends Schema.TaggedError<AttachmentNotFou
 
 export class AttachmentContentTypeUnsupportedError extends Schema.TaggedError<AttachmentContentTypeUnsupportedError>()(
   "AttachmentContentTypeUnsupportedError",
-  {
-    attachmentId: RawAttachmentIdentifier,
-    contentType: RawMimeType
-  }
+  { attachmentId: RawAttachmentIdentifier, contentType: RawMimeType }
 ) {
   override get message(): string {
     return `Attachment '${this.attachmentId}' has unsupported image content type '${this.contentType}'. Use download_attachment to get its URL instead.`
@@ -100,11 +82,7 @@ export class AttachmentContentTypeUnsupportedError extends Schema.TaggedError<At
 
 export class AttachmentContentTooLargeError extends Schema.TaggedError<AttachmentContentTooLargeError>()(
   "AttachmentContentTooLargeError",
-  {
-    attachmentId: RawAttachmentIdentifier,
-    size: RawByteCount,
-    maxSize: RawByteCount
-  }
+  { attachmentId: RawAttachmentIdentifier, size: RawByteCount, maxSize: RawByteCount }
 ) {
   override get message(): string {
     return `Attachment '${this.attachmentId}' is ${this.size} bytes, exceeding the ${this.maxSize}-byte inline image limit. Use download_attachment to get its URL instead.`
@@ -113,10 +91,7 @@ export class AttachmentContentTooLargeError extends Schema.TaggedError<Attachmen
 
 export class AttachmentContentUnavailableError extends Schema.TaggedError<AttachmentContentUnavailableError>()(
   "AttachmentContentUnavailableError",
-  {
-    attachmentId: RawAttachmentIdentifier,
-    reason: RawFileFetchReason
-  }
+  { attachmentId: RawAttachmentIdentifier, reason: RawFileFetchReason }
 ) {
   override get message(): string {
     return `Attachment '${this.attachmentId}' cannot be returned as inline image content: ${this.reason}. Use download_attachment to get its URL instead.`
@@ -125,21 +100,16 @@ export class AttachmentContentUnavailableError extends Schema.TaggedError<Attach
 
 export class SavedAttachmentNotFoundError extends Schema.TaggedError<SavedAttachmentNotFoundError>()(
   "SavedAttachmentNotFoundError",
-  {
-    attachmentId: RawAttachmentIdentifier
-  }
+  { attachmentId: RawAttachmentIdentifier }
 ) {
   override get message(): string {
     return `Saved attachment for '${this.attachmentId}' not found`
   }
 }
 
-export class DrawingNotFoundError extends Schema.TaggedError<DrawingNotFoundError>()(
-  "DrawingNotFoundError",
-  {
-    drawingId: RawDrawingIdentifier
-  }
-) {
+export class DrawingNotFoundError extends Schema.TaggedError<DrawingNotFoundError>()("DrawingNotFoundError", {
+  drawingId: RawDrawingIdentifier
+}) {
   override get message(): string {
     return `Drawing '${this.drawingId}' not found`
   }
@@ -148,14 +118,11 @@ export class DrawingNotFoundError extends Schema.TaggedError<DrawingNotFoundErro
 /**
  * File size exceeds maximum allowed.
  */
-export class FileTooLargeError extends Schema.TaggedError<FileTooLargeError>()(
-  "FileTooLargeError",
-  {
-    filename: RawFilename,
-    size: RawByteCount,
-    maxSize: RawByteCount
-  }
-) {
+export class FileTooLargeError extends Schema.TaggedError<FileTooLargeError>()("FileTooLargeError", {
+  filename: RawFilename,
+  size: RawByteCount,
+  maxSize: RawByteCount
+}) {
   override get message(): string {
     const DECIMAL_PLACES = 2
     const sizeMB = (this.size / BYTES_PER_MB).toFixed(DECIMAL_PLACES)
@@ -167,13 +134,10 @@ export class FileTooLargeError extends Schema.TaggedError<FileTooLargeError>()(
 /**
  * Invalid content type for file upload.
  */
-export class InvalidContentTypeError extends Schema.TaggedError<InvalidContentTypeError>()(
-  "InvalidContentTypeError",
-  {
-    filename: RawFilename,
-    contentType: RawMimeType
-  }
-) {
+export class InvalidContentTypeError extends Schema.TaggedError<InvalidContentTypeError>()("InvalidContentTypeError", {
+  filename: RawFilename,
+  contentType: RawMimeType
+}) {
   override get message(): string {
     return `Invalid content type '${this.contentType}' for file '${this.filename}'`
   }

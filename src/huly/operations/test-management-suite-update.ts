@@ -23,14 +23,14 @@ type UpdateTestSuiteError = HulyClientError | NoUpdateFieldsError | TestProjectN
 export const updateTestSuite = (
   params: UpdateTestSuiteParams
 ): Effect.Effect<UpdateTestSuiteResult, UpdateTestSuiteError, HulyClient> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_test_suite", params, UPDATE_TEST_SUITE_FIELDS)
 
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const suite = yield* findTestSuite(client, project, params.suite)
 
-    type UpdateTestSuiteField = typeof UPDATE_TEST_SUITE_FIELDS[number]
+    type UpdateTestSuiteField = (typeof UPDATE_TEST_SUITE_FIELDS)[number]
     type UpdateTestSuiteEntries = {
       readonly name: CoveredUpdateEntry<
         "name",
@@ -48,18 +48,13 @@ export const updateTestSuite = (
         params.description === undefined
           ? {}
           : params.description === null
-          ? { $unset: { description: "" } }
-          : { description: params.description }
+            ? { $unset: { description: "" } }
+            : { description: params.description }
       )
     } satisfies UpdateTestSuiteEntries
     const updateOps: DocumentUpdate<TestSuite> = mergeCoveredUpdateEntries(Object.values(updateEntries))
 
-    yield* client.updateDoc(
-      testManagement.class.TestSuite,
-      project._id,
-      suite._id,
-      updateOps
-    )
+    yield* client.updateDoc(testManagement.class.TestSuite, project._id, suite._id, updateOps)
 
     return { id: TestSuiteId.make(suite._id), updated: true }
   })

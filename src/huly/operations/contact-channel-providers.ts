@@ -8,9 +8,11 @@ const CONTACT_CHANNEL_PROVIDER_SDK_KEYS = ContactChannelProviderSdkKeys satisfie
   keyof typeof contact.channelProvider
 >
 
-type ConfiguredSdkKey = typeof CONTACT_CHANNEL_PROVIDER_SDK_KEYS[ContactChannelProvider]
+type ConfiguredSdkKey = (typeof CONTACT_CHANNEL_PROVIDER_SDK_KEYS)[ContactChannelProvider]
 type ExactChannelProviderSdkKeys = [keyof typeof contact.channelProvider] extends [ConfiguredSdkKey]
-  ? [ConfiguredSdkKey] extends [keyof typeof contact.channelProvider] ? true : never
+  ? [ConfiguredSdkKey] extends [keyof typeof contact.channelProvider]
+    ? true
+    : never
   : never
 
 const exactChannelProviderSdkKeys = <T extends true>(value: T): T => value
@@ -30,14 +32,14 @@ export const listContactChannelProviderLabels = (): ReadonlyArray<ContactChannel
 
 export const toContactChannelProviderRef = (
   provider: ContactChannelProvider
-): typeof contact.channelProvider[keyof typeof contact.channelProvider] =>
+): (typeof contact.channelProvider)[keyof typeof contact.channelProvider] =>
   contact.channelProvider[CONTACT_CHANNEL_PROVIDER_SDK_KEYS[provider]]
 
 export const fromContactChannelProviderRef = (
   providerRef: string
 ): ContactChannelProvider | InvalidContactProviderError => {
-  const provider = ContactChannelProviderValues.find((candidate) =>
-    toContactChannelProviderRef(candidate) === providerRef
+  const provider = ContactChannelProviderValues.find(
+    (candidate) => toContactChannelProviderRef(candidate) === providerRef
   )
   return provider ?? new InvalidContactProviderError({ provider: providerRef })
 }

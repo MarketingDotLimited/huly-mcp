@@ -59,30 +59,33 @@ type UpdateIssueError =
 export const updateIssue = (
   params: UpdateIssueParams
 ): Effect.Effect<UpdateIssueResult, UpdateIssueError, HulyClient | Diagnostics> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     yield* requireUpdateFields("update_issue", params, UPDATE_ISSUE_FIELDS)
 
     const { client, issue, project } = yield* findProjectAndIssue(params)
 
-    const workflowData = params.status !== undefined || params.taskType !== undefined
-      ? yield* findProjectWithStatuses(params.project)
-      : { projectType: undefined, statuses: [] }
-    const taskTypeWorkflow = params.taskType === undefined
-      ? undefined
-      : yield* resolveTaskTypeWorkflow(
-        client,
-        project,
-        workflowData.projectType,
-        workflowData.statuses,
-        params.taskType,
-        params.project
-      )
+    const workflowData =
+      params.status !== undefined || params.taskType !== undefined
+        ? yield* findProjectWithStatuses(params.project)
+        : { projectType: undefined, statuses: [] }
+    const taskTypeWorkflow =
+      params.taskType === undefined
+        ? undefined
+        : yield* resolveTaskTypeWorkflow(
+            client,
+            project,
+            workflowData.projectType,
+            workflowData.statuses,
+            params.taskType,
+            params.project
+          )
 
-    const descriptionUpdatedInPlace = params.description !== undefined
-      && textContentOrClear(params.description) !== undefined
-      && Boolean(issue.description)
+    const descriptionUpdatedInPlace =
+      params.description !== undefined &&
+      textContentOrClear(params.description) !== undefined &&
+      Boolean(issue.description)
 
-    type UpdateIssueField = typeof UPDATE_ISSUE_FIELDS[number]
+    type UpdateIssueField = (typeof UPDATE_ISSUE_FIELDS)[number]
     type UpdateIssueDirectEffect<Field extends UpdateIssueField & keyof DocumentUpdate<HulyIssue>> = Effect.Effect<
       CoveredUpdateEntry<Field, DirectUpdateEntry<UpdateIssueField, DocumentUpdate<HulyIssue>, Field>>,
       ConnectionError | HulyError | InvalidStatusError | PersonNotFoundError | IssueReferenceError
@@ -110,7 +113,7 @@ export const updateIssue = (
     }
     const updateEntries = {
       title: Effect.succeed(coveredUpdateEntry("title", params.title === undefined ? {} : { title: params.title })),
-      description: Effect.gen(function*() {
+      description: Effect.gen(function* () {
         if (params.description === undefined) return descriptionUpdateEntry({})
         const description = textContentOrClear(params.description)
         if (description === undefined) return descriptionUpdateEntry({ description: null })
@@ -140,19 +143,19 @@ export const updateIssue = (
           params.priority === undefined ? {} : { priority: stringToPriority(params.priority) }
         )
       ),
-      assignee: Effect.gen(function*() {
+      assignee: Effect.gen(function* () {
         if (params.assignee === undefined) return coveredUpdateEntry("assignee", {})
         if (params.assignee === null) return coveredUpdateEntry("assignee", { assignee: null })
         const person = yield* resolveAssignee(client, params.assignee)
         return coveredUpdateEntry("assignee", { assignee: person._id })
       }),
-      status: Effect.gen(function*() {
+      status: Effect.gen(function* () {
         if (taskTypeWorkflow !== undefined || params.status === undefined) return coveredUpdateEntry("status", {})
         return coveredUpdateEntry("status", {
           status: yield* resolveStatusByName(workflowData.statuses, params.status, params.project)
         })
       }),
-      taskType: Effect.gen(function*() {
+      taskType: Effect.gen(function* () {
         if (taskTypeWorkflow === undefined) return coveredUpdateEntry("taskType", {})
         const nextStatus = yield* chooseStatusForTaskType(taskTypeWorkflow, params.status, issue.status, params.project)
         const taskTypeOps: IssueTaskTypeUpdateEntry = {
@@ -177,12 +180,7 @@ export const updateIssue = (
     }
 
     if (Object.keys(updateOps).length > 0) {
-      yield* client.updateDoc(
-        tracker.class.Issue,
-        project._id,
-        issue._id,
-        updateOps
-      )
+      yield* client.updateDoc(tracker.class.Issue, project._id, issue._id, updateOps)
     }
 
     return { identifier: IssueIdentifier.make(issue.identifier), updated: true }

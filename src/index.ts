@@ -20,7 +20,6 @@ import {
 } from "./config/config.js"
 import type { HulyClientError } from "./huly/client.js"
 import type { StorageClientError } from "./huly/storage.js"
-import type { WorkspaceClientError } from "./huly/workspace-client.js"
 import { DEFAULT_HTTP_PORT, HttpServerFactoryService } from "./mcp/http-transport.js"
 import { type ClientBundle, type McpServerError, McpServerService, type McpTransportType } from "./mcp/server.js"
 import { type ConsoleRedirectHandle, redirectConsoleToStderr } from "./mcp/stdio-output.js"
@@ -33,13 +32,7 @@ import {
 } from "./runtime/huly-clients.js"
 import { TelemetryService } from "./telemetry/telemetry.js"
 
-type AppError =
-  | ConfigValidationError
-  | HulyClientError
-  | StorageClientError
-  | WorkspaceClientError
-  | McpServerError
-  | ConfigError.ConfigError
+type AppError = ConfigValidationError | HulyClientError | StorageClientError | McpServerError | ConfigError.ConfigError
 
 const getTransportType = Config.string("MCP_TRANSPORT").pipe(
   Config.withDefault("stdio"),
@@ -58,15 +51,11 @@ export const getHttpPort = Config.all({
   )
 )
 
-const getHttpHost = Config.string("MCP_HTTP_HOST").pipe(
-  Config.withDefault("127.0.0.1")
-)
+const getHttpHost = Config.string("MCP_HTTP_HOST").pipe(Config.withDefault("127.0.0.1"))
 
 export const getMcpAuthToken = Config.redacted("MCP_AUTH_TOKEN").pipe(Config.option)
 
-const getAutoExit = Config.boolean("MCP_AUTO_EXIT").pipe(
-  Config.withDefault(false)
-)
+const getAutoExit = Config.boolean("MCP_AUTO_EXIT").pipe(Config.withDefault(false))
 
 const isGlamaRegistryInspection = (): boolean => process.env["GLAMA_VERSION"] !== undefined
 
@@ -74,12 +63,7 @@ const parseBooleanEnvFlag = (value: string): boolean => value.toLowerCase() === 
 
 export const getLazyEnvs = Config.string("LAZY_ENVS").pipe(
   Config.option,
-  Effect.map((value) =>
-    Option.match(value, {
-      onNone: isGlamaRegistryInspection,
-      onSome: parseBooleanEnvFlag
-    })
-  )
+  Effect.map((value) => Option.match(value, { onNone: isGlamaRegistryInspection, onSome: parseBooleanEnvFlag }))
 )
 
 const restoreConsoleRedirect = (redirect: ConsoleRedirectHandle | undefined): Effect.Effect<void> =>
@@ -90,7 +74,7 @@ const restoreConsoleRedirect = (redirect: ConsoleRedirectHandle | undefined): Ef
 const createHttpClientResolver = (
   combinedClientLayer: CombinedClientLayer,
   resolveEnvClients: () => Promise<ClientBundle>
-): (req: Request) => Promise<ClientBundle> => {
+): ((req: Request) => Promise<ClientBundle>) => {
   const requestClients = new WeakMap<Request, Promise<ClientBundle>>()
 
   return (req) => {
@@ -129,11 +113,7 @@ const buildAppLayer = (
   authMethod: "token" | "password",
   resolveClients: () => Promise<ClientBundle>,
   resolveClientsForHttpRequest: (req: Request) => Promise<ClientBundle>
-): Layer.Layer<
-  McpServerService | HttpServerFactoryService,
-  McpServerError,
-  never
-> => {
+): Layer.Layer<McpServerService | HttpServerFactoryService, McpServerError, never> => {
   const mcpServerConfig = {
     transport,
     httpPort,
@@ -153,12 +133,11 @@ const buildAppLayer = (
 }
 
 const runConfiguredServer = (transport: McpTransportType): Effect.Effect<void, AppError> =>
-  Effect.gen(function*() {
+  Effect.gen(function* () {
     const httpPort = yield* getHttpPort
     const httpHost = yield* getHttpHost
-    const mcpAuthToken = transport === "http"
-      ? Option.map(yield* getMcpAuthToken, Redacted.value).pipe(Option.getOrUndefined)
-      : undefined
+    const mcpAuthToken =
+      transport === "http" ? Option.map(yield* getMcpAuthToken, Redacted.value).pipe(Option.getOrUndefined) : undefined
     const autoExit = yield* getAutoExit
     const lazyEnvs = yield* getLazyEnvs
     const authMethod: "token" | "password" = process.env["HULY_TOKEN"] ? "token" : "password"
@@ -171,7 +150,7 @@ const runConfiguredServer = (transport: McpTransportType): Effect.Effect<void, A
       // Eager init: build client layers within the Effect pipeline to preserve
       // typed errors (ConfigValidationError, HulyClientError, etc.).
       // This also primes the memoized resolver for subsequent tool calls.
-      yield* Effect.gen(function*() {
+      yield* Effect.gen(function* () {
         const bundle = yield* buildClientBundle(combinedClientLayer)
         primeClients(bundle)
       }).pipe(
@@ -193,22 +172,17 @@ const runConfiguredServer = (transport: McpTransportType): Effect.Effect<void, A
       resolveHttpClients
     )
 
-    yield* Effect.gen(function*() {
+    yield* Effect.gen(function* () {
       const server = yield* McpServerService
       yield* server.run()
-    }).pipe(
-      Effect.provide(appLayer),
-      Effect.scoped
-    )
+    }).pipe(Effect.provide(appLayer), Effect.scoped)
   })
 
-export const main: Effect.Effect<void, AppError> = Effect.gen(function*() {
+export const main: Effect.Effect<void, AppError> = Effect.gen(function* () {
   const transport = yield* getTransportType
-  const consoleRedirect = yield* Effect.sync(() => transport === "stdio" ? redirectConsoleToStderr() : undefined)
+  const consoleRedirect = yield* Effect.sync(() => (transport === "stdio" ? redirectConsoleToStderr() : undefined))
 
-  yield* runConfiguredServer(transport).pipe(
-    Effect.ensuring(restoreConsoleRedirect(consoleRedirect))
-  )
+  yield* runConfiguredServer(transport).pipe(Effect.ensuring(restoreConsoleRedirect(consoleRedirect)))
 })
 
 // Run with NodeRuntime.runMain - handles errors, exit codes, and interrupts automatically

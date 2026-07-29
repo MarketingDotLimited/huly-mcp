@@ -28,35 +28,25 @@ interface TestDoc extends Doc {
 
 describe("HulyClient.testLayer defaults", () => {
   it.effect("findAll returns empty FindResult", () =>
-    Effect.gen(function*() {
-      const client = yield* HulyClient.pipe(
-        Effect.provide(HulyClient.testLayer({}))
-      )
-      const results = yield* client.findAll(
-        "c" as DocRef<Class<TestDoc>>,
-        {} as DocumentQuery<TestDoc>
-      )
+    Effect.gen(function* () {
+      const client = yield* HulyClient.pipe(Effect.provide(HulyClient.testLayer({})))
+      const results = yield* client.findAll("c" as DocRef<Class<TestDoc>>, {} as DocumentQuery<TestDoc>)
       expect(results).toHaveLength(0)
       expect(results.total).toBe(0)
-    }))
+    })
+  )
 
   it.effect("findOne returns undefined", () =>
-    Effect.gen(function*() {
-      const client = yield* HulyClient.pipe(
-        Effect.provide(HulyClient.testLayer({}))
-      )
-      const result = yield* client.findOne(
-        "c" as DocRef<Class<TestDoc>>,
-        {} as DocumentQuery<TestDoc>
-      )
+    Effect.gen(function* () {
+      const client = yield* HulyClient.pipe(Effect.provide(HulyClient.testLayer({})))
+      const result = yield* client.findOne("c" as DocRef<Class<TestDoc>>, {} as DocumentQuery<TestDoc>)
       expect(result).toBeUndefined()
-    }))
+    })
+  )
 
   it.effect("fetchMarkup returns empty string", () =>
-    Effect.gen(function*() {
-      const client = yield* HulyClient.pipe(
-        Effect.provide(HulyClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* HulyClient.pipe(Effect.provide(HulyClient.testLayer({})))
       const result = yield* client.fetchMarkup(
         "c" as DocRef<Class<Doc>>,
         "id" as DocRef<Doc>,
@@ -65,44 +55,32 @@ describe("HulyClient.testLayer defaults", () => {
         "markdown"
       )
       expect(result).toBe("")
-    }))
+    })
+  )
 
   it.effect("createDoc dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* HulyClient.pipe(
-        Effect.provide(HulyClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* HulyClient.pipe(Effect.provide(HulyClient.testLayer({})))
       const exit = yield* Effect.exit(
-        client.createDoc(
-          "c" as DocRef<Class<TestDoc>>,
-          "s" as DocRef<Space>,
-          { title: "t" } as Data<TestDoc>
-        )
+        client.createDoc("c" as DocRef<Class<TestDoc>>, "s" as DocRef<Space>, { title: "t" } as Data<TestDoc>)
       )
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("updateDoc dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* HulyClient.pipe(
-        Effect.provide(HulyClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* HulyClient.pipe(Effect.provide(HulyClient.testLayer({})))
       const exit = yield* Effect.exit(
-        client.updateDoc(
-          "c" as DocRef<Class<TestDoc>>,
-          "s" as DocRef<Space>,
-          "id" as DocRef<TestDoc>,
-          {}
-        )
+        client.updateDoc("c" as DocRef<Class<TestDoc>>, "s" as DocRef<Space>, "id" as DocRef<TestDoc>, {})
       )
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("addCollection dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* HulyClient.pipe(
-        Effect.provide(HulyClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* HulyClient.pipe(Effect.provide(HulyClient.testLayer({})))
       const exit = yield* Effect.exit(
         client.addCollection(
           "c" as DocRef<Class<AttachedDoc>>,
@@ -114,111 +92,82 @@ describe("HulyClient.testLayer defaults", () => {
         )
       )
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("removeDoc dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* HulyClient.pipe(
-        Effect.provide(HulyClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* HulyClient.pipe(Effect.provide(HulyClient.testLayer({})))
       const exit = yield* Effect.exit(
-        client.removeDoc(
-          "c" as DocRef<Class<TestDoc>>,
-          "s" as DocRef<Space>,
-          "id" as DocRef<TestDoc>
-        )
+        client.removeDoc("c" as DocRef<Class<TestDoc>>, "s" as DocRef<Space>, "id" as DocRef<TestDoc>)
       )
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("uploadMarkup dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* HulyClient.pipe(
-        Effect.provide(HulyClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* HulyClient.pipe(Effect.provide(HulyClient.testLayer({})))
       const exit = yield* Effect.exit(
-        client.uploadMarkup(
-          "c" as DocRef<Class<Doc>>,
-          "id" as DocRef<Doc>,
-          "attr",
-          "content",
-          "markdown"
-        )
+        client.uploadMarkup("c" as DocRef<Class<Doc>>, "id" as DocRef<Doc>, "attr", "content", "markdown")
       )
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("updateMarkup dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* HulyClient.pipe(
-        Effect.provide(HulyClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* HulyClient.pipe(Effect.provide(HulyClient.testLayer({})))
       const exit = yield* Effect.exit(
-        client.updateMarkup(
-          "c" as DocRef<Class<Doc>>,
-          "id" as DocRef<Doc>,
-          "attr",
-          "content",
-          "markdown"
-        )
+        client.updateMarkup("c" as DocRef<Class<Doc>>, "id" as DocRef<Doc>, "attr", "content", "markdown")
       )
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 })
 
 describe("HulyClient.testLayer with custom operations", () => {
   it.effect("custom findAll returns provided data", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const asDoc = (v: unknown): Doc => v as Doc
       const docs = [asDoc({ _id: "d1", title: "A" }), asDoc({ _id: "d2", title: "B" })]
       const layer = HulyClient.testLayer({
         findAll: <T extends Doc>() => Effect.succeed(toFindResult<T>(docs as Array<T>))
       })
       const client = yield* HulyClient.pipe(Effect.provide(layer))
-      const results = yield* client.findAll(
-        "c" as DocRef<Class<TestDoc>>,
-        {} as DocumentQuery<TestDoc>
-      )
+      const results = yield* client.findAll("c" as DocRef<Class<TestDoc>>, {} as DocumentQuery<TestDoc>)
       expect(results).toHaveLength(2)
-    }))
+    })
+  )
 
   it.effect("custom findOne returns provided value", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const doc = { _id: "d1", title: "Found" }
       const layer = HulyClient.testLayer({
         // eslint-disable-next-line no-restricted-syntax -- partial mock object doesn't overlap with WithLookup<T>
         findOne: <T extends Doc>() => Effect.succeed(doc as unknown as WithLookup<T>)
       })
       const client = yield* HulyClient.pipe(Effect.provide(layer))
-      const result = yield* client.findOne(
-        "c" as DocRef<Class<TestDoc>>,
-        {} as DocumentQuery<TestDoc>
-      )
+      const result = yield* client.findOne("c" as DocRef<Class<TestDoc>>, {} as DocumentQuery<TestDoc>)
       expect(result).toBeDefined()
       expect(result!._id).toBe("d1")
       expect((result as TestDoc).title).toBe("Found")
-    }))
+    })
+  )
 
   it.effect("custom operation can return error", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const layer = HulyClient.testLayer({
-        findAll: () =>
-          Effect.fail(
-            new HulyConnectionError({ message: "mock connection error" })
-          )
+        findAll: () => Effect.fail(new HulyConnectionError({ message: "mock connection error" }))
       })
       const client = yield* HulyClient.pipe(Effect.provide(layer))
-      const err = yield* Effect.flip(
-        client.findAll(
-          "c" as DocRef<Class<TestDoc>>,
-          {} as DocumentQuery<TestDoc>
-        )
-      )
+      const err = yield* Effect.flip(client.findAll("c" as DocRef<Class<TestDoc>>, {} as DocumentQuery<TestDoc>))
       expect(err._tag).toBe("HulyConnectionError")
-    }))
+    })
+  )
 
   it.effect("overriding one op does not affect others", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const asDoc = (v: unknown): Doc => v as Doc
       const layer = HulyClient.testLayer({
         findAll: <T extends Doc>() => {
@@ -228,170 +177,142 @@ describe("HulyClient.testLayer with custom operations", () => {
       })
       const client = yield* HulyClient.pipe(Effect.provide(layer))
 
-      const all = yield* client.findAll(
-        "c" as DocRef<Class<TestDoc>>,
-        {} as DocumentQuery<TestDoc>
-      )
+      const all = yield* client.findAll("c" as DocRef<Class<TestDoc>>, {} as DocumentQuery<TestDoc>)
       expect(all).toHaveLength(1)
 
-      const one = yield* client.findOne(
-        "c" as DocRef<Class<TestDoc>>,
-        {} as DocumentQuery<TestDoc>
-      )
+      const one = yield* client.findOne("c" as DocRef<Class<TestDoc>>, {} as DocumentQuery<TestDoc>)
       expect(one).toBeUndefined()
-    }))
+    })
+  )
 })
 
 describe("WorkspaceClient.testLayer defaults", () => {
   it.effect("getWorkspaceMembers returns empty array", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const members = yield* client.getWorkspaceMembers()
       expect(members).toEqual([])
-    }))
+    })
+  )
 
   it.effect("getUserWorkspaces returns empty array", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const workspaces = yield* client.getUserWorkspaces()
       expect(workspaces).toEqual([])
-    }))
+    })
+  )
 
   it.effect("getUserProfile returns null", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const profile = yield* client.getUserProfile()
       expect(profile).toBeNull()
-    }))
+    })
+  )
 
   it.effect("getRegionInfo returns empty array", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const regions = yield* client.getRegionInfo()
       expect(regions).toEqual([])
-    }))
+    })
+  )
 
   it.effect("getPersonInfo dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
-      const exit = yield* Effect.exit(
-        client.getPersonInfo("person-uuid" as PersonUuid)
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
+      const exit = yield* Effect.exit(client.getPersonInfo("person-uuid" as PersonUuid))
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("updateWorkspaceRole dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
-      const exit = yield* Effect.exit(
-        client.updateWorkspaceRole("account", AccountRole.Guest)
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
+      const exit = yield* Effect.exit(client.updateWorkspaceRole("account", AccountRole.Guest))
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("getWorkspaceInfo dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.getWorkspaceInfo())
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("createWorkspace dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.createWorkspace("new-ws"))
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("deleteWorkspace dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.deleteWorkspace())
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("setMyProfile dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.setMyProfile({}))
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("updateAllowReadOnlyGuests dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.updateAllowReadOnlyGuests(true))
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 
   it.effect("updateAllowGuestSignUp dies (not implemented)", () =>
-    Effect.gen(function*() {
-      const client = yield* WorkspaceClient.pipe(
-        Effect.provide(WorkspaceClient.testLayer({}))
-      )
+    Effect.gen(function* () {
+      const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.updateAllowGuestSignUp(true))
       expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
-    }))
+    })
+  )
 })
 
 describe("WorkspaceClient.testLayer with custom operations", () => {
   it.effect("custom getWorkspaceMembers returns provided data", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const mockMembers = [{ person: "p1" }]
       const layer = WorkspaceClient.testLayer({
-        getWorkspaceMembers: () =>
-          Effect.succeed(
-            mockMembers as Array<WorkspaceMemberInfo>
-          )
+        getWorkspaceMembers: () => Effect.succeed(mockMembers as Array<WorkspaceMemberInfo>)
       })
       const client = yield* WorkspaceClient.pipe(Effect.provide(layer))
       const members = yield* client.getWorkspaceMembers()
       expect(members).toHaveLength(1)
       expect(assertAt(members, 0).person).toBe("p1")
-    }))
+    })
+  )
 
   it.effect("custom operation can return error", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const layer = WorkspaceClient.testLayer({
-        getWorkspaceMembers: () =>
-          Effect.fail(
-            new HulyConnectionError({ message: "workspace unavailable" })
-          )
+        getWorkspaceMembers: () => Effect.fail(new HulyConnectionError({ message: "workspace unavailable" }))
       })
       const client = yield* WorkspaceClient.pipe(Effect.provide(layer))
       const err = yield* Effect.flip(client.getWorkspaceMembers())
       expect(err._tag).toBe("HulyConnectionError")
-    }))
+    })
+  )
 
   it.effect("overriding one op preserves other defaults", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const layer = WorkspaceClient.testLayer({
-        getWorkspaceMembers: () =>
-          Effect.succeed(
-            [{ person: "p1" }] as Array<WorkspaceMemberInfo>
-          )
+        getWorkspaceMembers: () => Effect.succeed([{ person: "p1" }] as Array<WorkspaceMemberInfo>)
       })
       const client = yield* WorkspaceClient.pipe(Effect.provide(layer))
 
@@ -400,5 +321,6 @@ describe("WorkspaceClient.testLayer with custom operations", () => {
 
       const profile = yield* client.getUserProfile()
       expect(profile).toBeNull()
-    }))
+    })
+  )
 })

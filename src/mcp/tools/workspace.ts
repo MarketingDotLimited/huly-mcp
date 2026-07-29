@@ -71,13 +71,16 @@ export const workspaceTools = [
     parseUpdateMemberRoleParams,
     updateMemberRole
   ),
-  defineNoParamsWorkspaceTool({
-    name: "get_workspace_info",
-    description: "Get information about the current workspace including name, URL, region, and settings.",
-    category: CATEGORY,
-    inputSchema: emptyParamsJsonSchema,
-    resultSchema: WorkspaceInfoSchema
-  }, getWorkspaceInfo),
+  defineNoParamsWorkspaceTool(
+    {
+      name: "get_workspace_info",
+      description: "Get information about the current workspace including name, URL, region, and settings.",
+      category: CATEGORY,
+      inputSchema: emptyParamsJsonSchema,
+      resultSchema: WorkspaceInfoSchema
+    },
+    getWorkspaceInfo
+  ),
   defineWorkspaceTool(
     {
       name: "list_workspaces",
@@ -101,20 +104,26 @@ export const workspaceTools = [
     parseCreateWorkspaceParams,
     createWorkspace
   ),
-  defineNoParamsWorkspaceTool({
-    name: "delete_workspace",
-    description: "Permanently delete the current workspace. This action cannot be undone. Use with extreme caution.",
-    category: CATEGORY,
-    inputSchema: emptyParamsJsonSchema,
-    resultSchema: DeleteWorkspaceResultSchema
-  }, deleteWorkspace),
-  defineNoParamsWorkspaceTool({
-    name: "get_user_profile",
-    description: "Get the current user's profile information including bio, location, and social links.",
-    category: CATEGORY,
-    inputSchema: emptyParamsJsonSchema,
-    resultSchema: GetUserProfileResultSchema
-  }, getUserProfile),
+  defineNoParamsWorkspaceTool(
+    {
+      name: "delete_workspace",
+      description: "Permanently delete the current workspace. This action cannot be undone. Use with extreme caution.",
+      category: CATEGORY,
+      inputSchema: emptyParamsJsonSchema,
+      resultSchema: DeleteWorkspaceResultSchema
+    },
+    deleteWorkspace
+  ),
+  defineNoParamsWorkspaceTool(
+    {
+      name: "get_user_profile",
+      description: "Get the current user's profile information including bio, location, and social links.",
+      category: CATEGORY,
+      inputSchema: emptyParamsJsonSchema,
+      resultSchema: GetUserProfileResultSchema
+    },
+    getUserProfile
+  ),
   defineWorkspaceTool(
     {
       name: "update_user_profile",
@@ -141,8 +150,7 @@ export const workspaceTools = [
   defineWorkspaceTool(
     {
       name: "create_access_link",
-      description:
-        `Create a Huly workspace access link. When role is omitted, role=${DEFAULT_ACCESS_LINK_ROLE}. Supports anonymous reusable guest links by setting personalized=false with notBefore and expiration, and can restrict access to specific Huly space IDs via spaces.`,
+      description: `Create a Huly workspace access link. When role is omitted, role=${DEFAULT_ACCESS_LINK_ROLE}. Supports anonymous reusable guest links by setting personalized=false with notBefore and expiration, and can restrict access to specific Huly space IDs via spaces.`,
       category: CATEGORY,
       inputSchema: createAccessLinkParamsJsonSchema,
       resultSchema: CreateAccessLinkResultSchema

@@ -22,13 +22,9 @@ import { TagWeight } from "./tags.js"
 
 export * from "./recruiting-common.js"
 
-const RecruitingSearchText = NonEmptyString.annotations({
-  description: "Non-empty case-insensitive search text."
-})
+const RecruitingSearchText = NonEmptyString.annotations({ description: "Non-empty case-insensitive search text." })
 
-const RecruitingOptionalTextInput = NonEmptyString.annotations({
-  description: "Non-empty free-form Recruiting text."
-})
+const RecruitingOptionalTextInput = NonEmptyString.annotations({ description: "Non-empty free-form Recruiting text." })
 
 const RecruitingClearableTextInput = Schema.NullOr(RecruitingOptionalTextInput).annotations({
   description: "Non-empty replacement text, or null to clear this field."
@@ -43,12 +39,14 @@ const RecruitingWorkModeInput = Schema.Boolean.annotations({
 })
 
 export const ListRecruitingVacancyTypesParamsSchema = Schema.Struct({
-  includeArchived: Schema.optional(Schema.Boolean.annotations({
-    description: `Include archived vacancy types when Huly marks them archived (default: ${DEFAULT_INCLUDE_ARCHIVED}).`
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of vacancy types to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  includeArchived: Schema.optional(
+    Schema.Boolean.annotations({
+      description: `Include archived vacancy types when Huly marks them archived (default: ${DEFAULT_INCLUDE_ARCHIVED}).`
+    })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of vacancy types to return (default: ${DEFAULT_LIMIT}).` })
+  )
 })
 export type ListRecruitingVacancyTypesParams = Schema.Schema.Type<typeof ListRecruitingVacancyTypesParamsSchema>
 
@@ -60,21 +58,15 @@ export const ListRecruitingVacancyStatusesParamsSchema = Schema.Struct({
 export type ListRecruitingVacancyStatusesParams = Schema.Schema.Type<typeof ListRecruitingVacancyStatusesParamsSchema>
 
 export const ListRecruitingVacanciesParamsSchema = Schema.Struct({
-  includeArchived: Schema.optional(Schema.Boolean.annotations({
-    description: `Include archived vacancies (default: ${DEFAULT_INCLUDE_ARCHIVED}).`
-  })),
-  query: Schema.optional(RecruitingSearchText.annotations({
-    description: "Case-insensitive vacancy name search."
-  })),
-  type: Schema.optional(NonEmptyString.annotations({
-    description: "Vacancy type ID or exact type name."
-  })),
-  company: Schema.optional(NonEmptyString.annotations({
-    description: "Company organization ID or exact name."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of vacancies to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  includeArchived: Schema.optional(
+    Schema.Boolean.annotations({ description: `Include archived vacancies (default: ${DEFAULT_INCLUDE_ARCHIVED}).` })
+  ),
+  query: Schema.optional(RecruitingSearchText.annotations({ description: "Case-insensitive vacancy name search." })),
+  type: Schema.optional(NonEmptyString.annotations({ description: "Vacancy type ID or exact type name." })),
+  company: Schema.optional(NonEmptyString.annotations({ description: "Company organization ID or exact name." })),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of vacancies to return (default: ${DEFAULT_LIMIT}).` })
+  )
 })
 export type ListRecruitingVacanciesParams = Schema.Schema.Type<typeof ListRecruitingVacanciesParamsSchema>
 
@@ -86,25 +78,24 @@ export const GetRecruitingVacancyParamsSchema = Schema.Struct({
 export type GetRecruitingVacancyParams = Schema.Schema.Type<typeof GetRecruitingVacancyParamsSchema>
 
 export const CreateRecruitingVacancyParamsSchema = Schema.Struct({
-  name: NonEmptyString.annotations({
-    description: "Non-empty vacancy name."
-  }),
-  shortDescription: Schema.optional(RecruitingOptionalTextInput.annotations({
-    description: "Non-empty short vacancy summary."
-  })),
-  fullDescription: Schema.optional(RecruitingOptionalTextInput.annotations({
-    description:
-      `Non-empty full vacancy description uploaded as collaborative markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
-  })),
-  type: Schema.optional(NonEmptyString.annotations({
-    description: "Vacancy type ID or exact type name. Defaults to Huly's Default vacancy type."
-  })),
-  company: Schema.optional(NonEmptyString.annotations({
-    description: "Company organization ID or exact name."
-  })),
-  location: Schema.optional(RecruitingOptionalTextInput.annotations({
-    description: "Non-empty vacancy location text."
-  })),
+  name: NonEmptyString.annotations({ description: "Non-empty vacancy name." }),
+  shortDescription: Schema.optional(
+    RecruitingOptionalTextInput.annotations({ description: "Non-empty short vacancy summary." })
+  ),
+  fullDescription: Schema.optional(
+    RecruitingOptionalTextInput.annotations({
+      description: `Non-empty full vacancy description uploaded as collaborative markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
+    })
+  ),
+  type: Schema.optional(
+    NonEmptyString.annotations({
+      description: "Vacancy type ID or exact type name. Defaults to Huly's Default vacancy type."
+    })
+  ),
+  company: Schema.optional(NonEmptyString.annotations({ description: "Company organization ID or exact name." })),
+  location: Schema.optional(
+    RecruitingOptionalTextInput.annotations({ description: "Non-empty vacancy location text." })
+  ),
   dueTo: Schema.optional(Timestamp),
   private: Schema.optional(RecruitingPrivateInput)
 })
@@ -123,27 +114,26 @@ export const UPDATE_RECRUITING_VACANCY_FIELDS = [
 
 export const UpdateRecruitingVacancyParamsSchema = Schema.Struct({
   vacancy: VacancyIdentifier,
-  name: Schema.optional(NonEmptyString.annotations({
-    description: "Non-empty replacement vacancy name."
-  })),
-  shortDescription: Schema.optional(RecruitingOptionalTextInput.annotations({
-    description: "Non-empty replacement short vacancy summary."
-  })),
-  fullDescription: Schema.optional(RecruitingClearableTextInput.annotations({
-    description:
-      `Non-empty replacement full vacancy description in markdown, or null to clear. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
-  })),
-  type: Schema.optional(NonEmptyString.annotations({
-    description: "Replacement vacancy type ID or exact type name."
-  })),
+  name: Schema.optional(NonEmptyString.annotations({ description: "Non-empty replacement vacancy name." })),
+  shortDescription: Schema.optional(
+    RecruitingOptionalTextInput.annotations({ description: "Non-empty replacement short vacancy summary." })
+  ),
+  fullDescription: Schema.optional(
+    RecruitingClearableTextInput.annotations({
+      description: `Non-empty replacement full vacancy description in markdown, or null to clear. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
+    })
+  ),
+  type: Schema.optional(NonEmptyString.annotations({ description: "Replacement vacancy type ID or exact type name." })),
   company: Schema.optional(
     Schema.NullOr(NonEmptyString).annotations({
       description: "Replacement company organization ID or exact name, or null to clear."
     })
   ),
-  location: Schema.optional(RecruitingClearableTextInput.annotations({
-    description: "Non-empty replacement vacancy location, or null to clear."
-  })),
+  location: Schema.optional(
+    RecruitingClearableTextInput.annotations({
+      description: "Non-empty replacement vacancy location, or null to clear."
+    })
+  ),
   dueTo: Schema.optional(Schema.NullOr(Timestamp)),
   private: Schema.optional(RecruitingPrivateInput)
 }).pipe(
@@ -162,12 +152,12 @@ export const UnarchiveRecruitingVacancyParamsSchema = GetRecruitingVacancyParams
 export type UnarchiveRecruitingVacancyParams = GetRecruitingVacancyParams
 
 export const ListRecruitingCandidatesParamsSchema = Schema.Struct({
-  query: Schema.optional(RecruitingSearchText.annotations({
-    description: "Case-insensitive candidate name, title, or source search."
-  })),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of candidates to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  query: Schema.optional(
+    RecruitingSearchText.annotations({ description: "Case-insensitive candidate name, title, or source search." })
+  ),
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of candidates to return (default: ${DEFAULT_LIMIT}).` })
+  )
 })
 export type ListRecruitingCandidatesParams = Schema.Schema.Type<typeof ListRecruitingCandidatesParamsSchema>
 
@@ -181,12 +171,10 @@ export type GetRecruitingCandidateParams = Schema.Schema.Type<typeof GetRecruiti
 export const SET_RECRUITING_CANDIDATE_PROFILE_FIELDS = ["title", "source", "onsite", "remote"] as const
 export const SetRecruitingCandidateProfileParamsSchema = Schema.Struct({
   candidate: CandidateIdentifier,
-  title: Schema.optional(RecruitingOptionalTextInput.annotations({
-    description: "Non-empty candidate profile title."
-  })),
-  source: Schema.optional(RecruitingOptionalTextInput.annotations({
-    description: "Non-empty candidate source text."
-  })),
+  title: Schema.optional(
+    RecruitingOptionalTextInput.annotations({ description: "Non-empty candidate profile title." })
+  ),
+  source: Schema.optional(RecruitingOptionalTextInput.annotations({ description: "Non-empty candidate source text." })),
   onsite: Schema.optional(RecruitingWorkModeInput),
   remote: Schema.optional(RecruitingWorkModeInput)
 }).pipe(
@@ -197,19 +185,16 @@ export const SetRecruitingCandidateProfileParamsSchema = Schema.Struct({
   )
 )
 export type SetRecruitingCandidateProfileParams = Schema.Schema.Type<typeof SetRecruitingCandidateProfileParamsSchema>
-assertUpdateFields<SetRecruitingCandidateProfileParams>()(
-  ["candidate"],
-  SET_RECRUITING_CANDIDATE_PROFILE_FIELDS
-)
+assertUpdateFields<SetRecruitingCandidateProfileParams>()(["candidate"], SET_RECRUITING_CANDIDATE_PROFILE_FIELDS)
 
 export const ListRecruitingSkillsParamsSchema = Schema.Struct({
-  titleSearch: Schema.optional(RecruitingSearchText.annotations({
-    description: "Case-insensitive skill title search."
-  })),
+  titleSearch: Schema.optional(
+    RecruitingSearchText.annotations({ description: "Case-insensitive skill title search." })
+  ),
   category: Schema.optional(TagCategoryIdentifier),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of skills to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of skills to return (default: ${DEFAULT_LIMIT}).` })
+  )
 })
 export type ListRecruitingSkillsParams = Schema.Schema.Type<typeof ListRecruitingSkillsParamsSchema>
 
@@ -237,9 +222,9 @@ export const ListRecruitingApplicantsParamsSchema = Schema.Struct({
   vacancy: Schema.optional(VacancyIdentifier),
   candidate: Schema.optional(CandidateIdentifier),
   status: Schema.optional(StatusName),
-  limit: Schema.optional(LimitParam.annotations({
-    description: `Maximum number of applicants to return (default: ${DEFAULT_LIMIT}).`
-  }))
+  limit: Schema.optional(
+    LimitParam.annotations({ description: `Maximum number of applicants to return (default: ${DEFAULT_LIMIT}).` })
+  )
 })
 export type ListRecruitingApplicantsParams = Schema.Schema.Type<typeof ListRecruitingApplicantsParamsSchema>
 
