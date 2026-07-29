@@ -1,4 +1,4 @@
-import { createMcpHandler, Server, type ServerContext } from "@modelcontextprotocol/server"
+import { createMcpHandler, Server, type ServerContext, type Transport } from "@modelcontextprotocol/server"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -78,6 +78,23 @@ interface LifecycleProbe {
   readonly acquireCount: () => number
   readonly closeCount: () => number
   readonly acquire: () => Promise<RequestClientLease<symbol>>
+}
+
+class DeferredCloseTransport implements Transport {
+  onclose?: () => void
+  onerror?: (error: Error) => void
+  onmessage?: Transport["onmessage"]
+
+  constructor(private readonly release: Promise<void>) {}
+
+  async start(): Promise<void> {}
+
+  async send(_message: Parameters<Transport["send"]>[0]): Promise<void> {}
+
+  async close(): Promise<void> {
+    this.onclose?.()
+    await this.release
+  }
 }
 
 const createLifecycleProbe = (release: () => void | Promise<void> = () => {}): LifecycleProbe => {
@@ -354,6 +371,24 @@ describe("request-scoped Huly client lifecycle", () => {
     release.resolve()
     await closing
     expect(settled).toBe(true)
+  })
+
+  it("waits for connected transport close to settle before releasing the lease", async () => {
+    const transportRelease = deferred<void>()
+    const probe = createLifecycleProbe()
+    const lifecycle = createRequestClientLifecycle(probe.acquire)
+    const server = new Server({ name: "close-test", version: "1.0.0" }, { capabilities: {} })
+    attachRequestClientLifecycle(server, lifecycle, () => {})
+    await server.connect(new DeferredCloseTransport(transportRelease.promise))
+    await lifecycle.resolve()
+
+    const closing = server.close()
+    await Promise.resolve()
+
+    expect(probe.closeCount()).toBe(0)
+    transportRelease.resolve()
+    await closing
+    expect(probe.closeCount()).toBe(1)
   })
 
   it("releases an acquired lease when the underlying SDK server close rejects", async () => {

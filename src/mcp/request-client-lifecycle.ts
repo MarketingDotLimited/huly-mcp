@@ -69,18 +69,32 @@ export const attachRequestClientLifecycle = <A>(
   const previousOnClose = server.onclose
   const originalClose = server.close.bind(server)
   let serverClosePromise: Promise<void> | undefined
+  let wrapperCloseInProgress = false
+  let cleanupErrorReported = false
   const reportCleanupError = (error: unknown): void => {
+    if (cleanupErrorReported) return
+    cleanupErrorReported = true
     onCleanupError(error instanceof Error ? error : new Error(String(error)))
   }
 
   server.onclose = () => {
-    void lifecycle.close().catch(reportCleanupError)
+    if (!wrapperCloseInProgress) void lifecycle.close().catch(reportCleanupError)
     previousOnClose?.()
   }
   server.close = () => {
-    serverClosePromise ??= (async () => {
-      const [serverResult] = await Promise.allSettled([originalClose()])
+    if (serverClosePromise !== undefined) return serverClosePromise
+    wrapperCloseInProgress = true
+    serverClosePromise = (async () => {
+      const closeOriginal = async (): Promise<void> => {
+        try {
+          await originalClose()
+        } finally {
+          wrapperCloseInProgress = false
+        }
+      }
+      const [serverResult] = await Promise.allSettled([closeOriginal()])
       const [lifecycleResult] = await Promise.allSettled([lifecycle.close()])
+      if (lifecycleResult.status === "rejected") reportCleanupError(lifecycleResult.reason)
       if (serverResult.status === "rejected" && lifecycleResult.status === "rejected") {
         throw new AggregateError(
           [serverResult.reason, lifecycleResult.reason],

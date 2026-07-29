@@ -373,6 +373,76 @@ describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
     await expect(endpoint.close()).rejects.toThrow("legacy cleanup failed")
   })
 
+  it("keeps repeated legacy product close idempotent", async () => {
+    let product: Server | undefined
+    const endpoint = await listen(
+      undefined,
+      () => {},
+      () => {
+        product = createTestServer()
+        return product
+      }
+    )
+    const response = await fetch(endpoint.baseUrl, {
+      method: "POST",
+      headers: { accept: "application/json, text/event-stream", "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: legacyProtocolVersion,
+          capabilities: {},
+          clientInfo: { name: "legacy-http-client", version: "1" }
+        }
+      })
+    })
+    await parseResponse(response)
+    if (product === undefined) throw new Error("Expected a legacy server product")
+
+    await product.close()
+    await endpoint.close()
+  })
+
+  it("aggregates multiple rejected legacy server cleanups", async () => {
+    let productCount = 0
+    const endpoint = await listen(
+      undefined,
+      () => {},
+      () => {
+        const server = createTestServer()
+        productCount++
+        const productNumber = productCount
+        server.close = () => Promise.reject(new Error(`legacy cleanup ${productNumber} failed`))
+        return server
+      }
+    )
+    const request = {
+      method: "POST",
+      headers: { accept: "application/json, text/event-stream", "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: legacyProtocolVersion,
+          capabilities: {},
+          clientInfo: { name: "legacy-http-client", version: "1" }
+        }
+      })
+    } satisfies RequestInit
+
+    await parseResponse(await fetch(endpoint.baseUrl, request))
+    await parseResponse(await fetch(endpoint.baseUrl, request))
+    const failure = await endpoint.close().catch((error: unknown) => error)
+    if (!(failure instanceof AggregateError)) throw new Error("Expected an AggregateError")
+
+    expect(failure.errors).toEqual([
+      expect.objectContaining({ message: "legacy cleanup 1 failed" }),
+      expect.objectContaining({ message: "legacy cleanup 2 failed" })
+    ])
+  })
+
   it("uses the final header-mismatch code for malformed modern requests", async () => {
     const endpoint = await listen()
     const headers = modernHeaders("tools/list")
