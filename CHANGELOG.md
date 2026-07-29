@@ -1,5 +1,15 @@
 # @firfi/huly-mcp
 
+## 0.46.0
+
+### Minor Changes
+
+- 8335455: Migrate both stdio and HTTP transports to the released MCP 2026-07-28 interface and the TypeScript SDK v2. The SDK-owned compatibility paths continue to serve MCP 2025-06-18 clients, including current Codex clients, while modern clients use the released per-request interface.
+
+### Patch Changes
+
+- 9610dbd: Honor absolute and templated file and upload URLs from Huly server configuration.
+
 ## 0.45.0
 
 ### Minor Changes

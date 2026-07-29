@@ -7,8 +7,7 @@
 import { timingSafeEqual } from "node:crypto"
 import { createServer as createNodeServer } from "node:http"
 
-import type { HttpServerError } from "@effect/platform"
-import { HttpApp, HttpRouter, type HttpServer } from "@effect/platform"
+import { HttpApp, HttpRouter, type HttpServer, type HttpServerError } from "@effect/platform"
 import { NodeHttpServer } from "@effect/platform-node"
 import {
   createMcpHandler,
