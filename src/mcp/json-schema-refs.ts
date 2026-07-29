@@ -53,6 +53,7 @@ export const stripCollidingSchemaIds = (value: unknown): unknown => {
 
 export const stripCollidingSchemaIdsRecord = (record: Record<string, unknown>): Record<string, unknown> => {
   const stripped = stripCollidingSchemaIds(record)
+  /* v8 ignore next -- a record remains an object after recursive key filtering */
   return isJsonObject(stripped) ? stripped : record
 }
 
@@ -60,6 +61,7 @@ export const stripCollidingSchemaIdsProperties = (properties: Record<string, obj
   Object.fromEntries(
     Object.entries(properties).map(([key, value]) => {
       const stripped = stripCollidingSchemaIds(value)
+      /* v8 ignore next -- property values are objects and recursive filtering preserves that shape */
       return [key, isJsonObject(stripped) ? stripped : value]
     })
   )

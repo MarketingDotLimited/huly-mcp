@@ -109,8 +109,8 @@ Manual setup for the second group-DM participant:
    ```bash
    set -a && source .env.local && set +a
    printf '%s\n%s\n' \
-   '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}' \
-   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_workspace_members","arguments":{}},"id":2}' \
+   '{"jsonrpc":"2.0","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":1}' \
+   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_workspace_members","arguments":{},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":2}' \
      | HULY_TOOL_MODE=native MCP_AUTO_EXIT=true node dist/index.cjs 2>/dev/null | grep '"id":2'
    ```
 
@@ -173,20 +173,7 @@ HULY_URL="${HULY_URL/localhost/host.docker.internal}" \
   bash scripts/integration_test_full.sh
 ```
 
-By default, this starts `node dist/index.cjs` with `MCP_TRANSPORT=http` and lets the server resolve Huly credentials from process environment variables. This tests HTTP transport parity with local stdio configuration.
-
-The HTTP server supports both the existing SDK initialize-compatible request flow and the 2026 stateless request flow at the same `/mcp` endpoint. Dispatch is per request: explicit 2026 `_meta` and future-only `server/discover` use the strict stateless boundary. An `Mcp-Method` header also selects that boundary unless the request explicitly declares a non-2026 `MCP-Protocol-Version`; this preserves newer legacy SDK clients that send routing headers.
-
-`INTEGRATION_MCP_PROTOCOL=legacy|2026` is only a test harness switch for choosing which request shape the suite sends. It does not configure the server to support only one protocol mode. The HTTP suite defaults to `legacy` MCP requests carrying `MCP-Protocol-Version: 2025-11-25` and `Mcp-Method`; it verifies tool discovery before exercising tool invocation. To exercise the 2026 stateless HTTP path, add `INTEGRATION_MCP_PROTOCOL=2026`; the harness injects per-request `_meta`, `MCP-Protocol-Version`, `Mcp-Method`, and `Mcp-Name` headers:
-
-```bash
-pnpm build
-set -a && source .env.local && set +a
-HULY_URL="${HULY_URL/localhost/host.docker.internal}" \
-  INTEGRATION_TRANSPORT=http \
-  INTEGRATION_MCP_PROTOCOL=2026 \
-  bash scripts/integration_test_full.sh
-```
+This starts `node dist/index.cjs` with `MCP_TRANSPORT=http` and lets the server resolve Huly credentials from process environment variables. The suite always sends the released MCP `2026-07-28` request envelope and required HTTP headers. Both transports reject initialize-era traffic; the harness has no legacy mode.
 
 To test hosted URL header configuration, provide a Huly API token and run the same suite with credentials sent as request headers:
 
@@ -205,8 +192,8 @@ INTEGRATION_TRANSPORT=http \
 ## Quick Smoke Test
 
 ```bash
-printf '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}
-{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_projects","arguments":{}},"id":2}
+printf '{"jsonrpc":"2.0","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":1}
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_projects","arguments":{},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":2}
 ' | HULY_TOOL_MODE=native MCP_AUTO_EXIT=true node dist/index.cjs 2>&1 | grep '"id":2'
 ```
 
@@ -220,10 +207,10 @@ MCP Resources are read-only JSON context. `resources/list` is intentionally empt
 
 ```bash
 printf '%s\n' \
-'{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}' \
-'{"jsonrpc":"2.0","method":"resources/templates/list","id":2}' \
-'{"jsonrpc":"2.0","method":"resources/list","id":3}' \
-'{"jsonrpc":"2.0","method":"resources/read","params":{"uri":"huly://projects/HULY"},"id":4}' \
+'{"jsonrpc":"2.0","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":1}' \
+'{"jsonrpc":"2.0","method":"resources/templates/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":2}' \
+'{"jsonrpc":"2.0","method":"resources/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":3}' \
+'{"jsonrpc":"2.0","method":"resources/read","params":{"uri":"huly://projects/HULY","_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":4}' \
   | MCP_AUTO_EXIT=true node dist/index.cjs 2>/dev/null | grep -E '"id":[234]'
 ```
 
@@ -360,10 +347,10 @@ printf '...get...' | MCP_AUTO_EXIT=true node dist/index.cjs
 ## Individual Tool Test Pattern
 
 ```bash
-INIT='{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}'
+META='"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}'
 
-printf '%s\n%s\n' "$INIT" \
-  '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"TOOL_NAME","arguments":ARGS},"id":2}' \
+printf '%s\n' \
+  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"TOOL_NAME\",\"arguments\":ARGS,$META},\"id\":2}" \
   | HULY_TOOL_MODE=native MCP_AUTO_EXIT=true node dist/index.cjs 2>/dev/null | grep '"id":2'
 ```
 

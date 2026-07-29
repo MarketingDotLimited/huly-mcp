@@ -3,8 +3,8 @@ import { assertAt } from "../../src/utils/assertions.js"
  * Tests for the shared MCP protocol handlers (src/mcp/protocol-handlers.ts).
  *
  * These exercise the REAL createMcpProtocolHandlers implementation (not the stubbed
- * handlers used by the HTTP dispatcher tests), covering server/discover, the listTools
- * schema conversion, and the injected clock seam used for telemetry timing.
+ * handlers used by the transport tests), covering listTools schema conversion and the
+ * injected clock seam used for telemetry timing.
  *
  * Dependencies are provided as real stubs through the factory's parameters — no mocks.
  *
@@ -14,7 +14,7 @@ import type { Class, Doc, FindResult, PersonId, Ref, Space, Status, WithLookup }
 import { toFindResult } from "@hcengineering/core"
 import type { ProjectType } from "@hcengineering/task"
 import { type Project as HulyProject, TimeReportDayType } from "@hcengineering/tracker"
-import { McpError } from "@modelcontextprotocol/sdk/types.js"
+import { ProtocolError } from "@modelcontextprotocol/server"
 import { Context, Effect, Layer, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
@@ -46,7 +46,7 @@ import {
 } from "../../src/mcp/protocol-handlers.js"
 import { resolveProtocolExposure, toListedTool } from "../../src/mcp/protocol-tool-exposure.js"
 import { handleProxyToolCall } from "../../src/mcp/proxy-tools.js"
-import { createHostedHulyMigrationNoticeProvider, noToolCallNoticeProvider } from "../../src/mcp/tool-call-notices.js"
+import { createHostedHulyMigrationNoticeProvider } from "../../src/mcp/tool-call-notices.js"
 import { parseMcpClientInfo } from "../../src/mcp/tool-mode.js"
 import { createToolOutputSchema } from "../../src/mcp/tool-output-schema.js"
 import { createFilteredRegistry, type ToolRegistry, toolRegistry } from "../../src/mcp/tools/index.js"
@@ -151,40 +151,6 @@ const unresolvedLocalJsonSchemaRefs = (
   collectJsonSchemaRefs(schema).filter(({ ref }) => !resolvesLocalJsonSchemaRef(schema, ref))
 
 describe("createMcpProtocolHandlers", () => {
-  describe("serverDiscover", () => {
-    it("returns the 2026 capability envelope without unrelated instructions", () => {
-      const handlers = createMcpProtocolHandlers(
-        unusedResolveClients,
-        createTelemetryProbe().telemetry,
-        emptyRegistry,
-        unusedGetHulyContext
-      )
-
-      expect(handlers.serverDiscover()).toEqual({
-        resultType: "complete",
-        supportedVersions: ["2026-07-28"],
-        capabilities: { tools: {}, resources: {} },
-        serverInfo: { name: "huly-mcp", version: VERSION }
-      })
-    })
-
-    it("includes hosted migration instructions when they apply to the request origin", () => {
-      const handlers = createMcpProtocolHandlers(
-        unusedResolveClients,
-        createTelemetryProbe().telemetry,
-        emptyRegistry,
-        unusedGetHulyContext,
-        liveNowClock,
-        fetchLatestNpmVersion,
-        {},
-        noToolCallNoticeProvider,
-        HOSTED_HULY_MIGRATION_WARNING.message
-      )
-
-      expect(handlers.serverDiscover().instructions).toBe(HOSTED_HULY_MIGRATION_WARNING.message)
-    })
-  })
-
   describe("listTools", () => {
     it("lists builtin tools with object input/output schemas and records firstListTools", async () => {
       const probe = createTelemetryProbe()
@@ -206,7 +172,7 @@ describe("createMcpProtocolHandlers", () => {
       }
       const contextTool = result.tools.find((tool) => tool.name === GET_HULY_CONTEXT_TOOL_NAME)
       expect(contextTool?.outputSchema).toHaveProperty(["$defs", "NonEmptyTrimmedString"])
-      expect(contextTool?.outputSchema?.properties?.result).not.toHaveProperty("$defs")
+      expect(contextTool?.outputSchema).not.toHaveProperty(["properties", "result", "$defs"])
       expect(probe.firstListTools).toHaveLength(1)
       expect(assertAt(probe.firstListTools, 0)).toMatchObject({ clientKind: "unknown", resolvedMode: "native" })
     })
@@ -249,7 +215,7 @@ describe("createMcpProtocolHandlers", () => {
         description: makeToolDescription("Tool used to exercise protocol schema conversion."),
         inputSchema: {
           type: "object",
-          properties: { valid: { type: "string" }, ignored: "not an object" },
+          properties: { valid: { type: "string", minLength: 1 }, allowedBooleanSchema: false },
           required: ["valid"],
           additionalProperties: false
         }
@@ -257,7 +223,27 @@ describe("createMcpProtocolHandlers", () => {
 
       expect(listed.outputSchema).toBeUndefined()
       expect(listed.annotations).toBeUndefined()
-      expect(listed.inputSchema.properties).toEqual({ valid: { type: "string" } })
+      expect(listed.inputSchema.properties).toEqual({
+        valid: { type: "string", minLength: 1 },
+        allowedBooleanSchema: false
+      })
+    })
+
+    it("rejects malformed property schemas instead of silently dropping them", () => {
+      expect(() =>
+        toListedTool({
+          name: makeToolName("malformed_tool"),
+          description: makeToolDescription("Tool with a malformed property schema."),
+          inputSchema: { type: "object", properties: { malformed: "not an object" } }
+        })
+      ).toThrow('Tool schema property "malformed"')
+      expect(() =>
+        toListedTool({
+          name: makeToolName("undefined_schema_tool"),
+          description: makeToolDescription("Tool with an undefined property schema."),
+          inputSchema: { type: "object", properties: { malformed: undefined } }
+        })
+      ).toThrow('Tool schema property "malformed"')
     })
 
     it("lists every registered category tool after schema compatibility conversion", async () => {
@@ -1789,7 +1775,7 @@ describe("createMcpProtocolHandlers — resource handlers", () => {
       emptyRegistry,
       unusedGetHulyContext
     )
-    await expect(handlers.listResources()).rejects.toThrow(McpError)
+    await expect(handlers.listResources()).rejects.toThrow(ProtocolError)
   })
 
   it("returns an empty resource list when registry inspection provides empty Huly config placeholders", async () => {
@@ -1821,7 +1807,7 @@ describe("createMcpProtocolHandlers — resource handlers", () => {
       emptyRegistry,
       unusedGetHulyContext
     )
-    await expect(handlers.listResources()).rejects.toThrow(McpError)
+    await expect(handlers.listResources()).rejects.toThrow(ProtocolError)
   })
 
   it("throws an McpError when client resolution fails while reading a resource", async () => {
@@ -1831,7 +1817,7 @@ describe("createMcpProtocolHandlers — resource handlers", () => {
       emptyRegistry,
       unusedGetHulyContext
     )
-    await expect(handlers.readResource({ params: { uri: "huly://projects/TEST" } })).rejects.toThrow(McpError)
+    await expect(handlers.readResource({ params: { uri: "huly://projects/TEST" } })).rejects.toThrow(ProtocolError)
   })
 
   it("wraps a non-McpError defect into an McpError while listing resources", async () => {
@@ -1841,7 +1827,7 @@ describe("createMcpProtocolHandlers — resource handlers", () => {
       emptyRegistry,
       unusedGetHulyContext
     )
-    await expect(handlers.listResources()).rejects.toThrow(McpError)
+    await expect(handlers.listResources()).rejects.toThrow(ProtocolError)
   })
 
   it("wraps a non-McpError defect into an McpError while reading a resource", async () => {
@@ -1851,7 +1837,7 @@ describe("createMcpProtocolHandlers — resource handlers", () => {
       emptyRegistry,
       unusedGetHulyContext
     )
-    await expect(handlers.readResource({ params: { uri: "huly://projects/TEST" } })).rejects.toThrow(McpError)
+    await expect(handlers.readResource({ params: { uri: "huly://projects/TEST" } })).rejects.toThrow(ProtocolError)
   })
 })
 

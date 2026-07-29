@@ -204,16 +204,6 @@
       "count": 1
     }
   },
-  "src/mcp/http-2026-boundary.ts": {
-    "complexity": {
-      "count": 2
-    }
-  },
-  "src/mcp/http-2026-dispatcher.ts": {
-    "complexity": {
-      "count": 1
-    }
-  },
   "src/mcp/protocol-handlers.ts": {
     "complexity": {
       "count": 1

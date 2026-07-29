@@ -1,5 +1,4 @@
-import { Server } from "@modelcontextprotocol/sdk/server/index.js"
-
+import { Server } from "@modelcontextprotocol/server"
 import type { HostedHulyMigrationInstructions } from "../huly/unavailable-diagnostics.js"
 import { VERSION } from "../version.js"
 

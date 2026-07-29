@@ -10,7 +10,6 @@ import "./polyfills.js"
 import { NodeRuntime } from "@effect/platform-node"
 import type { ConfigError } from "effect"
 import { Config, Effect, Layer, Option, Redacted } from "effect"
-import type { Request } from "express"
 
 import {
   type ConfigValidationError,
@@ -21,6 +20,7 @@ import {
 import type { HulyClientError } from "./huly/client.js"
 import type { StorageClientError } from "./huly/storage.js"
 import { DEFAULT_HTTP_PORT, HttpServerFactoryService } from "./mcp/http-transport.js"
+import type { RequestClientLease } from "./mcp/request-client-lifecycle.js"
 import { type ClientBundle, type McpServerError, McpServerService, type McpTransportType } from "./mcp/server.js"
 import { type ConsoleRedirectHandle, redirectConsoleToStderr } from "./mcp/stdio-output.js"
 import {
@@ -71,38 +71,28 @@ const restoreConsoleRedirect = (redirect: ConsoleRedirectHandle | undefined): Ef
     redirect?.restore()
   })
 
-const createHttpClientResolver = (
-  combinedClientLayer: CombinedClientLayer,
-  resolveEnvClients: () => Promise<ClientBundle>
-): ((req: Request) => Promise<ClientBundle>) => {
-  const requestClients = new WeakMap<Request, Promise<ClientBundle>>()
+const webHeadersRecord = (headers: Headers): Record<string, string> => Object.fromEntries(headers.entries())
 
-  return (req) => {
-    const existing = requestClients.get(req)
-    if (existing !== undefined) return existing
-
-    const clients = Effect.runPromise(hulyConfigProviderFromHeaders(req.headers)).then((configProvider) => {
-      if (configProvider === undefined) return resolveEnvClients()
+const createHttpClientLeaseResolver =
+  (
+    combinedClientLayer: CombinedClientLayer,
+    resolveEnvClients: () => Promise<ClientBundle>
+  ): ((req: Request) => Promise<RequestClientLease>) =>
+  (req) => {
+    const headers = webHeadersRecord(req.headers)
+    return Effect.runPromise(hulyConfigProviderFromHeaders(headers)).then((configProvider) => {
+      if (configProvider === undefined) {
+        return resolveEnvClients().then((bundle) => ({ bundle, close: () => {} }))
+      }
 
       return Effect.runPromise(
         buildScopedClientBundle(combinedClientLayer).pipe(
           Effect.withConfigProvider(configProvider),
-          Effect.map(({ bundle, close }) => {
-            let closed = false
-            req.on("close", () => {
-              if (closed) return
-              closed = true
-              close()
-            })
-            return bundle
-          })
+          Effect.map(({ bundle, close }) => ({ bundle, close }))
         )
       )
     })
-    requestClients.set(req, clients)
-    return clients
   }
-}
 
 const buildAppLayer = (
   transport: McpTransportType,
@@ -112,7 +102,7 @@ const buildAppLayer = (
   autoExit: boolean,
   authMethod: "token" | "password",
   resolveClients: () => Promise<ClientBundle>,
-  resolveClientsForHttpRequest: (req: Request) => Promise<ClientBundle>
+  resolveClientLeaseForHttpRequest: (req: Request) => Promise<RequestClientLease>
 ): Layer.Layer<McpServerService | HttpServerFactoryService, McpServerError, never> => {
   const mcpServerConfig = {
     transport,
@@ -122,10 +112,10 @@ const buildAppLayer = (
     autoExit,
     authMethod,
     resolveClients,
-    resolveClientsForHttpRequest,
+    resolveClientLeaseForHttpRequest,
     getRuntimeConfigContext: () => sanitizeHulyRuntimeConfigFromEnv(process.env),
     getRuntimeConfigContextForHttpRequest: (req: Request) =>
-      sanitizeHulyRuntimeConfigFromHeaders(req.headers, process.env)
+      sanitizeHulyRuntimeConfigFromHeaders(webHeadersRecord(req.headers), process.env)
   }
   const mcpServerLayer = McpServerService.layer(mcpServerConfig).pipe(Layer.provide(TelemetryService.layer))
 
@@ -144,7 +134,7 @@ const runConfiguredServer = (transport: McpTransportType): Effect.Effect<void, A
 
     const combinedClientLayer = buildCombinedClientLayer()
     const [resolveClients, primeClients] = createClientResolver(combinedClientLayer)
-    const resolveHttpClients = createHttpClientResolver(combinedClientLayer, resolveClients)
+    const resolveHttpClientLease = createHttpClientLeaseResolver(combinedClientLayer, resolveClients)
 
     if (!lazyEnvs && transport === "stdio") {
       // Eager init: build client layers within the Effect pipeline to preserve
@@ -169,7 +159,7 @@ const runConfiguredServer = (transport: McpTransportType): Effect.Effect<void, A
       autoExit,
       authMethod,
       resolveClients,
-      resolveHttpClients
+      resolveHttpClientLease
     )
 
     yield* Effect.gen(function* () {

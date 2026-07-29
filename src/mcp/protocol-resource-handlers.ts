@@ -1,9 +1,5 @@
-import type {
-  ListResourcesResult,
-  ReadResourceRequestParams,
-  ReadResourceResult
-} from "@modelcontextprotocol/sdk/types.js"
-import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js"
+import { ProtocolError, ProtocolErrorCode } from "@modelcontextprotocol/server"
+import type { ListResourcesResult, ReadResourceRequestParams, ReadResourceResult } from "@modelcontextprotocol/server"
 import { Cause, Chunk, Effect, Exit, Runtime } from "effect"
 
 import { ConfigValidationError } from "../config/config.js"
@@ -34,11 +30,17 @@ interface ResourceHandlerInput {
 const withResourceWarnings = (result: ReadResourceResult, warnings: ReadonlyArray<ToolWarning>): ReadResourceResult =>
   warnings.length === 0 ? result : { ...result, _meta: { ...result._meta, warnings } }
 
-const createResourceClientResolutionError = (uri: string, error: unknown): McpError =>
-  new McpError(ErrorCode.InternalError, `${clientResolutionErrorMessage(error)} Unable to read resource "${uri}".`)
+const createResourceClientResolutionError = (uri: string, error: unknown): ProtocolError =>
+  new ProtocolError(
+    ProtocolErrorCode.InternalError,
+    `${clientResolutionErrorMessage(error)} Unable to read resource "${uri}".`
+  )
 
-const createResourceListClientResolutionError = (error: unknown): McpError =>
-  new McpError(ErrorCode.InternalError, `${clientResolutionErrorMessage(error)} Unable to list Huly resources.`)
+const createResourceListClientResolutionError = (error: unknown): ProtocolError =>
+  new ProtocolError(
+    ProtocolErrorCode.InternalError,
+    `${clientResolutionErrorMessage(error)} Unable to list Huly resources.`
+  )
 
 const isConfigValidationFailure = (error: unknown): boolean => {
   if (error instanceof ConfigValidationError) return true
@@ -51,7 +53,7 @@ const isConfigValidationFailure = (error: unknown): boolean => {
 
 const resolveResourceClientsOrThrow = async (
   resolveClients: () => Promise<ClientBundle>,
-  mapError: (error: unknown) => McpError
+  mapError: (error: unknown) => ProtocolError
 ): Promise<ClientBundle> => {
   try {
     return await resolveClients()
@@ -60,18 +62,18 @@ const resolveResourceClientsOrThrow = async (
   }
 }
 
-const throwResourceReadError = (uri: string, cause: Cause.Cause<McpError>): never => {
+const throwResourceReadError = (uri: string, cause: Cause.Cause<ProtocolError>): never => {
   const failures = Chunk.toArray(Cause.failures(cause))
   const failure = failures[0]
-  if (failure instanceof McpError) throw failure
-  throw new McpError(ErrorCode.InternalError, `Failed to read Huly resource "${uri}"`)
+  if (failure instanceof ProtocolError) throw failure
+  throw new ProtocolError(ProtocolErrorCode.InternalError, `Failed to read Huly resource "${uri}"`)
 }
 
-const throwResourceListError = (cause: Cause.Cause<McpError>): never => {
+const throwResourceListError = (cause: Cause.Cause<ProtocolError>): never => {
   const failures = Chunk.toArray(Cause.failures(cause))
   const failure = failures[0]
-  if (failure instanceof McpError) throw failure
-  throw new McpError(ErrorCode.InternalError, "Failed to list Huly resources")
+  if (failure instanceof ProtocolError) throw failure
+  throw new ProtocolError(ProtocolErrorCode.InternalError, "Failed to list Huly resources")
 }
 
 export const createResourceProtocolHandlers = (

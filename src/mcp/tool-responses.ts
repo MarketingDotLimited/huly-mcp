@@ -3,7 +3,7 @@ import { Schema } from "effect"
 import { type McpImageContent, McpImageContentSchema } from "../domain/schemas/attachments.js"
 import type { ToolWarning } from "../domain/schemas/tool-warnings.js"
 
-export const McpErrorCode = { InvalidParams: -32602, InternalError: -32603, ResourceNotFound: -32002 } as const
+export const McpErrorCode = { InvalidParams: -32602, InternalError: -32603 } as const
 export type McpErrorCode = (typeof McpErrorCode)[keyof typeof McpErrorCode]
 
 interface ErrorMetadata {
@@ -40,7 +40,7 @@ type McpWireSuccessResponse = {
   readonly isError?: false
 }
 type McpWireErrorResponse = Omit<McpToolErrorResponse, "_meta">
-type McpWireResponse = McpWireSuccessResponse | McpWireErrorResponse
+export type McpWireResponse = McpWireSuccessResponse | McpWireErrorResponse
 
 export interface McpErrorResponseWithMeta extends McpToolErrorResponse {
   isError: true

@@ -1,4 +1,4 @@
-import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js"
+import type { ToolAnnotations } from "@modelcontextprotocol/server"
 import { Schema } from "effect"
 import * as fc from "fast-check"
 import { describe, expect, it } from "vitest"

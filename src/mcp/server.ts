@@ -3,17 +3,20 @@
 
  * @module
  */
-import type { Server } from "@modelcontextprotocol/sdk/server/index.js"
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
-import { Config, Context, Effect, Layer, Ref, Schema } from "effect"
-import type { Request } from "express"
+import type { McpRequestContext, Server } from "@modelcontextprotocol/server"
+import { serveStdio, type StdioServerHandle, type StdioServerTransport } from "@modelcontextprotocol/server/stdio"
+import { Config, Context, Deferred, Effect, Layer, Ref, Schema } from "effect"
 
 import { type ClientBundle, createMcpServer } from "./create-mcp-server.js"
 import type { HttpServerFactoryService, HttpTransportDependencies, HttpTransportError } from "./http-transport.js"
 import { DEFAULT_HTTP_PORT, startHttpTransport } from "./http-transport.js"
 import { buildHulyContext, type ToolExposureContext } from "./huly-context-tool.js"
-import { createMcpProtocolHandlers } from "./protocol-handlers.js"
 import type { ProtocolExposureOptions } from "./protocol-tool-exposure.js"
+import {
+  attachRequestClientLifecycle,
+  createRequestClientLifecycle,
+  type RequestClientLease
+} from "./request-client-lifecycle.js"
 
 import { type SanitizedHulyRuntimeConfigContext, sanitizeHulyRuntimeConfigFromEnv } from "../config/config.js"
 import type { GetHulyContextResult } from "../domain/schemas/index.js"
@@ -23,12 +26,7 @@ import {
   createHostedHulyMigrationNoticeProvider,
   hostedHulyMigrationInstructionsForOrigin
 } from "./tool-call-notices.js"
-import {
-  type McpClientInfoLike,
-  parseMcpClientInfo,
-  parseToolExposureConfig,
-  type ToolExposureConfig
-} from "./tool-mode.js"
+import { parseToolExposureConfig, type ToolExposureConfig } from "./tool-mode.js"
 import { resolveToolScope } from "./tool-scope.js"
 import { createScopedRegistry, toolRegistry } from "./tools/index.js"
 
@@ -48,7 +46,7 @@ interface McpServerConfigData {
 
 interface McpServerConfigCallbacks {
   readonly resolveClients: () => Promise<ClientBundle>
-  readonly resolveClientsForHttpRequest?: (req: Request) => Promise<ClientBundle>
+  readonly resolveClientLeaseForHttpRequest?: (req: Request) => Promise<RequestClientLease>
   readonly getRuntimeConfigContext?: () => SanitizedHulyRuntimeConfigContext
   readonly getRuntimeConfigContextForHttpRequest?: (req: Request) => SanitizedHulyRuntimeConfigContext
   readonly createServer?: (instructions?: HostedHulyMigrationInstructions) => Server
@@ -75,29 +73,14 @@ const parseToolExposureConfigEffect = (
   return Effect.fail(new McpServerError({ message: parsed.message }))
 }
 
-const CLIENT_INFO_META_KEY = "io.modelcontextprotocol/clientInfo"
-const Mcp2026ClientInfoRequestSchema = Schema.Struct({
-  params: Schema.Struct({ _meta: Schema.Struct({ [CLIENT_INFO_META_KEY]: Schema.Unknown }) })
-})
-const LegacyClientInfoRequestSchema = Schema.Struct({
-  params: Schema.Struct({ clientInfo: Schema.optionalWith(Schema.Unknown, { exact: true }) })
-})
-
-const clientInfoFromMcp2026Request = (req: Request): McpClientInfoLike | undefined => {
-  const decoded = Schema.decodeUnknownEither(Mcp2026ClientInfoRequestSchema)(req.body)
-  if (decoded._tag === "Left") return undefined
-  return parseMcpClientInfo(decoded.right.params._meta[CLIENT_INFO_META_KEY])
-}
-
-const clientInfoFromLegacyHttpRequest = (req: Request): McpClientInfoLike | undefined => {
-  const decoded = Schema.decodeUnknownEither(LegacyClientInfoRequestSchema)(req.body)
-  if (decoded._tag === "Left") return clientInfoFromMcp2026Request(req)
-  return parseMcpClientInfo(decoded.right.params.clientInfo) ?? clientInfoFromMcp2026Request(req)
-}
-
 interface McpServerOperations {
   readonly run: () => Effect.Effect<void, McpServerError, HttpServerFactoryService>
   readonly stop: () => Effect.Effect<void, McpServerError>
+}
+
+interface McpServerRunControl {
+  readonly shutdown: Deferred.Deferred<void>
+  readonly done: Deferred.Deferred<void>
 }
 
 export class McpServerService extends Context.Tag("@hulymcp/McpServer")<McpServerService, McpServerOperations>() {
@@ -145,10 +128,6 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<McpServe
           exposureConfig,
           toolScopeFilteringActive: toolScope.filteringActive
         }
-        const requestExposureOptions = (
-          currentClientInfo: () => McpClientInfoLike | undefined
-        ): Partial<ProtocolExposureOptions> => ({ ...sdkExposureOptions, currentClientInfo })
-
         telemetry.sessionStart({
           transport: config.transport,
           authMethod: config.authMethod ?? "password",
@@ -158,8 +137,9 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<McpServe
 
         const flushTelemetry = Effect.ignore(Effect.tryPromise(() => telemetry.shutdown()))
 
-        const serverRef = yield* Ref.make<Server | null>(null)
+        const stdioHandleRef = yield* Ref.make<StdioServerHandle | null>(null)
         const isRunning = yield* Ref.make(false)
+        const runControlRef = yield* Ref.make<McpServerRunControl | null>(null)
 
         const operations: McpServerOperations = {
           run: () =>
@@ -169,141 +149,140 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<McpServe
               }
 
               yield* Ref.set(isRunning, true)
+              const control: McpServerRunControl = {
+                shutdown: yield* Deferred.make<void>(),
+                done: yield* Deferred.make<void>()
+              }
+              yield* Ref.set(runControlRef, control)
 
-              if (config.transport === "stdio") {
-                const stdioRuntimeConfig = getRuntimeConfigContext()
-                const [stdioServer, drainInflight] = createMcpServer(
-                  config.resolveClients,
-                  telemetry,
-                  registries,
-                  (toolExposure) => getHulyContext(stdioRuntimeConfig, toolExposure),
-                  config.createServer,
-                  sdkExposureOptions,
-                  createHostedHulyMigrationNoticeProvider({
-                    delivery: "once",
-                    hulyOrigin: stdioRuntimeConfig.huly.url.origin
-                  }),
-                  hostedHulyMigrationInstructionsForOrigin(stdioRuntimeConfig.huly.url.origin)
-                )
-                yield* Ref.set(serverRef, stdioServer)
-                const transport = config.createStdioTransport?.() ?? new StdioServerTransport()
-
-                yield* Effect.tryPromise({
-                  try: () => stdioServer.connect(transport),
-                  catch: (e) =>
-                    new McpServerError({ message: `Failed to connect stdio transport: ${String(e)}`, cause: e })
-                })
-
-                yield* Effect.async<void, McpServerError>((resume) => {
-                  const cleanup = () => {
-                    void drainInflight().then(() => {
-                      Effect.runSync(Ref.set(isRunning, false))
-                      resume(Effect.void)
-                    })
-                  }
-
-                  process.on("SIGINT", cleanup)
-                  process.on("SIGTERM", cleanup)
-
-                  if (config.autoExit) {
-                    process.stdin.on("end", cleanup)
-                    process.stdin.on("close", cleanup)
-                  }
-
-                  return Effect.sync(() => {
-                    process.off("SIGINT", cleanup)
-                    process.off("SIGTERM", cleanup)
-                    if (config.autoExit) {
-                      process.stdin.off("end", cleanup)
-                      process.stdin.off("close", cleanup)
+              yield* Effect.gen(function* () {
+                if (config.transport === "stdio") {
+                  const stdioRuntimeConfig = getRuntimeConfigContext()
+                  const drains = new Set<() => Promise<void>>()
+                  const createStdioServer = () => {
+                    const [server, drainInflight] = createMcpServer(
+                      config.resolveClients,
+                      telemetry,
+                      registries,
+                      (toolExposure) => getHulyContext(stdioRuntimeConfig, toolExposure),
+                      config.createServer,
+                      sdkExposureOptions,
+                      createHostedHulyMigrationNoticeProvider({
+                        delivery: "once",
+                        hulyOrigin: stdioRuntimeConfig.huly.url.origin
+                      }),
+                      hostedHulyMigrationInstructionsForOrigin(stdioRuntimeConfig.huly.url.origin)
+                    )
+                    drains.add(drainInflight)
+                    const previousOnClose = server.onclose
+                    server.onclose = () => {
+                      drains.delete(drainInflight)
+                      previousOnClose?.()
                     }
+                    return server
+                  }
+                  const stdioHandle = serveStdio(createStdioServer, {
+                    legacy: "reject",
+                    ...(config.createStdioTransport === undefined ? {} : { transport: config.createStdioTransport() }),
+                    onerror: (error) => writeError(`MCP stdio handler error: ${error.message}`)
                   })
-                })
+                  yield* Ref.set(stdioHandleRef, stdioHandle)
 
-                yield* flushTelemetry
+                  yield* Effect.raceFirst(
+                    Effect.async<void, McpServerError>((resume) => {
+                      const cleanup = () => {
+                        resume(Effect.void)
+                      }
 
-                yield* Effect.tryPromise({
-                  try: () => stdioServer.close(),
-                  catch: (e) => new McpServerError({ message: `Failed to close server: ${String(e)}`, cause: e })
-                })
-              } else {
-                const port = config.httpPort ?? DEFAULT_HTTP_PORT
-                const host = config.httpHost ?? "127.0.0.1"
-                const createHttpRequestContext = (req: Request) => {
-                  const resolveClientsForRequest = config.resolveClientsForHttpRequest
-                  const requestResolveClients =
-                    resolveClientsForRequest === undefined ? config.resolveClients : () => resolveClientsForRequest(req)
-                  const requestRuntimeConfig =
-                    config.getRuntimeConfigContextForHttpRequest === undefined
-                      ? getRuntimeConfigContext()
-                      : config.getRuntimeConfigContextForHttpRequest(req)
-                  return { requestResolveClients, requestRuntimeConfig }
-                }
+                      process.on("SIGINT", cleanup)
+                      process.on("SIGTERM", cleanup)
 
-                yield* startHttpTransport(
-                  { port, host, authToken: config.mcpAuthToken },
-                  (req) => {
-                    const { requestResolveClients, requestRuntimeConfig } = createHttpRequestContext(req)
-                    return createMcpServer(
-                      requestResolveClients,
+                      if (config.autoExit) {
+                        process.stdin.on("end", cleanup)
+                        process.stdin.on("close", cleanup)
+                      }
+
+                      return Effect.sync(() => {
+                        process.off("SIGINT", cleanup)
+                        process.off("SIGTERM", cleanup)
+                        if (config.autoExit) {
+                          process.stdin.off("end", cleanup)
+                          process.stdin.off("close", cleanup)
+                        }
+                      })
+                    }),
+                    Deferred.await(control.shutdown)
+                  )
+
+                  yield* Effect.promise(() => Promise.all([...drains].map((drain) => drain())))
+                  yield* flushTelemetry
+
+                  yield* Effect.promise(() => stdioHandle.close())
+                  yield* Ref.set(stdioHandleRef, null)
+                } else {
+                  const port = config.httpPort ?? DEFAULT_HTTP_PORT
+                  const host = config.httpHost ?? "127.0.0.1"
+                  const createHttpServer = ({ requestInfo }: McpRequestContext): Server => {
+                    const requestRuntimeConfig =
+                      requestInfo === undefined || config.getRuntimeConfigContextForHttpRequest === undefined
+                        ? getRuntimeConfigContext()
+                        : config.getRuntimeConfigContextForHttpRequest(requestInfo)
+                    const lifecycle = createRequestClientLifecycle(() => {
+                      if (requestInfo === undefined || config.resolveClientLeaseForHttpRequest === undefined) {
+                        return config.resolveClients().then((bundle) => ({ bundle, close: () => {} }))
+                      }
+                      return config.resolveClientLeaseForHttpRequest(requestInfo)
+                    })
+                    const [server] = createMcpServer(
+                      lifecycle.resolve,
                       telemetry,
                       registries,
                       (toolExposure) => getHulyContext(requestRuntimeConfig, toolExposure),
                       config.createServer,
-                      requestExposureOptions(() => clientInfoFromLegacyHttpRequest(req)),
-                      createHostedHulyMigrationNoticeProvider({
-                        delivery: "always",
-                        hulyOrigin: requestRuntimeConfig.huly.url.origin
-                      }),
-                      hostedHulyMigrationInstructionsForOrigin(requestRuntimeConfig.huly.url.origin)
-                    )[0]
-                  },
-                  config.httpTransportDependencies,
-                  (req) => {
-                    const { requestResolveClients, requestRuntimeConfig } = createHttpRequestContext(req)
-                    return createMcpProtocolHandlers(
-                      requestResolveClients,
-                      telemetry,
-                      registries,
-                      (toolExposure) => getHulyContext(requestRuntimeConfig, toolExposure),
-                      undefined,
-                      undefined,
-                      requestExposureOptions(() => clientInfoFromMcp2026Request(req)),
+                      sdkExposureOptions,
                       createHostedHulyMigrationNoticeProvider({
                         delivery: "always",
                         hulyOrigin: requestRuntimeConfig.huly.url.origin
                       }),
                       hostedHulyMigrationInstructionsForOrigin(requestRuntimeConfig.huly.url.origin)
                     )
+                    attachRequestClientLifecycle(server, lifecycle)
+                    return server
                   }
-                ).pipe(
-                  Effect.scoped,
-                  Effect.mapError((e: HttpTransportError) => new McpServerError({ message: e.message, cause: e.cause }))
-                )
 
-                yield* Ref.set(isRunning, false)
-                yield* flushTelemetry
-              }
+                  yield* Effect.raceFirst(
+                    startHttpTransport(
+                      { port, host, authToken: config.mcpAuthToken },
+                      createHttpServer,
+                      config.httpTransportDependencies
+                    ).pipe(
+                      Effect.scoped,
+                      Effect.mapError(
+                        (e: HttpTransportError) => new McpServerError({ message: e.message, cause: e.cause })
+                      )
+                    ),
+                    Deferred.await(control.shutdown)
+                  )
+
+                  yield* flushTelemetry
+                }
+              }).pipe(
+                Effect.ensuring(
+                  Effect.gen(function* () {
+                    yield* Ref.set(isRunning, false)
+                    yield* Ref.set(runControlRef, null)
+                    yield* Deferred.succeed(control.done, undefined)
+                  })
+                )
+              )
             }),
 
           stop: () =>
             Effect.gen(function* () {
-              if (!(yield* Ref.get(isRunning))) {
-                return
-              }
-
-              yield* Ref.set(isRunning, false)
-
-              yield* flushTelemetry
-
-              const runningServer = yield* Ref.get(serverRef)
-              if (runningServer !== null) {
-                yield* Effect.tryPromise({
-                  try: () => runningServer.close(),
-                  catch: (e) => new McpServerError({ message: `Failed to stop server: ${String(e)}`, cause: e })
-                })
-                yield* Ref.set(serverRef, null)
-              }
+              const control = yield* Ref.get(runControlRef)
+              if (control === null) return
+              yield* Deferred.succeed(control.shutdown, undefined)
+              yield* Deferred.await(control.done)
             })
         }
 

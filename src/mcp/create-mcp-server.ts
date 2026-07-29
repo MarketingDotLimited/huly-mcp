@@ -1,12 +1,4 @@
-import type { Server } from "@modelcontextprotocol/sdk/server/index.js"
-import {
-  CallToolRequestSchema,
-  ListResourcesRequestSchema,
-  ListResourceTemplatesRequestSchema,
-  ListToolsRequestSchema,
-  ReadResourceRequestSchema
-} from "@modelcontextprotocol/sdk/types.js"
-
+import type { Server } from "@modelcontextprotocol/server"
 import type { GetHulyContextResult } from "../domain/schemas/index.js"
 import type { HostedHulyMigrationInstructions } from "../huly/unavailable-diagnostics.js"
 import type { TelemetryOperations } from "../telemetry/telemetry.js"
@@ -50,15 +42,14 @@ export const createMcpServer = (
     undefined,
     undefined,
     { ...exposureOptions, currentClientInfo },
-    toolCallNoticeProvider,
-    serverInstructions
+    toolCallNoticeProvider
   )
 
-  server.setRequestHandler(ListToolsRequestSchema, handlers.listTools)
-  server.setRequestHandler(CallToolRequestSchema, handlers.callTool)
-  server.setRequestHandler(ListResourcesRequestSchema, handlers.listResources)
-  server.setRequestHandler(ListResourceTemplatesRequestSchema, handlers.listResourceTemplates)
-  server.setRequestHandler(ReadResourceRequestSchema, handlers.readResource)
+  server.setRequestHandler("tools/list", handlers.listTools)
+  server.setRequestHandler("tools/call", handlers.callTool)
+  server.setRequestHandler("resources/list", handlers.listResources)
+  server.setRequestHandler("resources/templates/list", handlers.listResourceTemplates)
+  server.setRequestHandler("resources/read", handlers.readResource)
 
   return [server, handlers.drainInflight]
 }

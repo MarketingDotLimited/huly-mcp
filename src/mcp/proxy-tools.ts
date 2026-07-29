@@ -1,4 +1,4 @@
-import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js"
+import type { ToolAnnotations } from "@modelcontextprotocol/server"
 import { Either, Schema } from "effect"
 
 import { Count } from "../domain/schemas/index.js"

@@ -18,6 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         node-version:
+          - 20.x
           - 22.x
           - 24.x
           - 26.x
@@ -55,7 +56,7 @@ jobs:
           mkdir -p .package-smoke
           npm_config_ignore_scripts=true pnpm pack --pack-destination .package-smoke
 
-      - name: Install and initialize packed package
+      - name: Install and discover packed package
         run: |
           set -euo pipefail
 
@@ -78,7 +79,7 @@ jobs:
           }
           NODE
 
-          if ! printf '%s\n' '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"package-smoke","version":"1.0.0"}},"id":1}' \
+          if ! printf '%s\n' '{"jsonrpc":"2.0","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"package-smoke","version":"1.0.0"}}},"id":1}' \
             | env LAZY_ENVS=true MCP_AUTO_EXIT=true timeout 10 pnpm exec huly-mcp > stdout.log 2> stderr.log; then
             echo "::group::stdout"
             cat stdout.log
@@ -95,7 +96,7 @@ jobs:
           const expectedVersion = process.argv[2]
           const stdout = readFileSync("stdout.log", "utf8").trim()
           const response = JSON.parse(stdout)
-          const serverInfo = response.result?.serverInfo
+          const serverInfo = response.result?._meta?.["io.modelcontextprotocol/serverInfo"]
 
           if (serverInfo?.name !== "huly-mcp") {
             throw new Error(`Unexpected server name: ${serverInfo?.name}`)
@@ -111,7 +112,7 @@ jobs:
           printf '{"private":true,"type":"module"}\n' > package.json
           npm install "$tarball"
 
-          if ! printf '%s\n' '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"package-smoke-npm","version":"1.0.0"}},"id":1}' \
+          if ! printf '%s\n' '{"jsonrpc":"2.0","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"package-smoke-npm","version":"1.0.0"}}},"id":1}' \
             | env LAZY_ENVS=true MCP_AUTO_EXIT=true timeout 10 ./node_modules/.bin/huly-mcp > stdout.log 2> stderr.log; then
             echo "::group::npm stdout"
             cat stdout.log
@@ -128,7 +129,7 @@ jobs:
           const expectedVersion = process.argv[2]
           const stdout = readFileSync("stdout.log", "utf8").trim()
           const response = JSON.parse(stdout)
-          const serverInfo = response.result?.serverInfo
+          const serverInfo = response.result?._meta?.["io.modelcontextprotocol/serverInfo"]
 
           if (serverInfo?.name !== "huly-mcp") {
             throw new Error(`Unexpected npm server name: ${serverInfo?.name}`)

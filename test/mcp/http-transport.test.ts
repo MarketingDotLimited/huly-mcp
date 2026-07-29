@@ -1,1693 +1,498 @@
-import { assertAt, assertExists } from "../../src/utils/assertions.js"
-/**
- * Tests for HTTP transport module.
- *
- * Uses DI to mock HTTP server - no actual network calls.
- *
- * @module
- */
-/* eslint-disable functional/no-mixed-types -- local test probes intentionally combine call data with callable functions */
-import type http from "node:http"
+import http from "node:http"
 
-import type { Server } from "@modelcontextprotocol/sdk/server/index.js"
-import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js"
-import { Effect, Exit, Layer } from "effect"
-import type { Express, Request, Response } from "express"
-import { describe, expect, it } from "vitest"
+import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
+import { createMcpExpressApp } from "@modelcontextprotocol/express"
+import { Server } from "@modelcontextprotocol/server"
+import { Context, Effect, Fiber, Layer, Schema } from "effect"
+import { afterEach, describe, expect, it } from "vitest"
 
-import { HOSTED_HULY_MIGRATION_INSTRUCTIONS } from "../../src/huly/unavailable-diagnostics.js"
-import { shouldDispatchMcp2026Request } from "../../src/mcp/http-2026-dispatcher.js"
+import { createMcpServer } from "../../src/mcp/create-mcp-server.js"
 import {
-  createMcpHandlers,
-  type HttpServerFactory,
+  createMountedMcpHttpHandler,
   HttpServerFactoryService,
-  type HttpTransportDependencies,
   HttpTransportError,
   startHttpTransport
 } from "../../src/mcp/http-transport.js"
-import type { McpProtocolHandlers } from "../../src/mcp/protocol-handlers.js"
+import { PROXY_TOOL_NAMES } from "../../src/mcp/proxy-tools.js"
+import { toolRegistry } from "../../src/mcp/tools/index.js"
+import type { TelemetryOperations } from "../../src/telemetry/telemetry.js"
 
-// Test mock factory: accepts any object, returns it typed as T.
-// Single cast from Record<string,unknown> to T (valid for test mocks of large interfaces).
-function mock<T>(impl: Record<string, unknown>): T {
-  return impl as T
+const protocolVersion = "2026-07-28"
+const AnyRecordSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
+const JsonRpcResponseSchema = Schema.Struct({
+  jsonrpc: Schema.Literal("2.0"),
+  id: Schema.NullOr(Schema.Union(Schema.String, Schema.Number)),
+  result: Schema.optionalWith(AnyRecordSchema, { exact: true }),
+  error: Schema.optionalWith(
+    Schema.Struct({
+      code: Schema.Number,
+      message: Schema.String,
+      data: Schema.optionalWith(Schema.Unknown, { exact: true })
+    }),
+    { exact: true }
+  )
+})
+
+const parseResponse = async (response: Response): Promise<Schema.Schema.Type<typeof JsonRpcResponseSchema>> =>
+  Schema.decodeUnknownSync(JsonRpcResponseSchema)(await response.json())
+
+const isJsonObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+
+const createTestServer = (): Server => {
+  const server = new Server(
+    { name: "huly-mcp-test", version: "1.0.0" },
+    { capabilities: { resources: {}, tools: {} }, instructions: "strict final protocol" }
+  )
+  server.setRequestHandler("tools/list", async () => ({
+    tools: [{ name: "hello", description: "Return a greeting.", inputSchema: { type: "object" } }]
+  }))
+  server.setRequestHandler("tools/call", async () => ({ content: [{ type: "text", text: "hello" }] }))
+  server.setRequestHandler("resources/list", async () => ({ resources: [] }))
+  server.setRequestHandler("resources/templates/list", async () => ({ resourceTemplates: [] }))
+  server.setRequestHandler("resources/read", async () => ({ contents: [] }))
+  return server
 }
 
-interface Probe<Args extends Array<unknown>, Result> {
-  readonly calls: Array<Args>
-  readonly fn: (...args: Args) => Result
+const telemetry: TelemetryOperations = {
+  sessionStart: () => {},
+  firstListTools: () => {},
+  toolCalled: () => {},
+  shutdown: async () => {}
 }
 
-const createProbe = <Args extends Array<unknown>, Result>(impl: (...args: Args) => Result): Probe<Args, Result> => {
-  const calls: Array<Args> = []
-  return {
-    calls,
-    fn: (...args) => {
-      calls.push(args)
-      return impl(...args)
+const createCallerAwareServer = (): Server => {
+  const [server] = createMcpServer(
+    () => Promise.reject(new Error("Tool listing must not resolve Huly clients")),
+    telemetry,
+    toolRegistry,
+    () => {
+      throw new Error("Tool listing must not build Huly context")
+    },
+    undefined,
+    { exposureConfig: { configuredMode: "auto", proxyOutputStrict: false } }
+  )
+  return server
+}
+
+const modernBody = (
+  method: string,
+  params: Record<string, unknown>,
+  includeClientInfo: boolean = true
+): Record<string, unknown> => ({
+  jsonrpc: "2.0",
+  id: 1,
+  method,
+  params: {
+    ...params,
+    _meta: {
+      "io.modelcontextprotocol/protocolVersion": protocolVersion,
+      "io.modelcontextprotocol/clientCapabilities": {},
+      ...(includeClientInfo
+        ? { "io.modelcontextprotocol/clientInfo": { name: "transport-test", version: "1.0.0" } }
+        : {})
     }
   }
-}
+})
 
-const createVoidProbe = <Args extends Array<unknown>>(): Probe<Args, void> => createProbe<Args, void>(() => undefined)
-
-const createMockTransportDependencies = (): {
-  readonly dependencies: HttpTransportDependencies
-  readonly calls: { readonly handleRequest: Array<[Request, Response, unknown]>; readonly close: Array<[]> }
-} => {
-  const handleRequest = createProbe<[Request, Response, unknown], Promise<void>>(() => Promise.resolve())
-  const close = createProbe<[], Promise<void>>(() => Promise.resolve())
-
-  return {
-    dependencies: {
-      createTransport: () =>
-        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test fake implements transport methods used by createMcpHandlers
-        ({ close: close.fn, handleRequest: handleRequest.fn }) as never,
-      writeError: createVoidProbe<[string]>().fn
-    },
-    calls: { handleRequest: handleRequest.calls, close: close.calls }
-  }
-}
-
-// Mock Express app for testing
-const createMockExpressApp = () => {
-  const routes: {
-    get: Record<string, (req: Request, res: Response) => Promise<void>>
-    post: Record<string, (req: Request, res: Response) => Promise<void>>
-    delete: Record<string, (req: Request, res: Response) => Promise<void>>
-  } = { get: {}, post: {}, delete: {} }
-
-  const get = createProbe<[string, (req: Request, res: Response) => Promise<void>], void>((path, handler) => {
-    routes.get[path] = handler
-  })
-  const post = createProbe<[string, (req: Request, res: Response) => Promise<void>], void>((path, handler) => {
-    routes.post[path] = handler
-  })
-  const del = createProbe<[string, (req: Request, res: Response) => Promise<void>], void>((path, handler) => {
-    routes.delete[path] = handler
-  })
-
-  const app = mock<Express>({
-    get: get.fn,
-    post: post.fn,
-    delete: del.fn,
-    listen: createVoidProbe<[number, string, (error?: Error) => void]>().fn
-  })
-
-  return { app, routes, calls: { get: get.calls, post: post.calls, delete: del.calls } }
-}
-
-// Mock MCP Server for testing
-const createMockMcpServer = (): Server => {
-  const connect = createProbe<[], Promise<void>>(() => Promise.resolve())
-  const close = createProbe<[], Promise<void>>(() => Promise.resolve())
-  return mock<Server>({
-    connect: connect.fn,
-    close: close.fn,
-    setRequestHandler: createVoidProbe<[unknown, (...args: Array<unknown>) => unknown]>().fn,
-    __calls: { connect: connect.calls, close: close.calls }
-  })
-}
-
-const getServerCalls = (server: Server): { connect: Array<[]>; close: Array<[]> } =>
-  // eslint-disable-next-line no-restricted-syntax -- test probe metadata is attached to a structural fake
-  (server as unknown as { __calls: { connect: Array<[]>; close: Array<[]> } }).__calls
-
-// Mock HTTP response
-const createMockResponse = () => {
-  const statusCalls: Array<[number]> = []
-  const jsonCalls: Array<[unknown]> = []
-  const setHeaderCalls: Array<[string, string]> = []
-  const on = createVoidProbe<[string, (...args: Array<unknown>) => void]>()
-  const response = mock<Response>({
-    status(code: number) {
-      statusCalls.push([code])
-      return this
-    },
-    json(body: unknown) {
-      jsonCalls.push([body])
-      return this
-    },
-    setHeader(name: string, value: string) {
-      setHeaderCalls.push([name, value])
-      return this
-    },
-    headersSent: false,
-    on: on.fn,
-    __calls: { status: statusCalls, json: jsonCalls, setHeader: setHeaderCalls, on: on.calls }
-  })
-  return response
-}
-
-const getResponseCalls = (
-  response: Response
-): {
-  status: Array<[number]>
-  json: Array<[unknown]>
-  setHeader: Array<[string, string]>
-  on: Array<[string, (...args: Array<unknown>) => void]>
-} =>
-  // eslint-disable-next-line no-restricted-syntax -- test probe metadata is attached to a structural fake
-  (
-    response as unknown as {
-      __calls: {
-        status: Array<[number]>
-        json: Array<[unknown]>
-        setHeader: Array<[string, string]>
-        on: Array<[string, (...args: Array<unknown>) => void]>
-      }
-    }
-  ).__calls
-
-const createMockRequest = (body: unknown = {}, headers: Request["headers"] = {}): Request => {
-  const on = createVoidProbe<[string, (...args: Array<unknown>) => void]>()
-  return mock<Request>({ body, headers, on: on.fn, __calls: { on: on.calls } })
-}
-
-const modernMeta = {
-  "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-  "io.modelcontextprotocol/clientInfo": { name: "test", version: "1.0.0" },
-  "io.modelcontextprotocol/clientCapabilities": {}
-}
-
-const modernHeaders = (method: string, name?: string): Request["headers"] => ({
+const modernHeaders = (method: string, name?: string): Record<string, string> => ({
   accept: "application/json, text/event-stream",
-  "mcp-protocol-version": "2026-07-28",
+  "content-type": "application/json",
+  "mcp-protocol-version": protocolVersion,
   "mcp-method": method,
   ...(name === undefined ? {} : { "mcp-name": name })
 })
 
-const createMockProtocolHandlers = (): McpProtocolHandlers => ({
-  listTools: () => Promise.resolve({ tools: [] }),
-  callTool: () => Promise.resolve({ content: [{ type: "text", text: "ok" }] }),
-  listResources: () => Promise.resolve({ resources: [] }),
-  listResourceTemplates: () => ({ resourceTemplates: [] }),
-  readResource: (request) =>
-    Promise.resolve({ contents: [{ uri: request.params.uri, mimeType: "application/json", text: "{}" }] }),
-  serverDiscover: () => ({
-    resultType: "complete",
-    supportedVersions: ["2026-07-28"],
-    capabilities: { tools: {}, resources: {} },
-    serverInfo: { name: "huly-mcp", version: "0.0.0-test" },
-    instructions: HOSTED_HULY_MIGRATION_INSTRUCTIONS
-  }),
-  drainInflight: () => Promise.resolve()
-})
+const startedServers = new Set<http.Server>()
 
-const modernHandlerFactory = createMockProtocolHandlers
-
-const expectUnauthorizedResponse = (response: Response): void => {
-  const calls = getResponseCalls(response)
-  expect(calls.status).toEqual([[401]])
-  expect(calls.setHeader).toEqual([["WWW-Authenticate", "Bearer"]])
-  expect(calls.json).toEqual([[{ jsonrpc: "2.0", error: { code: -32000, message: "Unauthorized" }, id: null }]])
+const deferred = <A>(): {
+  readonly promise: Promise<A>
+  readonly resolve: (value: A) => void
+  readonly reject: (reason?: unknown) => void
+} => {
+  let resolve!: (value: A) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<A>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
 }
 
-describe("HTTP Transport", () => {
-  describe("createMcpHandlers", () => {
-    it("should handle tool calls in stateless mode (connect server and delegate to transport)", async () => {
-      const mockServer = createMockMcpServer()
-      const transport = createMockTransportDependencies()
-      const handlers = createMcpHandlers(() => mockServer, transport.dependencies)
-
-      const req = createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 1 })
-
-      const res = createMockResponse()
-
-      await handlers.post(req, res)
-
-      expect(getServerCalls(mockServer).connect).toHaveLength(1)
-      expect(transport.calls.handleRequest).toEqual([[req, res, req.body]])
-    })
-
-    it("should handle initialize requests in stateless mode", async () => {
-      const mockServer = createMockMcpServer()
-      const transport = createMockTransportDependencies()
-      const handlers = createMcpHandlers(() => mockServer, transport.dependencies)
-
-      const req = createMockRequest({
-        jsonrpc: "2.0",
-        method: "initialize",
-        id: 1,
-        params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "test", version: "1.0" } }
-      })
-
-      const res = createMockResponse()
-
-      await handlers.post(req, res)
-
-      expect(getServerCalls(mockServer).connect).toHaveLength(1)
-      expect(transport.calls.handleRequest).toEqual([[req, res, req.body]])
-    })
-
-    it("dispatches server/discover on the 2026 path without initialize", async () => {
-      const transport = createMockTransportDependencies()
-      const handlers = createMcpHandlers(createMockMcpServer, transport.dependencies, undefined, modernHandlerFactory)
-      const req = createMockRequest(
-        { jsonrpc: "2.0", method: "server/discover", id: "discover", params: { _meta: modernMeta } },
-        modernHeaders("server/discover")
-      )
-      const res = createMockResponse()
-
-      await handlers.post(req, res)
-
-      const calls = getResponseCalls(res)
-      expect(transport.calls.handleRequest).toHaveLength(0)
-      expect(calls.status).toEqual([[200]])
-      expect(calls.json).toEqual([
-        [
-          {
-            jsonrpc: "2.0",
-            id: "discover",
-            result: {
-              resultType: "complete",
-              supportedVersions: ["2026-07-28"],
-              capabilities: { tools: {}, resources: {} },
-              serverInfo: { name: "huly-mcp", version: "0.0.0-test" },
-              instructions: expect.stringContaining("Hosted Huly is shutting down")
-            }
-          }
-        ]
-      ])
-    })
-
-    it("adds resultType and public cache hints to 2026 tools/list", async () => {
-      const handlers = createMcpHandlers(createMockMcpServer, undefined, undefined, modernHandlerFactory)
-      const res = createMockResponse()
-
-      await handlers.post(
-        createMockRequest(
-          { jsonrpc: "2.0", method: "tools/list", id: 1, params: { _meta: modernMeta } },
-          modernHeaders("tools/list")
-        ),
-        res
-      )
-
-      expect(getResponseCalls(res).json).toEqual([
-        [{ jsonrpc: "2.0", id: 1, result: { tools: [], resultType: "complete", ttlMs: 300000, cacheScope: "public" } }]
-      ])
-    })
-
-    it("adds resultType to 2026 tools/call", async () => {
-      const handlers = createMcpHandlers(createMockMcpServer, undefined, undefined, modernHandlerFactory)
-      const res = createMockResponse()
-
-      await handlers.post(
-        createMockRequest(
-          {
-            jsonrpc: "2.0",
-            method: "tools/call",
-            id: 2,
-            params: { name: "get_huly_context", arguments: {}, _meta: modernMeta }
-          },
-          modernHeaders("tools/call", "get_huly_context")
-        ),
-        res
-      )
-
-      expect(getResponseCalls(res).json).toEqual([
-        [{ jsonrpc: "2.0", id: 2, result: { content: [{ type: "text", text: "ok" }], resultType: "complete" } }]
-      ])
-    })
-
-    it("adds resultType and cache hints to 2026 resource list, template list, and read results", async () => {
-      const handlers = createMcpHandlers(createMockMcpServer, undefined, undefined, modernHandlerFactory)
-      const listRes = createMockResponse()
-      const templatesRes = createMockResponse()
-      const readRes = createMockResponse()
-
-      await handlers.post(
-        createMockRequest(
-          { jsonrpc: "2.0", method: "resources/list", id: 3, params: { _meta: modernMeta } },
-          modernHeaders("resources/list")
-        ),
-        listRes
-      )
-      await handlers.post(
-        createMockRequest(
-          { jsonrpc: "2.0", method: "resources/templates/list", id: 4, params: { _meta: modernMeta } },
-          modernHeaders("resources/templates/list")
-        ),
-        templatesRes
-      )
-      await handlers.post(
-        createMockRequest(
-          {
-            jsonrpc: "2.0",
-            method: "resources/read",
-            id: 5,
-            params: { uri: "huly://projects/HULY", _meta: modernMeta }
-          },
-          modernHeaders("resources/read", "huly://projects/HULY")
-        ),
-        readRes
-      )
-
-      expect(getResponseCalls(listRes).json).toEqual([
-        [
-          {
-            jsonrpc: "2.0",
-            id: 3,
-            result: { resources: [], resultType: "complete", ttlMs: 60000, cacheScope: "private" }
-          }
-        ]
-      ])
-      expect(getResponseCalls(templatesRes).json).toEqual([
-        [
-          {
-            jsonrpc: "2.0",
-            id: 4,
-            result: { resourceTemplates: [], resultType: "complete", ttlMs: 300000, cacheScope: "public" }
-          }
-        ]
-      ])
-      expect(getResponseCalls(readRes).json).toEqual([
-        [
-          {
-            jsonrpc: "2.0",
-            id: 5,
-            result: {
-              contents: [{ uri: "huly://projects/HULY", mimeType: "application/json", text: "{}" }],
-              resultType: "complete",
-              ttlMs: 60000,
-              cacheScope: "private"
-            }
-          }
-        ]
-      ])
-    })
-
-    it("returns modern header validation errors for missing and mismatched 2026 headers", async () => {
-      const handlers = createMcpHandlers(createMockMcpServer, undefined, undefined, modernHandlerFactory)
-      const missingMethod = createMockResponse()
-      const missingName = createMockResponse()
-      const mismatchedName = createMockResponse()
-
-      await handlers.post(
-        createMockRequest(
-          { jsonrpc: "2.0", method: "tools/list", id: 6, params: { _meta: modernMeta } },
-          { accept: "application/json, text/event-stream", "mcp-protocol-version": "2026-07-28" }
-        ),
-        missingMethod
-      )
-      await handlers.post(
-        createMockRequest(
-          {
-            jsonrpc: "2.0",
-            method: "tools/call",
-            id: 7,
-            params: { name: "get_huly_context", arguments: {}, _meta: modernMeta }
-          },
-          {
-            accept: "application/json, text/event-stream",
-            "mcp-protocol-version": "2026-07-28",
-            "mcp-method": "tools/call"
-          }
-        ),
-        missingName
-      )
-      await handlers.post(
-        createMockRequest(
-          {
-            jsonrpc: "2.0",
-            method: "resources/read",
-            id: 8,
-            params: { uri: "huly://projects/HULY", _meta: modernMeta }
-          },
-          modernHeaders("resources/read", "huly://projects/OTHER")
-        ),
-        mismatchedName
-      )
-
-      expect(getResponseCalls(missingMethod).status).toEqual([[400]])
-      expect(getResponseCalls(missingMethod).json[0]?.[0]).toMatchObject({
-        error: { code: -32001, message: expect.stringContaining("Mcp-Method") }
-      })
-      expect(getResponseCalls(missingName).status).toEqual([[400]])
-      expect(getResponseCalls(missingName).json[0]?.[0]).toMatchObject({
-        error: { code: -32001, message: expect.stringContaining("Mcp-Name") }
-      })
-      expect(getResponseCalls(mismatchedName).status).toEqual([[400]])
-      expect(getResponseCalls(mismatchedName).json[0]?.[0]).toMatchObject({
-        error: { code: -32001, message: expect.stringContaining("does not match") }
-      })
-    })
-
-    it("returns modern errors for missing _meta, unsupported protocol, invalid body, and unknown methods", async () => {
-      const handlers = createMcpHandlers(createMockMcpServer, undefined, undefined, modernHandlerFactory)
-      const missingMeta = createMockResponse()
-      const unsupported = createMockResponse()
-      const invalidBody = createMockResponse()
-      const unknownMethod = createMockResponse()
-
-      await handlers.post(
-        createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 9, params: {} }, modernHeaders("tools/list")),
-        missingMeta
-      )
-      await handlers.post(
-        createMockRequest(
-          {
-            jsonrpc: "2.0",
-            method: "server/discover",
-            id: 10,
-            params: { _meta: { ...modernMeta, "io.modelcontextprotocol/protocolVersion": "1900-01-01" } }
-          },
-          { ...modernHeaders("server/discover"), "mcp-protocol-version": "1900-01-01" }
-        ),
-        unsupported
-      )
-      await handlers.post(
-        createMockRequest([{ jsonrpc: "2.0", method: "tools/list", id: 11 }], modernHeaders("tools/list")),
-        invalidBody
-      )
-      await handlers.post(
-        createMockRequest(
-          { jsonrpc: "2.0", method: "unknown/method", id: 12, params: { _meta: modernMeta } },
-          modernHeaders("unknown/method")
-        ),
-        unknownMethod
-      )
-
-      expect(getResponseCalls(missingMeta).json[0]?.[0]).toMatchObject({ error: { code: -32001 } })
-      expect(getResponseCalls(unsupported).json[0]?.[0]).toMatchObject({
-        error: { code: -32004, data: { supported: ["2026-07-28"], requested: "1900-01-01" } }
-      })
-      expect(getResponseCalls(invalidBody).json[0]?.[0]).toMatchObject({ error: { code: -32600 } })
-      expect(getResponseCalls(unknownMethod).status).toEqual([[404]])
-      expect(getResponseCalls(unknownMethod).json[0]?.[0]).toMatchObject({ error: { code: -32601 } })
-    })
-
-    it("maps 2026 resource-not-found failures to invalid params", async () => {
-      const handlers = createMcpHandlers(createMockMcpServer, undefined, undefined, () => ({
-        ...createMockProtocolHandlers(),
-        readResource: () => Promise.reject(new McpError(-32002, "Resource not found", { uri: "huly://projects/NOPE" }))
-      }))
-      const res = createMockResponse()
-
-      await handlers.post(
-        createMockRequest(
-          {
-            jsonrpc: "2.0",
-            method: "resources/read",
-            id: 14,
-            params: { uri: "huly://projects/NOPE", _meta: modernMeta }
-          },
-          modernHeaders("resources/read", "huly://projects/NOPE")
-        ),
-        res
-      )
-
-      expect(getResponseCalls(res).status).toEqual([[400]])
-      expect(getResponseCalls(res).json[0]?.[0]).toMatchObject({
-        error: { code: -32602, message: "Resource not found", data: { uri: "huly://projects/NOPE" } }
-      })
-    })
-
-    it("delegates legacy HTTP requests to the SDK transport even when a 2026 handler factory exists", async () => {
-      const mockServer = createMockMcpServer()
-      const transport = createMockTransportDependencies()
-      const createProtocolHandlers = createProbe<[Request], McpProtocolHandlers>(modernHandlerFactory)
-      const handlers = createMcpHandlers(() => mockServer, transport.dependencies, undefined, createProtocolHandlers.fn)
-      const req = createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 13 })
-      const res = createMockResponse()
-
-      await handlers.post(req, res)
-
-      expect(createProtocolHandlers.calls).toHaveLength(0)
-      expect(getServerCalls(mockServer).connect).toHaveLength(1)
-      expect(transport.calls.handleRequest).toEqual([[req, res, req.body]])
-    })
-
-    it("maps thrown 2026 internal errors to HTTP 500", async () => {
-      const handlers = createMcpHandlers(createMockMcpServer, undefined, undefined, () => ({
-        ...createMockProtocolHandlers(),
-        callTool: () => Promise.reject(new McpError(ErrorCode.InternalError, "boom"))
-      }))
-      const res = createMockResponse()
-
-      await handlers.post(
-        createMockRequest(
-          {
-            jsonrpc: "2.0",
-            method: "tools/call",
-            id: 15,
-            params: { name: "get_huly_context", arguments: {}, _meta: modernMeta }
-          },
-          modernHeaders("tools/call", "get_huly_context")
-        ),
-        res
-      )
-
-      expect(getResponseCalls(res).status).toEqual([[500]])
-      expect(getResponseCalls(res).json[0]?.[0]).toMatchObject({
-        error: { code: -32603, message: expect.stringContaining("boom") }
-      })
-    })
-
-    it("routes a bare MCP-Protocol-Version request (no Mcp-Method or _meta) to the SDK transport", async () => {
-      const mockServer = createMockMcpServer()
-      const transport = createMockTransportDependencies()
-      const createProtocolHandlers = createProbe<[Request], McpProtocolHandlers>(modernHandlerFactory)
-      const handlers = createMcpHandlers(() => mockServer, transport.dependencies, undefined, createProtocolHandlers.fn)
-      const req = createMockRequest(
-        { jsonrpc: "2.0", method: "tools/list", id: 16 },
-        { "mcp-protocol-version": "2026-07-28" }
-      )
-      const res = createMockResponse()
-
-      await handlers.post(req, res)
-
-      expect(createProtocolHandlers.calls).toHaveLength(0)
-      expect(transport.calls.handleRequest).toEqual([[req, res, req.body]])
-    })
-
-    it("accepts Accept media types carrying q-parameters and spaces on the 2026 path", async () => {
-      const handlers = createMcpHandlers(createMockMcpServer, undefined, undefined, modernHandlerFactory)
-      const res = createMockResponse()
-
-      await handlers.post(
-        createMockRequest(
-          { jsonrpc: "2.0", method: "tools/list", id: 17, params: { _meta: modernMeta } },
-          { ...modernHeaders("tools/list"), accept: "application/json ; q=0.9, text/event-stream;q=0.8" }
-        ),
-        res
-      )
-
-      expect(getResponseCalls(res).json).toEqual([
-        [{ jsonrpc: "2.0", id: 17, result: { tools: [], resultType: "complete", ttlMs: 300000, cacheScope: "public" } }]
-      ])
-    })
-
-    it("should create fresh server for each request in stateless mode", async () => {
-      const serverInstances: Array<Server> = []
-      const transport = createMockTransportDependencies()
-      const handlers = createMcpHandlers(() => {
-        const server = createMockMcpServer()
-        serverInstances.push(server)
-        return server
-      }, transport.dependencies)
-
-      const res1 = createMockResponse()
-      const res2 = createMockResponse()
-
-      await handlers.post(createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 1 }), res1)
-
-      await handlers.post(
-        createMockRequest({
-          jsonrpc: "2.0",
-          method: "tools/call",
-          id: 2,
-          params: { name: "test_tool", arguments: {} }
-        }),
-        res2
-      )
-
-      expect(serverInstances).toHaveLength(2)
-      expect(assertAt(serverInstances, 0)).not.toBe(assertAt(serverInstances, 1))
-      expect(getServerCalls(assertAt(serverInstances, 0)).connect).toHaveLength(1)
-      expect(getServerCalls(assertAt(serverInstances, 1)).connect).toHaveLength(1)
-      expect(transport.calls.handleRequest).toHaveLength(2)
-    })
-
-    it("passes request headers to the per-request server factory", async () => {
-      const headers = {
-        authorization: "Bearer mcp-endpoint-secret",
-        "x-huly-url": "https://huly.one",
-        "x-huly-workspace": "workspace-one",
-        "x-huly-token": "token-one"
-      }
-      const capturedHeaders: Array<Request["headers"]> = []
-      const transport = createMockTransportDependencies()
-      const handlers = createMcpHandlers(
-        (req) => {
-          capturedHeaders.push(req.headers)
-          return createMockMcpServer()
-        },
-        transport.dependencies,
-        "mcp-endpoint-secret"
-      )
-
-      await handlers.post(
-        createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 1 }, headers),
-        createMockResponse()
-      )
-
-      expect(capturedHeaders).toEqual([headers])
-    })
-
-    it("allows POST without Authorization when MCP auth is disabled", async () => {
-      let createServerCalls = 0
-      const transport = createMockTransportDependencies()
-      const handlers = createMcpHandlers(() => {
-        createServerCalls++
-        return createMockMcpServer()
-      }, transport.dependencies)
-
-      const req = createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 1 })
-      const res = createMockResponse()
-
-      await handlers.post(req, res)
-
-      expect(createServerCalls).toBe(1)
-      expect(transport.calls.handleRequest).toEqual([[req, res, req.body]])
-    })
-
-    it("treats empty MCP auth config as disabled", async () => {
-      let createServerCalls = 0
-      const transport = createMockTransportDependencies()
-      const handlers = createMcpHandlers(
-        () => {
-          createServerCalls++
-          return createMockMcpServer()
-        },
-        transport.dependencies,
-        "   "
-      )
-
-      const req = createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 1 })
-      const res = createMockResponse()
-
-      await handlers.post(req, res)
-
-      expect(createServerCalls).toBe(1)
-      expect(transport.calls.handleRequest).toEqual([[req, res, req.body]])
-    })
-
-    it("returns 401 before creating a server when MCP auth header is missing", async () => {
-      let createServerCalls = 0
-      const transport = createMockTransportDependencies()
-      const handlers = createMcpHandlers(
-        () => {
-          createServerCalls++
-          return createMockMcpServer()
-        },
-        transport.dependencies,
-        "server-secret"
-      )
-
-      const res = createMockResponse()
-
-      await handlers.post(createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 1 }), res)
-
-      expectUnauthorizedResponse(res)
-      expect(createServerCalls).toBe(0)
-      expect(transport.calls.handleRequest).toHaveLength(0)
-    })
-
-    it("returns 401 for non-bearer MCP auth scheme", async () => {
-      const transport = createMockTransportDependencies()
-      const handlers = createMcpHandlers(createMockMcpServer, transport.dependencies, "server-secret")
-      const res = createMockResponse()
-
-      await handlers.post(
-        createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 1 }, { authorization: "Basic server-secret" }),
-        res
-      )
-
-      expectUnauthorizedResponse(res)
-      expect(transport.calls.handleRequest).toHaveLength(0)
-    })
-
-    it("returns 401 for wrong bearer token without leaking secrets", async () => {
-      const transport = createMockTransportDependencies()
-      const handlers = createMcpHandlers(createMockMcpServer, transport.dependencies, "server-secret")
-      const res = createMockResponse()
-
-      await handlers.post(
-        createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 1 }, { authorization: "Bearer wrong-secret" }),
-        res
-      )
-
-      expectUnauthorizedResponse(res)
-      expect(JSON.stringify(getResponseCalls(res).json)).not.toContain("server-secret")
-      expect(JSON.stringify(getResponseCalls(res).json)).not.toContain("wrong-secret")
-      expect(transport.calls.handleRequest).toHaveLength(0)
-    })
-
-    it("allows POST with correct MCP bearer token", async () => {
-      const transport = createMockTransportDependencies()
-      const handlers = createMcpHandlers(createMockMcpServer, transport.dependencies, "server-secret")
-      const req = createMockRequest(
-        { jsonrpc: "2.0", method: "tools/list", id: 1 },
-        { authorization: "Bearer server-secret" }
-      )
-      const res = createMockResponse()
-
-      await handlers.post(req, res)
-
-      expect(transport.calls.handleRequest).toEqual([[req, res, req.body]])
-      expect(getResponseCalls(res).status).toHaveLength(0)
-    })
-
-    it("ignores query-string tokens for MCP auth", async () => {
-      const transport = createMockTransportDependencies()
-      const handlers = createMcpHandlers(createMockMcpServer, transport.dependencies, "server-secret")
-      const req = mock<Request>({
-        body: { jsonrpc: "2.0", method: "tools/list", id: 1 },
-        headers: {},
-        query: { token: "server-secret" },
-        on: createVoidProbe<[string, (...args: Array<unknown>) => void]>().fn
-      })
-      const res = createMockResponse()
-
-      await handlers.post(req, res)
-
-      expectUnauthorizedResponse(res)
-      expect(transport.calls.handleRequest).toHaveLength(0)
-    })
-
-    it("returns 401 for GET and DELETE before existing 405 behavior when MCP auth is invalid", () => {
-      const handlers = createMcpHandlers(createMockMcpServer, undefined, "server-secret")
-      const getRes = createMockResponse()
-      const deleteRes = createMockResponse()
-
-      handlers.get(createMockRequest(undefined, { authorization: "Bearer wrong-secret" }), getRes)
-      handlers.delete(createMockRequest(), deleteRes)
-
-      expectUnauthorizedResponse(getRes)
-      expectUnauthorizedResponse(deleteRes)
-    })
-
-    it("keeps existing GET and DELETE 405 behavior when MCP auth succeeds", () => {
-      const handlers = createMcpHandlers(createMockMcpServer, undefined, "server-secret")
-      const getRes = createMockResponse()
-      const deleteRes = createMockResponse()
-
-      handlers.get(createMockRequest(undefined, { authorization: "Bearer server-secret" }), getRes)
-      handlers.delete(createMockRequest(undefined, { authorization: "Bearer server-secret" }), deleteRes)
-
-      expect(getResponseCalls(getRes).status).toEqual([[405]])
-      expect(getResponseCalls(deleteRes).status).toEqual([[405]])
-    })
-
-    it("should reject GET requests in stateless mode", async () => {
-      const mockServer = createMockMcpServer()
-      const handlers = createMcpHandlers(() => mockServer)
-
-      const req = createMockRequest()
-      const res = createMockResponse()
-
-      await handlers.get(req, res)
-
-      const calls = getResponseCalls(res)
-      expect(calls.status).toContainEqual([405])
-      expect(calls.json).toContainEqual([
-        expect.objectContaining({
-          jsonrpc: "2.0",
-          error: expect.objectContaining({ code: -32000, message: expect.stringContaining("Method not allowed") })
+const listen = async (
+  authToken?: string,
+  writeError: (message: string) => void = () => {},
+  createServer: () => Server = createTestServer
+): Promise<{ readonly baseUrl: string; readonly close: () => Promise<void> }> => {
+  const mounted = createMountedMcpHttpHandler(createServer, authToken, writeError)
+  const app = createMcpExpressApp({ host: "127.0.0.1" })
+  app.all("/mcp", (req, res) => {
+    void mounted.handle(req, res)
+  })
+  const server = await new Promise<http.Server>((resolve) => {
+    const listening = app.listen(0, "127.0.0.1", () => resolve(listening))
+  })
+  startedServers.add(server)
+  const address = server.address()
+  if (address === null || typeof address === "string") throw new Error("Expected an assigned TCP port")
+  return {
+    baseUrl: `http://127.0.0.1:${address.port}/mcp`,
+    close: async () => {
+      await mounted.close()
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) reject(error)
+          else resolve()
         })
-      ])
-    })
+      })
+      startedServers.delete(server)
+    }
+  }
+}
 
-    it("should reject DELETE requests in stateless mode", async () => {
-      const mockServer = createMockMcpServer()
-      const handlers = createMcpHandlers(() => mockServer)
-
-      const req = createMockRequest()
-      const res = createMockResponse()
-
-      await handlers.delete(req, res)
-
-      const calls = getResponseCalls(res)
-      expect(calls.status).toContainEqual([405])
-      expect(calls.json).toContainEqual([
-        expect.objectContaining({
-          jsonrpc: "2.0",
-          error: expect.objectContaining({ code: -32000, message: expect.stringContaining("Method not allowed") })
+afterEach(async () => {
+  await Promise.all(
+    [...startedServers].map(
+      (server) =>
+        new Promise<void>((resolve) => {
+          server.close(() => resolve())
         })
-      ])
-    })
-
-    it("should not send 500 when server factory throws and headers already sent", async () => {
-      const handlers = createMcpHandlers(() => {
-        throw new Error("Factory error")
-      })
-
-      const req = createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 1 })
-
-      const res = createMockResponse()
-      // Simulate headers already sent before the handler runs
-      Object.defineProperty(res, "headersSent", { value: true })
-
-      // Should not throw even though factory errors and headers are already sent
-      await handlers.post(req, res)
-
-      // When headersSent is true, the catch block should skip sending error response
-      const calls = getResponseCalls(res)
-      expect(calls.status).toHaveLength(0)
-      expect(calls.json).toHaveLength(0)
-    })
-
-    it("should return 500 when server factory throws", async () => {
-      const handlers = createMcpHandlers(() => {
-        throw new Error("Factory error")
-      })
-
-      // Any valid JSON-RPC request (tools/list in this case)
-      const req = createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 1, params: {} })
-
-      const res = createMockResponse()
-
-      await handlers.post(req, res)
-
-      const calls = getResponseCalls(res)
-      expect(calls.status).toContainEqual([500])
-      expect(calls.json).toContainEqual([
-        expect.objectContaining({
-          jsonrpc: "2.0",
-          error: expect.objectContaining({ code: -32603, message: expect.stringContaining("Internal server error") })
-        })
-      ])
-    })
-  })
-
-  describe("startHttpTransport", () => {
-    it("should register POST, GET, DELETE handlers on /mcp", async () => {
-      const { app, calls: appCalls } = createMockExpressApp()
-      const closeProbe = createProbe<[((err?: Error) => void)?], void>((cb) => cb?.())
-      const mockHttp = mock<http.Server>({ close: closeProbe.fn })
-      const createAppProbe = createProbe<[string], Express>(() => app)
-      const listenProbe = createProbe<[Express, number, string], Effect.Effect<http.Server, HttpTransportError>>(() =>
-        Effect.succeed(mockHttp)
-      )
-
-      const mockFactory: HttpServerFactory = { createApp: createAppProbe.fn, listen: listenProbe.fn }
-
-      const mockMcpServer = createMockMcpServer()
-
-      // Run with scope and timeout to test resource management
-      const program = startHttpTransport({ port: 3000, host: "127.0.0.1" }, () => mockMcpServer).pipe(
-        Effect.scoped, // Provide Scope for acquireRelease
-        Effect.timeout(10), // Timeout quickly for test
-        Effect.ignore
-      )
-
-      await Effect.runPromise(program.pipe(Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))))
-
-      expect(createAppProbe.calls).toContainEqual(["127.0.0.1"])
-      expect(listenProbe.calls).toContainEqual([app, 3000, "127.0.0.1"])
-      expect(appCalls.post).toEqual([["/mcp", expect.any(Function)]])
-      expect(appCalls.get).toEqual([["/mcp", expect.any(Function)]])
-      expect(appCalls.delete).toEqual([["/mcp", expect.any(Function)]])
-    })
-
-    it("passes MCP auth token to registered route handlers", async () => {
-      const { app, routes } = createMockExpressApp()
-      const mockHttp = mock<http.Server>({ close: createProbe<[((err?: Error) => void)?], void>((cb) => cb?.()).fn })
-      const mockFactory: HttpServerFactory = { createApp: () => app, listen: () => Effect.succeed(mockHttp) }
-
-      const program = startHttpTransport(
-        { port: 3000, host: "127.0.0.1", authToken: "server-secret" },
-        createMockMcpServer,
-        { writeError: () => {} }
-      ).pipe(Effect.scoped, Effect.timeout(10), Effect.ignore)
-
-      await Effect.runPromise(program.pipe(Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))))
-
-      const getMcpRoute = assertExists(routes.get["/mcp"], "Expected GET /mcp route")
-
-      const unauthorizedRes = createMockResponse()
-      await getMcpRoute(createMockRequest(), unauthorizedRes)
-      expectUnauthorizedResponse(unauthorizedRes)
-
-      const authorizedRes = createMockResponse()
-      await getMcpRoute(createMockRequest(undefined, { authorization: "Bearer server-secret" }), authorizedRes)
-      expect(getResponseCalls(authorizedRes).status).toEqual([[405]])
-    })
-
-    it("should close server when scope closes", async () => {
-      const { app } = createMockExpressApp()
-      const closeProbe = createProbe<[((err?: Error) => void)?], void>((cb) => cb?.())
-      const mockHttp = mock<http.Server>({ close: closeProbe.fn })
-      const createAppProbe = createProbe<[string], Express>(() => app)
-      const listenProbe = createProbe<[Express, number, string], Effect.Effect<http.Server, HttpTransportError>>(() =>
-        Effect.succeed(mockHttp)
-      )
-
-      const mockFactory: HttpServerFactory = { createApp: createAppProbe.fn, listen: listenProbe.fn }
-
-      const mockMcpServer = createMockMcpServer()
-
-      const program = startHttpTransport({ port: 3000, host: "127.0.0.1" }, () => mockMcpServer).pipe(
-        Effect.scoped,
-        Effect.timeout(10),
-        Effect.ignore
-      )
-
-      await Effect.runPromise(program.pipe(Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))))
-
-      // Verify server was closed when scope ended
-      expect(closeProbe.calls).toHaveLength(1)
-    })
-
-    it("should fail if listen fails", async () => {
-      const { app } = createMockExpressApp()
-      const createAppProbe = createProbe<[string], Express>(() => app)
-      const listenProbe = createProbe<[Express, number, string], Effect.Effect<http.Server, HttpTransportError>>(() =>
-        Effect.fail(new HttpTransportError({ message: "Port already in use" }))
-      )
-
-      const mockFactory: HttpServerFactory = { createApp: createAppProbe.fn, listen: listenProbe.fn }
-
-      const mockMcpServer = createMockMcpServer()
-
-      const program = startHttpTransport({ port: 3000, host: "127.0.0.1" }, () => mockMcpServer).pipe(Effect.scoped)
-
-      const result = await Effect.runPromiseExit(
-        program.pipe(Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory)))
-      )
-
-      expect(Exit.isFailure(result)).toBe(true)
-      if (Exit.isFailure(result)) {
-        const error = result.cause
-        expect(error._tag).toBe("Fail")
-      }
-    })
-
-    it("should log to stderr and continue when server close fails during release", async () => {
-      const { app } = createMockExpressApp()
-      const closeProbe = createProbe<[((err?: Error) => void)?], void>((cb) => cb?.(new Error("close failed")))
-      const mockHttp = mock<http.Server>({ close: closeProbe.fn })
-      const writeError = createProbe<[string], void>(() => undefined)
-      const createAppProbe = createProbe<[string], Express>(() => app)
-      const listenProbe = createProbe<[Express, number, string], Effect.Effect<http.Server, HttpTransportError>>(() =>
-        Effect.succeed(mockHttp)
-      )
-
-      const mockFactory: HttpServerFactory = {
-        createApp: createAppProbe.fn,
-        listen: listenProbe.fn,
-        writeError: writeError.fn
-      }
-
-      const program = startHttpTransport({ port: 3000, host: "127.0.0.1" }, createMockMcpServer).pipe(
-        Effect.scoped,
-        Effect.timeout(10),
-        Effect.ignore
-      )
-
-      await Effect.runPromise(program.pipe(Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))))
-
-      expect(closeProbe.calls).toHaveLength(1)
-      const closeErrorCall = writeError.calls.find((call) => assertAt(call, 0).includes("Server close error"))
-      expect(closeErrorCall).toBeDefined()
-    })
-
-    it("should shut down when SIGINT is received", async () => {
-      const { app } = createMockExpressApp()
-      const closeProbe = createProbe<[((err?: Error) => void)?], void>((cb) => cb?.())
-      const mockHttp = mock<http.Server>({ close: closeProbe.fn })
-      const createAppProbe = createProbe<[string], Express>(() => app)
-      const listenProbe = createProbe<[Express, number, string], Effect.Effect<http.Server, HttpTransportError>>(() =>
-        Effect.succeed(mockHttp)
-      )
-
-      const mockFactory: HttpServerFactory = {
-        createApp: createAppProbe.fn,
-        listen: listenProbe.fn,
-        writeError: createVoidProbe<[string]>().fn
-      }
-
-      const program = startHttpTransport({ port: 3000, host: "127.0.0.1" }, createMockMcpServer).pipe(Effect.scoped)
-
-      const fiber = Effect.runFork(program.pipe(Effect.provide(Layer.succeed(HttpServerFactoryService, mockFactory))))
-
-      // Give the program time to register signal handlers
-      await new Promise((resolve) => setTimeout(resolve, 50))
-
-      process.emit("SIGINT", "SIGINT")
-
-      const result = await fiber.pipe(Effect.runPromiseExit)
-
-      expect(Exit.isSuccess(result)).toBe(true)
-      // Server should be closed during scope release after SIGINT
-      expect(closeProbe.calls).toHaveLength(1)
-    })
-  })
-
-  describe("createMcpHandlers - close cleanup", () => {
-    it("should register close handler and call cleanup on close", async () => {
-      const mockServer = createMockMcpServer()
-      const handlers = createMcpHandlers(() => mockServer)
-
-      const closeHandlers: Array<() => void> = []
-      const reqOn = createProbe<[string, () => void], void>((event, handler) => {
-        if (event === "close") closeHandlers.push(handler)
-      })
-      const res = mock<Response>({
-        status() {
-          return this
-        },
-        json() {
-          return this
-        },
-        headersSent: false,
-        writeHead: createVoidProbe<Array<unknown>>().fn,
-        write: createProbe<Array<unknown>, boolean>(() => true).fn,
-        end: createVoidProbe<Array<unknown>>().fn,
-        setHeader: createVoidProbe<Array<unknown>>().fn,
-        getHeader: createProbe<Array<unknown>, undefined>(() => undefined).fn,
-        flushHeaders: createVoidProbe<Array<unknown>>().fn,
-        on: createVoidProbe<[string, () => void]>().fn
-      })
-
-      const req = mock<Request>({ body: { jsonrpc: "2.0", method: "tools/list", id: 1 }, on: reqOn.fn })
-
-      await handlers.post(req, res)
-
-      expect(closeHandlers).toHaveLength(1)
-      assertAt(closeHandlers, 0)()
-
-      // Allow microtasks (transport.close() and server.close() are async)
-      await new Promise((resolve) => setTimeout(resolve, 10))
-
-      expect(reqOn.calls).toEqual([["close", expect.any(Function)]])
-      expect(getServerCalls(mockServer).close).toHaveLength(1)
-    })
-
-    it("should log to stderr when transport.close rejects during cleanup", async () => {
-      const writeError = createProbe<[string], void>(() => undefined)
-      const transportClose = createProbe<[], Promise<void>>(() => Promise.reject(new Error("transport close boom")))
-      const handleRequest = createProbe<[Request, Response, unknown], Promise<void>>(() => Promise.resolve())
-      const transport = { close: transportClose.fn, handleRequest: handleRequest.fn }
-      const mockServer = createMockMcpServer()
-      const handlers = createMcpHandlers(() => mockServer, {
-        createTransport: () => {
-          return transport as never
-        },
-        writeError: writeError.fn
-      })
-
-      const closeHandlers: Array<() => void> = []
-      const reqOn = createProbe<[string, () => void], void>((event, handler) => {
-        if (event === "close") closeHandlers.push(handler)
-      })
-      const res = mock<Response>({
-        status() {
-          return this
-        },
-        json() {
-          return this
-        },
-        headersSent: false,
-        writeHead: createVoidProbe<Array<unknown>>().fn,
-        write: createProbe<Array<unknown>, boolean>(() => true).fn,
-        end: createVoidProbe<Array<unknown>>().fn,
-        setHeader: createVoidProbe<Array<unknown>>().fn,
-        getHeader: createProbe<Array<unknown>, undefined>(() => undefined).fn,
-        flushHeaders: createVoidProbe<Array<unknown>>().fn,
-        on: createVoidProbe<[string, () => void]>().fn
-      })
-
-      const req = mock<Request>({ body: { jsonrpc: "2.0", method: "tools/list", id: 1 }, on: reqOn.fn })
-      await handlers.post(req, res)
-
-      assertAt(closeHandlers, 0)()
-      await new Promise((resolve) => setTimeout(resolve, 10))
-
-      const transportCleanupCall = writeError.calls.find((call) =>
-        assertAt(call, 0).includes("Transport cleanup error")
-      )
-      expect(transportCleanupCall).toBeDefined()
-    })
-
-    it("should log to stderr when server.close rejects during cleanup", async () => {
-      const connect = createProbe<[], Promise<void>>(() => Promise.resolve())
-      const close = createProbe<[], Promise<void>>(() => Promise.reject(new Error("server close failed")))
-      const mcpServer = mock<Server>({
-        connect: connect.fn,
-        close: close.fn,
-        setRequestHandler: createVoidProbe<[unknown, (...args: Array<unknown>) => unknown]>().fn
-      })
-
-      const writeError = createProbe<[string], void>(() => undefined)
-      const handlers = createMcpHandlers(() => mcpServer, {
-        createTransport: () => {
-          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test fake implements only methods used by handler
-          return {
-            close: createProbe<[], Promise<void>>(() => Promise.resolve()).fn,
-            handleRequest: createProbe<[Request, Response, unknown], Promise<void>>(() => Promise.resolve()).fn
-          } as never
-        },
-        writeError: writeError.fn
-      })
-
-      const closeHandlers: Array<() => void> = []
-      const reqOn = createProbe<[string, () => void], void>((event, handler) => {
-        if (event === "close") closeHandlers.push(handler)
-      })
-      const res = mock<Response>({
-        status() {
-          return this
-        },
-        json() {
-          return this
-        },
-        headersSent: false,
-        writeHead: createVoidProbe<Array<unknown>>().fn,
-        write: createProbe<Array<unknown>, boolean>(() => true).fn,
-        end: createVoidProbe<Array<unknown>>().fn,
-        setHeader: createVoidProbe<Array<unknown>>().fn,
-        getHeader: createProbe<Array<unknown>, undefined>(() => undefined).fn,
-        flushHeaders: createVoidProbe<Array<unknown>>().fn,
-        on: createVoidProbe<[string, () => void]>().fn
-      })
-
-      const req = mock<Request>({ body: { jsonrpc: "2.0", method: "tools/list", id: 1 }, on: reqOn.fn })
-      await handlers.post(req, res)
-
-      assertAt(closeHandlers, 0)()
-      await new Promise((resolve) => setTimeout(resolve, 10))
-
-      const serverCleanupCall = writeError.calls.find((call) => assertAt(call, 0).includes("Server cleanup error"))
-      expect(serverCleanupCall).toBeDefined()
-    })
-  })
-
-  describe("defaultHttpServerFactory via defaultLayer", () => {
-    it("should succeed when app.listen calls back without error", async () => {
-      const fakeHttp = mock<http.Server>({ close: createVoidProbe<[((err?: Error) => void)?]>().fn })
-      const mockApp = mock<Express>({
-        get: createVoidProbe<Array<unknown>>().fn,
-        post: createVoidProbe<Array<unknown>>().fn,
-        delete: createVoidProbe<Array<unknown>>().fn,
-        listen: createProbe<[number, string, (error?: Error) => void], http.Server>((_port, _host, cb) => {
-          // Callback must fire asynchronously so that `const server = app.listen(...)` completes first
-          setTimeout(() => cb(), 0)
-          return fakeHttp
-        }).fn
-      })
-
-      const program = Effect.gen(function* () {
-        const factory = yield* HttpServerFactoryService
-        return yield* factory.listen(mockApp, 3000, "127.0.0.1")
-      })
-
-      const result = await Effect.runPromise(program.pipe(Effect.provide(HttpServerFactoryService.defaultLayer)))
-
-      expect(result).toBe(fakeHttp)
-    })
-
-    it("should fail with HttpTransportError when app.listen calls back with error", async () => {
-      const mockApp = mock<Express>({
-        get: createVoidProbe<Array<unknown>>().fn,
-        post: createVoidProbe<Array<unknown>>().fn,
-        delete: createVoidProbe<Array<unknown>>().fn,
-        listen: createProbe<[number, string, (error?: Error) => void], http.Server>((_port, _host, cb) => {
-          setTimeout(() => cb(new Error("EADDRINUSE")), 0)
-          return mock<http.Server>({ close: createVoidProbe<[((err?: Error) => void)?]>().fn })
-        }).fn
-      })
-
-      const program = Effect.gen(function* () {
-        const factory = yield* HttpServerFactoryService
-        return yield* factory.listen(mockApp, 3000, "127.0.0.1")
-      })
-
-      const result = await Effect.runPromiseExit(program.pipe(Effect.provide(HttpServerFactoryService.defaultLayer)))
-
-      expect(Exit.isFailure(result)).toBe(true)
-    })
-
-    it("should call createMcpExpressApp via createApp", async () => {
-      const program = Effect.gen(function* () {
-        const factory = yield* HttpServerFactoryService
-        return factory.createApp("127.0.0.1")
-      })
-
-      const result = await Effect.runPromise(program.pipe(Effect.provide(HttpServerFactoryService.defaultLayer)))
-
-      expect(result).toBeDefined()
-      // Verify the returned object has Express-like route registration methods
-      expect(typeof result.get).toBe("function")
-      expect(typeof result.post).toBe("function")
-      expect(typeof result.delete).toBe("function")
-      expect(typeof result.listen).toBe("function")
-    })
-  })
-
-  describe("HttpTransportError", () => {
-    it("should include message and optional cause", () => {
-      const cause = new Error("underlying error")
-      const error = new HttpTransportError({ message: "HTTP transport failed", cause })
-
-      expect(error.message).toBe("HTTP transport failed")
-      expect(error.cause).toBe(cause)
-      expect(error._tag).toBe("HttpTransportError")
-    })
-  })
-})
-
-describe("2026 dispatcher validation errors", () => {
-  const meta = modernMeta
-  const validBody = (method: string): Record<string, unknown> => ({
-    jsonrpc: "2.0",
-    method,
-    id: 1,
-    params: { _meta: meta }
-  })
-
-  const post = async (
-    body: unknown,
-    headers: Request["headers"]
-  ): Promise<{ status: number | undefined; id: unknown; error: { code: number; message: string } | undefined }> => {
-    const handlers = createMcpHandlers(createMockMcpServer, undefined, undefined, modernHandlerFactory)
-    const res = createMockResponse()
-    await handlers.post(createMockRequest(body, headers), res)
-    const calls = getResponseCalls(res)
-    const json = calls.json[0]?.[0] as { id?: unknown; error?: { code: number; message: string } } | undefined
-    return { status: calls.status[0]?.[0], id: json?.id, error: json?.error }
-  }
-
-  const cases: ReadonlyArray<{ name: string; body: unknown; headers: Request["headers"]; message: string }> = [
-    {
-      name: "rejects batch requests",
-      body: [validBody("tools/list")],
-      headers: modernHeaders("tools/list"),
-      message: "Batch JSON-RPC"
-    },
-    {
-      name: "rejects a non-object body",
-      body: "not-an-object",
-      headers: modernHeaders("tools/list"),
-      message: "single JSON-RPC object"
-    },
-    {
-      name: "rejects a wrong jsonrpc version",
-      body: { ...validBody("tools/list"), jsonrpc: "1.0" },
-      headers: modernHeaders("tools/list"),
-      message: "jsonrpc"
-    },
-    {
-      name: "rejects a missing jsonrpc version",
-      body: { method: "tools/list", id: 1, params: { _meta: meta } },
-      headers: modernHeaders("tools/list"),
-      message: "jsonrpc"
-    },
-    {
-      name: "rejects an empty method",
-      body: { ...validBody("tools/list"), method: "" },
-      headers: modernHeaders("tools/list"),
-      message: "non-empty method"
-    },
-    {
-      name: "rejects a missing method",
-      body: { jsonrpc: "2.0", id: 1, params: { _meta: meta } },
-      headers: modernHeaders("tools/list"),
-      message: "non-empty method"
-    },
-    {
-      name: "rejects a missing Accept header",
-      body: validBody("tools/list"),
-      headers: { "mcp-protocol-version": "2026-07-28", "mcp-method": "tools/list" },
-      message: "Accept header"
-    },
-    {
-      name: "rejects a missing protocol-version header",
-      body: validBody("tools/list"),
-      headers: { accept: "application/json, text/event-stream", "mcp-method": "tools/list" },
-      message: "MCP-Protocol-Version header is missing"
-    },
-    {
-      name: "rejects an unsupported protocol-version header",
-      body: validBody("tools/list"),
-      headers: { ...modernHeaders("tools/list"), "mcp-protocol-version": "2025-01-01" },
-      message: "Unsupported protocol version"
-    },
-    {
-      name: "rejects a method header that does not match the body",
-      body: validBody("tools/list"),
-      headers: modernHeaders("resources/list"),
-      message: "does not match body value"
-    },
-    {
-      name: "rejects a missing _meta",
-      body: { jsonrpc: "2.0", method: "tools/list", id: 1, params: {} },
-      headers: modernHeaders("tools/list"),
-      message: "params._meta is required"
-    },
-    {
-      name: "rejects a wrong _meta protocol version",
-      body: {
-        jsonrpc: "2.0",
-        method: "tools/list",
-        id: 1,
-        params: { _meta: { ...meta, "io.modelcontextprotocol/protocolVersion": "2025-01-01" } }
-      },
-      headers: modernHeaders("tools/list"),
-      message: "protocol version must be 2026-07-28"
-    },
-    {
-      name: "rejects a missing clientInfo in _meta",
-      body: {
-        jsonrpc: "2.0",
-        method: "tools/list",
-        id: 1,
-        params: {
-          _meta: {
-            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-            "io.modelcontextprotocol/clientCapabilities": {}
-          }
-        }
-      },
-      headers: modernHeaders("tools/list"),
-      message: "clientInfo metadata is required"
-    },
-    {
-      name: "rejects a non-object clientInfo in _meta",
-      body: {
-        jsonrpc: "2.0",
-        method: "tools/list",
-        id: 1,
-        params: {
-          _meta: {
-            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-            "io.modelcontextprotocol/clientInfo": "test",
-            "io.modelcontextprotocol/clientCapabilities": {}
-          }
-        }
-      },
-      headers: modernHeaders("tools/list"),
-      message: "clientInfo metadata is required"
-    },
-    {
-      name: "rejects a missing clientCapabilities in _meta",
-      body: {
-        jsonrpc: "2.0",
-        method: "tools/list",
-        id: 1,
-        params: {
-          _meta: {
-            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-            "io.modelcontextprotocol/clientInfo": { name: "t", version: "1" }
-          }
-        }
-      },
-      headers: modernHeaders("tools/list"),
-      message: "clientCapabilities metadata is required"
-    },
-    {
-      name: "rejects a non-object clientCapabilities in _meta",
-      body: {
-        jsonrpc: "2.0",
-        method: "tools/list",
-        id: 1,
-        params: {
-          _meta: {
-            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-            "io.modelcontextprotocol/clientInfo": { name: "t", version: "1" },
-            "io.modelcontextprotocol/clientCapabilities": null
-          }
-        }
-      },
-      headers: modernHeaders("tools/list"),
-      message: "clientCapabilities metadata is required"
-    }
-  ]
-
-  for (const c of cases) {
-    it(c.name, async () => {
-      const result = await post(c.body, c.headers)
-      expect(result.error?.message).toContain(c.message)
-    })
-  }
-
-  it("preserves a valid request id when rejecting a malformed JSON-RPC envelope", async () => {
-    const result = await post({ ...validBody("tools/list"), jsonrpc: "1.0", id: 123 }, modernHeaders("tools/list"))
-    expect(result.id).toBe(123)
-    expect(result.error?.message).toContain("jsonrpc")
-  })
-
-  it("returns null id when rejecting a malformed JSON-RPC envelope with an invalid id", async () => {
-    const result = await post(
-      { ...validBody("tools/list"), jsonrpc: "1.0", id: { nested: true } },
-      modernHeaders("tools/list")
     )
-    expect(result.id).toBeNull()
-    expect(result.error?.message).toContain("jsonrpc")
-  })
-
-  it("returns Method not found (404) for an unknown 2026 method", async () => {
-    const result = await post(validBody("does/not/exist"), modernHeaders("does/not/exist"))
-    expect(result.status).toBe(404)
-    expect(result.error?.message).toContain("Method not found")
-  })
-
-  it("rejects tools/call whose body omits params.name", async () => {
-    const result = await post(
-      { jsonrpc: "2.0", method: "tools/call", id: 1, params: { arguments: {}, _meta: meta } },
-      modernHeaders("tools/call", "some_tool")
-    )
-    expect(result.error?.message).toContain("tools/call requires params.name")
-  })
-
-  it("rejects tools/call whose body has an empty params.name", async () => {
-    const result = await post(
-      { jsonrpc: "2.0", method: "tools/call", id: 1, params: { name: "", _meta: meta } },
-      modernHeaders("tools/call", "some_tool")
-    )
-    expect(result.error?.message).toContain("tools/call requires params.name")
-  })
-
-  it("rejects tools/call whose Mcp-Name header does not match params.name", async () => {
-    const result = await post(
-      { jsonrpc: "2.0", method: "tools/call", id: 1, params: { name: "actual_tool", _meta: meta } },
-      modernHeaders("tools/call", "other_tool")
-    )
-    expect(result.error?.message).toContain("does not match body value 'actual_tool'")
-  })
-
-  it("rejects resources/read whose body omits params.uri", async () => {
-    const result = await post(
-      { jsonrpc: "2.0", method: "resources/read", id: 1, params: { _meta: meta } },
-      modernHeaders("resources/read", "huly://projects/HULY")
-    )
-    expect(result.error?.message).toContain("resources/read requires params.uri")
-  })
-
-  it("rejects resources/read whose body has an empty params.uri", async () => {
-    const result = await post(
-      { jsonrpc: "2.0", method: "resources/read", id: 1, params: { uri: "", _meta: meta } },
-      modernHeaders("resources/read", "huly://projects/HULY")
-    )
-    expect(result.error?.message).toContain("resources/read requires params.uri")
-  })
-
-  it("maps a thrown non-McpError to an internal server error", async () => {
-    const throwingFactory = (): McpProtocolHandlers => ({
-      ...createMockProtocolHandlers(),
-      listTools: () => Promise.reject(new Error("boom"))
-    })
-    const handlers = createMcpHandlers(createMockMcpServer, undefined, undefined, throwingFactory)
-    const res = createMockResponse()
-    await handlers.post(createMockRequest(validBody("tools/list"), modernHeaders("tools/list")), res)
-    const calls = getResponseCalls(res)
-    const json = calls.json[0]?.[0] as { error?: { message: string } } | undefined
-    expect(calls.status[0]?.[0]).toBe(500)
-    expect(json?.error?.message).toContain("Internal server error")
-  })
-
-  it("treats a non-object params as empty (still requires _meta)", async () => {
-    const result = await post({ jsonrpc: "2.0", method: "tools/list", id: 1 }, modernHeaders("tools/list"))
-    expect(result.error?.message).toContain("params._meta is required")
-  })
-})
-
-describe("2026 dispatcher null-id and routing branches", () => {
-  const noId = (method: string, params: Record<string, unknown> = { _meta: modernMeta }): Record<string, unknown> => ({
-    jsonrpc: "2.0",
-    method,
-    params
-  })
-
-  const postRaw = async (
-    body: unknown,
-    headers: Request["headers"],
-    factory: () => McpProtocolHandlers = modernHandlerFactory
-  ): Promise<{ status: number | undefined; json: { id?: unknown; error?: { code: number } } | undefined }> => {
-    const handlers = createMcpHandlers(createMockMcpServer, undefined, undefined, factory)
-    const res = createMockResponse()
-    await handlers.post(createMockRequest(body, headers), res)
-    const calls = getResponseCalls(res)
-    return { status: calls.status[0]?.[0], json: calls.json[0]?.[0] as { id?: unknown; error?: { code: number } } }
-  }
-
-  it("returns a null id for an Accept-header mismatch on an id-less request", async () => {
-    const { json } = await postRaw(noId("tools/list"), { ...modernHeaders("tools/list"), accept: "application/json" })
-    expect(json?.id).toBeNull()
-    expect(json?.error?.code).toBe(-32001)
-  })
-
-  it("returns a null id when the protocol header is missing", async () => {
-    const headers = { ...modernHeaders("tools/list") }
-    delete (headers as Record<string, unknown>)["mcp-protocol-version"]
-    const { json } = await postRaw(noId("tools/list"), headers)
-    expect(json?.id).toBeNull()
-  })
-
-  it("returns a null id for an unsupported protocol version", async () => {
-    const { json } = await postRaw(noId("tools/list"), {
-      ...modernHeaders("tools/list"),
-      "mcp-protocol-version": "1900-01-01"
-    })
-    expect(json?.id).toBeNull()
-    expect(json?.error?.code).toBe(-32004)
-  })
-
-  it("returns a null id when the Mcp-Method header is missing", async () => {
-    const headers = { ...modernHeaders("tools/list") }
-    delete (headers as Record<string, unknown>)["mcp-method"]
-    const { json } = await postRaw(noId("tools/list"), headers)
-    expect(json?.id).toBeNull()
-  })
-
-  it("returns a null id when the Mcp-Method header does not match the body", async () => {
-    const { json } = await postRaw(noId("tools/list"), modernHeaders("resources/list"))
-    expect(json?.id).toBeNull()
-  })
-
-  it("returns a null id when params._meta is missing", async () => {
-    const { json } = await postRaw(noId("tools/list", {}), modernHeaders("tools/list"))
-    expect(json?.id).toBeNull()
-  })
-
-  it("returns a null id when the Mcp-Name header is missing for tools/call", async () => {
-    const headers = { ...modernHeaders("tools/call") }
-    const { json } = await postRaw(noId("tools/call", { name: "get_huly_context", _meta: modernMeta }), headers)
-    expect(json?.id).toBeNull()
-  })
-
-  it("returns a null id on a successful id-less dispatch", async () => {
-    const { json } = await postRaw(noId("tools/list"), modernHeaders("tools/list"))
-    expect(json?.id).toBeNull()
-    expect(json?.error).toBeUndefined()
-  })
-
-  it("returns a null id on a successful id-less tools/call dispatch", async () => {
-    const { json } = await postRaw(
-      noId("tools/call", { name: "get_huly_context", _meta: modernMeta }),
-      modernHeaders("tools/call", "get_huly_context")
-    )
-    expect(json?.id).toBeNull()
-    expect(json?.error).toBeUndefined()
-  })
-
-  it("returns a null id on a successful id-less resources/read dispatch", async () => {
-    const { json } = await postRaw(
-      noId("resources/read", { uri: "huly://projects/HULY", _meta: modernMeta }),
-      modernHeaders("resources/read", "huly://projects/HULY")
-    )
-    expect(json?.id).toBeNull()
-    expect(json?.error).toBeUndefined()
-  })
-
-  it("accepts modern Accept header entries with media type parameters", async () => {
-    const headers = {
-      ...modernHeaders("tools/list"),
-      accept: "application/json; charset=utf-8, text/event-stream; boundary=events"
-    }
-    const { json } = await postRaw(noId("tools/list"), headers)
-    expect(json?.error).toBeUndefined()
-  })
-
-  it("maps a thrown MethodNotFound error to a 404", async () => {
-    const factory = (): McpProtocolHandlers => ({
-      ...createMockProtocolHandlers(),
-      callTool: () => Promise.reject(new McpError(ErrorCode.MethodNotFound, "no such tool"))
-    })
-    const { status } = await postRaw(
-      {
-        jsonrpc: "2.0",
-        method: "tools/call",
-        id: 1,
-        params: { name: "get_huly_context", arguments: {}, _meta: modernMeta }
-      },
-      modernHeaders("tools/call", "get_huly_context"),
-      factory
-    )
-    expect(status).toBe(404)
-  })
-
-  it("does not dispatch a request whose _meta protocol version is not a string", () => {
-    const req = createMockRequest(
-      { jsonrpc: "2.0", method: "tools/list", params: { _meta: { "io.modelcontextprotocol/protocolVersion": 2026 } } },
-      { accept: "application/json, text/event-stream" }
-    )
-    expect(shouldDispatchMcp2026Request(req)).toBe(false)
-  })
-
-  it.each(["2024-11-05", "2025-11-25"])(
-    "keeps Mcp-Method requests declaring legacy version %s on the SDK transport",
-    (protocolVersion) => {
-      const req = createMockRequest(
-        { jsonrpc: "2.0", method: "tools/list", id: 1 },
-        {
-          accept: "application/json, text/event-stream",
-          "mcp-method": "tools/list",
-          "mcp-protocol-version": protocolVersion
-        }
-      )
-
-      expect(shouldDispatchMcp2026Request(req)).toBe(false)
-    }
   )
+  startedServers.clear()
+})
 
-  it("keeps legacy routing even when Mcp-Method disagrees with the request body", () => {
-    const req = createMockRequest(
-      { jsonrpc: "2.0", method: "tools/call", id: 1 },
-      {
-        accept: "application/json, text/event-stream",
-        "mcp-method": "tools/list",
-        "mcp-protocol-version": "2025-11-25"
+describe("strict MCP 2026-07-28 HTTP transport", () => {
+  it("connects with the released SDK client pinned to the final protocol", async () => {
+    const endpoint = await listen()
+    const client = new Client(
+      { name: "released-http-client", version: "1.0.0" },
+      { versionNegotiation: { mode: { pin: protocolVersion } } }
+    )
+
+    await client.connect(new StreamableHTTPClientTransport(new URL(endpoint.baseUrl)))
+    const result = await client.listTools()
+
+    expect(result.tools.map((tool) => tool.name)).toContain("hello")
+    await client.close()
+    await endpoint.close()
+  })
+
+  it("uses final clientInfo for caller-aware tool exposure", async () => {
+    const endpoint = await listen(undefined, () => {}, createCallerAwareServer)
+    const client = new Client(
+      { name: "claude-ai", version: "1.0.0" },
+      { versionNegotiation: { mode: { pin: protocolVersion } } }
+    )
+
+    await client.connect(new StreamableHTTPClientTransport(new URL(endpoint.baseUrl)))
+    const result = await client.listTools()
+    const names = result.tools.map((tool) => tool.name)
+
+    expect(names).toEqual(expect.arrayContaining([...PROXY_TOOL_NAMES]))
+    expect(names).not.toContain("list_projects")
+    await client.close()
+    await endpoint.close()
+  })
+
+  it("discovers the final protocol without clientInfo and stamps final response metadata", async () => {
+    const endpoint = await listen()
+    const response = await fetch(endpoint.baseUrl, {
+      method: "POST",
+      headers: modernHeaders("server/discover"),
+      body: JSON.stringify(modernBody("server/discover", {}, false))
+    })
+    const body = await parseResponse(response)
+
+    expect(response.status).toBe(200)
+    expect(body.result).toMatchObject({
+      supportedVersions: [protocolVersion],
+      capabilities: { tools: {}, resources: {} },
+      instructions: "strict final protocol",
+      resultType: "complete",
+      ttlMs: 0,
+      cacheScope: "private",
+      _meta: { "io.modelcontextprotocol/serverInfo": { name: "huly-mcp-test", version: "1.0.0" } }
+    })
+    await endpoint.close()
+  })
+
+  it("rejects initialize-era clients instead of serving a legacy handshake", async () => {
+    const endpoint = await listen()
+    const response = await fetch(endpoint.baseUrl, {
+      method: "POST",
+      headers: { accept: "application/json, text/event-stream", "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "old", version: "1" } }
+      })
+    })
+    const body = await parseResponse(response)
+
+    expect(response.status).toBe(400)
+    expect(body.error).toMatchObject({ code: -32022 })
+    expect(body.error?.message).toContain("Unsupported protocol version")
+    await endpoint.close()
+  })
+
+  it("uses the final header-mismatch code for malformed modern requests", async () => {
+    const endpoint = await listen()
+    const headers = modernHeaders("tools/list")
+    delete headers["mcp-method"]
+    const response = await fetch(endpoint.baseUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(modernBody("tools/list", {}))
+    })
+    const body = await parseResponse(response)
+
+    expect(response.status).toBe(400)
+    expect(body.error?.code).toBe(-32020)
+    await endpoint.close()
+  })
+
+  it.each([
+    { name: "mismatched method", headers: modernHeaders("resources/list"), body: modernBody("tools/list", {}) },
+    {
+      name: "missing tool name",
+      headers: modernHeaders("tools/call"),
+      body: modernBody("tools/call", { name: "hello", arguments: {} })
+    },
+    {
+      name: "mismatched tool name",
+      headers: modernHeaders("tools/call", "different"),
+      body: modernBody("tools/call", { name: "hello", arguments: {} })
+    },
+    {
+      name: "mismatched protocol version",
+      headers: { ...modernHeaders("tools/list"), "mcp-protocol-version": "2099-01-01" },
+      body: modernBody("tools/list", {})
+    }
+  ])("rejects $name headers with the final mismatch error", async ({ body, headers }) => {
+    const endpoint = await listen()
+    const response = await fetch(endpoint.baseUrl, { method: "POST", headers, body: JSON.stringify(body) })
+    const parsed = await parseResponse(response)
+
+    expect(response.status).toBe(400)
+    expect(parsed.error?.code).toBe(-32020)
+    await endpoint.close()
+  })
+
+  it("rejects malformed supplied clientInfo", async () => {
+    const endpoint = await listen()
+    const body = modernBody("tools/list", {})
+    const params = body.params
+    if (!isJsonObject(params)) throw new Error("Expected request params")
+    const meta = params._meta
+    if (!isJsonObject(meta)) throw new Error("Expected request metadata")
+    meta["io.modelcontextprotocol/clientInfo"] = { name: 42, version: "1.0.0" }
+
+    const response = await fetch(endpoint.baseUrl, {
+      method: "POST",
+      headers: modernHeaders("tools/list"),
+      body: JSON.stringify(body)
+    })
+    const parsed = await parseResponse(response)
+
+    expect(response.status).toBe(400)
+    expect(parsed.error?.code).toBe(-32602)
+    await endpoint.close()
+  })
+
+  it("retains the SDK app's Host and Origin protection", async () => {
+    const endpoint = await listen()
+    const response = await fetch(endpoint.baseUrl, {
+      method: "POST",
+      headers: { ...modernHeaders("server/discover"), origin: "https://attacker.example" },
+      body: JSON.stringify(modernBody("server/discover", {}))
+    })
+
+    expect(response.status).toBe(403)
+    await endpoint.close()
+  })
+
+  it("serves tools through final headers and SDK-owned result fields", async () => {
+    const endpoint = await listen()
+    const response = await fetch(endpoint.baseUrl, {
+      method: "POST",
+      headers: modernHeaders("tools/list"),
+      body: JSON.stringify(modernBody("tools/list", {}))
+    })
+    const body = await parseResponse(response)
+
+    expect(response.status).toBe(200)
+    expect(body.result).toMatchObject({
+      tools: [{ name: "hello" }],
+      resultType: "complete",
+      ttlMs: 0,
+      cacheScope: "private"
+    })
+    await endpoint.close()
+  })
+
+  it("enforces the fixed bearer token before constructing an MCP server", async () => {
+    let errors = ""
+    const endpoint = await listen("secret", (message) => {
+      errors += message
+    })
+    const request: RequestInit = {
+      method: "POST",
+      headers: modernHeaders("server/discover"),
+      body: JSON.stringify(modernBody("server/discover", {}))
+    }
+
+    const unauthorized = await fetch(endpoint.baseUrl, request)
+    const authorized = await fetch(endpoint.baseUrl, {
+      ...request,
+      headers: { ...modernHeaders("server/discover"), authorization: "Bearer secret" }
+    })
+
+    expect(unauthorized.status).toBe(401)
+    expect(unauthorized.headers.get("www-authenticate")).toBe("Bearer")
+    expect(authorized.status).toBe(200)
+    expect(errors).toBe("")
+    await endpoint.close()
+  })
+
+  it("reports factory failures without leaking exception details into the response", async () => {
+    const errors: Array<string> = []
+    const mounted = createMountedMcpHttpHandler(
+      () => {
+        throw new Error("factory exploded")
+      },
+      undefined,
+      (message) => errors.push(message)
+    )
+    const app = createMcpExpressApp({ host: "127.0.0.1" })
+    app.all("/mcp", (req, res) => {
+      void mounted.handle(req, res)
+    })
+    const server = await new Promise<http.Server>((resolve) => {
+      const listening = app.listen(0, "127.0.0.1", () => resolve(listening))
+    })
+    startedServers.add(server)
+    const address = server.address()
+    if (address === null || typeof address === "string") throw new Error("Expected an assigned TCP port")
+
+    const response = await fetch(`http://127.0.0.1:${address.port}/mcp`, {
+      method: "POST",
+      headers: modernHeaders("server/discover"),
+      body: JSON.stringify(modernBody("server/discover", {}))
+    })
+    const body = await parseResponse(response)
+
+    expect(response.status).toBe(500)
+    expect(body.error).toMatchObject({ code: -32603, message: "Internal server error" })
+    expect(JSON.stringify(body)).not.toContain("factory exploded")
+    expect(errors.join("")).toContain("factory exploded")
+    await mounted.close()
+    await new Promise<void>((resolve) => server.close(() => resolve()))
+    startedServers.delete(server)
+  })
+})
+
+describe("HTTP transport Effect lifecycle", () => {
+  it("closes the listening server and SDK handler after SIGTERM", { timeout: 5000 }, async () => {
+    const listening = deferred<http.Server>()
+    const signalHandlersReady = deferred<void>()
+    const writes: Array<string> = []
+    const factory: HttpServerFactoryService["Type"] = {
+      createApp: (host) => createMcpExpressApp({ host }),
+      listen: (app, port, host) =>
+        Effect.async<http.Server, HttpTransportError>((resume) => {
+          const server = app.listen(port, host, () => {
+            startedServers.add(server)
+            listening.resolve(server)
+            resume(Effect.succeed(server))
+          })
+        }),
+      writeError: (message) => {
+        writes.push(message)
+        if (message.includes("MCP HTTP server listening")) signalHandlersReady.resolve()
       }
+    }
+
+    const fiber = Effect.runFork(
+      startHttpTransport({ port: 0, host: "127.0.0.1" }, createTestServer).pipe(
+        Effect.scoped,
+        Effect.provideService(HttpServerFactoryService, factory)
+      )
+    )
+    const server = await listening.promise
+    await signalHandlersReady.promise
+    expect(server.listening).toBe(true)
+    process.emit("SIGTERM")
+    await Effect.runPromise(Fiber.join(fiber))
+
+    expect(server.listening).toBe(false)
+    expect(writes.join("")).toContain("MCP HTTP server listening")
+    startedServers.delete(server)
+  })
+
+  it("surfaces listener startup failures as typed transport errors", async () => {
+    const expected = new HttpTransportError({ message: "port unavailable" })
+    const factory: HttpServerFactoryService["Type"] = {
+      createApp: (host) => createMcpExpressApp({ host }),
+      listen: () => Effect.fail(expected)
+    }
+
+    const result = await Effect.runPromise(
+      Effect.exit(
+        startHttpTransport({ port: 1, host: "127.0.0.1" }, createTestServer).pipe(
+          Effect.scoped,
+          Effect.provideService(HttpServerFactoryService, factory)
+        )
+      )
     )
 
-    expect(shouldDispatchMcp2026Request(req)).toBe(false)
+    expect(result._tag).toBe("Failure")
+    expect(String(result)).toContain("port unavailable")
   })
 
-  it("routes explicit 2026 metadata to strict validation despite a legacy version header", async () => {
-    const headers = { ...modernHeaders("tools/list"), "mcp-protocol-version": "2025-11-25" }
-    const { json } = await postRaw(
-      { jsonrpc: "2.0", method: "tools/list", id: 1, params: { _meta: modernMeta } },
-      headers
+  it("provides a working default Express listener and reports occupied ports", async () => {
+    const context = await Effect.runPromise(Layer.build(HttpServerFactoryService.defaultLayer).pipe(Effect.scoped))
+    const factory = Context.get(context, HttpServerFactoryService)
+    const app = factory.createApp("127.0.0.1")
+    const server = await Effect.runPromise(factory.listen(app, 0, "127.0.0.1"))
+    startedServers.add(server)
+    factory.writeError?.("")
+    const address = server.address()
+    if (address === null || typeof address === "string") throw new Error("Expected an assigned TCP port")
+
+    const occupied = await Effect.runPromise(
+      Effect.exit(factory.listen(factory.createApp("127.0.0.1"), address.port, "127.0.0.1"))
     )
 
-    expect(json?.error).toMatchObject({
-      code: -32004,
-      message: "Unsupported protocol version",
-      data: { requested: "2025-11-25" }
-    })
+    expect(occupied._tag).toBe("Failure")
+    expect(String(occupied)).toContain("Failed to start HTTP server")
+    await new Promise<void>((resolve) => server.close(() => resolve()))
+    startedServers.delete(server)
   })
 
-  it("keeps future-only discovery on strict validation despite a legacy version header", async () => {
-    const { json } = await postRaw(
-      { jsonrpc: "2.0", method: "server/discover", id: 1, params: { _meta: modernMeta } },
-      { ...modernHeaders("server/discover"), "mcp-protocol-version": "2025-11-25" }
+  it("reports server-close failures while completing the shutdown trigger", async () => {
+    const writes: Array<string> = []
+    const ready = deferred<void>()
+    const factory: HttpServerFactoryService["Type"] = {
+      createApp: (host) => createMcpExpressApp({ host }),
+      listen: () => Effect.succeed(http.createServer()),
+      writeError: (message) => {
+        writes.push(message)
+        if (message.includes("MCP HTTP server listening")) ready.resolve()
+      }
+    }
+    const fiber = Effect.runFork(
+      startHttpTransport({ port: 1, host: "127.0.0.1" }, createTestServer).pipe(
+        Effect.scoped,
+        Effect.provideService(HttpServerFactoryService, factory)
+      )
     )
+    await ready.promise
 
-    expect(json?.error).toMatchObject({
-      code: -32004,
-      message: "Unsupported protocol version",
-      data: { requested: "2025-11-25" }
-    })
-  })
+    process.emit("SIGTERM")
+    await Effect.runPromise(Fiber.join(fiber))
 
-  it("strictly rejects Mcp-Method/body mismatch for explicit future requests", async () => {
-    const { json } = await postRaw(
-      { jsonrpc: "2.0", method: "tools/list", id: 1, params: { _meta: modernMeta } },
-      modernHeaders("tools/call")
-    )
-
-    expect(json?.error).toMatchObject({ code: -32001, message: expect.stringContaining("does not match") })
-  })
-
-  it("does not dispatch a non-object request body", () => {
-    const req = createMockRequest("not-a-record", {})
-    expect(shouldDispatchMcp2026Request(req)).toBe(false)
-  })
-
-  it("does not dispatch a request whose body method is not a string", () => {
-    const req = createMockRequest({ jsonrpc: "2.0", method: 123 }, { accept: "application/json, text/event-stream" })
-    expect(shouldDispatchMcp2026Request(req)).toBe(false)
+    expect(writes.join("")).toContain("Server close error: Error closing HTTP server")
   })
 })

@@ -1,8 +1,8 @@
-import type { ListToolsResult } from "@modelcontextprotocol/sdk/types.js"
-
+import type { JSONValue, ListToolsResult } from "@modelcontextprotocol/server"
+import { Schema } from "effect"
 import type { ToolExposureContext } from "./huly-context-tool.js"
 import { toClientCompatibleInputSchema } from "./input-schema-compat.js"
-import { stripCollidingSchemaIdsProperties, stripCollidingSchemaIdsRecord } from "./json-schema-refs.js"
+import { stripCollidingSchemaIdsRecord } from "./json-schema-refs.js"
 import { PROXY_TOOL_NAMES, proxyToolDefinitions } from "./proxy-tools.js"
 import {
   classifyMcpClient,
@@ -60,30 +60,50 @@ const emptyToolRegistry: ToolRegistry = {
   handleToolCall: async () => null
 }
 
-const isObjectPropertyEntry = (entry: [string, unknown]): entry is [string, object] => {
-  const value = entry[1]
-  return typeof value === "object" && value !== null
+const isJsonValue = (value: unknown): value is JSONValue => {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return true
+  if (typeof value === "number") return Number.isFinite(value)
+  if (Array.isArray(value)) return value.every(isJsonValue)
+  if (typeof value !== "object") return false
+  return Object.values(value).every(isJsonValue)
 }
 
-const objectProperties = (properties: Record<string, unknown> | undefined): Record<string, object> | undefined => {
+const isProtocolObjectSchema = (value: unknown): value is ProtocolObjectSchema =>
+  isJsonValue(value) &&
+  !Array.isArray(value) &&
+  value !== null &&
+  typeof value === "object" &&
+  "type" in value &&
+  value.type === "object"
+
+const protocolProperties = (properties: Record<string, unknown> | undefined): Record<string, JSONValue> | undefined => {
   if (properties === undefined) return undefined
-
-  return Object.entries(properties)
-    .filter(isObjectPropertyEntry)
-    .reduce<Record<string, object>>((acc, [key, value]) => ({ ...acc, [key]: value }), {})
+  return Object.fromEntries(
+    Object.entries(properties).map(([name, value]): [string, JSONValue] => {
+      if (
+        typeof value !== "boolean" &&
+        !(isJsonValue(value) && typeof value === "object" && value !== null && !Array.isArray(value))
+      ) {
+        throw new TypeError(`Tool schema property "${name}" is not a JSON Schema object or boolean`)
+      }
+      return [name, value]
+    })
+  )
 }
+
+const ProtocolObjectSchemaBoundary = Schema.declare(isProtocolObjectSchema)
 
 const toProtocolObjectSchema = (schema: ProtocolObjectSchemaSource): ProtocolObjectSchema => {
   const { properties, required, ...rest } = schema
-  const convertedProperties = objectProperties(properties)
-  return {
-    ...stripCollidingSchemaIdsRecord(rest),
+  const convertedProperties = protocolProperties(properties)
+  return Schema.decodeUnknownSync(ProtocolObjectSchemaBoundary)({
+    ...stripCollidingSchemaIdsRecord({
+      ...rest,
+      ...(convertedProperties === undefined ? {} : { properties: convertedProperties })
+    }),
     type: "object",
-    ...(convertedProperties === undefined
-      ? {}
-      : { properties: stripCollidingSchemaIdsProperties(convertedProperties) }),
     ...(required === undefined ? {} : { required: [...required] })
-  }
+  })
 }
 
 export const normalizeRegistries = (registry: ToolRegistry | ProtocolToolRegistries): ProtocolToolRegistries =>

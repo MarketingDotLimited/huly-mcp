@@ -5,6 +5,12 @@ import { setTimeout as delay } from "node:timers/promises"
 
 const REQUEST_TIMEOUT_MS = 10_000
 const READY_TIMEOUT_MS = 15_000
+const PROTOCOL_VERSION = "2026-07-28"
+const CLIENT_META = {
+  "io.modelcontextprotocol/protocolVersion": PROTOCOL_VERSION,
+  "io.modelcontextprotocol/clientCapabilities": {},
+  "io.modelcontextprotocol/clientInfo": { name: "http-no-config-smoke", version: "1.0.0" }
+}
 
 const removeHulyEnv = (env) => {
   const clean = { ...env }
@@ -47,13 +53,25 @@ const parseMcpResponse = (text) => {
 }
 
 const postJsonRpc = async (endpoint, payload) => {
+  const name = payload.method === "tools/call"
+    ? payload.params?.name
+    : payload.method === "resources/read"
+      ? payload.params?.uri
+      : undefined
+  const requestPayload = {
+    ...payload,
+    params: { ...payload.params, _meta: CLIENT_META }
+  }
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "accept": "application/json, text/event-stream"
+      "accept": "application/json, text/event-stream",
+      "mcp-protocol-version": PROTOCOL_VERSION,
+      "mcp-method": payload.method,
+      ...(name === undefined ? {} : { "mcp-name": name })
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(requestPayload),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
   })
   const text = await response.text()
@@ -110,22 +128,18 @@ const startLocalServer = async (envOverrides = {}) => {
   }
 }
 
-const waitForInitialize = async (endpoint, serverLogs) => {
+const waitForDiscovery = async (endpoint, serverLogs) => {
   const deadline = Date.now() + READY_TIMEOUT_MS
   let lastError
   while (Date.now() < deadline) {
     try {
       const response = await postJsonRpc(endpoint, {
         jsonrpc: "2.0",
-        method: "initialize",
-        params: {
-          protocolVersion: "2024-11-05",
-          capabilities: {},
-          clientInfo: { name: "http-no-config-smoke", version: "1.0.0" }
-        },
+        method: "server/discover",
+        params: {},
         id: 1
       })
-      assertNoError("initialize", response)
+      assertNoError("server/discover", response)
       return response
     } catch (error) {
       lastError = error
@@ -141,19 +155,12 @@ const waitForInitialize = async (endpoint, serverLogs) => {
 }
 
 const runProbe = async (endpoint, serverLogs, label) => {
-  await waitForInitialize(endpoint, serverLogs)
-
-  const ping = await postJsonRpc(endpoint, {
-    jsonrpc: "2.0",
-    method: "ping",
-    id: 2
-  })
-  assertNoError("ping", ping)
+  await waitForDiscovery(endpoint, serverLogs)
 
   const resources = await postJsonRpc(endpoint, {
     jsonrpc: "2.0",
     method: "resources/list",
-    id: 3
+    id: 2
   })
   assertNoError("resources/list", resources)
   if (!Array.isArray(resources.result?.resources)) {

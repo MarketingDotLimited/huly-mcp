@@ -15,7 +15,7 @@ import {
   type Project as HulyProject,
   TimeReportDayType
 } from "@hcengineering/tracker"
-import { McpError } from "@modelcontextprotocol/sdk/types.js"
+import { ProtocolError } from "@modelcontextprotocol/server"
 import { Effect } from "effect"
 import { expect } from "vitest"
 import { assertAt } from "../../src/utils/assertions.js"
@@ -247,7 +247,7 @@ describe("MCP resources", () => {
         )
       )
 
-      expect(error).toBeInstanceOf(McpError)
+      expect(error).toBeInstanceOf(ProtocolError)
       expect(error.message).toContain("Connection error while listing Huly resources")
       expect(error.message).not.toContain(backendSecret)
       expect(error.message).not.toContain("password")
@@ -290,7 +290,7 @@ describe("MCP resources", () => {
       "https://huly.app/projects/HULY",
       "not-a-uri"
     ]) {
-      expect(() => parseHulyResourceUri(uri)).toThrow(McpError)
+      expect(() => parseHulyResourceUri(uri)).toThrow(ProtocolError)
     }
   })
 
@@ -340,14 +340,14 @@ describe("MCP resources", () => {
     })
   )
 
-  it.effect("maps missing resources to the MCP resource not found code", () =>
+  it.effect("maps missing resources to final Invalid Params", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(
         readHulyResource("huly://projects/MISSING").pipe(Effect.provide(createClientLayer()), withDiagnostics)
       )
 
-      expect(error).toBeInstanceOf(McpError)
-      expect(error.code).toBe(-32002)
+      expect(error).toBeInstanceOf(ProtocolError)
+      expect(error.code).toBe(-32602)
       expect(error.data).toEqual({ uri: "huly://projects/MISSING" })
     })
   )
@@ -366,7 +366,7 @@ describe("MCP resources", () => {
         )
       )
 
-      expect(error).toBeInstanceOf(McpError)
+      expect(error).toBeInstanceOf(ProtocolError)
       expect(error.message).toContain("Connection error while reading Huly resource")
       expect(error.message).not.toContain(backendSecret)
       expect(error.message).not.toContain("password")
@@ -383,7 +383,7 @@ describe("MCP resources", () => {
           )
         )
       )
-      expect(error).toBeInstanceOf(McpError)
+      expect(error).toBeInstanceOf(ProtocolError)
       expect(error.message).toContain("Authentication error while listing Huly resources")
       expect(error.message).not.toContain("bad token")
     })
@@ -399,7 +399,7 @@ describe("MCP resources", () => {
           withDiagnostics
         )
       )
-      expect(error).toBeInstanceOf(McpError)
+      expect(error).toBeInstanceOf(ProtocolError)
       expect(error.message).toContain("Authentication error while reading Huly resource")
       expect(error.message).not.toContain("bad token")
     })
@@ -410,12 +410,12 @@ describe("MCP resources", () => {
       const error = yield* Effect.flip(
         readHulyResource("not-a-uri").pipe(Effect.provide(createClientLayer()), withDiagnostics)
       )
-      expect(error).toBeInstanceOf(McpError)
+      expect(error).toBeInstanceOf(ProtocolError)
       expect(error.message).toContain("Invalid Huly resource URI")
     })
   )
 
-  it.effect("maps a missing issue resource to the MCP resource not found code", () =>
+  it.effect("maps a missing issue resource to final Invalid Params", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(
         readHulyResource("huly://issues/TEST-404").pipe(
@@ -423,8 +423,8 @@ describe("MCP resources", () => {
           withDiagnostics
         )
       )
-      expect(error).toBeInstanceOf(McpError)
-      expect(error.code).toBe(-32002)
+      expect(error).toBeInstanceOf(ProtocolError)
+      expect(error.code).toBe(-32602)
       expect(error.data).toEqual({ uri: "huly://issues/TEST-404" })
     })
   )

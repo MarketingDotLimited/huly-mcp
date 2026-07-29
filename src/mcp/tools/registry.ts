@@ -1,8 +1,6 @@
 import type { ParseResult } from "effect"
 import { Cause, Chunk, Data, Effect, Either, Exit, Schema } from "effect"
-
-import type { ToolAnnotations } from "@modelcontextprotocol/sdk/types.js"
-
+import type { ToolAnnotations } from "@modelcontextprotocol/server"
 import type { ToolWarning } from "../../domain/schemas/tool-warnings.js"
 import { HulyClient } from "../../huly/client.js"
 import { Diagnostics, makeDiagnosticsScope } from "../../huly/diagnostics.js"

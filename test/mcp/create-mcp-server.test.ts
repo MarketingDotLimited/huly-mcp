@@ -1,5 +1,4 @@
 import { describe, it } from "@effect/vitest"
-import { CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js"
 import { expect } from "vitest"
 
 import { createMcpServer } from "../../src/mcp/create-mcp-server.js"
@@ -8,6 +7,7 @@ import { toolRegistry } from "../../src/mcp/tools/index.js"
 import type { TelemetryOperations } from "../../src/telemetry/telemetry.js"
 
 type HandlerMap = Map<unknown, (...args: Array<unknown>) => unknown>
+const CallToolRequestSchema = "tools/call"
 
 const telemetry: TelemetryOperations = {
   sessionStart: () => {},

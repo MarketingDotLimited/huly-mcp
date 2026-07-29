@@ -1,26 +1,22 @@
 import type {
   CallToolRequestParams,
-  CallToolResult,
   ListResourcesResult,
   ListResourceTemplatesResult,
   ListToolsResult,
   ReadResourceRequestParams,
   ReadResourceResult
-} from "@modelcontextprotocol/sdk/types.js"
+} from "@modelcontextprotocol/server"
 import { Clock, Effect, Schema } from "effect"
 
 import { type GetHulyContextResult, GetHulyContextResultSchema } from "../domain/schemas/index.js"
 import type { HulyClient } from "../huly/client.js"
 import { HulyError } from "../huly/errors-base.js"
 import type { HulyStorageClient } from "../huly/storage.js"
-import {
-  HOSTED_HULY_MIGRATION_INSTRUCTIONS,
-  type HostedHulyMigrationInstructions
-} from "../huly/unavailable-diagnostics.js"
 import type { WorkspaceClientOperations } from "../huly/workspace-client.js"
 import type { TelemetryOperations } from "../telemetry/telemetry.js"
 import { VERSION } from "../version.js"
 import type { McpToolResponse } from "./error-mapping.js"
+import type { McpWireResponse } from "./tool-responses.js"
 import {
   appendToolWarnings,
   createSuccessResponse,
@@ -86,22 +82,12 @@ type HulyContextProvider = (toolExposure: ToolExposureContext) => GetHulyContext
 
 export interface McpProtocolHandlers {
   readonly listTools: () => Promise<ListToolsProtocolResult>
-  readonly callTool: (request: ToolCallRequest) => Promise<CallToolResult>
+  readonly callTool: (request: ToolCallRequest) => Promise<McpWireResponse>
   readonly listResources: () => Promise<ListResourcesResult>
   readonly listResourceTemplates: () => ListResourceTemplatesResult
   readonly readResource: (request: ResourceReadRequest) => Promise<ReadResourceResult>
-  readonly serverDiscover: () => ServerDiscoverResult
   readonly drainInflight: () => Promise<void>
 }
-
-const ServerDiscoverResultSchema = Schema.Struct({
-  resultType: Schema.Literal("complete"),
-  supportedVersions: Schema.Tuple(Schema.Literal("2026-07-28")),
-  capabilities: Schema.Struct({ tools: Schema.Struct({}), resources: Schema.Struct({}) }),
-  serverInfo: Schema.Struct({ name: Schema.Literal("huly-mcp"), version: Schema.String }),
-  instructions: Schema.optionalWith(Schema.Literal(HOSTED_HULY_MIGRATION_INSTRUCTIONS), { exact: true })
-})
-type ServerDiscoverResult = Schema.Schema.Type<typeof ServerDiscoverResultSchema>
 
 const DRAIN_POLL_MS = 50
 const DRAIN_TIMEOUT_MS = 30_000
@@ -124,9 +110,6 @@ const validateHulyContextResult = (value: unknown): GetHulyContextResult =>
 
 const validateVersionToolResult = (value: unknown): Schema.Schema.Type<typeof VersionToolResultSchema> =>
   Schema.decodeUnknownSync(VersionToolResultSchema)(value)
-
-const parseServerDiscoverResult = (value: unknown): ServerDiscoverResult =>
-  Schema.decodeUnknownSync(ServerDiscoverResultSchema)(value)
 
 /**
  * Injected wall-clock reader for telemetry timing and the drain-timeout loop. The live
@@ -190,8 +173,7 @@ export const createMcpProtocolHandlers = (
   clock: NowClock = liveNowClock,
   fetchLatestVersion: () => Promise<string> = fetchLatestNpmVersion,
   exposureOptions: Partial<ProtocolExposureOptions> = {},
-  toolCallNoticeProvider: ToolCallNoticeProvider = noToolCallNoticeProvider,
-  serverInstructions?: HostedHulyMigrationInstructions
+  toolCallNoticeProvider: ToolCallNoticeProvider = noToolCallNoticeProvider
 ): McpProtocolHandlers => {
   const registries = normalizeRegistries(registry)
   const defaults = defaultExposureOptions()
@@ -221,7 +203,7 @@ export const createMcpProtocolHandlers = (
     }
   }
 
-  const callTool = async (request: ToolCallRequest): Promise<CallToolResult> => {
+  const callTool = async (request: ToolCallRequest): Promise<McpWireResponse> => {
     enter()
     const noticeClaim = toolCallNoticeProvider.claim()
     try {
@@ -419,14 +401,6 @@ export const createMcpProtocolHandlers = (
     listResources: resourceHandlers.listResources,
     listResourceTemplates,
     readResource: resourceHandlers.readResource,
-    serverDiscover: () =>
-      parseServerDiscoverResult({
-        resultType: "complete",
-        supportedVersions: ["2026-07-28"],
-        capabilities: { tools: {}, resources: {} },
-        serverInfo: { name: "huly-mcp", version: VERSION },
-        ...(serverInstructions === undefined ? {} : { instructions: serverInstructions })
-      }),
     drainInflight
   }
 }
