@@ -1,4 +1,10 @@
-import type { Channel, Employee as HulyEmployee, Person as HulyPerson, SocialIdentity } from "@hcengineering/contact"
+import type {
+  Channel,
+  Contact,
+  Employee as HulyEmployee,
+  Person as HulyPerson,
+  SocialIdentity
+} from "@hcengineering/contact"
 import type { AccountUuid, Doc, Ref } from "@hcengineering/core"
 import { SocialIdType } from "@hcengineering/core"
 import { Effect, Option, Schema } from "effect"
@@ -27,7 +33,7 @@ export const findPersonByEmail = (
     onSome: (parsedEmail) => findPersonByExactEmail(client, parsedEmail)
   })
 
-export const batchGetEmailsForPersons = <T extends Doc>(
+export const batchGetEmailsForPersons = <T extends HulyPerson>(
   client: HulyClient["Type"],
   personIds: Array<Ref<T>>
 ): Effect.Effect<Map<Ref<T>, Email>, HulyClientError> =>
@@ -36,20 +42,51 @@ export const batchGetEmailsForPersons = <T extends Doc>(
       return new Map()
     }
 
-    const channels = yield* client.findAll<Channel>(contact.class.Channel, {
-      attachedTo: { $in: personIds },
-      provider: contact.channelProvider.Email
-    })
+    const [channels, socialIdentities] = yield* Effect.all([
+      client.findAll<Channel>(
+        contact.class.Channel,
+        hulyQuery<Channel>({ attachedTo: { $in: personIds.map(toRef<Doc>) }, provider: contact.channelProvider.Email })
+      ),
+      client.findAll<SocialIdentity>(
+        contact.class.SocialIdentity,
+        hulyQuery<SocialIdentity>({ attachedTo: { $in: personIds.map(toRef<Contact>) }, type: SocialIdType.EMAIL })
+      )
+    ])
 
     const emailMap = new Map<Ref<T>, Email>()
-    for (const channel of channels) {
-      const personId = toRef<T>(channel.attachedTo)
-      const email = Schema.decodeUnknownOption(Email)(channel.value)
+    for (const source of [...channels, ...socialIdentities]) {
+      const personId = toRef<T>(source.attachedTo)
+      const email = Schema.decodeUnknownOption(Email)(source.value)
       if (!emailMap.has(personId) && Option.isSome(email)) {
         emailMap.set(personId, email.value)
       }
     }
     return emailMap
+  })
+
+export const findPersonIdsByEmailSearch = (
+  client: HulyClient["Type"],
+  emailSearch: string
+): Effect.Effect<Array<Ref<HulyPerson>>, HulyClientError> =>
+  Effect.gen(function* () {
+    const value = { $like: `%${escapeLikeWildcards(emailSearch)}%` }
+    const [channels, socialIdentities] = yield* Effect.all([
+      client.findAll<Channel>(
+        contact.class.Channel,
+        hulyQuery<Channel>({ provider: contact.channelProvider.Email, value })
+      ),
+      client.findAll<SocialIdentity>(
+        contact.class.SocialIdentity,
+        hulyQuery<SocialIdentity>({ type: SocialIdType.EMAIL, value })
+      )
+    ])
+
+    return [
+      ...new Set([
+        ...channels.map((channel) => toRef<HulyPerson>(channel.attachedTo)),
+        ...socialIdentities.map((identity) => toRef<HulyPerson>(identity.attachedTo))
+      ])
+    ]
   })
 
 const findPersonBySocialIdentityEmail = (

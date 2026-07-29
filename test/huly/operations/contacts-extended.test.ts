@@ -216,11 +216,27 @@ const createTestLayer = (config: MockConfig) => {
     }
     if (_class === contact.class.SocialIdentity) {
       const q = query as Record<string, unknown>
-      const filtered = socialIdentities.filter((identity) => {
+      let filtered = socialIdentities.filter((identity) => {
         if (q.type !== undefined && identity.type !== q.type) return false
-        if (q.value !== undefined && identity.value !== q.value) return false
         return true
       })
+      if (q.attachedTo !== undefined) {
+        const attachedTo = q.attachedTo as { $in?: Array<unknown> } | unknown
+        if (typeof attachedTo === "object" && attachedTo !== null && "$in" in attachedTo) {
+          const ids = attachedTo.$in as Array<unknown>
+          filtered = filtered.filter((identity) => ids.includes(identity.attachedTo))
+        } else {
+          filtered = filtered.filter((identity) => identity.attachedTo === q.attachedTo)
+        }
+      }
+      if (q.value !== undefined) {
+        const value = q.value as { $like?: string } | string
+        if (typeof value === "object" && "$like" in value) {
+          filtered = filtered.filter((identity) => matchesLike(identity.value, value.$like!))
+        } else {
+          filtered = filtered.filter((identity) => identity.value === value)
+        }
+      }
       return Effect.succeed(toFindResult(filtered))
     }
     if (_class === contact.mixin.Employee) {
@@ -404,6 +420,7 @@ describe("Contacts Extended Coverage", () => {
         expect(result.id).toBe("person-123")
         expect(result.firstName).toBe("John")
         expect(result.lastName).toBe("Doe")
+        expect(result.email).toBe("john@example.com")
       })
     )
 
@@ -518,6 +535,57 @@ describe("Contacts Extended Coverage", () => {
   })
 
   describe("batchGetEmailsForPersons - duplicate channels", () => {
+    it.effect("falls back to an email SocialIdentity when no email channel exists", () =>
+      Effect.gen(function* () {
+        const person = createMockPerson({ _id: "person-social-email" as Ref<HulyPerson>, name: "Social,Email" })
+        const identity = createMockSocialIdentity({
+          attachedTo: "person-social-email" as Ref<HulyPerson>,
+          value: "account@example.com"
+        })
+        const testLayer = createTestLayer({ persons: [person], socialIdentities: [identity] })
+
+        const result = yield* listPersons({ emailSearch: "account", limit: 10 }).pipe(Effect.provide(testLayer))
+
+        expect(result).toHaveLength(1)
+        expect(assertAt(result, 0).email).toBe("account@example.com")
+      })
+    )
+
+    it.effect("prefers an email channel over a SocialIdentity email", () =>
+      Effect.gen(function* () {
+        const person = createMockPerson({ _id: "person-channel-first" as Ref<HulyPerson>, name: "Channel,First" })
+        const channel = createMockChannel({
+          attachedTo: "person-channel-first" as Ref<Doc>,
+          value: "preferred@example.com"
+        })
+        const identity = createMockSocialIdentity({
+          attachedTo: "person-channel-first" as Ref<HulyPerson>,
+          value: "fallback@example.com"
+        })
+        const testLayer = createTestLayer({ persons: [person], channels: [channel], socialIdentities: [identity] })
+
+        const result = yield* listPersons({ limit: 10 }).pipe(Effect.provide(testLayer))
+
+        expect(assertAt(result, 0).email).toBe("preferred@example.com")
+      })
+    )
+
+    it.effect("ignores non-email SocialIdentities", () =>
+      Effect.gen(function* () {
+        const person = createMockPerson({ _id: "person-github" as Ref<HulyPerson>, name: "GitHub,Identity" })
+        const identity = createMockSocialIdentity({
+          attachedTo: "person-github" as Ref<HulyPerson>,
+          type: SocialIdType.GITHUB,
+          value: "account@example.com"
+        })
+        const testLayer = createTestLayer({ persons: [person], socialIdentities: [identity] })
+
+        const result = yield* listPersons({ emailSearch: "account", limit: 10 }).pipe(Effect.provide(testLayer))
+
+        expect(result).toEqual([])
+      })
+    )
+
     it.effect("keeps only first email for a person when multiple channels exist", () =>
       Effect.gen(function* () {
         const person = createMockPerson({ _id: "person-dup" as Ref<HulyPerson>, name: "Dup,Person" })
@@ -664,6 +732,21 @@ describe("Contacts Extended Coverage", () => {
   })
 
   describe("listEmployees", () => {
+    it.effect("returns a SocialIdentity email when no email channel exists", () =>
+      Effect.gen(function* () {
+        const emp = createMockEmployee({ _id: "employee-social" as Ref<HulyEmployee>, name: "Social,Employee" })
+        const identity = createMockSocialIdentity({
+          attachedTo: "employee-social" as Ref<HulyEmployee>,
+          value: "employee@example.com"
+        })
+        const testLayer = createTestLayer({ employees: [emp], socialIdentities: [identity] })
+
+        const result = yield* listEmployees({ limit: 10 }).pipe(Effect.provide(testLayer))
+
+        expect(assertAt(result, 0).email).toBe("employee@example.com")
+      })
+    )
+
     it.effect("returns employee summaries with emails", () =>
       Effect.gen(function* () {
         const emp = createMockEmployee({

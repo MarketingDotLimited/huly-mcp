@@ -1,5 +1,4 @@
 import type {
-  Channel,
   Employee as HulyEmployee,
   Member as HulyMember,
   Organization as HulyOrganization,
@@ -39,7 +38,12 @@ import { PersonNotFoundError } from "../errors.js"
 import { contact } from "../huly-plugins.js"
 import { buildContactUrlFromConfig } from "../url-builders.js"
 import { listPersonChannels } from "./contact-channels.js"
-import { batchGetEmailsForPersons, findPersonByEmail, findPersonById } from "./contacts-shared.js"
+import {
+  batchGetEmailsForPersons,
+  findPersonByEmail,
+  findPersonById,
+  findPersonIdsByEmailSearch
+} from "./contacts-shared.js"
 import { clampLimit, escapeLikeWildcards } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 import {
@@ -73,18 +77,6 @@ const parseName = (name: string): { firstName: string; lastName: string } => {
   }
   return { firstName: name, lastName: "" }
 }
-
-const findPersonIdsByEmail = (
-  client: HulyClient["Type"],
-  emailSearch: string
-): Effect.Effect<Array<Ref<HulyPerson>>, HulyClientError> =>
-  Effect.gen(function* () {
-    const channels = yield* client.findAll<Channel>(contact.class.Channel, {
-      provider: contact.channelProvider.Email,
-      value: { $like: `%${escapeLikeWildcards(emailSearch)}%` }
-    })
-    return channels.map((c) => toRef<HulyPerson>(c.attachedTo))
-  })
 
 const findOrganizationsForPerson = (
   client: HulyClient["Type"],
@@ -122,7 +114,7 @@ export const listPersons = (
     }
 
     if (emailSearch !== undefined && emailSearch !== "") {
-      const matchingPersonIds = yield* findPersonIdsByEmail(client, emailSearch)
+      const matchingPersonIds = yield* findPersonIdsByEmailSearch(client, emailSearch)
       if (matchingPersonIds.length === 0) {
         return []
       }
@@ -170,7 +162,7 @@ export const getPerson = (params: GetPersonParams): Effect.Effect<Person, GetPer
     const organizations = yield* findOrganizationsForPerson(client, person._id)
 
     const { firstName, lastName } = parseName(person.name)
-    const emailChannel = channelsResult.channels.find((c) => c.provider === "email")
+    const emailValue = (yield* batchGetEmailsForPersons(client, [person._id])).get(person._id)
     const id = PersonId.make(person._id)
 
     return {
@@ -179,7 +171,7 @@ export const getPerson = (params: GetPersonParams): Effect.Effect<Person, GetPer
       firstName,
       lastName,
       city: person.city,
-      email: emailChannel?.value !== undefined ? Email.make(emailChannel.value) : undefined,
+      email: emailValue !== undefined ? Email.make(emailValue) : undefined,
       channels: channelsResult.channels,
       organizations: organizations.length > 0 ? organizations : undefined,
       url: buildContactUrlFromConfig(client.workbenchUrlConfig, id),
