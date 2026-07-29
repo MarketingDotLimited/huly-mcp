@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.46.1
+
+### Patch Changes
+
+- 8344233: Prevent REST lookup decoding from crashing when Huly returns a null lookup map, and use email SocialIdentity records as the fallback for contact search and email projection.
+
 ## 0.46.0
 
 ### Minor Changes
