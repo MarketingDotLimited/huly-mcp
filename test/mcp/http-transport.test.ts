@@ -762,7 +762,7 @@ describe("HTTP transport Effect lifecycle", () => {
       }
     )
     const fiber = Effect.runFork(
-      startHttpTransport({ port: 1, host: "127.0.0.1" }, createTestServer).pipe(
+      startHttpTransport({ port: 0, host: "127.0.0.1" }, createTestServer).pipe(
         Effect.scoped,
         Effect.provideService(HttpServerFactoryService, factory)
       )
