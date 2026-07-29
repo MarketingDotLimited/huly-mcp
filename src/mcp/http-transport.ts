@@ -103,6 +103,43 @@ export interface MountedMcpHttpHandler {
   readonly close: () => Promise<void>
 }
 
+type McpServerProduct = Awaited<ReturnType<McpServerFactory>>
+
+interface McpServerCloseTracker {
+  readonly factory: McpServerFactory
+  readonly drain: () => Promise<void>
+}
+
+const createMcpServerCloseTracker = (createServer: McpServerFactory): McpServerCloseTracker => {
+  const pending = new Set<Promise<void>>()
+  const failures: Array<unknown> = []
+  const track = (server: McpServerProduct): McpServerProduct => {
+    const originalClose = server.close.bind(server)
+    let closePromise: Promise<void> | undefined
+    server.close = () => {
+      if (closePromise !== undefined) return closePromise
+      const closing = originalClose()
+      closePromise = closing
+      pending.add(closing)
+      void closing.then(
+        () => pending.delete(closing),
+        (error) => {
+          pending.delete(closing)
+          failures.push(error)
+        }
+      )
+      return closing
+    }
+    return server
+  }
+  const drain = async (): Promise<void> => {
+    while (pending.size > 0) await Promise.allSettled([...pending])
+    if (failures.length === 1) throw failures[0]
+    if (failures.length > 1) throw new AggregateError(failures, "One or more MCP server closes failed")
+  }
+  return { factory: async (context) => track(await createServer(context)), drain }
+}
+
 export const createMountedMcpHttpHandler = (
   createServer: McpServerFactory,
   authToken?: string,
@@ -111,7 +148,9 @@ export const createMountedMcpHttpHandler = (
   const reportError = (error: Error): void => {
     writeError(`MCP HTTP handler error: ${error.message}\n`)
   }
-  const mcpHandler = createMcpHandler(createServer, { legacy: "stateless", onerror: reportError })
+  const closeTracker = createMcpServerCloseTracker(createServer)
+  const activeRequests = new Set<Promise<void>>()
+  const mcpHandler = createMcpHandler(closeTracker.factory, { legacy: "stateless", onerror: reportError })
   const nodeHandler = toNodeHandler(mcpHandler, { onerror: reportError })
 
   return {
@@ -120,9 +159,19 @@ export const createMountedMcpHttpHandler = (
         writeUnauthorized(res)
         return
       }
-      await nodeHandler(req, res, req.body)
+      const request = nodeHandler(req, res, req.body)
+      activeRequests.add(request)
+      try {
+        await request
+      } finally {
+        activeRequests.delete(request)
+      }
     },
-    close: mcpHandler.close
+    close: async () => {
+      await mcpHandler.close()
+      while (activeRequests.size > 0) await Promise.allSettled([...activeRequests])
+      await closeTracker.drain()
+    }
   }
 }
 

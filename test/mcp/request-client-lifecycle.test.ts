@@ -356,6 +356,37 @@ describe("request-scoped Huly client lifecycle", () => {
     expect(settled).toBe(true)
   })
 
+  it("releases an acquired lease when the underlying SDK server close rejects", async () => {
+    const probe = createLifecycleProbe()
+    const lifecycle = createRequestClientLifecycle(probe.acquire)
+    const server = new Server({ name: "close-test", version: "1.0.0" }, { capabilities: {} })
+    server.close = () => Promise.reject(new Error("transport close failed"))
+    attachRequestClientLifecycle(server, lifecycle, () => {})
+    await lifecycle.resolve()
+
+    await expect(server.close()).rejects.toThrow("transport close failed")
+    expect(probe.closeCount()).toBe(1)
+  })
+
+  it("preserves both underlying-close and lease-cleanup failures", async () => {
+    const lifecycle = createRequestClientLifecycle(async () => ({
+      bundle: placeholderBundle,
+      close: () => Promise.reject(new Error("lease close failed"))
+    }))
+    const server = new Server({ name: "close-test", version: "1.0.0" }, { capabilities: {} })
+    server.close = () => Promise.reject(new Error("transport close failed"))
+    attachRequestClientLifecycle(server, lifecycle, () => {})
+    await lifecycle.resolve()
+
+    const failure = await server.close().catch((error: unknown) => error)
+    if (!(failure instanceof AggregateError)) throw new Error("Expected an AggregateError")
+
+    expect(failure.errors).toEqual([
+      expect.objectContaining({ message: "transport close failed" }),
+      expect.objectContaining({ message: "lease close failed" })
+    ])
+  })
+
   it("propagates SDK server.close cleanup failures and reports transport-triggered failures", async () => {
     const reported: Array<string> = []
     const lifecycle = createRequestClientLifecycle(async () => ({

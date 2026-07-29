@@ -293,6 +293,86 @@ describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
     await endpoint.close()
   })
 
+  it("waits for asynchronous legacy server cleanup during mounted-handler shutdown", async () => {
+    const release = deferred<void>()
+    const closeStarted = deferred<void>()
+    const endpoint = await listen(
+      undefined,
+      () => {},
+      () => {
+        const server = createTestServer()
+        const originalClose = server.close.bind(server)
+        server.close = async () => {
+          closeStarted.resolve()
+          await release.promise
+          await originalClose()
+        }
+        return server
+      }
+    )
+    const response = await fetch(endpoint.baseUrl, {
+      method: "POST",
+      headers: { accept: "application/json, text/event-stream", "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: legacyProtocolVersion,
+          capabilities: {},
+          clientInfo: { name: "legacy-http-client", version: "1" }
+        }
+      })
+    })
+    await parseResponse(response)
+    await closeStarted.promise
+
+    let settled = false
+    const closing = endpoint.close().then(() => {
+      settled = true
+    })
+    await Promise.resolve()
+
+    expect(settled).toBe(false)
+    release.resolve()
+    await closing
+    expect(settled).toBe(true)
+  })
+
+  it("surfaces rejected legacy server cleanup during mounted-handler shutdown", async () => {
+    const closeStarted = deferred<void>()
+    const endpoint = await listen(
+      undefined,
+      () => {},
+      () => {
+        const server = createTestServer()
+        server.close = () => {
+          closeStarted.resolve()
+          return Promise.reject(new Error("legacy cleanup failed"))
+        }
+        return server
+      }
+    )
+    const response = await fetch(endpoint.baseUrl, {
+      method: "POST",
+      headers: { accept: "application/json, text/event-stream", "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: legacyProtocolVersion,
+          capabilities: {},
+          clientInfo: { name: "legacy-http-client", version: "1" }
+        }
+      })
+    })
+    await parseResponse(response)
+    await closeStarted.promise
+
+    await expect(endpoint.close()).rejects.toThrow("legacy cleanup failed")
+  })
+
   it("uses the final header-mismatch code for malformed modern requests", async () => {
     const endpoint = await listen()
     const headers = modernHeaders("tools/list")

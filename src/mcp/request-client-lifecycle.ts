@@ -78,7 +78,18 @@ export const attachRequestClientLifecycle = <A>(
     previousOnClose?.()
   }
   server.close = () => {
-    serverClosePromise ??= originalClose().then(() => lifecycle.close())
+    serverClosePromise ??= Promise.allSettled([originalClose(), lifecycle.close()]).then(
+      ([serverResult, lifecycleResult]) => {
+        if (serverResult.status === "rejected" && lifecycleResult.status === "rejected") {
+          throw new AggregateError(
+            [serverResult.reason, lifecycleResult.reason],
+            "MCP server and request-client cleanup both failed"
+          )
+        }
+        if (serverResult.status === "rejected") throw serverResult.reason
+        if (lifecycleResult.status === "rejected") throw lifecycleResult.reason
+      }
+    )
     return serverClosePromise
   }
 }
