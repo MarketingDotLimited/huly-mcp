@@ -1857,6 +1857,38 @@ if [ $? -eq 0 ]; then
   if [ $? -eq 0 ] && [ -n "$ISSUE_OBJ_ID" ]; then
     assert_json_field_equals "get_issue returns issueId" "$GET_ISSUE_TEXT" ".issueId" "$ISSUE_OBJ_ID"
   fi
+  ISSUE_CREATOR_ID=$(echo "$GET_ISSUE_TEXT" | jq -r '.creator.id // empty' 2>/dev/null)
+  ISSUE_CREATOR_NAME=$(echo "$GET_ISSUE_TEXT" | jq -r '.creator.name // empty' 2>/dev/null)
+  ISSUE_CREATOR_EMAIL=$(echo "$GET_ISSUE_TEXT" | jq -r '.creator.email // empty' 2>/dev/null)
+  if [ -n "$ISSUE_CREATOR_ID" ] && [ -n "$ISSUE_CREATOR_NAME" ] && [ -n "$ISSUE_CREATOR_EMAIL" ]; then
+    assert_json_field_equals "get_issue projects stable creator Person ID" \
+      "$GET_ISSUE_TEXT" ".creator.id" "$ISSUE_CREATOR_ID"
+    assert_json_field_equals "get_issue projects creator display name" \
+      "$GET_ISSUE_TEXT" ".creator.name" "$ISSUE_CREATOR_NAME"
+    assert_json_field_equals "get_issue projects creator email" \
+      "$GET_ISSUE_TEXT" ".creator.email" "$ISSUE_CREATOR_EMAIL"
+
+    ISSUE_CREATOR_ID_JSON=$(json_string "$ISSUE_CREATOR_ID")
+    ISSUE_CREATOR_NAME_JSON=$(json_string "$ISSUE_CREATOR_NAME")
+    ISSUE_CREATOR_EMAIL_JSON=$(json_string "$ISSUE_CREATOR_EMAIL")
+    wait_for_json_array_contains_to_var CREATOR_BY_ID_TEXT \
+      "list_issues(creator Person ID + titleSearch) includes created issue" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"creator\":$ISSUE_CREATOR_ID_JSON,\"titleSearch\":$ISSUE_TITLE_JSON,\"limit\":10}},\"id\":2}" \
+      "map(.issueId)" "$ISSUE_OBJ_ID"
+    assert_json_field_equals "list_issues projects creator from Person ID filter" \
+      "$CREATOR_BY_ID_TEXT" ".[0].creator.id" "$ISSUE_CREATOR_ID"
+    wait_for_json_array_contains_to_var CREATOR_BY_EMAIL_TEXT \
+      "list_issues(creator exact email) includes created issue" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"creator\":$ISSUE_CREATOR_EMAIL_JSON,\"titleSearch\":$ISSUE_TITLE_JSON,\"limit\":10}},\"id\":2}" \
+      "map(.issueId)" "$ISSUE_OBJ_ID"
+    wait_for_json_array_contains_to_var CREATOR_BY_NAME_TEXT \
+      "list_issues(creator exact name) includes created issue" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"creator\":$ISSUE_CREATOR_NAME_JSON,\"titleSearch\":$ISSUE_TITLE_JSON,\"limit\":10}},\"id\":2}" \
+      "map(.issueId)" "$ISSUE_OBJ_ID"
+  else
+    fail_test "issue creator projection and filters" \
+      "get_issue did not return creator id, name, and email for the authenticated issue author"
+  fi
 
   if ISSUE_PARENT_STATE=$(pnpm exec tsx scripts/integration-issue-parent-semantics.ts \
     --project "$PROJECT" --issue "$ISSUE_ID" --mode top-level --expectedIssueChildren 0); then

@@ -80,10 +80,10 @@ export const LabelSchema = Schema.Struct({
 export type Label = Schema.Schema.Type<typeof LabelSchema>
 
 export const PersonRefSchema = Schema.Struct({
-  id: PersonId,
-  name: Schema.optional(PersonName),
-  email: Schema.optional(Email)
-}).annotations({ title: "PersonRef", description: "Reference to a person (assignee, reporter)" })
+  id: PersonId.annotations({ description: "Stable Huly Person ID, never a SocialIdentity ID." }),
+  name: Schema.optionalWith(PersonName, { exact: true }),
+  email: Schema.optionalWith(Email, { exact: true })
+}).annotations({ title: "PersonRef", description: "Stable person reference with optional readable identity metadata." })
 
 export type PersonRef = Schema.Schema.Type<typeof PersonRefSchema>
 
@@ -107,6 +107,7 @@ export const IssueSummarySchema = Schema.Struct({
   status: StatusName,
   priority: Schema.optional(IssuePrioritySchema),
   assignee: Schema.optional(PersonName),
+  creator: Schema.optionalWith(PersonRefSchema, { exact: true }),
   parentIssue: Schema.optional(IssueIdentifier),
   subIssues: Schema.optional(Count),
   labels: Schema.Array(LabelSchema).annotations({
@@ -129,6 +130,7 @@ export const IssueSchema = Schema.Struct({
   priority: Schema.optional(IssuePrioritySchema),
   assignee: Schema.optional(PersonName),
   assigneeRef: Schema.optional(PersonRefSchema),
+  creator: Schema.optionalWith(PersonRefSchema, { exact: true }),
   labels: Schema.Array(LabelSchema).annotations({
     description:
       "Attached labels sorted by title. Empty when no usable label attachments exist; duplicate titles are collapsed case-insensitively, preferring a reference with a valid color."
@@ -158,6 +160,12 @@ const ListIssuesParamsBase = Schema.Struct({
     })
   ),
   assignee: Schema.optional(PersonRefInput.annotations({ description: "Filter by assignee email or display name" })),
+  creator: Schema.optional(
+    PersonRefInput.annotations({
+      description:
+        "Filter by creator using a raw Person ID, exact email address, or exact display name. Ambiguous exact display names are rejected; unknown people return an empty list."
+    })
+  ),
   parentIssue: Schema.optional(
     IssueIdentifier.annotations({ description: "Filter to children of this parent issue (e.g., 'HULY-42')" })
   ),

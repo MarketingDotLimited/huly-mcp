@@ -166,6 +166,15 @@ export const findPersonByExactEmailOrName = (
 ): Effect.Effect<HulyPerson | undefined, HulyClientError | PersonIdentifierAmbiguousError> =>
   isEmailIdentifier(identifier) ? findPersonByExactEmail(client, identifier) : findPersonByExactName(client, identifier)
 
+export const findPersonByIdOrExactEmailOrName = (
+  client: HulyClient["Type"],
+  identifier: PersonRefInput
+): Effect.Effect<HulyPerson | undefined, HulyClientError | PersonIdentifierAmbiguousError> =>
+  Effect.gen(function* () {
+    const byId = yield* findPersonById(client, identifier)
+    return byId ?? (yield* findPersonByExactEmailOrName(client, identifier))
+  })
+
 /**
  * Resolve a person identifier (email or exact display name) to the AccountUuid
  * carried on contact.mixin.Employee.personUuid. Non-employee Persons have no

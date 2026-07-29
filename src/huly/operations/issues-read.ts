@@ -3,7 +3,7 @@
  *
  * @module
  */
-import type { Person } from "@hcengineering/contact"
+import type { Person, SocialIdentity } from "@hcengineering/contact"
 import { type Ref, SortingOrder, type Status, type WithLookup } from "@hcengineering/core"
 import { type Issue as HulyIssue } from "@hcengineering/tracker"
 import { Effect, Schema } from "effect"
@@ -24,12 +24,14 @@ import type {
   InvalidStatusError,
   MilestoneIdentifierAmbiguousError,
   MilestoneNotFoundError,
+  PersonIdentifierAmbiguousError,
   ProjectNotFoundError
 } from "../errors.js"
 import { HulyConnectionError, IssueNotFoundError } from "../errors.js"
 import { contact, tracker } from "../huly-plugins.js"
 import { findComponentByIdOrLabel } from "./components.js"
-import { findPersonByEmailOrName } from "./contacts-shared.js"
+import { findPersonByEmailOrName, findPersonByIdOrExactEmailOrName } from "./contacts-shared.js"
+import { creatorForIssue, loadIssueCreatorIndex } from "./issue-creators-read.js"
 import { issueIdsMatchingLabel, labelsForIssue, loadIssueLabelIndex } from "./issue-labels-read.js"
 import { loadIssueMilestoneIndex, milestoneForIssue } from "./issue-milestones-read.js"
 import { topLevelIssueParent } from "./issues-parent.js"
@@ -53,6 +55,7 @@ type ListIssuesError =
   | ComponentNotFoundError
   | MilestoneNotFoundError
   | MilestoneIdentifierAmbiguousError
+  | PersonIdentifierAmbiguousError
 
 type GetIssueError = HulyClientError | HulyConnectionError | ProjectNotFoundError | IssueNotFoundError
 
@@ -117,6 +120,17 @@ export const listIssues = (
       } else {
         return []
       }
+    }
+
+    if (params.creator !== undefined) {
+      const creator = yield* findPersonByIdOrExactEmailOrName(client, params.creator)
+      if (creator === undefined) return []
+      const identities = yield* client.findAll<SocialIdentity>(
+        contact.class.SocialIdentity,
+        hulyQuery<SocialIdentity>({ attachedTo: creator._id })
+      )
+      if (identities.length === 0) return []
+      query.createdBy = { $in: identities.map((identity) => identity._id) }
     }
 
     // Apply title search using $like operator
@@ -209,11 +223,13 @@ export const listIssues = (
           )
         : labelFilterContext.index
     const milestoneIndex = yield* loadIssueMilestoneIndex(client, project, issues)
+    const creatorIndex = yield* loadIssueCreatorIndex(client, issues)
     const rawSummaries = issues.map((issue) => {
       const statusName = resolveStatusName(statuses, issue.status)
       const assigneeName = issue.$lookup?.assignee?.name
       const directParent = issue.parents.length > 0 ? issue.parents[issue.parents.length - 1] : undefined
       const milestone = milestoneForIssue(milestoneIndex, issue)
+      const creator = creatorForIssue(creatorIndex, issue)
 
       return {
         issueId: IssueId.make(issue._id),
@@ -222,6 +238,7 @@ export const listIssues = (
         status: statusName,
         priority: priorityToString(issue.priority),
         assignee: assigneeName,
+        ...(creator === undefined ? {} : { creator }),
         parentIssue: directParent?.identifier,
         subIssues: issue.subIssues > 0 ? issue.subIssues : undefined,
         labels: labelsForIssue(labelIndex, issue._id),
@@ -286,7 +303,9 @@ export const getIssue = (params: GetIssueParams): Effect.Effect<Issue, GetIssueE
     const directParent = issue.parents.length > 0 ? issue.parents[issue.parents.length - 1] : undefined
     const labelIndex = yield* loadIssueLabelIndex(client, project._id, [issue._id])
     const milestoneIndex = yield* loadIssueMilestoneIndex(client, project, [issue])
+    const creatorIndex = yield* loadIssueCreatorIndex(client, [issue])
     const milestone = milestoneForIssue(milestoneIndex, issue)
+    const creator = creatorForIssue(creatorIndex, issue)
 
     return yield* parseIssue({
       issueId: IssueId.make(issue._id),
@@ -297,6 +316,7 @@ export const getIssue = (params: GetIssueParams): Effect.Effect<Issue, GetIssueE
       priority: priorityToString(issue.priority),
       assignee: person?.name,
       assigneeRef: person ? { id: person._id, name: person.name } : undefined,
+      ...(creator === undefined ? {} : { creator }),
       labels: labelsForIssue(labelIndex, issue._id),
       ...(milestone === undefined ? {} : { milestone }),
       project: params.project,

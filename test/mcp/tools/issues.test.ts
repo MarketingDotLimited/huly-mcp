@@ -19,6 +19,26 @@ const requiredSchemaFields = (schema: unknown): ReadonlyArray<unknown> => {
 }
 
 describe("issue tool contracts", () => {
+  it("exposes exact creator filtering and stable creator summaries", () => {
+    const listIssues = issueTool("list_issues")
+    const getIssue = issueTool("get_issue")
+    const listInput = JSON.stringify(listIssues.inputSchema)
+    const listOutput = JSON.stringify(listIssues.outputSchema)
+    const getOutput = JSON.stringify(getIssue.outputSchema)
+
+    expect(listInput).toContain('"creator"')
+    expect(listInput).toContain("Person ID, exact email address, or exact display name")
+    expect(listIssues.description).toContain("creator")
+    expect(listIssues.description).toContain("before the result limit")
+    expect(listIssues.description).toContain("ambiguous")
+    expect(listOutput).toContain('"creator"')
+    expect(getOutput).toContain('"creator"')
+    expect(listOutput).toContain('"email"')
+    expect(getOutput).toContain('"email"')
+    expect(requiredSchemaFields(schemaField(listIssues.outputSchema, "items"))).not.toContain("creator")
+    expect(requiredSchemaFields(getIssue.outputSchema)).not.toContain("creator")
+  })
+
   it("exposes human-readable label filtering and stable label summaries", () => {
     const listIssues = issueTool("list_issues")
     const getIssue = issueTool("get_issue")
