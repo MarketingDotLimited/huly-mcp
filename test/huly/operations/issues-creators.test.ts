@@ -309,6 +309,24 @@ describe("issue creators", () => {
     })
   )
 
+  it.effect("returns no issues when the resolved creator has no SocialIdentity", () =>
+    Effect.gen(function* () {
+      const creator = makePerson("person-creator", "Creator Person")
+      const capture = emptyCapture()
+
+      const result = yield* listIssues({
+        project: projectIdentifier("TEST"),
+        creator: personName("person-creator")
+      }).pipe(
+        Effect.provide(makeTestLayer({ issues: [], persons: [creator], socialIdentities: [] }, capture)),
+        withWarningCapture
+      )
+
+      expect(result.result).toEqual([])
+      expect(capture.issueQuery).toBeUndefined()
+    })
+  )
+
   it.effect("batch-projects distinct creators with independently optional names and emails", () =>
     Effect.gen(function* () {
       const namedCreator = makePerson("person-named", "Named Creator")
@@ -392,6 +410,53 @@ describe("issue creators", () => {
       expect(listed.warnings.filter((warning) => warning.code === "issue_creator_metadata_degraded")).toHaveLength(1)
       expect(fetched.result.creator).toEqual({ id: "person-creator" })
       expect(fetched.warnings.filter((warning) => warning.code === "issue_creator_metadata_degraded")).toEqual([])
+    })
+  )
+
+  it.effect("omits creator without warning when an issue has no createdBy reference", () =>
+    Effect.gen(function* () {
+      const issueWithoutCreator = Object.assign(makeIssue("issue-1", corePersonId("unused")), { createdBy: undefined })
+      const data = { issues: [issueWithoutCreator], persons: [], socialIdentities: [] }
+
+      const result = yield* listIssues({ project: projectIdentifier("TEST") }).pipe(
+        Effect.provide(makeTestLayer(data, emptyCapture())),
+        withWarningCapture
+      )
+
+      expect(assertAt(result.result, 0).creator).toBeUndefined()
+      expect(result.warnings.filter((warning) => warning.code === "issue_creator_metadata_degraded")).toEqual([])
+    })
+  )
+
+  it.effect("warns once for orphan identities and malformed stable Person references", () =>
+    Effect.gen(function* () {
+      const orphanPerson = makePerson("person-orphan", "Orphan")
+      const orphanIdentity = makeSocialIdentity("social-orphan", orphanPerson, SocialIdType.GITHUB, "orphan")
+      const malformedPerson = makePerson("", "")
+      const malformedIdentity = makeSocialIdentity(
+        "social-malformed",
+        malformedPerson,
+        SocialIdType.GITHUB,
+        "malformed"
+      )
+      const data = {
+        issues: [makeIssue("issue-1", orphanIdentity._id), makeIssue("issue-2", malformedIdentity._id)],
+        persons: [malformedPerson],
+        socialIdentities: [orphanIdentity, malformedIdentity]
+      }
+
+      const result = yield* listIssues({ project: projectIdentifier("TEST") }).pipe(
+        Effect.provide(makeTestLayer(data, emptyCapture())),
+        withWarningCapture
+      )
+
+      expect(result.result.map((issue) => issue.creator)).toEqual([undefined, undefined])
+      expect(result.warnings.filter((warning) => warning.code === "issue_creator_metadata_degraded")).toEqual([
+        {
+          code: "issue_creator_metadata_degraded",
+          message: "2 unresolved issue creator reference(s) were omitted from issue results."
+        }
+      ])
     })
   )
 })
