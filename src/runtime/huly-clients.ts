@@ -37,12 +37,10 @@ export const buildClientBundle = (
 
 export const buildScopedClientBundle = (
   combinedClientLayer: CombinedClientLayer
-): Effect.Effect<{ readonly bundle: ClientBundle; readonly close: () => void }, HulyClientBundleError> =>
+): Effect.Effect<{ readonly bundle: ClientBundle; readonly close: () => Promise<void> }, HulyClientBundleError> =>
   Effect.gen(function* () {
     const scope = yield* Scope.make()
-    const close = () => {
-      Effect.runFork(Scope.close(scope, Exit.void))
-    }
+    const close = (): Promise<void> => Effect.runPromise(Scope.close(scope, Exit.void))
     const ctx = yield* Layer.buildWithScope(combinedClientLayer, scope).pipe(
       Effect.tapError(() => Scope.close(scope, Exit.void))
     )

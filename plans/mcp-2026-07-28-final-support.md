@@ -28,8 +28,9 @@ implementation; issue
 [#171](https://github.com/dearlordylord/huly-mcp/issues/171) only hardened routing
 between that draft path and legacy requests.
 
-Create one implementation issue from this plan before coding. Treat the SDK migration,
-strict protocol cutover, and removal of the draft dispatcher as one tracer bullet:
+The user explicitly advanced the work directly from research and planning to
+implementation, so no tracker mutation was authorized. The SDK migration, strict
+protocol cutover, and removal of the draft dispatcher remain one tracer bullet:
 splitting them would leave an unsupported intermediate transport architecture.
 
 ## Scope

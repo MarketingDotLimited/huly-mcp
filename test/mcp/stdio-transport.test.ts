@@ -1,12 +1,16 @@
+import { execFileSync } from "node:child_process"
+import { resolve } from "node:path"
 import { PassThrough } from "node:stream"
 
 import { Client, ReadBuffer, serializeMessage, type Transport } from "@modelcontextprotocol/client"
+import { getDefaultEnvironment, StdioClientTransport } from "@modelcontextprotocol/client/stdio"
 import { Server } from "@modelcontextprotocol/server"
 import { serveStdio, StdioServerTransport } from "@modelcontextprotocol/server/stdio"
 import { Schema } from "effect"
-import { describe, expect, it } from "vitest"
+import { beforeAll, describe, expect, it } from "vitest"
 
 const protocolVersion = "2026-07-28"
+const builtServerPath = resolve(process.cwd(), "dist/index.cjs")
 const JsonRpcResponseSchema = Schema.Struct({
   jsonrpc: Schema.Literal("2.0"),
   id: Schema.NullOr(Schema.Union(Schema.String, Schema.Number)),
@@ -92,6 +96,10 @@ class LoopbackStdioClientTransport implements Transport {
 }
 
 describe("strict MCP 2026-07-28 stdio transport", () => {
+  beforeAll(() => {
+    execFileSync("pnpm", ["build:mcp"], { cwd: process.cwd(), stdio: "ignore" })
+  })
+
   it("connects with the released SDK client pinned to the final protocol", async () => {
     const transport = new LoopbackStdioClientTransport()
     const serverHandle = serveStdio(createTestServer, {
@@ -109,6 +117,27 @@ describe("strict MCP 2026-07-28 stdio transport", () => {
     expect(result.tools.map((tool) => tool.name)).toContain("hello")
     await client.close()
     await serverHandle.close()
+  })
+
+  it("connects the released SDK client to the spawned built command", { timeout: 15000 }, async () => {
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [builtServerPath],
+      env: { ...getDefaultEnvironment(), LAZY_ENVS: "true", MCP_AUTO_EXIT: "true" },
+      stderr: "pipe"
+    })
+    const client = new Client(
+      { name: "spawned-released-client", version: "1.0.0" },
+      { versionNegotiation: { mode: { pin: protocolVersion } } }
+    )
+
+    await client.connect(transport)
+    const discovery = client.getDiscoverResult()
+    const tools = await client.listTools()
+
+    expect(discovery?.supportedVersions).toContain(protocolVersion)
+    expect(tools.tools.map((tool) => tool.name)).toContain("get_huly_context")
+    await client.close()
   })
 
   it("rejects initialize-era clients with the final unsupported-version code", async () => {

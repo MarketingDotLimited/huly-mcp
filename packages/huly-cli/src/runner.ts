@@ -102,7 +102,7 @@ const defaultRunnerPorts: CliRunnerPorts = {
         Effect.mapError((error) => new CliRuntimeError({ message: errorMessage(error) }))
       ),
       ({ bundle }) => use(bundle),
-      ({ close }) => Effect.sync(close)
+      ({ close }) => Effect.promise(close)
     )
 }
 /* c8 ignore stop */

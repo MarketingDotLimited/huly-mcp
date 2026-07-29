@@ -346,7 +346,7 @@ export const readHulyResource = (
 ): Effect.Effect<ReadResourceResult, ProtocolError, HulyClient | Diagnostics> =>
   Effect.try({
     try: () => parseHulyResourceUri(uri),
-    /* v8 ignore start -- defensive: parseHulyResourceUri only ever throws McpError, so the else branch is unreachable */
+    /* v8 ignore start -- defensive: parseHulyResourceUri only ever throws ProtocolError, so the else branch is unreachable */
     catch: (e) =>
       e instanceof ProtocolError
         ? e

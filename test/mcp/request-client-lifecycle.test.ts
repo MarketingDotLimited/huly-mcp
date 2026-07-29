@@ -73,7 +73,7 @@ interface LifecycleProbe {
   readonly acquire: () => Promise<RequestClientLease<symbol>>
 }
 
-const createLifecycleProbe = (): LifecycleProbe => {
+const createLifecycleProbe = (release: () => void | Promise<void> = () => {}): LifecycleProbe => {
   let acquired = 0
   let closed = 0
   return {
@@ -83,8 +83,9 @@ const createLifecycleProbe = (): LifecycleProbe => {
       acquired++
       return {
         bundle: placeholderBundle,
-        close: () => {
+        close: async () => {
           closed++
+          await release()
         }
       }
     }
@@ -93,11 +94,12 @@ const createLifecycleProbe = (): LifecycleProbe => {
 
 const createLifecycleServer = (
   probe: LifecycleProbe,
-  callTool: (lifecycle: RequestClientLifecycle<symbol>, context: ServerContext) => Promise<void>
+  callTool: (lifecycle: RequestClientLifecycle<symbol>, context: ServerContext) => Promise<void>,
+  onCleanupError: (error: Error) => void = () => {}
 ): Server => {
   const lifecycle = createRequestClientLifecycle(probe.acquire)
   const server = new Server({ name: "lifecycle-test", version: "1.0.0" }, { capabilities: { tools: {} } })
-  attachRequestClientLifecycle(server, lifecycle)
+  attachRequestClientLifecycle(server, lifecycle, onCleanupError)
   server.setRequestHandler("tools/list", async () => ({ tools: [] }))
   server.setRequestHandler("tools/call", async (_request, context) => {
     await callTool(lifecycle, context)
@@ -175,7 +177,8 @@ describe("request-scoped Huly client lifecycle", () => {
   })
 
   it("releases an acquired lease exactly once when the handler closes with work in flight", async () => {
-    const probe = createLifecycleProbe()
+    const released = deferred<void>()
+    const probe = createLifecycleProbe(() => released.promise)
     const started = deferred<void>()
     const handler = createMcpHandler(
       () =>
@@ -193,11 +196,53 @@ describe("request-scoped Huly client lifecycle", () => {
       modernRequest("tools/call", { name: "work", arguments: {} }, { name: "work" })
     )
     await started.promise
-    await handler.close()
+    let handlerClosed = false
+    const closing = handler.close().then(() => {
+      handlerClosed = true
+    })
+    await waitForCleanup()
+
+    expect(handlerClosed).toBe(false)
+    expect(probe.acquireCount()).toBe(1)
+    expect(probe.closeCount()).toBe(1)
+
+    released.resolve()
+    await closing
     await consume(await responsePromise)
     await handler.close()
 
-    expect(probe.acquireCount()).toBe(1)
+    expect(probe.closeCount()).toBe(1)
+  })
+
+  it("reports lease cleanup rejection from the SDK handler close trigger", async () => {
+    const probe = createLifecycleProbe(() => Promise.reject(new Error("handler release rejected")))
+    const started = deferred<void>()
+    const reported: Array<string> = []
+    const handler = createMcpHandler(
+      () =>
+        createLifecycleServer(
+          probe,
+          async (lifecycle, context) => {
+            await lifecycle.resolve()
+            started.resolve()
+            await new Promise<void>((resolve) => {
+              context.mcpReq.signal.addEventListener("abort", () => resolve(), { once: true })
+            })
+          },
+          (error) => reported.push(error.message)
+        ),
+      { legacy: "reject" }
+    )
+
+    const responsePromise = handler.fetch(
+      modernRequest("tools/call", { name: "work", arguments: {} }, { name: "work" })
+    )
+    await started.promise
+    await handler.close()
+    await consume(await responsePromise)
+    await waitForCleanup()
+
+    expect(reported).toEqual(["handler release rejected"])
     expect(probe.closeCount()).toBe(1)
   })
 
@@ -262,5 +307,60 @@ describe("request-scoped Huly client lifecycle", () => {
 
     await lifecycle.resolve()
     await expect(lifecycle.close()).rejects.toThrow("cleanup failed")
+  })
+
+  it("keeps SDK server.close pending until asynchronous lease cleanup completes", async () => {
+    const release = deferred<void>()
+    const lifecycle = createRequestClientLifecycle(async () => ({
+      bundle: placeholderBundle,
+      close: () => release.promise
+    }))
+    const server = new Server({ name: "close-test", version: "1.0.0" }, { capabilities: {} })
+    attachRequestClientLifecycle(server, lifecycle, () => {})
+    await lifecycle.resolve()
+
+    let settled = false
+    const closing = server.close().then(() => {
+      settled = true
+    })
+    await Promise.resolve()
+
+    expect(settled).toBe(false)
+    release.resolve()
+    await closing
+    expect(settled).toBe(true)
+  })
+
+  it("propagates SDK server.close cleanup failures and reports transport-triggered failures", async () => {
+    const reported: Array<string> = []
+    const lifecycle = createRequestClientLifecycle(async () => ({
+      bundle: placeholderBundle,
+      close: () => Promise.reject(new Error("release rejected"))
+    }))
+    const server = new Server({ name: "close-test", version: "1.0.0" }, { capabilities: {} })
+    attachRequestClientLifecycle(server, lifecycle, (error) => reported.push(error.message))
+    await lifecycle.resolve()
+
+    await expect(server.close()).rejects.toThrow("release rejected")
+    server.onclose?.()
+    await waitForCleanup()
+
+    expect(reported).toEqual(["release rejected"])
+  })
+
+  it("normalizes non-Error cleanup rejection before reporting it", async () => {
+    const reported: Array<string> = []
+    const lifecycle = createRequestClientLifecycle(async () => ({
+      bundle: placeholderBundle,
+      close: () => Promise.reject("non-error rejection")
+    }))
+    const server = new Server({ name: "close-test", version: "1.0.0" }, { capabilities: {} })
+    attachRequestClientLifecycle(server, lifecycle, (error) => reported.push(error.message))
+    await lifecycle.resolve()
+
+    server.onclose?.()
+    await waitForCleanup()
+
+    expect(reported).toEqual(["non-error rejection"])
   })
 })

@@ -12,6 +12,8 @@ export interface RequestClientLifecycle<A = ClientBundle> {
   readonly close: () => Promise<void>
 }
 
+export type RequestClientCleanupErrorHandler = (error: Error) => void
+
 /**
  * Lazily acquires at most one request-scoped Huly client bundle and releases it
  * exactly once. Closing an unused lifecycle is intentionally a no-op.
@@ -59,13 +61,24 @@ export const createRequestClientLifecycle = <A>(
  * Binds request-client cleanup to the SDK-owned server lifecycle while
  * preserving any pre-existing close observer.
  */
-export const attachRequestClientLifecycle = <A>(server: Server, lifecycle: RequestClientLifecycle<A>): void => {
+export const attachRequestClientLifecycle = <A>(
+  server: Server,
+  lifecycle: RequestClientLifecycle<A>,
+  onCleanupError: RequestClientCleanupErrorHandler
+): void => {
   const previousOnClose = server.onclose
+  const originalClose = server.close.bind(server)
+  let serverClosePromise: Promise<void> | undefined
+  const reportCleanupError = (error: unknown): void => {
+    onCleanupError(error instanceof Error ? error : new Error(String(error)))
+  }
+
   server.onclose = () => {
-    // The SDK close callback is synchronous. The lifecycle itself owns and
-    // returns the cleanup promise so direct callers can await it; this adapter
-    // consumes rejection because the callback has no asynchronous error channel.
-    void lifecycle.close().catch(() => {})
+    void lifecycle.close().catch(reportCleanupError)
     previousOnClose?.()
+  }
+  server.close = () => {
+    serverClosePromise ??= originalClose().then(() => lifecycle.close())
+    return serverClosePromise
   }
 }

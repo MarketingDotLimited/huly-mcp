@@ -30,7 +30,7 @@ describe("shared Huly client runtime", () => {
       )
       expect(await Effect.runPromise(scoped.bundle.workspaceClient.getUserWorkspaces())).toEqual([])
     } finally {
-      scoped.close()
+      await scoped.close()
     }
   })
 

@@ -78,7 +78,8 @@ const createCallerAwareServer = (): Server => {
 const modernBody = (
   method: string,
   params: Record<string, unknown>,
-  includeClientInfo: boolean = true
+  includeClientInfo: boolean = true,
+  protocolVersionClaim: string = protocolVersion
 ): Record<string, unknown> => ({
   jsonrpc: "2.0",
   id: 1,
@@ -86,7 +87,7 @@ const modernBody = (
   params: {
     ...params,
     _meta: {
-      "io.modelcontextprotocol/protocolVersion": protocolVersion,
+      "io.modelcontextprotocol/protocolVersion": protocolVersionClaim,
       "io.modelcontextprotocol/clientCapabilities": {},
       ...(includeClientInfo
         ? { "io.modelcontextprotocol/clientInfo": { name: "transport-test", version: "1.0.0" } }
@@ -148,6 +149,28 @@ const listen = async (
       startedServers.delete(server)
     }
   }
+}
+
+const postWithHostHeader = (endpoint: string, hostHeader: string): Promise<number | undefined> => {
+  const url = new URL(endpoint)
+  const body = JSON.stringify(modernBody("server/discover", {}))
+  return new Promise((resolve, reject) => {
+    const request = http.request(
+      {
+        hostname: url.hostname,
+        port: url.port,
+        path: url.pathname,
+        method: "POST",
+        headers: { ...modernHeaders("server/discover"), host: hostHeader, "content-length": Buffer.byteLength(body) }
+      },
+      (response) => {
+        response.resume()
+        response.on("end", () => resolve(response.statusCode))
+      }
+    )
+    request.on("error", reject)
+    request.end(body)
+  })
 }
 
 afterEach(async () => {
@@ -269,6 +292,16 @@ describe("strict MCP 2026-07-28 HTTP transport", () => {
       name: "mismatched protocol version",
       headers: { ...modernHeaders("tools/list"), "mcp-protocol-version": "2099-01-01" },
       body: modernBody("tools/list", {})
+    },
+    {
+      name: "missing resource name",
+      headers: modernHeaders("resources/read"),
+      body: modernBody("resources/read", { uri: "test://resource" })
+    },
+    {
+      name: "mismatched resource name",
+      headers: modernHeaders("resources/read", "test://different"),
+      body: modernBody("resources/read", { uri: "test://resource" })
     }
   ])("rejects $name headers with the final mismatch error", async ({ body, headers }) => {
     const endpoint = await listen()
@@ -277,6 +310,56 @@ describe("strict MCP 2026-07-28 HTTP transport", () => {
 
     expect(response.status).toBe(400)
     expect(parsed.error?.code).toBe(-32020)
+    await endpoint.close()
+  })
+
+  it("uses the unsupported-version error when header and envelope agree on an unsupported revision", async () => {
+    const endpoint = await listen()
+    const response = await fetch(endpoint.baseUrl, {
+      method: "POST",
+      headers: { ...modernHeaders("tools/list"), "mcp-protocol-version": "2099-01-01" },
+      body: JSON.stringify(modernBody("tools/list", {}, true, "2099-01-01"))
+    })
+    const body = await parseResponse(response)
+
+    expect(response.status).toBe(400)
+    expect(body.error?.code).toBe(-32022)
+    await endpoint.close()
+  })
+
+  it.each([
+    {
+      cacheable: false,
+      method: "tools/call",
+      name: "hello",
+      params: { name: "hello", arguments: {} },
+      expected: { content: [{ type: "text", text: "hello" }] }
+    },
+    { cacheable: true, method: "resources/list", params: {}, expected: { resources: [] } },
+    { cacheable: true, method: "resources/templates/list", params: {}, expected: { resourceTemplates: [] } },
+    {
+      cacheable: true,
+      method: "resources/read",
+      name: "test://resource",
+      params: { uri: "test://resource" },
+      expected: { contents: [] }
+    }
+  ])("serves final wire metadata for $method", async ({ cacheable, expected, method, name, params }) => {
+    const endpoint = await listen()
+    const response = await fetch(endpoint.baseUrl, {
+      method: "POST",
+      headers: modernHeaders(method, name),
+      body: JSON.stringify(modernBody(method, params))
+    })
+    const body = await parseResponse(response)
+
+    expect(response.status).toBe(200)
+    expect(body.result).toMatchObject({
+      ...expected,
+      resultType: "complete",
+      ...(cacheable ? { ttlMs: 0, cacheScope: "private" } : {}),
+      _meta: { "io.modelcontextprotocol/serverInfo": { name: "huly-mcp-test", version: "1.0.0" } }
+    })
     await endpoint.close()
   })
 
@@ -301,7 +384,7 @@ describe("strict MCP 2026-07-28 HTTP transport", () => {
     await endpoint.close()
   })
 
-  it("retains the SDK app's Host and Origin protection", async () => {
+  it("retains the SDK app's Origin protection", async () => {
     const endpoint = await listen()
     const response = await fetch(endpoint.baseUrl, {
       method: "POST",
@@ -310,6 +393,13 @@ describe("strict MCP 2026-07-28 HTTP transport", () => {
     })
 
     expect(response.status).toBe(403)
+    await endpoint.close()
+  })
+
+  it("retains the SDK app's Host protection", async () => {
+    const endpoint = await listen()
+
+    expect(await postWithHostHeader(endpoint.baseUrl, "attacker.example")).toBe(403)
     await endpoint.close()
   })
 

@@ -60,10 +60,6 @@ const defaultHttpServerFactory: HttpServerFactory = {
   writeError: writeStderr
 }
 
-export interface HttpTransportDependencies {
-  readonly writeError: (message: string) => void
-}
-
 export class HttpServerFactoryService extends Context.Tag("@hulymcp/HttpServerFactory")<
   HttpServerFactoryService,
   HttpServerFactory
@@ -146,11 +142,11 @@ const closeHttpServer = (server: http.Server): Effect.Effect<void, HttpTransport
 export const startHttpTransport = (
   config: HttpTransportConfig,
   createServer: McpServerFactory,
-  dependencies?: Partial<HttpTransportDependencies>
+  configuredWriteError?: (message: string) => void
 ): Effect.Effect<void, HttpTransportError, HttpServerFactoryService | Scope.Scope> =>
   Effect.gen(function* () {
     const factory = yield* HttpServerFactoryService
-    const writeError = dependencies?.writeError ?? factory.writeError ?? writeStderr
+    const writeError = configuredWriteError ?? factory.writeError ?? writeStderr
     const mounted = createMountedMcpHttpHandler(createServer, config.authToken, writeError)
 
     yield* Effect.addFinalizer(() => Effect.promise(() => mounted.close()))

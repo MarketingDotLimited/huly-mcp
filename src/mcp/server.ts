@@ -4,11 +4,11 @@
  * @module
  */
 import type { McpRequestContext, Server } from "@modelcontextprotocol/server"
-import { serveStdio, type StdioServerHandle, type StdioServerTransport } from "@modelcontextprotocol/server/stdio"
+import { serveStdio, type StdioServerTransport } from "@modelcontextprotocol/server/stdio"
 import { Config, Context, Deferred, Effect, Layer, Ref, Schema } from "effect"
 
 import { type ClientBundle, createMcpServer } from "./create-mcp-server.js"
-import type { HttpServerFactoryService, HttpTransportDependencies, HttpTransportError } from "./http-transport.js"
+import type { HttpServerFactoryService, HttpTransportError } from "./http-transport.js"
 import { DEFAULT_HTTP_PORT, startHttpTransport } from "./http-transport.js"
 import { buildHulyContext, type ToolExposureContext } from "./huly-context-tool.js"
 import type { ProtocolExposureOptions } from "./protocol-tool-exposure.js"
@@ -41,7 +41,6 @@ interface McpServerConfigData {
   readonly mcpAuthToken?: string
   readonly autoExit?: boolean
   readonly authMethod?: "token" | "password"
-  readonly httpTransportDependencies?: Partial<HttpTransportDependencies>
 }
 
 interface McpServerConfigCallbacks {
@@ -137,7 +136,6 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<McpServe
 
         const flushTelemetry = Effect.ignore(Effect.tryPromise(() => telemetry.shutdown()))
 
-        const stdioHandleRef = yield* Ref.make<StdioServerHandle | null>(null)
         const isRunning = yield* Ref.make(false)
         const runControlRef = yield* Ref.make<McpServerRunControl | null>(null)
 
@@ -186,8 +184,6 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<McpServe
                     ...(config.createStdioTransport === undefined ? {} : { transport: config.createStdioTransport() }),
                     onerror: (error) => writeError(`MCP stdio handler error: ${error.message}`)
                   })
-                  yield* Ref.set(stdioHandleRef, stdioHandle)
-
                   yield* Effect.raceFirst(
                     Effect.async<void, McpServerError>((resume) => {
                       const cleanup = () => {
@@ -218,7 +214,6 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<McpServe
                   yield* flushTelemetry
 
                   yield* Effect.promise(() => stdioHandle.close())
-                  yield* Ref.set(stdioHandleRef, null)
                 } else {
                   const port = config.httpPort ?? DEFAULT_HTTP_PORT
                   const host = config.httpHost ?? "127.0.0.1"
@@ -246,7 +241,9 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<McpServe
                       }),
                       hostedHulyMigrationInstructionsForOrigin(requestRuntimeConfig.huly.url.origin)
                     )
-                    attachRequestClientLifecycle(server, lifecycle)
+                    attachRequestClientLifecycle(server, lifecycle, (error) => {
+                      writeError(`Request-scoped Huly client cleanup failed: ${error.message}`)
+                    })
                     return server
                   }
 
@@ -254,7 +251,7 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<McpServe
                     startHttpTransport(
                       { port, host, authToken: config.mcpAuthToken },
                       createHttpServer,
-                      config.httpTransportDependencies
+                      writeError
                     ).pipe(
                       Effect.scoped,
                       Effect.mapError(

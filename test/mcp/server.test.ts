@@ -29,7 +29,7 @@ import {
   type HostedHulyMigrationInstructions
 } from "../../src/huly/unavailable-diagnostics.js"
 import { WorkspaceClient } from "../../src/huly/workspace-client.js"
-import { HttpServerFactoryService, type HttpTransportDependencies } from "../../src/mcp/http-transport.js"
+import { HttpServerFactoryService } from "../../src/mcp/http-transport.js"
 import { createDefaultMcpSdkServer } from "../../src/mcp/sdk-server.js"
 import { type ClientBundle, McpServerError, McpServerService } from "../../src/mcp/server.js"
 import { TOOL_DEFINITIONS } from "../../src/mcp/tools/index.js"
@@ -106,16 +106,14 @@ const buildTestServerLayer = (
     mcpAuthToken?: string
     autoExit?: boolean
     authMethod?: "token" | "password"
-    httpTransportDependencies?: Partial<HttpTransportDependencies>
     createServer?: (instructions?: HostedHulyMigrationInstructions) => Server
     writeError?: (message: string) => void
   },
   layers: Layer.Layer<HulyClient | HulyStorageClient | WorkspaceClient | TelemetryService>
 ) => {
-  const { createServer = createMockServer, httpTransportDependencies, ...serverConfig } = config
+  const { createServer = createMockServer, ...serverConfig } = config
   return McpServerService.layer({
     ...serverConfig,
-    ...(httpTransportDependencies === undefined ? {} : { httpTransportDependencies }),
     createServer,
     createStdioTransport: createTestStdioTransport,
     resolveClients: resolveClientsFromLayer(layers)
@@ -932,15 +930,7 @@ describe("McpServerService.layer operations", () => {
         )
         const ctx = yield* Layer.build(serverLayer)
         const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
-        const fiber = yield* Effect.fork(
-          ops.run().pipe(
-            Effect.provideService(
-              HttpServerFactoryService,
-              // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- HTTP is not used by this stdio test
-              { createApp: () => ({}) as never, listen: () => Effect.void as never }
-            )
-          )
-        )
+        const fiber = yield* Effect.fork(ops.run().pipe(Effect.provide(HttpServerFactoryService.defaultLayer)))
 
         yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 50)))
         expect(errors.join("")).toContain("connection refused")
