@@ -1,6 +1,5 @@
 import { PassThrough } from "node:stream"
 
-import { createMcpExpressApp } from "@modelcontextprotocol/express"
 import { Context, Effect, Fiber, Layer } from "effect"
 import { describe, it } from "vitest"
 
@@ -8,12 +7,13 @@ import { sanitizeHulyRuntimeConfigFromEnv } from "../../src/config/config.js"
 import { HulyClient } from "../../src/huly/client.js"
 import { HulyStorageClient } from "../../src/huly/storage.js"
 import { WorkspaceClient } from "../../src/huly/workspace-client.js"
-import { HttpServerFactoryService, HttpTransportError } from "../../src/mcp/http-transport.js"
+import { HttpServerFactoryService } from "../../src/mcp/http-transport.js"
 import { createDefaultMcpSdkServer } from "../../src/mcp/sdk-server.js"
 import type { ClientBundle } from "../../src/mcp/server.js"
 import { McpServerService } from "../../src/mcp/server.js"
 import { TelemetryService } from "../../src/telemetry/telemetry.js"
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio"
+import { inertHttpServerFactory } from "./http-test-support.js"
 
 const runtimeEnv = { HULY_URL: "https://huly.example.com", HULY_WORKSPACE: "workspace", HULY_TOKEN: "test-token" }
 
@@ -27,10 +27,7 @@ const clientBundle = async (): Promise<ClientBundle> => {
   }
 }
 
-const unusedHttpFactory: HttpServerFactoryService["Type"] = {
-  createApp: (host) => createMcpExpressApp({ host }),
-  listen: () => Effect.fail(new HttpTransportError({ message: "HTTP is outside this stdio test" }))
-}
+const unusedHttpFactory = inertHttpServerFactory("HTTP is outside this stdio test")
 
 class FailingCloseTransport extends StdioServerTransport {
   override close(): Promise<void> {

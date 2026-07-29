@@ -151,8 +151,10 @@
     "@hcengineering/tracker": "0.7.0",
     "@hcengineering/ui": "0.7.0",
     "@hcengineering/view": "0.7.0",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/core": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "@total-typescript/ts-reset": "^0.6.1",
-    "@types/express": "^5.0.6",
     "@types/node": "^25.1.0",
     "@types/ws": "^8.18.1",
     "@typescript/native": "npm:typescript@^7.0.2",
@@ -163,7 +165,6 @@
     "dprint": "^0.55.2",
     "effect": "^3.19.15",
     "esbuild": "^0.27.2",
-    "express": "^5.2.1",
     "fast-check": "^4.8.0",
     "husky": "^9.1.7",
     "jscpd": "^4.0.8",
@@ -173,11 +174,6 @@
     "posthog-node": "^5.24.11",
     "tsx": "^4.21.0",
     "typescript-compiler-api": "npm:typescript@^5.9.3",
-    "vitest": "latest",
-    "@modelcontextprotocol/server": "^2.0.0",
-    "@modelcontextprotocol/node": "^2.0.0",
-    "@modelcontextprotocol/express": "^2.0.0",
-    "@modelcontextprotocol/core": "^2.0.0",
-    "@modelcontextprotocol/client": "^2.0.0"
+    "vitest": "latest"
   }
 }

@@ -19,6 +19,7 @@ import {
 import { ProtocolError } from "@modelcontextprotocol/server"
 import type { Server } from "@modelcontextprotocol/server"
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio"
+import { HttpServer } from "@effect/platform"
 import { Context, Effect, Fiber, Layer, Schema } from "effect"
 import { expect } from "vitest"
 import { parseJsonSchemaRecord } from "../../src/domain/schemas/json-schema.js"
@@ -794,7 +795,7 @@ describe("McpServerService.layer operations", () => {
               Effect.provideService(
                 HttpServerFactoryService,
                 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { createApp: () => ({}) as never, listen: () => Effect.void as never }
+                { make: () => Effect.void as never }
               )
             )
           )
@@ -819,7 +820,7 @@ describe("McpServerService.layer operations", () => {
               Effect.provideService(
                 HttpServerFactoryService,
                 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { createApp: () => ({}) as never, listen: () => Effect.void as never }
+                { make: () => Effect.void as never }
               )
             )
           )
@@ -855,7 +856,7 @@ describe("McpServerService.layer operations", () => {
               Effect.provideService(
                 HttpServerFactoryService,
                 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { createApp: () => ({}) as never, listen: () => Effect.void as never }
+                { make: () => Effect.void as never }
               )
             )
           )
@@ -880,7 +881,7 @@ describe("McpServerService.layer operations", () => {
               Effect.provideService(
                 HttpServerFactoryService,
                 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { createApp: () => ({}) as never, listen: () => Effect.void as never }
+                { make: () => Effect.void as never }
               )
             )
           )
@@ -892,7 +893,7 @@ describe("McpServerService.layer operations", () => {
               Effect.provideService(
                 HttpServerFactoryService,
                 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { createApp: () => ({}) as never, listen: () => Effect.void as never }
+                { make: () => Effect.void as never }
               )
             )
           )
@@ -953,7 +954,7 @@ describe("McpServerService.layer operations", () => {
               Effect.provideService(
                 HttpServerFactoryService,
                 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { createApp: () => ({}) as never, listen: () => Effect.void as never }
+                { make: () => Effect.void as never }
               )
             )
           )
@@ -986,7 +987,7 @@ describe("McpServerService.layer operations", () => {
               Effect.provideService(
                 HttpServerFactoryService,
                 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { createApp: () => ({}) as never, listen: () => Effect.void as never }
+                { make: () => Effect.void as never }
               )
             )
           )
@@ -1010,7 +1011,7 @@ describe("McpServerService.layer operations", () => {
               Effect.provideService(
                 HttpServerFactoryService,
                 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { createApp: () => ({}) as never, listen: () => Effect.void as never }
+                { make: () => Effect.void as never }
               )
             )
           )
@@ -1046,7 +1047,7 @@ describe("McpServerService.layer operations", () => {
               Effect.provideService(
                 HttpServerFactoryService,
                 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { createApp: () => ({}) as never, listen: () => Effect.void as never }
+                { make: () => Effect.void as never }
               )
             )
           )
@@ -1087,7 +1088,7 @@ describe("McpServerService.layer operations", () => {
               Effect.provideService(
                 HttpServerFactoryService,
                 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { createApp: () => ({}) as never, listen: () => Effect.void as never }
+                { make: () => Effect.void as never }
               )
             )
           )
@@ -1125,11 +1126,13 @@ describe("McpServerService.layer operations", () => {
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
           const mockHttpFactory: HttpServerFactoryService["Type"] = {
-            createApp: (_host: string) => {
-              const fakeApp = { post: () => {}, get: () => {}, delete: () => {} }
-              return fakeApp as never
-            },
-            listen: () => Effect.succeed({ close: (cb: (err?: Error) => void) => cb() } as never)
+            make: (_port, host) =>
+              Effect.succeed(
+                HttpServer.make({
+                  address: { _tag: "TcpAddress", hostname: host, port: 19878 },
+                  serve: () => Effect.void
+                })
+              )
           }
 
           // Start run() to set isRunning=true
@@ -1181,7 +1184,7 @@ describe("McpServerService.layer operations", () => {
               Effect.provideService(
                 HttpServerFactoryService,
                 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-                { createApp: () => ({}) as never, listen: () => Effect.void as never }
+                { make: () => Effect.void as never }
               )
             )
           )
@@ -1312,7 +1315,7 @@ describe("McpServerService.layer operations", () => {
             Effect.provideService(
               HttpServerFactoryService,
               // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-              { createApp: () => ({}) as never, listen: () => Effect.void as never }
+              { make: () => Effect.void as never }
             )
           )
         )
@@ -1346,7 +1349,7 @@ describe("McpServerService.layer operations", () => {
             Effect.provideService(
               HttpServerFactoryService,
               // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
-              { createApp: () => ({}) as never, listen: () => Effect.void as never }
+              { make: () => Effect.void as never }
             )
           )
         )

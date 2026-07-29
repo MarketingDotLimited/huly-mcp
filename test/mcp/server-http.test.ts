@@ -1,6 +1,5 @@
 import type http from "node:http"
 
-import { createMcpExpressApp } from "@modelcontextprotocol/express"
 import { Context, Effect, Fiber, Layer } from "effect"
 import { describe, expect, it } from "vitest"
 
@@ -12,6 +11,7 @@ import { HttpServerFactoryService, HttpTransportError, type HttpServerFactory } 
 import type { ClientBundle } from "../../src/mcp/server.js"
 import { McpServerService } from "../../src/mcp/server.js"
 import { TelemetryService } from "../../src/telemetry/telemetry.js"
+import { failingHttpServerFactory, makeTestHttpServerFactory } from "./http-test-support.js"
 
 const protocolVersion = "2026-07-28"
 const runtimeEnv = { HULY_URL: "https://huly.example.com", HULY_WORKSPACE: "workspace", HULY_TOKEN: "test-token" }
@@ -64,17 +64,7 @@ const modernRequest = (
 const runningFactory = (
   listening: ReturnType<typeof deferred<http.Server>>,
   writes: Array<string>
-): HttpServerFactory => ({
-  createApp: (host) => createMcpExpressApp({ host }),
-  listen: (app, port, host) =>
-    Effect.async<http.Server, HttpTransportError>((resume) => {
-      const server = app.listen(port, host, () => {
-        listening.resolve(server)
-        resume(Effect.succeed(server))
-      })
-    }),
-  writeError: (message) => writes.push(message)
-})
+): HttpServerFactory => makeTestHttpServerFactory(listening.resolve, (message) => writes.push(message))
 
 describe("McpServerService released HTTP integration", () => {
   it("uses request runtime config and releases a request-scoped client lease", async () => {
@@ -210,14 +200,13 @@ describe("McpServerService released HTTP integration", () => {
     const operations = Context.get(context, McpServerService)
     let seenPort = 0
     let seenHost = ""
+    const failure = new HttpTransportError({ message: "listener failed" })
+    const failingFactory = failingHttpServerFactory(failure)
     const factory: HttpServerFactory = {
-      createApp: (host) => {
-        seenHost = host
-        return createMcpExpressApp({ host })
-      },
-      listen: (_app, port) => {
+      make: (port, host) => {
         seenPort = port
-        return Effect.fail(new HttpTransportError({ message: "listener failed" }))
+        seenHost = host
+        return failingFactory.make(port, host)
       }
     }
 

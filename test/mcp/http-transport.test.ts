@@ -1,21 +1,16 @@
 import http from "node:http"
 
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
-import { createMcpExpressApp } from "@modelcontextprotocol/express"
 import { Server } from "@modelcontextprotocol/server"
-import { Context, Effect, Fiber, Layer, Schema } from "effect"
+import { Context, Effect, Exit, Fiber, Layer, Schema, Scope } from "effect"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { createMcpServer } from "../../src/mcp/create-mcp-server.js"
-import {
-  createMountedMcpHttpHandler,
-  HttpServerFactoryService,
-  HttpTransportError,
-  startHttpTransport
-} from "../../src/mcp/http-transport.js"
+import { HttpServerFactoryService, HttpTransportError, startHttpTransport } from "../../src/mcp/http-transport.js"
 import { PROXY_TOOL_NAMES } from "../../src/mcp/proxy-tools.js"
 import { toolRegistry } from "../../src/mcp/tools/index.js"
 import type { TelemetryOperations } from "../../src/telemetry/telemetry.js"
+import { failingHttpServerFactory, listenTestMcpHttpServer, makeTestHttpServerFactory } from "./http-test-support.js"
 
 const protocolVersion = "2026-07-28"
 const legacyProtocolVersion = "2025-06-18"
@@ -136,28 +131,13 @@ const listen = async (
   writeError: (message: string) => void = () => {},
   createServer: () => Server = createTestServer
 ): Promise<{ readonly baseUrl: string; readonly close: () => Promise<void> }> => {
-  const mounted = createMountedMcpHttpHandler(createServer, authToken, writeError)
-  const app = createMcpExpressApp({ host: "127.0.0.1" })
-  app.all("/mcp", (req, res) => {
-    void mounted.handle(req, res)
-  })
-  const server = await new Promise<http.Server>((resolve) => {
-    const listening = app.listen(0, "127.0.0.1", () => resolve(listening))
-  })
-  startedServers.add(server)
-  const address = server.address()
-  if (address === null || typeof address === "string") throw new Error("Expected an assigned TCP port")
+  const endpoint = await listenTestMcpHttpServer(createServer, authToken, writeError)
+  startedServers.add(endpoint.server)
   return {
-    baseUrl: `http://127.0.0.1:${address.port}/mcp`,
+    baseUrl: endpoint.baseUrl,
     close: async () => {
-      await mounted.close()
-      await new Promise<void>((resolve, reject) => {
-        server.close((error) => {
-          if (error) reject(error)
-          else resolve()
-        })
-      })
-      startedServers.delete(server)
+      await endpoint.close()
+      startedServers.delete(endpoint.server)
     }
   }
 }
@@ -631,25 +611,16 @@ describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
 
   it("reports factory failures without leaking exception details into the response", async () => {
     const errors: Array<string> = []
-    const mounted = createMountedMcpHttpHandler(
+    const endpoint = await listenTestMcpHttpServer(
       () => {
         throw new Error("factory exploded")
       },
       undefined,
       (message) => errors.push(message)
     )
-    const app = createMcpExpressApp({ host: "127.0.0.1" })
-    app.all("/mcp", (req, res) => {
-      void mounted.handle(req, res)
-    })
-    const server = await new Promise<http.Server>((resolve) => {
-      const listening = app.listen(0, "127.0.0.1", () => resolve(listening))
-    })
-    startedServers.add(server)
-    const address = server.address()
-    if (address === null || typeof address === "string") throw new Error("Expected an assigned TCP port")
+    startedServers.add(endpoint.server)
 
-    const response = await fetch(`http://127.0.0.1:${address.port}/mcp`, {
+    const response = await fetch(endpoint.baseUrl, {
       method: "POST",
       headers: modernHeaders("server/discover"),
       body: JSON.stringify(modernBody("server/discover", {}))
@@ -660,9 +631,8 @@ describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
     expect(body.error).toMatchObject({ code: -32603, message: "Internal server error" })
     expect(JSON.stringify(body)).not.toContain("factory exploded")
     expect(errors.join("")).toContain("factory exploded")
-    await mounted.close()
-    await new Promise<void>((resolve) => server.close(() => resolve()))
-    startedServers.delete(server)
+    await endpoint.close()
+    startedServers.delete(endpoint.server)
   })
 })
 
@@ -671,21 +641,16 @@ describe("HTTP transport Effect lifecycle", () => {
     const listening = deferred<http.Server>()
     const signalHandlersReady = deferred<void>()
     const writes: Array<string> = []
-    const factory: HttpServerFactoryService["Type"] = {
-      createApp: (host) => createMcpExpressApp({ host }),
-      listen: (app, port, host) =>
-        Effect.async<http.Server, HttpTransportError>((resume) => {
-          const server = app.listen(port, host, () => {
-            startedServers.add(server)
-            listening.resolve(server)
-            resume(Effect.succeed(server))
-          })
-        }),
-      writeError: (message) => {
+    const factory = makeTestHttpServerFactory(
+      (server) => {
+        startedServers.add(server)
+        listening.resolve(server)
+      },
+      (message) => {
         writes.push(message)
         if (message.includes("MCP HTTP server listening")) signalHandlersReady.resolve()
       }
-    }
+    )
 
     const fiber = Effect.runFork(
       startHttpTransport({ port: 0, host: "127.0.0.1" }, createTestServer).pipe(
@@ -706,10 +671,7 @@ describe("HTTP transport Effect lifecycle", () => {
 
   it("surfaces listener startup failures as typed transport errors", async () => {
     const expected = new HttpTransportError({ message: "port unavailable" })
-    const factory: HttpServerFactoryService["Type"] = {
-      createApp: (host) => createMcpExpressApp({ host }),
-      listen: () => Effect.fail(expected)
-    }
+    const factory = failingHttpServerFactory(expected)
 
     const result = await Effect.runPromise(
       Effect.exit(
@@ -724,37 +686,33 @@ describe("HTTP transport Effect lifecycle", () => {
     expect(String(result)).toContain("port unavailable")
   })
 
-  it("provides a working default Express listener and reports occupied ports", async () => {
+  it("provides a working default Effect listener and reports occupied ports", async () => {
     const context = await Effect.runPromise(Layer.build(HttpServerFactoryService.defaultLayer).pipe(Effect.scoped))
     const factory = Context.get(context, HttpServerFactoryService)
-    const app = factory.createApp("127.0.0.1")
-    const server = await Effect.runPromise(factory.listen(app, 0, "127.0.0.1"))
-    startedServers.add(server)
+    const scope = await Effect.runPromise(Scope.make())
+    const server = await Effect.runPromise(factory.make(0, "127.0.0.1").pipe(Scope.extend(scope)))
     factory.writeError?.("")
-    const address = server.address()
-    if (address === null || typeof address === "string") throw new Error("Expected an assigned TCP port")
+    if (server.address._tag !== "TcpAddress") throw new Error("Expected an assigned TCP port")
 
     const occupied = await Effect.runPromise(
-      Effect.exit(factory.listen(factory.createApp("127.0.0.1"), address.port, "127.0.0.1"))
+      Effect.exit(factory.make(server.address.port, "127.0.0.1").pipe(Effect.scoped))
     )
 
     expect(occupied._tag).toBe("Failure")
     expect(String(occupied)).toContain("Failed to start HTTP server")
-    await new Promise<void>((resolve) => server.close(() => resolve()))
-    startedServers.delete(server)
+    await Effect.runPromise(Scope.close(scope, Exit.void))
   })
 
-  it("reports server-close failures while completing the shutdown trigger", async () => {
+  it("supports an injected Effect HTTP server", async () => {
     const writes: Array<string> = []
     const ready = deferred<void>()
-    const factory: HttpServerFactoryService["Type"] = {
-      createApp: (host) => createMcpExpressApp({ host }),
-      listen: () => Effect.succeed(http.createServer()),
-      writeError: (message) => {
+    const factory = makeTestHttpServerFactory(
+      () => {},
+      (message) => {
         writes.push(message)
         if (message.includes("MCP HTTP server listening")) ready.resolve()
       }
-    }
+    )
     const fiber = Effect.runFork(
       startHttpTransport({ port: 1, host: "127.0.0.1" }, createTestServer).pipe(
         Effect.scoped,
@@ -766,6 +724,6 @@ describe("HTTP transport Effect lifecycle", () => {
     process.emit("SIGTERM")
     await Effect.runPromise(Fiber.join(fiber))
 
-    expect(writes.join("")).toContain("Server close error: Error closing HTTP server")
+    expect(writes.join("")).toContain("MCP HTTP server listening")
   })
 })

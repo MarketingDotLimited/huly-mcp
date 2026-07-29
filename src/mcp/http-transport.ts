@@ -1,18 +1,24 @@
 /**
  * MCP 2026-07-28 HTTP transport with SDK-owned 2025 compatibility.
  *
- * The official SDK owns the MCP wire boundary. Express remains only as the
- * current Node HTTP mount and can be replaced independently.
+ * The official SDK owns the MCP wire boundary while Effect Platform owns the
+ * HTTP routing, server lifecycle, and Node adapter.
  */
 import { timingSafeEqual } from "node:crypto"
-import type http from "node:http"
+import { createServer as createNodeServer } from "node:http"
 
-import { createMcpExpressApp } from "@modelcontextprotocol/express"
-import { toNodeHandler } from "@modelcontextprotocol/node"
-import { createMcpHandler, type McpServerFactory } from "@modelcontextprotocol/server"
+import { HttpApp, HttpRouter, type HttpServer, HttpServerError } from "@effect/platform"
+import { NodeHttpServer } from "@effect/platform-node"
+import {
+  createMcpHandler,
+  hostHeaderValidationResponse,
+  localhostAllowedHostnames,
+  localhostAllowedOrigins,
+  type McpServerFactory,
+  originValidationResponse
+} from "@modelcontextprotocol/server"
 import type { Scope } from "effect"
 import { Context, Effect, Layer, Schema } from "effect"
-import type { Express, Request, Response } from "express"
 
 export const DEFAULT_HTTP_PORT = 3000
 const HTTP_UNAUTHORIZED = 401
@@ -33,30 +39,21 @@ export class HttpTransportError extends Schema.TaggedError<HttpTransportError>()
 }) {}
 
 export interface HttpServerFactory {
-  readonly createApp: (host: string) => Express
-  readonly listen: (app: Express, port: number, host: string) => Effect.Effect<http.Server, HttpTransportError>
+  readonly make: (port: number, host: string) => Effect.Effect<HttpServer.HttpServer, HttpTransportError, Scope.Scope>
   readonly writeError?: (message: string) => void
 }
 
 const defaultHttpServerFactory: HttpServerFactory = {
-  createApp: (host) => createMcpExpressApp({ host }),
-  listen: (app, port, host) =>
-    Effect.async<http.Server, HttpTransportError>((resume) => {
-      const server = app.listen(port, host, (error?: Error) => {
-        if (error) {
-          resume(
-            Effect.fail(
-              new HttpTransportError({
-                message: `Failed to start HTTP server on ${host}:${port}: ${error.message}`,
-                cause: error
-              })
-            )
-          )
-        } else {
-          resume(Effect.succeed(server))
-        }
-      })
-    }),
+  make: (port, host) =>
+    NodeHttpServer.make(createNodeServer, { port, host }).pipe(
+      Effect.mapError(
+        (error) =>
+          new HttpTransportError({
+            message: `Failed to start HTTP server on ${host}:${port}: ${String(error.cause)}`,
+            cause: error
+          })
+      )
+    ),
   writeError: writeStderr
 }
 
@@ -86,20 +83,21 @@ const tokenMatches = (received: string, expected: string): boolean => {
   return receivedBuffer.length === expectedBuffer.length && timingSafeEqual(receivedBuffer, expectedBuffer)
 }
 
-const isAuthorizedMcpRequest = (req: Request, authToken: string | undefined): boolean => {
+const isAuthorizedMcpRequest = (request: Request, authToken: string | undefined): boolean => {
   const expected = activeAuthToken(authToken)
   if (expected === undefined) return true
-  const received = extractBearerToken(req.headers.authorization)
+  const received = extractBearerToken(request.headers.get("authorization"))
   return received !== undefined && tokenMatches(received, expected)
 }
 
-const writeUnauthorized = (res: Response): void => {
-  res.setHeader("WWW-Authenticate", "Bearer")
-  res.status(HTTP_UNAUTHORIZED).json({ jsonrpc: "2.0", error: { code: -32000, message: "Unauthorized" }, id: null })
-}
+const unauthorizedResponse = (): Response =>
+  Response.json(
+    { jsonrpc: "2.0", error: { code: -32000, message: "Unauthorized" }, id: null },
+    { status: HTTP_UNAUTHORIZED, headers: { "WWW-Authenticate": "Bearer" } }
+  )
 
 export interface MountedMcpHttpHandler {
-  readonly handle: (req: Request, res: Response) => Promise<void>
+  readonly fetch: (request: Request) => Promise<Response>
   readonly close: () => Promise<void>
 }
 
@@ -143,28 +141,32 @@ const createMcpServerCloseTracker = (createServer: McpServerFactory): McpServerC
 export const createMountedMcpHttpHandler = (
   createServer: McpServerFactory,
   authToken?: string,
-  writeError: (message: string) => void = writeStderr
+  writeError: (message: string) => void = writeStderr,
+  host: string = "127.0.0.1"
 ): MountedMcpHttpHandler => {
   const reportError = (error: Error): void => {
     writeError(`MCP HTTP handler error: ${error.message}\n`)
   }
   const closeTracker = createMcpServerCloseTracker(createServer)
-  const activeRequests = new Set<Promise<void>>()
+  const activeRequests = new Set<Promise<Response>>()
   const mcpHandler = createMcpHandler(closeTracker.factory, { legacy: "stateless", onerror: reportError })
-  const nodeHandler = toNodeHandler(mcpHandler, { onerror: reportError })
+  const protectLocalhost = host === "127.0.0.1" || host === "localhost" || host === "::1"
 
   return {
-    handle: async (req, res) => {
-      if (!isAuthorizedMcpRequest(req, authToken)) {
-        writeUnauthorized(res)
-        return
-      }
-      const request = nodeHandler(req, res, req.body)
-      activeRequests.add(request)
+    fetch: async (request) => {
+      const rejected = protectLocalhost
+        ? (hostHeaderValidationResponse(request, localhostAllowedHostnames()) ??
+          originValidationResponse(request, localhostAllowedOrigins()))
+        : undefined
+      if (rejected !== undefined) return rejected
+      if (!isAuthorizedMcpRequest(request, authToken)) return unauthorizedResponse()
+
+      const response = mcpHandler.fetch(request)
+      activeRequests.add(response)
       try {
-        await request
+        return await response
       } finally {
-        activeRequests.delete(request)
+        activeRequests.delete(response)
       }
     },
     close: async () => {
@@ -175,18 +177,8 @@ export const createMountedMcpHttpHandler = (
   }
 }
 
-const closeHttpServer = (server: http.Server): Effect.Effect<void, HttpTransportError> =>
-  Effect.async<void, HttpTransportError>((resume) => {
-    server.close((error?: Error) => {
-      if (error) {
-        resume(
-          Effect.fail(new HttpTransportError({ message: `Error closing HTTP server: ${error.message}`, cause: error }))
-        )
-      } else {
-        resume(Effect.void)
-      }
-    })
-  })
+export const createMcpHttpApp = (mounted: MountedMcpHttpHandler): HttpApp.Default<HttpServerError.HttpServerError> =>
+  HttpRouter.empty.pipe(HttpRouter.all("/mcp", HttpApp.fromWebHandler(mounted.fetch)))
 
 export const startHttpTransport = (
   config: HttpTransportConfig,
@@ -196,24 +188,12 @@ export const startHttpTransport = (
   Effect.gen(function* () {
     const factory = yield* HttpServerFactoryService
     const writeError = configuredWriteError ?? factory.writeError ?? writeStderr
-    const mounted = createMountedMcpHttpHandler(createServer, config.authToken, writeError)
+    const mounted = createMountedMcpHttpHandler(createServer, config.authToken, writeError, config.host)
 
     yield* Effect.addFinalizer(() => Effect.promise(() => mounted.close()))
 
-    const app = factory.createApp(config.host)
-    app.all("/mcp", (req, res) => {
-      void mounted.handle(req, res)
-    })
-
-    yield* Effect.acquireRelease(factory.listen(app, config.port, config.host), (server) =>
-      closeHttpServer(server).pipe(
-        Effect.catchAll((error) =>
-          Effect.sync(() => {
-            writeError(`Server close error: ${error.message}\n`)
-          })
-        )
-      )
-    )
+    const server = yield* factory.make(config.port, config.host)
+    yield* server.serve(createMcpHttpApp(mounted))
 
     yield* Effect.sync(() => {
       writeError(`MCP HTTP server listening on http://${config.host}:${config.port}/mcp\n`)
