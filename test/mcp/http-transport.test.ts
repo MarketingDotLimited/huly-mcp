@@ -751,7 +751,7 @@ describe("HTTP transport Effect lifecycle", () => {
     await Effect.runPromise(Scope.close(scope, Exit.void))
   })
 
-  it("supports an injected Effect HTTP server", { timeout: 15_000 }, async () => {
+  it("supports an injected Effect HTTP server", async () => {
     const writes: Array<string> = []
     const ready = deferred<void>()
     const factory = makeTestHttpServerFactory(
@@ -769,8 +769,7 @@ describe("HTTP transport Effect lifecycle", () => {
     )
     await ready.promise
 
-    process.emit("SIGTERM")
-    await Effect.runPromise(Fiber.join(fiber))
+    await Effect.runPromise(Fiber.interrupt(fiber))
 
     expect(writes.join("")).toContain("MCP HTTP server listening")
   })
