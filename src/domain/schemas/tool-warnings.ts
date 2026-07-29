@@ -10,6 +10,7 @@ export const ToolWarningCodeSchema = Schema.Literal(
   "approval_request_count_metadata_degraded",
   "hosted_huly_shutdown",
   "issue_label_metadata_degraded",
+  "issue_milestone_metadata_degraded",
   "notification_metadata_degraded",
   "card_version_metadata_degraded"
 ).annotations({
@@ -27,8 +28,9 @@ export const ApprovalRequestPersonMetadataDegradedWarningCode = ToolWarningCodeS
 export const ApprovalRequestCountMetadataDegradedWarningCode = ToolWarningCodeSchema.literals[6]
 export const HostedHulyShutdownWarningCode = ToolWarningCodeSchema.literals[7]
 export const IssueLabelMetadataDegradedWarningCode = ToolWarningCodeSchema.literals[8]
-export const NotificationMetadataDegradedWarningCode = ToolWarningCodeSchema.literals[9]
-export const CardVersionMetadataDegradedWarningCode = ToolWarningCodeSchema.literals[10]
+export const IssueMilestoneMetadataDegradedWarningCode = ToolWarningCodeSchema.literals[9]
+export const NotificationMetadataDegradedWarningCode = ToolWarningCodeSchema.literals[10]
+export const CardVersionMetadataDegradedWarningCode = ToolWarningCodeSchema.literals[11]
 
 export const ToolWarningSchema = Schema.Struct({
   code: ToolWarningCodeSchema,

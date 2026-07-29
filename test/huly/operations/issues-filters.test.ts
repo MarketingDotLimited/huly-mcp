@@ -237,6 +237,46 @@ describe("listIssues filters", () => {
     )
   })
 
+  describe("hasMilestone", () => {
+    it.effect("true builds $ne: null query", () =>
+      Effect.gen(function* () {
+        const captureQuery: MockConfig["captureIssueQuery"] = {}
+        const testLayer = createTestLayer({
+          projects: [project],
+          issues: [],
+          statuses,
+          captureIssueQuery: captureQuery
+        })
+
+        yield* listIssues({ project: projectIdentifier("TEST"), hasMilestone: true }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
+
+        expect(captureQuery.query?.milestone).toEqual({ $ne: null })
+      })
+    )
+
+    it.effect("false builds null query", () =>
+      Effect.gen(function* () {
+        const captureQuery: MockConfig["captureIssueQuery"] = {}
+        const testLayer = createTestLayer({
+          projects: [project],
+          issues: [],
+          statuses,
+          captureIssueQuery: captureQuery
+        })
+
+        yield* listIssues({ project: projectIdentifier("TEST"), hasMilestone: false }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
+
+        expect(captureQuery.query?.milestone).toBeNull()
+      })
+    )
+  })
+
   describe("hasComponent", () => {
     it.effect("true builds $ne: null query", () =>
       Effect.gen(function* () {
@@ -363,6 +403,16 @@ describe("listIssues filters", () => {
       const msg = expectParseFailure(result)
       expect(msg).toContain("component")
       expect(msg).toContain("hasComponent")
+    })
+
+    it("rejects milestone + hasMilestone", async () => {
+      const result = await Effect.runPromiseExit(
+        Schema.decodeUnknown(ListIssuesParamsSchema)({ project: "TEST", milestone: "Sprint 1", hasMilestone: true })
+      )
+
+      const msg = expectParseFailure(result)
+      expect(msg).toContain("milestone")
+      expect(msg).toContain("hasMilestone")
     })
 
     it("rejects parentIssue + isTopLevel: true", async () => {

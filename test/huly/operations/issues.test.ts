@@ -17,6 +17,8 @@ import {
   type Issue as HulyIssue,
   type IssueParentInfo,
   IssuePriority,
+  type Milestone as HulyMilestone,
+  MilestoneStatus,
   type Project as HulyProject,
   TimeReportDayType
 } from "@hcengineering/tracker"
@@ -34,9 +36,20 @@ import { addLabel, createIssue, getIssue, listIssues, updateIssue } from "../../
 import { assertAt, assertExists } from "../../../src/utils/assertions.js"
 
 import { contact, core, tags, task, tracker } from "../../../src/huly/huly-plugins.js"
-import { colorCode, email, issueIdentifier, projectIdentifier, statusName } from "../../helpers/brands.js"
+import {
+  colorCode,
+  email,
+  issueIdentifier,
+  type MilestoneId,
+  type MilestoneLabel,
+  milestoneId,
+  milestoneIdentifier,
+  milestoneLabel,
+  projectIdentifier,
+  statusName
+} from "../../helpers/brands.js"
 import { withDiagnostics } from "../../helpers/diagnostics.js"
-import { docRef } from "../../helpers/huly-sdk.js"
+import { corePersonId, docRef } from "../../helpers/huly-sdk.js"
 import { capturedMarkupChildNodes, capturedMarkupReferenceNodes } from "../../helpers/markup-capture.js"
 
 // Helper to create properly typed FindResult for tests
@@ -128,6 +141,20 @@ const makeStatus = (overrides?: Partial<Status>): Status => {
   return result
 }
 
+const makeMilestone = (project: HulyProject, id: MilestoneId, label: MilestoneLabel): HulyMilestone => ({
+  _id: docRef<HulyMilestone>(id),
+  _class: tracker.class.Milestone,
+  space: project._id,
+  label,
+  status: MilestoneStatus.Planned,
+  comments: 0,
+  targetDate: 1_800_000_000_000,
+  modifiedBy: corePersonId("user-1"),
+  modifiedOn: 0,
+  createdBy: corePersonId("user-1"),
+  createdOn: 0
+})
+
 const makePerson = (overrides?: Partial<Person>): Person => {
   const base = {
     _id: "person-1" as Ref<Person>,
@@ -207,6 +234,8 @@ interface MockConfig {
   projects?: Array<HulyProject>
   issues?: Array<HulyIssue>
   statuses?: Array<Status>
+  milestones?: Array<HulyMilestone>
+  captureMilestoneQueries?: Array<unknown>
   persons?: Array<Person>
   channels?: Array<Channel>
   tagElements?: Array<TagElement>
@@ -232,6 +261,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const projects = config.projects ?? []
   const issues = config.issues ?? []
   const statuses = config.statuses ?? []
+  const milestones = config.milestones ?? []
   const persons = config.persons ?? []
   const channels = config.channels ?? []
   const tagElements = config.tagElements ?? []
@@ -267,6 +297,15 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     }
     if (_class === tracker.class.IssueStatus) {
       return Effect.succeed(toFindResult(statuses))
+    }
+    if (_class === tracker.class.Milestone) {
+      config.captureMilestoneQueries?.push(query)
+      const idFilter = queryField(query, "_id")
+      const filtered =
+        idFilter === undefined
+          ? milestones.filter((milestone) => milestone.space === queryField(query, "space"))
+          : milestones.filter((milestone) => matchesQueryValue(milestone._id, idFilter))
+      return Effect.succeed(toFindResult(filtered))
     }
     // Handle core.class.Status queries (used by findProjectWithStatuses)
     if (String(_class) === String(core.class.Status)) {
@@ -343,6 +382,12 @@ const createTestLayerWithMocks = (config: MockConfig) => {
         return Effect.succeed(matching.at(0))
       }
       return Effect.succeed(undefined)
+    }
+    if (_class === tracker.class.Milestone) {
+      const found = milestones.find(
+        (milestone) => milestone.space === queryField(query, "space") && milestone._id === queryField(query, "_id")
+      )
+      return Effect.succeed(found)
     }
     if (_class === contact.class.Channel) {
       const q = query as Record<string, unknown>
@@ -654,6 +699,121 @@ describe("listIssues", () => {
         expect(captureQuery.query).toBeUndefined()
       })
     )
+
+    it.effect("filters by milestone ID before the issue limit and projects its stable reference", () =>
+      Effect.gen(function* () {
+        const project = makeProject()
+        const milestone = makeMilestone(project, milestoneId("milestone-1"), milestoneLabel("Sprint 1"))
+        const issue = makeIssue({ milestone: milestone._id })
+        const statuses = [makeStatus({ _id: docRef<Status>("status-open"), name: "Open" })]
+        const captureQuery: MockConfig["captureIssueQuery"] = {}
+        const testLayer = createTestLayerWithMocks({
+          projects: [project],
+          issues: [issue],
+          statuses,
+          milestones: [milestone],
+          captureIssueQuery: captureQuery
+        })
+
+        const result = yield* listIssues({
+          project: projectIdentifier("TEST"),
+          milestone: milestoneIdentifier("milestone-1"),
+          limit: 1
+        }).pipe(Effect.provide(testLayer), withDiagnostics)
+
+        expect(captureQuery.query?.milestone).toBe("milestone-1")
+        expect(captureQuery.options?.limit).toBe(1)
+        expect(result[0]?.milestone).toEqual({ id: "milestone-1", label: "Sprint 1" })
+      })
+    )
+
+    it.effect("resolves an exact milestone label after trimming and case normalization", () =>
+      Effect.gen(function* () {
+        const project = makeProject()
+        const milestone = makeMilestone(project, milestoneId("milestone-1"), milestoneLabel("Sprint 1"))
+        const statuses = [makeStatus({ _id: docRef<Status>("status-open"), name: "Open" })]
+        const captureQuery: MockConfig["captureIssueQuery"] = {}
+        const testLayer = createTestLayerWithMocks({
+          projects: [project],
+          issues: [makeIssue({ milestone: milestone._id })],
+          statuses,
+          milestones: [milestone],
+          captureIssueQuery: captureQuery
+        })
+
+        yield* listIssues({ project: projectIdentifier("TEST"), milestone: milestoneIdentifier("  sprint 1  ") }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
+
+        expect(captureQuery.query?.milestone).toBe("milestone-1")
+      })
+    )
+
+    it.effect("batch-resolves unique milestone references for listed issues", () =>
+      Effect.gen(function* () {
+        const project = makeProject()
+        const milestone = makeMilestone(project, milestoneId("milestone-1"), milestoneLabel("Sprint 1"))
+        const statuses = [makeStatus({ _id: docRef<Status>("status-open"), name: "Open" })]
+        const captureMilestoneQueries: Array<unknown> = []
+        const testLayer = createTestLayerWithMocks({
+          projects: [project],
+          issues: [
+            makeIssue({ _id: docRef<HulyIssue>("issue-1"), identifier: "TEST-1", milestone: milestone._id }),
+            makeIssue({ _id: docRef<HulyIssue>("issue-2"), identifier: "TEST-2", milestone: milestone._id })
+          ],
+          statuses,
+          milestones: [milestone],
+          captureMilestoneQueries
+        })
+
+        const result = yield* listIssues({ project: projectIdentifier("TEST") }).pipe(
+          Effect.provide(testLayer),
+          withDiagnostics
+        )
+
+        expect(result.map((issue) => issue.milestone)).toEqual([
+          { id: "milestone-1", label: "Sprint 1" },
+          { id: "milestone-1", label: "Sprint 1" }
+        ])
+        expect(captureMilestoneQueries).toHaveLength(1)
+        expect(queryField(captureMilestoneQueries[0], "_id")).toEqual({ $in: [milestone._id] })
+      })
+    )
+
+    it.effect("rejects missing and ambiguous milestone locators with typed errors", () =>
+      Effect.gen(function* () {
+        const project = makeProject()
+        const statuses = [makeStatus({ _id: docRef<Status>("status-open"), name: "Open" })]
+        const milestones = [
+          makeMilestone(project, milestoneId("milestone-1"), milestoneLabel("Sprint 1")),
+          makeMilestone(project, milestoneId("milestone-2"), milestoneLabel("sprint 1"))
+        ]
+        const testLayer = createTestLayerWithMocks({ projects: [project], statuses, milestones })
+
+        const missing = yield* Effect.flip(
+          listIssues({ project: projectIdentifier("TEST"), milestone: milestoneIdentifier("Missing") }).pipe(
+            Effect.provide(testLayer),
+            withDiagnostics
+          )
+        )
+        const ambiguous = yield* Effect.flip(
+          listIssues({ project: projectIdentifier("TEST"), milestone: milestoneIdentifier("SPRINT 1") }).pipe(
+            Effect.provide(testLayer),
+            withDiagnostics
+          )
+        )
+
+        expect(missing._tag).toBe("MilestoneNotFoundError")
+        expect(ambiguous._tag).toBe("MilestoneIdentifierAmbiguousError")
+        if (ambiguous._tag === "MilestoneIdentifierAmbiguousError") {
+          expect(ambiguous.candidates).toEqual([
+            { id: "milestone-1", label: "Sprint 1" },
+            { id: "milestone-2", label: "sprint 1" }
+          ])
+        }
+      })
+    )
   })
 
   describe("error handling", () => {
@@ -952,6 +1112,51 @@ describe("getIssue", () => {
         }).pipe(Effect.provide(testLayer), withDiagnostics)
 
         expect(result.identifier).toBe("TEST-5")
+      })
+    )
+
+    it.effect("projects the assigned milestone on a full issue", () =>
+      Effect.gen(function* () {
+        const project = makeProject()
+        const milestone = makeMilestone(project, milestoneId("milestone-1"), milestoneLabel("Sprint 1"))
+        const issue = makeIssue({ milestone: milestone._id })
+        const statuses = [makeStatus({ _id: docRef<Status>("status-open"), name: "Open" })]
+        const testLayer = createTestLayerWithMocks({
+          projects: [project],
+          issues: [issue],
+          statuses,
+          milestones: [milestone]
+        })
+
+        const result = yield* getIssue({
+          project: projectIdentifier("TEST"),
+          identifier: issueIdentifier("TEST-1")
+        }).pipe(Effect.provide(testLayer), withDiagnostics)
+
+        expect(result.milestone).toEqual({ id: "milestone-1", label: "Sprint 1" })
+      })
+    )
+
+    it.effect("omits an unresolved milestone reference and emits one bounded warning", () =>
+      Effect.gen(function* () {
+        const project = makeProject()
+        const issue = makeIssue({ milestone: docRef<HulyMilestone>("deleted-milestone") })
+        const statuses = [
+          makeStatus({ _id: docRef<Status>("status-open"), name: "Open", category: task.statusCategory.Active })
+        ]
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], statuses })
+        const diagnostics = yield* makeDiagnosticsScope
+
+        const result = yield* getIssue({
+          project: projectIdentifier("TEST"),
+          identifier: issueIdentifier("TEST-1")
+        }).pipe(Effect.provide(testLayer), Effect.provideService(Diagnostics, diagnostics.service))
+        const warnings = yield* diagnostics.drainWarnings
+
+        expect(result.milestone).toBeUndefined()
+        const milestoneWarnings = warnings.filter((warning) => warning.code === "issue_milestone_metadata_degraded")
+        expect(milestoneWarnings).toHaveLength(1)
+        expect(milestoneWarnings[0]?.message).toContain("1 unresolved milestone reference")
       })
     )
 

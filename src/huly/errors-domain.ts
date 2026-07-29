@@ -207,6 +207,7 @@ import {
   IssueNotFoundError,
   IssueReferenceError,
   IssueTemplateNotFoundError,
+  MilestoneIdentifierAmbiguousError,
   MilestoneNotFoundError,
   ProjectNotFoundError,
   TemplateChildNotFoundError
@@ -280,6 +281,7 @@ export const HulyDomainError = Schema.Union(
   DocumentEditModeError,
   DocumentReferenceError,
   CommentNotFoundError,
+  MilestoneIdentifierAmbiguousError,
   MilestoneNotFoundError,
   HulyMessagingDomainError,
   CalendarNotAccessibleError,

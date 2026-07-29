@@ -19,12 +19,19 @@ import { IssueSummarySchema, parseIssue } from "../../domain/schemas/issues.js"
 import { IssueId, type ProjectIdentifier } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import type { Diagnostics } from "../diagnostics.js"
-import type { ComponentNotFoundError, InvalidStatusError, ProjectNotFoundError } from "../errors.js"
+import type {
+  ComponentNotFoundError,
+  InvalidStatusError,
+  MilestoneIdentifierAmbiguousError,
+  MilestoneNotFoundError,
+  ProjectNotFoundError
+} from "../errors.js"
 import { HulyConnectionError, IssueNotFoundError } from "../errors.js"
 import { contact, tracker } from "../huly-plugins.js"
 import { findComponentByIdOrLabel } from "./components.js"
 import { findPersonByEmailOrName } from "./contacts-shared.js"
 import { issueIdsMatchingLabel, labelsForIssue, loadIssueLabelIndex } from "./issue-labels-read.js"
+import { loadIssueMilestoneIndex, milestoneForIssue } from "./issue-milestones-read.js"
 import { topLevelIssueParent } from "./issues-parent.js"
 import {
   findIssueInProject,
@@ -34,6 +41,7 @@ import {
   resolveStatusByName,
   type WorkflowStatus
 } from "./issues-shared.js"
+import { resolveIssueFilterMilestone } from "./milestone-resolution.js"
 import { clampLimit, escapeLikeWildcards, hulyQuery, type StrictDocumentQuery, withLookup } from "./query-helpers.js"
 
 type ListIssuesError =
@@ -43,6 +51,8 @@ type ListIssuesError =
   | IssueNotFoundError
   | InvalidStatusError
   | ComponentNotFoundError
+  | MilestoneNotFoundError
+  | MilestoneIdentifierAmbiguousError
 
 type GetIssueError = HulyClientError | HulyConnectionError | ProjectNotFoundError | IssueNotFoundError
 
@@ -154,6 +164,14 @@ export const listIssues = (
       query.component = null
     }
 
+    if (params.milestone !== undefined) {
+      query.milestone = (yield* resolveIssueFilterMilestone(client, project, params.milestone, params.project))._id
+    } else if (params.hasMilestone === true) {
+      query.milestone = { $ne: null }
+    } else if (params.hasMilestone === false) {
+      query.milestone = null
+    }
+
     if (params.isTopLevel === true) {
       query.attachedTo = topLevelIssueParent().attachedTo
     }
@@ -190,10 +208,12 @@ export const listIssues = (
             issues.map((issue) => issue._id)
           )
         : labelFilterContext.index
+    const milestoneIndex = yield* loadIssueMilestoneIndex(client, project, issues)
     const rawSummaries = issues.map((issue) => {
       const statusName = resolveStatusName(statuses, issue.status)
       const assigneeName = issue.$lookup?.assignee?.name
       const directParent = issue.parents.length > 0 ? issue.parents[issue.parents.length - 1] : undefined
+      const milestone = milestoneForIssue(milestoneIndex, issue)
 
       return {
         issueId: IssueId.make(issue._id),
@@ -205,6 +225,7 @@ export const listIssues = (
         parentIssue: directParent?.identifier,
         subIssues: issue.subIssues > 0 ? issue.subIssues : undefined,
         labels: labelsForIssue(labelIndex, issue._id),
+        ...(milestone === undefined ? {} : { milestone }),
         modifiedOn: issue.modifiedOn
       }
     })
@@ -264,6 +285,8 @@ export const getIssue = (params: GetIssueParams): Effect.Effect<Issue, GetIssueE
 
     const directParent = issue.parents.length > 0 ? issue.parents[issue.parents.length - 1] : undefined
     const labelIndex = yield* loadIssueLabelIndex(client, project._id, [issue._id])
+    const milestoneIndex = yield* loadIssueMilestoneIndex(client, project, [issue])
+    const milestone = milestoneForIssue(milestoneIndex, issue)
 
     return yield* parseIssue({
       issueId: IssueId.make(issue._id),
@@ -275,6 +298,7 @@ export const getIssue = (params: GetIssueParams): Effect.Effect<Issue, GetIssueE
       assignee: person?.name,
       assigneeRef: person ? { id: person._id, name: person.name } : undefined,
       labels: labelsForIssue(labelIndex, issue._id),
+      ...(milestone === undefined ? {} : { milestone }),
       project: params.project,
       parentIssue: directParent?.identifier,
       subIssues: issue.subIssues > 0 ? issue.subIssues : undefined,

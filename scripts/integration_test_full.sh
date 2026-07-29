@@ -2181,11 +2181,39 @@ if [ $? -eq 0 ]; then
 
   # set_issue_milestone
   run_capture_to_var SET_MS_TEXT "create_issue(for_milestone)" \
-    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"title\":\"MS Test Issue\"}},\"id\":2}"
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"title\":\"MS Test Issue $RUN_ID\"}},\"id\":2}"
   if [ $? -eq 0 ]; then
     SET_MS_ISSUE=$(echo "$SET_MS_TEXT" | jq -r '.identifier' 2>/dev/null)
+    SET_MS_TITLE_JSON=$(json_string "MS Test Issue $RUN_ID")
     run_test "set_issue_milestone($SET_MS_ISSUE)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_issue_milestone\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$SET_MS_ISSUE\",\"milestone\":\"Updated MS\"}},\"id\":2}"
+
+    wait_for_json_array_contains_to_var SET_MS_GET_TEXT "get_issue projects assigned milestone ID" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$SET_MS_ISSUE\"}},\"id\":2}" \
+      "[.milestone.id]" "$MS_ID"
+    assert_json_field_equals "get_issue projects assigned milestone label" "$SET_MS_GET_TEXT" \
+      ".milestone.label" "Updated MS"
+
+    wait_for_json_array_contains_to_var SET_MS_LIST_ID_TEXT "list_issues filters by milestone ID" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"milestone\":\"$MS_ID\",\"limit\":1}},\"id\":2}" \
+      "map(.identifier)" "$SET_MS_ISSUE"
+    assert_json_field_equals "list_issues projects assigned milestone label" "$SET_MS_LIST_ID_TEXT" \
+      "map(select(.identifier == \"$SET_MS_ISSUE\")) | first | .milestone.label" "Updated MS"
+    assert_json_field_equals "list_issues projects assigned milestone ID" "$SET_MS_LIST_ID_TEXT" \
+      "map(select(.identifier == \"$SET_MS_ISSUE\")) | first | .milestone.id" "$MS_ID"
+
+    wait_for_json_array_contains_to_var SET_MS_LIST_LABEL_TEXT "list_issues composes milestone label and title filters" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"milestone\":\" updated ms \",\"titleSearch\":$SET_MS_TITLE_JSON,\"limit\":1}},\"id\":2}" \
+      "map(.identifier)" "$SET_MS_ISSUE"
+    wait_for_json_array_contains_to_var SET_MS_HAS_TRUE_TEXT "list_issues(hasMilestone:true) includes assigned issue" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"hasMilestone\":true,\"titleSearch\":$SET_MS_TITLE_JSON,\"limit\":1}},\"id\":2}" \
+      "map(.identifier)" "$SET_MS_ISSUE"
+
+    run_test "set_issue_milestone(clear:$SET_MS_ISSUE)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_issue_milestone\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$SET_MS_ISSUE\",\"milestone\":null}},\"id\":2}"
+    wait_for_json_array_contains_to_var SET_MS_HAS_FALSE_TEXT "list_issues(hasMilestone:false) includes cleared issue" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"hasMilestone\":false,\"titleSearch\":$SET_MS_TITLE_JSON,\"limit\":1}},\"id\":2}" \
+      "map(.identifier)" "$SET_MS_ISSUE"
     run_test "delete_issue(ms_test:$SET_MS_ISSUE)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$SET_MS_ISSUE\"}},\"id\":2}"
   fi

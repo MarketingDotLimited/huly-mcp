@@ -5,6 +5,8 @@
  */
 import { Schema } from "effect"
 
+import { MilestoneId, MilestoneIdentifier, MilestoneLabel, ProjectIdentifier } from "../domain/schemas/shared.js"
+
 /**
  * Issue not found in the specified project.
  */
@@ -73,6 +75,22 @@ export class MilestoneNotFoundError extends Schema.TaggedError<MilestoneNotFound
 }) {
   override get message(): string {
     return `Milestone '${this.identifier}' not found in project '${this.project}'`
+  }
+}
+
+const MilestoneAmbiguousCandidateSchema = Schema.Struct({ id: MilestoneId, label: MilestoneLabel })
+
+export class MilestoneIdentifierAmbiguousError extends Schema.TaggedError<MilestoneIdentifierAmbiguousError>()(
+  "MilestoneIdentifierAmbiguousError",
+  {
+    identifier: MilestoneIdentifier,
+    project: ProjectIdentifier,
+    candidates: Schema.Array(MilestoneAmbiguousCandidateSchema)
+  }
+) {
+  override get message(): string {
+    const candidates = this.candidates.map(({ id, label }) => `${label} (${id})`).join(", ")
+    return `Milestone '${this.identifier}' is ambiguous in project '${this.project}'; use an exact milestone ID. Matches: ${candidates}`
   }
 }
 

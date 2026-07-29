@@ -105,7 +105,7 @@ export const issueTools = [
       name: "list_issues",
       description: `Query Huly issues with optional filters. Returns issues sorted by modification date (newest first). Supports filtering by project, exact workflow status name (status), Huly SDK task.statusCategory key (statusCategory: ${enumValuesDescription(
         StatusCategoryValues
-      )}), assignee, component, a human-readable attached label title (label, exact and case-insensitive), parentIssue (to list children of a specific issue), and isTopLevel (to return only native top-level issues). The label filter is applied before the result limit. Supports searching by title substring (titleSearch) and description content (descriptionSearch). Each result includes deterministic label summaries with title and available color; missing labels are an empty array, duplicate titles collapse case-insensitively while preferring a valid color, and unusable partial attachments are omitted with a tool warning.`,
+      )}), assignee, component, a human-readable attached label title (label, exact and case-insensitive), milestone (project-scoped ID or exact case-insensitive label), milestone presence (hasMilestone), parentIssue (to list children of a specific issue), and isTopLevel (to return only native top-level issues). Label and milestone filters are applied before the result limit. Each result includes the assigned milestone as { id, label } when resolvable. Supports searching by title substring (titleSearch) and description content (descriptionSearch). Each result includes deterministic label summaries with title and available color; missing labels are an empty array, duplicate titles collapse case-insensitively while preferring a valid color, and unusable partial attachments are omitted with a tool warning.`,
       category: CATEGORY,
       inputSchema: listIssuesParamsJsonSchema,
       resultSchema: ListIssuesResultSchema
@@ -117,7 +117,7 @@ export const issueTools = [
     {
       name: "get_issue",
       description:
-        "Retrieve full details for a Huly issue including markdown description and deterministic attached-label summaries with title and available color. Missing labels are an empty array, duplicate titles collapse case-insensitively while preferring a valid color, and unusable partial attachments are omitted with a tool warning. Use this to view issue content, comments, classification, or full metadata.",
+        "Retrieve full details for a Huly issue including markdown description, its assigned milestone as { id, label } when resolvable, and deterministic attached-label summaries with title and available color. Missing labels are an empty array, duplicate titles collapse case-insensitively while preferring a valid color, and unusable partial attachments are omitted with a tool warning. Use this to view issue content, comments, classification, or full metadata.",
       category: CATEGORY,
       inputSchema: getIssueParamsJsonSchema,
       resultSchema: GetIssueResultSchema

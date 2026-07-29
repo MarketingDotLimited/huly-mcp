@@ -17,6 +17,9 @@ import {
   IssueIdentifier,
   LimitParam,
   MAX_COLOR_INDEX,
+  MilestoneId,
+  MilestoneIdentifier,
+  MilestoneLabel,
   NonEmptyString,
   PersonId,
   PersonName,
@@ -84,6 +87,13 @@ export const PersonRefSchema = Schema.Struct({
 
 export type PersonRef = Schema.Schema.Type<typeof PersonRefSchema>
 
+export const IssueMilestoneRefSchema = Schema.Struct({ id: MilestoneId, label: MilestoneLabel }).annotations({
+  title: "IssueMilestoneRef",
+  description: "Stable ID and human-readable label for the issue's assigned milestone."
+})
+
+export type IssueMilestoneRef = Schema.Schema.Type<typeof IssueMilestoneRefSchema>
+
 const IssueIdOutputSchema = IssueId.annotations({
   description:
     "Raw Huly issue _id. For raw objectId/objectClass tools, pair this with objectClass 'tracker:class:Issue'. Prefer friendly issue locators when a tool provides them."
@@ -103,6 +113,7 @@ export const IssueSummarySchema = Schema.Struct({
     description:
       "Attached labels sorted by title. Empty when no usable label attachments exist; duplicate titles are collapsed case-insensitively, preferring a reference with a valid color."
   }),
+  milestone: Schema.optionalWith(IssueMilestoneRefSchema, { exact: true }),
   modifiedOn: Schema.optional(Timestamp)
 }).annotations({ title: "IssueSummary", description: "Issue summary for list operations" })
 
@@ -122,6 +133,7 @@ export const IssueSchema = Schema.Struct({
     description:
       "Attached labels sorted by title. Empty when no usable label attachments exist; duplicate titles are collapsed case-insensitively, preferring a reference with a valid color."
   }),
+  milestone: Schema.optionalWith(IssueMilestoneRefSchema, { exact: true }),
   project: ProjectIdentifier,
   parentIssue: Schema.optional(IssueIdentifier),
   subIssues: Schema.optional(Count),
@@ -170,6 +182,16 @@ const ListIssuesParamsBase = Schema.Struct({
         "Filter by an attached human-readable label title. Matching is exact after trimming and case-insensitive; duplicate attachments do not duplicate issues."
     })
   ),
+  milestone: Schema.optional(MilestoneIdentifier).annotations({
+    description:
+      "Milestone ID or exact project-scoped label after trimming and case-insensitive matching. Mutually exclusive with hasMilestone."
+  }),
+  hasMilestone: Schema.optional(
+    Schema.Boolean.annotations({
+      description:
+        "Filter by milestone presence. true = only scheduled issues, false = only issues without a milestone."
+    })
+  ),
   hasAssignee: Schema.optional(
     Schema.Boolean.annotations({
       description: "Filter by assignee presence. true = only assigned issues, false = only unassigned issues."
@@ -208,6 +230,9 @@ export const ListIssuesParamsSchema = ListIssuesParamsBase.pipe(
     }
     if (params.component !== undefined && params.hasComponent !== undefined) {
       return "Cannot provide both 'component' and 'hasComponent'. Use one or the other."
+    }
+    if (params.milestone !== undefined && params.hasMilestone !== undefined) {
+      return "Cannot provide both 'milestone' and 'hasMilestone'. Use one or the other."
     }
     if (params.parentIssue !== undefined && params.isTopLevel === true) {
       return "Cannot provide both 'parentIssue' and 'isTopLevel: true'. parentIssue requests children; isTopLevel requests parentless issues."

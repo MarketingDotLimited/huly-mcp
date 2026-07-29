@@ -156,6 +156,7 @@ import {
   MessageTemplateCategoryNotFoundError,
   MessageTemplateIdentifierAmbiguousError,
   MessageTemplateNotFoundError,
+  MilestoneIdentifierAmbiguousError,
   MilestoneNotFoundError,
   NotificationContextNotFoundError,
   NotificationNotFoundError,
@@ -218,7 +219,15 @@ import {
   ViewletNotFoundError
 } from "../../src/huly/errors.js"
 import { normalizeHulyOrigin } from "../../src/huly/unavailable-diagnostics.js"
-import { funnelIdentifier, funnelReference, leadIdentifier } from "../helpers/brands.js"
+import {
+  funnelIdentifier,
+  funnelReference,
+  leadIdentifier,
+  milestoneId,
+  milestoneIdentifier,
+  milestoneLabel,
+  projectIdentifier
+} from "../helpers/brands.js"
 
 describe("Huly Errors", () => {
   describe("HulyError", () => {
@@ -524,6 +533,25 @@ describe("Huly Errors", () => {
       Effect.sync(function () {
         const error = new MilestoneNotFoundError({ identifier: "v1.0", project: "HULY" })
         expect(error.message).toBe("Milestone 'v1.0' not found in project 'HULY'")
+      })
+    )
+  })
+
+  describe("MilestoneIdentifierAmbiguousError", () => {
+    it.effect("lists candidate labels and IDs in its actionable message", () =>
+      Effect.sync(function () {
+        const error = new MilestoneIdentifierAmbiguousError({
+          identifier: milestoneIdentifier("Sprint 1"),
+          project: projectIdentifier("HULY"),
+          candidates: [
+            { id: milestoneId("milestone-1"), label: milestoneLabel("Sprint 1") },
+            { id: milestoneId("milestone-2"), label: milestoneLabel("sprint 1") }
+          ]
+        })
+
+        expect(error.message).toContain("use an exact milestone ID")
+        expect(error.message).toContain("Sprint 1 (milestone-1)")
+        expect(error.message).toContain("sprint 1 (milestone-2)")
       })
     )
   })
@@ -1071,6 +1099,8 @@ describe("Huly Errors", () => {
               return `comment:${error.commentId}`
             case "MilestoneNotFoundError":
               return `milestone:${error.identifier}`
+            case "MilestoneIdentifierAmbiguousError":
+              return `milestone-ambiguous:${error.identifier}:${error.candidates.length}`
             case "ChannelNotFoundError":
               return `channel:${error.identifier}`
             case "ChannelArchivedError":
@@ -1785,6 +1815,18 @@ describe("Huly Errors", () => {
           "comment:c-1"
         )
         expect(matchError(new MilestoneNotFoundError({ identifier: "m-1", project: "P" }))).toBe("milestone:m-1")
+        expect(
+          matchError(
+            new MilestoneIdentifierAmbiguousError({
+              identifier: milestoneIdentifier("Sprint"),
+              project: projectIdentifier("P"),
+              candidates: [
+                { id: milestoneId("m-1"), label: milestoneLabel("Sprint") },
+                { id: milestoneId("m-2"), label: milestoneLabel("sprint") }
+              ]
+            })
+          )
+        ).toBe("milestone-ambiguous:Sprint:2")
         expect(matchError(new ChannelNotFoundError({ identifier: "ch-1" }))).toBe("channel:ch-1")
         expect(matchError(new ChannelArchivedError({ channel: "general" }))).toBe("channel-archived:general")
         expect(matchError(new ChannelLastMemberRemovalError({ channel: "general" }))).toBe(

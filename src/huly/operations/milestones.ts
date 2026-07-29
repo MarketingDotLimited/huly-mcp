@@ -20,14 +20,21 @@ import type {
   UpdateMilestoneResult
 } from "../../domain/schemas/milestones.js"
 import { UPDATE_MILESTONE_FIELDS } from "../../domain/schemas/milestones.js"
-import { IssueIdentifier, MilestoneId, MilestoneLabel, Timestamp } from "../../domain/schemas/shared.js"
+import {
+  IssueIdentifier,
+  MilestoneId,
+  type MilestoneIdentifier,
+  MilestoneLabel,
+  type ProjectIdentifier,
+  Timestamp
+} from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import type { IssueNotFoundError, NoUpdateFieldsError, ProjectNotFoundError } from "../errors.js"
-import { MilestoneNotFoundError } from "../errors.js"
+import type { MilestoneNotFoundError } from "../errors.js"
 import { clearTextAsEmptyString, textContentOrClear } from "./clear-field-updates.js"
 import { findProject, findProjectAndIssue } from "./issues-shared.js"
-import { clampLimit, findByNameOrId } from "./query-helpers.js"
-import { toRef } from "./sdk-boundary.js"
+import { resolveMilestoneExact } from "./milestone-resolution.js"
+import { clampLimit } from "./query-helpers.js"
 import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
 import { tracker } from "../huly-plugins.js"
@@ -64,30 +71,9 @@ const stringToMilestoneStatusMap = {
 
 const stringToMilestoneStatus = (status: MilestoneStatusStr): MilestoneStatus => stringToMilestoneStatusMap[status]
 
-const findMilestone = (
-  client: HulyClient["Type"],
-  project: HulyProject,
-  milestoneIdentifier: string,
-  projectIdentifier: string
-): Effect.Effect<HulyMilestone, MilestoneNotFoundError | HulyClientError> =>
-  Effect.gen(function* () {
-    const milestone = yield* findByNameOrId(
-      client,
-      tracker.class.Milestone,
-      { space: project._id, _id: toRef<HulyMilestone>(milestoneIdentifier) },
-      { space: project._id, label: milestoneIdentifier }
-    )
-
-    if (milestone === undefined) {
-      return yield* new MilestoneNotFoundError({ identifier: milestoneIdentifier, project: projectIdentifier })
-    }
-
-    return milestone
-  })
-
 const findProjectAndMilestone = (params: {
-  project: string
-  milestone: string
+  project: ProjectIdentifier
+  milestone: MilestoneIdentifier
 }): Effect.Effect<
   { client: HulyClient["Type"]; project: HulyProject; milestone: HulyMilestone },
   ProjectNotFoundError | MilestoneNotFoundError | HulyClientError,
@@ -95,7 +81,7 @@ const findProjectAndMilestone = (params: {
 > =>
   Effect.gen(function* () {
     const { client, project } = yield* findProject(params.project)
-    const milestone = yield* findMilestone(client, project, params.milestone, params.project)
+    const milestone = yield* resolveMilestoneExact(client, project, params.milestone, params.project)
     return { client, project, milestone }
   })
 
@@ -226,7 +212,9 @@ export const setIssueMilestone = (
     const { client, issue, project } = yield* findProjectAndIssue(params)
 
     const milestoneRef: Ref<HulyMilestone> | null =
-      params.milestone !== null ? (yield* findMilestone(client, project, params.milestone, params.project))._id : null
+      params.milestone !== null
+        ? (yield* resolveMilestoneExact(client, project, params.milestone, params.project))._id
+        : null
 
     yield* client.updateDoc(tracker.class.Issue, project._id, issue._id, { milestone: milestoneRef })
 
