@@ -91,6 +91,7 @@ import {
   FileNotFoundError,
   FileTooLargeError,
   FileUploadError,
+  HulyStorageConfigError,
   InvalidContentTypeError,
   InvalidFileDataError,
   SavedAttachmentNotFoundError
@@ -269,6 +270,7 @@ export const HulyDomainError = Schema.Union(
   InvalidFileDataError,
   FileNotFoundError,
   FileFetchError,
+  HulyStorageConfigError,
   TeamspaceNotFoundError,
   DocumentNotFoundError,
   DocumentTextNotFoundError,

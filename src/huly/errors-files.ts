@@ -21,6 +21,15 @@ const RawDrawingIdentifier = Schema.String
 const RawFilename = Schema.String
 const RawMimeType = Schema.String
 const RawByteCount = Schema.Number
+const HulyStorageConfigField = Schema.Literal("FILES_URL", "UPLOAD_URL")
+
+export class HulyStorageConfigError extends Schema.TaggedError<HulyStorageConfigError>()("HulyStorageConfigError", {
+  field: HulyStorageConfigField
+}) {
+  override get message(): string {
+    return `Invalid Huly server config field '${this.field}': expected a non-empty string`
+  }
+}
 
 /**
  * File upload error - storage operation failed.
