@@ -43,6 +43,13 @@ const modernRequest = (
   })
 }
 
+const legacyRequest = (method: string, params: Record<string, unknown>): Request =>
+  new Request("http://localhost/mcp", {
+    method: "POST",
+    headers: { accept: "application/json, text/event-stream", "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params })
+  })
+
 const consume = async (response: Response): Promise<void> => {
   await response.text()
   await Promise.resolve()
@@ -121,6 +128,24 @@ describe("request-scoped Huly client lifecycle", () => {
     )
 
     await consume(await handler.fetch(modernRequest("tools/call", { name: "work", arguments: {} }, { name: "work" })))
+    await waitForCleanup()
+
+    expect(probe.acquireCount()).toBe(1)
+    expect(probe.closeCount()).toBe(1)
+    await handler.close()
+  })
+
+  it("releases an acquired lease after a legacy stateless tool call", async () => {
+    const probe = createLifecycleProbe()
+    const handler = createMcpHandler(
+      () =>
+        createLifecycleServer(probe, async (lifecycle) => {
+          await lifecycle.resolve()
+        }),
+      { legacy: "stateless" }
+    )
+
+    await consume(await handler.fetch(legacyRequest("tools/call", { name: "work", arguments: {} })))
     await waitForCleanup()
 
     expect(probe.acquireCount()).toBe(1)

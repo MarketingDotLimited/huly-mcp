@@ -18,6 +18,7 @@ import { toolRegistry } from "../../src/mcp/tools/index.js"
 import type { TelemetryOperations } from "../../src/telemetry/telemetry.js"
 
 const protocolVersion = "2026-07-28"
+const legacyProtocolVersion = "2025-06-18"
 const AnyRecordSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
 const JsonRpcResponseSchema = Schema.Struct({
   jsonrpc: Schema.Literal("2.0"),
@@ -33,8 +34,18 @@ const JsonRpcResponseSchema = Schema.Struct({
   )
 })
 
-const parseResponse = async (response: Response): Promise<Schema.Schema.Type<typeof JsonRpcResponseSchema>> =>
-  Schema.decodeUnknownSync(JsonRpcResponseSchema)(await response.json())
+const parseResponse = async (response: Response): Promise<Schema.Schema.Type<typeof JsonRpcResponseSchema>> => {
+  const body = await response.text()
+  const json =
+    response.headers.get("content-type")?.includes("text/event-stream") === true
+      ? body
+          .split("\n")
+          .find((line) => line.startsWith("data: "))
+          ?.slice("data: ".length)
+      : body
+  if (json === undefined) throw new Error("Expected an SSE data event")
+  return Schema.decodeUnknownSync(JsonRpcResponseSchema)(JSON.parse(json))
+}
 
 const isJsonObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
@@ -42,7 +53,7 @@ const isJsonObject = (value: unknown): value is Record<string, unknown> =>
 const createTestServer = (): Server => {
   const server = new Server(
     { name: "huly-mcp-test", version: "1.0.0" },
-    { capabilities: { resources: {}, tools: {} }, instructions: "strict final protocol" }
+    { capabilities: { resources: {}, tools: {} }, instructions: "final protocol with legacy compatibility" }
   )
   server.setRequestHandler("tools/list", async () => ({
     tools: [{ name: "hello", description: "Return a greeting.", inputSchema: { type: "object" } }]
@@ -185,7 +196,7 @@ afterEach(async () => {
   startedServers.clear()
 })
 
-describe("strict MCP 2026-07-28 HTTP transport", () => {
+describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
   it("connects with the released SDK client pinned to the final protocol", async () => {
     const endpoint = await listen()
     const client = new Client(
@@ -231,7 +242,7 @@ describe("strict MCP 2026-07-28 HTTP transport", () => {
     expect(body.result).toMatchObject({
       supportedVersions: [protocolVersion],
       capabilities: { tools: {}, resources: {} },
-      instructions: "strict final protocol",
+      instructions: "final protocol with legacy compatibility",
       resultType: "complete",
       ttlMs: 0,
       cacheScope: "private",
@@ -240,7 +251,7 @@ describe("strict MCP 2026-07-28 HTTP transport", () => {
     await endpoint.close()
   })
 
-  it("rejects initialize-era clients instead of serving a legacy handshake", async () => {
+  it("serves the 2025-06-18 initialize handshake", async () => {
     const endpoint = await listen()
     const response = await fetch(endpoint.baseUrl, {
       method: "POST",
@@ -249,14 +260,36 @@ describe("strict MCP 2026-07-28 HTTP transport", () => {
         jsonrpc: "2.0",
         id: 1,
         method: "initialize",
-        params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "old", version: "1" } }
+        params: {
+          protocolVersion: legacyProtocolVersion,
+          capabilities: {},
+          clientInfo: { name: "legacy-http-client", version: "1" }
+        }
       })
     })
     const body = await parseResponse(response)
 
-    expect(response.status).toBe(400)
-    expect(body.error).toMatchObject({ code: -32022 })
-    expect(body.error?.message).toContain("Unsupported protocol version")
+    expect(response.status).toBe(200)
+    expect(body.result).toMatchObject({
+      protocolVersion: legacyProtocolVersion,
+      capabilities: { tools: {}, resources: {} },
+      serverInfo: { name: "huly-mcp-test", version: "1.0.0" }
+    })
+    await endpoint.close()
+  })
+
+  it("connects a released legacy HTTP client and lists tools", async () => {
+    const endpoint = await listen()
+    const client = new Client(
+      { name: "legacy-http-client", version: "1.0.0" },
+      { versionNegotiation: { mode: "legacy" } }
+    )
+
+    await client.connect(new StreamableHTTPClientTransport(new URL(endpoint.baseUrl)))
+    const result = await client.listTools()
+
+    expect(result.tools.map((tool) => tool.name)).toContain("hello")
+    await client.close()
     await endpoint.close()
   })
 

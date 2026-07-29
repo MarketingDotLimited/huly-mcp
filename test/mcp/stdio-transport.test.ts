@@ -10,6 +10,7 @@ import { Schema } from "effect"
 import { beforeAll, describe, expect, it } from "vitest"
 
 const protocolVersion = "2026-07-28"
+const legacyProtocolVersion = "2025-06-18"
 const builtServerPath = resolve(process.cwd(), "dist/index.cjs")
 const JsonRpcResponseSchema = Schema.Struct({
   jsonrpc: Schema.Literal("2.0"),
@@ -25,11 +26,12 @@ const JsonRpcResponseSchema = Schema.Struct({
   )
 })
 type JsonRpcResponse = Schema.Schema.Type<typeof JsonRpcResponseSchema>
+type JsonRpcMessage = Parameters<Transport["send"]>[0]
 
 const createTestServer = (): Server => {
   const server = new Server(
     { name: "stdio-test", version: "1.0.0" },
-    { capabilities: { tools: {} }, instructions: "strict final protocol" }
+    { capabilities: { tools: {} }, instructions: "final protocol with legacy compatibility" }
   )
   server.setRequestHandler("tools/list", async () => ({
     tools: [{ name: "hello", description: "Return a greeting.", inputSchema: { type: "object" } }]
@@ -53,12 +55,24 @@ const exchange = async (message: Record<string, unknown>): Promise<JsonRpcRespon
       }
     })
   })
-  const handle = serveStdio(createTestServer, { legacy: "reject", transport: new StdioServerTransport(input, output) })
+  const handle = serveStdio(createTestServer, { legacy: "serve", transport: new StdioServerTransport(input, output) })
   input.write(`${JSON.stringify(message)}\n`)
   const result = await response
   await handle.close()
   return result
 }
+
+const sendAndReceive = (transport: Transport, message: JsonRpcMessage): Promise<JsonRpcResponse> =>
+  new Promise((resolve, reject) => {
+    transport.onmessage = (response) => {
+      try {
+        resolve(Schema.decodeUnknownSync(JsonRpcResponseSchema)(response))
+      } catch (error) {
+        reject(error)
+      }
+    }
+    void transport.send(message).catch(reject)
+  })
 
 const meta = {
   "io.modelcontextprotocol/protocolVersion": protocolVersion,
@@ -95,7 +109,7 @@ class LoopbackStdioClientTransport implements Transport {
   }
 }
 
-describe("strict MCP 2026-07-28 stdio transport", () => {
+describe("MCP 2026-07-28 stdio transport with 2025 compatibility", () => {
   beforeAll(() => {
     execFileSync("pnpm", ["build:mcp"], { cwd: process.cwd(), stdio: "ignore" })
   })
@@ -103,7 +117,7 @@ describe("strict MCP 2026-07-28 stdio transport", () => {
   it("connects with the released SDK client pinned to the final protocol", async () => {
     const transport = new LoopbackStdioClientTransport()
     const serverHandle = serveStdio(createTestServer, {
-      legacy: "reject",
+      legacy: "serve",
       transport: new StdioServerTransport(transport.input, transport.output)
     })
     const client = new Client(
@@ -140,16 +154,96 @@ describe("strict MCP 2026-07-28 stdio transport", () => {
     await client.close()
   })
 
-  it("rejects initialize-era clients with the final unsupported-version code", async () => {
+  it("serves the 2025-06-18 initialize handshake", async () => {
     const response = await exchange({
       jsonrpc: "2.0",
       id: 1,
       method: "initialize",
-      params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "old", version: "1.0.0" } }
+      params: {
+        protocolVersion: legacyProtocolVersion,
+        capabilities: {},
+        clientInfo: { name: "legacy-stdio-client", version: "1.0.0" }
+      }
     })
 
-    expect(response.error?.code).toBe(-32022)
-    expect(response.error?.message).toContain("Unsupported protocol version")
+    expect(response.result).toMatchObject({
+      protocolVersion: legacyProtocolVersion,
+      capabilities: { tools: {} },
+      serverInfo: { name: "stdio-test", version: "1.0.0" }
+    })
+  })
+
+  it("connects a released legacy client and lists tools on the pinned connection", async () => {
+    const transport = new LoopbackStdioClientTransport()
+    const serverHandle = serveStdio(createTestServer, {
+      legacy: "serve",
+      transport: new StdioServerTransport(transport.input, transport.output)
+    })
+    const client = new Client(
+      { name: "legacy-stdio-client", version: "1.0.0" },
+      { versionNegotiation: { mode: "legacy" } }
+    )
+
+    await client.connect(transport)
+    const result = await client.listTools()
+
+    expect(client.getServerVersion()).toMatchObject({ name: "stdio-test", version: "1.0.0" })
+    expect(result.tools.map((tool) => tool.name)).toContain("hello")
+    await client.close()
+    await serverHandle.close()
+  })
+
+  it("connects a released legacy client to the spawned built command", { timeout: 15000 }, async () => {
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [builtServerPath],
+      env: { ...getDefaultEnvironment(), LAZY_ENVS: "true", MCP_AUTO_EXIT: "true" },
+      stderr: "pipe"
+    })
+    const client = new Client(
+      { name: "codex-mcp-client", version: "1.0.0" },
+      { versionNegotiation: { mode: "legacy" } }
+    )
+
+    await client.connect(transport)
+    const tools = await client.listTools()
+
+    expect(tools.tools.map((tool) => tool.name)).toContain("get_huly_context")
+    await client.close()
+  })
+
+  it("serves Codex's exact 2025-06-18 handshake and tool discovery from the built command", async () => {
+    const transport = new StdioClientTransport({
+      command: process.execPath,
+      args: [builtServerPath],
+      env: { ...getDefaultEnvironment(), LAZY_ENVS: "true", MCP_AUTO_EXIT: "true" },
+      stderr: "pipe"
+    })
+    await transport.start()
+
+    const initialized = await sendAndReceive(transport, {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: legacyProtocolVersion,
+        capabilities: {},
+        clientInfo: { name: "codex", version: "1.0.0" }
+      }
+    })
+    await transport.send({ jsonrpc: "2.0", method: "notifications/initialized" })
+    const listed = await sendAndReceive(transport, { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} })
+
+    expect(initialized.result).toMatchObject({ protocolVersion: legacyProtocolVersion })
+    expect(initialized.error).toBeUndefined()
+    expect(listed.result).toMatchObject({
+      tools: expect.arrayContaining(
+        ["get_huly_context", "search_tools", "get_tool_schema", "invoke_tool"].map((name) =>
+          expect.objectContaining({ name })
+        )
+      )
+    })
+    await transport.close()
   })
 
   it("discovers the final protocol and SDK-owned response metadata", async () => {

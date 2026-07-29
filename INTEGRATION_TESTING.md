@@ -173,7 +173,7 @@ HULY_URL="${HULY_URL/localhost/host.docker.internal}" \
   bash scripts/integration_test_full.sh
 ```
 
-This starts `node dist/index.cjs` with `MCP_TRANSPORT=http` and lets the server resolve Huly credentials from process environment variables. The suite always sends the released MCP `2026-07-28` request envelope and required HTTP headers. Both transports reject initialize-era traffic; the harness has no legacy mode.
+This starts `node dist/index.cjs` with `MCP_TRANSPORT=http` and lets the server resolve Huly credentials from process environment variables. The suite sends the released MCP `2026-07-28` request envelope and required HTTP headers. Both transports also retain SDK-owned MCP `2025-06-18` compatibility, covered by focused transport tests rather than a separate integration-harness mode.
 
 To test hosted URL header configuration, provide a Huly API token and run the same suite with credentials sent as request headers:
 

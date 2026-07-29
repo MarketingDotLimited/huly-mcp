@@ -5,8 +5,9 @@ Date: 2026-07-29
 ## Recommendation
 
 Migrate this server to the stable TypeScript SDK v2 packages and make both transports
-strictly final-`2026-07-28`. Use `serveStdio(factory, { legacy: "reject" })` for stdio
-and `createMcpHandler(factory, { legacy: "reject" })` for HTTP. Do not patch the
+serve final `2026-07-28` plus SDK-owned `2025-06-18` compatibility. Use
+`serveStdio(factory, { legacy: "serve" })` for stdio and
+`createMcpHandler(factory, { legacy: "stateless" })` for HTTP. Do not patch the
 repository's hand-written 2026 HTTP dispatcher into final-spec compliance.
 
 This is not a greenfield feature. The repository already has a draft-era implementation
@@ -14,15 +15,14 @@ of stateless 2026 HTTP in `src/mcp/http-2026-boundary.ts` and
 `src/mcp/http-2026-dispatcher.ts`, while stdio still connects directly through the v1
 SDK. The final specification and stable SDK now make that split both unnecessary and
 incorrect in several observable details. Replacing the custom protocol layer with the
-official strict entry points gives one final-protocol registration path and delegates
+official SDK entry points gives one shared registration path and delegates
 negotiation, wire codecs, headers, caching fields, discovery, subscriptions, and future
 errata to the protocol owner.
 
-This is intentionally a breaking compatibility decision. Initialize-era clients will
-stop working after the release and must upgrade to a client that opens with a conforming
-`server/discover`/per-request metadata flow. The package changeset, changelog, README,
-integration instructions, and release announcement must say that explicitly rather
-than presenting the SDK migration as an internal refactor.
+Compatibility remains deliberate rather than implicit: released `2026-07-28` clients
+use discovery and per-request metadata, while deployed `2025-06-18` clients such as the
+current Codex release keep their initialize-era flow. The package changeset, README,
+integration instructions, and release announcement must describe both paths.
 
 The release is ready to adopt:
 
@@ -126,14 +126,13 @@ updated manually.
 
 For protocol serving:
 
-- `serveStdio(() => buildServer(), { legacy: "reject" })` replaces direct
-  `server.connect(new StdioServerTransport())`. The SDK default is dual-era, but the
-  selected strict option rejects a legacy opener with `-32022` while leaving the
-  connection able to receive a modern opener
+- `serveStdio(() => buildServer(), { legacy: "serve" })` replaces direct
+  `server.connect(new StdioServerTransport())`. The SDK pins the connection to the
+  era selected by its opener and uses the same server factory for either path
   ([stdio serving](https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/serving/stdio.md),
   [legacy clients](https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/serving/legacy-clients.md)).
-- `createMcpHandler(factory, { legacy: "reject" })` is the web-standard, stateless,
-  per-request HTTP entry in its modern-only posture. `toNodeHandler` adapts it to
+- `createMcpHandler(factory, { legacy: "stateless" })` is the web-standard,
+  per-request HTTP entry with stateless 2025 fallback. `toNodeHandler` adapts it to
   Express/Node
   ([HTTP serving](https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/serving/http.md)).
 - The SDK adds/removes per-era wire-only fields itself. Application handlers return
@@ -152,8 +151,8 @@ The current code is ahead of v1 but behind the final release:
 | Area | Current repository | Final requirement / consequence |
 | --- | --- | --- |
 | SDK | `@modelcontextprotocol/sdk@1.29.0` | Migrate to stable split v2 packages before adopting official modern entries. |
-| stdio | Direct v1 `StdioServerTransport` connection | It remains handshake-era only. Replace it with strict `serveStdio(..., { legacy: "reject" })`. |
-| HTTP | Custom request classifier, boundary parser, and dispatcher beside v1 transport | Replace both paths with strict `createMcpHandler(..., { legacy: "reject" })` + Node/Express adapter. |
+| stdio | Direct v1 `StdioServerTransport` connection | Replace it with dual-era `serveStdio(..., { legacy: "serve" })`. |
+| HTTP | Custom request classifier, boundary parser, and dispatcher beside v1 transport | Replace both paths with `createMcpHandler(..., { legacy: "stateless" })` + Node/Express adapter. |
 | Header/version errors | Draft codes `-32001` and `-32004` | Final codes are `-32020` and `-32022`. |
 | Request metadata | `clientInfo` is required by the custom parser | Final `clientInfo` is optional; present malformed data is still rejected. |
 | Discovery | `serverInfo` is in the result body; no cache fields | Identity belongs in result `_meta`; discovery requires `ttlMs` and `cacheScope`. |
@@ -204,9 +203,8 @@ not optional cleanup.
 - Add/retain black-box fixtures for the current tool/resource catalog, tool calls,
   per-request Huly `x-huly-*` configuration, bearer-token rejection, graceful shutdown,
   and request-scoped client classification.
-- Define the strict posture in tests: modern requests work, while initialize-era
-  openers receive the SDK's final `UnsupportedProtocolVersion` response and cannot use
-  the server.
+- Define the dual-era posture in tests: modern requests use the final envelope, while
+  exact `2025-06-18` initialize-era clients can initialize and list tools.
 - Record that catalog ordering is deterministic. If current registry order is the
   contract, assert it rather than sorting solely to satisfy the protocol.
 
@@ -223,15 +221,15 @@ not optional cleanup.
 - Keep the low-level shared protocol handler module as the functional core if useful,
   but type its inputs/outputs against v2 neutral types and register it once.
 
-### 3. Adopt the official strict-modern entries
+### 3. Adopt the official dual-era entries
 
 - Make the server builder a cheap factory returning a fresh v2 `Server`/`McpServer`
   with the current identity, instructions, tools, resources, and handlers.
 - Replace stdio transport construction and direct `connect` with
-  `serveStdio(factory, { legacy: "reject" })`. Retain the returned handle for
+  `serveStdio(factory, { legacy: "serve" })`. Retain the returned handle for
   Effect-scoped shutdown and drain telemetry/tool calls before closing it.
 - Replace the custom HTTP branch with one
-  `createMcpHandler(requestAwareFactory, { legacy: "reject" })`, adapt it to Express
+  `createMcpHandler(requestAwareFactory, { legacy: "stateless" })`, adapt it to Express
   through the v2 Node adapter, and keep existing Host/Origin protection, request-body
   handling, bearer authentication, and `x-huly-*` request configuration in the
   imperative shell.
@@ -249,17 +247,17 @@ not optional cleanup.
 - Do not reproduce `resultType`, `server/discover`, server identity stamping, header
   validation, caching fields, or `subscriptions/listen` in application code.
 
-### 5. Verify strict modern behavior and the real service
+### 5. Verify both protocol eras and the real service
 
 - Modern stdio: spawn the built command, open with `server/discover`, then list and
   call a tool without `initialize`.
-- Legacy stdio rejection: send an initialize-era opener and assert the final
-  unsupported-version error; it must not enter the application handler path.
+- Legacy stdio: send an exact `2025-06-18` initialize opener to the built command,
+  complete initialization, and list tools on the same pinned connection.
 - Modern HTTP: exercise discovery, header validation, `tools/list`,
   `resources/templates/list`, `resources/read`, cache fields, server identity, and
   bearer auth through the mounted endpoint.
-- Legacy HTTP rejection: verify a claim-less/initialize-compatible request is rejected
-  by the SDK's strict entry rather than routed into the old v1 transport.
+- Legacy HTTP: verify a `2025-06-18` initialize request and a released legacy client
+  can list tools through the SDK's stateless fallback.
 - Add an official MCP conformance run for the HTTP endpoint if the released
   [conformance framework](https://github.com/modelcontextprotocol/conformance)
   exposes stable 2026 server scenarios; do not baseline unexpected failures merely to
@@ -267,25 +265,22 @@ not optional cleanup.
 - Run `pnpm check-all`, then the required local-Huly integration suite with the
   container URL rewrite documented in `AGENTS.md`.
 
-### 6. Ship the compatibility break visibly
+### 6. Ship the protocol migration visibly
 
-- Add an appropriate Changesets entry describing the removal of initialize-era stdio
-  and HTTP support. Choose the package bump according to this repository's pre-1.0
-  release policy; do not hide it in a patch-only dependency update.
-- Replace README text describing the dual dispatcher with final-only requirements and
-  a concise client-upgrade note.
+- Add an appropriate Changesets entry describing final-protocol support and retained
+  `2025-06-18` compatibility.
+- Replace README text describing the custom dual dispatcher with the SDK-owned
+  dual-era behavior.
 - Remove the integration harness's `legacy|2026` success switch. The normal suite
-  should exercise 2026; retain a focused negative legacy-rejection test.
-- Call out that MCP clients must support final `2026-07-28`, `server/discover`, and the
-  required request headers/metadata before upgrading Huly MCP.
+  should exercise 2026; focused transport tests own legacy compatibility.
 
 ## Acceptance criteria
 
 - One server factory registers Huly tools/resources for final `2026-07-28`.
 - Stdio and HTTP accept a conforming `2026-07-28` client without an initialize
   handshake.
-- Initialize-era stdio and HTTP clients receive the strict SDK rejection and cannot
-  call tools.
+- MCP `2025-06-18` stdio and HTTP clients can initialize and call tools through the
+  SDK-owned compatibility paths.
 - Modern discovery and ordinary results have final-spec identity, result, cache, and
   error shapes; project code does not manually synthesize reserved wire fields.
 - Per-request client identity and `x-huly-*` configuration still select the correct
@@ -296,7 +291,7 @@ not optional cleanup.
 
 ## Remaining decision worth confirming
 
-Compatibility is settled: strict final `2026-07-28`, with no legacy serving.
+Compatibility is settled: final `2026-07-28` plus SDK-owned `2025-06-18` serving.
 
 The remaining product choice is caching: use conservative `0/private` hints at launch
 (recommended), or make a product promise that particular catalogs are safe to share

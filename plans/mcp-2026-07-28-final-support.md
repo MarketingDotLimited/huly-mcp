@@ -6,13 +6,13 @@ Research: [MCP 2026-07-28 support research](../docs/research/mcp-2026-07-28-supp
 
 ## Decision
 
-Adopt the final `2026-07-28` protocol exclusively. Both HTTP and stdio must reject
-pre-2026 clients; there will be no `initialize` compatibility path.
+Adopt the final `2026-07-28` protocol while retaining MCP `2025-06-18`
+compatibility for deployed clients such as the current Codex release.
 
-Use the stable TypeScript SDK v2 serving entries with strict legacy rejection:
+Use only the stable TypeScript SDK v2 serving entries for both eras:
 
-- HTTP: `createMcpHandler(factory, { legacy: "reject" })`
-- stdio: `serveStdio(factory, { legacy: "reject" })`
+- HTTP: `createMcpHandler(factory, { legacy: "stateless" })`
+- stdio: `serveStdio(factory, { legacy: "serve" })`
 
 Delete the repository's hand-written draft protocol boundary instead of updating its
 wire details one-by-one. The official SDK must own discovery, version negotiation,
@@ -29,8 +29,8 @@ implementation; issue
 between that draft path and legacy requests.
 
 The user explicitly advanced the work directly from research and planning to
-implementation, so no tracker mutation was authorized. The SDK migration, strict
-protocol cutover, and removal of the draft dispatcher remain one tracer bullet:
+implementation, so no tracker mutation was authorized. The SDK migration,
+dual-era serving, and removal of the draft dispatcher remain one tracer bullet:
 splitting them would leave an unsupported intermediate transport architecture.
 
 ## Scope
@@ -39,12 +39,12 @@ splitting them would leave an unsupported intermediate transport architecture.
 
 - Stable SDK v2 package migration.
 - Final `2026-07-28` over HTTP and stdio.
-- Strict rejection of all legacy protocol traffic.
+- SDK-owned MCP `2025-06-18` compatibility over HTTP and stdio.
 - One shared, request-aware Huly server factory.
 - Preservation of bearer-token gating, Host/Origin protection, per-request
   `x-huly-*` configuration, telemetry, request cleanup, and graceful shutdown.
 - Final-spec black-box tests and required local-Huly integration.
-- Documentation, manual examples, package metadata, and a breaking changeset.
+- Documentation, manual examples, package metadata, and a release changeset.
 
 ### Out of scope
 
@@ -63,8 +63,11 @@ Before changing dependencies, add fixtures that express the target rather than t
 draft implementation:
 
 - `server/discover` succeeds without `initialize`.
-- A request without the final per-request envelope is rejected as unsupported.
-- An `initialize` request is rejected on both HTTP and stdio.
+- A request without the final per-request envelope is routed to the SDK-owned
+  legacy path.
+- An MCP `2025-06-18` `initialize` request succeeds on both HTTP and stdio.
+- A released legacy client can initialize and call `tools/list`; the spawned
+  stdio test covers the built command used by Codex.
 - Missing/mismatched `MCP-Protocol-Version`, `Mcp-Method`, and applicable `Mcp-Name`
   headers produce the final `-32020` error.
 - Unsupported versions produce `-32022`.
@@ -77,8 +80,7 @@ draft implementation:
   tool exposure.
 
 Drive modern HTTP in process through the v2 handler's fetch face or through the mounted
-Express endpoint. Drive modern stdio by spawning the built command; the v2 in-memory
-transport is legacy-only and cannot prove this contract.
+Express endpoint. Drive both modern and legacy stdio clients against the built command.
 
 ### 2. Migrate from SDK v1 to stable v2
 
@@ -117,7 +119,7 @@ transport is legacy-only and cannot prove this contract.
 #### HTTP
 
 - Replace the v1 `StreamableHTTPServerTransport` plus the custom draft dispatcher with
-  one `createMcpHandler(factory, { legacy: "reject" })`.
+  one `createMcpHandler(factory, { legacy: "stateless" })`.
 - Adapt it once with `toNodeHandler`, mounted behind `createMcpExpressApp`.
 - Keep fixed bearer-token verification in middleware before the MCP handler.
 - Convert web-standard `Headers` to a schema-parsed Huly header record at the boundary.
@@ -130,7 +132,7 @@ transport is legacy-only and cannot prove this contract.
 #### stdio
 
 - Replace direct `Server.connect(new StdioServerTransport())` with
-  `serveStdio(factory, { legacy: "reject" })`.
+  `serveStdio(factory, { legacy: "serve" })`.
 - Retain the returned handle for Effect-managed shutdown.
 - Preserve stderr-only logging, auto-exit behavior, in-flight tool draining, and
   telemetry shutdown ordering.
@@ -151,8 +153,8 @@ the MCP wire boundary.
 
 ### 6. Update tests, integration harness, and docs
 
-- Make `2026-07-28` the only integration request shape; remove
-  `INTEGRATION_MCP_PROTOCOL=legacy|2026`.
+- Keep the full integration harness on the final `2026-07-28` request shape and
+  cover `2025-06-18` compatibility in focused black-box transport tests.
 - Rewrite stdio and manual smoke examples to start with `server/discover`.
 - Replace draft-code unit tests with mounted-handler contract tests. Keep focused
   project tests for Huly config headers, auth, tool exposure, resource mapping,
@@ -164,7 +166,8 @@ the MCP wire boundary.
   lane; do not add an alpha conformance runner to `check-all`.
 - Update README, `INTEGRATION_TESTING.md`, generated/manual setup examples, and package
   metadata to state that clients must support MCP `2026-07-28`.
-- Add a breaking changeset. Call out removal of `initialize` clients explicitly.
+- Add a changeset that calls out final-protocol support and retained
+  `2025-06-18` compatibility.
 
 ## Verification
 
@@ -180,13 +183,14 @@ the MCP wire boundary.
    HULY_URL="${HULY_URL/localhost/host.docker.internal}" bash scripts/integration_test_full.sh
    ```
 
-6. A manual malformed-request pass for final header codes and strict legacy rejection
+6. A manual malformed-request pass for final header codes and legacy negotiation
 
 ## Acceptance criteria
 
 - `@modelcontextprotocol/sdk` and all v1 transport code are absent.
 - Both HTTP and stdio serve `2026-07-28` through stable SDK v2 entrypoints.
-- Both transports reject `initialize` and all other legacy-only traffic.
+- Both transports serve MCP `2025-06-18` initialization and tool discovery through
+  SDK-owned compatibility paths.
 - The custom draft dispatcher and its wire schemas are deleted.
 - Final discovery, response metadata, result discrimination, cache fields, header
   validation, error codes, and subscriptions are SDK-owned.

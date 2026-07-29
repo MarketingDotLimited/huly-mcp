@@ -194,7 +194,7 @@ MCP_TRANSPORT=http MCP_HTTP_PORT=8080 MCP_HTTP_HOST=0.0.0.0 npx -y @firfi/huly-m
 
 ### HTTP MCP Protocol Support
 
-Both stdio and HTTP implement only the released MCP `2026-07-28` interface. Initialize-era clients are rejected; there is no legacy fallback. HTTP requires one JSON-RPC message per POST, `Accept: application/json, text/event-stream`, `MCP-Protocol-Version: 2026-07-28`, `Mcp-Method`, method-specific `Mcp-Name`, and per-request `_meta.io.modelcontextprotocol/*` client metadata. Huly credentials are configured separately through env vars or supported `x-huly-*` headers.
+Both stdio and HTTP implement the released MCP `2026-07-28` interface and retain SDK-owned compatibility for MCP `2025-06-18` clients. Stdio pins each connection to the protocol era selected by its opening exchange; HTTP serves legacy requests statelessly. Modern HTTP requires one JSON-RPC message per POST, `Accept: application/json, text/event-stream`, `MCP-Protocol-Version: 2026-07-28`, `Mcp-Method`, method-specific `Mcp-Name`, and per-request `_meta.io.modelcontextprotocol/*` client metadata. Huly credentials are configured separately through env vars or supported `x-huly-*` headers.
 
 For hosted or tunneled HTTP deployments, you can require an MCP endpoint bearer token:
 

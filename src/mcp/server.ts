@@ -180,7 +180,7 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<McpServe
                     return server
                   }
                   const stdioHandle = serveStdio(createStdioServer, {
-                    legacy: "reject",
+                    legacy: "serve",
                     ...(config.createStdioTransport === undefined ? {} : { transport: config.createStdioTransport() }),
                     onerror: (error) => writeError(`MCP stdio handler error: ${error.message}`)
                   })

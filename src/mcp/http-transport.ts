@@ -1,5 +1,5 @@
 /**
- * Strict MCP 2026-07-28 HTTP transport.
+ * MCP 2026-07-28 HTTP transport with SDK-owned 2025 compatibility.
  *
  * The official SDK owns the MCP wire boundary. Express remains only as the
  * current Node HTTP mount and can be replaced independently.
@@ -111,7 +111,7 @@ export const createMountedMcpHttpHandler = (
   const reportError = (error: Error): void => {
     writeError(`MCP HTTP handler error: ${error.message}\n`)
   }
-  const mcpHandler = createMcpHandler(createServer, { legacy: "reject", onerror: reportError })
+  const mcpHandler = createMcpHandler(createServer, { legacy: "stateless", onerror: reportError })
   const nodeHandler = toNodeHandler(mcpHandler, { onerror: reportError })
 
   return {
