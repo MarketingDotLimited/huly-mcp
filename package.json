@@ -101,7 +101,7 @@
   "lint-staged": {
     "*.ts": [
       "oxlint --fix --deny-warnings",
-      "dprint fmt"
+      "dprint fmt --allow-no-files"
     ]
   },
   "pnpm": {

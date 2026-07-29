@@ -8,6 +8,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
+      skipFull: true,
       exclude: [
         'node_modules/',
         'test/',
