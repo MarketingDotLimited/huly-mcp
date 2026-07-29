@@ -26,7 +26,7 @@ import {
   startTimer,
   stopTimer
 } from "../../../src/huly/operations/time.js"
-import { assertAt } from "../../../src/utils/assertions.js"
+import { assertAt, assertExists } from "../../../src/utils/assertions.js"
 import { issueIdentifier, projectIdentifier } from "../../helpers/brands.js"
 
 import { contact, time, tracker } from "../../../src/huly/huly-plugins.js"
@@ -206,10 +206,10 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       if (q.date) {
         const dateFilter = q.date as { $gte?: number; $lte?: number }
         if (dateFilter.$gte !== undefined) {
-          filtered = filtered.filter((r) => r.date !== null && r.date >= dateFilter.$gte!)
+          filtered = filtered.filter((r) => r.date !== null && r.date >= assertExists(dateFilter.$gte))
         }
         if (dateFilter.$lte !== undefined) {
-          filtered = filtered.filter((r) => r.date !== null && r.date <= dateFilter.$lte!)
+          filtered = filtered.filter((r) => r.date !== null && r.date <= assertExists(dateFilter.$lte))
         }
       }
       // Add $lookup data if lookup is requested
@@ -921,21 +921,21 @@ describe("getDetailedTimeReport", () => {
 
         const issue1Entry = result.byIssue.find((e) => e.identifier === "TEST-1")
         expect(issue1Entry).toBeDefined()
-        expect(issue1Entry!.totalTime).toBe(75)
-        expect(issue1Entry!.reports).toHaveLength(2)
+        expect(assertExists(issue1Entry).totalTime).toBe(75)
+        expect(assertExists(issue1Entry).reports).toHaveLength(2)
 
         const issue2Entry = result.byIssue.find((e) => e.identifier === "TEST-2")
         expect(issue2Entry).toBeDefined()
-        expect(issue2Entry!.totalTime).toBe(30)
-        expect(issue2Entry!.reports).toHaveLength(1)
+        expect(assertExists(issue2Entry).totalTime).toBe(30)
+        expect(assertExists(issue2Entry).reports).toHaveLength(1)
 
         const aliceEntry = result.byEmployee.find((e) => e.employeeName === "Alice")
         expect(aliceEntry).toBeDefined()
-        expect(aliceEntry!.totalTime).toBe(90)
+        expect(assertExists(aliceEntry).totalTime).toBe(90)
 
         const unassignedEntry = result.byEmployee.find((e) => e.employeeName === undefined)
         expect(unassignedEntry).toBeDefined()
-        expect(unassignedEntry!.totalTime).toBe(15)
+        expect(assertExists(unassignedEntry).totalTime).toBe(15)
       })
     )
 
@@ -1180,10 +1180,10 @@ describe("listWorkSlots", () => {
         if (q.date) {
           const dateFilter = q.date as { $gte?: number; $lte?: number }
           if (dateFilter.$gte !== undefined) {
-            filtered = filtered.filter((s) => (s.date as number) >= dateFilter.$gte!)
+            filtered = filtered.filter((s) => (s.date as number) >= assertExists(dateFilter.$gte))
           }
           if (dateFilter.$lte !== undefined) {
-            filtered = filtered.filter((s) => (s.date as number) <= dateFilter.$lte!)
+            filtered = filtered.filter((s) => (s.date as number) <= assertExists(dateFilter.$lte))
           }
         }
         // eslint-disable-next-line no-restricted-syntax -- typed array doesn't overlap with Array<Doc>

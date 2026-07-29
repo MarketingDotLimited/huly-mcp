@@ -26,6 +26,8 @@ const task = require("@hcengineering/task").default as typeof import("@hcenginee
 const tracker = require("@hcengineering/tracker").default as typeof import("@hcengineering/tracker").default
 
 const DEFAULT_PROJECT_TYPE_NAME = "Classic"
+const NODE_ARGUMENT_OFFSET = 2
+const REMAINING_ISSUE_SAMPLE_LIMIT = 10
 
 interface Args {
   readonly taskTypeNames: ReadonlyArray<string>
@@ -409,7 +411,7 @@ const removeWorkflowArtifacts = async (connection: CleanupConnection, args: Args
     const remainingIssues = await findIssues(rest, taskTypeIds, statusIds, [])
     if (remainingIssues.length > 0) {
       const sample = remainingIssues
-        .slice(0, 10)
+        .slice(0, REMAINING_ISSUE_SAMPLE_LIMIT)
         .map((issue) => `${issue.identifier}: ${issue.title}`)
         .join(", ")
       throw new Error(
@@ -466,7 +468,7 @@ const removeWorkflowArtifacts = async (connection: CleanupConnection, args: Args
 }
 
 const main = async (): Promise<void> => {
-  const args = parseArgs(process.argv.slice(2))
+  const args = parseArgs(process.argv.slice(NODE_ARGUMENT_OFFSET))
   const connection = await connect()
   await removeWorkflowArtifacts(connection, args)
 }

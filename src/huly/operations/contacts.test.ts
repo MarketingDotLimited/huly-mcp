@@ -2,7 +2,7 @@ import type { Channel, Person as HulyPerson } from "@hcengineering/contact"
 import type { Doc, FindResult, PersonId as CorePersonId, Ref } from "@hcengineering/core"
 import { Effect, Exit } from "effect"
 import { describe, expect, it } from "vitest"
-import { assertAt } from "../../utils/assertions.js"
+import { assertAt, assertExists } from "../../utils/assertions.js"
 
 import { Email, PersonId } from "../../domain/schemas/shared.js"
 import type { HulyClientOperations } from "../client.js"
@@ -69,7 +69,7 @@ const createTestLayer = (config: MockConfig) => {
       const q = (query ?? {}) as Record<string, unknown>
       let filtered = persons
       if (q._id !== undefined) {
-        const idFilter = q._id as { $in?: Array<unknown> } | unknown
+        const idFilter = q._id as unknown
         if (typeof idFilter === "object" && idFilter !== null && "$in" in idFilter) {
           const ids = idFilter.$in as Array<unknown>
           filtered = filtered.filter((p) => ids.includes(p._id))
@@ -86,7 +86,7 @@ const createTestLayer = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       let filtered = channels
       if (q.attachedTo !== undefined) {
-        const attachedTo = q.attachedTo as { $in?: Array<unknown> } | unknown
+        const attachedTo = q.attachedTo as unknown
         if (typeof attachedTo === "object" && attachedTo !== null && "$in" in attachedTo) {
           const ids = attachedTo.$in as Array<unknown>
           filtered = filtered.filter((c) => ids.includes(c.attachedTo))
@@ -101,7 +101,7 @@ const createTestLayer = (config: MockConfig) => {
         const value = q.value as { $like?: string } | string
         if (typeof value === "object" && "$like" in value) {
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- guarded by "$like" in value check
-          filtered = filtered.filter((c) => matchesLike(c.value, value.$like!))
+          filtered = filtered.filter((c) => matchesLike(c.value, assertExists(value.$like)))
         } else {
           filtered = filtered.filter((c) => c.value === value)
         }
@@ -422,8 +422,8 @@ describe("Contacts Operations", () => {
       expect(result.firstName).toBe("John")
       expect(result.lastName).toBe("Doe")
       expect(result.channels).toBeDefined()
-      expect(result.channels!.length).toBeGreaterThanOrEqual(1)
-      expect(result.channels!.find((c) => c.value === "john@example.com")).toBeDefined()
+      expect(assertExists(result.channels).length).toBeGreaterThanOrEqual(1)
+      expect(assertExists(result.channels).find((c) => c.value === "john@example.com")).toBeDefined()
     })
 
     it("fails with PersonNotFoundError when email not found", async () => {

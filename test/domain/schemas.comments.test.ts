@@ -345,7 +345,7 @@ describe("Comment Schemas", () => {
 
   describe("JSON Schema Generation", () => {
     it.effect("generates JSON Schema for ListCommentsParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = listCommentsParamsJsonSchema as JsonSchemaObject
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
@@ -356,7 +356,7 @@ describe("Comment Schemas", () => {
     )
 
     it.effect("generates JSON Schema for AddCommentParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = addCommentParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -366,7 +366,7 @@ describe("Comment Schemas", () => {
     )
 
     it.effect("generates JSON Schema for UpdateCommentParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = updateCommentParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -377,7 +377,7 @@ describe("Comment Schemas", () => {
     )
 
     it.effect("generates JSON Schema for DeleteCommentParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = deleteCommentParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -387,7 +387,7 @@ describe("Comment Schemas", () => {
     )
 
     it.effect("schemas have additionalProperties: false", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         // eslint-disable-next-line no-restricted-syntax -- tuple type doesn't overlap with Array<Record<string, unknown>>
         const schemas = [
           listCommentsParamsJsonSchema,
@@ -403,7 +403,7 @@ describe("Comment Schemas", () => {
     )
 
     it.effect("ListCommentsParams has property descriptions", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = listCommentsParamsJsonSchema as JsonSchemaObject
         const properties = assertExists(schema.properties)
         expect(assertExists(properties.project).description).toBeDefined()

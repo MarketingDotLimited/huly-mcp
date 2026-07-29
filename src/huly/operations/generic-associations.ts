@@ -87,6 +87,8 @@ import { findIssueInProject, findProject, findProjectAndIssue } from "./issues-s
 import { clampLimit, hulyQuery, type StrictDocumentQuery } from "./query-helpers.js"
 import { toClassRef, toRef } from "./sdk-boundary.js"
 
+const EXACT_RELATION_MATCH_LIMIT = 2
+
 type GenericAssociationsError =
   | HulyClientError
   | AssociationNotFoundError
@@ -1095,7 +1097,7 @@ const associationEndpointQueries = (
         : [makeQuery(false)]
   const byKey = new Map<string, StrictDocumentQuery<HulyAssociation>>()
   for (const query of queries) {
-    byKey.set(`${String(query.classA)}\u0000${String(query.classB)}`, query)
+    byKey.set(JSON.stringify([query.classA, query.classB]), query)
   }
   return [...byKey.values()]
 }
@@ -1515,7 +1517,7 @@ export const deleteRelation = (
     const association = yield* resolveAssociation(client, params.association, MUTATION_ASSOCIATION_FILTERS)
     yield* ensureRelationMutationSupported(association, "delete_relation")
     const endpoints = yield* resolveRelationWriteEndpoints(client, association, params)
-    const matches = yield* findExactRelations(client, association, endpoints, 2)
+    const matches = yield* findExactRelations(client, association, endpoints, EXACT_RELATION_MATCH_LIMIT)
 
     if (matches.length === 0) {
       return { associationId: AssociationId.make(association._id), deleted: false, reason: "not_found" }

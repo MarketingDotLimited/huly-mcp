@@ -43,7 +43,7 @@ const noopStorageClient: HulyStorageOperations = {
 
 describe("CATEGORY_NAMES", () => {
   it.effect("contains expected categories", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(CATEGORY_NAMES.has(makeToolCategory("projects"))).toBe(true)
       expect(CATEGORY_NAMES.has(makeToolCategory("issues"))).toBe(true)
       expect(CATEGORY_NAMES.has(makeToolCategory("documents"))).toBe(true)
@@ -62,7 +62,7 @@ describe("CATEGORY_NAMES", () => {
   )
 
   it.effect("registers calendar schedule and virtual-office tools", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const names = new Set(toolRegistry.definitions.map((tool) => tool.name))
 
       expect(names.has(toolName("list_schedules"))).toBe(true)
@@ -86,7 +86,7 @@ describe("CATEGORY_NAMES", () => {
   )
 
   it.effect("registers truthful read-only card version history metadata", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const definition = toolDefinition("list_card_versions")
 
       expect(definition.category).toBe("cards")
@@ -102,7 +102,7 @@ describe("CATEGORY_NAMES", () => {
   )
 
   it.effect("registers issue #102 closeout tools in their owning categories", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(toolDefinition("list_document_snapshots").category).toBe("documents")
       expect(toolDefinition("get_document_snapshot").category).toBe("documents")
       expect(toolDefinition("list_project_target_preferences").category).toBe("projects")
@@ -114,14 +114,14 @@ describe("CATEGORY_NAMES", () => {
   )
 
   it.effect("registers preference tools in the preferences category", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(toolDefinition("list_space_preferences").category).toBe("preferences")
       expect(toolDefinition("get_space_preference").category).toBe("preferences")
     })
   )
 
   it.effect("registers approval request tools in the approvals category", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(toolDefinition("list_approval_requests").category).toBe("approvals")
       expect(toolDefinition("get_approval_request").category).toBe("approvals")
       expect(toolDefinition("add_approval_request").category).toBe("approvals")
@@ -135,7 +135,7 @@ describe("CATEGORY_NAMES", () => {
 
 describe("toolRegistry", () => {
   it.effect("has tools", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(toolRegistry.tools.size).toBeGreaterThan(0)
       expect(toolRegistry.definitions.length).toBeGreaterThan(0)
       expect(toolRegistry.tools.size).toBe(toolRegistry.definitions.length)
@@ -143,7 +143,7 @@ describe("toolRegistry", () => {
   )
 
   it.effect("all tool names are unique", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const names = toolRegistry.definitions.map((t) => t.name)
       const uniqueNames = new Set(names)
       expect(uniqueNames.size).toBe(names.length)
@@ -153,7 +153,7 @@ describe("toolRegistry", () => {
 
 describe("createFilteredRegistry", () => {
   it.effect("filters to only requested categories", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const filtered = createFilteredRegistry(categorySet("issues"))
 
       expect(filtered.definitions.length).toBeGreaterThan(0)
@@ -166,7 +166,7 @@ describe("createFilteredRegistry", () => {
   )
 
   it.effect("returns empty registry for unknown category", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const filtered = createFilteredRegistry(categorySet("nonexistent_category"))
       expect(filtered.definitions.length).toBe(0)
       expect(filtered.tools.size).toBe(0)
@@ -174,7 +174,7 @@ describe("createFilteredRegistry", () => {
   )
 
   it.effect("combines multiple categories", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const filtered = createFilteredRegistry(categorySet("issues", "projects"))
 
       const categories = new Set(filtered.definitions.map((t) => t.category))
@@ -187,7 +187,7 @@ describe("createFilteredRegistry", () => {
   )
 
   it.effect("filters to task-management tools", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const filtered = createFilteredRegistry(categorySet("task-management"))
       const toolNames = filtered.definitions.map((tool) => tool.name)
 
@@ -205,7 +205,7 @@ describe("createFilteredRegistry", () => {
   )
 
   it.effect("filters to association tools", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const filtered = createFilteredRegistry(categorySet("associations"))
       const toolNames = filtered.definitions.map((tool) => tool.name)
 
@@ -224,7 +224,7 @@ describe("createFilteredRegistry", () => {
   )
 
   it.effect("filters to user status tools", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const filtered = createFilteredRegistry(categorySet("user-statuses"))
       const toolNames = filtered.definitions.map((tool) => tool.name)
 
@@ -236,7 +236,7 @@ describe("createFilteredRegistry", () => {
   )
 
   it.effect("filters to recruiting tools", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const filtered = createFilteredRegistry(categorySet("recruiting"))
       const toolNames = filtered.definitions.map((tool) => tool.name)
 
@@ -363,7 +363,7 @@ describe("handleToolCall", () => {
 
 describe("TOOL_DEFINITIONS", () => {
   it.effect("is populated", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const keys = Object.keys(TOOL_DEFINITIONS)
       expect(keys.length).toBeGreaterThan(0)
       expect(keys.length).toBe(toolRegistry.tools.size)
@@ -375,7 +375,7 @@ describe("TOOL_DEFINITIONS", () => {
   )
 
   it.effect("entries match toolRegistry", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       for (const [name, tool] of Object.entries(TOOL_DEFINITIONS)) {
         expect(tool.name).toBe(name)
         expect(toolRegistry.tools.has(toolName(name))).toBe(true)

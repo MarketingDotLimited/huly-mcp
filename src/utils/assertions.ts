@@ -1,5 +1,7 @@
 import { Effect, Option } from "effect"
 
+const PAIR_LENGTH = 2
+
 class AssertionError extends Error {
   readonly _tag = "AssertionError"
   constructor(message: string) {
@@ -82,7 +84,7 @@ export const isSingle = <T>(arr: ReadonlyArray<T>): arr is readonly [T] => arr.l
 /**
  * Type guard for arrays with exactly two elements.
  */
-export const isPair = <T>(arr: ReadonlyArray<T>): arr is readonly [T, T] => arr.length === 2
+export const isPair = <T>(arr: ReadonlyArray<T>): arr is readonly [T, T] => arr.length === PAIR_LENGTH
 
 /**
  * Gets the single element if array has exactly 0 or 1 elements.

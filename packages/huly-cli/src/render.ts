@@ -12,6 +12,8 @@ export class CliRuntimeError extends Schema.TaggedError<CliRuntimeError>()("CliR
 
 const MAX_TABLE_COLUMNS = 6
 const MAX_CELL_LENGTH = 80
+const ELLIPSIS_LENGTH = 3
+const JSON_INDENT_SPACES = 2
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
@@ -26,7 +28,7 @@ const scalarText = (value: unknown): string => {
 }
 
 const truncate = (value: string): string =>
-  value.length > MAX_CELL_LENGTH ? `${value.slice(0, MAX_CELL_LENGTH - 3)}...` : value
+  value.length > MAX_CELL_LENGTH ? `${value.slice(0, MAX_CELL_LENGTH - ELLIPSIS_LENGTH)}...` : value
 
 const scalarKeys = (record: Record<string, unknown>): Array<string> =>
   Object.keys(record).filter((key) => {
@@ -45,7 +47,7 @@ const renderTable = (rows: ReadonlyArray<Record<string, unknown>>): string => {
   if (firstRow === undefined) return "No results."
 
   const columns = scalarKeys(firstRow).slice(0, MAX_TABLE_COLUMNS)
-  if (columns.length === 0) return JSON.stringify(rows, null, 2)
+  if (columns.length === 0) return JSON.stringify(rows, null, JSON_INDENT_SPACES)
 
   const tableColumns = columns.map((column) => ({
     name: column,
@@ -116,7 +118,7 @@ export const renderOperationResult = (success: ToolOperationSuccess, globals: Cl
             ...(success.warnings.length === 0 ? {} : { warnings: success.warnings })
           },
       null,
-      2
+      JSON_INDENT_SPACES
     )
   }
   const output = renderHuman(success.result)

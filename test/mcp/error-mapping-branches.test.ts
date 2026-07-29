@@ -47,7 +47,7 @@ describe("Error Mapping Branch Coverage", () => {
 
   describe("mapParseCauseToMcp - Die cause (no failures, line 151)", () => {
     it.effect("returns generic error for Die cause (no ParseErrors)", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const cause = Cause.die(new Error("unexpected"))
         const response = mapParseCauseToMcp(cause as Cause.Cause<ParseResult.ParseError>)
 
@@ -60,7 +60,7 @@ describe("Error Mapping Branch Coverage", () => {
 
   describe("createSuccessResponse - non-serializable result (encodeJsonText line 218)", () => {
     it.effect('falls back to the literal "null" text when JSON.stringify yields undefined', () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         // JSON.stringify(undefined) returns undefined, exercising the non-string branch.
         const response = createSuccessResponse(undefined)
 

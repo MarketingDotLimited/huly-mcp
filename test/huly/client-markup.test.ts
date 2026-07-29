@@ -20,7 +20,7 @@ import { expect } from "vitest"
 import { HulyClient } from "../../src/huly/client.js"
 import { HulyConnectionError } from "../../src/huly/errors.js"
 import { WorkspaceClient } from "../../src/huly/workspace-client.js"
-import { assertAt } from "../../src/utils/assertions.js"
+import { assertAt, assertExists } from "../../src/utils/assertions.js"
 
 interface TestDoc extends Doc {
   title: string
@@ -150,7 +150,7 @@ describe("HulyClient.testLayer with custom operations", () => {
       const client = yield* HulyClient.pipe(Effect.provide(layer))
       const result = yield* client.findOne("c" as DocRef<Class<TestDoc>>, {} as DocumentQuery<TestDoc>)
       expect(result).toBeDefined()
-      expect(result!._id).toBe("d1")
+      expect(assertExists(result)._id).toBe("d1")
       expect((result as TestDoc).title).toBe("Found")
     })
   )

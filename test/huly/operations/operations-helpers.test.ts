@@ -193,7 +193,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       const inQuery = q._id as { $in?: Array<Ref<Status>> } | undefined
       if (inQuery?.$in) {
-        const filtered = statuses.filter((s) => inQuery.$in!.includes(s._id))
+        const filtered = statuses.filter((s) => assertExists(inQuery.$in).includes(s._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(statuses))
@@ -226,7 +226,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       const inQuery = q._id as { $in?: Array<Ref<Status>> } | undefined
       if (inQuery?.$in) {
-        const filtered = modelStatuses.filter((s) => inQuery.$in!.includes(s._id))
+        const filtered = modelStatuses.filter((s) => assertExists(inQuery.$in).includes(s._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(modelStatuses))
@@ -532,7 +532,7 @@ describe("operations helpers", () => {
         )
 
         expect(result).toBeDefined()
-        expect(result!.identifier).toBe("TEST")
+        expect(assertExists(result).identifier).toBe("TEST")
       })
     )
 
@@ -550,7 +550,7 @@ describe("operations helpers", () => {
         )
 
         expect(result).toBeDefined()
-        expect(result!.identifier).toBe("FALLBACK")
+        expect(assertExists(result).identifier).toBe("FALLBACK")
       })
     )
 
@@ -897,7 +897,7 @@ describe("operations helpers", () => {
         const result = yield* findPersonByEmailOrName(client, "john@example.com")
 
         expect(result).toBeDefined()
-        expect(result!._id).toBe("person-1")
+        expect(assertExists(result)._id).toBe("person-1")
       })
     )
 
@@ -911,7 +911,7 @@ describe("operations helpers", () => {
         const result = yield* findPersonByEmailOrName(client, "John Doe")
 
         expect(result).toBeDefined()
-        expect(result!._id).toBe("person-1")
+        expect(assertExists(result)._id).toBe("person-1")
       })
     )
 
@@ -927,7 +927,7 @@ describe("operations helpers", () => {
         const result = yield* findPersonByEmailOrName(client, "john@exam")
 
         expect(result).toBeDefined()
-        expect(result!._id).toBe("person-1")
+        expect(assertExists(result)._id).toBe("person-1")
       })
     )
 
@@ -941,7 +941,7 @@ describe("operations helpers", () => {
         const result = yield* findPersonByEmailOrName(client, "ohn Do")
 
         expect(result).toBeDefined()
-        expect(result!._id).toBe("person-1")
+        expect(assertExists(result)._id).toBe("person-1")
       })
     )
 
@@ -969,7 +969,7 @@ describe("operations helpers", () => {
 
         // Should find by exact name match (step 2) after channel person lookup fails
         expect(result).toBeDefined()
-        expect(result!._id).toBe("person-2")
+        expect(assertExists(result)._id).toBe("person-2")
       })
     )
 
@@ -984,7 +984,7 @@ describe("operations helpers", () => {
         const result = yield* findPersonByEmailOrName(client, "ws-member@example.com")
 
         expect(result).toBeDefined()
-        expect(result!._id).toBe("person-ws")
+        expect(assertExists(result)._id).toBe("person-ws")
       })
     )
 
@@ -1005,7 +1005,7 @@ describe("operations helpers", () => {
         const result = yield* findPersonByEmailOrName(client, "shared@example.com")
 
         expect(result).toBeDefined()
-        expect(result!._id).toBe("person-social")
+        expect(assertExists(result)._id).toBe("person-social")
       })
     )
 
@@ -1020,7 +1020,7 @@ describe("operations helpers", () => {
         const result = yield* findPersonByEmailOrName(client, "channel-only@example.com")
 
         expect(result).toBeDefined()
-        expect(result!._id).toBe("person-1")
+        expect(assertExists(result)._id).toBe("person-1")
       })
     )
   })

@@ -40,7 +40,7 @@ describe("generic association schemas", () => {
   )
 
   it.effect("emits JSON schema filter alternatives for list_relations", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(listRelationsParamsJsonSchema).toMatchObject({
         type: "object",
         properties: { association: expect.any(Object), source: expect.any(Object), target: expect.any(Object) },
@@ -97,7 +97,7 @@ describe("generic association schemas", () => {
   )
 
   it.effect("emits JSON schema for create_association", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(createAssociationParamsJsonSchema).toMatchObject({
         type: "object",
         required: ["sourceClass", "targetClass", "sourceRole", "targetRole", "cardinality"]
@@ -114,7 +114,7 @@ describe("generic association schemas", () => {
   )
 
   it.effect("emits JSON schema for delete_association", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(deleteAssociationParamsJsonSchema).toMatchObject({ type: "object", required: ["association"] })
     })
   )
@@ -184,7 +184,7 @@ describe("generic association schemas", () => {
   )
 
   it.effect("emits JSON schema for delete_relation", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(deleteRelationParamsJsonSchema).toMatchObject({
         type: "object",
         anyOf: [{ required: ["relation"] }, { required: ["association", "source", "target"] }]

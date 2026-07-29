@@ -107,7 +107,7 @@ const findTool = (name: string) => {
 
 describe("preferenceTools", () => {
   it.effect("exports space preference tools in the preferences category and registers them globally", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(preferenceTools.map((tool) => tool.name)).toEqual(["list_space_preferences", "get_space_preference"])
       for (const tool of preferenceTools) {
         expect(tool.category).toBe("preferences")

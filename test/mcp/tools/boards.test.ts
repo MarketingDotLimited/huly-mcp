@@ -108,7 +108,7 @@ const toTypedDocs = <T extends Doc>(docs: ReadonlyArray<Doc>): Array<T> => {
 
 describe("board MCP tools", () => {
   it.effect("registers board tools in order", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const filtered = boardRegistry()
 
       expect(filtered.definitions.map((tool) => tool.name)).toEqual([

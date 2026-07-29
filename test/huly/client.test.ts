@@ -520,7 +520,7 @@ describe("HulyClient Service", () => {
 
   describe("HulyClientError type", () => {
     it.effect("is union of HulyConnectionError and HulyAuthError", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const handleError = (error: HulyClientError): string => {
           switch (error._tag) {
             case "HulyConnectionError":
@@ -591,14 +591,14 @@ describe("HulyClient Service", () => {
 describe("Connection error classification", () => {
   describe("HulyConnectionError", () => {
     it.effect("has correct tag", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new HulyConnectionError({ message: "timeout" })
         expect(error._tag).toBe("HulyConnectionError")
       })
     )
 
     it.effect("includes cause", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const cause = new Error("underlying")
         const error = new HulyConnectionError({ message: "failed", cause })
         expect(error.cause).toBe(cause)
@@ -608,7 +608,7 @@ describe("Connection error classification", () => {
 
   describe("HulyAuthError", () => {
     it.effect("has correct tag", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new HulyAuthError({ message: "invalid credentials" })
         expect(error._tag).toBe("HulyAuthError")
       })

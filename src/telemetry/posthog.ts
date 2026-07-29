@@ -1,5 +1,6 @@
 import { PostHog } from "posthog-node"
 
+import { writeStderrLine } from "../utils/stderr.js"
 import { VERSION } from "../version.js"
 import { mcpTelemetryContext, type TelemetryRuntimeContext } from "./context.js"
 import type { TelemetryOperations } from "./telemetry.js"
@@ -54,7 +55,7 @@ const defaultDependencies: PostHogTelemetryDependencies = {
     new PostHog(POSTHOG_API_KEY, { host: "https://us.i.posthog.com", flushAt: 10, flushInterval: 60000 }),
   createSessionId: () => crypto.randomUUID(),
   writeDebug: (message) => {
-    console.error(message)
+    writeStderrLine(message)
   }
 }
 

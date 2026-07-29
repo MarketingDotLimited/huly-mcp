@@ -93,7 +93,7 @@ describe("view schemas", () => {
   )
 
   it.effect("exposes useful JSON schema descriptions for LLM single-call use", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const listText = JSON.stringify(listFilteredViewsParamsJsonSchema)
       const getText = JSON.stringify(getFilteredViewParamsJsonSchema)
 

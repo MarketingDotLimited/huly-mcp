@@ -89,6 +89,8 @@ import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from 
 import { contact, tracker } from "../huly-plugins.js"
 import { type MarkupUrlConfig, optionalMarkdownToMarkup, optionalMarkupToMarkdown } from "./markup.js"
 
+const NOT_FOUND_INDEX = -1
+
 type ListIssueTemplatesError = HulyClientError | ProjectNotFoundError
 
 type GetIssueTemplateError = HulyClientError | ProjectNotFoundError | IssueTemplateNotFoundError
@@ -567,7 +569,7 @@ export const removeTemplateChild = (
 
     // String() needed: c.id is Ref<Issue>, params.childId is IssueTemplateChildId — both plain strings at runtime
     const childIndex = template.children.findIndex((c) => String(c.id) === String(params.childId))
-    if (childIndex === -1) {
+    if (childIndex === NOT_FOUND_INDEX) {
       return yield* new TemplateChildNotFoundError({
         childId: params.childId,
         template: params.template,

@@ -12,6 +12,7 @@ import { CliRuntimeError } from "./render.js"
 declare const PKG_VERSION: string
 
 const cliVersion = typeof PKG_VERSION === "string" ? PKG_VERSION : "0.43.0"
+const NODE_ARGUMENT_OFFSET = 2
 
 const makeCli = (argv: ReadonlyArray<string>) =>
   Command.run(buildRootCommand(argv), { name: "Huly CLI", version: cliVersion })
@@ -20,7 +21,7 @@ const isKnownCliError = (error: unknown): error is CliInputError | CliRuntimeErr
   error instanceof CliInputError || error instanceof CliRuntimeError
 
 const main = Effect.suspend(() => {
-  const argv = process.argv.slice(2)
+  const argv = process.argv.slice(NODE_ARGUMENT_OFFSET)
   return isRootHelpRequest(argv) ? Console.log(renderRootHelp(cliVersion)) : makeCli(argv)(process.argv)
 }).pipe(
   Effect.provide(

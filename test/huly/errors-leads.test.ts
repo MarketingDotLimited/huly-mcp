@@ -7,7 +7,7 @@ import { funnelIdentifier, funnelReference, leadIdentifier } from "../helpers/br
 describe("Lead Errors", () => {
   describe("FunnelNotFoundError", () => {
     it.effect("creates with correct tag and message", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new FunnelNotFoundError({ identifier: funnelReference("SALES") })
         expect(error._tag).toBe("FunnelNotFoundError")
         expect(error.message).toContain("SALES")
@@ -18,7 +18,7 @@ describe("Lead Errors", () => {
 
   describe("LeadNotFoundError", () => {
     it.effect("creates with correct tag, identifier, and funnel in message", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new LeadNotFoundError({
           identifier: leadIdentifier("LEAD-1"),
           funnel: funnelIdentifier("funnel-1")

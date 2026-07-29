@@ -111,7 +111,8 @@ class ParentStateTimeoutError extends Schema.TaggedError<ParentStateTimeoutError
 const MAX_POLL_ATTEMPTS = 30
 const LAST_ITEM_OFFSET = -1
 const NODE_ARGV_OFFSET = 2
-const POLL_INTERVAL = Duration.millis(250)
+const POLL_INTERVAL_MS = 250
+const POLL_INTERVAL = Duration.millis(POLL_INTERVAL_MS)
 
 const integrationOperation = <A>(
   operation: IntegrationOperation,

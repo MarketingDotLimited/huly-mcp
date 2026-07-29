@@ -3,7 +3,7 @@ import type { RegionInfo as HulyRegionInfo, WorkspaceLoginInfo } from "@hcengine
 import { AccountRole, type AccountUuid, type PersonUuid, type WorkspaceInfoWithStatus } from "@hcengineering/core"
 import { Effect } from "effect"
 import { expect } from "vitest"
-import { assertAt } from "../../../src/utils/assertions.js"
+import { assertAt, assertExists } from "../../../src/utils/assertions.js"
 
 import type { InvalidPersonUuidError } from "../../../src/huly/errors.js"
 import {
@@ -292,15 +292,15 @@ describe("getUserProfile", () => {
 
       expect(capturedUuid).toBe("11111111-2222-3333-4444-555555555555")
       expect(result).not.toBeNull()
-      expect(result!.personUuid).toBe("user-uuid-1234-5678-9abc-def012345678")
-      expect(result!.firstName).toBe("John")
-      expect(result!.lastName).toBe("Doe")
-      expect(result!.bio).toBe("Developer")
-      expect(result!.city).toBe("NYC")
-      expect(result!.country).toBe("US")
-      expect(result!.website).toBe("https://example.com")
-      expect(result!.socialLinks).toEqual({ github: "johndoe" })
-      expect(result!.isPublic).toBe(true)
+      expect(assertExists(result).personUuid).toBe("user-uuid-1234-5678-9abc-def012345678")
+      expect(assertExists(result).firstName).toBe("John")
+      expect(assertExists(result).lastName).toBe("Doe")
+      expect(assertExists(result).bio).toBe("Developer")
+      expect(assertExists(result).city).toBe("NYC")
+      expect(assertExists(result).country).toBe("US")
+      expect(assertExists(result).website).toBe("https://example.com")
+      expect(assertExists(result).socialLinks).toEqual({ github: "johndoe" })
+      expect(assertExists(result).isPublic).toBe(true)
     })
   )
 
@@ -323,12 +323,12 @@ describe("getUserProfile", () => {
       const result = yield* getUserProfile().pipe(Effect.provide(testLayer))
 
       expect(result).not.toBeNull()
-      expect(result!.bio).toBeUndefined()
-      expect(result!.city).toBeUndefined()
-      expect(result!.country).toBeUndefined()
-      expect(result!.website).toBeUndefined()
-      expect(result!.socialLinks).toBeUndefined()
-      expect(result!.isPublic).toBe(false)
+      expect(assertExists(result).bio).toBeUndefined()
+      expect(assertExists(result).city).toBeUndefined()
+      expect(assertExists(result).country).toBeUndefined()
+      expect(assertExists(result).website).toBeUndefined()
+      expect(assertExists(result).socialLinks).toBeUndefined()
+      expect(assertExists(result).isPublic).toBe(false)
     })
   )
 

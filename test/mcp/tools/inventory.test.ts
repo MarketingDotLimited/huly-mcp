@@ -107,7 +107,7 @@ const toolInputPropertyDescription = (toolName: string, propertyName: string): s
 
 describe("inventory MCP tools", () => {
   it.effect("registers inventory tools in the inventory category", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const names = new Set(
         toolRegistry.definitions.filter((tool) => tool.category === "inventory").map((tool) => tool.name)
       )

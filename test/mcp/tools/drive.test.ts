@@ -262,7 +262,7 @@ const findTool = (name: string) => {
 
 describe("driveTools", () => {
   it.effect("exports Drive tools in the drive category and registers them globally", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(driveTools.map((tool) => tool.name)).toEqual([
         "list_drives",
         "get_drive",

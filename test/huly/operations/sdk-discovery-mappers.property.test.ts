@@ -136,26 +136,41 @@ const expectSearchTextContains = (text: string, values: ReadonlyArray<string>): 
 const validAttributeTypeArbitrary = fc.oneof(
   fc.record({
     kind: fc.constant("string" as const),
-    classId: fc.option(classRefStringArbitrary.map(ObjectClassName.make), { nil: undefined })
+    classId: fc.option(
+      classRefStringArbitrary.map((value) => ObjectClassName.make(value)),
+      { nil: undefined }
+    )
   }),
   fc.record({
     kind: fc.constant("ref" as const),
-    classId: fc.option(classRefStringArbitrary.map(ObjectClassName.make), { nil: undefined }),
-    refTo: classRefStringArbitrary.map(ObjectClassName.make)
+    classId: fc.option(
+      classRefStringArbitrary.map((value) => ObjectClassName.make(value)),
+      { nil: undefined }
+    ),
+    refTo: classRefStringArbitrary.map((value) => ObjectClassName.make(value))
   }),
   fc.record({
     kind: fc.constant("enum" as const),
-    classId: fc.option(classRefStringArbitrary.map(ObjectClassName.make), { nil: undefined }),
+    classId: fc.option(
+      classRefStringArbitrary.map((value) => ObjectClassName.make(value)),
+      { nil: undefined }
+    ),
     enumId: refTailArbitrary.map((tail) => HulyEnumId.make(`test:enum:${tail}`))
   }),
   fc.record({
     kind: fc.constant("collection" as const),
-    classId: fc.option(classRefStringArbitrary.map(ObjectClassName.make), { nil: undefined }),
-    collectionOf: classRefStringArbitrary.map(ObjectClassName.make)
+    classId: fc.option(
+      classRefStringArbitrary.map((value) => ObjectClassName.make(value)),
+      { nil: undefined }
+    ),
+    collectionOf: classRefStringArbitrary.map((value) => ObjectClassName.make(value))
   }),
   fc.record({
     kind: fc.constant("unknown" as const),
-    classId: fc.option(classRefStringArbitrary.map(ObjectClassName.make), { nil: undefined }),
+    classId: fc.option(
+      classRefStringArbitrary.map((value) => ObjectClassName.make(value)),
+      { nil: undefined }
+    ),
     raw: fc.record({ descriptor: fc.string({ maxLength: 20 }) })
   })
 )

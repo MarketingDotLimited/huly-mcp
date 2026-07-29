@@ -130,13 +130,13 @@ const recruitingMediaClient: HulyClientOperations = {
 
 describe("Recruiting MCP Tools", () => {
   it.effect("registers the complete expected tool tuple", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(recruitingTools.map((tool) => tool.name)).toEqual([...expectedRecruitingToolNames])
     })
   )
 
   it.effect("uses the recruiting category for every tool", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(recruitingTools).toHaveLength(expectedRecruitingToolNames.length)
       for (const tool of recruitingTools) {
         expect(tool.category).toBe("recruiting")

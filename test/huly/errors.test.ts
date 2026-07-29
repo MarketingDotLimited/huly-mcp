@@ -223,7 +223,7 @@ import { funnelIdentifier, funnelReference, leadIdentifier } from "../helpers/br
 describe("Huly Errors", () => {
   describe("HulyError", () => {
     it.effect("creates with message", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new HulyError({ message: "Something went wrong" })
         expect(error._tag).toBe("HulyError")
         expect(error.message).toBe("Something went wrong")
@@ -231,7 +231,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("creates with cause", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const cause = new Error("underlying error")
         const error = new HulyError({ message: "Wrapped error", cause })
         expect(error.cause).toBe(cause)
@@ -241,7 +241,7 @@ describe("Huly Errors", () => {
 
   describe("HulyConnectionError", () => {
     it.effect("creates with message", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new HulyConnectionError({ message: "Connection failed" })
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toBe("Connection failed")
@@ -249,7 +249,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("creates with cause", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const cause = new Error("network timeout")
         const error = new HulyConnectionError({ message: "Connection failed", cause })
         expect(error.cause).toBe(cause)
@@ -274,7 +274,7 @@ describe("Huly Errors", () => {
 
   describe("HulyAuthError", () => {
     it.effect("creates with message", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new HulyAuthError({ message: "Invalid credentials" })
         expect(error._tag).toBe("HulyAuthError")
         expect(error.message).toBe("Invalid credentials")
@@ -284,7 +284,7 @@ describe("Huly Errors", () => {
 
   describe("Board errors", () => {
     it.effect("generates board-specific messages", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         expect(new BoardNotFoundError({ identifier: "Roadmap" }).message).toBe("Board 'Roadmap' not found")
         expect(new BoardIdentifierAmbiguousError({ identifier: "Roadmap", matches: 2 }).message).toBe(
           "Board 'Roadmap' matched 2 boards; pass a board _id instead"
@@ -354,7 +354,7 @@ describe("Huly Errors", () => {
 
   describe("IssueNotFoundError", () => {
     it.effect("creates with identifier and project", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new IssueNotFoundError({ identifier: "HULY-123", project: "HULY" })
         expect(error._tag).toBe("IssueNotFoundError")
         expect(error.identifier).toBe("HULY-123")
@@ -363,7 +363,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new IssueNotFoundError({ identifier: "HULY-123", project: "HULY" })
         expect(error.message).toBe("Issue 'HULY-123' not found in project 'HULY'")
       })
@@ -372,7 +372,7 @@ describe("Huly Errors", () => {
 
   describe("ProjectNotFoundError", () => {
     it.effect("creates with identifier", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new ProjectNotFoundError({ identifier: "MISSING" })
         expect(error._tag).toBe("ProjectNotFoundError")
         expect(error.identifier).toBe("MISSING")
@@ -380,7 +380,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new ProjectNotFoundError({ identifier: "MISSING" })
         expect(error.message).toBe("Project 'MISSING' not found")
       })
@@ -389,7 +389,7 @@ describe("Huly Errors", () => {
 
   describe("InvalidStatusError", () => {
     it.effect("creates with status and project", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new InvalidStatusError({ status: "bogus", project: "HULY" })
         expect(error._tag).toBe("InvalidStatusError")
         expect(error.status).toBe("bogus")
@@ -398,7 +398,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new InvalidStatusError({ status: "bogus", project: "HULY" })
         expect(error.message).toBe("Invalid status 'bogus' for project 'HULY'")
       })
@@ -407,7 +407,7 @@ describe("Huly Errors", () => {
 
   describe("FileUploadError", () => {
     it.effect("creates with message", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new FileUploadError({ message: "Storage quota exceeded" })
         expect(error._tag).toBe("FileUploadError")
         expect(error.message).toBe("Storage quota exceeded")
@@ -415,7 +415,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("creates with cause", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const cause = new Error("network error")
         const error = new FileUploadError({ message: "Upload failed", cause })
         expect(error.cause).toBe(cause)
@@ -425,7 +425,7 @@ describe("Huly Errors", () => {
 
   describe("InvalidFileDataError", () => {
     it.effect("creates with message", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new InvalidFileDataError({ message: "Invalid base64 encoding" })
         expect(error._tag).toBe("InvalidFileDataError")
         expect(error.message).toBe("Invalid base64 encoding")
@@ -435,7 +435,7 @@ describe("Huly Errors", () => {
 
   describe("FileNotFoundError", () => {
     it.effect("creates with filePath", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new FileNotFoundError({ filePath: "/tmp/missing.txt" })
         expect(error._tag).toBe("FileNotFoundError")
         expect(error.filePath).toBe("/tmp/missing.txt")
@@ -446,7 +446,7 @@ describe("Huly Errors", () => {
 
   describe("FileFetchError", () => {
     it.effect("creates with fileUrl and reason", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new FileFetchError({ fileUrl: "https://example.com/img.png", reason: "404 Not Found" })
         expect(error._tag).toBe("FileFetchError")
         expect(error.fileUrl).toBe("https://example.com/img.png")
@@ -458,7 +458,7 @@ describe("Huly Errors", () => {
 
   describe("TeamspaceNotFoundError", () => {
     it.effect("creates with identifier", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new TeamspaceNotFoundError({ identifier: "my-teamspace" })
         expect(error._tag).toBe("TeamspaceNotFoundError")
         expect(error.identifier).toBe("my-teamspace")
@@ -466,7 +466,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new TeamspaceNotFoundError({ identifier: "my-teamspace" })
         expect(error.message).toBe("Teamspace 'my-teamspace' not found")
       })
@@ -475,7 +475,7 @@ describe("Huly Errors", () => {
 
   describe("DocumentNotFoundError", () => {
     it.effect("creates with identifier and teamspace", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new DocumentNotFoundError({ identifier: "doc-1", teamspace: "engineering" })
         expect(error._tag).toBe("DocumentNotFoundError")
         expect(error.identifier).toBe("doc-1")
@@ -484,7 +484,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new DocumentNotFoundError({ identifier: "doc-1", teamspace: "engineering" })
         expect(error.message).toBe("Document 'doc-1' not found in teamspace 'engineering'")
       })
@@ -493,7 +493,7 @@ describe("Huly Errors", () => {
 
   describe("CommentNotFoundError", () => {
     it.effect("creates with commentId, issueIdentifier, and project", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new CommentNotFoundError({ commentId: "c-42", issueIdentifier: "HULY-99", project: "HULY" })
         expect(error._tag).toBe("CommentNotFoundError")
         expect(error.commentId).toBe("c-42")
@@ -503,7 +503,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new CommentNotFoundError({ commentId: "c-42", issueIdentifier: "HULY-99", project: "HULY" })
         expect(error.message).toBe("Comment 'c-42' not found on issue 'HULY-99' in project 'HULY'")
       })
@@ -512,7 +512,7 @@ describe("Huly Errors", () => {
 
   describe("MilestoneNotFoundError", () => {
     it.effect("creates with identifier and project", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new MilestoneNotFoundError({ identifier: "v1.0", project: "HULY" })
         expect(error._tag).toBe("MilestoneNotFoundError")
         expect(error.identifier).toBe("v1.0")
@@ -521,7 +521,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new MilestoneNotFoundError({ identifier: "v1.0", project: "HULY" })
         expect(error.message).toBe("Milestone 'v1.0' not found in project 'HULY'")
       })
@@ -530,7 +530,7 @@ describe("Huly Errors", () => {
 
   describe("ChannelNotFoundError", () => {
     it.effect("creates with identifier", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new ChannelNotFoundError({ identifier: "general" })
         expect(error._tag).toBe("ChannelNotFoundError")
         expect(error.identifier).toBe("general")
@@ -538,7 +538,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new ChannelNotFoundError({ identifier: "general" })
         expect(error.message).toBe("Channel 'general' not found")
       })
@@ -547,7 +547,7 @@ describe("Huly Errors", () => {
 
   describe("DirectMessageNotFoundError", () => {
     it.effect("creates with identifier", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new DirectMessageNotFoundError({ identifier: "Kerr,Shannon" })
         expect(error._tag).toBe("DirectMessageNotFoundError")
         expect(error.identifier).toBe("Kerr,Shannon")
@@ -555,7 +555,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new DirectMessageNotFoundError({ identifier: "Kerr,Shannon" })
         expect(error.message).toBe("Direct message 'Kerr,Shannon' not found")
       })
@@ -564,7 +564,7 @@ describe("Huly Errors", () => {
 
   describe("DirectMessageIdentifierAmbiguousError", () => {
     it.effect("creates with identifier and match count", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new DirectMessageIdentifierAmbiguousError({ identifier: "Kerr,Shannon", matches: Count.make(2) })
         expect(error._tag).toBe("DirectMessageIdentifierAmbiguousError")
         expect(error.identifier).toBe("Kerr,Shannon")
@@ -573,7 +573,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new DirectMessageIdentifierAmbiguousError({ identifier: "Kerr,Shannon", matches: Count.make(2) })
         expect(error.message).toBe("Direct message 'Kerr,Shannon' is ambiguous (2 matches); use the DM _id")
       })
@@ -582,7 +582,7 @@ describe("Huly Errors", () => {
 
   describe("PersonIdentifierAmbiguousError", () => {
     it.effect("creates with identifier and match count", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new PersonIdentifierAmbiguousError({ identifier: "Smith,Bill", matches: Count.make(2) })
         expect(error._tag).toBe("PersonIdentifierAmbiguousError")
         expect(error.identifier).toBe("Smith,Bill")
@@ -591,7 +591,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new PersonIdentifierAmbiguousError({ identifier: "Smith,Bill", matches: Count.make(2) })
         expect(error.message).toBe(
           "Person identifier 'Smith,Bill' matched 2 people; use an exact email address instead"
@@ -602,7 +602,7 @@ describe("Huly Errors", () => {
 
   describe("MessageNotFoundError", () => {
     it.effect("creates with messageId and channel", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new MessageNotFoundError({ messageId: "msg-1", channel: "general" })
         expect(error._tag).toBe("MessageNotFoundError")
         expect(error.messageId).toBe("msg-1")
@@ -611,7 +611,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new MessageNotFoundError({ messageId: "msg-1", channel: "general" })
         expect(error.message).toBe("Message 'msg-1' not found in channel 'general'")
       })
@@ -620,7 +620,7 @@ describe("Huly Errors", () => {
 
   describe("ThreadReplyNotFoundError", () => {
     it.effect("creates with replyId and messageId", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new ThreadReplyNotFoundError({ replyId: "reply-5", messageId: "msg-1" })
         expect(error._tag).toBe("ThreadReplyNotFoundError")
         expect(error.replyId).toBe("reply-5")
@@ -629,7 +629,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new ThreadReplyNotFoundError({ replyId: "reply-5", messageId: "msg-1" })
         expect(error.message).toBe("Thread reply 'reply-5' not found on message 'msg-1'")
       })
@@ -638,7 +638,7 @@ describe("Huly Errors", () => {
 
   describe("EventNotFoundError", () => {
     it.effect("creates with eventId", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new EventNotFoundError({ eventId: EventId.make("evt-100") })
         expect(error._tag).toBe("EventNotFoundError")
         expect(error.eventId).toBe("evt-100")
@@ -646,7 +646,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new EventNotFoundError({ eventId: EventId.make("evt-100") })
         expect(error.message).toBe("Event 'evt-100' not found")
       })
@@ -655,7 +655,7 @@ describe("Huly Errors", () => {
 
   describe("RecurringEventNotFoundError", () => {
     it.effect("creates with eventId", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new RecurringEventNotFoundError({ eventId: EventId.make("rec-200") })
         expect(error._tag).toBe("RecurringEventNotFoundError")
         expect(error.eventId).toBe("rec-200")
@@ -663,7 +663,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new RecurringEventNotFoundError({ eventId: EventId.make("rec-200") })
         expect(error.message).toBe("Recurring event 'rec-200' not found")
       })
@@ -672,7 +672,7 @@ describe("Huly Errors", () => {
 
   describe("CalendarNotAccessibleError", () => {
     it.effect("creates with calendarId", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new CalendarNotAccessibleError({ calendarId: "cal-100" })
         expect(error._tag).toBe("CalendarNotAccessibleError")
         expect(error.calendarId).toBe("cal-100")
@@ -680,7 +680,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new CalendarNotAccessibleError({ calendarId: "cal-100" })
         expect(error.message).toBe("Calendar 'cal-100' not found or not accessible")
       })
@@ -689,7 +689,7 @@ describe("Huly Errors", () => {
 
   describe("ScheduleNotFoundError", () => {
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new ScheduleNotFoundError({ scheduleId: ScheduleId.make("sched-100") })
         expect(error.message).toBe("Schedule 'sched-100' not found")
       })
@@ -698,7 +698,7 @@ describe("Huly Errors", () => {
 
   describe("Virtual office errors", () => {
     it.effect("generate messages from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         expect(new FloorNotFoundError({ floorId: FloorId.make("floor-100") }).message).toBe(
           "Office floor 'floor-100' not found"
         )
@@ -714,7 +714,7 @@ describe("Huly Errors", () => {
 
   describe("ActivityMessageNotFoundError", () => {
     it.effect("creates with messageId", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new ActivityMessageNotFoundError({ messageId: "act-10" })
         expect(error._tag).toBe("ActivityMessageNotFoundError")
         expect(error.messageId).toBe("act-10")
@@ -722,7 +722,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new ActivityMessageNotFoundError({ messageId: "act-10" })
         expect(error.message).toBe("Activity message 'act-10' not found")
       })
@@ -731,7 +731,7 @@ describe("Huly Errors", () => {
 
   describe("ReactionNotFoundError", () => {
     it.effect("creates with messageId and emoji", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new ReactionNotFoundError({ messageId: "msg-7", emoji: "thumbsup" })
         expect(error._tag).toBe("ReactionNotFoundError")
         expect(error.messageId).toBe("msg-7")
@@ -740,7 +740,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new ReactionNotFoundError({ messageId: "msg-7", emoji: "thumbsup" })
         expect(error.message).toBe("Reaction 'thumbsup' not found on message 'msg-7'")
       })
@@ -749,7 +749,7 @@ describe("Huly Errors", () => {
 
   describe("SavedMessageNotFoundError", () => {
     it.effect("creates with messageId", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new SavedMessageNotFoundError({ messageId: "msg-saved-1" })
         expect(error._tag).toBe("SavedMessageNotFoundError")
         expect(error.messageId).toBe("msg-saved-1")
@@ -757,7 +757,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new SavedMessageNotFoundError({ messageId: "msg-saved-1" })
         expect(error.message).toBe("Saved message for 'msg-saved-1' not found")
       })
@@ -766,7 +766,7 @@ describe("Huly Errors", () => {
 
   describe("AttachmentNotFoundError", () => {
     it.effect("creates with attachmentId", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new AttachmentNotFoundError({ attachmentId: "att-3" })
         expect(error._tag).toBe("AttachmentNotFoundError")
         expect(error.attachmentId).toBe("att-3")
@@ -774,7 +774,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new AttachmentNotFoundError({ attachmentId: "att-3" })
         expect(error.message).toBe("Attachment 'att-3' not found")
       })
@@ -783,7 +783,7 @@ describe("Huly Errors", () => {
 
   describe("ComponentNotFoundError", () => {
     it.effect("creates with identifier and project", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new ComponentNotFoundError({ identifier: "frontend", project: "HULY" })
         expect(error._tag).toBe("ComponentNotFoundError")
         expect(error.identifier).toBe("frontend")
@@ -792,7 +792,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new ComponentNotFoundError({ identifier: "frontend", project: "HULY" })
         expect(error.message).toBe("Component 'frontend' not found in project 'HULY'")
       })
@@ -801,7 +801,7 @@ describe("Huly Errors", () => {
 
   describe("IssueTemplateNotFoundError", () => {
     it.effect("creates with identifier and project", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new IssueTemplateNotFoundError({ identifier: "bug-report", project: "HULY" })
         expect(error._tag).toBe("IssueTemplateNotFoundError")
         expect(error.identifier).toBe("bug-report")
@@ -810,7 +810,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new IssueTemplateNotFoundError({ identifier: "bug-report", project: "HULY" })
         expect(error.message).toBe("Issue template 'bug-report' not found in project 'HULY'")
       })
@@ -819,7 +819,7 @@ describe("Huly Errors", () => {
 
   describe("TemplateChildNotFoundError", () => {
     it.effect("creates with fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new TemplateChildNotFoundError({ childId: "c-1", template: "tpl-1", project: "HULY" })
         expect(error._tag).toBe("TemplateChildNotFoundError")
         expect(error.childId).toBe("c-1")
@@ -829,7 +829,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new TemplateChildNotFoundError({ childId: "c-1", template: "tpl-1", project: "HULY" })
         expect(error.message).toBe("Child template 'c-1' not found in template 'tpl-1' of project 'HULY'")
       })
@@ -838,7 +838,7 @@ describe("Huly Errors", () => {
 
   describe("NotificationNotFoundError", () => {
     it.effect("creates with notificationId", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new NotificationNotFoundError({ notificationId: "notif-55" })
         expect(error._tag).toBe("NotificationNotFoundError")
         expect(error.notificationId).toBe("notif-55")
@@ -846,7 +846,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new NotificationNotFoundError({ notificationId: "notif-55" })
         expect(error.message).toBe("Notification 'notif-55' not found")
       })
@@ -855,7 +855,7 @@ describe("Huly Errors", () => {
 
   describe("NotificationContextNotFoundError", () => {
     it.effect("creates with contextId", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new NotificationContextNotFoundError({ contextId: "ctx-77" })
         expect(error._tag).toBe("NotificationContextNotFoundError")
         expect(error.contextId).toBe("ctx-77")
@@ -863,7 +863,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new NotificationContextNotFoundError({ contextId: "ctx-77" })
         expect(error.message).toBe("Notification context 'ctx-77' not found")
       })
@@ -872,7 +872,7 @@ describe("Huly Errors", () => {
 
   describe("InvalidPersonUuidError", () => {
     it.effect("creates with uuid", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new InvalidPersonUuidError({ uuid: "not-a-uuid" })
         expect(error._tag).toBe("InvalidPersonUuidError")
         expect(error.uuid).toBe("not-a-uuid")
@@ -880,7 +880,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new InvalidPersonUuidError({ uuid: "not-a-uuid" })
         expect(error.message).toBe("Invalid PersonUuid format: 'not-a-uuid'")
       })
@@ -889,7 +889,7 @@ describe("Huly Errors", () => {
 
   describe("FileTooLargeError", () => {
     it.effect("creates with filename, size, and maxSize", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new FileTooLargeError({
           filename: "big.zip",
           size: 15 * BYTES_PER_MB,
@@ -903,7 +903,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message with MB conversion", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new FileTooLargeError({
           filename: "big.zip",
           size: 15 * BYTES_PER_MB,
@@ -914,7 +914,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("formats fractional MB with two decimal places", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new FileTooLargeError({
           filename: "photo.jpg",
           size: 5.5 * BYTES_PER_MB,
@@ -927,7 +927,7 @@ describe("Huly Errors", () => {
 
   describe("InvalidContentTypeError", () => {
     it.effect("creates with filename and contentType", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new InvalidContentTypeError({ filename: "script.exe", contentType: "application/x-msdownload" })
         expect(error._tag).toBe("InvalidContentTypeError")
         expect(error.filename).toBe("script.exe")
@@ -936,7 +936,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("generates message from fields", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new InvalidContentTypeError({ filename: "script.exe", contentType: "application/x-msdownload" })
         expect(error.message).toBe("Invalid content type 'application/x-msdownload' for file 'script.exe'")
       })
@@ -945,7 +945,7 @@ describe("Huly Errors", () => {
 
   describe("BYTES_PER_MB", () => {
     it.effect("equals 1024 * 1024", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         expect(BYTES_PER_MB).toBe(1048576)
       })
     )
@@ -985,7 +985,7 @@ describe("Huly Errors", () => {
     )
 
     it.effect("can pattern match with Match exhaustive over all error types", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         // Using switch instead of Match.type to avoid Effect Match inference issues
         // with Schema.TaggedError unions under exactOptionalPropertyTypes: true.
         // The return type annotation ensures exhaustiveness: TypeScript errors if a case is missing.

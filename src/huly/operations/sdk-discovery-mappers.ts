@@ -56,9 +56,10 @@ const nonEmptyTrimmed = (value: unknown): Option.Option<string> => {
 }
 
 const classNameOption = (value: unknown): Option.Option<ObjectClassName> =>
-  Option.map(nonEmptyTrimmed(value), ObjectClassName.make)
+  Option.map(nonEmptyTrimmed(value), (value) => ObjectClassName.make(value))
 
-const enumIdOption = (value: unknown): Option.Option<HulyEnumId> => Option.map(nonEmptyTrimmed(value), HulyEnumId.make)
+const enumIdOption = (value: unknown): Option.Option<HulyEnumId> =>
+  Option.map(nonEmptyTrimmed(value), (value) => HulyEnumId.make(value))
 
 const decodeSdkClassifierKind = (kind: unknown): HulyClassifierKind =>
   Either.getOrElse(Schema.decodeUnknownEither(HulySdkClassifierKindSchema)(kind), () => "unknown")
@@ -135,7 +136,7 @@ export const toClassSummary = (cls: MetadataClassDoc, attributesCount?: number):
 
 const decodeAttributeType = (value: unknown): HulyAttributeType => {
   const record = decodeSdkRecord(value)
-  const rawClass = String(record._class ?? "")
+  const rawClass = typeof record._class === "string" ? record._class : ""
   const rawKind = hulyAttributeTypeKindFromClass(rawClass)
   const base = { ...typeClassIdField(classNameOption(rawClass)) }
   // `raw` is only emitted when the type family could not be determined, to keep modeled

@@ -148,7 +148,7 @@ function toInternalMarkup(
       )
     default:
       absurd(format)
-      throw new Error(`Invalid format: ${format}`)
+      throw new Error("Invalid markup format")
   }
 }
 
@@ -167,7 +167,7 @@ function fromInternalMarkup(
       return markupNodeToMarkdownString(sdk.markupToJSON(markup), opts, sdk.markupToMarkdown)
     default:
       absurd(format)
-      throw new Error(`Invalid format: ${format}`)
+      throw new Error("Invalid markup format")
   }
 }
 

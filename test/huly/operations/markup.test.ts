@@ -32,7 +32,7 @@ const markupWithInlineComment = JSON.stringify({
 
 describe("markupToMarkdownString", () => {
   it.effect("serializes text with inline-comment marks without exposing thread metadata", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const markdown = markupToMarkdownString(markupWithInlineComment, testMarkupUrlConfig)
 
       expect(markdown.trim()).toBe("highlighted text")
@@ -42,7 +42,7 @@ describe("markupToMarkdownString", () => {
   )
 
   it.effect("serializes existing Huly reference nodes as browse links", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const referenceMarkup = JSON.stringify({
         type: MarkupNodeType.doc,
         content: [
@@ -71,7 +71,7 @@ describe("markupToMarkdownString", () => {
 
 describe("markdownToMarkupString", () => {
   it.effect("converts matching Huly browse URLs to native reference nodes by default", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const markdown =
         "I meant [Test Document](https://test.invalid/browse?workspace=test&_class=document%3Aclass%3ADocument&_id=doc-1&label=Test%20Document) like this"
 
@@ -90,7 +90,7 @@ describe("markdownToMarkupString", () => {
   )
 
   it.effect("preserves non-link marks when converting styled links to native references", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const markdown =
         "**[Test Document](https://test.invalid/browse?workspace=test&_class=document%3Aclass%3ADocument&_id=doc-1&label=Test%20Document)**"
 
@@ -108,7 +108,7 @@ describe("markdownToMarkupString", () => {
   )
 
   it.effect("keeps external and other-workspace URLs as markdown links by default", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const markdown = [
         "[external](https://example.com)",
         "[other](https://test.invalid/browse?workspace=other&_class=document%3Aclass%3ADocument&_id=doc-1&label=Doc)"
@@ -131,7 +131,7 @@ describe("markdownToMarkupString", () => {
   )
 
   it.effect("converts matching Huly browse URLs to native reference nodes when using real Huly links", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const markdown =
         "I meant [Test Document](https://test.invalid/browse?workspace=test&_class=document%3Aclass%3ADocument&_id=doc-1&label=Test%20Document) like this"
 
@@ -151,7 +151,7 @@ describe("markdownToMarkupString", () => {
   )
 
   it.effect("converts supported Huly browse URL classes without caller-side reference schemas", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const markdown = [
         "[HULY](https://test.invalid/browse?workspace=test&_class=tracker%3Aclass%3AProject&_id=project-1&label=HULY)",
         "[Alice](https://test.invalid/browse?workspace=test&_class=contact%3Aclass%3APerson&_id=person-1&label=Alice)",
@@ -173,7 +173,7 @@ describe("markdownToMarkupString", () => {
   )
 
   it.effect("keeps native-looking browse URLs for other workspaces as plain links", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const markdown =
         "[GAME-4](https://test.invalid/browse?workspace=test-workspace&_class=tracker%3Aclass%3AIssue&_id=issue-1&label=GAME-4)"
 
@@ -195,7 +195,7 @@ describe("markdownToMarkupString", () => {
   )
 
   it.effect("keeps Huly browse URLs without native reference fields as plain links", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const markdown = "[Browse](https://test.invalid/browse?workspace=test)"
 
       const rendered = markdownToMarkupStringWithHulyLinks(markdown, testMarkupUrlConfig)
@@ -211,7 +211,7 @@ describe("markdownToMarkupString", () => {
   )
 
   it.effect("keeps invalid markdown link URLs as plain links", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const markdown = "[Invalid](not-a-url)"
 
       const rendered = markdownToMarkupStringWithHulyLinks(markdown, testMarkupUrlConfig)
@@ -224,7 +224,7 @@ describe("markdownToMarkupString", () => {
   )
 
   it.effect("keeps malformed native-reference links as plain links on the default converter path", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const markdown = "Broken [Doc](https://test.invalid/browse?workspace=test&_id=doc-1)."
 
       const markup = markdownToMarkupString(markdown, testMarkupUrlConfig)
@@ -240,7 +240,7 @@ describe("markdownToMarkupString", () => {
   )
 
   it.effect("keeps malformed native-reference links as plain links for non-strict collaborator rendering", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const rendered = renderMarkdownPreservingNativeReferences(
         "Broken [Doc](https://test.invalid/browse?workspace=test&_id=doc-1).",
         testMarkupUrlConfig
@@ -258,7 +258,7 @@ describe("markdownToMarkupString", () => {
   )
 
   it.effect("reports malformed auto-converted Huly browse URLs", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const markdown = "Broken [Doc](https://test.invalid/browse?workspace=test&_id=doc-1)."
 
       const rendered = markdownToMarkupStringWithHulyLinks(markdown, testMarkupUrlConfig)
@@ -268,7 +268,7 @@ describe("markdownToMarkupString", () => {
   )
 
   it.effect("reports blank and missing native reference fields precisely", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const missingId =
         "Broken [Doc](https://test.invalid/browse?workspace=test&_class=document%3Aclass%3ADocument&label=Doc)."
       const blankId =
@@ -285,7 +285,7 @@ describe("markdownToMarkupString", () => {
 
 describe("optionalMarkupToMarkdown", () => {
   it.effect("returns the fallback when markup is null", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       // A `fallback` of undefined is coerced to "" by the default parameter.
       expect(optionalMarkupToMarkdown(null, testMarkupUrlConfig)).toBe("")
       expect(optionalMarkupToMarkdown(null, testMarkupUrlConfig, undefined)).toBe("")
@@ -293,13 +293,13 @@ describe("optionalMarkupToMarkdown", () => {
   )
 
   it.effect("returns the fallback when markup is undefined", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(optionalMarkupToMarkdown(undefined, testMarkupUrlConfig, "none")).toBe("none")
     })
   )
 
   it.effect("serializes the markup when present", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(optionalMarkupToMarkdown(markupWithInlineComment, testMarkupUrlConfig).trim()).toBe("highlighted text")
     })
   )
@@ -307,7 +307,7 @@ describe("optionalMarkupToMarkdown", () => {
 
 describe("sanitizeNodeForMarkdown", () => {
   it.effect("returns markdown-safe markup without mutating inline comment metadata on the source tree", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const root = markupToJSON(markupWithInlineComment)
 
       const sanitized = sanitizeNodeForMarkdown(root)

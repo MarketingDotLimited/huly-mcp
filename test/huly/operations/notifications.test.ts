@@ -32,7 +32,7 @@ import {
   unarchiveNotification,
   updateNotificationProviderSetting
 } from "../../../src/huly/operations/notifications.js"
-import { assertAt } from "../../../src/utils/assertions.js"
+import { assertAt, assertExists } from "../../../src/utils/assertions.js"
 import {
   docId,
   notificationBrandId,
@@ -657,13 +657,13 @@ describe("getNotificationContext", () => {
       }).pipe(Effect.provide(testLayer))
 
       expect(result).not.toBeNull()
-      expect(result!.id).toBe("ctx-1")
-      expect(result!.objectId).toBe("obj-1")
-      expect(result!.objectClass).toBe("tracker.class.Issue")
-      expect(result!.isPinned).toBe(true)
-      expect(result!.hidden).toBe(false)
-      expect(result!.lastViewedTimestamp).toBe(1706400000000)
-      expect(result!.lastUpdateTimestamp).toBe(1706500000000)
+      expect(assertExists(result).id).toBe("ctx-1")
+      expect(assertExists(result).objectId).toBe("obj-1")
+      expect(assertExists(result).objectClass).toBe("tracker.class.Issue")
+      expect(assertExists(result).isPinned).toBe(true)
+      expect(assertExists(result).hidden).toBe(false)
+      expect(assertExists(result).lastViewedTimestamp).toBe(1706400000000)
+      expect(assertExists(result).lastUpdateTimestamp).toBe(1706500000000)
     })
   )
 

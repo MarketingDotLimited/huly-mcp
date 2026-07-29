@@ -21,14 +21,14 @@ import {
   setIssueMilestone,
   updateMilestone
 } from "../../../src/huly/operations/milestones.js"
-import { assertAt } from "../../../src/utils/assertions.js"
+import { assertAt, assertExists } from "../../../src/utils/assertions.js"
 
 import { tracker } from "../../../src/huly/huly-plugins.js"
 import { markdownToMarkupString, testMarkupUrlConfig } from "../../../src/huly/operations/markup.js"
 import { issueIdentifier, milestoneIdentifier, projectIdentifier } from "../../helpers/brands.js"
 import { capturedMarkupChildNodes, capturedMarkupReferenceNodes } from "../../helpers/markup-capture.js"
 
-const milestoneLabel = MilestoneLabel.make
+const milestoneLabel = (value: string) => MilestoneLabel.make(value)
 
 const makeProject = (overrides?: Partial<HulyProject>): HulyProject => {
   const base = {
@@ -359,7 +359,7 @@ describe("listMilestones", () => {
 
         yield* listMilestones({ project: projectIdentifier("TEST") }).pipe(Effect.provide(testLayer))
 
-        expect((captureQuery.options?.sort as Record<string, number>).modifiedOn).toBe(-1)
+        expect(assertExists(captureQuery.options?.sort as Record<string, number> | undefined).modifiedOn).toBe(-1)
       })
     )
   })

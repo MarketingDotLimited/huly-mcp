@@ -70,15 +70,15 @@ const cardId = toRef<HulyBoardCard>("card-1")
 const labelId = toRef<TagElement>("label-1")
 const otherLabelId = toRef<TagElement>("label-2")
 const labelRefId = toRef<TagReference>("label-ref-1")
-const b = BoardIdentifier.make
-const c = BoardCardIdentifier.make
-const l = BoardLabelIdentifier.make
-const m = BoardMenuPageIdentifier.make
-const sv = BoardSavedViewIdentifier.make
-const v = BoardViewletIdentifier.make
-const text = NonEmptyString.make
-const color = ColorCode.make
-const category = TagCategoryIdentifier.make
+const b = (value: string) => BoardIdentifier.make(value)
+const c = (value: string) => BoardCardIdentifier.make(value)
+const l = (value: string) => BoardLabelIdentifier.make(value)
+const m = (value: string) => BoardMenuPageIdentifier.make(value)
+const sv = (value: string) => BoardSavedViewIdentifier.make(value)
+const v = (value: string) => BoardViewletIdentifier.make(value)
+const text = (value: string) => NonEmptyString.make(value)
+const color = (value: number) => ColorCode.make(value)
+const category = (value: string) => TagCategoryIdentifier.make(value)
 
 const docBase = <T extends Doc>(_id: Ref<T>, _class: Ref<Class<T>>, space: Ref<Space>) => ({
   _id,

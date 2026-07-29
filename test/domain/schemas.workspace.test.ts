@@ -55,7 +55,7 @@ describe("workspace schemas", () => {
   )
 
   it.effect("documents access-link timestamps as seconds in JSON schema", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const schema = JSON.stringify(createAccessLinkParamsJsonSchema)
 
       expect(schema).toContain("Unix timestamp in seconds")

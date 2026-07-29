@@ -51,6 +51,8 @@ import { makeFileVersionData, uploadSource } from "./drive-upload-shared.js"
 import { clampLimit, hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
+const LAST_SEGMENT_INDEX = -1
+
 export {
   addDriveMembers,
   createDrive,
@@ -172,7 +174,7 @@ export const uploadDriveFile = (
         new DrivePathConflictError({ drive: params.drive, path: normalized.path, existingKind: "folder" })
       )
     }
-    const title = normalized.segments.at(-1)
+    const title = normalized.segments.at(LAST_SEGMENT_INDEX)
     if (title === undefined) {
       return yield* Effect.fail(
         new DrivePathConflictError({ drive: params.drive, path: normalized.path, existingKind: "folder" })

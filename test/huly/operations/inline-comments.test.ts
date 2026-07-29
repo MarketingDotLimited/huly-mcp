@@ -31,7 +31,7 @@ const makeText = (text: string, marks?: Array<TestMark>): TestNode => ({
 
 describe("extractInlineComments", () => {
   it.effect("extracts single inline comment thread", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const root = makeMarkupDoc(
         makeParagraph(
           makeText("hello ", [{ type: INLINE_COMMENT_MARK_TYPE, attrs: { thread: "thread-1" } }]),
@@ -48,7 +48,7 @@ describe("extractInlineComments", () => {
   )
 
   it.effect("groups fragments by thread ID", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const root = makeMarkupDoc(
         makeParagraph(
           makeText("first ", [{ type: INLINE_COMMENT_MARK_TYPE, attrs: { thread: "t1" } }]),
@@ -66,7 +66,7 @@ describe("extractInlineComments", () => {
   )
 
   it.effect("extracts multiple distinct threads in order", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const root = makeMarkupDoc(
         makeParagraph(
           makeText("a", [{ type: INLINE_COMMENT_MARK_TYPE, attrs: { thread: "t1" } }]),
@@ -83,7 +83,7 @@ describe("extractInlineComments", () => {
   )
 
   it.effect("returns empty array when no inline comments", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const root = makeMarkupDoc(makeParagraph(makeText("plain text"), makeText("bold text", [{ type: "bold" }])))
 
       const result = extractInlineComments(root)
@@ -93,7 +93,7 @@ describe("extractInlineComments", () => {
   )
 
   it.effect("handles empty document", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const root = makeMarkupDoc()
 
       const result = extractInlineComments(root)
@@ -103,7 +103,7 @@ describe("extractInlineComments", () => {
   )
 
   it.effect("ignores marks with missing thread attr", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const root = makeMarkupDoc(
         makeParagraph(
           makeText("no thread", [{ type: INLINE_COMMENT_MARK_TYPE, attrs: {} }]),
@@ -118,7 +118,7 @@ describe("extractInlineComments", () => {
   )
 
   it.effect("records an empty fragment when a marked node carries no text", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       // A hardBreak node can hold an inline-comment mark but has no `text`,
       // exercising the `textNode.text ?? ""` fallback.
       const root = makeMarkupDoc(

@@ -32,7 +32,7 @@ import {
 } from "../../../src/huly/operations/calendar.js"
 
 const scheduleId = (id: string): ScheduleId => id as ScheduleId
-const scheduleTitle = ScheduleTitle.make
+const scheduleTitle = (value: string) => ScheduleTitle.make(value)
 
 type FixtureOverrides<T> = {
   readonly [K in keyof T]?: T[K] | undefined

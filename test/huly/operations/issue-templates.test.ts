@@ -206,7 +206,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       const inQuery = q._id as { $in?: Array<Ref<Status>> } | undefined
       if (inQuery?.$in) {
-        const filtered = statuses.filter((s) => inQuery.$in!.includes(s._id))
+        const filtered = statuses.filter((s) => assertExists(inQuery.$in).includes(s._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(statuses))

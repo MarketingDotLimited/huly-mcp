@@ -45,7 +45,7 @@ import { calendar, contact } from "../../../src/huly/huly-plugins.js"
 
 // --- Mock Data Builders ---
 
-const calendarEventTitle = CalendarEventTitle.make
+const calendarEventTitle = (value: string) => CalendarEventTitle.make(value)
 
 const asHulyEvent = (v: unknown) => v as HulyEvent
 const asCalendar = (v: unknown) => v as HulyCalendar

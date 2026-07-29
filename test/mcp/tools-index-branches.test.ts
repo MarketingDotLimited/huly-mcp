@@ -3,7 +3,7 @@ import type { AccountUuid, PersonId } from "@hcengineering/core"
 import { toFindResult } from "@hcengineering/core"
 import { Effect } from "effect"
 import { expect } from "vitest"
-import { assertAt } from "../../src/utils/assertions.js"
+import { assertAt, assertExists } from "../../src/utils/assertions.js"
 
 import type { HulyClientOperations } from "../../src/huly/client.js"
 import { testMarkupUrlConfig } from "../../src/huly/operations/markup.js"
@@ -50,10 +50,10 @@ describe("handleToolCall - known tool execution (line 71)", () => {
       expect(result).not.toBeNull()
       expect(result).toBeDefined()
       // Verify MCP response structure: must have content array with text entries
-      expect(result!.content).toBeInstanceOf(Array)
-      expect(result!.content.length).toBeGreaterThan(0)
-      expect(assertAt(result!.content, 0).type).toBe("text")
-      expect(typeof assertAt(result!.content, 0).text).toBe("string")
+      expect(assertExists(result).content).toBeInstanceOf(Array)
+      expect(assertExists(result).content.length).toBeGreaterThan(0)
+      expect(assertAt(assertExists(result).content, 0).type).toBe("text")
+      expect(typeof assertAt(assertExists(result).content, 0).text).toBe("string")
     })
   )
 })

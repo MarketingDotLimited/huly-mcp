@@ -40,7 +40,7 @@ import {
   listThreadReplies,
   updateThreadReply
 } from "../../../src/huly/operations/threads.js"
-import { assertAt } from "../../../src/utils/assertions.js"
+import { assertAt, assertExists } from "../../../src/utils/assertions.js"
 import { channelIdentifier, messageBrandId, threadReplyId } from "../../helpers/brands.js"
 import { capturedMarkupReferenceNodes } from "../../helpers/markup-capture.js"
 
@@ -265,7 +265,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     if (_class === contact.class.Person) {
       const q = query as { _id?: { $in?: Array<Ref<Person>> } }
       if (q._id?.$in) {
-        const filtered = persons.filter((p) => q._id!.$in!.includes(p._id))
+        const filtered = persons.filter((p) => assertExists(assertExists(q._id).$in).includes(p._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(persons))
@@ -274,7 +274,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const q = query as { personUuid?: { $in?: Array<AccountUuid> } }
       if (q.personUuid?.$in) {
         const filtered = employees.filter(
-          (e) => e.personUuid !== undefined && q.personUuid!.$in!.includes(e.personUuid)
+          (e) => e.personUuid !== undefined && assertExists(assertExists(q.personUuid).$in).includes(e.personUuid)
         )
         return Effect.succeed(toFindResult(filtered))
       }
@@ -283,7 +283,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     if (_class === contact.class.SocialIdentity) {
       const q = query as { _id?: { $in?: Array<PersonId> } }
       if (q._id?.$in) {
-        const filtered = socialIdentities.filter((si) => q._id!.$in!.includes(si._id))
+        const filtered = socialIdentities.filter((si) => assertExists(assertExists(q._id).$in).includes(si._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(socialIdentities))

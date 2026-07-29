@@ -12,6 +12,7 @@ import { beforeAll, describe, expect, it } from "vitest"
 const protocolVersion = "2026-07-28"
 const legacyProtocolVersion = "2025-06-18"
 const builtServerPath = resolve(process.cwd(), "dist/index.cjs")
+const SPAWNED_PROCESS_TEST_TIMEOUT_MS = 15_000
 const JsonRpcResponseSchema = Schema.Struct({
   jsonrpc: Schema.Literal("2.0"),
   id: Schema.NullOr(Schema.Union(Schema.String, Schema.Number)),
@@ -133,26 +134,33 @@ describe("MCP 2026-07-28 stdio transport with 2025 compatibility", () => {
     await serverHandle.close()
   })
 
-  it("connects the released SDK client to the spawned built command", { timeout: 15000 }, async () => {
-    const transport = new StdioClientTransport({
-      command: process.execPath,
-      args: [builtServerPath],
-      env: { ...getDefaultEnvironment(), LAZY_ENVS: "true", MCP_AUTO_EXIT: "true" },
-      stderr: "pipe"
-    })
-    const client = new Client(
-      { name: "spawned-released-client", version: "1.0.0" },
-      { versionNegotiation: { mode: { pin: protocolVersion } } }
-    )
+  it(
+    "connects the released SDK client to the spawned built command",
+    { timeout: SPAWNED_PROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const transport = new StdioClientTransport({
+        command: process.execPath,
+        args: [builtServerPath],
+        env: { ...getDefaultEnvironment(), LAZY_ENVS: "true", MCP_AUTO_EXIT: "true" },
+        stderr: "pipe"
+      })
+      const client = new Client(
+        { name: "spawned-released-client", version: "1.0.0" },
+        { versionNegotiation: { mode: { pin: protocolVersion } } }
+      )
 
-    await client.connect(transport)
-    const discovery = client.getDiscoverResult()
-    const tools = await client.listTools()
+      try {
+        await client.connect(transport)
+        const discovery = client.getDiscoverResult()
+        const tools = await client.listTools()
 
-    expect(discovery?.supportedVersions).toContain(protocolVersion)
-    expect(tools.tools.map((tool) => tool.name)).toContain("get_huly_context")
-    await client.close()
-  })
+        expect(discovery?.supportedVersions).toContain(protocolVersion)
+        expect(tools.tools.map((tool) => tool.name)).toContain("get_huly_context")
+      } finally {
+        await transport.close()
+      }
+    }
+  )
 
   it("serves the 2025-06-18 initialize handshake", async () => {
     const response = await exchange({
@@ -193,58 +201,72 @@ describe("MCP 2026-07-28 stdio transport with 2025 compatibility", () => {
     await serverHandle.close()
   })
 
-  it("connects a released legacy client to the spawned built command", { timeout: 15000 }, async () => {
-    const transport = new StdioClientTransport({
-      command: process.execPath,
-      args: [builtServerPath],
-      env: { ...getDefaultEnvironment(), LAZY_ENVS: "true", MCP_AUTO_EXIT: "true" },
-      stderr: "pipe"
-    })
-    const client = new Client(
-      { name: "codex-mcp-client", version: "1.0.0" },
-      { versionNegotiation: { mode: "legacy" } }
-    )
-
-    await client.connect(transport)
-    const tools = await client.listTools()
-
-    expect(tools.tools.map((tool) => tool.name)).toContain("get_huly_context")
-    await client.close()
-  })
-
-  it("serves Codex's exact 2025-06-18 handshake and tool discovery from the built command", async () => {
-    const transport = new StdioClientTransport({
-      command: process.execPath,
-      args: [builtServerPath],
-      env: { ...getDefaultEnvironment(), LAZY_ENVS: "true", MCP_AUTO_EXIT: "true" },
-      stderr: "pipe"
-    })
-    await transport.start()
-
-    const initialized = await sendAndReceive(transport, {
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: {
-        protocolVersion: legacyProtocolVersion,
-        capabilities: {},
-        clientInfo: { name: "codex", version: "1.0.0" }
-      }
-    })
-    await transport.send({ jsonrpc: "2.0", method: "notifications/initialized" })
-    const listed = await sendAndReceive(transport, { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} })
-
-    expect(initialized.result).toMatchObject({ protocolVersion: legacyProtocolVersion })
-    expect(initialized.error).toBeUndefined()
-    expect(listed.result).toMatchObject({
-      tools: expect.arrayContaining(
-        ["get_huly_context", "search_tools", "get_tool_schema", "invoke_tool"].map((name) =>
-          expect.objectContaining({ name })
-        )
+  it(
+    "connects a released legacy client to the spawned built command",
+    { timeout: SPAWNED_PROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const transport = new StdioClientTransport({
+        command: process.execPath,
+        args: [builtServerPath],
+        env: { ...getDefaultEnvironment(), LAZY_ENVS: "true", MCP_AUTO_EXIT: "true" },
+        stderr: "pipe"
+      })
+      const client = new Client(
+        { name: "codex-mcp-client", version: "1.0.0" },
+        { versionNegotiation: { mode: "legacy" } }
       )
-    })
-    await transport.close()
-  })
+
+      try {
+        await client.connect(transport)
+        const tools = await client.listTools()
+
+        expect(tools.tools.map((tool) => tool.name)).toContain("get_huly_context")
+      } finally {
+        await transport.close()
+      }
+    }
+  )
+
+  it(
+    "serves Codex's exact 2025-06-18 handshake and tool discovery from the built command",
+    { timeout: SPAWNED_PROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const transport = new StdioClientTransport({
+        command: process.execPath,
+        args: [builtServerPath],
+        env: { ...getDefaultEnvironment(), LAZY_ENVS: "true", MCP_AUTO_EXIT: "true" },
+        stderr: "pipe"
+      })
+      try {
+        await transport.start()
+
+        const initialized = await sendAndReceive(transport, {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "initialize",
+          params: {
+            protocolVersion: legacyProtocolVersion,
+            capabilities: {},
+            clientInfo: { name: "codex", version: "1.0.0" }
+          }
+        })
+        await transport.send({ jsonrpc: "2.0", method: "notifications/initialized" })
+        const listed = await sendAndReceive(transport, { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} })
+
+        expect(initialized.result).toMatchObject({ protocolVersion: legacyProtocolVersion })
+        expect(initialized.error).toBeUndefined()
+        expect(listed.result).toMatchObject({
+          tools: expect.arrayContaining(
+            ["get_huly_context", "search_tools", "get_tool_schema", "invoke_tool"].map((name) =>
+              expect.objectContaining({ name })
+            )
+          )
+        })
+      } finally {
+        await transport.close()
+      }
+    }
+  )
 
   it("discovers the final protocol and SDK-owned response metadata", async () => {
     const response = await exchange({ jsonrpc: "2.0", id: 1, method: "server/discover", params: { _meta: meta } })

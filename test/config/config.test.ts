@@ -44,7 +44,7 @@ describe("Config Module", () => {
 
   describe("HulyConfigSchema", () => {
     it.effect("validates valid config with password auth", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const config = {
           url: "https://huly.app",
           auth: { _tag: "password", email: "user@example.com", password: "secret" },
@@ -65,7 +65,7 @@ describe("Config Module", () => {
     )
 
     it.effect("validates valid config with token auth", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const config = {
           url: "https://huly.app",
           auth: { _tag: "token", token: "my-api-token" },
@@ -85,7 +85,7 @@ describe("Config Module", () => {
     )
 
     it.effect("rejects invalid URL", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const config = {
           url: "not-a-url",
           auth: { _tag: "password", email: "user@example.com", password: "secret" },
@@ -98,7 +98,7 @@ describe("Config Module", () => {
     )
 
     it.effect("rejects ftp URL", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const config = {
           url: "ftp://example.com",
           auth: { _tag: "password", email: "user@example.com", password: "secret" },
@@ -111,7 +111,7 @@ describe("Config Module", () => {
     )
 
     it.effect("rejects empty email in password auth", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const config = {
           url: "https://huly.app",
           auth: { _tag: "password", email: "   ", password: "secret" },
@@ -124,7 +124,7 @@ describe("Config Module", () => {
     )
 
     it.effect("rejects negative timeout", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const config = {
           url: "https://huly.app",
           auth: { _tag: "password", email: "user@example.com", password: "secret" },
@@ -137,7 +137,7 @@ describe("Config Module", () => {
     )
 
     it.effect("rejects zero timeout", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const config = {
           url: "https://huly.app",
           auth: { _tag: "password", email: "user@example.com", password: "secret" },
@@ -150,7 +150,7 @@ describe("Config Module", () => {
     )
 
     it.effect("rejects non-integer timeout", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const config = {
           url: "https://huly.app",
           auth: { _tag: "password", email: "user@example.com", password: "secret" },
@@ -165,7 +165,7 @@ describe("Config Module", () => {
 
   describe("ConfigValidationError", () => {
     it.effect("creates with message", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new ConfigValidationError({ message: "Invalid config" })
         expect(error._tag).toBe("ConfigValidationError")
         expect(error.message).toBe("Invalid config")
@@ -173,14 +173,14 @@ describe("Config Module", () => {
     )
 
     it.effect("creates with field", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const error = new ConfigValidationError({ message: "Missing required config", field: "HULY_URL" })
         expect(error.field).toBe("HULY_URL")
       })
     )
 
     it.effect("creates with cause", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const cause = new Error("underlying error")
         const error = new ConfigValidationError({ message: "Validation failed", cause })
         expect(error.cause).toBe(cause)
@@ -556,7 +556,7 @@ describe("Config Module", () => {
 
   describe("sanitized runtime config context", () => {
     it.effect("reports env token auth without exposing token value", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const context = sanitizeHulyRuntimeConfigFromEnv({
           HULY_URL: "https://huly.app",
           HULY_TOKEN: "secret-token",
@@ -575,7 +575,7 @@ describe("Config Module", () => {
     )
 
     it.effect("reports env password auth without exposing email or password values", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const context = sanitizeHulyRuntimeConfigFromEnv({
           HULY_URL: "https://huly.app",
           HULY_EMAIL: "user@example.com",
@@ -597,7 +597,7 @@ describe("Config Module", () => {
     )
 
     it.effect("does not fail when env config is missing in lazy mode", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const context = sanitizeHulyRuntimeConfigFromEnv({ LAZY_ENVS: "true" })
 
         expect(context.huly.url).toEqual({ configured: false })
@@ -608,7 +608,7 @@ describe("Config Module", () => {
     )
 
     it.effect("does not return an empty configured workspace value", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const context = sanitizeHulyRuntimeConfigFromEnv({ HULY_WORKSPACE: "" })
 
         expect(context.huly.workspace).toEqual({ configured: true })
@@ -616,7 +616,7 @@ describe("Config Module", () => {
     )
 
     it.effect("sanitizes URL credentials, path, query, and hash", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const context = sanitizeHulyRuntimeConfigFromEnv({
           HULY_URL: "https://url-user:credential-secret@example.huly.app/workspace?token=query-secret#hash",
           HULY_TOKEN: "secret-token",
@@ -639,7 +639,7 @@ describe("Config Module", () => {
     )
 
     it.effect("reports invalid URL without returning the raw value", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const context = sanitizeHulyRuntimeConfigFromEnv({
           HULY_URL: "not a url",
           HULY_TOKEN: "secret-token",
@@ -652,7 +652,7 @@ describe("Config Module", () => {
     )
 
     it.effect("reports non-HTTP URL schemes as invalid", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const context = sanitizeHulyRuntimeConfigFromEnv({
           HULY_URL: "ftp://huly.app",
           HULY_TOKEN: "secret-token",
@@ -664,7 +664,7 @@ describe("Config Module", () => {
     )
 
     it.effect("reports missing timeout as the default", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const context = sanitizeHulyRuntimeConfigFromEnv({})
 
         expect(context.huly.connectionTimeout).toEqual({
@@ -678,7 +678,7 @@ describe("Config Module", () => {
     )
 
     it.effect("reports invalid timeout without returning a value", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const context = sanitizeHulyRuntimeConfigFromEnv({ HULY_CONNECTION_TIMEOUT: "nope" })
 
         expect(context.huly.connectionTimeout).toEqual({
@@ -691,7 +691,7 @@ describe("Config Module", () => {
     )
 
     it.effect("reports unsafe integer timeout values as invalid", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const timeout = String(Number.MAX_SAFE_INTEGER + 1)
         const envContext = sanitizeHulyRuntimeConfigFromEnv({ HULY_CONNECTION_TIMEOUT: timeout })
         const headerContext = sanitizeHulyRuntimeConfigFromHeaders({ "x-huly-connection-timeout": timeout })
@@ -712,7 +712,7 @@ describe("Config Module", () => {
     )
 
     it.effect("ignores non-record header input during runtime context inspection", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const context = sanitizeHulyRuntimeConfigFromHeaders("not headers")
 
         expect(context.configSources.headers).toMatchObject({ present: false })
@@ -721,7 +721,7 @@ describe("Config Module", () => {
     )
 
     it.effect("reports array header values as configured but invalid for URL and timeout", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const context = sanitizeHulyRuntimeConfigFromHeaders({
           "x-huly-url": ["https://huly.app"],
           "x-huly-token": "secret-token",
@@ -739,7 +739,7 @@ describe("Config Module", () => {
     )
 
     it.effect("reports complete header token config without exposing header values", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const context = sanitizeHulyRuntimeConfigFromHeaders(
           {
             "x-huly-url": "https://header-user:header-pass@header.huly.app/path?token=header-query-secret",
@@ -772,7 +772,7 @@ describe("Config Module", () => {
     )
 
     it.effect("reports unsupported x-huly headers without values", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const context = sanitizeHulyRuntimeConfigFromHeaders({
           "x-huly-url": "https://huly.app",
           "x-huly-token": "secret-token",
@@ -793,7 +793,7 @@ describe("Config Module", () => {
 
   describe("Constants", () => {
     it.effect("has correct default timeout", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         expect(HulyConfigService.DEFAULT_TIMEOUT).toBe(30000)
       })
     )

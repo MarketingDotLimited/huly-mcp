@@ -77,6 +77,9 @@
         "ignore": [0, 1, 1024],
         "ignoreArrayIndexes": true,
         "ignoreDefaultValues": true,
+        "ignoreEnums": true,
+        "ignoreNumericLiteralTypes": true,
+        "ignoreTypeIndexes": true,
         "enforceConst": true
       }
     ],
@@ -88,6 +91,12 @@
     "hulymcp/require-canonical-effect-schema-import": "error"
   },
   "overrides": [
+    {
+      "files": ["scripts/**/*.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    },
     {
       "files": ["src/domain/schemas/shared.ts"],
       "rules": {

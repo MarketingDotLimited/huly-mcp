@@ -144,7 +144,7 @@ const toTypedDocs = <T extends Doc>(docs: ReadonlyArray<Doc>): Array<T> => {
 
 describe("view MCP tools", () => {
   it.effect("registers view tools in order", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const filtered = viewRegistry()
 
       expect(filtered.definitions.map((tool) => tool.name)).toEqual([

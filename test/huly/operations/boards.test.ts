@@ -76,15 +76,15 @@ const projectTypeId = toRef<ProjectType>("project-type-board")
 const taskTypeId = toRef<TaskType>("task-type-card")
 const todoStatusId = toRef<Status>("status-todo")
 const doneStatusId = toRef<Status>("status-done")
-const b = BoardIdentifier.make
-const c = BoardCardIdentifier.make
-const bn = BoardName.make
-const ct = BoardCardTitle.make
-const n = NonEmptyString.make
-const p = PersonName.make
-const pt = ProjectTypeRefSchema.make
-const t = Timestamp.make
-const tt = TaskTypeRefSchema.make
+const b = (value: string) => BoardIdentifier.make(value)
+const c = (value: string) => BoardCardIdentifier.make(value)
+const bn = (value: string) => BoardName.make(value)
+const ct = (value: string) => BoardCardTitle.make(value)
+const n = (value: string) => NonEmptyString.make(value)
+const p = (value: string) => PersonName.make(value)
+const pt = (value: string) => ProjectTypeRefSchema.make(value)
+const t = (value: number) => Timestamp.make(value)
+const tt = (value: string) => TaskTypeRefSchema.make(value)
 
 const docBase = <T extends Doc>(_id: Ref<T>, _class: Ref<Class<T>>, space: Ref<Space>) => ({
   _id,

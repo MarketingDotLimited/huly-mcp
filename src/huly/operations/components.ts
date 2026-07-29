@@ -61,6 +61,9 @@ type SetIssueComponentError = HulyClientError | ProjectNotFoundError | IssueNotF
 
 type DeleteComponentError = HulyClientError | ProjectNotFoundError | ComponentNotFoundError
 
+const DEFAULT_COMPONENT_LIMIT = 50
+const MAX_COMPONENT_LIMIT = 200
+
 export const findComponentByIdOrLabel = (
   client: HulyClient["Type"],
   projectId: Ref<HulyProject>,
@@ -103,7 +106,7 @@ export const listComponents = (
   Effect.gen(function* () {
     const { client, project } = yield* findProject(params.project)
 
-    const limit = Math.min(params.limit ?? 50, 200)
+    const limit = Math.min(params.limit ?? DEFAULT_COMPONENT_LIMIT, MAX_COMPONENT_LIMIT)
 
     const components = yield* client.findAll<HulyComponent>(
       tracker.class.Component,

@@ -67,7 +67,7 @@ interface MessageCase {
 }
 
 const assertMessages = (cases: ReadonlyArray<MessageCase>) =>
-  Effect.gen(function* () {
+  Effect.sync(function () {
     for (const { error, message, tag } of cases) {
       expect(error._tag).toBe(tag)
       expect(error.message).toBe(message)

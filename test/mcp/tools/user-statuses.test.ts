@@ -60,7 +60,7 @@ const findTool = (name: string) => {
 
 describe("userStatusTools", () => {
   it.effect("exports list_user_statuses in the user-statuses category", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(userStatusTools).toHaveLength(1)
       expect(userStatusTools[0].name).toBe("list_user_statuses")
       expect(userStatusTools[0].category).toBe("user-statuses")

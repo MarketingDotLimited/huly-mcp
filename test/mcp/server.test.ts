@@ -321,7 +321,7 @@ const createMockHulyClientLayer = (config: {
 
 describe("TOOL_DEFINITIONS", () => {
   it.effect("exports tool definitions", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const tools = Object.keys(TOOL_DEFINITIONS)
       expect(tools.length).toBeGreaterThan(100)
       expect(tools).toContain("list_projects")
@@ -394,7 +394,7 @@ describe("TOOL_DEFINITIONS", () => {
   )
 
   it.effect("each tool has name, description, and inputSchema", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       for (const [key, tool] of Object.entries(TOOL_DEFINITIONS)) {
         expect(tool.name).toBe(key)
         expect(typeof tool.description).toBe("string")
@@ -407,7 +407,7 @@ describe("TOOL_DEFINITIONS", () => {
 
   describe("inputSchema format", () => {
     it.effect("list_issues schema has correct structure", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = toolDefinition("list_issues").inputSchema
         expect(schema).toHaveProperty("type", "object")
         expect(schema).toHaveProperty("properties")
@@ -420,7 +420,7 @@ describe("TOOL_DEFINITIONS", () => {
     )
 
     it.effect("get_issue schema has correct structure", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = toolDefinition("get_issue").inputSchema
         expect(schema).toHaveProperty("type", "object")
         expect(schema).toHaveProperty("properties")
@@ -430,7 +430,7 @@ describe("TOOL_DEFINITIONS", () => {
     )
 
     it.effect("create_issue schema has correct structure", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = toolDefinition("create_issue").inputSchema
         expect(schema).toHaveProperty("type", "object")
         expect(schema).toHaveProperty("properties")
@@ -440,7 +440,7 @@ describe("TOOL_DEFINITIONS", () => {
     )
 
     it.effect("update_issue schema has correct structure", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = toolDefinition("update_issue").inputSchema
         expect(schema).toHaveProperty("type", "object")
         expect(schema).toHaveProperty("properties")
@@ -456,7 +456,7 @@ describe("TOOL_DEFINITIONS", () => {
     )
 
     it.effect("add_issue_label schema has correct structure", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = toolDefinition("add_issue_label").inputSchema
         expect(schema).toHaveProperty("type", "object")
         expect(schema).toHaveProperty("properties")
@@ -469,7 +469,7 @@ describe("TOOL_DEFINITIONS", () => {
     )
 
     it.effect("delete_issue schema has correct structure", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = toolDefinition("delete_issue").inputSchema
         expect(schema).toHaveProperty("type", "object")
         expect(schema).toHaveProperty("properties")
@@ -480,7 +480,7 @@ describe("TOOL_DEFINITIONS", () => {
     )
 
     it.effect("list_teamspaces schema has correct structure", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = toolDefinition("list_teamspaces").inputSchema
         expect(schema).toHaveProperty("type", "object")
         expect(schema).toHaveProperty("properties")
@@ -491,7 +491,7 @@ describe("TOOL_DEFINITIONS", () => {
     )
 
     it.effect("get_document schema has correct structure", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = toolDefinition("get_document").inputSchema
         expect(schema).toHaveProperty("type", "object")
         expect(schema).toHaveProperty("properties")
@@ -502,7 +502,7 @@ describe("TOOL_DEFINITIONS", () => {
     )
 
     it.effect("create_document schema has correct structure", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = toolDefinition("create_document").inputSchema
         expect(schema).toHaveProperty("type", "object")
         expect(schema).toHaveProperty("properties")
@@ -514,7 +514,7 @@ describe("TOOL_DEFINITIONS", () => {
     )
 
     it.effect("list_activity schema exposes explicit target modes", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = toolDefinition("list_activity").inputSchema
         expect(schema).toHaveProperty("type", "object")
         expect(Array.isArray(schemaProperty(schema, "oneOf"))).toBe(true)
@@ -661,7 +661,7 @@ describe("McpServerService", () => {
 
 describe("McpServerError", () => {
   it.effect("creates error with message", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const error = new McpServerError({ message: "Connection failed" })
       expect(error._tag).toBe("McpServerError")
       expect(error.message).toBe("Connection failed")
@@ -669,7 +669,7 @@ describe("McpServerError", () => {
   )
 
   it.effect("creates error with message and cause", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const cause = new Error("Original error")
       const error = new McpServerError({ message: "Connection failed", cause })
       expect(error._tag).toBe("McpServerError")
@@ -691,7 +691,7 @@ describe("McpServerError", () => {
 
 describe("Tool definition descriptions", () => {
   it.effect("list_issues has helpful description", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(toolDefinition("list_issues").description).toContain("Query")
       expect(toolDefinition("list_issues").description).toContain("issues")
       expect(toolDefinition("list_issues").description).toContain("filter")
@@ -699,7 +699,7 @@ describe("Tool definition descriptions", () => {
   )
 
   it.effect("get_issue has helpful description", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(toolDefinition("get_issue").description).toContain("Retrieve")
       expect(toolDefinition("get_issue").description).toContain("full details")
       expect(toolDefinition("get_issue").description).toContain("markdown")
@@ -707,7 +707,7 @@ describe("Tool definition descriptions", () => {
   )
 
   it.effect("create_issue has helpful description", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(toolDefinition("create_issue").description).toContain("Create")
       expect(toolDefinition("create_issue").description).toContain("issue")
       expect(toolDefinition("create_issue").description).toContain("markdown")
@@ -715,7 +715,7 @@ describe("Tool definition descriptions", () => {
   )
 
   it.effect("update_issue has helpful description", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(toolDefinition("update_issue").description).toContain("Update")
       expect(toolDefinition("update_issue").description).toContain("modified")
       expect(toolDefinition("update_issue").description.length).toBeGreaterThan(30)
@@ -723,14 +723,14 @@ describe("Tool definition descriptions", () => {
   )
 
   it.effect("add_issue_label has helpful description", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(toolDefinition("add_issue_label").description).toContain("label")
       expect(toolDefinition("add_issue_label").description).toContain("tag")
     })
   )
 
   it.effect("delete_issue has helpful description", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(toolDefinition("delete_issue").description).toContain("delete")
       expect(toolDefinition("delete_issue").description).toContain("cannot be undone")
     })
@@ -1157,7 +1157,7 @@ describe("McpServerService.layer operations", () => {
         const serverLayer = buildTestServerLayer({ transport: "stdio" }, layers)
         yield* Layer.build(serverLayer)
         expect(capturedProps).not.toBeNull()
-        expect(capturedProps!.authMethod).toBe("password")
+        expect(assertExists(capturedProps).authMethod).toBe("password")
       })
     })
 
@@ -1181,7 +1181,7 @@ describe("McpServerService.layer operations", () => {
         const serverLayer = buildTestServerLayer({ transport: "stdio" }, layers)
         yield* Layer.build(serverLayer)
         expect(capturedProps).not.toBeNull()
-        expect(capturedProps!.toolsets).toEqual(expect.arrayContaining(["issues", "documents"]))
+        expect(assertExists(capturedProps).toolsets).toEqual(expect.arrayContaining(["issues", "documents"]))
         delete process.env.TOOLSETS
         if (originalTools === undefined) {
           delete process.env.TOOLS
@@ -1211,7 +1211,7 @@ describe("McpServerService.layer operations", () => {
         const serverLayer = buildTestServerLayer({ transport: "stdio" }, layers)
         yield* Layer.build(serverLayer)
         expect(capturedProps).not.toBeNull()
-        expect(capturedProps!.toolsets).toBeNull()
+        expect(assertExists(capturedProps).toolsets).toBeNull()
         if (originalTools === undefined) {
           delete process.env.TOOLS
         } else {
@@ -1317,7 +1317,7 @@ describe("McpServerService.layer operations", () => {
             | undefined
           expect(listToolsHandler).toBeDefined()
 
-          const result = yield* Effect.promise(() => listToolsHandler!())
+          const result = yield* Effect.promise(() => assertExists(listToolsHandler)())
           expect(result.tools.length).toBeGreaterThan(0)
           expect(assertAt(result.tools, 0)).toHaveProperty("name")
           expect(assertAt(result.tools, 0)).toHaveProperty("description")
@@ -1375,7 +1375,7 @@ describe("McpServerService.layer operations", () => {
           expect(callToolHandler).toBeDefined()
 
           const result = (yield* Effect.promise(() =>
-            callToolHandler!({ params: { name: "get_huly_context", arguments: {} } })
+            assertExists(callToolHandler)({ params: { name: "get_huly_context", arguments: {} } })
           )) as {
             content: Array<{ text: string }>
             structuredContent?: { result?: { huly?: { url?: { origin?: string } }; auth?: { method?: string } } }
@@ -1387,8 +1387,8 @@ describe("McpServerService.layer operations", () => {
           expect(result.structuredContent?.result?.auth?.method).toBe("token")
           expect(resolveCalled).toBe(false)
           expect(toolCalledProps).not.toBeNull()
-          expect(toolCalledProps!.toolName).toBe("get_huly_context")
-          expect(toolCalledProps!.status).toBe("success")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).toolName).toBe("get_huly_context")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).status).toBe("success")
           const serialized = JSON.stringify(result)
           expect(serialized).not.toContain("secret-token")
           expect(serialized).not.toContain("secret-password")
@@ -1499,7 +1499,7 @@ describe("McpServerService.layer operations", () => {
           const listToolsHandler = capturedHandlers.get(ListToolsRequestSchema) as
             | (() => Promise<{ tools: Array<{ name: string }> }>)
             | undefined
-          const listed = yield* Effect.promise(() => listToolsHandler!())
+          const listed = yield* Effect.promise(() => assertExists(listToolsHandler)())
           expect(listed.tools[0]?.name).toBe("get_version")
           expect(listed.tools[1]?.name).toBe("get_huly_context")
 
@@ -1507,7 +1507,7 @@ describe("McpServerService.layer operations", () => {
             | ((req: { params: { name: string; arguments?: Record<string, unknown> } }) => Promise<unknown>)
             | undefined
           const result = (yield* Effect.promise(() =>
-            callToolHandler!({ params: { name: "get_huly_context", arguments: {} } })
+            assertExists(callToolHandler)({ params: { name: "get_huly_context", arguments: {} } })
           )) as {
             structuredContent?: {
               result?: {
@@ -1562,10 +1562,9 @@ describe("McpServerService.layer operations", () => {
             | ((req: { params: { name: string; arguments?: Record<string, unknown> } }) => Promise<unknown>)
             | undefined
 
-          const result = (yield* Effect.promise(() => callToolHandler!({ params: { name: "get_huly_context" } }))) as {
-            structuredContent?: { result?: unknown }
-            isError?: boolean
-          }
+          const result = (yield* Effect.promise(() =>
+            assertExists(callToolHandler)({ params: { name: "get_huly_context" } })
+          )) as { structuredContent?: { result?: unknown }; isError?: boolean }
 
           expect(result.isError).toBeUndefined()
           expect(result.structuredContent?.result).toBeDefined()
@@ -1593,7 +1592,7 @@ describe("McpServerService.layer operations", () => {
             | undefined
           expect(handler).toBeDefined()
 
-          const result = handler!()
+          const result = assertExists(handler)()
           expect(result.resourceTemplates).toEqual([
             expect.objectContaining({
               name: "huly-project",
@@ -1645,7 +1644,7 @@ describe("McpServerService.layer operations", () => {
             | undefined
           expect(handler).toBeDefined()
 
-          const result = yield* Effect.promise(() => handler!())
+          const result = yield* Effect.promise(() => assertExists(handler)())
           expect(result).toEqual({
             resources: [
               {
@@ -1683,7 +1682,7 @@ describe("McpServerService.layer operations", () => {
             | undefined
           expect(handler).toBeDefined()
 
-          const result = yield* Effect.promise(() => handler!({ params: { uri: "huly://projects/TEST" } }))
+          const result = yield* Effect.promise(() => assertExists(handler)({ params: { uri: "huly://projects/TEST" } }))
           expect(result.contents).toHaveLength(1)
           expect(result.contents[0]?.uri).toBe("huly://projects/TEST")
           expect(result.contents[0]?.mimeType).toBe("application/json")
@@ -1718,7 +1717,7 @@ describe("McpServerService.layer operations", () => {
             | undefined
           expect(handler).toBeDefined()
 
-          const result = yield* Effect.promise(() => handler!({ params: { uri: "huly://issues/TEST-1" } }))
+          const result = yield* Effect.promise(() => assertExists(handler)({ params: { uri: "huly://issues/TEST-1" } }))
           expect(result.contents).toHaveLength(1)
           expect(result.contents[0]?.uri).toBe("huly://issues/TEST-1")
           expect(result.contents[0]?.mimeType).toBe("application/json")
@@ -1758,13 +1757,13 @@ describe("McpServerService.layer operations", () => {
             | undefined
 
           const result = (yield* Effect.promise(() =>
-            callToolHandler!({ params: { name: "get_huly_context", arguments: { raw: true } } })
+            assertExists(callToolHandler)({ params: { name: "get_huly_context", arguments: { raw: true } } })
           )) as { content: Array<{ text: string }>; isError?: boolean }
 
           expect(result.isError).toBe(true)
           expect(result.content[0]?.text).toContain("does not accept arguments")
           expect(toolCalledProps).not.toBeNull()
-          expect(toolCalledProps!.errorTag).toBe("UnexpectedArguments")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).errorTag).toBe("UnexpectedArguments")
 
           yield* cleanup(fiber)
         }),
@@ -1796,7 +1795,7 @@ describe("McpServerService.layer operations", () => {
             | undefined
 
           const result = (yield* Effect.promise(() =>
-            callToolHandler!({ params: { name: "get_huly_context", arguments: {} } })
+            assertExists(callToolHandler)({ params: { name: "get_huly_context", arguments: {} } })
           )) as {
             structuredContent?: {
               result?: {
@@ -1840,7 +1839,7 @@ describe("McpServerService.layer operations", () => {
 
           const error = yield* Effect.flip(
             Effect.tryPromise({
-              try: () => handler!({ params: { uri: "huly://issues/123" } }),
+              try: () => assertExists(handler)({ params: { uri: "huly://issues/123" } }),
               catch: (error) => (error instanceof ProtocolError ? error : new ProtocolError(-32603, String(error)))
             })
           )
@@ -1935,14 +1934,14 @@ describe("McpServerService.layer operations", () => {
           expect(callToolHandler).toBeDefined()
 
           const result = yield* Effect.promise(() =>
-            callToolHandler!({ params: { name: "nonexistent_tool", arguments: {} } })
+            assertExists(callToolHandler)({ params: { name: "nonexistent_tool", arguments: {} } })
           )
 
           expect(result).toHaveProperty("isError", true)
           expect(result).toHaveProperty("content")
           expect(toolCalledProps).not.toBeNull()
-          expect(toolCalledProps!.toolName).toBe("nonexistent_tool")
-          expect(toolCalledProps!.status).toBe("error")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).toolName).toBe("nonexistent_tool")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).status).toBe("error")
 
           yield* cleanup(fiber)
         }),
@@ -1974,17 +1973,16 @@ describe("McpServerService.layer operations", () => {
             | undefined
           expect(callToolHandler).toBeDefined()
 
-          const result = (yield* Effect.promise(() => callToolHandler!({ params: { name: "get_issue" } }))) as {
-            content: Array<{ text: string }>
-            isError?: boolean
-          }
+          const result = (yield* Effect.promise(() =>
+            assertExists(callToolHandler)({ params: { name: "get_issue" } })
+          )) as { content: Array<{ text: string }>; isError?: boolean }
 
           expect(result.isError).toBe(true)
           expect(result.content[0]?.text).toContain("missing arguments object")
           expect(resolveCalled).toBe(false)
           expect(toolCalledProps).not.toBeNull()
-          expect(toolCalledProps!.status).toBe("error")
-          expect(toolCalledProps!.errorTag).toBe("MissingArguments")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).status).toBe("error")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).errorTag).toBe("MissingArguments")
 
           yield* cleanup(fiber)
         }),
@@ -2017,15 +2015,15 @@ describe("McpServerService.layer operations", () => {
           expect(callToolHandler).toBeDefined()
 
           const result = (yield* Effect.promise(() =>
-            callToolHandler!({ params: { name: "update_user_profile" } })
+            assertExists(callToolHandler)({ params: { name: "update_user_profile" } })
           )) as { content: Array<{ text: string }>; isError?: boolean }
 
           expect(result.isError).toBe(true)
           expect(result.content[0]?.text).toContain("missing arguments object")
           expect(resolveCalled).toBe(false)
           expect(toolCalledProps).not.toBeNull()
-          expect(toolCalledProps!.status).toBe("error")
-          expect(toolCalledProps!.errorTag).toBe("MissingArguments")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).status).toBe("error")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).errorTag).toBe("MissingArguments")
 
           yield* cleanup(fiber)
         }),
@@ -2057,17 +2055,16 @@ describe("McpServerService.layer operations", () => {
             | undefined
           expect(callToolHandler).toBeDefined()
 
-          const result = (yield* Effect.promise(() => callToolHandler!({ params: { name: "list_activity" } }))) as {
-            content: Array<{ text: string }>
-            isError?: boolean
-          }
+          const result = (yield* Effect.promise(() =>
+            assertExists(callToolHandler)({ params: { name: "list_activity" } })
+          )) as { content: Array<{ text: string }>; isError?: boolean }
 
           expect(result.isError).toBe(true)
           expect(result.content[0]?.text).toContain("missing arguments object")
           expect(resolveCalled).toBe(false)
           expect(toolCalledProps).not.toBeNull()
-          expect(toolCalledProps!.status).toBe("error")
-          expect(toolCalledProps!.errorTag).toBe("MissingArguments")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).status).toBe("error")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).errorTag).toBe("MissingArguments")
 
           yield* cleanup(fiber)
         }),
@@ -2103,15 +2100,15 @@ describe("McpServerService.layer operations", () => {
 
           // list_projects is a known tool that uses HulyClient.findAll
           const result = (yield* Effect.promise(() =>
-            callToolHandler!({ params: { name: "list_projects", arguments: {} } })
+            assertExists(callToolHandler)({ params: { name: "list_projects", arguments: {} } })
           )) as { content: Array<{ text: string }>; isError?: boolean }
 
           // With mock HulyClient that returns empty results, this should succeed
           expect(result.content).toBeDefined()
           expect(result.content.length).toBeGreaterThan(0)
           expect(toolCalledProps).not.toBeNull()
-          expect(toolCalledProps!.toolName).toBe("list_projects")
-          expect(toolCalledProps!.status).toBe("success")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).toolName).toBe("list_projects")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).status).toBe("success")
 
           yield* cleanup(fiber)
         }),
@@ -2136,10 +2133,9 @@ describe("McpServerService.layer operations", () => {
             | undefined
           expect(callToolHandler).toBeDefined()
 
-          const result = (yield* Effect.promise(() => callToolHandler!({ params: { name: "list_projects" } }))) as {
-            content: Array<{ text: string }>
-            isError?: boolean
-          }
+          const result = (yield* Effect.promise(() =>
+            assertExists(callToolHandler)({ params: { name: "list_projects" } })
+          )) as { content: Array<{ text: string }>; isError?: boolean }
 
           expect(result.content).toBeDefined()
           expect(result.isError).toBeUndefined()
@@ -2178,13 +2174,13 @@ describe("McpServerService.layer operations", () => {
 
           // Call with invalid args to trigger a parse error (which returns error response)
           const result = (yield* Effect.promise(() =>
-            callToolHandler!({ params: { name: "get_issue", arguments: {} } })
+            assertExists(callToolHandler)({ params: { name: "get_issue", arguments: {} } })
           )) as { content: Array<{ text: string }>; isError?: boolean }
 
           expect(result.content).toBeDefined()
           expect(toolCalledProps).not.toBeNull()
-          expect(toolCalledProps!.toolName).toBe("get_issue")
-          expect(toolCalledProps!.status).toBe("error")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).toolName).toBe("get_issue")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).status).toBe("error")
 
           yield* cleanup(fiber)
         }),
@@ -2224,13 +2220,13 @@ describe("McpServerService.layer operations", () => {
             | undefined
 
           const result = (yield* Effect.promise(() =>
-            callToolHandler!({ params: { name: "list_projects", arguments: {} } })
+            assertExists(callToolHandler)({ params: { name: "list_projects", arguments: {} } })
           )) as { content: Array<{ text: string }>; isError?: boolean }
 
           expect(result.isError).toBe(true)
           expect(toolCalledProps).not.toBeNull()
-          expect(toolCalledProps!.status).toBe("error")
-          expect(toolCalledProps!.toolName).toBe("list_projects")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).status).toBe("error")
+          expect(assertExists<ToolCalledProps>(toolCalledProps).toolName).toBe("list_projects")
 
           yield* cleanup(fiber)
         }),

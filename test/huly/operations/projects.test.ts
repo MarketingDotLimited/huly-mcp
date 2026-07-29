@@ -17,7 +17,7 @@ import {
   listStatuses,
   updateProject
 } from "../../../src/huly/operations/projects.js"
-import { assertAt } from "../../../src/utils/assertions.js"
+import { assertAt, assertExists } from "../../../src/utils/assertions.js"
 import { projectIdentifier } from "../../helpers/brands.js"
 import { withDiagnostics } from "../../helpers/diagnostics.js"
 
@@ -374,7 +374,9 @@ describe("listProjects", () => {
 
         yield* listProjects({}).pipe(Effect.provide(testLayer), withDiagnostics)
 
-        expect((captureQuery.options?.sort as Record<string, number>).name).toBe(SortingOrder.Ascending)
+        expect(assertExists(captureQuery.options?.sort as Record<string, number> | undefined).name).toBe(
+          SortingOrder.Ascending
+        )
       })
     )
   })

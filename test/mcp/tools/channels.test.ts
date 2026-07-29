@@ -204,7 +204,7 @@ const structuredResult = (result: { readonly structuredContent?: { readonly resu
 
 describe("channel MCP tools", () => {
   it.effect("registers chat message attachment tools in channel tool order and tools/list", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const names = channelTools.map((tool) => tool.name)
       const expected = [
         "list_chat_message_attachments",

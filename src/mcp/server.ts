@@ -22,6 +22,7 @@ import { type SanitizedHulyRuntimeConfigContext, sanitizeHulyRuntimeConfigFromEn
 import type { GetHulyContextResult } from "../domain/schemas/index.js"
 import type { HostedHulyMigrationInstructions } from "../huly/unavailable-diagnostics.js"
 import { TelemetryService } from "../telemetry/telemetry.js"
+import { writeStderrLine } from "../utils/stderr.js"
 import {
   createHostedHulyMigrationNoticeProvider,
   hostedHulyMigrationInstructionsForOrigin
@@ -61,7 +62,7 @@ export class McpServerError extends Schema.TaggedError<McpServerError>()("McpSer
 }) {}
 
 const defaultWriteError = (message: string): void => {
-  console.error(message)
+  writeStderrLine(message)
 }
 
 const parseToolExposureConfigEffect = (
@@ -186,7 +187,16 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<McpServe
                   })
                   yield* Effect.raceFirst(
                     Effect.async<void, McpServerError>((resume) => {
+                      const removeListeners = () => {
+                        process.off("SIGINT", cleanup)
+                        process.off("SIGTERM", cleanup)
+                        if (config.autoExit) {
+                          process.stdin.off("end", cleanup)
+                          process.stdin.off("close", cleanup)
+                        }
+                      }
                       const cleanup = () => {
+                        removeListeners()
                         resume(Effect.void)
                       }
 
@@ -198,14 +208,7 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<McpServe
                         process.stdin.on("close", cleanup)
                       }
 
-                      return Effect.sync(() => {
-                        process.off("SIGINT", cleanup)
-                        process.off("SIGTERM", cleanup)
-                        if (config.autoExit) {
-                          process.stdin.off("end", cleanup)
-                          process.stdin.off("close", cleanup)
-                        }
-                      })
+                      return Effect.sync(removeListeners)
                     }),
                     Deferred.await(control.shutdown)
                   )

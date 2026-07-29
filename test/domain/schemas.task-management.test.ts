@@ -53,7 +53,7 @@ describe("task management schemas", () => {
   )
 
   it.effect("exposes the create_issue_status category enum in JSON schema", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(JSON.stringify(createIssueStatusParamsJsonSchema)).toContain("UnStarted")
       expect(JSON.stringify(createIssueStatusParamsJsonSchema)).toContain("Lost")
       expect(JSON.stringify(createIssueStatusParamsJsonSchema)).not.toContain("unknown")

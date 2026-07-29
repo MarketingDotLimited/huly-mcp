@@ -232,7 +232,7 @@ const createLayer = (config?: {
     id?: unknown
   ) => {
     config?.createDocCalls?.push(
-      id === undefined ? { class: _class, space, attributes } : { class: _class, space, attributes, id: String(id) }
+      typeof id === "string" ? { class: _class, space, attributes, id } : { class: _class, space, attributes }
     )
     return Effect.succeed((id ?? "execution-new") as Ref<Doc>)
   }) as HulyClientOperations["createDoc"]

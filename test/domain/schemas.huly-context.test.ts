@@ -75,7 +75,7 @@ const validContext = {
 
 describe("GetHulyContextResultSchema", () => {
   it.effect("accepts a full valid context result", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const decoded = Schema.decodeUnknownSync(GetHulyContextResultSchema)(validContext)
       expect(decoded.package.name).toBe("@firfi/huly-mcp")
       expect(decoded.transport.type).toBe("http")
@@ -86,7 +86,7 @@ describe("GetHulyContextResultSchema", () => {
   )
 
   it.effect("rejects non-sanitized URL origin values", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(() =>
         Schema.decodeUnknownSync(GetHulyContextResultSchema)({
           ...validContext,
@@ -100,7 +100,7 @@ describe("GetHulyContextResultSchema", () => {
   )
 
   it.effect("rejects an origin that is not a parseable URL", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       // A non-empty string that throws in `new URL(...)` exercises the catch arm.
       expect(() =>
         Schema.decodeUnknownSync(GetHulyContextResultSchema)({
@@ -112,7 +112,7 @@ describe("GetHulyContextResultSchema", () => {
   )
 
   it.effect("rejects empty diagnostic strings", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       for (const context of [
         { ...validContext, package: { ...validContext.package, version: "" } },
         {
@@ -128,7 +128,7 @@ describe("GetHulyContextResultSchema", () => {
   )
 
   it.effect("JSON schema exposes core top-level fields", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(getHulyContextResultJsonSchema).toMatchObject({
         type: "object",
         properties: {

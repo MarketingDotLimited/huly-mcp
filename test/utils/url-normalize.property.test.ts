@@ -9,7 +9,7 @@ const hostArbitrary = fc.stringMatching(/^https:\/\/[a-z][a-z0-9-]{0,12}\.exampl
 const pathSegmentArbitrary = fc.stringMatching(/^[a-z][a-z0-9._-]{0,16}$/)
 const separatorArbitrary = fc.constantFrom("-", "_", " ")
 
-const withInsertedSeparators = (value: string, separator: string): string => [...value].join(separator)
+const withInsertedSeparators = (value: string, separator: string): string => value.split("").join(separator)
 
 describe("URL and normalization utility properties", () => {
   it("concatLink normalizes exactly one slash between host and path for canonical inputs", () => {

@@ -13,6 +13,7 @@ const SuppressionSchema = Schema.Record({
 })
 
 const suppressionPath = "oxlint-complexity-suppressions.json"
+const JSON_INDENT_SPACES = 2
 const parseOxlintResult = Schema.decodeUnknownSync(Schema.parseJson(OxlintResultSchema))
 const parseSuppressions = Schema.decodeUnknownSync(Schema.parseJson(SuppressionSchema))
 
@@ -36,7 +37,7 @@ const sortedCounts = [...counts].sort(([left], [right]) => left.localeCompare(ri
 
 if (process.argv.includes("--prune")) {
   const next = Object.fromEntries(sortedCounts.map(([filename, count]) => [filename, { complexity: { count } }]))
-  writeFileSync(suppressionPath, `${JSON.stringify(next, undefined, 2)}\n`)
+  writeFileSync(suppressionPath, `${JSON.stringify(next, undefined, JSON_INDENT_SPACES)}\n`)
   console.log(`Updated ${suppressionPath} with ${sortedCounts.length} files.`)
   process.exitCode = 0
 } else {

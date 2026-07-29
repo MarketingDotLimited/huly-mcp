@@ -23,7 +23,7 @@
     "prepare": "husky && node scripts/prepare-effect-tsgo.mjs",
     "start": "node dist/index.cjs",
     "build": "pnpm build:mcp && pnpm build:cli",
-    "build:mcp": "PKG_VERSION=$(node -p \"require('./package.json').version\") && esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/index.cjs --external:ws \"--define:PKG_VERSION=\\\"$PKG_VERSION\\\"\"",
+    "build:mcp": "PKG_VERSION=$(node -p \"require('./package.json').version\") && esbuild src/index.ts --bundle --platform=node --format=cjs --log-level=warning --outfile=dist/index.cjs --external:ws \"--define:PKG_VERSION=\\\"$PKG_VERSION\\\"\"",
     "build:cli": "pnpm --filter @firfi/huly-cli build",
     "typecheck": "pnpm typecheck:tsc && pnpm typecheck:effect",
     "typecheck:tsc": "node node_modules/@typescript/native/bin/tsc -p tsconfig.json --noEmit 2>&1 | { grep -E '^(src/|packages/|scripts/|test/|tsconfig\\.json)' && exit 1 || exit 0; }",
@@ -31,7 +31,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
-    "lint": "find src packages scripts test -name '*.ts' -print0 | xargs -0 oxlint && dprint check && jscpd src packages/huly-cli/src",
+    "lint": "find src packages scripts test -name '*.ts' -print0 | xargs -0 oxlint --deny-warnings && dprint check && jscpd --silent src packages/huly-cli/src",
     "lint:fix": "find src packages scripts test -name '*.ts' -print0 | xargs -0 oxlint --fix && dprint fmt",
     "format": "dprint fmt",
     "check-format": "dprint check",
@@ -100,7 +100,7 @@
   },
   "lint-staged": {
     "*.ts": [
-      "oxlint --fix",
+      "oxlint --fix --deny-warnings",
       "dprint fmt"
     ]
   },

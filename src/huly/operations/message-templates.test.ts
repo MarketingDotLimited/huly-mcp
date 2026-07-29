@@ -45,10 +45,10 @@ const workspace = core.space.Workspace
 const ref = <T extends Doc>(id: string): Ref<T> => id as Ref<T>
 const intl = (id: string): IntlString => id as IntlString
 const resource = (id: string): Resource<TemplateFieldFunc> => id as Resource<TemplateFieldFunc>
-const templateIdentifier = MessageTemplateIdentifier.make
-const templateCategoryIdentifier = MessageTemplateCategoryIdentifier.make
-const templateFieldId = TemplateFieldId.make
-const fieldCategoryIdentifier = TemplateFieldCategoryIdentifier.make
+const templateIdentifier = (value: string) => MessageTemplateIdentifier.make(value)
+const templateCategoryIdentifier = (value: string) => MessageTemplateCategoryIdentifier.make(value)
+const templateFieldId = (value: string) => TemplateFieldId.make(value)
+const fieldCategoryIdentifier = (value: string) => TemplateFieldCategoryIdentifier.make(value)
 
 interface Store {
   readonly categories: ReadonlyArray<HulyTemplateCategory>

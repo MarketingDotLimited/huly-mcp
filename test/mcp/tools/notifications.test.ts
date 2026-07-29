@@ -44,7 +44,7 @@ const findTool = (name: string) => {
 
 describe("notificationTools", () => {
   it.effect("exports all expected notification tools", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const expectedTools = [
         "list_notifications",
         "get_notification",
@@ -80,7 +80,7 @@ describe("notificationTools", () => {
   )
 
   it.effect("all tools have category 'notifications'", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       for (const tool of notificationTools) {
         expect(tool.category).toBe("notifications")
       }
@@ -88,7 +88,7 @@ describe("notificationTools", () => {
   )
 
   it.effect("all tools have non-empty description and inputSchema", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       for (const tool of notificationTools) {
         expect(tool.description.length).toBeGreaterThan(0)
         expect(tool.inputSchema).toBeDefined()

@@ -284,8 +284,8 @@ export const transformMarkupNodeNativeReferenceLinks = (
 export const optionalMarkdownToMarkup = (
   md: string | undefined | null,
   urls: MarkupUrlConfig,
-  fallback: Markup | "" = ""
-): Markup | "" => (md && md.trim() !== "" ? markdownToMarkupString(md, urls) : fallback)
+  fallback: Markup = ""
+): Markup => (md && md.trim() !== "" ? markdownToMarkupString(md, urls) : fallback)
 
 export function optionalMarkupToMarkdown(
   markup: Markup | undefined | null,

@@ -24,6 +24,7 @@ const MIN_HTTP_PORT = 0
 const MAX_HTTP_PORT = 65_535
 const HTTP_UNAUTHORIZED_ERROR_CODE = -32_000
 const HTTP_UNAUTHORIZED = 401
+const DEFAULT_HTTP_PORT_NUMBER = 3000
 
 export const HttpPort = Schema.Number.pipe(Schema.int(), Schema.between(MIN_HTTP_PORT, MAX_HTTP_PORT)).annotations({
   identifier: "HttpPort",
@@ -37,7 +38,7 @@ export const HttpHost = Schema.NonEmptyTrimmedString.annotations({
 })
 export type HttpHost = Schema.Schema.Type<typeof HttpHost>
 
-export const DEFAULT_HTTP_PORT: HttpPort = HttpPort.make(3000)
+export const DEFAULT_HTTP_PORT: HttpPort = HttpPort.make(DEFAULT_HTTP_PORT_NUMBER)
 export const DEFAULT_HTTP_HOST: HttpHost = HttpHost.make("127.0.0.1")
 
 const UnauthorizedJsonRpcResponse = Schema.Struct({

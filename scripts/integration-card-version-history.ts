@@ -16,10 +16,13 @@ const core = require("@hcengineering/core") as typeof import("@hcengineering/cor
 
 type VersionableCardDoc = HulyCard & VersionableDoc
 
+const MAX_ADDITIONAL_VERSIONS = 60
+const NODE_ARGUMENT_OFFSET = 2
+
 const AdditionalVersionCount = Schema.NumberFromString.pipe(
   Schema.int(),
   Schema.positive(),
-  Schema.lessThanOrEqualTo(60)
+  Schema.lessThanOrEqualTo(MAX_ADDITIONAL_VERSIONS)
 )
 
 const CliArgsSchema = Schema.Union(
@@ -41,7 +44,7 @@ type CliArgs = Schema.Schema.Type<typeof CliArgsSchema>
 const parseCliArgs = (): CliArgs =>
   Schema.decodeUnknownSync(CliArgsSchema)(
     parseArgs({
-      args: process.argv.slice(2),
+      args: process.argv.slice(NODE_ARGUMENT_OFFSET),
       options: {
         mode: { type: "string" },
         cardSpace: { type: "string" },

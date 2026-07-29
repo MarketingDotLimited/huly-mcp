@@ -85,7 +85,7 @@ const findTool = (name: string) => {
 
 describe("spaceTools", () => {
   it.effect("exports all spaces tools in the spaces category and registers them globally", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(spaceTools.map((tool) => tool.name)).toEqual([
         "list_spaces",
         "get_space",

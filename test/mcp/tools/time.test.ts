@@ -17,7 +17,7 @@ type TimeReportToolName = (typeof TIME_REPORT_TOOL_NAMES)[number]
 
 describe("time tool contracts", () => {
   it.effect("documents Huly hour semantics in time-report descriptions and schemas", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const findTimeTool = (name: TimeReportToolName) =>
         assertExists(
           timeTools.find((tool) => tool.name === name),

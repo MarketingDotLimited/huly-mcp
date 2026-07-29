@@ -362,14 +362,14 @@ describe("decodeBase64", () => {
 
 describe("FileUploadError", () => {
   it.effect("has correct tag", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const error = new FileUploadError({ message: "Upload failed" })
       expect(error._tag).toBe("FileUploadError")
     })
   )
 
   it.effect("includes cause when provided", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const cause = new Error("Network error")
       const error = new FileUploadError({ message: "Upload failed", cause })
       expect(error.cause).toBe(cause)
@@ -379,7 +379,7 @@ describe("FileUploadError", () => {
 
 describe("InvalidFileDataError", () => {
   it.effect("has correct tag", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const error = new InvalidFileDataError({ message: "Bad data" })
       expect(error._tag).toBe("InvalidFileDataError")
     })
@@ -781,7 +781,9 @@ describe("HulyStorageClient.layer (real layer with mocked api-client)", () => {
     )
     mockCreateStorageClient.mockImplementation(() => ({
       put: (objectName, stream, contentType, size) => {
-        const data = Buffer.isBuffer(stream) ? stream : Buffer.from(String(stream))
+        const data = Buffer.isBuffer(stream)
+          ? stream
+          : Buffer.from(typeof stream === "string" ? stream : (JSON.stringify(stream) ?? ""))
 
         return mockPut(objectName, data, contentType, size ?? 0) as never
       },

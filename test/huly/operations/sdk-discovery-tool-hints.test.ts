@@ -26,7 +26,7 @@ const findLedgerGroup = (ledger: SdkParityLedger, packageName: string, exportNam
 
 describe("firstClassToolHints", () => {
   it.effect("references only example tool names that exist in the registry", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const registeredNames = new Set(toolRegistry.definitions.map((tool) => tool.name))
       const referenced = [...firstClassToolHints.values()].flatMap((hints) =>
         hints.flatMap((hint) => hint.exampleTools)
@@ -41,7 +41,7 @@ describe("firstClassToolHints", () => {
   )
 
   it.effect("keeps runtime parity routing constants aligned with the sdk parity ledger", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const ledger = readLedger()
       const registeredNames = new Set(toolRegistry.definitions.map((tool) => tool.name))
 

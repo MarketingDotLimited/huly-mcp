@@ -12,7 +12,7 @@ const makePlatformError = (code: string): PlatformError<Record<string, never>> =
 describe("connection-helpers", () => {
   describe("authToOptions", () => {
     it.effect("returns token and workspace for token auth", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const auth: Auth = { _tag: "token", token: Redacted.make("my-secret-token") }
         const result = authToOptions(auth, "test-workspace")
         expect(result).toStrictEqual({ token: "my-secret-token", workspace: "test-workspace" })
@@ -20,7 +20,7 @@ describe("connection-helpers", () => {
     )
 
     it.effect("returns email, password, and workspace for password auth", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const auth: Auth = { _tag: "password", email: "user@example.com", password: Redacted.make("hunter2") }
         const result = authToOptions(auth, "my-ws")
         expect(result).toStrictEqual({ email: "user@example.com", password: "hunter2", workspace: "my-ws" })

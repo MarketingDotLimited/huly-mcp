@@ -151,7 +151,7 @@ const findTool = (name: string) => {
 
 describe("approvalRequestTools", () => {
   it.effect("exports approval request tools in the approvals category and registers them globally", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(approvalRequestTools.map((tool) => tool.name)).toEqual([
         "list_approval_requests",
         "get_approval_request",

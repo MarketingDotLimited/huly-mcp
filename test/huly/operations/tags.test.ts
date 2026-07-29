@@ -202,7 +202,7 @@ const createFixtureLayer = (config: FixtureConfig) => {
     id?: unknown
   ) => {
     config.captures?.createDocs.push({ classId: String(_class), attributes, id })
-    return Effect.succeed(toRef<Doc>(String(id ?? "new-tag-id")))
+    return Effect.succeed(toRef<Doc>(typeof id === "string" ? id : "new-tag-id"))
   }) as HulyClientOperations["createDoc"]
 
   const updateDocImpl: HulyClientOperations["updateDoc"] = ((

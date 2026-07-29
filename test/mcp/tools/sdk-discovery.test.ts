@@ -82,7 +82,7 @@ const findTool = (name: string) => {
 
 describe("sdkDiscoveryTools", () => {
   it.effect("exports sdk discovery tools in the sdk-discovery category", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(sdkDiscoveryTools.map((tool) => tool.name)).toEqual([
         "list_huly_classes",
         "get_huly_class",
@@ -120,7 +120,7 @@ describe("sdkDiscoveryTools", () => {
   )
 
   it.effect("read-only annotations are derived for all discovery tools", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       for (const tool of sdkDiscoveryTools) {
         expect(tool.name.startsWith("list_") || tool.name.startsWith("get_") || tool.name.startsWith("describe_")).toBe(
           true
@@ -130,7 +130,7 @@ describe("sdkDiscoveryTools", () => {
   )
 
   it.effect("uses registered tools as first-class tool hint examples", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const registeredToolNames = new Set(Object.keys(TOOL_DEFINITIONS))
       const exampleTools = [...firstClassToolHints.values()].flatMap((hints) =>
         hints.flatMap((hint) => hint.exampleTools)

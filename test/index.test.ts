@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, it } from "@effect/vitest"
-import { Context, Effect, Layer, Option, Redacted } from "effect"
+import { Context, Effect, Inspectable, Layer, Option, Redacted } from "effect"
 import { expect } from "vitest"
 import { HulyClient } from "../src/huly/client.js"
 import { HulyStorageClient } from "../src/huly/storage.js"
@@ -120,7 +120,7 @@ describe("Main Entry Point", () => {
 
         const error = yield* Effect.flip(getHttpPort)
 
-        expect(String(error)).toContain("must be a whole number between 0 and 65535")
+        expect(Inspectable.toStringUnknown(error)).toContain("must be a whole number between 0 and 65535")
       })
     )
   })
@@ -144,7 +144,7 @@ describe("Main Entry Point", () => {
         expect(Option.isSome(token)).toBe(true)
         if (Option.isSome(token)) {
           expect(Redacted.value(token.value)).toBe("mcp-endpoint-secret")
-          expect(`${token.value}`).toBe("<redacted>")
+          expect(Inspectable.toStringUnknown(token.value)).toBe('"<redacted>"')
         }
       })
     )

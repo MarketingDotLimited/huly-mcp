@@ -99,7 +99,7 @@ describe("Error Mapping to MCP", () => {
   describe("mapDomainErrorToMcp", () => {
     describe("InvalidParams errors (-32602)", () => {
       it.effect("maps IssueNotFoundError with its errorTag", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new IssueNotFoundError({ identifier: "HULY-123", project: "HULY" })
           const response = mapDomainErrorToMcp(error)
 
@@ -111,7 +111,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps ProjectNotFoundError with descriptive message", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new ProjectNotFoundError({ identifier: "MISSING" })
           const response = mapDomainErrorToMcp(error)
 
@@ -122,7 +122,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps InvalidStatusError with descriptive message", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new InvalidStatusError({ status: "bogus", project: "HULY" })
           const response = mapDomainErrorToMcp(error)
 
@@ -133,7 +133,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps PersonNotFoundError with descriptive message", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new PersonNotFoundError({ identifier: "john@example.com" })
           const response = mapDomainErrorToMcp(error)
 
@@ -145,7 +145,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps PersonIdentifierAmbiguousError with descriptive message", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new PersonIdentifierAmbiguousError({ identifier: "Smith,Bill", matches: Count.make(2) })
           const response = mapDomainErrorToMcp(error)
 
@@ -159,7 +159,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps OrganizationNotFoundError with descriptive message", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new OrganizationNotFoundError({ identifier: "Acme" })
           const response = mapDomainErrorToMcp(error)
 
@@ -170,7 +170,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps OrganizationIdentifierAmbiguousError with descriptive message", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new OrganizationIdentifierAmbiguousError({ identifier: "Acme", matches: Count.make(2) })
           const response = mapDomainErrorToMcp(error)
 
@@ -183,7 +183,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps InvalidContactProviderError with descriptive message", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new InvalidContactProviderError({ provider: "fax" })
           const response = mapDomainErrorToMcp(error)
 
@@ -194,7 +194,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps InvalidFileDataError with descriptive message", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new InvalidFileDataError({ message: "Invalid base64 encoding" })
           const response = mapDomainErrorToMcp(error)
 
@@ -205,7 +205,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps FileNotFoundError with descriptive message", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new FileNotFoundError({ filePath: "/path/to/missing.txt" })
           const response = mapDomainErrorToMcp(error)
 
@@ -216,7 +216,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps FunnelNotFoundError with descriptive message", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new FunnelNotFoundError({ identifier: funnelReference("sales") })
           const response = mapDomainErrorToMcp(error)
 
@@ -227,7 +227,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps LeadNotFoundError with descriptive message", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new LeadNotFoundError({
             identifier: leadIdentifier("LEAD-9"),
             funnel: funnelIdentifier("funnel-1")
@@ -241,7 +241,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps CalendarNotAccessibleError with descriptive message", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new CalendarNotAccessibleError({ calendarId: "cal-9" })
           const response = mapDomainErrorToMcp(error)
 
@@ -252,7 +252,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps typed space role lookup errors as invalid params with errorTag", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const errors = [
             new SpaceNotTypedError({ id: SpaceId.make("space-1"), name: NonEmptyString.make("General") }),
             new SpaceRoleNotFoundError({
@@ -281,7 +281,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps DirectMessageNotFoundError with descriptive message", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new DirectMessageNotFoundError({ identifier: "Kerr,Shannon" })
           const response = mapDomainErrorToMcp(error)
 
@@ -293,7 +293,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps DirectMessageIdentifierAmbiguousError with descriptive message", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new DirectMessageIdentifierAmbiguousError({
             identifier: "Kerr,Shannon",
             matches: Count.make(2)
@@ -310,7 +310,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps process lookup errors with descriptive messages", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const processCandidate = {
             id: ProcessId.make("process-approval"),
             name: NonEmptyString.make("Approval"),
@@ -343,7 +343,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps generic association and relation lookup errors with descriptive messages", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const errors = [
             new AssociationNotFoundError({ identifier: "relates" }),
             new AssociationIdentifierAmbiguousError({
@@ -391,7 +391,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps DocumentContentCorruptedError with repair instruction", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new DocumentContentCorruptedError({ identifier: "Spec", causeMessage: "missing markup blob" })
           const response = mapDomainErrorToMcp(error)
 
@@ -405,7 +405,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps recruiting lookup and model errors as invalid params", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const errors = [
             new RecruitingVacancyNotFoundError({ identifier: VacancyIdentifier.make("VCN-1") }),
             new RecruitingVacancyIdentifierAmbiguousError({
@@ -445,7 +445,7 @@ describe("Error Mapping to MCP", () => {
 
     describe("InternalError errors (-32603)", () => {
       it.effect("preserves actionable invalid activity record details", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new ActivityRecordInvalidError({
             operation: "list_activity",
             recordIndex: Count.make(2),
@@ -461,7 +461,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps HulyConnectionError with errorTag", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new HulyConnectionError({ message: "Network timeout" })
           const response = mapDomainErrorToMcp(error)
 
@@ -511,7 +511,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps default-cloud unavailability without exposing backend details", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const response = mapDomainErrorToMcp(
             new HulyUnavailableError({
               endpointOrigin: normalizeHulyOrigin("https://huly.app"),
@@ -534,7 +534,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps custom endpoint unavailability without mentioning hosted Huly", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const response = mapDomainErrorToMcp(
             new HulyUnavailableError({
               endpointOrigin: normalizeHulyOrigin("https://huly.example.test:8443"),
@@ -567,7 +567,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps HulyAuthError with errorTag", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new HulyAuthError({ message: "Login failed" })
           const response = mapDomainErrorToMcp(error)
 
@@ -579,7 +579,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps HulyError with errorTag", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new HulyError({ message: "Something went wrong" })
           const response = mapDomainErrorToMcp(error)
 
@@ -591,7 +591,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps FileUploadError with errorTag", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new FileUploadError({ message: "Storage quota exceeded" })
           const response = mapDomainErrorToMcp(error)
 
@@ -603,7 +603,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("maps FileFetchError with errorTag", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new FileFetchError({ fileUrl: "https://example.com/file.png", reason: "404 Not Found" })
           const response = mapDomainErrorToMcp(error)
 
@@ -650,7 +650,7 @@ describe("Error Mapping to MCP", () => {
   describe("mapDomainCauseToMcp", () => {
     describe("Fail cause", () => {
       it.effect("handles HulyDomainError in Fail cause", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error = new IssueNotFoundError({ identifier: "TEST-1", project: "TEST" })
           const cause = Cause.fail(error)
           const response = mapDomainCauseToMcp(cause)
@@ -664,7 +664,7 @@ describe("Error Mapping to MCP", () => {
 
     describe("Die cause", () => {
       it.effect("returns UnexpectedError errorTag for defects", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const cause = Cause.die(new Error("boom"))
           const response = mapDomainCauseToMcp(cause as Cause.Cause<HulyError>)
 
@@ -678,7 +678,7 @@ describe("Error Mapping to MCP", () => {
 
     describe("Empty cause", () => {
       it.effect("returns generic error for empty cause", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const cause = Cause.empty
           const response = mapDomainCauseToMcp(cause as Cause.Cause<HulyError>)
 
@@ -691,7 +691,7 @@ describe("Error Mapping to MCP", () => {
 
     describe("Sequential cause", () => {
       it.effect("extracts first meaningful error from sequential cause", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error1 = new ProjectNotFoundError({ identifier: "PROJ" })
           const error2 = new IssueNotFoundError({ identifier: "X", project: "Y" })
           const cause = Cause.sequential(Cause.fail(error1), Cause.fail(error2))
@@ -706,7 +706,7 @@ describe("Error Mapping to MCP", () => {
 
     describe("Parallel cause", () => {
       it.effect("extracts first meaningful error from parallel cause", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const error1 = new InvalidStatusError({ status: "bad", project: "P" })
           const error2 = new HulyConnectionError({ message: "timeout" })
           const cause = Cause.parallel(Cause.fail(error1), Cause.fail(error2))
@@ -739,7 +739,7 @@ describe("Error Mapping to MCP", () => {
 
     describe("Empty cause", () => {
       it.effect("returns generic error for empty cause", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const cause = Cause.empty
           const response = mapParseCauseToMcp(cause as Cause.Cause<ParseResult.ParseError>)
 
@@ -753,7 +753,7 @@ describe("Error Mapping to MCP", () => {
 
   describe("createSuccessResponse", () => {
     it.effect("creates success response with JSON content", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const result = { issues: [{ id: 1, title: "Test" }] }
         const response = createSuccessResponse(result)
 
@@ -764,7 +764,7 @@ describe("Error Mapping to MCP", () => {
     )
 
     it.effect("formats JSON as compact single-line", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const result = { a: 1, b: 2 }
         const response = createSuccessResponse(result)
 
@@ -774,7 +774,7 @@ describe("Error Mapping to MCP", () => {
     )
 
     it.effect("omits warnings fields and content blocks when there are no warnings", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const response = createSuccessResponse({ ok: true })
 
         expect(response.content).toHaveLength(1)
@@ -783,7 +783,7 @@ describe("Error Mapping to MCP", () => {
     )
 
     it.effect("includes warnings in structuredContent and a second text block when present", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const warning = { code: "status_metadata_unresolved" as const, message: "Status metadata was degraded." }
         const response = createSuccessResponse({ ok: true }, [warning])
 
@@ -796,7 +796,7 @@ describe("Error Mapping to MCP", () => {
 
   describe("appendToolWarnings", () => {
     it.effect("returns the original response when there are no warnings to append", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const original = createSuccessResponse({ ok: true })
 
         expect(appendToolWarnings(original, [])).toBe(original)
@@ -804,7 +804,7 @@ describe("Error Mapping to MCP", () => {
     )
 
     it.effect("appends a warning without changing a successful result", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const warning = { code: "hosted_huly_shutdown" as const, message: "Hosted Huly is shutting down." }
         const response = appendToolWarnings(createSuccessResponse({ ok: true }), [warning])
 
@@ -816,7 +816,7 @@ describe("Error Mapping to MCP", () => {
     )
 
     it.effect("preserves existing warnings when appending a warning", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const existing = { code: "status_metadata_unresolved" as const, message: "Status metadata was degraded." }
         const appended = { code: "hosted_huly_shutdown" as const, message: "Hosted Huly is shutting down." }
         const response = appendToolWarnings(createSuccessResponse({ ok: true }, [existing]), [appended])
@@ -828,7 +828,7 @@ describe("Error Mapping to MCP", () => {
     )
 
     it.effect("appends a visible warning to an error without changing its error status", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const warning = { code: "hosted_huly_shutdown" as const, message: "Hosted Huly is shutting down." }
         const response = appendToolWarnings(createUnknownToolError("bogus_tool"), [warning])
 
@@ -840,7 +840,7 @@ describe("Error Mapping to MCP", () => {
     )
 
     it.effect("keeps a content-only success response content-only", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const warning = { code: "hosted_huly_shutdown" as const, message: "Hosted Huly is shutting down." }
         const response = appendToolWarnings({ content: [{ type: "text", text: "ok" }] }, [warning])
 
@@ -854,7 +854,7 @@ describe("Error Mapping to MCP", () => {
 
   describe("createUnknownToolError", () => {
     it.effect("creates error response for unknown tool with errorTag", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const response = createUnknownToolError("bogus_tool")
 
         expect(response.isError).toBe(true)
@@ -865,7 +865,7 @@ describe("Error Mapping to MCP", () => {
     )
 
     it.effect("does not include structuredContent on error responses without warnings", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const response = createUnknownToolError("bogus_tool")
 
         expect(response.isError).toBe(true)
@@ -877,7 +877,7 @@ describe("Error Mapping to MCP", () => {
 
   describe("error responses with warnings", () => {
     it.effect("keeps warnings in text content without structuredContent", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const warning = { code: "status_metadata_unresolved" as const, message: "Status metadata was degraded." }
         const response = mapDomainErrorToMcp(new HulyError({ message: "failed after warning" }), [warning])
 
@@ -891,7 +891,7 @@ describe("Error Mapping to MCP", () => {
 
   describe("toMcpResponse", () => {
     it.effect("emits exactly one image block without base64 in structured metadata", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const base64 = CanonicalBase64ImageData.make("aW1hZ2UtYnl0ZXM=")
         const wire = toMcpResponse(
           createImageSuccessResponse(
@@ -908,7 +908,7 @@ describe("Error Mapping to MCP", () => {
     )
 
     it.effect("preserves warnings beside one image block", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const warning = { code: "status_metadata_unresolved" as const, message: "Metadata warning." }
         const wire = toMcpResponse(
           createImageSuccessResponse(
@@ -924,7 +924,7 @@ describe("Error Mapping to MCP", () => {
     )
 
     it.effect("strips _meta from error response", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const response = createUnknownToolError("bogus_tool")
         const wire = toMcpResponse(response)
 
@@ -935,7 +935,7 @@ describe("Error Mapping to MCP", () => {
     )
 
     it.effect("strips _meta from content-only success response", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const wire = toMcpResponse({
           content: [{ type: "text", text: "ok" }],
           _meta: { errorCode: McpErrorCode.InternalError }
@@ -946,7 +946,7 @@ describe("Error Mapping to MCP", () => {
     )
 
     it.effect("preserves explicit non-error marker while stripping _meta", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const wire = toMcpResponse({
           content: [{ type: "text", text: "ok" }],
           isError: false,
@@ -958,7 +958,7 @@ describe("Error Mapping to MCP", () => {
     )
 
     it.effect("strips _meta from success response", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const response = createSuccessResponse({ ok: true })
         const wire = toMcpResponse(response)
 

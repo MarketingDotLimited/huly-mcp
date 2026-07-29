@@ -542,7 +542,7 @@ describe("Milestone Schemas", () => {
 
   describe("JSON Schema Generation", () => {
     it.effect("generates JSON Schema for ListMilestonesParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = listMilestonesParamsJsonSchema as JsonSchemaObject
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
@@ -552,7 +552,7 @@ describe("Milestone Schemas", () => {
     )
 
     it.effect("generates JSON Schema for GetMilestoneParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = getMilestoneParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -561,7 +561,7 @@ describe("Milestone Schemas", () => {
     )
 
     it.effect("generates JSON Schema for CreateMilestoneParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = createMilestoneParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -572,7 +572,7 @@ describe("Milestone Schemas", () => {
     )
 
     it.effect("generates JSON Schema for UpdateMilestoneParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = updateMilestoneParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -585,7 +585,7 @@ describe("Milestone Schemas", () => {
     )
 
     it.effect("generates JSON Schema for SetIssueMilestoneParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = setIssueMilestoneParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -595,7 +595,7 @@ describe("Milestone Schemas", () => {
     )
 
     it.effect("generates JSON Schema for DeleteMilestoneParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = deleteMilestoneParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -604,7 +604,7 @@ describe("Milestone Schemas", () => {
     )
 
     it.effect("all JSON schemas use draft-07", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schemas = [
           listMilestonesParamsJsonSchema,
           getMilestoneParamsJsonSchema,
@@ -621,7 +621,7 @@ describe("Milestone Schemas", () => {
     )
 
     it.effect("all JSON schemas have additionalProperties false", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         // eslint-disable-next-line no-restricted-syntax -- tuple type doesn't overlap with Array<Record<string, unknown>>
         const schemas = [
           listMilestonesParamsJsonSchema,

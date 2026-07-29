@@ -7,7 +7,7 @@ import { assertExists } from "../../../src/utils/assertions.js"
 
 describe("plannerTools", () => {
   it.effect("exports planner tools in the planner category", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(plannerTools.map((tool) => tool.name)).toContain("create_todo")
       expect(plannerTools.map((tool) => tool.name)).toContain("schedule_todo")
       expect(plannerTools.map((tool) => tool.name)).not.toContain("list_todo_automation_helpers")

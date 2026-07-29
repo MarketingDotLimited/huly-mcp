@@ -22,11 +22,6 @@ import { expect } from "vitest"
 import { assertAt } from "../../../src/utils/assertions.js"
 
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
-import type {
-  DirectMessageIdentifierAmbiguousError,
-  DirectMessageNotFoundError,
-  MessageNotFoundError
-} from "../../../src/huly/errors.js"
 import {
   createDirectMessage,
   deleteDirectMessage,
@@ -560,8 +555,9 @@ describe("findDirectMessage", () => {
       })
       const layer = createTestLayer({ directMessages: [firstDm, secondDm], employees: [firstEmployee, secondEmployee] })
 
-      const exit: Exit.Exit<unknown, DirectMessageIdentifierAmbiguousError | DirectMessageNotFoundError | unknown> =
-        yield* Effect.exit(findDirectMessage(directMessageIdentifier("Kerr,Shannon")).pipe(Effect.provide(layer)))
+      const exit: Exit.Exit<unknown, unknown> = yield* Effect.exit(
+        findDirectMessage(directMessageIdentifier("Kerr,Shannon")).pipe(Effect.provide(layer))
+      )
 
       expect(Exit.isFailure(exit)).toBe(true)
       if (Exit.isFailure(exit)) {
@@ -727,7 +723,7 @@ describe("updateDirectMessage", () => {
       const dm = makeDirectMessage({ _id: "dm-1" as Ref<HulyDirectMessage>, members: [currentAccountUuid] })
       const layer = createTestLayer({ directMessages: [dm], messages: [] })
 
-      const exit: Exit.Exit<unknown, DirectMessageNotFoundError | MessageNotFoundError | unknown> = yield* Effect.exit(
+      const exit: Exit.Exit<unknown, unknown> = yield* Effect.exit(
         updateDirectMessage({
           dm: directMessageIdentifier("dm-1"),
           messageId: messageBrandId("missing"),

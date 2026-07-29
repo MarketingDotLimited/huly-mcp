@@ -234,8 +234,8 @@ const main = () => {
   const candidates = extractCandidates()
   const referenceModelsAvailable = existsSync(REFERENCE_MODELS_ROOT)
   if (!referenceModelsAvailable) {
-    console.warn(
-      `WARNING: ${REFERENCE_MODELS_ROOT} not found — skipping reference model area parity. `
+    console.log(
+      `PARTIAL: ${REFERENCE_MODELS_ROOT} not found — skipping optional reference model area parity. `
         + "Clone the Huly platform repo there to enable this check."
     )
   }

@@ -651,7 +651,7 @@ describe("WorkspaceClient.testLayer", () => {
 
 describe("WorkspaceClientError type", () => {
   it.effect("is union of HulyConnectionError and HulyAuthError", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const handleError = (error: WorkspaceClientError): string => {
         switch (error._tag) {
           case "HulyConnectionError":

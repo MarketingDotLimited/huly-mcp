@@ -358,10 +358,10 @@ export const listOrganizationMembers = (
     const entries: Array<OrganizationMemberEntry> = persons.map((p) => {
       const email = emails.get(p._id)
       const entry = { personId: PersonId.make(p._id), name: PersonName.make(p.name) }
-      return Option.match(Option.map(Option.fromNullable(email), Email.make), {
-        onNone: () => entry,
-        onSome: (memberEmail) => ({ ...entry, email: memberEmail })
-      })
+      return Option.match(
+        Option.map(Option.fromNullable(email), (value) => Email.make(value)),
+        { onNone: () => entry, onSome: (memberEmail) => ({ ...entry, email: memberEmail }) }
+      )
     })
 
     return { organizationId: OrganizationId.make(org._id), members: entries }

@@ -41,7 +41,7 @@ const asRecurringInstance = (v: unknown) => v as HulyRecurringInstance
 const asPerson = (v: unknown) => v as Person
 const asMeeting = (v: unknown) => v as HulyMeeting
 const asRoom = (v: unknown) => v as HulyRoom
-const calendarEventTitle = CalendarEventTitle.make
+const calendarEventTitle = (value: string) => CalendarEventTitle.make(value)
 
 const makeEvent = (overrides?: Partial<HulyEvent>): HulyEvent =>
   asHulyEvent({

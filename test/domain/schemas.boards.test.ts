@@ -171,7 +171,7 @@ describe("board schemas", () => {
   )
 
   it.effect("exposes useful JSON schema descriptions for LLM single-call use", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const createSchemaText = JSON.stringify(createBoardCardParamsJsonSchema)
       const updateSchemaText = JSON.stringify(updateBoardCardParamsJsonSchema)
       const labelsSchemaText = JSON.stringify(listBoardLabelsParamsJsonSchema)

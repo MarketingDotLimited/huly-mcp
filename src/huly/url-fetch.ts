@@ -44,6 +44,18 @@ const IPV6_HEXTET_COUNT = 8
 const IPV6_HEXTET_BITS = 16
 const IPV6_GLOBAL_UNICAST_MIN = 0x2000
 const IPV6_GLOBAL_UNICAST_MAX = 0x3fff
+const IPV4_ADDRESS_FAMILY = 4
+const IPV6_ADDRESS_FAMILY = 6
+const IPV4_THIRD_OCTET_INDEX = 2
+const IPV4_FOURTH_OCTET_INDEX = 3
+const REGEX_SECOND_CAPTURE_INDEX = 2
+const IPV6_THIRD_HEXTET_INDEX = 2
+const IPV6_FOURTH_HEXTET_INDEX = 3
+const IPV6_FIFTH_HEXTET_INDEX = 4
+const IPV6_SIXTH_HEXTET_INDEX = 5
+const IPV6_SEVENTH_HEXTET_INDEX = 6
+const IPV6_EIGHTH_HEXTET_INDEX = 7
+const IPV6_MAX_COMPRESSION_PARTS = 2
 const BYTE_BASE = 0x100
 const HTTP_STATUS_OK_MIN = 200
 const HTTP_STATUS_REDIRECT_MIN = 300
@@ -53,6 +65,8 @@ interface Ipv6Prefix {
   readonly prefixLength: number
 }
 
+// IPv6 special-use prefixes are protocol data copied in their canonical numeric notation.
+// oxlint-disable no-magic-numbers
 const blockedIpv6SpecialUsePrefixes: ReadonlyArray<Ipv6Prefix> = [
   { hextets: [0xfe80], prefixLength: 10 },
   { hextets: [0xfc00], prefixLength: 7 },
@@ -70,10 +84,11 @@ const blockedIpv6SpecialUsePrefixes: ReadonlyArray<Ipv6Prefix> = [
   { hextets: [0x2002], prefixLength: 16 },
   { hextets: [0x3fff, 0x0000], prefixLength: 20 }
 ]
+// oxlint-enable no-magic-numbers
 
 interface ResolvedAddress {
   readonly address: string
-  readonly family: 4 | 6
+  readonly family: typeof IPV4_ADDRESS_FAMILY | typeof IPV6_ADDRESS_FAMILY
 }
 
 interface FetchFromUrlDependencies {
@@ -92,8 +107,8 @@ const parseIpv4Address = (hostname: string): readonly [number, number, number, n
   const octets = parts.map(Number)
   const a = assertAt(octets, 0)
   const b = assertAt(octets, 1)
-  const c = assertAt(octets, 2)
-  const d = assertAt(octets, 3)
+  const c = assertAt(octets, IPV4_THIRD_OCTET_INDEX)
+  const d = assertAt(octets, IPV4_FOURTH_OCTET_INDEX)
   if (octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > IPV4_MAX_OCTET)) {
     return null
   }
@@ -139,7 +154,7 @@ const ipv4FromMappedIpv6Hextets = (hostname: string): readonly [number, number, 
 
   // Each capture is 1-4 hex digits, so high/low are bounded by IPV6_HEXTET_MAX by construction.
   const highText = assertAt(match, 1)
-  const lowText = assertAt(match, 2)
+  const lowText = assertAt(match, REGEX_SECOND_CAPTURE_INDEX)
 
   const high = Number.parseInt(highText, 16)
   const low = Number.parseInt(lowText, 16)
@@ -173,12 +188,12 @@ const isIpv6Hextets = (hextets: ReadonlyArray<number>): hextets is Ipv6Hextets =
 const toIpv6Hextets = (hextets: ReadonlyArray<number>): Ipv6Hextets => [
   assertAt(hextets, 0),
   assertAt(hextets, 1),
-  assertAt(hextets, 2),
-  assertAt(hextets, 3),
-  assertAt(hextets, 4),
-  assertAt(hextets, 5),
-  assertAt(hextets, 6),
-  assertAt(hextets, 7)
+  assertAt(hextets, IPV6_THIRD_HEXTET_INDEX),
+  assertAt(hextets, IPV6_FOURTH_HEXTET_INDEX),
+  assertAt(hextets, IPV6_FIFTH_HEXTET_INDEX),
+  assertAt(hextets, IPV6_SIXTH_HEXTET_INDEX),
+  assertAt(hextets, IPV6_SEVENTH_HEXTET_INDEX),
+  assertAt(hextets, IPV6_EIGHTH_HEXTET_INDEX)
 ]
 
 const parseIpv6Hextets = (hostname: string): Ipv6Hextets | null => {
@@ -187,14 +202,14 @@ const parseIpv6Hextets = (hostname: string): Ipv6Hextets | null => {
   }
 
   const compressedParts = hostname.split("::")
-  if (compressedParts.length > 2) {
+  if (compressedParts.length > IPV6_MAX_COMPRESSION_PARTS) {
     return null
   }
 
   const leftText = assertAt(compressedParts, 0)
 
   const left = parseIpv6Side(leftText)
-  const right = compressedParts.length === 2 ? parseIpv6Side(assertAt(compressedParts, 1)) : []
+  const right = compressedParts.length === IPV6_MAX_COMPRESSION_PARTS ? parseIpv6Side(assertAt(compressedParts, 1)) : []
   if (left === null || right === null) {
     return null
   }
@@ -270,7 +285,10 @@ const isBlockedIpv6Address = (hostname: string): boolean => {
     return true
   }
 
-  if (hextets.slice(0, 7).every((hextet) => hextet === 0) && hextets[7] === 1) {
+  if (
+    hextets.slice(0, IPV6_EIGHTH_HEXTET_INDEX).every((hextet) => hextet === 0) &&
+    assertAt(hextets, IPV6_EIGHTH_HEXTET_INDEX) === 1
+  ) {
     return true
   }
 
@@ -284,7 +302,8 @@ const isBlockedIpv6Address = (hostname: string): boolean => {
 }
 
 /* v8 ignore start -- default DNS resolver: unit tests inject `resolveHostname` via FetchFromUrlDependencies; the real-DNS path (and its family-filtering helpers) is exercised by integration tests */
-const isSupportedAddressFamily = (family: number): family is 4 | 6 => family === 4 || family === 6
+const isSupportedAddressFamily = (family: number): family is typeof IPV4_ADDRESS_FAMILY | typeof IPV6_ADDRESS_FAMILY =>
+  family === IPV4_ADDRESS_FAMILY || family === IPV6_ADDRESS_FAMILY
 
 const toResolvedAddress = (address: LookupAddress): ResolvedAddress | null =>
   isSupportedAddressFamily(address.family) ? { address: address.address, family: address.family } : null
@@ -301,7 +320,7 @@ const resolveHostname = async (hostname: string): Promise<ReadonlyArray<Resolved
 const isBlockedResolvedAddress = (address: ResolvedAddress): boolean => {
   const normalizedAddress = normalizeUrlHostname(address.address)
 
-  if (address.family === 4) {
+  if (address.family === IPV4_ADDRESS_FAMILY) {
     const ipv4Address = parseIpv4Address(normalizedAddress)
     return ipv4Address === null || isBlockedIpv4Address(ipv4Address)
   }

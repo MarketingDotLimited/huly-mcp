@@ -44,7 +44,7 @@ import { normalizeDrivePath } from "../../src/huly/operations/drive-path.js"
 
 describe("drive schemas", () => {
   it.effect("normalizes POSIX-like paths without filesystem access", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(normalizeDrivePath("Specs/./API.md")).toEqual({ path: "/Specs/API.md", segments: ["Specs", "API.md"] })
       expect(normalizeDrivePath("/Specs/../Readme.md")).toEqual({ path: "/Readme.md", segments: ["Readme.md"] })
       expect(normalizeDrivePath("/")).toEqual({ path: "/", segments: [] })

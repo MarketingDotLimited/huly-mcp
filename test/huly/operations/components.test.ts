@@ -36,7 +36,7 @@ import { capturedMarkupReferenceNodes } from "../../helpers/markup-capture.js"
 
 // --- Mock Data Builders ---
 
-const componentLabel = ComponentLabel.make
+const componentLabel = (value: string) => ComponentLabel.make(value)
 
 const makeProject = (overrides?: Partial<HulyProject>): HulyProject => {
   const result: HulyProject = {

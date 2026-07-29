@@ -251,9 +251,11 @@ const toEntry = (card: unknown): Effect.Effect<CardVersionEntry, HulyConnectionE
     )
   )
 
+const SORT_BEFORE = -1
+
 const compareOptionalNumber = (left: number | undefined, right: number | undefined): number => {
   if (left === undefined) return right === undefined ? 0 : 1
-  if (right === undefined) return -1
+  if (right === undefined) return SORT_BEFORE
   return left - right
 }
 

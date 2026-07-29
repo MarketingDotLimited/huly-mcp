@@ -11,6 +11,7 @@ import { core, tracker } from "../../../src/huly/huly-plugins.js"
 import { listIssues } from "../../../src/huly/operations/issues.js"
 import { projectIdentifier } from "../../helpers/brands.js"
 import { withDiagnostics } from "../../helpers/diagnostics.js"
+import { assertExists } from "../../../src/utils/assertions.js"
 
 const toFindResult = <T extends Doc>(docs: Array<T>): FindResult<T> => {
   const result = docs as FindResult<T>
@@ -76,7 +77,7 @@ const createTestLayer = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       const inQuery = q._id as { $in?: Array<Ref<Status>> } | undefined
       if (inQuery?.$in) {
-        const filtered = statuses.filter((s) => inQuery.$in!.includes(s._id))
+        const filtered = statuses.filter((s) => assertExists(inQuery.$in).includes(s._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(statuses))

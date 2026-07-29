@@ -53,6 +53,9 @@ type DeleteThreadReplyError =
 
 // --- Operations ---
 
+const DEFAULT_REPLY_LIMIT = 50
+const MAX_REPLY_LIMIT = 200
+
 export const listThreadReplies = (
   params: ListThreadRepliesParams
 ): Effect.Effect<ListThreadRepliesResult, ListThreadRepliesError, HulyClient> =>
@@ -60,7 +63,7 @@ export const listThreadReplies = (
     const { channel, client, message } = yield* findChannelMessage(params)
     const markupUrlConfig = client.markupUrlConfig
 
-    const limit = Math.min(params.limit ?? 50, 200)
+    const limit = Math.min(params.limit ?? DEFAULT_REPLY_LIMIT, MAX_REPLY_LIMIT)
 
     const replies = yield* client.findAll<HulyThreadMessage>(
       chunter.class.ThreadMessage,

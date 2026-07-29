@@ -36,10 +36,10 @@ const component = (value: string): AnyComponent => value as AnyComponent
 const account = accountUuid("00000000-0000-4000-8000-000000000000")
 const person = personId("person-1")
 const boardCardClass = toRef<Class<Doc>>(String(board.class.Card))
-const fv = FilteredViewIdentifier.make
-const v = ViewletIdentifier.make
-const attachedTo = NonEmptyString.make
-const attachTo = ObjectClassName.make
+const fv = (value: string) => FilteredViewIdentifier.make(value)
+const v = (value: string) => ViewletIdentifier.make(value)
+const attachedTo = (value: string) => NonEmptyString.make(value)
+const attachTo = (value: string) => ObjectClassName.make(value)
 
 const docBase = <T extends Doc>(_id: Ref<T>, _class: Ref<Class<T>>, space: Ref<Space>) => ({
   _id,

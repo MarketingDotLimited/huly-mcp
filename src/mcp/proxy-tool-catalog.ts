@@ -279,16 +279,21 @@ const tokenHitCount = (tokens: ReadonlyArray<string>, text: string): number => {
   return tokens.filter((token) => lower.includes(token)).length
 }
 
+const EXACT_NAME_SCORE = 10_000
+const NAME_TOKEN_WEIGHT = 1_000
+const CATEGORY_TOKEN_WEIGHT = 100
+const DESCRIPTION_TOKEN_WEIGHT = 10
+
 const toolScore = (tool: ToolDefinition, tokens: ReadonlyArray<string>, normalizedQuery: string): number => {
   const params = toolParamSummary(tool)
   const paramText = [...params.requiredParams, ...params.optionalParams].join(" ")
   const categoryText = `${tool.category} ${categoryDescription(tool.category)}`
-  const exactScore = tool.name.toLowerCase() === normalizedQuery ? 10_000 : 0
+  const exactScore = tool.name.toLowerCase() === normalizedQuery ? EXACT_NAME_SCORE : 0
   return (
     exactScore +
-    tokenHitCount(tokens, tool.name) * 1_000 +
-    tokenHitCount(tokens, categoryText) * 100 +
-    tokenHitCount(tokens, tool.description) * 10 +
+    tokenHitCount(tokens, tool.name) * NAME_TOKEN_WEIGHT +
+    tokenHitCount(tokens, categoryText) * CATEGORY_TOKEN_WEIGHT +
+    tokenHitCount(tokens, tool.description) * DESCRIPTION_TOKEN_WEIGHT +
     tokenHitCount(tokens, paramText)
   )
 }

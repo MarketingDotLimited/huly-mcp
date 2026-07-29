@@ -243,7 +243,7 @@ describe("Channel Domain Schemas", () => {
 
   describe("Channel JSON Schema Generation", () => {
     it.effect("generates JSON Schema for ListChannelsParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = listChannelsParamsJsonSchema as JsonSchemaObject
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
@@ -253,7 +253,7 @@ describe("Channel Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for GetChannelParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = getChannelParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("channel")
@@ -261,7 +261,7 @@ describe("Channel Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for CreateChannelParams without members", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = createChannelParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("name")
@@ -272,7 +272,7 @@ describe("Channel Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for UpdateChannelParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = updateChannelParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("channel")
@@ -282,7 +282,7 @@ describe("Channel Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for DeleteChannelParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = deleteChannelParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("channel")
@@ -290,7 +290,7 @@ describe("Channel Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for ListChannelMessagesParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = listChannelMessagesParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("channel")
@@ -299,7 +299,7 @@ describe("Channel Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for SendChannelMessageParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = sendChannelMessageParamsJsonSchema as JsonSchemaObject
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("channel")
@@ -308,7 +308,7 @@ describe("Channel Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for ListDirectMessagesParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = listDirectMessagesParamsJsonSchema as JsonSchemaObject
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")

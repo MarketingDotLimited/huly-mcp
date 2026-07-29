@@ -149,7 +149,7 @@ describe("Domain Schemas", () => {
     )
 
     it.effect("JSON schema preserves enum values", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(createIssueParamsJsonSchema)
         const priorityProp = schema.properties?.priority
         expect(priorityProp).toBeDefined()
@@ -635,7 +635,7 @@ describe("Domain Schemas", () => {
 
   describe("JSON Schema Generation", () => {
     it.effect("generates JSON Schema for ListIssuesParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(listIssuesParamsJsonSchema)
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
@@ -644,7 +644,7 @@ describe("Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for ListProjectsParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(listProjectsParamsJsonSchema)
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
@@ -656,7 +656,7 @@ describe("Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for GetIssueParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(getIssueParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -665,7 +665,7 @@ describe("Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for CreateIssueParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(createIssueParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -679,7 +679,7 @@ describe("Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for UpdateIssueParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(updateIssueParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -688,7 +688,7 @@ describe("Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for AddLabelParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(addLabelParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -698,7 +698,7 @@ describe("Domain Schemas", () => {
     )
 
     it.effect("schema is valid JSON Schema draft-07", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(createIssueParamsJsonSchema)
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
@@ -932,7 +932,7 @@ describe("Domain Schemas", () => {
 
   describe("Document JSON Schema Generation", () => {
     it.effect("generates JSON Schema for ListTeamspacesParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(listTeamspacesParamsJsonSchema)
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
@@ -942,7 +942,7 @@ describe("Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for ListDocumentsParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(listDocumentsParamsJsonSchema)
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
@@ -952,7 +952,7 @@ describe("Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for GetDocumentParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(getDocumentParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("teamspace")
@@ -961,7 +961,7 @@ describe("Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for CreateDocumentParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(createDocumentParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("teamspace")
@@ -971,7 +971,7 @@ describe("Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for EditDocumentParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(editDocumentParamsJsonSchema)
         const properties = expectJsonSchemaProperties(schema)
         expect(schema.type).toBe("object")
@@ -986,7 +986,7 @@ describe("Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for DeleteDocumentParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(deleteDocumentParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("teamspace")
@@ -1104,7 +1104,7 @@ describe("Domain Schemas", () => {
 
   describe("Time JSON Schema Generation", () => {
     it.effect("generates JSON Schema for LogTimeParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(logTimeParamsJsonSchema)
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
@@ -1115,7 +1115,7 @@ describe("Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for GetTimeReportParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(getTimeReportParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -1124,7 +1124,7 @@ describe("Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for StartTimerParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(startTimerParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -1133,7 +1133,7 @@ describe("Domain Schemas", () => {
     )
 
     it.effect("generates JSON Schema for StopTimerParams", () =>
-      Effect.gen(function* () {
+      Effect.sync(function () {
         const schema = expectJsonSchemaObject(stopTimerParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")

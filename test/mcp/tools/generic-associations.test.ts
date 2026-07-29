@@ -68,7 +68,7 @@ const findTool = (name: string) => {
 
 describe("genericAssociationTools", () => {
   it.effect("exports association tools in the associations category", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       expect(genericAssociationTools.map((tool) => tool.name)).toEqual([
         "list_associations",
         "create_association",
@@ -104,7 +104,7 @@ describe("genericAssociationTools", () => {
   )
 
   it.effect("create_relation annotations mark the operation idempotent and non-destructive", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const tool = findTool("create_relation")
 
       expect(tool.annotations).toMatchObject({
@@ -117,7 +117,7 @@ describe("genericAssociationTools", () => {
   )
 
   it.effect("create_association annotations mark the operation idempotent and non-destructive", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const tool = findTool("create_association")
 
       expect(tool.annotations).toMatchObject({
@@ -130,7 +130,7 @@ describe("genericAssociationTools", () => {
   )
 
   it.effect("delete_association annotations mark the operation idempotent and destructive", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const tool = findTool("delete_association")
 
       expect(tool.annotations).toMatchObject({
@@ -143,7 +143,7 @@ describe("genericAssociationTools", () => {
   )
 
   it.effect("delete_relation input schema stays list_tools compatible while describing both delete modes", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const tool = findTool("delete_relation")
 
       expect(tool.inputSchema).toMatchObject({
@@ -154,7 +154,7 @@ describe("genericAssociationTools", () => {
   )
 
   it.effect("delete_relation annotations mark the operation idempotent and destructive", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const tool = findTool("delete_relation")
 
       expect(tool.annotations).toMatchObject({

@@ -161,10 +161,12 @@ export const editDocument = (
     return { id: DocumentId.make(doc._id), updated: true, url }
   })
 
+const NOT_FOUND_INDEX = -1
+
 const countOccurrences = (text: string, search: string): number => {
   let count = 0
   let pos = text.indexOf(search)
-  while (pos !== -1) {
+  while (pos !== NOT_FOUND_INDEX) {
     count++
     pos = text.indexOf(search, pos + search.length)
   }

@@ -19,7 +19,7 @@ import { findPersonByExactEmailOrName } from "../../../src/huly/operations/conta
 import { createOrganization, listOrganizations } from "../../../src/huly/operations/organizations.js"
 import { getPerson, listEmployees, listPersons, updatePerson } from "../../../src/huly/operations/persons.js"
 import { resolveAssignee } from "../../../src/huly/operations/test-management-shared.js"
-import { assertAt } from "../../../src/utils/assertions.js"
+import { assertAt, assertExists } from "../../../src/utils/assertions.js"
 import { memberReference } from "../../helpers/brands.js"
 
 const toFindResult = <T extends Doc>(docs: Array<T>): FindResult<T> => {
@@ -171,7 +171,7 @@ const createTestLayer = (config: MockConfig) => {
       }
       let filtered = persons
       if (q._id !== undefined) {
-        const idFilter = q._id as { $in?: Array<unknown> } | unknown
+        const idFilter = q._id as unknown
         if (typeof idFilter === "object" && idFilter !== null && "$in" in idFilter) {
           const ids = idFilter.$in as Array<unknown>
           filtered = filtered.filter((p) => ids.includes(p._id))
@@ -180,7 +180,7 @@ const createTestLayer = (config: MockConfig) => {
       if (q.name !== undefined) {
         const nameFilter = q.name as { $like?: string } | string
         if (typeof nameFilter === "object" && "$like" in nameFilter) {
-          filtered = filtered.filter((p) => matchesLike(p.name, nameFilter.$like!))
+          filtered = filtered.filter((p) => matchesLike(p.name, assertExists(nameFilter.$like)))
         }
       }
       const opts = (options ?? {}) as { limit?: number }
@@ -193,7 +193,7 @@ const createTestLayer = (config: MockConfig) => {
       const q = query as Record<string, unknown>
       let filtered = channels
       if (q.attachedTo !== undefined) {
-        const attachedTo = q.attachedTo as { $in?: Array<unknown> } | unknown
+        const attachedTo = q.attachedTo as unknown
         if (typeof attachedTo === "object" && attachedTo !== null && "$in" in attachedTo) {
           const ids = attachedTo.$in as Array<unknown>
           filtered = filtered.filter((c) => ids.includes(c.attachedTo))
@@ -207,7 +207,7 @@ const createTestLayer = (config: MockConfig) => {
       if (q.value !== undefined) {
         const value = q.value as { $like?: string } | string
         if (typeof value === "object" && "$like" in value) {
-          filtered = filtered.filter((c) => matchesLike(c.value, value.$like!))
+          filtered = filtered.filter((c) => matchesLike(c.value, assertExists(value.$like)))
         } else {
           filtered = filtered.filter((c) => c.value === value)
         }
@@ -221,7 +221,7 @@ const createTestLayer = (config: MockConfig) => {
         return true
       })
       if (q.attachedTo !== undefined) {
-        const attachedTo = q.attachedTo as { $in?: Array<unknown> } | unknown
+        const attachedTo = q.attachedTo as unknown
         if (typeof attachedTo === "object" && attachedTo !== null && "$in" in attachedTo) {
           const ids = attachedTo.$in as Array<unknown>
           filtered = filtered.filter((identity) => ids.includes(identity.attachedTo))
@@ -232,7 +232,7 @@ const createTestLayer = (config: MockConfig) => {
       if (q.value !== undefined) {
         const value = q.value as { $like?: string } | string
         if (typeof value === "object" && "$like" in value) {
-          filtered = filtered.filter((identity) => matchesLike(identity.value, value.$like!))
+          filtered = filtered.filter((identity) => matchesLike(identity.value, assertExists(value.$like)))
         } else {
           filtered = filtered.filter((identity) => identity.value === value)
         }

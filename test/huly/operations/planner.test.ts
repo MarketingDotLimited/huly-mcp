@@ -55,7 +55,7 @@ const asPerson = (v: unknown) => v as Person
 const asEmployee = (v: unknown) => v as Employee
 const asWorkSlot = (v: unknown) => v as HulyWorkSlot
 
-const todoTitle = TodoTitle.make
+const todoTitle = (value: string) => TodoTitle.make(value)
 
 const makeProject = (overrides?: Partial<HulyProject>): HulyProject =>
   asProject({
@@ -400,6 +400,7 @@ const createLayer = (config: TestConfig) => {
     attributes: unknown,
     id?: unknown
   ) => {
+    const stringId = typeof id === "string" ? id : undefined
     if (config.captures !== undefined) {
       config.captures.addCollection = {
         classId: String(classId),
@@ -408,10 +409,10 @@ const createLayer = (config: TestConfig) => {
         attachedToClass: String(attachedToClass),
         collection: String(collection),
         attributes: attributes as Record<string, unknown>,
-        id: id === undefined ? undefined : String(id)
+        id: stringId
       }
     }
-    return Effect.succeed(toRef<Doc>(String(id ?? "created-id")))
+    return Effect.succeed(toRef<Doc>(stringId ?? "created-id"))
   }) as HulyClientOperations["addCollection"]
 
   const updateDoc: HulyClientOperations["updateDoc"] = ((

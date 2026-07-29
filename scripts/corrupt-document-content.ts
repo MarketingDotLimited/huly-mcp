@@ -13,6 +13,8 @@ interface Args {
   readonly documentId: string
 }
 
+const NODE_ARGUMENT_OFFSET = 2
+
 const usage = `Usage:
   pnpm exec tsx scripts/corrupt-document-content.ts --document <document-id> --content <raw-markdown>
 
@@ -94,7 +96,7 @@ const corruptDocumentContent = async (client: TxOperations, args: Args): Promise
 }
 
 const main = async (): Promise<void> => {
-  const args = parseArgs(process.argv.slice(2))
+  const args = parseArgs(process.argv.slice(NODE_ARGUMENT_OFFSET))
   const client = await connect()
   await corruptDocumentContent(client, args)
   console.log(`Corrupted Document.content for ${args.documentId}`)

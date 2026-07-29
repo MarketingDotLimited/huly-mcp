@@ -51,21 +51,21 @@ const buildTestServerLayer = (
 
 describe("McpServerError", () => {
   it.effect("has correct _tag", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const error = new McpServerError({ message: "boom" })
       expect(error._tag).toBe("McpServerError")
     })
   )
 
   it.effect("message is accessible", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const error = new McpServerError({ message: "test failure" })
       expect(error.message).toBe("test failure")
     })
   )
 
   it.effect("cause is optional and preserved", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const cause = new TypeError("underlying")
       const error = new McpServerError({ message: "wrapped", cause })
       expect(error.cause).toBe(cause)
@@ -73,7 +73,7 @@ describe("McpServerError", () => {
   )
 
   it.effect("cause defaults to undefined when omitted", () =>
-    Effect.gen(function* () {
+    Effect.sync(function () {
       const error = new McpServerError({ message: "no cause" })
       expect(error.cause).toBeUndefined()
     })
