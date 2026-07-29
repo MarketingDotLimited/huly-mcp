@@ -8,8 +8,8 @@ import { serveStdio, type StdioServerTransport } from "@modelcontextprotocol/ser
 import { Config, Context, Deferred, Effect, Layer, Ref, Schema } from "effect"
 
 import { type ClientBundle, createMcpServer } from "./create-mcp-server.js"
-import type { HttpServerFactoryService, HttpTransportError } from "./http-transport.js"
-import { DEFAULT_HTTP_PORT, startHttpTransport } from "./http-transport.js"
+import type { HttpHost, HttpPort, HttpServerFactoryService, HttpTransportError } from "./http-transport.js"
+import { DEFAULT_HTTP_HOST, DEFAULT_HTTP_PORT, startHttpTransport } from "./http-transport.js"
 import { buildHulyContext, type ToolExposureContext } from "./huly-context-tool.js"
 import type { ProtocolExposureOptions } from "./protocol-tool-exposure.js"
 import {
@@ -36,8 +36,8 @@ export type McpTransportType = "stdio" | "http"
 
 interface McpServerConfigData {
   readonly transport: McpTransportType
-  readonly httpPort?: number
-  readonly httpHost?: string
+  readonly httpPort?: HttpPort
+  readonly httpHost?: HttpHost
   readonly mcpAuthToken?: string
   readonly autoExit?: boolean
   readonly authMethod?: "token" | "password"
@@ -216,7 +216,7 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<McpServe
                   yield* Effect.promise(() => stdioHandle.close())
                 } else {
                   const port = config.httpPort ?? DEFAULT_HTTP_PORT
-                  const host = config.httpHost ?? "127.0.0.1"
+                  const host = config.httpHost ?? DEFAULT_HTTP_HOST
                   const createHttpServer = ({ requestInfo }: McpRequestContext): Server => {
                     const requestRuntimeConfig =
                       requestInfo === undefined || config.getRuntimeConfigContextForHttpRequest === undefined

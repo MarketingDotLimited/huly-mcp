@@ -9,7 +9,7 @@ import "./polyfills.js"
 
 import { NodeRuntime } from "@effect/platform-node"
 import type { ConfigError } from "effect"
-import { Config, Effect, Layer, Option, Redacted } from "effect"
+import { Config, Effect, Layer, Option, Redacted, Schema } from "effect"
 
 import {
   type ConfigValidationError,
@@ -19,7 +19,13 @@ import {
 } from "./config/config.js"
 import type { HulyClientError } from "./huly/client.js"
 import type { StorageClientError } from "./huly/storage.js"
-import { DEFAULT_HTTP_PORT, HttpServerFactoryService } from "./mcp/http-transport.js"
+import {
+  DEFAULT_HTTP_HOST,
+  DEFAULT_HTTP_PORT,
+  HttpHost,
+  HttpPort,
+  HttpServerFactoryService
+} from "./mcp/http-transport.js"
 import type { RequestClientLease } from "./mcp/request-client-lifecycle.js"
 import { type ClientBundle, type McpServerError, McpServerService, type McpTransportType } from "./mcp/server.js"
 import { type ConsoleRedirectHandle, redirectConsoleToStderr } from "./mcp/stdio-output.js"
@@ -42,16 +48,26 @@ const getTransportType = Config.string("MCP_TRANSPORT").pipe(
   })
 )
 
-export const getHttpPort = Config.all({
-  mcpHttpPort: Config.integer("MCP_HTTP_PORT").pipe(Config.option),
-  cloudRunPort: Config.integer("PORT").pipe(Config.option)
+type HttpPortConfigName = "MCP_HTTP_PORT" | "PORT"
+
+const httpPortConfig = (name: HttpPortConfigName) =>
+  Config.integer(name).pipe(
+    Config.validate({ message: "must be a whole number between 0 and 65535", validation: Schema.is(HttpPort) })
+  )
+
+export const getHttpPort: Effect.Effect<HttpPort, ConfigError.ConfigError> = Config.all({
+  mcpHttpPort: httpPortConfig("MCP_HTTP_PORT").pipe(Config.option),
+  cloudRunPort: httpPortConfig("PORT").pipe(Config.option)
 }).pipe(
   Effect.map(({ cloudRunPort, mcpHttpPort }) =>
     Option.getOrElse(mcpHttpPort, () => Option.getOrElse(cloudRunPort, () => DEFAULT_HTTP_PORT))
   )
 )
 
-const getHttpHost = Config.string("MCP_HTTP_HOST").pipe(Config.withDefault("127.0.0.1"))
+const getHttpHost: Effect.Effect<HttpHost, ConfigError.ConfigError> = Config.string("MCP_HTTP_HOST").pipe(
+  Config.validate({ message: "must be a non-empty trimmed host", validation: Schema.is(HttpHost) }),
+  Config.withDefault(DEFAULT_HTTP_HOST)
+)
 
 export const getMcpAuthToken = Config.redacted("MCP_AUTH_TOKEN").pipe(Config.option)
 
@@ -96,8 +112,8 @@ const createHttpClientLeaseResolver =
 
 const buildAppLayer = (
   transport: McpTransportType,
-  httpPort: number,
-  httpHost: string,
+  httpPort: HttpPort,
+  httpHost: HttpHost,
   mcpAuthToken: string | undefined,
   autoExit: boolean,
   authMethod: "token" | "password",
