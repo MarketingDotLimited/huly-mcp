@@ -4,8 +4,8 @@ Date: 2026-07-24
 
 ## Recommendation
 
-Use Oxlint's built-in `complexity` rule as the cyclomatic-complexity gate. It shares the project's primary linter,
-reports the exact function and line that failed, and avoids retaining the ESLint runtime solely for this gate.
+Use the primary lint engine's built-in `complexity` rule as the cyclomatic-complexity gate. It reports the exact
+function and line that failed and avoids retaining a second lint runtime solely for this gate.
 
 The implemented gate uses a dedicated config so `pnpm complexity` is a visible, isolated harness stage beside
 `pnpm circular`:
@@ -64,5 +64,5 @@ once a compatible, maintainable implementation is available.
 
 Prefer `@barney-media/crap-typescript` after the project baseline moves to Node 22. Run it against the coverage JSON
 created by the same `test:coverage` invocation, after coverage in `check-all`; do not let it launch a second test run.
-Start with a measured threshold that keeps the tree green, then ratchet it. Keep the Oxlint complexity cap as the
+Start with a measured threshold that keeps the tree green, then ratchet it. Keep the lint complexity cap as the
 coverage-independent architectural guard.
