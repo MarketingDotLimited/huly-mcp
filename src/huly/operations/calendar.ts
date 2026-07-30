@@ -360,14 +360,34 @@ const eventUpdateEntries = (
   client: HulyClient["Type"],
   event: HulyEvent,
   params: UpdateEventParams
-): UpdateEventEntries => ({
-  ...eventTimingUpdateEntries(params),
-  ...eventPresentationUpdateEntries(params),
-  ...eventParticipantUpdateEntries(client, event, params),
-  ...eventExternalParticipantUpdateEntries(event, params),
-  ...eventCalendarUpdateEntries(client, params),
-  description: eventDescriptionEntry(client, event, params.description)
-})
+): UpdateEventEntries => {
+  const timing = eventTimingUpdateEntries(params)
+  const presentation = eventPresentationUpdateEntries(params)
+  const participants = eventParticipantUpdateEntries(client, event, params)
+  const externalParticipants = eventExternalParticipantUpdateEntries(event, params)
+  const calendars = eventCalendarUpdateEntries(client, params)
+  return {
+    title: presentation.title,
+    description: eventDescriptionEntry(client, event, params.description),
+    date: timing.date,
+    dueDate: timing.dueDate,
+    allDay: timing.allDay,
+    location: presentation.location,
+    visibility: presentation.visibility,
+    participants: participants.participants,
+    addParticipants: participants.addParticipants,
+    removeParticipants: participants.removeParticipants,
+    externalParticipants: externalParticipants.externalParticipants,
+    addExternalParticipants: externalParticipants.addExternalParticipants,
+    removeExternalParticipants: externalParticipants.removeExternalParticipants,
+    reminders: presentation.reminders,
+    access: presentation.access,
+    timeZone: presentation.timeZone,
+    blockTime: timing.blockTime,
+    calendarId: calendars.calendarId,
+    calendarName: calendars.calendarName
+  }
+}
 
 export const createEvent = (
   params: CreateEventParams

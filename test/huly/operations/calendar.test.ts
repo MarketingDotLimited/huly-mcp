@@ -882,6 +882,24 @@ describe("updateEvent", () => {
     })
   )
 
+  it.effect("preserves description update ordering when participant resolution fails", () =>
+    Effect.gen(function* () {
+      const event = makeEvent({ eventId: "evt-1", description: "existing-markup-ref" as HulyEvent["description"] })
+      const captureUpdateMarkup: MockConfig["captureUpdateMarkup"] = {}
+
+      const error = yield* Effect.flip(
+        updateEvent({
+          eventId: eventBrandId("evt-1"),
+          description: "Updated before participant resolution",
+          participants: [{ personId: PersonId.make("missing-person") }]
+        }).pipe(Effect.provide(createTestLayer({ events: [event], persons: [], captureUpdateMarkup })))
+      )
+
+      expect(error._tag).toBe("PersonNotFoundError")
+      expect(captureUpdateMarkup.called).toBe(true)
+    })
+  )
+
   it.effect("fails defensively for an empty participant locator object", () =>
     Effect.gen(function* () {
       const event = makeEvent({ eventId: "evt-1" })
