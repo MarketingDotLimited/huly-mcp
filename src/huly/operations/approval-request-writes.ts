@@ -157,6 +157,33 @@ const findApprovalRequest = (
     return item
   })
 
+type ApprovalCancelAuthorization =
+  | { readonly _tag: "Authorized" }
+  | { readonly _tag: "Unauthorized"; readonly actor: string; readonly creator?: string }
+
+const matchesDirectApprovalActor = (
+  creator: string | undefined,
+  actor: string,
+  primarySocialId: string,
+  socialIds: ReadonlyArray<string>
+): boolean => creator === actor || creator === primarySocialId || socialIds.includes(creator ?? "")
+
+const approvalCancelAuthorization = (
+  client: HulyClient["Type"],
+  item: HulyApprovalRequest
+): Effect.Effect<ApprovalCancelAuthorization, HulyClientError | PersonNotFoundError> =>
+  Effect.gen(function* () {
+    const actor = String(client.getAccountUuid())
+    const primarySocialId = String(client.getPrimarySocialId())
+    const socialIds = (client.getSocialIds?.() ?? [client.getPrimarySocialId()]).map(String)
+    const creator = item.createdBy === undefined ? undefined : String(item.createdBy)
+    if (matchesDirectApprovalActor(creator, actor, primarySocialId, socialIds)) return { _tag: "Authorized" }
+    const matchesEmployee = creator === undefined ? false : String(yield* currentEmployeeRef(client)) === creator
+    return matchesEmployee
+      ? { _tag: "Authorized" }
+      : { _tag: "Unauthorized", actor, ...(creator === undefined ? {} : { creator }) }
+  })
+
 const requireActive = (item: HulyApprovalRequest): Effect.Effect<void, ApprovalRequestNotActiveError> =>
   item.status === HulyRequestStatus.Active
     ? Effect.void
@@ -340,18 +367,12 @@ export const cancelApprovalRequest = (
     const item = yield* findApprovalRequest(client, params.request)
     yield* requireActive(item)
 
-    const actor = String(client.getAccountUuid())
-    const primarySocialId = String(client.getPrimarySocialId())
-    const socialIds = (client.getSocialIds?.() ?? [client.getPrimarySocialId()]).map(String)
-    const creator = item.createdBy === undefined ? undefined : String(item.createdBy)
-    const matchesDirectActor = creator === actor || creator === primarySocialId || socialIds.includes(creator ?? "")
-    const matchesEmployee =
-      creator === undefined || matchesDirectActor ? false : String(yield* currentEmployeeRef(client)) === creator
-    if (!matchesDirectActor && !matchesEmployee) {
+    const authorization = yield* approvalCancelAuthorization(client, item)
+    if (authorization._tag === "Unauthorized") {
       return yield* new ApprovalRequestCancelUnauthorizedError({
         request: params.request,
-        actor,
-        ...(creator === undefined ? {} : { creator })
+        actor: authorization.actor,
+        ...(authorization.creator === undefined ? {} : { creator: authorization.creator })
       })
     }
 

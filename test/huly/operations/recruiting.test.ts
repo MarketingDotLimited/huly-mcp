@@ -2176,6 +2176,12 @@ describe("Recruiting Operations", () => {
       }).pipe(Effect.provide(applicationScoped), withDiagnostics)
       expect(rawIdWithApplication.id).toBe("review-1")
 
+      const titleWithApplication = yield* getRecruitingReview({
+        review: ReviewIdentifier.make("Technical Interview"),
+        application: ApplicantIdentifier.make("APP-1")
+      }).pipe(Effect.provide(applicationScoped), withDiagnostics)
+      expect(titleWithApplication.id).toBe("review-1")
+
       const applicationMismatch = yield* Effect.flip(
         getRecruitingReview({
           review: ReviewIdentifier.make("review-1"),

@@ -186,6 +186,75 @@ export const removeIssueRelation = (
     /* eslint-enable no-restricted-syntax */
   })
 
+interface PartitionedIssueRelations {
+  readonly documentRelations: Array<RelatedDocument>
+  readonly issueRelations: Array<RelatedDocument>
+}
+
+const partitionIssueRelations = (relations: ReadonlyArray<RelatedDocument>): PartitionedIssueRelations => {
+  const documentRelations: Array<RelatedDocument> = []
+  const issueRelations: Array<RelatedDocument> = []
+  const documentClass = String(documentPlugin.class.Document)
+  for (const relation of relations) {
+    ;(String(relation._class) === documentClass ? documentRelations : issueRelations).push(relation)
+  }
+  return { documentRelations, issueRelations }
+}
+
+const loadIssueIdentifiers = (
+  client: HulyClient["Type"],
+  relations: ReadonlyArray<RelatedDocument>
+): Effect.Effect<ReadonlyMap<string, string>, HulyClientError> =>
+  Effect.gen(function* () {
+    if (relations.length === 0) return new Map()
+    const issues = yield* client.findAll<HulyIssue>(
+      tracker.class.Issue,
+      hulyQuery<HulyIssue>({ _id: { $in: relations.map((relation) => toRef<HulyIssue>(relation._id)) } })
+    )
+    return new Map(issues.map((issue) => [String(issue._id), issue.identifier]))
+  })
+
+const loadTeamspaceNames = (
+  client: HulyClient["Type"],
+  documents: ReadonlyArray<HulyDocument>
+): Effect.Effect<ReadonlyMap<string, string>, HulyClientError> =>
+  Effect.gen(function* () {
+    const spaceIds = [...new Set(documents.map((document) => document.space))]
+    if (spaceIds.length === 0) return new Map()
+    const teamspaces = yield* client.findAll<HulyTeamspace>(
+      documentPlugin.class.Teamspace,
+      hulyQuery<HulyTeamspace>({ _id: { $in: spaceIds.map(toRef<HulyTeamspace>) } })
+    )
+    return new Map(teamspaces.map((teamspace) => [String(teamspace._id), teamspace.name]))
+  })
+
+const loadDocumentRelationEntries = (
+  client: HulyClient["Type"],
+  relations: ReadonlyArray<RelatedDocument>
+): Effect.Effect<Array<DocumentRelationEntry>, HulyClientError> =>
+  Effect.gen(function* () {
+    if (relations.length === 0) return []
+    const documents = yield* client.findAll<HulyDocument>(
+      documentPlugin.class.Document,
+      hulyQuery<HulyDocument>({ _id: { $in: relations.map((relation) => toRef<HulyDocument>(relation._id)) } })
+    )
+    const documentsById = new Map(documents.map((document) => [String(document._id), document]))
+    const teamspaceNames = yield* loadTeamspaceNames(client, documents)
+    return relations.map((relation) => {
+      const document = documentsById.get(String(relation._id))
+      return {
+        title: document?.title ?? String(relation._id),
+        teamspace: toTeamspaceIdentifier(
+          document === undefined
+            ? String(relation._id)
+            : (teamspaceNames.get(String(document.space)) ?? String(document.space))
+        ),
+        _id: toDocumentId(String(relation._id)),
+        _class: toObjectClassName(String(relation._class))
+      }
+    })
+  })
+
 export const listIssueRelations = (
   params: ListIssueRelationsParams
 ): Effect.Effect<ListIssueRelationsResult, RelationError, HulyClient> =>
@@ -198,28 +267,10 @@ export const listIssueRelations = (
     const blockedByRefs = issue.blockedBy ?? []
     const relationsRefs = issue.relations ?? []
 
-    // Single-pass partition of relations refs by _class
-    const docClass = String(documentPlugin.class.Document)
-    const issueRelationsRefs: Array<RelatedDocument> = []
-    const docRelationsRefs: Array<RelatedDocument> = []
-    for (const r of relationsRefs) {
-      ;(String(r._class) === docClass ? docRelationsRefs : issueRelationsRefs).push(r)
-    }
+    const { documentRelations, issueRelations } = partitionIssueRelations(relationsRefs)
 
     // Resolve issue refs (blockedBy are always issues; issueRelationsRefs are issue relations)
-    const allIssueIds = [...blockedByRefs, ...issueRelationsRefs].map((r) => r._id)
-    const idToIdentifier = new Map<string, string>()
-
-    if (allIssueIds.length > 0) {
-      const toIssueRef = toRef<HulyIssue>
-      const issues = yield* client.findAll<HulyIssue>(
-        tracker.class.Issue,
-        hulyQuery<HulyIssue>({ _id: { $in: allIssueIds.map(toIssueRef) } })
-      )
-      for (const i of issues) {
-        idToIdentifier.set(String(i._id), i.identifier)
-      }
-    }
+    const idToIdentifier = yield* loadIssueIdentifiers(client, [...blockedByRefs, ...issueRelations])
 
     const toEntry = (r: RelatedDocument): RelationEntry => ({
       identifier: toIssueIdentifier(idToIdentifier.get(String(r._id)) ?? String(r._id)),
@@ -246,41 +297,7 @@ export const listIssueRelations = (
       .filter((candidate) => candidate._id !== issue._id && hasRelationById(candidate.blockedBy, issue._id))
       .map(toIssueEntry)
 
-    // Resolve document refs
-    const documents: Array<DocumentRelationEntry> = []
-    if (docRelationsRefs.length > 0) {
-      const toDocRef = toRef<HulyDocument>
-      const docs = yield* client.findAll<HulyDocument>(
-        documentPlugin.class.Document,
-        hulyQuery<HulyDocument>({ _id: { $in: docRelationsRefs.map((r) => toDocRef(r._id)) } })
-      )
-      const docMap = new Map(docs.map((d) => [String(d._id), d]))
+    const documents = yield* loadDocumentRelationEntries(client, documentRelations)
 
-      // Resolve teamspace names for the documents
-      const spaceIds = [...new Set(docs.map((d) => d.space))]
-      const tsNameMap = new Map<string, string>()
-      if (spaceIds.length > 0) {
-        const teamspaces = yield* client.findAll<HulyTeamspace>(
-          documentPlugin.class.Teamspace,
-          hulyQuery<HulyTeamspace>({ _id: { $in: spaceIds.map(toRef<HulyTeamspace>) } })
-        )
-        for (const ts of teamspaces) {
-          tsNameMap.set(String(ts._id), ts.name)
-        }
-      }
-
-      for (const r of docRelationsRefs) {
-        const doc = docMap.get(String(r._id))
-        documents.push({
-          title: doc?.title ?? String(r._id),
-          teamspace: toTeamspaceIdentifier(
-            doc ? (tsNameMap.get(String(doc.space)) ?? String(doc.space)) : String(r._id)
-          ),
-          _id: toDocumentId(String(r._id)),
-          _class: toObjectClassName(String(r._class))
-        })
-      }
-    }
-
-    return { blockedBy: blockedByRefs.map(toEntry), blocks, relations: issueRelationsRefs.map(toEntry), documents }
+    return { blockedBy: blockedByRefs.map(toEntry), blocks, relations: issueRelations.map(toEntry), documents }
   })

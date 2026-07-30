@@ -188,9 +188,37 @@ const opinionTarget = (
     )
   })
 
+type RecruitingTargetInput =
+  | RecruitingActivityTarget
+  | RecruitingAttachmentTarget
+  | RecruitingCommentTarget
+  | RecruitingRelatedIssueTarget
+
+const resolveApplicantActivityTarget = (
+  client: HulyClient["Type"],
+  params: Extract<RecruitingTargetInput, { readonly kind: "applicant" }>
+): Effect.Effect<RecruitingTargetCoordinates, RecruitingResolvedTargetError, Diagnostics> =>
+  Effect.gen(function* () {
+    const vacancy = params.vacancy === undefined ? undefined : yield* resolveVacancy(client, params.vacancy)
+    const candidate =
+      params.candidate === undefined ? undefined : yield* resolveCandidatePerson(client, params.candidate)
+    return yield* applicantTarget(client, yield* findApplicant(client, params.applicant, vacancy, candidate))
+  })
+
+const resolveOpinionActivityTarget = (
+  client: HulyClient["Type"],
+  params: Extract<RecruitingTargetInput, { readonly kind: "opinion" }>
+): Effect.Effect<RecruitingTargetCoordinates, RecruitingResolvedTargetError, Diagnostics> =>
+  Effect.gen(function* () {
+    const review =
+      params.review === undefined ? undefined : yield* resolveReviewLocator(client, { review: params.review })
+    const opinion = yield* findOpinion(client, params.opinion, review)
+    return yield* opinionTarget(client, opinion, review ?? (yield* parentReviewFromOpinion(client, opinion)))
+  })
+
 export const resolveRecruitingTarget = (
   client: HulyClient["Type"],
-  params: RecruitingActivityTarget | RecruitingAttachmentTarget | RecruitingCommentTarget | RecruitingRelatedIssueTarget
+  params: RecruitingTargetInput
 ): Effect.Effect<RecruitingTargetCoordinates, RecruitingResolvedTargetError, Diagnostics> =>
   Effect.gen(function* () {
     switch (params.kind) {
@@ -200,19 +228,11 @@ export const resolveRecruitingTarget = (
         const candidate = yield* resolveCandidate(client, params.candidate)
         return candidateTarget(client, candidate, yield* candidateEmail(client, candidate._id))
       }
-      case "applicant": {
-        const vacancy = params.vacancy === undefined ? undefined : yield* resolveVacancy(client, params.vacancy)
-        const candidate =
-          params.candidate === undefined ? undefined : yield* resolveCandidatePerson(client, params.candidate)
-        return yield* applicantTarget(client, yield* findApplicant(client, params.applicant, vacancy, candidate))
-      }
+      case "applicant":
+        return yield* resolveApplicantActivityTarget(client, params)
       case "review":
         return yield* reviewTarget(client, yield* resolveReviewLocator(client, params))
-      case "opinion": {
-        const review =
-          params.review === undefined ? undefined : yield* resolveReviewLocator(client, { review: params.review })
-        const opinion = yield* findOpinion(client, params.opinion, review)
-        return yield* opinionTarget(client, opinion, review ?? (yield* parentReviewFromOpinion(client, opinion)))
-      }
+      case "opinion":
+        return yield* resolveOpinionActivityTarget(client, params)
     }
   })

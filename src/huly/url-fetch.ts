@@ -116,22 +116,39 @@ const parseIpv4Address = (hostname: string): readonly [number, number, number, n
   return [a, b, c, d]
 }
 
-const isBlockedIpv4Address = ([a, b, c]: readonly [number, number, number, number]): boolean => {
-  if (a === 0) return true
-  if (a === IPV4_PRIVATE_10) return true
-  if (a === IPV4_CGNAT_A && b >= IPV4_CGNAT_B_MIN && b <= IPV4_CGNAT_B_MAX) return true
-  if (a === IPV4_LOOPBACK_A) return true
-  if (a === IPV4_LINK_LOCAL_A && b === IPV4_LINK_LOCAL_B) return true
-  if (a === IPV4_PRIVATE_172_A && b >= IPV4_PRIVATE_172_B_MIN && b <= IPV4_PRIVATE_172_B_MAX) return true
-  if (a === IPV4_RESERVED_192_A && b === 0 && c === 0) return true
-  if (a === IPV4_RESERVED_192_A && b === 0 && c === IPV4_RESERVED_192_C_DOCS) return true
-  if (a === IPV4_RESERVED_192_A && b === IPV4_PRIVATE_192_B) return true
-  if (a === IPV4_BENCHMARK_A && (b === IPV4_BENCHMARK_B_MIN || b === IPV4_BENCHMARK_B_MAX)) return true
-  if (a === IPV4_BENCHMARK_A && b === IPV4_DOCS_198_B && c === IPV4_DOCS_198_C) return true
-  if (a === IPV4_DOCS_203_A && b === 0 && c === IPV4_DOCS_203_C) return true
+type Ipv4Address = readonly [number, number, number, number]
+
+const isLocalIpv4Address = ([a, b]: Ipv4Address): boolean =>
+  a === 0 || a === IPV4_LOOPBACK_A || (a === IPV4_LINK_LOCAL_A && b === IPV4_LINK_LOCAL_B)
+
+const isPrivateIpv4Address = ([a, b]: Ipv4Address): boolean =>
+  a === IPV4_PRIVATE_10 ||
+  (a === IPV4_PRIVATE_172_A && b >= IPV4_PRIVATE_172_B_MIN && b <= IPV4_PRIVATE_172_B_MAX) ||
+  (a === IPV4_RESERVED_192_A && b === IPV4_PRIVATE_192_B)
+
+const isCarrierGradeNatIpv4Address = ([a, b]: Ipv4Address): boolean =>
+  a === IPV4_CGNAT_A && b >= IPV4_CGNAT_B_MIN && b <= IPV4_CGNAT_B_MAX
+
+const isReserved192Ipv4Address = ([a, b, c]: Ipv4Address): boolean =>
+  (a === IPV4_RESERVED_192_A && b === 0 && c === 0) ||
+  (a === IPV4_RESERVED_192_A && b === 0 && c === IPV4_RESERVED_192_C_DOCS)
+
+const isBenchmarkIpv4Address = ([a, b]: Ipv4Address): boolean =>
+  a === IPV4_BENCHMARK_A && (b === IPV4_BENCHMARK_B_MIN || b === IPV4_BENCHMARK_B_MAX)
+
+const isDocumentationIpv4Address = ([a, b, c]: Ipv4Address): boolean =>
+  (a === IPV4_BENCHMARK_A && b === IPV4_DOCS_198_B && c === IPV4_DOCS_198_C) ||
+  (a === IPV4_DOCS_203_A && b === 0 && c === IPV4_DOCS_203_C)
+
+const isBlockedIpv4Address = (address: Ipv4Address): boolean =>
+  isLocalIpv4Address(address) ||
+  isPrivateIpv4Address(address) ||
+  isCarrierGradeNatIpv4Address(address) ||
+  isReserved192Ipv4Address(address) ||
+  isBenchmarkIpv4Address(address) ||
+  isDocumentationIpv4Address(address) ||
   // 224.0.0.0/4 (multicast), 240.0.0.0/4 (reserved), and 255.255.255.255 (broadcast).
-  return a >= IPV4_MULTICAST_A_MIN
-}
+  address[0] >= IPV4_MULTICAST_A_MIN
 
 const normalizeUrlHostname = (hostname: string): string =>
   hostname
@@ -196,6 +213,17 @@ const toIpv6Hextets = (hextets: ReadonlyArray<number>): Ipv6Hextets => [
   assertAt(hextets, IPV6_EIGHTH_HEXTET_INDEX)
 ]
 
+interface ParsedIpv6Sides {
+  readonly left: ReadonlyArray<number>
+  readonly right: ReadonlyArray<number>
+}
+
+const parseIpv6Sides = (compressedParts: ReadonlyArray<string>): ParsedIpv6Sides | null => {
+  const left = parseIpv6Side(assertAt(compressedParts, 0))
+  const right = compressedParts.length === IPV6_MAX_COMPRESSION_PARTS ? parseIpv6Side(assertAt(compressedParts, 1)) : []
+  return left === null || right === null ? null : { left, right }
+}
+
 const parseIpv6Hextets = (hostname: string): Ipv6Hextets | null => {
   if (hostname.includes(".")) {
     return null
@@ -206,13 +234,9 @@ const parseIpv6Hextets = (hostname: string): Ipv6Hextets | null => {
     return null
   }
 
-  const leftText = assertAt(compressedParts, 0)
-
-  const left = parseIpv6Side(leftText)
-  const right = compressedParts.length === IPV6_MAX_COMPRESSION_PARTS ? parseIpv6Side(assertAt(compressedParts, 1)) : []
-  if (left === null || right === null) {
-    return null
-  }
+  const sides = parseIpv6Sides(compressedParts)
+  if (sides === null) return null
+  const { left, right } = sides
 
   if (compressedParts.length === 1) {
     return isIpv6Hextets(left) ? left : null

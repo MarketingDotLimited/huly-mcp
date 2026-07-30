@@ -87,6 +87,21 @@ const classifiedCodes: Readonly<
   UNABLE_TO_VERIFY_LEAF_SIGNATURE: ["tls", "UNABLE_TO_VERIFY_LEAF_SIGNATURE"]
 }
 
+const messageIncludesAny = (message: string, fragments: ReadonlyArray<string>): boolean =>
+  fragments.some((fragment) => message.includes(fragment))
+
+const classifyUnavailableMessage = (
+  message: string
+): readonly [HulyUnavailableFailureKind, HulyUnavailableDetailCode | undefined] => {
+  if (messageIncludesAny(message, ["timed out", "timeout"])) return ["timeout", undefined]
+  if (messageIncludesAny(message, ["certificate", "tls"])) return ["tls", undefined]
+  if (messageIncludesAny(message, ["dns", "getaddrinfo"])) return ["dns", undefined]
+  if (/\b(502|503|504)\b/.test(message) || message.includes("service unavailable")) {
+    return ["http_unavailable", undefined]
+  }
+  return ["unknown", undefined]
+}
+
 export const classifyHulyUnavailableFailure = (
   error: unknown
 ): readonly [HulyUnavailableFailureKind, HulyUnavailableDetailCode | undefined] => {
@@ -95,12 +110,5 @@ export const classifyHulyUnavailableFailure = (
     const classified = classifiedCodes[code]
     if (classified !== undefined) return classified
   }
-  const message = errorMessage(error).toLowerCase()
-  if (message.includes("timed out") || message.includes("timeout")) return ["timeout", undefined]
-  if (message.includes("certificate") || message.includes("tls")) return ["tls", undefined]
-  if (message.includes("dns") || message.includes("getaddrinfo")) return ["dns", undefined]
-  if (/\b(502|503|504)\b/.test(message) || message.includes("service unavailable")) {
-    return ["http_unavailable", undefined]
-  }
-  return ["unknown", undefined]
+  return classifyUnavailableMessage(errorMessage(error).toLowerCase())
 }

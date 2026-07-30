@@ -172,6 +172,42 @@ const findProjectAndTemplate = (params: {
 
 // --- Child resolution helpers ---
 
+const resolveTemplateReferenceLabels = (
+  client: HulyClient["Type"],
+  assignee: Ref<Person> | null,
+  component: Ref<HulyComponent> | null
+): Effect.Effect<{ readonly assigneeName?: string; readonly componentLabel?: string }, HulyClientError> =>
+  Effect.gen(function* () {
+    const assigneeName =
+      assignee === null ? undefined : (yield* client.findOne<Person>(contact.class.Person, { _id: assignee }))?.name
+    const componentLabel =
+      component === null
+        ? undefined
+        : (yield* client.findOne<HulyComponent>(tracker.class.Component, { _id: component }))?.label
+    return {
+      ...(assigneeName === undefined ? {} : { assigneeName }),
+      ...(componentLabel === undefined ? {} : { componentLabel })
+    }
+  })
+
+const templateChildProjection = (
+  child: HulyIssueTemplateChild,
+  markupUrlConfig: MarkupUrlConfig,
+  labels: Effect.Effect.Success<ReturnType<typeof resolveTemplateReferenceLabels>>
+): IssueTemplateChild => {
+  const rawEstimation = zeroAsUnset(NonNegativeNumber.make(child.estimation))
+  const estimation = rawEstimation === undefined ? undefined : PositiveTimeHours.make(rawEstimation)
+  return {
+    id: IssueTemplateChildId.make(child.id),
+    title: child.title,
+    priority: priorityToString(child.priority),
+    ...(child.description ? { description: optionalMarkupToMarkdown(child.description, markupUrlConfig, "") } : {}),
+    ...(labels.assigneeName === undefined ? {} : { assignee: PersonName.make(labels.assigneeName) }),
+    ...(labels.componentLabel === undefined ? {} : { component: ComponentLabel.make(labels.componentLabel) }),
+    ...(estimation === undefined ? {} : { estimation })
+  }
+}
+
 /**
  * Resolve a single HulyIssueTemplateChild to our domain IssueTemplateChild.
  * Looks up assignee name and component label from refs.
@@ -182,35 +218,8 @@ const resolveChild = (
   child: HulyIssueTemplateChild
 ): Effect.Effect<IssueTemplateChild, HulyClientError> =>
   Effect.gen(function* () {
-    const assigneeName =
-      child.assignee !== null
-        ? (yield* client.findOne<Person>(contact.class.Person, { _id: child.assignee }))?.name
-        : undefined
-
-    const componentLabel =
-      child.component !== null
-        ? (yield* client.findOne<HulyComponent>(tracker.class.Component, { _id: child.component }))?.label
-        : undefined
-
-    const base: IssueTemplateChild = {
-      id: IssueTemplateChildId.make(child.id),
-      title: child.title,
-      priority: priorityToString(child.priority)
-    }
-
-    // exactOptionalPropertyTypes: can't assign undefined to optional fields
-    const withDescription = child.description
-      ? { ...base, description: optionalMarkupToMarkdown(child.description, markupUrlConfig, "") }
-      : base
-    const withAssignee =
-      assigneeName !== undefined ? { ...withDescription, assignee: PersonName.make(assigneeName) } : withDescription
-    const withComponent =
-      componentLabel !== undefined ? { ...withAssignee, component: ComponentLabel.make(componentLabel) } : withAssignee
-    const rawEstimation = zeroAsUnset(NonNegativeNumber.make(child.estimation))
-    const estimation = rawEstimation === undefined ? undefined : PositiveTimeHours.make(rawEstimation)
-    const result = estimation !== undefined ? { ...withComponent, estimation } : withComponent
-
-    return result
+    const labels = yield* resolveTemplateReferenceLabels(client, child.assignee, child.component)
+    return templateChildProjection(child, markupUrlConfig, labels)
   })
 
 /**
@@ -299,15 +308,7 @@ export const getIssueTemplate = (
     const { client, template } = yield* findProjectAndTemplate(params)
     const markupUrlConfig = client.markupUrlConfig
 
-    const assigneeName =
-      template.assignee !== null
-        ? (yield* client.findOne<Person>(contact.class.Person, { _id: template.assignee }))?.name
-        : undefined
-
-    const componentLabel =
-      template.component !== null
-        ? (yield* client.findOne<HulyComponent>(tracker.class.Component, { _id: template.component }))?.label
-        : undefined
+    const labels = yield* resolveTemplateReferenceLabels(client, template.assignee, template.component)
 
     const resolvedChildren: Array<IssueTemplateChild> = []
     for (const child of template.children) {
@@ -319,8 +320,8 @@ export const getIssueTemplate = (
       title: template.title,
       description: optionalMarkupToMarkdown(template.description, markupUrlConfig, ""),
       priority: priorityToString(template.priority),
-      assignee: assigneeName !== undefined ? PersonName.make(assigneeName) : undefined,
-      component: componentLabel !== undefined ? ComponentLabel.make(componentLabel) : undefined,
+      assignee: labels.assigneeName !== undefined ? PersonName.make(labels.assigneeName) : undefined,
+      component: labels.componentLabel !== undefined ? ComponentLabel.make(labels.componentLabel) : undefined,
       estimation: template.estimation > 0 ? PositiveTimeHours.make(template.estimation) : undefined,
       project: params.project,
       modifiedOn: Timestamp.make(template.modifiedOn),
@@ -393,6 +394,71 @@ export const createIssueTemplate = (
     return { id: IssueTemplateId.make(templateId), title: params.title }
   })
 
+const resolveIssueFromTemplateAssignee = (
+  client: HulyClient["Type"],
+  params: CreateIssueFromTemplateParams,
+  template: HulyIssueTemplate
+): Effect.Effect<CreateIssueParams["assignee"], HulyClientError> =>
+  Effect.gen(function* () {
+    if (params.assignee !== undefined) return params.assignee
+    if (template.assignee === null) return undefined
+    const person = yield* client.findOne<Person>(contact.class.Person, { _id: template.assignee })
+    if (person === undefined) return undefined
+    const emailChannel = yield* client.findOne<Channel>(contact.class.Channel, {
+      attachedTo: person._id,
+      provider: contact.channelProvider.Email
+    })
+    return Email.make(emailChannel?.value ?? person.name)
+  })
+
+const templateChildCreateParams = (
+  params: CreateIssueFromTemplateParams,
+  child: HulyIssueTemplateChild,
+  markupUrlConfig: MarkupUrlConfig
+): CreateIssueParams => {
+  const description = optionalMarkupToMarkdown(child.description, markupUrlConfig, undefined)
+  return {
+    project: params.project,
+    title: child.title,
+    priority: priorityToString(child.priority),
+    ...(description === undefined ? {} : { description })
+  }
+}
+
+const templateChildUpdate = (child: HulyIssueTemplateChild): DocumentUpdate<HulyIssue> => ({
+  ...(child.assignee === null ? {} : { assignee: child.assignee }),
+  ...(child.component === null ? {} : { component: child.component }),
+  ...(child.estimation > 0 ? { estimation: child.estimation } : {})
+})
+
+const createTemplateChildIssues = (
+  client: HulyClient["Type"],
+  project: HulyProject,
+  template: HulyIssueTemplate,
+  params: CreateIssueFromTemplateParams,
+  parentResult: Effect.Effect.Success<ReturnType<typeof createIssue>>,
+  title: CreateIssueParams["title"],
+  markupUrlConfig: MarkupUrlConfig
+): Effect.Effect<void, CreateIssueFromTemplateError, HulyClient | Diagnostics> =>
+  Effect.gen(function* () {
+    const parentIssue = {
+      _id: toRef<HulyIssue>(parentResult.issueId),
+      identifier: parentResult.identifier,
+      title,
+      parents: []
+    }
+    for (const child of template.children) {
+      const childResult = yield* createIssue(templateChildCreateParams(params, child, markupUrlConfig))
+      yield* attachIssueChild(
+        client,
+        project._id,
+        toRef<HulyIssue>(childResult.issueId),
+        parentIssue,
+        templateChildUpdate(child)
+      )
+    }
+  })
+
 /**
  * Create an issue from a template, optionally including sub-issues from template children.
  *
@@ -410,23 +476,7 @@ export const createIssueFromTemplate = (
     const description = params.description ?? optionalMarkupToMarkdown(template.description, markupUrlConfig, undefined)
     const priority = params.priority ?? priorityToString(template.priority)
 
-    const templateAssigneeRef = template.assignee
-    const assignee =
-      params.assignee !== undefined
-        ? params.assignee
-        : templateAssigneeRef !== null
-          ? yield* Effect.gen(function* () {
-              const person = yield* client.findOne<Person>(contact.class.Person, { _id: templateAssigneeRef })
-              if (person) {
-                const emailCh = yield* client.findOne<Channel>(contact.class.Channel, {
-                  attachedTo: person._id,
-                  provider: contact.channelProvider.Email
-                })
-                return Email.make(emailCh?.value ?? person.name)
-              }
-              return undefined
-            })
-          : undefined
+    const assignee = yield* resolveIssueFromTemplateAssignee(client, params, template)
 
     const issueParams: CreateIssueParams = {
       project: params.project,
@@ -448,24 +498,7 @@ export const createIssueFromTemplate = (
     // Create sub-issues from template children if includeChildren is not false
     const includeChildren = params.includeChildren ?? DEFAULT_INCLUDE_TEMPLATE_CHILDREN
     if (includeChildren && template.children.length > 0) {
-      const parentIssue = { _id: toRef<HulyIssue>(result.issueId), identifier: result.identifier, title, parents: [] }
-      for (const child of template.children) {
-        const childDescription = optionalMarkupToMarkdown(child.description, markupUrlConfig, undefined)
-        const childResult = yield* createIssue({
-          project: params.project,
-          title: child.title,
-          priority: priorityToString(child.priority),
-          ...(childDescription !== undefined && { description: childDescription })
-        })
-
-        const childUpdate: DocumentUpdate<HulyIssue> = {
-          ...(child.assignee !== null && { assignee: child.assignee }),
-          ...(child.component !== null && { component: child.component }),
-          ...(child.estimation > 0 && { estimation: child.estimation })
-        }
-        yield* attachIssueChild(client, project._id, toRef<HulyIssue>(childResult.issueId), parentIssue, childUpdate)
-      }
-
+      yield* createTemplateChildIssues(client, project, template, params, result, title, markupUrlConfig)
       return { ...result, childrenCreated: Count.make(template.children.length) }
     }
 

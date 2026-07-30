@@ -113,22 +113,27 @@ export class WorkspaceClient extends Context.Tag("@hulymcp/WorkspaceClient")<
           catch: (e) => new HulyConnectionError({ message: `${errorMsg}: ${String(e)}`, cause: e })
         })
 
+      type AccountClientAccessLinkOptions = NonNullable<Parameters<AccountClient["createAccessLink"]>[1]>
+
+      const accessLinkIdentityOptions = (options: CreateAccessLinkOptions): AccountClientAccessLinkOptions => ({
+        ...(options.firstName !== undefined ? { firstName: options.firstName } : {}),
+        ...(options.lastName !== undefined ? { lastName: options.lastName } : {}),
+        ...(options.navigateUrl !== undefined ? { navigateUrl: options.navigateUrl } : {}),
+        ...(options.spaces !== undefined ? { spaces: [...options.spaces] } : {})
+      })
+
+      const accessLinkTimingOptions = (options: CreateAccessLinkOptions): AccountClientAccessLinkOptions => ({
+        ...(options.notBefore !== undefined ? { notBefore: options.notBefore } : {}),
+        ...(options.expiration !== undefined ? { expiration: options.expiration } : {}),
+        ...(options.personalized !== undefined ? { personalized: options.personalized } : {})
+      })
+
       const toAccountClientAccessLinkOptions = (
         options: CreateAccessLinkOptions | undefined
-      ): Parameters<AccountClient["createAccessLink"]>[1] => {
-        if (options === undefined) return undefined
-
-        const result: NonNullable<Parameters<AccountClient["createAccessLink"]>[1]> = {
-          ...(options.firstName !== undefined ? { firstName: options.firstName } : {}),
-          ...(options.lastName !== undefined ? { lastName: options.lastName } : {}),
-          ...(options.navigateUrl !== undefined ? { navigateUrl: options.navigateUrl } : {}),
-          ...(options.spaces !== undefined ? { spaces: [...options.spaces] } : {}),
-          ...(options.notBefore !== undefined ? { notBefore: options.notBefore } : {}),
-          ...(options.expiration !== undefined ? { expiration: options.expiration } : {}),
-          ...(options.personalized !== undefined ? { personalized: options.personalized } : {})
-        }
-        return result
-      }
+      ): Parameters<AccountClient["createAccessLink"]>[1] =>
+        options === undefined
+          ? undefined
+          : { ...accessLinkIdentityOptions(options), ...accessLinkTimingOptions(options) }
 
       const operations: WorkspaceClientOperations = {
         getWorkspaceMembers: () => withClient((c) => c.getWorkspaceMembers(), "Failed to get workspace members"),

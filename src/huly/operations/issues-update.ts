@@ -43,6 +43,103 @@ type UpdateIssueError =
   | PersonNotFoundError
   | IssueReferenceError
 
+type UpdateIssueField = (typeof UPDATE_ISSUE_FIELDS)[number]
+type UpdateIssueDirectEffect<Field extends UpdateIssueField & keyof DocumentUpdate<HulyIssue>> = Effect.Effect<
+  CoveredUpdateEntry<Field, DirectUpdateEntry<UpdateIssueField, DocumentUpdate<HulyIssue>, Field>>,
+  ConnectionError | HulyError | InvalidStatusError | PersonNotFoundError | IssueReferenceError
+>
+type IssueTaskTypeUpdateEntry = DirectUpdateSubsetEntry<"kind" | "status", DocumentUpdate<HulyIssue>>
+type IssueDescriptionUpdateEntry = DirectUpdateEntry<UpdateIssueField, DocumentUpdate<HulyIssue>, "description">
+type UpdateWorkflowData = Effect.Effect.Success<ReturnType<typeof findProjectWithStatuses>>
+type TaskTypeWorkflow = Effect.Effect.Success<ReturnType<typeof resolveTaskTypeWorkflow>>
+type UpdateIssueEntries = {
+  readonly title: UpdateIssueDirectEffect<"title">
+  readonly description: Effect.Effect<
+    CoveredUpdateEntry<"description", IssueDescriptionUpdateEntry>,
+    ConnectionError | IssueReferenceError,
+    HulyClient
+  >
+  readonly priority: UpdateIssueDirectEffect<"priority">
+  readonly assignee: UpdateIssueDirectEffect<"assignee">
+  readonly status: UpdateIssueDirectEffect<"status">
+  readonly taskType: Effect.Effect<
+    CoveredUpdateEntry<"taskType", IssueTaskTypeUpdateEntry>,
+    HulyClientError | HulyError | InvalidStatusError | PersonNotFoundError
+  >
+  readonly dueDate: UpdateIssueDirectEffect<"dueDate">
+  readonly estimation: UpdateIssueDirectEffect<"estimation">
+}
+
+const descriptionUpdateEntry = (operations: IssueDescriptionUpdateEntry) =>
+  coveredUpdateEntry("description", operations)
+
+const issueUpdateEntries = (
+  client: HulyClient["Type"],
+  issue: HulyIssue,
+  params: UpdateIssueParams,
+  workflowData: Pick<UpdateWorkflowData, "statuses">,
+  taskTypeWorkflow: TaskTypeWorkflow | undefined
+): UpdateIssueEntries => ({
+  title: Effect.succeed(coveredUpdateEntry("title", params.title === undefined ? {} : { title: params.title })),
+  description: Effect.gen(function* () {
+    if (params.description === undefined) return descriptionUpdateEntry({})
+    const description = textContentOrClear(params.description)
+    if (description === undefined) return descriptionUpdateEntry({ description: null })
+    const renderedDescription = yield* renderIssueDescriptionForWrite(description)
+    if (issue.description) {
+      yield* client.updateMarkup(
+        tracker.class.Issue,
+        issue._id,
+        "description",
+        renderedDescription.markup,
+        renderedDescription.format
+      )
+      return descriptionUpdateEntry({})
+    }
+    const descriptionMarkupRef = yield* client.uploadMarkup(
+      tracker.class.Issue,
+      issue._id,
+      "description",
+      renderedDescription.markup,
+      renderedDescription.format
+    )
+    return descriptionUpdateEntry({ description: descriptionMarkupRef })
+  }),
+  priority: Effect.succeed(
+    coveredUpdateEntry("priority", params.priority === undefined ? {} : { priority: stringToPriority(params.priority) })
+  ),
+  assignee: Effect.gen(function* () {
+    if (params.assignee === undefined) return coveredUpdateEntry("assignee", {})
+    if (params.assignee === null) return coveredUpdateEntry("assignee", { assignee: null })
+    const person = yield* resolveAssignee(client, params.assignee)
+    return coveredUpdateEntry("assignee", { assignee: person._id })
+  }),
+  status: Effect.gen(function* () {
+    if (taskTypeWorkflow !== undefined || params.status === undefined) return coveredUpdateEntry("status", {})
+    return coveredUpdateEntry("status", {
+      status: yield* resolveStatusByName(workflowData.statuses, params.status, params.project)
+    })
+  }),
+  taskType: Effect.gen(function* () {
+    if (taskTypeWorkflow === undefined) return coveredUpdateEntry("taskType", {})
+    const nextStatus = yield* chooseStatusForTaskType(taskTypeWorkflow, params.status, issue.status, params.project)
+    const taskTypeOps: IssueTaskTypeUpdateEntry = {
+      ...(taskTypeWorkflow.taskType._id === issue.kind ? {} : { kind: taskTypeWorkflow.taskType._id }),
+      ...(nextStatus === issue.status ? {} : { status: nextStatus })
+    }
+    return coveredUpdateEntry("taskType", taskTypeOps)
+  }),
+  dueDate: Effect.succeed(
+    coveredUpdateEntry("dueDate", params.dueDate === undefined ? {} : { dueDate: params.dueDate })
+  ),
+  estimation: Effect.succeed(
+    coveredUpdateEntry("estimation", params.estimation === undefined ? {} : { estimation: params.estimation ?? 0 })
+  )
+})
+
+const isDescriptionUpdatedInPlace = (params: UpdateIssueParams, issue: HulyIssue): boolean =>
+  params.description !== undefined && textContentOrClear(params.description) !== undefined && Boolean(issue.description)
+
 /**
  * Update an existing issue in a project.
  *
@@ -80,97 +177,9 @@ export const updateIssue = (
             params.project
           )
 
-    const descriptionUpdatedInPlace =
-      params.description !== undefined &&
-      textContentOrClear(params.description) !== undefined &&
-      Boolean(issue.description)
+    const descriptionUpdatedInPlace = isDescriptionUpdatedInPlace(params, issue)
 
-    type UpdateIssueField = (typeof UPDATE_ISSUE_FIELDS)[number]
-    type UpdateIssueDirectEffect<Field extends UpdateIssueField & keyof DocumentUpdate<HulyIssue>> = Effect.Effect<
-      CoveredUpdateEntry<Field, DirectUpdateEntry<UpdateIssueField, DocumentUpdate<HulyIssue>, Field>>,
-      ConnectionError | HulyError | InvalidStatusError | PersonNotFoundError | IssueReferenceError
-    >
-    type IssueTaskTypeUpdateEntry = DirectUpdateSubsetEntry<"kind" | "status", DocumentUpdate<HulyIssue>>
-    type IssueDescriptionUpdateEntry = DirectUpdateEntry<UpdateIssueField, DocumentUpdate<HulyIssue>, "description">
-    const descriptionUpdateEntry = (operations: IssueDescriptionUpdateEntry) =>
-      coveredUpdateEntry("description", operations)
-    type UpdateIssueEntries = {
-      readonly title: UpdateIssueDirectEffect<"title">
-      readonly description: Effect.Effect<
-        CoveredUpdateEntry<"description", IssueDescriptionUpdateEntry>,
-        ConnectionError | IssueReferenceError,
-        HulyClient
-      >
-      readonly priority: UpdateIssueDirectEffect<"priority">
-      readonly assignee: UpdateIssueDirectEffect<"assignee">
-      readonly status: UpdateIssueDirectEffect<"status">
-      readonly taskType: Effect.Effect<
-        CoveredUpdateEntry<"taskType", IssueTaskTypeUpdateEntry>,
-        HulyClientError | HulyError | InvalidStatusError | PersonNotFoundError
-      >
-      readonly dueDate: UpdateIssueDirectEffect<"dueDate">
-      readonly estimation: UpdateIssueDirectEffect<"estimation">
-    }
-    const updateEntries = {
-      title: Effect.succeed(coveredUpdateEntry("title", params.title === undefined ? {} : { title: params.title })),
-      description: Effect.gen(function* () {
-        if (params.description === undefined) return descriptionUpdateEntry({})
-        const description = textContentOrClear(params.description)
-        if (description === undefined) return descriptionUpdateEntry({ description: null })
-        const renderedDescription = yield* renderIssueDescriptionForWrite(description)
-        if (issue.description) {
-          yield* client.updateMarkup(
-            tracker.class.Issue,
-            issue._id,
-            "description",
-            renderedDescription.markup,
-            renderedDescription.format
-          )
-          return descriptionUpdateEntry({})
-        }
-        const descriptionMarkupRef = yield* client.uploadMarkup(
-          tracker.class.Issue,
-          issue._id,
-          "description",
-          renderedDescription.markup,
-          renderedDescription.format
-        )
-        return descriptionUpdateEntry({ description: descriptionMarkupRef })
-      }),
-      priority: Effect.succeed(
-        coveredUpdateEntry(
-          "priority",
-          params.priority === undefined ? {} : { priority: stringToPriority(params.priority) }
-        )
-      ),
-      assignee: Effect.gen(function* () {
-        if (params.assignee === undefined) return coveredUpdateEntry("assignee", {})
-        if (params.assignee === null) return coveredUpdateEntry("assignee", { assignee: null })
-        const person = yield* resolveAssignee(client, params.assignee)
-        return coveredUpdateEntry("assignee", { assignee: person._id })
-      }),
-      status: Effect.gen(function* () {
-        if (taskTypeWorkflow !== undefined || params.status === undefined) return coveredUpdateEntry("status", {})
-        return coveredUpdateEntry("status", {
-          status: yield* resolveStatusByName(workflowData.statuses, params.status, params.project)
-        })
-      }),
-      taskType: Effect.gen(function* () {
-        if (taskTypeWorkflow === undefined) return coveredUpdateEntry("taskType", {})
-        const nextStatus = yield* chooseStatusForTaskType(taskTypeWorkflow, params.status, issue.status, params.project)
-        const taskTypeOps: IssueTaskTypeUpdateEntry = {
-          ...(taskTypeWorkflow.taskType._id === issue.kind ? {} : { kind: taskTypeWorkflow.taskType._id }),
-          ...(nextStatus === issue.status ? {} : { status: nextStatus })
-        }
-        return coveredUpdateEntry("taskType", taskTypeOps)
-      }),
-      dueDate: Effect.succeed(
-        coveredUpdateEntry("dueDate", params.dueDate === undefined ? {} : { dueDate: params.dueDate })
-      ),
-      estimation: Effect.succeed(
-        coveredUpdateEntry("estimation", params.estimation === undefined ? {} : { estimation: params.estimation ?? 0 })
-      )
-    } satisfies UpdateIssueEntries
+    const updateEntries = issueUpdateEntries(client, issue, params, workflowData, taskTypeWorkflow)
     const updateOps: DocumentUpdate<HulyIssue> = mergeCoveredUpdateEntries(
       yield* Effect.all(Object.values(updateEntries))
     )

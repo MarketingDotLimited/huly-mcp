@@ -8,6 +8,7 @@ import type {
   Schedule as HulySchedule,
   ScheduleAvailability as HulyScheduleAvailability
 } from "@hcengineering/calendar"
+import type { Employee } from "@hcengineering/contact"
 import type { Data, DocumentUpdate, Ref, Space } from "@hcengineering/core"
 import { SortingOrder } from "@hcengineering/core"
 import type { MeetingSchedule as HulyMeetingSchedule, Room as HulyRoom } from "@hcengineering/love"
@@ -248,27 +249,74 @@ export const getSchedule = (params: GetScheduleParams): Effect.Effect<ScheduleDe
     return yield* scheduleDetails(schedule, owner, rooms)
   })
 
+const resolveOptionalScheduleCalendar = (
+  client: HulyClient["Type"],
+  params: CreateScheduleParams
+): Effect.Effect<Ref<HulyCalendar> | undefined, CalendarNotAccessibleError | HulyClientError> =>
+  params.calendarId === undefined && params.calendarName === undefined
+    ? Effect.succeed(undefined)
+    : resolveCalendarRef(client, params.calendarId, params.calendarName)
+
+const createScheduleData = (
+  params: CreateScheduleParams,
+  owner: Ref<Employee>,
+  calendarRef: Ref<HulyCalendar> | undefined
+): Data<HulySchedule> => {
+  const data: Data<HulySchedule> = {
+    owner,
+    title: params.title,
+    meetingDuration: params.meetingDuration,
+    meetingInterval: params.meetingInterval,
+    availability: availabilityToHuly(params.availability),
+    timeZone: params.timeZone
+  }
+  if (params.description !== undefined) data.description = params.description
+  if (calendarRef !== undefined) data.calendar = calendarRef
+  return data
+}
+
+type UpdateScheduleField = (typeof UPDATE_SCHEDULE_FIELDS)[number]
+type UpdateScheduleEntry = Effect.Effect<DocumentUpdate<HulySchedule>, UpdateScheduleError>
+type UpdateScheduleEntries = Record<UpdateScheduleField, UpdateScheduleEntry>
+
+const updateScheduleEntries = (client: HulyClient["Type"], params: UpdateScheduleParams): UpdateScheduleEntries => ({
+  owner: Effect.gen(function* () {
+    if (params.owner === undefined) return {}
+    return { owner: yield* resolveTodoOwner(client, params.owner) }
+  }),
+  title: Effect.succeed(params.title === undefined ? {} : { title: params.title }),
+  description: Effect.succeed(
+    // Huly Schedule ignores `$unset` for this field; write the SDK's empty-string clear value for MCP `null`.
+    params.description === undefined ? {} : { description: params.description ?? "" }
+  ),
+  meetingDuration: Effect.succeed(
+    params.meetingDuration === undefined ? {} : { meetingDuration: params.meetingDuration }
+  ),
+  meetingInterval: Effect.succeed(
+    params.meetingInterval === undefined ? {} : { meetingInterval: params.meetingInterval }
+  ),
+  availability: Effect.succeed(
+    params.availability === undefined ? {} : { availability: availabilityToHuly(params.availability) }
+  ),
+  timeZone: Effect.succeed(params.timeZone === undefined ? {} : { timeZone: params.timeZone }),
+  calendarId: Effect.gen(function* () {
+    if (params.calendarId === undefined) return {}
+    return { calendar: yield* resolveCalendarRef(client, params.calendarId) }
+  }),
+  calendarName: Effect.gen(function* () {
+    if (params.calendarName === undefined) return {}
+    return { calendar: yield* resolveCalendarRef(client, undefined, params.calendarName) }
+  })
+})
+
 export const createSchedule = (
   params: CreateScheduleParams
 ): Effect.Effect<CreateScheduleResult, CreateScheduleError, HulyClient> =>
   Effect.gen(function* () {
     const client = yield* HulyClient
     const owner = yield* resolveTodoOwner(client, params.owner)
-    const calendarRef: Ref<HulyCalendar> | undefined =
-      params.calendarId === undefined && params.calendarName === undefined
-        ? undefined
-        : yield* resolveCalendarRef(client, params.calendarId, params.calendarName)
-
-    const data: Data<HulySchedule> = {
-      owner,
-      title: params.title,
-      meetingDuration: params.meetingDuration,
-      meetingInterval: params.meetingInterval,
-      availability: availabilityToHuly(params.availability),
-      timeZone: params.timeZone
-    }
-    if (params.description !== undefined) data.description = params.description
-    if (calendarRef !== undefined) data.calendar = calendarRef
+    const calendarRef = yield* resolveOptionalScheduleCalendar(client, params)
+    const data = createScheduleData(params, owner, calendarRef)
 
     const scheduleId = yield* client.createDoc(calendar.class.Schedule, toRef<Space>(calendar.space.Calendar), data)
     return { scheduleId: ScheduleId.make(scheduleId) }
@@ -286,39 +334,7 @@ export const updateSchedule = (
     )
     if (schedule === undefined) return yield* new ScheduleNotFoundError({ scheduleId: params.scheduleId })
 
-    type UpdateScheduleField = (typeof UPDATE_SCHEDULE_FIELDS)[number]
-    type UpdateScheduleEntry = Effect.Effect<DocumentUpdate<HulySchedule>, UpdateScheduleError>
-    type UpdateScheduleEntries = Record<UpdateScheduleField, UpdateScheduleEntry>
-    const entries = {
-      owner: Effect.gen(function* () {
-        if (params.owner === undefined) return {}
-        return { owner: yield* resolveTodoOwner(client, params.owner) }
-      }),
-      title: Effect.succeed(params.title === undefined ? {} : { title: params.title }),
-      description: Effect.succeed(
-        // Huly Schedule ignores `$unset` for this field; write the SDK's empty-string clear value for MCP `null`.
-        params.description === undefined ? {} : { description: params.description ?? "" }
-      ),
-      meetingDuration: Effect.succeed(
-        params.meetingDuration === undefined ? {} : { meetingDuration: params.meetingDuration }
-      ),
-      meetingInterval: Effect.succeed(
-        params.meetingInterval === undefined ? {} : { meetingInterval: params.meetingInterval }
-      ),
-      availability: Effect.succeed(
-        params.availability === undefined ? {} : { availability: availabilityToHuly(params.availability) }
-      ),
-      timeZone: Effect.succeed(params.timeZone === undefined ? {} : { timeZone: params.timeZone }),
-      calendarId: Effect.gen(function* () {
-        if (params.calendarId === undefined) return {}
-        return { calendar: yield* resolveCalendarRef(client, params.calendarId) }
-      }),
-      calendarName: Effect.gen(function* () {
-        if (params.calendarName === undefined) return {}
-        return { calendar: yield* resolveCalendarRef(client, undefined, params.calendarName) }
-      })
-    } satisfies UpdateScheduleEntries
-
+    const entries = updateScheduleEntries(client, params)
     const updateOps = mergeUpdateEntries(yield* Effect.all(Object.values(entries)))
     yield* client.updateDoc(calendar.class.Schedule, schedule.space, schedule._id, updateOps)
     return { scheduleId: params.scheduleId, updated: true }

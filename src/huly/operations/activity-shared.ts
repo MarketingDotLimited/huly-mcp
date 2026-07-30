@@ -38,6 +38,45 @@ const HulyActivityRecordSchema = Schema.Struct({
   attachedDocClass: Schema.optional(Schema.NullOr(ObjectClassName))
 })
 
+type HulyActivityRecord = Schema.Schema.Type<typeof HulyActivityRecordSchema>
+
+const activityMetadataFields = (msg: HulyActivityRecord) => ({
+  ...(msg._class === undefined || msg._class === null ? {} : { messageClass: msg._class }),
+  ...(msg.modifiedBy === undefined || msg.modifiedBy === null ? {} : { modifiedBy: msg.modifiedBy }),
+  ...(msg.modifiedOn === undefined || msg.modifiedOn === null ? {} : { modifiedOn: msg.modifiedOn }),
+  ...(msg.editedOn === undefined ? {} : { editedOn: msg.editedOn })
+})
+
+const activityCountFields = (msg: HulyActivityRecord) => ({
+  ...(msg.isPinned === undefined || msg.isPinned === null ? {} : { isPinned: msg.isPinned }),
+  ...(msg.replies === undefined || msg.replies === null ? {} : { replies: msg.replies }),
+  ...(msg.reactions === undefined || msg.reactions === null ? {} : { reactions: msg.reactions })
+})
+
+const activityContentFields = (
+  msg: HulyActivityRecord,
+  markdownBody: ActivityMarkdown | undefined,
+  isDocUpdate: boolean
+) => ({
+  ...(!isDocUpdate || msg.action === undefined || msg.action === null ? {} : { action: msg.action }),
+  ...(msg.message === undefined || msg.message === null ? {} : { message: msg.message }),
+  ...(markdownBody === undefined ? {} : { body: markdownBody })
+})
+
+const activitySourceReferenceFields = (msg: HulyActivityRecord, isReference: boolean) => ({
+  ...(!isReference || msg.srcDocId === undefined || msg.srcDocId === null ? {} : { srcDocId: msg.srcDocId }),
+  ...(!isReference || msg.srcDocClass === undefined || msg.srcDocClass === null ? {} : { srcDocClass: msg.srcDocClass })
+})
+
+const activityAttachedReferenceFields = (msg: HulyActivityRecord, isReference: boolean) => ({
+  ...(!isReference || msg.attachedDocId === undefined || msg.attachedDocId === null
+    ? {}
+    : { attachedDocId: msg.attachedDocId }),
+  ...(!isReference || msg.attachedDocClass === undefined || msg.attachedDocClass === null
+    ? {}
+    : { attachedDocClass: msg.attachedDocClass })
+})
+
 export const toActivityMessage = (
   value: unknown,
   markupUrlConfig: HulyClient["Type"]["markupUrlConfig"],
@@ -70,26 +109,11 @@ export const toActivityMessage = (
       id: msg._id,
       objectId: msg.attachedTo,
       objectClass: msg.attachedToClass,
-      ...(msg._class === undefined || msg._class === null ? {} : { messageClass: msg._class }),
-      ...(msg.modifiedBy === undefined || msg.modifiedBy === null ? {} : { modifiedBy: msg.modifiedBy }),
-      ...(msg.modifiedOn === undefined || msg.modifiedOn === null ? {} : { modifiedOn: msg.modifiedOn }),
-      ...(msg.isPinned === undefined || msg.isPinned === null ? {} : { isPinned: msg.isPinned }),
-      ...(msg.replies === undefined || msg.replies === null ? {} : { replies: msg.replies }),
-      ...(msg.reactions === undefined || msg.reactions === null ? {} : { reactions: msg.reactions }),
-      ...(msg.editedOn === undefined ? {} : { editedOn: msg.editedOn }),
-      ...(!isDocUpdate || msg.action === undefined || msg.action === null ? {} : { action: msg.action }),
-      ...(message === undefined || message === null ? {} : { message }),
-      ...(markdownBody === undefined ? {} : { body: markdownBody }),
-      ...(!isReference || msg.srcDocId === undefined || msg.srcDocId === null ? {} : { srcDocId: msg.srcDocId }),
-      ...(!isReference || msg.srcDocClass === undefined || msg.srcDocClass === null
-        ? {}
-        : { srcDocClass: msg.srcDocClass }),
-      ...(!isReference || msg.attachedDocId === undefined || msg.attachedDocId === null
-        ? {}
-        : { attachedDocId: msg.attachedDocId }),
-      ...(!isReference || msg.attachedDocClass === undefined || msg.attachedDocClass === null
-        ? {}
-        : { attachedDocClass: msg.attachedDocClass })
+      ...activityMetadataFields(msg),
+      ...activityCountFields(msg),
+      ...activityContentFields(msg, markdownBody, isDocUpdate),
+      ...activitySourceReferenceFields(msg, isReference),
+      ...activityAttachedReferenceFields(msg, isReference)
     }
   })
 

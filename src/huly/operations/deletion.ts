@@ -32,6 +32,43 @@ type PreviewDeletionError =
 const sumListTotals = (values: ReadonlyArray<ListTotal>): ListTotal =>
   values.includes(UNKNOWN_TOTAL) ? UNKNOWN_TOTAL : Count.make(values.reduce((sum, value) => sum + value, 0))
 
+const countedDeletionWarning = (count: number, singular: string, suffix: string): string | undefined =>
+  count > 0 ? `${count} ${singular}${count === 1 ? "" : "s"} ${suffix}` : undefined
+
+const compactWarnings = (warnings: ReadonlyArray<string | undefined>): Array<string> =>
+  warnings.flatMap((warning) => (warning === undefined ? [] : [warning]))
+
+const issueDeletionWarnings = (impact: {
+  readonly attachments: number
+  readonly blockedBy: number
+  readonly comments: number
+  readonly relations: number
+  readonly subIssues: number
+}): Array<string> =>
+  compactWarnings([
+    countedDeletionWarning(impact.subIssues, "sub-issue", "that will be orphaned")?.replace(/^/, "Has "),
+    countedDeletionWarning(impact.blockedBy, "other issue", "— blocking relations will be removed")?.replace(
+      /^/,
+      "Blocked by "
+    ),
+    countedDeletionWarning(impact.relations, "relation", "to other issues")?.replace(/^/, "Has "),
+    countedDeletionWarning(impact.comments, "comment", "that will be deleted")?.replace(/^/, "Has "),
+    countedDeletionWarning(impact.attachments, "attachment", "that will be deleted")?.replace(/^/, "Has ")
+  ])
+
+const projectDeletionWarnings = (impact: {
+  readonly components: ListTotal
+  readonly issues: ListTotal
+  readonly milestones: ListTotal
+  readonly templates: ListTotal
+}): Array<string> =>
+  compactWarnings([
+    countedDeletionWarning(impact.issues, "issue", "that will be deleted")?.replace(/^/, "Contains "),
+    countedDeletionWarning(impact.components, "component", "that will be deleted")?.replace(/^/, "Contains "),
+    countedDeletionWarning(impact.milestones, "milestone", "that will be deleted")?.replace(/^/, "Contains "),
+    countedDeletionWarning(impact.templates, "template", "that will be deleted")?.replace(/^/, "Contains ")
+  ])
+
 const previewIssueDeletion = (
   params: PreviewDeletionParams & { identifier: string }
 ): Effect.Effect<DeletionImpact, PreviewDeletionError, HulyClient> =>
@@ -44,32 +81,20 @@ const previewIssueDeletion = (
     const blockedBy = issue.blockedBy?.length ?? 0
     const relations = issue.relations?.length ?? 0
 
-    const warnings: Array<string> = []
-    if (subIssues > 0) warnings.push(`Has ${subIssues} sub-issue${subIssues > 1 ? "s" : ""} that will be orphaned`)
-    if (blockedBy > 0) {
-      warnings.push(
-        `Blocked by ${blockedBy} other issue${blockedBy > 1 ? "s" : ""} — blocking relations will be removed`
-      )
-    }
-    if (relations > 0) warnings.push(`Has ${relations} relation${relations > 1 ? "s" : ""} to other issues`)
-    if (comments > 0) warnings.push(`Has ${comments} comment${comments > 1 ? "s" : ""} that will be deleted`)
-    if (attachments > 0) {
-      warnings.push(`Has ${attachments} attachment${attachments > 1 ? "s" : ""} that will be deleted`)
-    }
-
     const totalAffected = subIssues + comments + attachments + blockedBy + relations
+    const impact = { subIssues, comments, attachments, blockedBy, relations }
 
     return {
       entityType: "issue" as const,
       identifier: issue.identifier,
       impact: {
-        subIssues: Count.make(subIssues),
-        comments: Count.make(comments),
-        attachments: Count.make(attachments),
-        blockedBy: Count.make(blockedBy),
-        relations: Count.make(relations)
+        subIssues: Count.make(impact.subIssues),
+        comments: Count.make(impact.comments),
+        attachments: Count.make(impact.attachments),
+        blockedBy: Count.make(impact.blockedBy),
+        relations: Count.make(impact.relations)
       },
-      warnings,
+      warnings: issueDeletionWarnings(impact),
       totalAffected: Count.make(totalAffected)
     }
   })
@@ -92,25 +117,19 @@ const previewProjectDeletion = (
     const milestoneCount = listTotal(milestones.total)
     const templateCount = listTotal(templates.total)
 
-    const warnings: Array<string> = []
-    if (issueCount > 0) warnings.push(`Contains ${issueCount} issue${issueCount > 1 ? "s" : ""} that will be deleted`)
-    if (componentCount > 0) {
-      warnings.push(`Contains ${componentCount} component${componentCount > 1 ? "s" : ""} that will be deleted`)
+    const impact = {
+      issues: issueCount,
+      components: componentCount,
+      milestones: milestoneCount,
+      templates: templateCount
     }
-    if (milestoneCount > 0) {
-      warnings.push(`Contains ${milestoneCount} milestone${milestoneCount > 1 ? "s" : ""} that will be deleted`)
-    }
-    if (templateCount > 0) {
-      warnings.push(`Contains ${templateCount} template${templateCount > 1 ? "s" : ""} that will be deleted`)
-    }
-
     const totalAffected = sumListTotals([issueCount, componentCount, milestoneCount, templateCount])
 
     return {
       entityType: "project" as const,
       identifier: project.identifier,
-      impact: { issues: issueCount, components: componentCount, milestones: milestoneCount, templates: templateCount },
-      warnings,
+      impact,
+      warnings: projectDeletionWarnings(impact),
       totalAffected
     }
   })

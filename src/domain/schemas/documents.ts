@@ -178,36 +178,44 @@ const EditDocumentParamsBase = Schema.Struct({
 
 export const EDIT_DOCUMENT_UPDATE_FIELD_GROUPS: ReadonlyArray<string> = ["title", "content", "old_text/new_text"]
 
+type EditDocumentParamsBase = Schema.Schema.Type<typeof EditDocumentParamsBase>
+
+const contentModeError = (params: EditDocumentParamsBase): string | undefined =>
+  params.content !== undefined && (params.old_text !== undefined || params.new_text !== undefined)
+    ? "Cannot provide 'content' with 'old_text'/'new_text'. Use full replace or search-and-replace, not both."
+    : undefined
+
+const searchReplacePairError = (params: EditDocumentParamsBase): string | undefined =>
+  (params.old_text !== undefined) !== (params.new_text !== undefined)
+    ? "Both 'old_text' and 'new_text' must be provided together for search-and-replace mode."
+    : undefined
+
+const replaceAllModeError = (params: EditDocumentParamsBase): string | undefined =>
+  params.replace_all !== undefined && params.old_text === undefined
+    ? "replace_all can only be used with search-and-replace mode. Provide both 'old_text' and 'new_text'."
+    : undefined
+
+const missingDocumentUpdateError = (params: EditDocumentParamsBase): string | undefined =>
+  params.title === undefined && params.content === undefined && params.old_text === undefined
+    ? atLeastOneUpdateFieldMessage(EDIT_DOCUMENT_UPDATE_FIELD_GROUPS)
+    : undefined
+
+const emptyOldTextError = (params: EditDocumentParamsBase): string | undefined =>
+  params.old_text !== undefined && params.old_text.trim() === ""
+    ? "old_text must be non-empty. To create a new document, use create_document."
+    : undefined
+
+const editDocumentValidationError = (params: EditDocumentParamsBase): string | undefined =>
+  [
+    contentModeError(params),
+    searchReplacePairError(params),
+    replaceAllModeError(params),
+    missingDocumentUpdateError(params),
+    emptyOldTextError(params)
+  ].find((error) => error !== undefined)
+
 export const EditDocumentParamsSchema = EditDocumentParamsBase.pipe(
-  Schema.filter((params) => {
-    const hasContent = params.content !== undefined
-    const hasOldText = params.old_text !== undefined
-    const hasNewText = params.new_text !== undefined
-    const hasSearchReplace = hasOldText && hasNewText
-    const hasUpdateField = params.title !== undefined || hasContent || hasSearchReplace
-
-    if (hasContent && (hasOldText || hasNewText)) {
-      return "Cannot provide 'content' with 'old_text'/'new_text'. Use full replace or search-and-replace, not both."
-    }
-
-    if (hasOldText !== hasNewText) {
-      return "Both 'old_text' and 'new_text' must be provided together for search-and-replace mode."
-    }
-
-    if (params.replace_all !== undefined && !hasOldText) {
-      return "replace_all can only be used with search-and-replace mode. Provide both 'old_text' and 'new_text'."
-    }
-
-    if (!hasUpdateField) {
-      return atLeastOneUpdateFieldMessage(EDIT_DOCUMENT_UPDATE_FIELD_GROUPS)
-    }
-
-    if (hasOldText && params.old_text.trim() === "") {
-      return "old_text must be non-empty. To create a new document, use create_document."
-    }
-
-    return undefined
-  })
+  Schema.filter(editDocumentValidationError)
 ).annotations({
   title: "EditDocumentParams",
   description: `Edit a document. Two content modes (mutually exclusive): (1) 'content' for full replace, (2) 'old_text' + 'new_text' for targeted search-and-replace. Also supports renaming via 'title'. ${atLeastOneUpdateFieldMessage(

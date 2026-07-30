@@ -165,6 +165,58 @@ const invokeToolEditMode = (args: unknown): string | undefined => {
   return decoded._tag === "Right" ? deriveEditMode(decoded.right.toolName, decoded.right.arguments) : undefined
 }
 
+type ClientResolution =
+  | { readonly _tag: "Success"; readonly clients: ClientBundle }
+  | { readonly _tag: "Failure"; readonly response: McpToolResponse }
+
+const resolveClientBundle = async (resolveClients: () => Promise<ClientBundle>): Promise<ClientResolution> => {
+  try {
+    return { _tag: "Success", clients: await resolveClients() }
+  } catch (error) {
+    return { _tag: "Failure", response: mapClientResolutionErrorToMcp(error) }
+  }
+}
+
+const proxyClients = (clients: ClientBundle) => ({
+  hulyClient: clients.hulyClient,
+  storageClient: clients.storageClient,
+  ...(clients.workspaceClient === undefined ? {} : { workspaceClient: clients.workspaceClient })
+})
+
+const proxyEditMode = (toolName: NonNullable<ReturnType<typeof parseToolName>>, args: unknown): string | undefined =>
+  toolName === INVOKE_TOOL_TOOL_NAME ? invokeToolEditMode(args) : undefined
+
+const resolveProxyClients = (
+  toolName: NonNullable<ReturnType<typeof parseToolName>>,
+  resolveClients: () => Promise<ClientBundle>
+): Promise<ClientResolution | undefined> =>
+  toolName === INVOKE_TOOL_TOOL_NAME ? resolveClientBundle(resolveClients) : Promise.resolve(undefined)
+
+const responseStatus = (response: McpToolResponse): "error" | "success" =>
+  response.isError === true ? "error" : "success"
+
+type ResolvedProtocolExposure = ReturnType<typeof resolveProtocolExposure>
+
+const selectNativeCallRegistry = (
+  exposure: ResolvedProtocolExposure,
+  toolName: NonNullable<ReturnType<typeof parseToolName>>
+): ToolRegistry =>
+  exposure.visibleNativeRegistry.tools.has(toolName)
+    ? exposure.visibleNativeRegistry
+    : exposure.context.resolvedMode === "proxy"
+      ? exposure.proxyCandidateRegistry
+      : exposure.visibleNativeRegistry
+
+const nativeArgumentError = (tool: ToolRegistry["definitions"][number], args: unknown): McpToolResponse | undefined => {
+  if (isNoArgumentTool(tool) && !isEmptyArgumentsObject(args)) {
+    return createUnexpectedArgumentsError(tool.name)
+  }
+  if (args === undefined && requiresArgumentsObject(tool)) {
+    return createMissingArgumentsError(tool.name)
+  }
+  return undefined
+}
+
 export const createMcpProtocolHandlers = (
   resolveClients: () => Promise<ClientBundle>,
   telemetry: TelemetryOperations,
@@ -237,7 +289,7 @@ export const createMcpProtocolHandlers = (
         return toMcpResponse(responseWithNotice)
       }
 
-      if (name === VERSION_TOOL_NAME) {
+      const callVersionTool = async (): Promise<McpWireResponse> => {
         if (!isEmptyArgumentsObject(args)) return returnError(createUnexpectedArgumentsError(VERSION_TOOL_NAME))
 
         const latest = await fetchLatestVersion()
@@ -261,7 +313,7 @@ export const createMcpProtocolHandlers = (
         return toMcpResponse(versionResponse)
       }
 
-      if (name === GET_HULY_CONTEXT_TOOL_NAME) {
+      const callHulyContextTool = (): McpWireResponse => {
         if (!isEmptyArgumentsObject(args)) {
           return returnError(createUnexpectedArgumentsError(GET_HULY_CONTEXT_TOOL_NAME))
         }
@@ -287,40 +339,28 @@ export const createMcpProtocolHandlers = (
         return toMcpResponse(contextResponse)
       }
 
-      if (isProxyToolName(name)) {
-        if (exposure.context.resolvedMode !== "proxy") return returnError(createUnknownToolError(name))
+      const callProxyTool = async (
+        toolName: NonNullable<ReturnType<typeof parseToolName>>
+      ): Promise<McpWireResponse> => {
+        if (exposure.context.resolvedMode !== "proxy") return returnError(createUnknownToolError(toolName))
 
-        const editMode = name === INVOKE_TOOL_TOOL_NAME ? invokeToolEditMode(args) : undefined
-
-        let clients: ClientBundle | undefined
-        if (name === INVOKE_TOOL_TOOL_NAME) {
-          try {
-            clients = await resolveClients()
-          } catch (e) {
-            const errorResponse = mapClientResolutionErrorToMcp(e)
-            return returnError(errorResponse, editMode)
-          }
+        const editMode = proxyEditMode(toolName, args)
+        const clientResolution = await resolveProxyClients(toolName, resolveClients)
+        if (clientResolution?._tag === "Failure") {
+          return returnError(clientResolution.response, editMode)
         }
 
         const response = await handleProxyToolCall({
-          toolName: name,
+          toolName,
           args,
           proxyCandidateRegistry: exposure.proxyCandidateRegistry,
-          ...(clients === undefined
-            ? {}
-            : {
-                clients: {
-                  hulyClient: clients.hulyClient,
-                  storageClient: clients.storageClient,
-                  ...(clients.workspaceClient === undefined ? {} : { workspaceClient: clients.workspaceClient })
-                }
-              })
+          ...(clientResolution?._tag === "Success" ? { clients: proxyClients(clientResolution.clients) } : {})
         })
         const responseWithNotice = withClaimedNotice(response)
         const durationMs = clock.currentTimeMillis() - start
         telemetry.toolCalled({
-          toolName: name,
-          status: responseWithNotice.isError === true ? "error" : "success",
+          toolName,
+          status: responseStatus(responseWithNotice),
           clientKind: exposure.context.clientKind,
           resolvedMode: exposure.context.resolvedMode,
           errorTag: responseWithNotice._meta?.errorTag,
@@ -332,59 +372,52 @@ export const createMcpProtocolHandlers = (
         return toMcpResponse(responseWithNotice)
       }
 
-      const hulyToolName = parseToolName(name)
-      if (hulyToolName === undefined) return returnError(createUnknownToolError(name))
+      const callNativeTool = async (): Promise<McpWireResponse> => {
+        const hulyToolName = parseToolName(name)
+        if (hulyToolName === undefined) return returnError(createUnknownToolError(name))
 
-      const nativeCallRegistry = exposure.visibleNativeRegistry.tools.has(hulyToolName)
-        ? exposure.visibleNativeRegistry
-        : exposure.context.resolvedMode === "proxy"
-          ? exposure.proxyCandidateRegistry
-          : exposure.visibleNativeRegistry
-      const tool = nativeCallRegistry.tools.get(hulyToolName)
-      if (tool === undefined) return returnError(createUnknownToolError(name))
+        const nativeCallRegistry = selectNativeCallRegistry(exposure, hulyToolName)
+        const tool = nativeCallRegistry.tools.get(hulyToolName)
+        if (tool === undefined) return returnError(createUnknownToolError(name))
 
-      if (isNoArgumentTool(tool) && !isEmptyArgumentsObject(args)) {
-        return returnError(createUnexpectedArgumentsError(hulyToolName))
+        const argumentError = nativeArgumentError(tool, args)
+        if (argumentError !== undefined) return returnError(argumentError)
+
+        const editMode = deriveEditMode(hulyToolName, args)
+        const clientResolution = await resolveClientBundle(resolveClients)
+        if (clientResolution._tag === "Failure") return returnError(clientResolution.response, editMode)
+        const { clients } = clientResolution
+
+        const response = await nativeCallRegistry.handleToolCall(
+          hulyToolName,
+          args,
+          clients.hulyClient,
+          clients.storageClient,
+          clients.workspaceClient
+        )
+        const durationMs = clock.currentTimeMillis() - start
+        if (response === null) return returnError(createUnknownToolError(name), editMode)
+
+        const responseWithNotice = withClaimedNotice(response)
+        telemetry.toolCalled({
+          toolName: hulyToolName,
+          status: responseStatus(responseWithNotice),
+          clientKind: exposure.context.clientKind,
+          resolvedMode: exposure.context.resolvedMode,
+          errorTag: responseWithNotice._meta?.errorTag,
+          durationMs,
+          inputBytes,
+          outputBytes: computeOutputBytes(responseWithNotice),
+          editMode
+        })
+
+        return toMcpResponse(responseWithNotice)
       }
 
-      if (args === undefined && requiresArgumentsObject(tool)) {
-        return returnError(createMissingArgumentsError(hulyToolName))
-      }
-
-      const editMode = deriveEditMode(hulyToolName, args)
-
-      let clients: ClientBundle
-      try {
-        clients = await resolveClients()
-      } catch (e) {
-        const errorResponse = mapClientResolutionErrorToMcp(e)
-        return returnError(errorResponse, editMode)
-      }
-
-      const response = await nativeCallRegistry.handleToolCall(
-        hulyToolName,
-        args,
-        clients.hulyClient,
-        clients.storageClient,
-        clients.workspaceClient
-      )
-      const durationMs = clock.currentTimeMillis() - start
-      if (response === null) return returnError(createUnknownToolError(name), editMode)
-
-      const responseWithNotice = withClaimedNotice(response)
-      telemetry.toolCalled({
-        toolName: hulyToolName,
-        status: responseWithNotice.isError === true ? "error" : "success",
-        clientKind: exposure.context.clientKind,
-        resolvedMode: exposure.context.resolvedMode,
-        errorTag: responseWithNotice._meta?.errorTag,
-        durationMs,
-        inputBytes,
-        outputBytes: computeOutputBytes(responseWithNotice),
-        editMode
-      })
-
-      return toMcpResponse(responseWithNotice)
+      if (name === VERSION_TOOL_NAME) return await callVersionTool()
+      if (name === GET_HULY_CONTEXT_TOOL_NAME) return callHulyContextTool()
+      if (isProxyToolName(name)) return await callProxyTool(name)
+      return await callNativeTool()
     } catch (error) {
       if (noticeClaim._tag === "Claimed") noticeClaim.release()
       throw error

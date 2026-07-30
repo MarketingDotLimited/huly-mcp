@@ -110,6 +110,14 @@ const pluralLabelField = (pluralLabel: Option.Option<NonEmptyString>) =>
 const typeClassIdField = (classId: Option.Option<ObjectClassName>) =>
   Option.isSome(classId) ? { classId: classId.value } : {}
 
+const classVisibilityFields = (record: JsonMap): Pick<HulyClassSummary, "hidden" | "readonly"> => ({
+  ...(typeof record.hidden === "boolean" ? { hidden: record.hidden } : {}),
+  ...(typeof record.readonly === "boolean" ? { readonly: record.readonly } : {})
+})
+
+const attributesCountField = (attributesCount: number | undefined): Pick<HulyClassSummary, "attributesCount"> =>
+  attributesCount === undefined ? {} : { attributesCount: HulyDiscoveryCount.make(attributesCount) }
+
 export const toClassSummary = (cls: MetadataClassDoc, attributesCount?: number): HulyClassSummary => {
   const record = decodeSdkRecord(cls)
   const classId = ObjectClassName.make(String(cls._id))
@@ -123,9 +131,8 @@ export const toClassSummary = (cls: MetadataClassDoc, attributesCount?: number):
     ...(cls.domain === undefined ? {} : { domain: HulyDomainName.make(String(cls.domain)) }),
     ...shortLabelField(shortLabel),
     ...pluralLabelField(pluralLabel),
-    ...(typeof record.hidden === "boolean" ? { hidden: record.hidden } : {}),
-    ...(typeof record.readonly === "boolean" ? { readonly: record.readonly } : {}),
-    ...(attributesCount === undefined ? {} : { attributesCount: HulyDiscoveryCount.make(attributesCount) }),
+    ...classVisibilityFields(record),
+    ...attributesCountField(attributesCount),
     firstClassToolHints: (firstClassToolHints.get(String(cls._id)) ?? []).map((item) => ({
       category: item.category,
       exampleTools: [...item.exampleTools]
@@ -144,25 +151,56 @@ const decodeAttributeType = (value: unknown): HulyAttributeType => {
   const unknownType = { kind: "unknown" as const, ...base, raw: record }
 
   switch (rawKind) {
-    case "ref": {
-      const refTo = classNameOption(record.to)
-      return Option.isSome(refTo) ? { kind: rawKind, ...base, refTo: refTo.value } : unknownType
-    }
-    case "enum": {
-      const enumId = enumIdOption(record.of)
-      return Option.isSome(enumId) ? { kind: rawKind, ...base, enumId: enumId.value } : unknownType
-    }
-    case "collection": {
-      const collectionOf = classNameOption(record.of)
-      return Option.isSome(collectionOf) ? { kind: rawKind, ...base, collectionOf: collectionOf.value } : unknownType
-    }
+    case "ref":
+      return decodeReferenceAttributeType(record, base, unknownType)
+    case "enum":
+      return decodeEnumAttributeType(record, base, unknownType)
+    case "collection":
+      return decodeCollectionAttributeType(record, base, unknownType)
     case "array":
-      // Recurse so the element carries a structured kind (e.g. ref/enum/string) instead of a raw descriptor.
-      return "of" in record ? { kind: rawKind, ...base, arrayOf: decodeAttributeType(record.of) } : unknownType
+      return decodeArrayAttributeType(record, base, unknownType)
     default:
       return rawKind === "unknown" ? unknownType : { kind: rawKind, ...base }
   }
 }
+
+type AttributeTypeBase = ReturnType<typeof typeClassIdField>
+type UnknownAttributeType = AttributeTypeBase & { readonly kind: "unknown"; readonly raw: JsonMap }
+
+const decodeReferenceAttributeType = (
+  record: JsonMap,
+  base: AttributeTypeBase,
+  unknownType: UnknownAttributeType
+): HulyAttributeType => {
+  const refTo = classNameOption(record.to)
+  return Option.isSome(refTo) ? { kind: "ref", ...base, refTo: refTo.value } : unknownType
+}
+
+const decodeEnumAttributeType = (
+  record: JsonMap,
+  base: AttributeTypeBase,
+  unknownType: UnknownAttributeType
+): HulyAttributeType => {
+  const enumId = enumIdOption(record.of)
+  return Option.isSome(enumId) ? { kind: "enum", ...base, enumId: enumId.value } : unknownType
+}
+
+const decodeCollectionAttributeType = (
+  record: JsonMap,
+  base: AttributeTypeBase,
+  unknownType: UnknownAttributeType
+): HulyAttributeType => {
+  const collectionOf = classNameOption(record.of)
+  return Option.isSome(collectionOf) ? { kind: "collection", ...base, collectionOf: collectionOf.value } : unknownType
+}
+
+const decodeArrayAttributeType = (
+  record: JsonMap,
+  base: AttributeTypeBase,
+  unknownType: UnknownAttributeType
+): HulyAttributeType =>
+  // Recurse so the element carries a structured kind (e.g. ref/enum/string) instead of a raw descriptor.
+  "of" in record ? { kind: "array", ...base, arrayOf: decodeAttributeType(record.of) } : unknownType
 
 export const attributeSearchText = (attr: HulyAttributeSummary): string =>
   [

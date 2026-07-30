@@ -159,14 +159,24 @@ const stateResult = (
   changed
 })
 
+type ConversationStateTarget =
+  | { readonly field: "isPinned"; readonly value: boolean }
+  | { readonly field: "hidden"; readonly value: boolean }
+
+const stateValues = (
+  context: Pick<HulyDocNotifyContext, "hidden" | "isPinned">,
+  target: ConversationStateTarget
+): Pick<HulyDocNotifyContext, "hidden" | "isPinned"> => ({
+  isPinned: target.field === "isPinned" ? target.value : context.isPinned,
+  hidden: target.field === "hidden" ? target.value : context.hidden
+})
+
 const setConversationState = (
   params: {
     readonly channel?: SetConversationStarredParams["channel"]
     readonly dm?: SetConversationStarredParams["dm"]
   },
-  target:
-    | { readonly field: "isPinned"; readonly value: boolean }
-    | { readonly field: "hidden"; readonly value: boolean }
+  target: ConversationStateTarget
 ): Effect.Effect<ConversationStateResult, ConversationStateError, HulyClient> =>
   Effect.gen(function* () {
     const client = yield* HulyClient
@@ -180,13 +190,8 @@ const setConversationState = (
           [target.field]: true
         })
       }
-      return stateResult(
-        conversation,
-        createdContext.id,
-        target.field === "isPinned" ? target.value : false,
-        target.field === "hidden" ? target.value : false,
-        true
-      )
+      const createdState = stateValues({ isPinned: false, hidden: false }, target)
+      return stateResult(conversation, createdContext.id, createdState.isPinned, createdState.hidden, true)
     }
 
     const currentValue = target.field === "isPinned" ? context.isPinned : context.hidden
@@ -195,13 +200,8 @@ const setConversationState = (
     }
 
     yield* updateContext(client, context, { [target.field]: target.value })
-    return stateResult(
-      conversation,
-      context._id,
-      target.field === "isPinned" ? target.value : context.isPinned,
-      target.field === "hidden" ? target.value : context.hidden,
-      true
-    )
+    const updatedState = stateValues(context, target)
+    return stateResult(conversation, context._id, updatedState.isPinned, updatedState.hidden, true)
   })
 
 export const setConversationStarred = (

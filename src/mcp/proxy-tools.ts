@@ -281,6 +281,20 @@ const normalizeDeferredToolArguments = (value: unknown): unknown => {
   return Either.isRight(decoded) ? decoded.right : value
 }
 
+type SuccessfulToolCallResponse = Exclude<McpToolResponse, { readonly isError: true }>
+
+const successfulInvokeResponse = (toolName: ToolName, response: SuccessfulToolCallResponse): McpToolResponse => {
+  const warnings = response.structuredContent?.warnings ?? []
+  const result = {
+    toolName,
+    result: response.structuredContent?.result ?? response.content,
+    ...(warnings.length === 0 ? {} : { warnings })
+  }
+  return response.imageContent === undefined
+    ? createSuccessResponse(result, warnings)
+    : createImageSuccessResponse(result, response.imageContent, warnings)
+}
+
 const invokeTool = async (
   registry: ToolRegistry,
   args: unknown,
@@ -301,16 +315,7 @@ const invokeTool = async (
   )
   if (response === null) return createUnknownToolError(params.toolName)
   if (response.isError === true) return response
-
-  const warnings = response.structuredContent?.warnings ?? []
-  const result = {
-    toolName: params.toolName,
-    result: response.structuredContent?.result ?? response.content,
-    ...(warnings.length === 0 ? {} : { warnings })
-  }
-  return response.imageContent === undefined
-    ? createSuccessResponse(result, warnings)
-    : createImageSuccessResponse(result, response.imageContent, warnings)
+  return successfulInvokeResponse(params.toolName, response)
 }
 
 interface ProxyToolCallInput {
@@ -320,22 +325,30 @@ interface ProxyToolCallInput {
   readonly clients?: InvokeToolClients
 }
 
+const listProxyCategories = (registry: ToolRegistry, args: unknown): McpToolResponse => {
+  const decoded = decodeOrError(EmptyProxyParamsSchema, args, LIST_TOOL_CATEGORIES_TOOL_NAME)
+  return decoded._tag === "error" ? decoded.response : listCategories(registry)
+}
+
+const invokeProxyTool = (input: ProxyToolCallInput): Promise<McpToolResponse> => {
+  if (input.clients === undefined) {
+    return Promise.resolve(
+      createInvalidParamsError("invoke_tool requires initialized Huly clients.", "ProxyClientsMissing")
+    )
+  }
+  return invokeTool(input.proxyCandidateRegistry, input.args, input.clients)
+}
+
 export const handleProxyToolCall = async (input: ProxyToolCallInput): Promise<McpToolResponse> => {
   switch (input.toolName) {
-    case LIST_TOOL_CATEGORIES_TOOL_NAME: {
-      const decoded = decodeOrError(EmptyProxyParamsSchema, input.args, LIST_TOOL_CATEGORIES_TOOL_NAME)
-      if (decoded._tag === "error") return decoded.response
-      return listCategories(input.proxyCandidateRegistry)
-    }
+    case LIST_TOOL_CATEGORIES_TOOL_NAME:
+      return listProxyCategories(input.proxyCandidateRegistry, input.args)
     case SEARCH_TOOLS_TOOL_NAME:
       return searchTools(input.proxyCandidateRegistry, input.args)
     case GET_TOOL_SCHEMA_TOOL_NAME:
       return getToolSchema(input.proxyCandidateRegistry, input.args)
     case INVOKE_TOOL_TOOL_NAME:
-      if (input.clients === undefined) {
-        return createInvalidParamsError("invoke_tool requires initialized Huly clients.", "ProxyClientsMissing")
-      }
-      return invokeTool(input.proxyCandidateRegistry, input.args, input.clients)
+      return invokeProxyTool(input)
     default:
       return createUnknownToolError(input.toolName)
   }

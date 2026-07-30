@@ -75,25 +75,66 @@ const parseJsonValue = (fieldName: string, raw: string): Effect.Effect<unknown, 
     catch: (error) => new CliInputError({ message: `Option ${fieldName} has invalid JSON: ${String(error)}` })
   })
 
+interface FieldCapabilities {
+  readonly acceptsBoolean: boolean
+  readonly acceptsJson: boolean
+  readonly acceptsNumber: boolean
+  readonly acceptsString: boolean
+}
+
+const fieldCapabilities = (rootSchema: object, field: FieldSpec): FieldCapabilities => ({
+  acceptsBoolean: fieldAcceptsBoolean(rootSchema, field),
+  acceptsJson: fieldAcceptsJson(rootSchema, field),
+  acceptsNumber: fieldAcceptsNumber(rootSchema, field),
+  acceptsString: fieldAcceptsString(rootSchema, field)
+})
+
+const isBooleanLiteral = (raw: string): boolean => ["0", "1", "false", "true"].includes(raw.toLowerCase())
+
+const requiresBoolean = (capabilities: FieldCapabilities): boolean =>
+  capabilities.acceptsBoolean && !capabilities.acceptsString && !capabilities.acceptsNumber && !capabilities.acceptsJson
+
+const requiresNumber = (capabilities: FieldCapabilities): boolean =>
+  capabilities.acceptsNumber && !capabilities.acceptsString && !capabilities.acceptsBoolean && !capabilities.acceptsJson
+
+const looksLikeJsonContainer = (raw: string): boolean => raw.startsWith("[") || raw.startsWith("{")
+
+const parseNullFieldValue = (
+  rootSchema: object,
+  field: FieldSpec,
+  raw: string
+): Effect.Effect<unknown, CliInputError> | undefined =>
+  raw === "null" && fieldAcceptsNull(rootSchema, field) ? Effect.succeed(null) : undefined
+
+const parseBooleanFieldValue = (
+  capabilities: FieldCapabilities,
+  fieldName: string,
+  raw: string
+): Effect.Effect<unknown, CliInputError> | undefined => {
+  if (capabilities.acceptsBoolean && isBooleanLiteral(raw)) return parseBooleanValue(fieldName, raw)
+  return requiresBoolean(capabilities) ? parseBooleanValue(fieldName, raw) : undefined
+}
+
+const parseNumberOrJsonFieldValue = (
+  capabilities: FieldCapabilities,
+  fieldName: string,
+  raw: string
+): Effect.Effect<unknown, CliInputError> | undefined => {
+  if (capabilities.acceptsNumber && Number.isFinite(Number(raw))) return parseNumberValue(fieldName, raw)
+  if (requiresNumber(capabilities)) return parseNumberValue(fieldName, raw)
+  if (looksLikeJsonContainer(raw)) return parseJsonValue(fieldName, raw)
+  if (capabilities.acceptsJson && !capabilities.acceptsString) return parseJsonValue(fieldName, raw)
+  return undefined
+}
+
 const parseFieldValue = (rootSchema: object, field: FieldSpec, raw: string): Effect.Effect<unknown, CliInputError> => {
-  const acceptsBoolean = fieldAcceptsBoolean(rootSchema, field)
-  const acceptsNumber = fieldAcceptsNumber(rootSchema, field)
-  const acceptsString = fieldAcceptsString(rootSchema, field)
-  const acceptsJson = fieldAcceptsJson(rootSchema, field)
-  if (raw === "null" && fieldAcceptsNull(rootSchema, field)) return Effect.succeed(null)
-  if (acceptsBoolean && ["0", "1", "false", "true"].includes(raw.toLowerCase())) {
-    return parseBooleanValue(field.fieldName, raw)
-  }
-  if (acceptsBoolean && !acceptsString && !acceptsNumber && !acceptsJson) {
-    return parseBooleanValue(field.fieldName, raw)
-  }
-  if (acceptsNumber && Number.isFinite(Number(raw))) return parseNumberValue(field.fieldName, raw)
-  if (acceptsNumber && !acceptsString && !acceptsBoolean && !acceptsJson) return parseNumberValue(field.fieldName, raw)
-  if (raw.startsWith("[") || raw.startsWith("{")) {
-    return parseJsonValue(field.fieldName, raw)
-  }
-  if (acceptsJson && !acceptsString) return parseJsonValue(field.fieldName, raw)
-  return Effect.succeed(raw)
+  const capabilities = fieldCapabilities(rootSchema, field)
+  return (
+    parseNullFieldValue(rootSchema, field, raw) ??
+    parseBooleanFieldValue(capabilities, field.fieldName, raw) ??
+    parseNumberOrJsonFieldValue(capabilities, field.fieldName, raw) ??
+    Effect.succeed(raw)
+  )
 }
 
 const collectSourceInput = (
@@ -145,6 +186,30 @@ const collectPositionals = (
     return input
   })
 
+const explicitOptionInput = (
+  option: ParsedCliOption,
+  raw: ReadonlyArray<string>,
+  rootSchema: object,
+  fields: ReadonlyMap<string, FieldSpec>
+): Effect.Effect<Record<string, unknown>, CliInputError> =>
+  Effect.gen(function* () {
+    if (option._tag === "BooleanFieldOption" && rawOptionPresent(raw, option.optionName)) {
+      const field = fields.get(option.optionName)
+      if (field === undefined) return {}
+      const inlineValue = rawOptionInlineValue(raw, option.optionName)
+      const value = inlineValue === undefined ? option.value : yield* parseBooleanValue(option.fieldName, inlineValue)
+      return { [option.fieldName]: value }
+    }
+    if (option._tag === "FieldOption") {
+      const field = fields.get(option.optionName)
+      return field === undefined ? {} : { [option.fieldName]: yield* parseFieldValue(rootSchema, field, option.value) }
+    }
+    if (option._tag === "FileFieldOption") {
+      return { [option.fieldName]: yield* readTextFile(option.path) }
+    }
+    return {}
+  })
+
 const collectExplicitOptions = (
   parsed: ParsedCliCommandLine,
   rootSchema: object,
@@ -153,21 +218,7 @@ const collectExplicitOptions = (
   Effect.gen(function* () {
     const input: Record<string, unknown> = {}
     for (const option of parsed.options) {
-      if (option._tag === "BooleanFieldOption" && rawOptionPresent(parsed.raw, option.optionName)) {
-        const field = fields.get(option.optionName)
-        const inlineValue = rawOptionInlineValue(parsed.raw, option.optionName)
-        if (field !== undefined) {
-          input[option.fieldName] =
-            inlineValue === undefined ? option.value : yield* parseBooleanValue(option.fieldName, inlineValue)
-        }
-      }
-      if (option._tag === "FieldOption") {
-        const field = fields.get(option.optionName)
-        if (field !== undefined) input[option.fieldName] = yield* parseFieldValue(rootSchema, field, option.value)
-      }
-      if (option._tag === "FileFieldOption") {
-        input[option.fieldName] = yield* readTextFile(option.path)
-      }
+      Object.assign(input, yield* explicitOptionInput(option, parsed.raw, rootSchema, fields))
     }
     return input
   })

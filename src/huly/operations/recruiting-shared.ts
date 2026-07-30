@@ -252,6 +252,22 @@ export const resolveVacancy = (
     return assertAt(byName, 0)
   })
 
+const applicantMatchesContext = (applicant: Applicant, vacancy: Vacancy | undefined, candidate: Person | undefined) => {
+  const vacancyMatches = vacancy === undefined || applicant.space === vacancy._id
+  const candidateMatches = candidate === undefined || applicant.attachedTo === toRef<Candidate>(candidate._id)
+  return vacancyMatches && candidateMatches
+}
+
+const applicantContextFilters = (
+  applicantIdentifier: ApplicantIdentifier,
+  vacancy: Vacancy | undefined,
+  candidate: Person | undefined
+): StrictDocumentQuery<Applicant> => ({
+  identifier: applicantIdentifier,
+  ...(vacancy === undefined ? {} : { space: vacancy._id }),
+  ...(candidate === undefined ? {} : { attachedTo: toRef<Candidate>(candidate._id) })
+})
+
 export const findApplicant = (
   client: HulyClient["Type"],
   applicantIdentifier: ApplicantIdentifier,
@@ -267,18 +283,11 @@ export const findApplicant = (
       hulyQuery<Applicant>({ _id: toRef<Applicant>(applicantIdentifier) })
     )
     if (byId !== undefined) {
-      const vacancyMatches = vacancy === undefined || byId.space === vacancy._id
-      const candidateMatches = candidate === undefined || byId.attachedTo === toRef<Candidate>(candidate._id)
-      if (vacancyMatches && candidateMatches) return byId
+      if (applicantMatchesContext(byId, vacancy, candidate)) return byId
       return yield* new RecruitingApplicantNotFoundError({ identifier: applicantIdentifier })
     }
 
-    const identifierFilter: StrictDocumentQuery<Applicant> = { identifier: applicantIdentifier }
-    const filters: StrictDocumentQuery<Applicant> = {
-      ...identifierFilter,
-      ...(vacancy === undefined ? {} : { space: vacancy._id }),
-      ...(candidate === undefined ? {} : { attachedTo: toRef<Candidate>(candidate._id) })
-    }
+    const filters = applicantContextFilters(applicantIdentifier, vacancy, candidate)
     const applicants = yield* client.findAll<Applicant>(recruitIds.class.Applicant, hulyQuery(filters))
     if (applicants.length === 0) {
       return yield* new RecruitingApplicantNotFoundError({ identifier: applicantIdentifier })

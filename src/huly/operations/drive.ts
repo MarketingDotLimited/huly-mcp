@@ -27,12 +27,12 @@ import {
 } from "../../domain/schemas/drive.js"
 import { Count, DEFAULT_INCLUDE_ARCHIVED } from "../../domain/schemas/shared.js"
 import { isNonEmpty } from "../../utils/assertions.js"
-import { HulyClient } from "../client.js"
-import { drive, type DriveSpace, type File, type FileVersion } from "../drive-sdk.js"
+import { HulyClient, type HulyClientOperations } from "../client.js"
+import { drive, type DriveSpace, type File, type FileVersion, type Folder } from "../drive-sdk.js"
 import { DrivePathConflictError, DrivePathNotFoundError } from "../errors-drive.js"
 import { getBufferFromParams, HulyStorageClient, validateContentType, validateFileSize } from "../storage.js"
 import { pathForItem, toDriveItemSummary, toDriveSummary, toFileVersionSummary } from "./drive-mappers.js"
-import { childPath, normalizeDrivePath, parentPathOf } from "./drive-path.js"
+import { childPath, type NormalizedDrivePath, normalizeDrivePath, parentPathOf } from "./drive-path.js"
 import {
   ensureFolderPath,
   findChildrenByTitle,
@@ -46,7 +46,13 @@ import {
   resolvePath,
   resolveVersion
 } from "./drive-resolvers.js"
-import { type DriveOperationError, filterDrivesByQuery, itemKind, VERSIONS_COLLECTION } from "./drive-shared.js"
+import {
+  type CreatedFolder,
+  type DriveOperationError,
+  filterDrivesByQuery,
+  itemKind,
+  VERSIONS_COLLECTION
+} from "./drive-shared.js"
 import { makeFileVersionData, uploadSource } from "./drive-upload-shared.js"
 import { clampLimit, hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
@@ -161,6 +167,38 @@ export const createDriveFolder = (
     return { folder: summary, created: result.created }
   })
 
+const requireUploadTitle = (
+  params: UploadDriveFileParams,
+  normalized: ReturnType<typeof normalizeDrivePath>
+): Effect.Effect<string, DrivePathConflictError> =>
+  Effect.gen(function* () {
+    if (!isNonEmpty(normalized.segments)) {
+      return yield* new DrivePathConflictError({ drive: params.drive, path: normalized.path, existingKind: "folder" })
+    }
+    const title = normalized.segments.at(LAST_SEGMENT_INDEX)
+    if (title === undefined) {
+      return yield* new DrivePathConflictError({ drive: params.drive, path: normalized.path, existingKind: "folder" })
+    }
+    return title
+  })
+
+const resolveUploadParentFolder = (
+  client: HulyClientOperations,
+  driveSpace: DriveSpace,
+  params: UploadDriveFileParams,
+  normalized: NormalizedDrivePath,
+  parentPath: NormalizedDrivePath
+): Effect.Effect<
+  { readonly folder: Folder | undefined; readonly createdFolders: ReadonlyArray<CreatedFolder> },
+  DriveOperationError
+> =>
+  Effect.gen(function* () {
+    const createParents = params.createParents ?? DEFAULT_DRIVE_CREATE_PARENTS
+    return createParents
+      ? yield* ensureFolderPath(client, driveSpace, params.drive, parentPath)
+      : yield* resolveExistingParentFolder(client, driveSpace, params.drive, normalized, parentPath)
+  })
+
 export const uploadDriveFile = (
   params: UploadDriveFileParams
 ): Effect.Effect<UploadDriveFileResult, DriveOperationError, HulyClient | HulyStorageClient> =>
@@ -169,25 +207,13 @@ export const uploadDriveFile = (
     const storage = yield* HulyStorageClient
     const driveSpace = yield* resolveDrive(client, params.drive)
     const normalized = normalizeDrivePath(params.path)
-    if (!isNonEmpty(normalized.segments)) {
-      return yield* Effect.fail(
-        new DrivePathConflictError({ drive: params.drive, path: normalized.path, existingKind: "folder" })
-      )
-    }
-    const title = normalized.segments.at(LAST_SEGMENT_INDEX)
-    if (title === undefined) {
-      return yield* Effect.fail(
-        new DrivePathConflictError({ drive: params.drive, path: normalized.path, existingKind: "folder" })
-      )
-    }
+    const title = yield* requireUploadTitle(params, normalized)
 
     const parentPath = parentPathOf(normalized)
-    const createParents = params.createParents ?? DEFAULT_DRIVE_CREATE_PARENTS
-    const parent = createParents
-      ? yield* ensureFolderPath(client, driveSpace, params.drive, parentPath)
-      : yield* resolveExistingParentFolder(client, driveSpace, params.drive, normalized, parentPath)
+    const parent = yield* resolveUploadParentFolder(client, driveSpace, params, normalized, parentPath)
+    const parentFolder = parent.folder
 
-    const existing = yield* findChildrenByTitle(client, driveSpace, parent.folder?._id ?? drive.ids.Root, title)
+    const existing = yield* findChildrenByTitle(client, driveSpace, parentFolder?._id ?? drive.ids.Root, title)
     if (isNonEmpty(existing)) {
       const existingItem = existing[0]
       return yield* Effect.fail(
@@ -204,8 +230,8 @@ export const uploadDriveFile = (
     const versionId = toRef<FileVersion>(generateId())
     const fileId = yield* client.createDoc<File>(drive.class.File, driveSpace._id, {
       title,
-      parent: parent.folder?._id ?? drive.ids.Root,
-      path: parent.folder === undefined ? [] : [parent.folder._id, ...parent.folder.path],
+      parent: parentFolder?._id ?? drive.ids.Root,
+      path: parentFolder === undefined ? [] : [parentFolder._id, ...parentFolder.path],
       file: versionId,
       version: 1,
       versions: 0

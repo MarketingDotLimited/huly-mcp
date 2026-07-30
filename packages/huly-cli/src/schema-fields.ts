@@ -57,25 +57,28 @@ const resolveLocalRef = (rootSchema: object, schema: unknown): unknown => {
   return rootSchema.$defs[name] ?? schema
 }
 
+const directSchemaTypeMatches = (schema: Record<string, unknown>, typeName: string): boolean =>
+  schema.type === typeName || (Array.isArray(schema.type) && schema.type.includes(typeName))
+
+const variantSchemaTypeMatches = (
+  rootSchema: object,
+  schema: Record<string, unknown>,
+  typeName: string,
+  depth: number
+): boolean =>
+  ["allOf", "anyOf", "oneOf"].some((variantKey) => {
+    const variants = schema[variantKey]
+    return (
+      Array.isArray(variants) && variants.some((variant) => schemaHasType(rootSchema, variant, typeName, depth + 1))
+    )
+  })
+
 const schemaHasType = (rootSchema: object, schema: unknown, typeName: string, depth = 0): boolean => {
   if (depth > MAX_SCHEMA_REF_DEPTH || !isRecord(schema)) return false
   const resolved = resolveLocalRef(rootSchema, schema)
   if (!isRecord(resolved)) return false
 
-  if (resolved.type === typeName) return true
-  if (Array.isArray(resolved.type) && resolved.type.includes(typeName)) return true
-
-  for (const variantKey of ["allOf", "anyOf", "oneOf"]) {
-    const variants = resolved[variantKey]
-    if (
-      Array.isArray(variants) &&
-      variants.some((variant) => schemaHasType(rootSchema, variant, typeName, depth + 1))
-    ) {
-      return true
-    }
-  }
-
-  return false
+  return directSchemaTypeMatches(resolved, typeName) || variantSchemaTypeMatches(rootSchema, resolved, typeName, depth)
 }
 
 export const fieldAcceptsBoolean = (rootSchema: object, field: FieldSpec): boolean =>

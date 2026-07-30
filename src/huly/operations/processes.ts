@@ -319,6 +319,20 @@ const findStatesByIds = (
         .findAll<HulyProcessState>(processPlugin.class.State, { _id: { $in: Array.from(new Set(ids)) } })
         .pipe(Effect.map((states) => new Map(states.map((state) => [state._id, state]))))
 
+const executionErrorSummary = (
+  execution: HulyProcessExecution
+): Pick<ProcessExecutionSummary, "errorCount" | "hasError"> => {
+  const errorCount = execution.error?.length ?? 0
+  return { errorCount: Count.make(errorCount), hasError: errorCount > 0 }
+}
+
+const executionParentSummary = (
+  execution: HulyProcessExecution
+): Pick<ProcessExecutionSummary, "hasParent" | "parentExecutionId"> => ({
+  hasParent: execution.parentId !== undefined,
+  parentExecutionId: execution.parentId === undefined ? undefined : ProcessExecutionId.make(execution.parentId)
+})
+
 const executionSummary = (
   execution: HulyProcessExecution,
   processes: ReadonlyMap<Ref<HulyProcessDefinition>, HulyProcessDefinition>,
@@ -333,10 +347,8 @@ const executionSummary = (
   currentStateId: ProcessStateId.make(execution.currentState),
   currentStateTitle: states.get(execution.currentState)?.title,
   status: execution.status,
-  errorCount: Count.make(execution.error?.length ?? 0),
-  hasError: (execution.error?.length ?? 0) > 0,
-  hasParent: execution.parentId !== undefined,
-  parentExecutionId: execution.parentId === undefined ? undefined : ProcessExecutionId.make(execution.parentId),
+  ...executionErrorSummary(execution),
+  ...executionParentSummary(execution),
   modifiedOn: Timestamp.make(execution.modifiedOn)
 })
 

@@ -20,20 +20,9 @@ The implemented gate uses a dedicated config so `pnpm complexity` is a visible, 
 ```
 
 The cap is 8, matching `crap4java`'s threshold when function coverage is 100% because CRAP then equals cyclomatic
-complexity. The adoption scan found 64 existing violations across 46 production files, with a maximum of 31. Those
-violations are recorded in `oxlint-complexity-suppressions.json`. `scripts/check-oxlint-complexity.ts` parses
-Oxlint's JSON diagnostics and compares exact per-file counts against that baseline. New violations fail
-`pnpm complexity`; reducing the number of violations makes the check fail on stale suppressions until
-`pnpm complexity:prune` removes them. This establishes 8 as the enforced target without requiring a risky
-cross-cutting refactor of 46 files in the harness change.
-
-Bulk suppressions are counts per rule and file, not permanent exemptions for named functions. This makes the debt
-visible and monotonically removable at file granularity. It also means replacing one suppressed violation with
-another in the same file without changing the count is not distinguishable by the wrapper; reviews should reject that
-kind of complexity transfer.
-
-The removal work is tracked in
-[GitHub issue #161](https://github.com/dearlordylord/huly-mcp/issues/161).
+complexity. The adoption scan initially found 64 existing violations across 46 production files, with a maximum of
+31. [GitHub issue #161](https://github.com/dearlordylord/huly-mcp/issues/161) completed the resulting cleanup; the
+`pnpm complexity` command now runs Oxlint directly and every production function is subject to the cap.
 
 Oxlint defines the metric as the number of linearly independent paths, supports explicit `classic` and `modified`
 variants, defaults to classic with a maximum of 20, and counts modern JavaScript branching constructs such as

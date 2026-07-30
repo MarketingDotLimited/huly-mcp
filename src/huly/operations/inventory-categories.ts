@@ -102,6 +102,43 @@ export const createInventoryCategory = (
     return { id: InventoryCategoryId.make(id), created: true }
   })
 
+const ensureValidCategoryParent = (
+  client: HulyClient["Type"],
+  category: HulyInventoryCategory,
+  newParent: Effect.Effect.Success<ReturnType<typeof resolveCategoryParent>> | undefined
+): Effect.Effect<void, InventoryError> =>
+  Effect.gen(function* () {
+    if (newParent === undefined) return
+    if (newParent.id === category._id || (yield* isDescendantCategory(client, category, newParent.id))) {
+      return yield* new InventoryMutationUnsupportedError({
+        message: "Cannot move an inventory category under itself or one of its descendants"
+      })
+    }
+  })
+
+const updateCategoryCollection = (
+  client: HulyClient["Type"],
+  category: HulyInventoryCategory,
+  newParent: Effect.Effect.Success<ReturnType<typeof resolveCategoryParent>> | undefined,
+  update: DocumentUpdate<HulyInventoryCategory>
+): Effect.Effect<void, InventoryError> =>
+  Effect.gen(function* () {
+    if (newParent === undefined) {
+      return yield* client.updateDoc(inventory.class.Category, workspace, category._id, update)
+    }
+    const updateCollection = requireUpdateCollection(client)
+    if (updateCollection instanceof InventoryMutationUnsupportedError) return yield* updateCollection
+    yield* updateCollection(
+      inventory.class.Category,
+      workspace,
+      category._id,
+      newParent.id,
+      inventory.class.Category,
+      CATEGORIES_COLLECTION,
+      update
+    )
+  })
+
 export const updateInventoryCategory = (
   params: UpdateInventoryCategoryParams
 ): Effect.Effect<InventoryUpdatedResult, InventoryError, HulyClient> =>
@@ -114,13 +151,7 @@ export const updateInventoryCategory = (
         ? undefined
         : yield* resolveCategoryParent(client, params.newParentCategory)
     const destinationParent = newParent?.id ?? toRef<HulyInventoryCategory>(category.attachedTo)
-    if (newParent !== undefined) {
-      if (newParent.id === category._id || (yield* isDescendantCategory(client, category, newParent.id))) {
-        return yield* new InventoryMutationUnsupportedError({
-          message: "Cannot move an inventory category under itself or one of its descendants"
-        })
-      }
-    }
+    yield* ensureValidCategoryParent(client, category, newParent)
     yield* ensureCategoryNameAvailable(client, destinationParent, params.name ?? category.name, category._id)
     const entries: ReadonlyArray<DocumentUpdate<HulyInventoryCategory>> = [
       params.name === undefined ? {} : { name: params.name },
@@ -129,21 +160,7 @@ export const updateInventoryCategory = (
         : { attachedTo: newParent.id, attachedToClass: inventory.class.Category, collection: CATEGORIES_COLLECTION }
     ]
     const update = mergeUpdateEntries(entries)
-    if (newParent === undefined) {
-      yield* client.updateDoc(inventory.class.Category, workspace, category._id, update)
-    } else {
-      const updateCollection = requireUpdateCollection(client)
-      if (updateCollection instanceof InventoryMutationUnsupportedError) return yield* updateCollection
-      yield* updateCollection(
-        inventory.class.Category,
-        workspace,
-        category._id,
-        newParent.id,
-        inventory.class.Category,
-        CATEGORIES_COLLECTION,
-        update
-      )
-    }
+    yield* updateCategoryCollection(client, category, newParent, update)
     return { id: InventoryCategoryId.make(category._id), updated: true }
   })
 

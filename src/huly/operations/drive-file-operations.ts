@@ -47,6 +47,11 @@ import { toRef } from "./sdk-boundary.js"
 
 const FOLDER_NOT_EMPTY_CHILD_SUMMARY_LIMIT = 10
 
+const isInvalidFolderMoveTarget = (item: DriveItem, targetFolder: Folder | undefined): boolean =>
+  isFolder(item) &&
+  targetFolder !== undefined &&
+  (targetFolder._id === item._id || targetFolder.path.includes(item._id))
+
 export const uploadDriveFileVersion = (
   params: UploadDriveFileVersionParams
 ): Effect.Effect<UploadDriveFileVersionResult, DriveOperationError, HulyClient | HulyStorageClient> =>
@@ -106,17 +111,15 @@ export const moveDriveItem = (
     const fromPath = resolved.path
     const toPath = childPath(targetPath.path, item.title)
 
-    if (isFolder(item) && targetFolder !== undefined) {
-      if (targetFolder._id === item._id || targetFolder.path.includes(item._id)) {
-        return yield* Effect.fail(
-          new DriveInvalidMoveError({
-            drive: params.drive,
-            path: fromPath,
-            targetFolderPath: targetPath.path,
-            reason: "a folder cannot be moved into itself or one of its descendants"
-          })
-        )
-      }
+    if (isInvalidFolderMoveTarget(item, targetFolder)) {
+      return yield* Effect.fail(
+        new DriveInvalidMoveError({
+          drive: params.drive,
+          path: fromPath,
+          targetFolderPath: targetPath.path,
+          reason: "a folder cannot be moved into itself or one of its descendants"
+        })
+      )
     }
 
     if (item.parent === targetParent) {

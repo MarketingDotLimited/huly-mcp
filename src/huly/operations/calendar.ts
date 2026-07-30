@@ -229,6 +229,146 @@ export const getEvent = (params: GetEventParams): Effect.Effect<Event, GetEventE
     return result
   })
 
+const applyEventOptionalFields = (eventData: AttachedData<HulyEvent>, params: CreateEventParams): void => {
+  eventData.externalParticipants = params.externalParticipants === undefined ? [] : [...params.externalParticipants]
+  if (params.reminders !== undefined) eventData.reminders = [...params.reminders]
+  if (params.location !== undefined) eventData.location = params.location
+  if (params.visibility !== undefined) eventData.visibility = params.visibility
+  if (params.timeZone !== undefined) eventData.timeZone = params.timeZone
+}
+
+type UpdateEventField = (typeof UPDATE_EVENT_FIELDS)[number]
+type UpdateEventEntry = Effect.Effect<DocumentUpdate<HulyEvent>, UpdateEventError>
+type UpdateEventEntries = Record<UpdateEventField, UpdateEventEntry>
+
+const eventDescriptionEntry = (
+  client: HulyClient["Type"],
+  event: HulyEvent,
+  description: UpdateEventParams["description"]
+): UpdateEventEntry =>
+  Effect.gen(function* () {
+    if (description === undefined) return {}
+    if (description === null || description.trim() === "") return { description: emptyEventDescription }
+    const rendered = renderMarkdownPreservingNativeReferences(description, client.markupUrlConfig)
+    if (event.description) {
+      yield* client.updateMarkup(calendar.class.Event, event._id, "description", rendered.markup, rendered.format)
+      return {}
+    }
+    const descriptionRef = yield* client.uploadMarkup(
+      calendar.class.Event,
+      event._id,
+      "description",
+      rendered.markup,
+      rendered.format
+    )
+    return { description: markupRefAsDescription(descriptionRef) }
+  })
+
+const eventParticipantUpdateEntries = (
+  client: HulyClient["Type"],
+  event: HulyEvent,
+  params: UpdateEventParams
+): Pick<UpdateEventEntries, "addParticipants" | "participants" | "removeParticipants"> => ({
+  participants: Effect.gen(function* () {
+    if (params.participants === undefined) return {}
+    return { participants: yield* resolveParticipantLocators(client, params.participants) }
+  }),
+  addParticipants: Effect.gen(function* () {
+    if (params.addParticipants === undefined) return {}
+    const participants = yield* resolveParticipantLocators(client, params.addParticipants)
+    return { participants: uniqueRefs([...event.participants, ...participants]) }
+  }),
+  removeParticipants: Effect.gen(function* () {
+    if (params.removeParticipants === undefined) return {}
+    const remove = new Set(yield* resolveParticipantLocators(client, params.removeParticipants))
+    return { participants: event.participants.filter((participant) => !remove.has(participant)) }
+  })
+})
+
+const addExternalParticipantsEntry = (event: HulyEvent, params: UpdateEventParams): UpdateEventEntry =>
+  Effect.succeed(
+    params.addExternalParticipants === undefined
+      ? {}
+      : {
+          externalParticipants: uniqueEmails([...(event.externalParticipants ?? []), ...params.addExternalParticipants])
+        }
+  )
+
+const removeExternalParticipantsEntry = (event: HulyEvent, params: UpdateEventParams): UpdateEventEntry =>
+  Effect.succeed(
+    params.removeExternalParticipants === undefined
+      ? {}
+      : {
+          externalParticipants: (event.externalParticipants ?? []).filter(
+            (email) => !params.removeExternalParticipants?.includes(Email.make(email))
+          )
+        }
+  )
+
+const eventExternalParticipantUpdateEntries = (
+  event: HulyEvent,
+  params: UpdateEventParams
+): Pick<UpdateEventEntries, "addExternalParticipants" | "externalParticipants" | "removeExternalParticipants"> => ({
+  externalParticipants: Effect.succeed(
+    params.externalParticipants === undefined ? {} : { externalParticipants: [...params.externalParticipants] }
+  ),
+  addExternalParticipants: addExternalParticipantsEntry(event, params),
+  removeExternalParticipants: removeExternalParticipantsEntry(event, params)
+})
+
+const eventCalendarUpdateEntries = (
+  client: HulyClient["Type"],
+  params: UpdateEventParams
+): Pick<UpdateEventEntries, "calendarId" | "calendarName"> => ({
+  calendarId: Effect.gen(function* () {
+    if (params.calendarId === undefined) return {}
+    return { calendar: yield* resolveCalendarRef(client, params.calendarId) }
+  }),
+  calendarName: Effect.gen(function* () {
+    if (params.calendarName === undefined) return {}
+    return { calendar: yield* resolveCalendarRef(client, undefined, params.calendarName) }
+  })
+})
+
+const eventTimingUpdateEntries = (
+  params: UpdateEventParams
+): Pick<UpdateEventEntries, "allDay" | "blockTime" | "date" | "dueDate"> => ({
+  date: Effect.succeed(params.date === undefined ? {} : { date: params.date }),
+  dueDate: Effect.succeed(params.dueDate === undefined ? {} : { dueDate: params.dueDate }),
+  allDay: Effect.succeed(params.allDay === undefined ? {} : { allDay: params.allDay }),
+  blockTime: Effect.succeed(params.blockTime === undefined ? {} : { blockTime: params.blockTime })
+})
+
+const eventPresentationUpdateEntries = (
+  params: UpdateEventParams
+): Pick<UpdateEventEntries, "access" | "location" | "reminders" | "timeZone" | "title" | "visibility"> => ({
+  title: Effect.succeed(params.title === undefined ? {} : { title: params.title }),
+  location: Effect.succeed(
+    params.location === undefined
+      ? {}
+      : params.location === null
+        ? { $unset: { location: "" } }
+        : { location: params.location }
+  ),
+  visibility: Effect.succeed(params.visibility === undefined ? {} : { visibility: params.visibility }),
+  reminders: Effect.succeed(params.reminders === undefined ? {} : { reminders: [...params.reminders] }),
+  access: Effect.succeed(params.access === undefined ? {} : { access: stringToAccess(params.access) }),
+  timeZone: Effect.succeed(params.timeZone === undefined ? {} : { timeZone: params.timeZone })
+})
+
+const eventUpdateEntries = (
+  client: HulyClient["Type"],
+  event: HulyEvent,
+  params: UpdateEventParams
+): UpdateEventEntries => ({
+  ...eventTimingUpdateEntries(params),
+  ...eventPresentationUpdateEntries(params),
+  ...eventParticipantUpdateEntries(client, event, params),
+  ...eventExternalParticipantUpdateEntries(event, params),
+  ...eventCalendarUpdateEntries(client, params),
+  description: eventDescriptionEntry(client, event, params.description)
+})
+
 export const createEvent = (
   params: CreateEventParams
 ): Effect.Effect<CreateEventResult, CreateEventError, HulyClient> =>
@@ -259,27 +399,7 @@ export const createEvent = (
       blockTime: params.blockTime ?? false
     }
 
-    if (params.externalParticipants !== undefined) {
-      eventData.externalParticipants = [...params.externalParticipants]
-    } else {
-      eventData.externalParticipants = []
-    }
-
-    if (params.reminders !== undefined) {
-      eventData.reminders = [...params.reminders]
-    }
-
-    if (params.location !== undefined) {
-      eventData.location = params.location
-    }
-
-    if (params.visibility !== undefined) {
-      eventData.visibility = params.visibility
-    }
-
-    if (params.timeZone !== undefined) {
-      eventData.timeZone = params.timeZone
-    }
+    applyEventOptionalFields(eventData, params)
 
     yield* client.addCollection(
       calendar.class.Event,
@@ -307,94 +427,7 @@ export const updateEvent = (
       return yield* new EventNotFoundError({ eventId: params.eventId })
     }
 
-    type UpdateEventField = (typeof UPDATE_EVENT_FIELDS)[number]
-    type UpdateEventEntry = Effect.Effect<DocumentUpdate<HulyEvent>, UpdateEventError>
-    type UpdateEventEntries = Record<UpdateEventField, UpdateEventEntry>
-    const updateEntries = {
-      title: Effect.succeed(params.title === undefined ? {} : { title: params.title }),
-      description: Effect.gen(function* () {
-        if (params.description === undefined) return {}
-        if (params.description === null || params.description.trim() === "") {
-          return { description: emptyEventDescription }
-        }
-        const rendered = renderMarkdownPreservingNativeReferences(params.description, client.markupUrlConfig)
-        if (event.description) {
-          yield* client.updateMarkup(calendar.class.Event, event._id, "description", rendered.markup, rendered.format)
-          return {}
-        }
-        const descriptionRef = yield* client.uploadMarkup(
-          calendar.class.Event,
-          event._id,
-          "description",
-          rendered.markup,
-          rendered.format
-        )
-        return { description: markupRefAsDescription(descriptionRef) }
-      }),
-      date: Effect.succeed(params.date === undefined ? {} : { date: params.date }),
-      dueDate: Effect.succeed(params.dueDate === undefined ? {} : { dueDate: params.dueDate }),
-      allDay: Effect.succeed(params.allDay === undefined ? {} : { allDay: params.allDay }),
-      location: Effect.succeed(
-        params.location === undefined
-          ? {}
-          : params.location === null
-            ? { $unset: { location: "" } }
-            : { location: params.location }
-      ),
-      visibility: Effect.succeed(params.visibility === undefined ? {} : { visibility: params.visibility }),
-      participants: Effect.gen(function* () {
-        if (params.participants === undefined) return {}
-        const participants = yield* resolveParticipantLocators(client, params.participants)
-        return { participants }
-      }),
-      addParticipants: Effect.gen(function* () {
-        if (params.addParticipants === undefined) return {}
-        const participants = yield* resolveParticipantLocators(client, params.addParticipants)
-        return { participants: uniqueRefs([...event.participants, ...participants]) }
-      }),
-      removeParticipants: Effect.gen(function* () {
-        if (params.removeParticipants === undefined) return {}
-        const participants = yield* resolveParticipantLocators(client, params.removeParticipants)
-        const remove = new Set(participants)
-        return { participants: event.participants.filter((participant) => !remove.has(participant)) }
-      }),
-      externalParticipants: Effect.succeed(
-        params.externalParticipants === undefined ? {} : { externalParticipants: [...params.externalParticipants] }
-      ),
-      addExternalParticipants: Effect.succeed(
-        params.addExternalParticipants === undefined
-          ? {}
-          : {
-              externalParticipants: uniqueEmails([
-                ...(event.externalParticipants ?? []),
-                ...params.addExternalParticipants
-              ])
-            }
-      ),
-      removeExternalParticipants: Effect.succeed(
-        params.removeExternalParticipants === undefined
-          ? {}
-          : {
-              externalParticipants: (event.externalParticipants ?? []).filter(
-                (email) => !params.removeExternalParticipants?.includes(Email.make(email))
-              )
-            }
-      ),
-      reminders: Effect.succeed(params.reminders === undefined ? {} : { reminders: [...params.reminders] }),
-      access: Effect.succeed(params.access === undefined ? {} : { access: stringToAccess(params.access) }),
-      timeZone: Effect.succeed(params.timeZone === undefined ? {} : { timeZone: params.timeZone }),
-      blockTime: Effect.succeed(params.blockTime === undefined ? {} : { blockTime: params.blockTime }),
-      calendarId: Effect.gen(function* () {
-        if (params.calendarId === undefined) return {}
-        const target = yield* resolveCalendarRef(client, params.calendarId)
-        return { calendar: target }
-      }),
-      calendarName: Effect.gen(function* () {
-        if (params.calendarName === undefined) return {}
-        const target = yield* resolveCalendarRef(client, undefined, params.calendarName)
-        return { calendar: target }
-      })
-    } satisfies UpdateEventEntries
+    const updateEntries = eventUpdateEntries(client, event, params)
     const updateOps: DocumentUpdate<HulyEvent> = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
 
     if (Object.keys(updateOps).length > 0) {

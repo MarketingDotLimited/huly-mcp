@@ -695,6 +695,42 @@ const validateExpectedClass = (
 const endpointMatchesAssociationClass = (summary: ResolvedObjectSummary | undefined, className: string): boolean =>
   summary === undefined || summary.class === className
 
+const endpointAssociationClassError = (
+  summary: ResolvedObjectSummary | undefined,
+  sourceClass: string,
+  targetClass: string,
+  field: RelationEndpointField
+): RelationEndpointClassMismatchError | undefined =>
+  summary !== undefined && summary.class !== sourceClass && summary.class !== targetClass
+    ? new RelationEndpointClassMismatchError({
+        field,
+        expectedClass: `${sourceClass} or ${targetClass}`,
+        actualClass: summary.class
+      })
+    : undefined
+
+const eitherEndpointClassesMatch = (
+  source: ResolvedObjectSummary | undefined,
+  target: ResolvedObjectSummary | undefined,
+  sourceClass: string,
+  targetClass: string
+): boolean =>
+  (endpointMatchesAssociationClass(source, sourceClass) && endpointMatchesAssociationClass(target, targetClass)) ||
+  (endpointMatchesAssociationClass(source, targetClass) && endpointMatchesAssociationClass(target, sourceClass))
+
+const fallbackEndpointClassError = (
+  source: ResolvedObjectSummary | undefined,
+  target: ResolvedObjectSummary | undefined,
+  sourceClass: string,
+  targetClass: string
+): RelationEndpointClassMismatchError =>
+  new RelationEndpointClassMismatchError({
+    field: "target",
+    expectedClass: source?.class === sourceClass ? targetClass : sourceClass,
+    /* v8 ignore next -- this fallback is only reached with both endpoints defined. */
+    actualClass: target === undefined ? "missing" : target.class
+  })
+
 const validateEitherEndpointClasses = (
   association: HulyAssociation,
   source: ResolvedObjectSummary | undefined,
@@ -702,45 +738,13 @@ const validateEitherEndpointClasses = (
 ): Effect.Effect<void, RelationEndpointClassMismatchError> => {
   const sourceClass = String(association.classA)
   const targetClass = String(association.classB)
-  const matchesForward =
-    endpointMatchesAssociationClass(source, sourceClass) && endpointMatchesAssociationClass(target, targetClass)
-  const matchesReverse =
-    endpointMatchesAssociationClass(source, targetClass) && endpointMatchesAssociationClass(target, sourceClass)
+  if (eitherEndpointClassesMatch(source, target, sourceClass, targetClass)) return Effect.void
 
-  if (matchesForward || matchesReverse) {
-    return Effect.void
-  }
-
-  if (source !== undefined && source.class !== sourceClass && source.class !== targetClass) {
-    return Effect.fail(
-      new RelationEndpointClassMismatchError({
-        field: "source",
-        expectedClass: `${sourceClass} or ${targetClass}`,
-        actualClass: source.class
-      })
-    )
-  }
-
-  if (target !== undefined && target.class !== sourceClass && target.class !== targetClass) {
-    return Effect.fail(
-      new RelationEndpointClassMismatchError({
-        field: "target",
-        expectedClass: `${sourceClass} or ${targetClass}`,
-        actualClass: target.class
-      })
-    )
-  }
-
-  /* v8 ignore start -- this fallback is only reached with both endpoints defined, so the "missing" default is unreachable */
-  const actualTargetClass = target === undefined ? "missing" : target.class
-  /* v8 ignore stop */
-  return Effect.fail(
-    new RelationEndpointClassMismatchError({
-      field: "target",
-      expectedClass: source?.class === sourceClass ? targetClass : sourceClass,
-      actualClass: actualTargetClass
-    })
-  )
+  const sourceError = endpointAssociationClassError(source, sourceClass, targetClass, "source")
+  if (sourceError !== undefined) return Effect.fail(sourceError)
+  const targetError = endpointAssociationClassError(target, sourceClass, targetClass, "target")
+  if (targetError !== undefined) return Effect.fail(targetError)
+  return Effect.fail(fallbackEndpointClassError(source, target, sourceClass, targetClass))
 }
 
 const resolveIssueLocator = (
@@ -907,6 +911,47 @@ const resolveCardLocator = (
     })
   })
 
+const resolveRawObject = (
+  client: HulyClientOperations,
+  locator: Extract<GenericObjectLocator, { kind: "raw" }>,
+  expectedClass: string | undefined,
+  field: RelationEndpointField
+): Effect.Effect<ResolvedObjectSummary, GenericAssociationsError> =>
+  Effect.gen(function* () {
+    const className = locator.class ?? expectedClass
+    if (className === undefined) {
+      return yield* new GenericObjectLocatorInvalidError({
+        field,
+        reason: "raw object locator requires class unless association side class is known"
+      })
+    }
+    const doc = yield* findRawDoc(client, locator.id, className)
+    if (doc === undefined) {
+      return yield* new GenericObjectNotFoundError({ field, identifier: locator.id, class: className })
+    }
+    const summary = resolvedSummary(doc, "raw")
+    yield* validateExpectedClass(summary, expectedClass, field)
+    return summary
+  })
+
+const resolveDocumentLocator = (
+  client: HulyClientOperations,
+  locator: Extract<GenericObjectLocator, { kind: "document" }>,
+  expectedClass: string | undefined,
+  field: RelationEndpointField
+): Effect.Effect<ResolvedObjectSummary, GenericAssociationsError, HulyClient> =>
+  Effect.gen(function* () {
+    const summary =
+      locator.teamspace === undefined
+        ? yield* resolveDocumentWithoutTeamspace(client, locator.document, field)
+        : resolvedSummary(
+            (yield* findTeamspaceAndDocument({ teamspace: locator.teamspace, document: locator.document })).doc,
+            "document"
+          )
+    yield* validateExpectedClass(summary, expectedClass, field)
+    return summary
+  })
+
 const resolveGenericObject = (
   client: HulyClientOperations,
   locator: GenericObjectLocator,
@@ -915,38 +960,15 @@ const resolveGenericObject = (
 ): Effect.Effect<ResolvedObjectSummary, GenericAssociationsError, HulyClient> =>
   Effect.gen(function* () {
     switch (locator.kind) {
-      case "raw": {
-        const className = locator.class ?? expectedClass
-        if (className === undefined) {
-          return yield* new GenericObjectLocatorInvalidError({
-            field,
-            reason: "raw object locator requires class unless association side class is known"
-          })
-        }
-        const doc = yield* findRawDoc(client, locator.id, className)
-        if (doc === undefined) {
-          return yield* new GenericObjectNotFoundError({ field, identifier: locator.id, class: className })
-        }
-        const summary = resolvedSummary(doc, "raw")
-        yield* validateExpectedClass(summary, expectedClass, field)
-        return summary
-      }
+      case "raw":
+        return yield* resolveRawObject(client, locator, expectedClass, field)
       case "issue": {
         const summary = yield* resolveIssueLocator(locator, field)
         yield* validateExpectedClass(summary, expectedClass, field)
         return summary
       }
-      case "document": {
-        const summary =
-          locator.teamspace === undefined
-            ? yield* resolveDocumentWithoutTeamspace(client, locator.document, field)
-            : resolvedSummary(
-                (yield* findTeamspaceAndDocument({ teamspace: locator.teamspace, document: locator.document })).doc,
-                "document"
-              )
-        yield* validateExpectedClass(summary, expectedClass, field)
-        return summary
-      }
+      case "document":
+        return yield* resolveDocumentLocator(client, locator, expectedClass, field)
       case "card": {
         const summary = yield* resolveCardLocator(client, locator, field)
         yield* validateExpectedClass(summary, expectedClass, field)
@@ -1153,6 +1175,15 @@ const findRelationsForAssociation = (
     return [...byId.values()].slice(0, limit)
   })
 
+const associationEndpointClassesMatch = (
+  source: ResolvedObjectSummary | undefined,
+  target: ResolvedObjectSummary | undefined,
+  sourceClass: string,
+  targetClass: string
+): boolean =>
+  (source === undefined || String(source.class) === sourceClass) &&
+  (target === undefined || String(target.class) === targetClass)
+
 const associationMatchesEndpoints = (
   association: HulyAssociation,
   source: ResolvedObjectSummary | undefined,
@@ -1160,26 +1191,16 @@ const associationMatchesEndpoints = (
   direction: RelationDirection
 ): boolean => {
   if (direction === "target-to-source") {
-    return (
-      (source === undefined || String(source.class) === association.classB) &&
-      (target === undefined || String(target.class) === association.classA)
-    )
+    return associationEndpointClassesMatch(source, target, association.classB, association.classA)
   }
 
   if (direction === "either") {
-    const matchesForward =
-      (source === undefined || String(source.class) === association.classA) &&
-      (target === undefined || String(target.class) === association.classB)
-    const matchesReverse =
-      (source === undefined || String(source.class) === association.classB) &&
-      (target === undefined || String(target.class) === association.classA)
+    const matchesForward = associationEndpointClassesMatch(source, target, association.classA, association.classB)
+    const matchesReverse = associationEndpointClassesMatch(source, target, association.classB, association.classA)
     return matchesForward || matchesReverse
   }
 
-  return (
-    (source === undefined || String(source.class) === association.classA) &&
-    (target === undefined || String(target.class) === association.classB)
-  )
+  return associationEndpointClassesMatch(source, target, association.classA, association.classB)
 }
 
 const listRelationsForResolvedEndpoints = (
@@ -1274,6 +1295,50 @@ const listRelationsWithoutAssociation = (
     return limitReached ? { summaries, warnings: [ASSOCIATION_DISCOVERY_LIMIT_WARNING] } : { summaries }
   })
 
+const listRelationsWithoutResolvedAssociation = (
+  client: HulyClientOperations,
+  params: ListRelationsParams,
+  direction: RelationDirection,
+  limit: number
+): Effect.Effect<ListRelationsResult, GenericAssociationsError, HulyClient> =>
+  Effect.gen(function* () {
+    const source =
+      params.source === undefined ? undefined : yield* resolveGenericObject(client, params.source, undefined, "source")
+    const target =
+      params.target === undefined ? undefined : yield* resolveGenericObject(client, params.target, undefined, "target")
+    const { summaries, warnings } = yield* listRelationsWithoutAssociation(client, source, target, direction, limit)
+    return { relations: summaries, total: listTotal(summaries.length), ...(warnings === undefined ? {} : { warnings }) }
+  })
+
+const associationClassesForDirection = (association: HulyAssociation, direction: RelationDirection) => ({
+  sourceClass:
+    direction === "either" ? undefined : direction === "target-to-source" ? association.classB : association.classA,
+  targetClass:
+    direction === "either" ? undefined : direction === "target-to-source" ? association.classA : association.classB
+})
+
+const listRelationsWithResolvedAssociation = (
+  client: HulyClientOperations,
+  params: ListRelationsParams & { readonly association: NonNullable<ListRelationsParams["association"]> },
+  direction: RelationDirection,
+  limit: number
+): Effect.Effect<ListRelationsResult, GenericAssociationsError, HulyClient> =>
+  Effect.gen(function* () {
+    const association = yield* resolveAssociation(client, params.association, MUTATION_ASSOCIATION_FILTERS)
+    const { sourceClass, targetClass } = associationClassesForDirection(association, direction)
+    const source =
+      params.source === undefined
+        ? undefined
+        : yield* resolveGenericObject(client, params.source, sourceClass, "source")
+    const target =
+      params.target === undefined
+        ? undefined
+        : yield* resolveGenericObject(client, params.target, targetClass, "target")
+    if (direction === "either") yield* validateEitherEndpointClasses(association, source, target)
+    const summaries = yield* listRelationsForResolvedEndpoints(client, [association], source, target, direction, limit)
+    return { relations: summaries, total: listTotal(summaries.length) }
+  })
+
 export const listRelations = (
   params: ListRelationsParams
 ): Effect.Effect<ListRelationsResult, GenericAssociationsError, HulyClient> =>
@@ -1283,42 +1348,14 @@ export const listRelations = (
     const direction = params.direction ?? DefaultRelationDirection
 
     if (params.association === undefined) {
-      const source =
-        params.source === undefined
-          ? undefined
-          : yield* resolveGenericObject(client, params.source, undefined, "source")
-      const target =
-        params.target === undefined
-          ? undefined
-          : yield* resolveGenericObject(client, params.target, undefined, "target")
-      const { summaries, warnings } = yield* listRelationsWithoutAssociation(client, source, target, direction, limit)
-
-      return {
-        relations: summaries,
-        total: listTotal(summaries.length),
-        ...(warnings !== undefined ? { warnings } : {})
-      }
+      return yield* listRelationsWithoutResolvedAssociation(client, params, direction, limit)
     }
-
-    const association = yield* resolveAssociation(client, params.association, MUTATION_ASSOCIATION_FILTERS)
-    const sourceClass =
-      direction === "either" ? undefined : direction === "target-to-source" ? association.classB : association.classA
-    const targetClass =
-      direction === "either" ? undefined : direction === "target-to-source" ? association.classA : association.classB
-    const source =
-      params.source === undefined
-        ? undefined
-        : yield* resolveGenericObject(client, params.source, sourceClass, "source")
-    const target =
-      params.target === undefined
-        ? undefined
-        : yield* resolveGenericObject(client, params.target, targetClass, "target")
-    if (direction === "either") {
-      yield* validateEitherEndpointClasses(association, source, target)
-    }
-    const summaries = yield* listRelationsForResolvedEndpoints(client, [association], source, target, direction, limit)
-
-    return { relations: summaries, total: listTotal(summaries.length) }
+    return yield* listRelationsWithResolvedAssociation(
+      client,
+      { ...params, association: params.association },
+      direction,
+      limit
+    )
   })
 
 const resolveRelationWriteEndpoints = (
@@ -1341,6 +1378,15 @@ const resolveRelationWriteEndpoints = (
       return { docA: target, docB: source, source, target }
     }
 
+    return yield* resolveEitherWriteEndpoints(client, association, params)
+  })
+
+const resolveEitherWriteEndpoints = (
+  client: HulyClientOperations,
+  association: HulyAssociation,
+  params: Pick<CreateRelationParams, "source" | "target">
+): Effect.Effect<ResolvedRelationWriteEndpoints, GenericAssociationsError, HulyClient> =>
+  Effect.gen(function* () {
     const source = yield* resolveGenericObject(client, params.source, undefined, "source")
     const target = yield* resolveGenericObject(client, params.target, undefined, "target")
     const matchesForward = String(source.class) === association.classA && String(target.class) === association.classB

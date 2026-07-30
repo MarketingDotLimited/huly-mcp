@@ -95,6 +95,30 @@ const findOrganizationsForPerson = (
     return orgs.map((org) => ({ id: OrganizationId.make(org._id), name: org.name }))
   })
 
+const personNameQuery = (params: ListPersonsParams): DocumentQuery<HulyPerson> => {
+  const query: DocumentQuery<HulyPerson> = {}
+  if (params.nameSearch !== undefined && params.nameSearch.trim() !== "") {
+    query.name = { $like: `%${escapeLikeWildcards(params.nameSearch)}%` }
+  }
+  if (params.nameRegex !== undefined && params.nameRegex.trim() !== "") {
+    query.name = { $regex: params.nameRegex }
+  }
+  return query
+}
+
+const applyPersonEmailSearch = (
+  client: HulyClient["Type"],
+  query: DocumentQuery<HulyPerson>,
+  emailSearch: string | undefined
+): Effect.Effect<boolean, HulyClientError> =>
+  Effect.gen(function* () {
+    if (emailSearch === undefined || emailSearch === "") return true
+    const matchingPersonIds = yield* findPersonIdsByEmailSearch(client, emailSearch)
+    if (matchingPersonIds.length === 0) return false
+    query._id = { $in: matchingPersonIds }
+    return true
+  })
+
 export const listPersons = (
   params: ListPersonsParams
 ): Effect.Effect<Array<PersonSummary>, ListPersonsError, HulyClient> =>
@@ -103,23 +127,9 @@ export const listPersons = (
     const limit = clampLimit(params.limit)
     const emailSearch = params.emailSearch?.trim()
 
-    const query: DocumentQuery<HulyPerson> = {}
-
-    if (params.nameSearch !== undefined && params.nameSearch.trim() !== "") {
-      query.name = { $like: `%${escapeLikeWildcards(params.nameSearch)}%` }
-    }
-
-    if (params.nameRegex !== undefined && params.nameRegex.trim() !== "") {
-      query.name = { $regex: params.nameRegex }
-    }
-
-    if (emailSearch !== undefined && emailSearch !== "") {
-      const matchingPersonIds = yield* findPersonIdsByEmailSearch(client, emailSearch)
-      if (matchingPersonIds.length === 0) {
-        return []
-      }
-      query._id = { $in: matchingPersonIds }
-    }
+    const query = personNameQuery(params)
+    const hasEmailMatches = yield* applyPersonEmailSearch(client, query, emailSearch)
+    if (!hasEmailMatches) return []
 
     const persons = yield* client.findAll<HulyPerson>(contact.class.Person, query, {
       limit,

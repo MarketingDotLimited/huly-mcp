@@ -74,6 +74,75 @@ const requireUpdatedSequence = (
     : Effect.succeed(sequence)
 }
 
+type ProjectWorkflowData = Effect.Effect.Success<ReturnType<typeof findProjectWithStatuses>>
+type CreateIssueTaskTypeWorkflow = Effect.Effect.Success<ReturnType<typeof resolveTaskTypeWorkflow>>
+
+const resolveCreateIssueTaskType = (
+  client: HulyClient["Type"],
+  project: HulyProject,
+  workflow: Pick<ProjectWorkflowData, "projectType" | "statuses">,
+  params: CreateIssueParams
+): Effect.Effect<CreateIssueTaskTypeWorkflow | undefined, CreateIssueError, Diagnostics> =>
+  params.taskType === undefined
+    ? Effect.succeed(undefined)
+    : resolveTaskTypeWorkflow(client, project, workflow.projectType, workflow.statuses, params.taskType, params.project)
+
+const resolveCreateIssueStatus = (
+  workflow: Pick<ProjectWorkflowData, "defaultStatusId" | "statuses">,
+  taskTypeWorkflow: CreateIssueTaskTypeWorkflow | undefined,
+  params: CreateIssueParams
+): Effect.Effect<Ref<Status>, InvalidStatusError | HulyError> => {
+  if (taskTypeWorkflow !== undefined) {
+    return chooseStatusForTaskType(taskTypeWorkflow, params.status, undefined, params.project)
+  }
+  if (params.status !== undefined) return resolveStatusByName(workflow.statuses, params.status, params.project)
+  if (workflow.defaultStatusId !== undefined) return Effect.succeed(workflow.defaultStatusId)
+  return Effect.fail(new InvalidStatusError({ status: "(default)", project: params.project }))
+}
+
+const resolveCreateIssueAssignee = (
+  client: HulyClient["Type"],
+  params: CreateIssueParams
+): Effect.Effect<Ref<Person> | null, HulyClientError | PersonNotFoundError> =>
+  params.assignee === undefined
+    ? Effect.succeed(null)
+    : Effect.map(resolveAssignee(client, params.assignee), (person) => person._id)
+
+const renderCreateIssueDescription = (
+  params: CreateIssueParams
+): Effect.Effect<
+  Effect.Effect.Success<ReturnType<typeof renderIssueDescriptionForWrite>> | undefined,
+  IssueReferenceError,
+  HulyClient
+> =>
+  params.description !== undefined && params.description.trim() !== ""
+    ? renderIssueDescriptionForWrite(params.description)
+    : Effect.succeed(undefined)
+
+const resolveCreateIssueParent = (
+  client: HulyClient["Type"],
+  project: HulyProject,
+  parentIssue: CreateIssueParams["parentIssue"]
+): Effect.Effect<ReturnType<typeof topLevelIssueParent>, HulyClientError | IssueNotFoundError> =>
+  parentIssue === undefined
+    ? Effect.succeed(topLevelIssueParent())
+    : Effect.map(findIssueInProject(client, project, parentIssue), (parent) => childIssueParent(parent, project._id))
+
+const uploadCreateIssueDescription = (
+  client: HulyClient["Type"],
+  issueId: Ref<HulyIssue>,
+  renderedDescription: Effect.Effect.Success<ReturnType<typeof renderIssueDescriptionForWrite>> | undefined
+): Effect.Effect<MarkupBlobRef | null, HulyClientError> =>
+  renderedDescription === undefined
+    ? Effect.succeed(null)
+    : client.uploadMarkup(
+        tracker.class.Issue,
+        issueId,
+        "description",
+        renderedDescription.markup,
+        renderedDescription.format
+      )
+
 /**
  * Create a new issue in a project.
  *
@@ -92,39 +161,16 @@ export const createIssue = (
 
     const issueId: Ref<HulyIssue> = generateId()
 
-    const taskTypeWorkflow =
-      params.taskType === undefined
-        ? undefined
-        : yield* resolveTaskTypeWorkflow(client, project, projectType, statuses, params.taskType, params.project)
-    const taskTypeStatusRef: Ref<Status> | undefined =
-      taskTypeWorkflow === undefined
-        ? undefined
-        : yield* chooseStatusForTaskType(taskTypeWorkflow, params.status, undefined, params.project)
-    const statusRef: Ref<Status> =
-      taskTypeStatusRef !== undefined
-        ? taskTypeStatusRef
-        : params.status !== undefined
-          ? yield* resolveStatusByName(statuses, params.status, params.project)
-          : defaultStatusId !== undefined
-            ? defaultStatusId
-            : yield* Effect.fail(new InvalidStatusError({ status: "(default)", project: params.project }))
-
-    const assigneeRef: Ref<Person> | null =
-      params.assignee !== undefined ? (yield* resolveAssignee(client, params.assignee))._id : null
-
-    const renderedDescription =
-      params.description !== undefined && params.description.trim() !== ""
-        ? yield* renderIssueDescriptionForWrite(params.description)
-        : undefined
-
-    const parentIssueParam = params.parentIssue
-    const { attachedTo, attachedToClass, collection, parents } =
-      parentIssueParam !== undefined
-        ? yield* Effect.gen(function* () {
-            const parentIssue = yield* findIssueInProject(client, project, parentIssueParam)
-            return childIssueParent(parentIssue, project._id)
-          })
-        : topLevelIssueParent()
+    const workflow = { projectType, statuses, defaultStatusId }
+    const taskTypeWorkflow = yield* resolveCreateIssueTaskType(client, project, workflow, params)
+    const statusRef = yield* resolveCreateIssueStatus(workflow, taskTypeWorkflow, params)
+    const assigneeRef = yield* resolveCreateIssueAssignee(client, params)
+    const renderedDescription = yield* renderCreateIssueDescription(params)
+    const { attachedTo, attachedToClass, collection, parents } = yield* resolveCreateIssueParent(
+      client,
+      project,
+      params.parentIssue
+    )
 
     const incOps: DocumentUpdate<HulyProject> = { $inc: { sequence: 1 } }
     const incResult = yield* client.updateDoc(
@@ -143,16 +189,7 @@ export const createIssue = (
     )
     const rank = makeRank(lastIssue?.rank, undefined)
 
-    const descriptionMarkupRef: MarkupBlobRef | null =
-      renderedDescription === undefined
-        ? null
-        : yield* client.uploadMarkup(
-            tracker.class.Issue,
-            issueId,
-            "description",
-            renderedDescription.markup,
-            renderedDescription.format
-          )
+    const descriptionMarkupRef = yield* uploadCreateIssueDescription(client, issueId, renderedDescription)
 
     const priority = stringToPriority(params.priority ?? DEFAULT_ISSUE_PRIORITY)
     const identifier = `${project.identifier}-${sequence}`

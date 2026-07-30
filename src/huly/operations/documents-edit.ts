@@ -49,99 +49,60 @@ type EditDocumentError =
   | PersonNotFoundError
   | NoUpdateFieldsError
 
-export const editDocument = (
-  params: EditDocumentParams
-): Effect.Effect<EditDocumentResult, EditDocumentError, HulyClient> =>
+const hasSearchReplace = (params: EditDocumentParams): boolean =>
+  params.old_text !== undefined && params.new_text !== undefined
+
+type EditDocumentInputError = DocumentEditModeError | NoUpdateFieldsError
+
+const contentModeInputError = (params: EditDocumentParams): EditDocumentInputError | undefined =>
+  params.content !== undefined && (params.old_text !== undefined || params.new_text !== undefined)
+    ? new DocumentEditModeError({ reason: "content cannot be combined with old_text or new_text" })
+    : undefined
+
+const searchReplacePairInputError = (params: EditDocumentParams): EditDocumentInputError | undefined =>
+  (params.old_text !== undefined) !== (params.new_text !== undefined)
+    ? new DocumentEditModeError({ reason: "old_text and new_text must be provided together" })
+    : undefined
+
+const oldTextInputError = (params: EditDocumentParams): EditDocumentInputError | undefined =>
+  params.old_text !== undefined && params.old_text.trim() === ""
+    ? new DocumentEditModeError({ reason: "old_text must be non-empty" })
+    : undefined
+
+const replaceAllInputError = (params: EditDocumentParams): EditDocumentInputError | undefined =>
+  params.replace_all !== undefined && !hasSearchReplace(params)
+    ? new DocumentEditModeError({ reason: "replace_all requires both old_text and new_text" })
+    : undefined
+
+const missingDocumentUpdateError = (params: EditDocumentParams): EditDocumentInputError | undefined =>
+  params.title === undefined && params.content === undefined && !hasSearchReplace(params)
+    ? new NoUpdateFieldsError({ operation: "edit_document", fields: EDIT_DOCUMENT_UPDATE_FIELD_GROUPS })
+    : undefined
+
+const validateEditDocumentParams = (params: EditDocumentParams): Effect.Effect<void, EditDocumentInputError> => {
+  const error = [
+    contentModeInputError(params),
+    searchReplacePairInputError(params),
+    oldTextInputError(params),
+    replaceAllInputError(params),
+    missingDocumentUpdateError(params)
+  ].find((candidate) => candidate !== undefined)
+  return error === undefined ? Effect.void : Effect.fail(error)
+}
+
+const applyFullDocumentContent = (
+  client: HulyClient["Type"],
+  doc: HulyDocument,
+  content: string,
+  updateOps: DocumentUpdate<HulyDocument>
+): Effect.Effect<void, EditDocumentError, HulyClient> =>
   Effect.gen(function* () {
-    const hasTitleOrContent = params.title !== undefined || params.content !== undefined
-    const hasOldText = params.old_text !== undefined
-    const hasNewText = params.new_text !== undefined
-    const hasSearchReplace = hasOldText && hasNewText
-
-    if (params.content !== undefined && (hasOldText || hasNewText)) {
-      return yield* new DocumentEditModeError({ reason: "content cannot be combined with old_text or new_text" })
+    if (content.trim() === "") {
+      updateOps.content = null
+      return
     }
-
-    if (hasOldText !== hasNewText) {
-      return yield* new DocumentEditModeError({ reason: "old_text and new_text must be provided together" })
-    }
-
-    if (hasOldText && params.old_text.trim() === "") {
-      return yield* new DocumentEditModeError({ reason: "old_text must be non-empty" })
-    }
-
-    if (params.replace_all !== undefined && !hasSearchReplace) {
-      return yield* new DocumentEditModeError({ reason: "replace_all requires both old_text and new_text" })
-    }
-
-    if (!hasTitleOrContent && !hasSearchReplace) {
-      return yield* new NoUpdateFieldsError({ operation: "edit_document", fields: EDIT_DOCUMENT_UPDATE_FIELD_GROUPS })
-    }
-
-    const { client, doc, teamspace } = yield* findTeamspaceAndDocument(params)
-
-    const updateOps: DocumentUpdate<HulyDocument> = {}
-
-    if (params.title !== undefined) {
-      updateOps.title = params.title
-    }
-
-    // Mode 1: Full content replace
-    if (params.content !== undefined) {
-      if (params.content.trim() === "") {
-        updateOps.content = null
-      } else if (doc.content) {
-        const renderedContent = yield* renderDocumentContentForWrite(params.content)
-        yield* client.updateMarkup(
-          documentPlugin.class.Document,
-          doc._id,
-          "content",
-          renderedContent.markup,
-          renderedContent.format
-        )
-      } else {
-        const renderedContent = yield* renderDocumentContentForWrite(params.content)
-        const contentMarkupRef = yield* client.uploadMarkup(
-          documentPlugin.class.Document,
-          doc._id,
-          "content",
-          renderedContent.markup,
-          renderedContent.format
-        )
-        updateOps.content = contentMarkupRef
-      }
-    }
-
-    // Mode 2: Search-and-replace
-    if (params.old_text !== undefined && params.new_text !== undefined) {
-      if (!doc.content) {
-        return yield* new DocumentEmptyContentError({ identifier: params.document })
-      }
-
-      const currentContent: string = yield* client.fetchMarkup(doc._class, doc._id, "content", doc.content, "markdown")
-
-      const occurrences = countOccurrences(currentContent, params.old_text)
-
-      if (occurrences === 0) {
-        return yield* new DocumentTextNotFoundError({ searchText: params.old_text })
-      }
-
-      if (occurrences > 1 && !params.replace_all) {
-        return yield* new DocumentTextMultipleMatchesError({
-          searchText: params.old_text,
-          matchCount: Count.make(occurrences)
-        })
-      }
-
-      // Use indexOf+slice for single replace to avoid $& replacement-pattern
-      // injection in String.prototype.replace. split/join is safe for replace_all.
-      const idx = currentContent.indexOf(params.old_text)
-      const newContent = params.replace_all
-        ? currentContent.split(params.old_text).join(params.new_text)
-        : currentContent.substring(0, idx) + params.new_text + currentContent.substring(idx + params.old_text.length)
-
-      const renderedContent = yield* renderDocumentContentForWrite(newContent)
-
+    const renderedContent = yield* renderDocumentContentForWrite(content)
+    if (doc.content) {
       yield* client.updateMarkup(
         documentPlugin.class.Document,
         doc._id,
@@ -149,15 +110,91 @@ export const editDocument = (
         renderedContent.markup,
         renderedContent.format
       )
+      return
     }
+    updateOps.content = yield* client.uploadMarkup(
+      documentPlugin.class.Document,
+      doc._id,
+      "content",
+      renderedContent.markup,
+      renderedContent.format
+    )
+  })
+
+const applyDocumentSearchReplace = (
+  client: HulyClient["Type"],
+  doc: HulyDocument,
+  identifier: EditDocumentParams["document"],
+  oldText: string,
+  newText: string,
+  replaceAll: boolean
+): Effect.Effect<void, EditDocumentError, HulyClient> =>
+  Effect.gen(function* () {
+    if (!doc.content) return yield* new DocumentEmptyContentError({ identifier })
+    const currentContent = yield* client.fetchMarkup(doc._class, doc._id, "content", doc.content, "markdown")
+    const occurrences = countOccurrences(currentContent, oldText)
+    if (occurrences === 0) return yield* new DocumentTextNotFoundError({ searchText: oldText })
+    if (occurrences > 1 && !replaceAll) {
+      return yield* new DocumentTextMultipleMatchesError({ searchText: oldText, matchCount: Count.make(occurrences) })
+    }
+    const index = currentContent.indexOf(oldText)
+    const newContent = replaceAll
+      ? currentContent.split(oldText).join(newText)
+      : currentContent.substring(0, index) + newText + currentContent.substring(index + oldText.length)
+    const renderedContent = yield* renderDocumentContentForWrite(newContent)
+    yield* client.updateMarkup(
+      documentPlugin.class.Document,
+      doc._id,
+      "content",
+      renderedContent.markup,
+      renderedContent.format
+    )
+  })
+
+const applyDocumentContentEdit = (
+  client: HulyClient["Type"],
+  doc: HulyDocument,
+  params: EditDocumentParams,
+  updateOps: DocumentUpdate<HulyDocument>
+): Effect.Effect<void, EditDocumentError, HulyClient> =>
+  Effect.gen(function* () {
+    if (params.content !== undefined) {
+      return yield* applyFullDocumentContent(client, doc, params.content, updateOps)
+    }
+    if (params.old_text !== undefined && params.new_text !== undefined) {
+      yield* applyDocumentSearchReplace(
+        client,
+        doc,
+        params.document,
+        params.old_text,
+        params.new_text,
+        params.replace_all ?? false
+      )
+    }
+  })
+
+const persistDocumentFields = (
+  client: HulyClient["Type"],
+  doc: HulyDocument,
+  teamspaceId: Parameters<HulyClient["Type"]["updateDoc"]>[1],
+  updateOps: DocumentUpdate<HulyDocument>
+): Effect.Effect<void, HulyClientError> =>
+  Object.keys(updateOps).length === 0
+    ? Effect.void
+    : client.updateDoc(documentPlugin.class.Document, teamspaceId, doc._id, updateOps)
+
+export const editDocument = (
+  params: EditDocumentParams
+): Effect.Effect<EditDocumentResult, EditDocumentError, HulyClient> =>
+  Effect.gen(function* () {
+    yield* validateEditDocumentParams(params)
+    const { client, doc, teamspace } = yield* findTeamspaceAndDocument(params)
+    const updateOps: DocumentUpdate<HulyDocument> = params.title === undefined ? {} : { title: params.title }
+    yield* applyDocumentContentEdit(client, doc, params, updateOps)
 
     const finalTitle = updateOps.title ?? doc.title
     const url = buildDocumentUrlFromConfig(client.workbenchUrlConfig, finalTitle, DocumentId.make(doc._id))
-
-    if (Object.keys(updateOps).length > 0) {
-      yield* client.updateDoc(documentPlugin.class.Document, teamspace._id, doc._id, updateOps)
-    }
-
+    yield* persistDocumentFields(client, doc, teamspace._id, updateOps)
     return { id: DocumentId.make(doc._id), updated: true, url }
   })
 

@@ -14,7 +14,7 @@ When setting up a new project from this one, ALL of these components must be cop
 1. **Test coverage** (`vitest.config.ts`): v8 provider, 99% thresholds, `test:coverage` script. Requires `@vitest/coverage-v8` dev dep.
 2. **Code duplication** (`.jscpd.json` + `jscpd src` in lint script): threshold 2%, console reporter.
 3. **Circular dependency detection** (`dpdm --exit-code circular:1` in `circular`, wired into `check-all`): catches import cycles while ignoring type-only dependencies.
-4. **Cyclomatic complexity** (`oxlint.complexity.json` + `oxlint-complexity-suppressions.json` + `scripts/check-oxlint-complexity.ts`, wired into `check-all`): Oxlint's classic McCabe complexity is capped at 8 for production TypeScript. Existing violations are tracked as removable per-file counts; run `pnpm complexity:prune` after reducing them.
+4. **Cyclomatic complexity** (`oxlint.complexity.json`, wired into `check-all`): Oxlint's classic McCabe complexity is capped at 8 for all production TypeScript, with no suppression baseline.
 5. **Pre-commit hooks** (`.husky/pre-commit`): lint-staged + gitleaks secrets scanning.
 6. **check-all** (`pnpm check-all`): build + TypeScript 7 and Effect diagnostics + circular + complexity + lint (Oxlint + jscpd) + test. Gate for all work.
 7. **Effect testing** (`@effect/vitest`): Effect-aware test runner integration.

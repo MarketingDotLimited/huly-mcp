@@ -395,77 +395,115 @@ export const listTaskTypes = (
     return yield* encodeOrConnectionError(ListTaskTypesResultSchema, result, "listTaskTypes")
   })
 
-export const createTaskType = (
-  params: CreateTaskTypeParams
-): Effect.Effect<CreateTaskTypeResult, TaskManagementError, HulyClient | Diagnostics> =>
+interface ExistingTaskTypePlan {
+  readonly existingProjectStatuses: Array<ProjectStatus>
+  readonly existingTaskTypeStatuses: Array<Ref<Status>>
+  readonly projectTypeChanged: boolean
+  readonly projectTypeTasks: ReadonlyArray<Ref<TaskType>>
+  readonly taskTypeChanged: boolean
+}
+
+const existingTaskTypePlan = (
+  existing: TaskType,
+  projectType: ProjectType,
+  normalizedProjectStatuses: Array<ProjectStatus>
+): ExistingTaskTypePlan => {
+  const existingTaskTypeStatuses = uniqueStatusRefs(existing.statuses)
+  const projectTypeTasks = projectType.tasks.includes(existing._id)
+    ? projectType.tasks
+    : [...projectType.tasks, existing._id]
+  const existingProjectStatuses = existingTaskTypeStatuses.reduce<Array<ProjectStatus>>(
+    (statuses, statusId) => replaceOrAppendProjectStatus(statuses, statusId, existing._id),
+    normalizedProjectStatuses
+  )
+  return {
+    existingTaskTypeStatuses,
+    projectTypeTasks,
+    existingProjectStatuses,
+    taskTypeChanged: !sameStatusRefList(existingTaskTypeStatuses, existing.statuses),
+    projectTypeChanged:
+      projectTypeTasks.length !== projectType.tasks.length ||
+      !sameProjectStatusList(existingProjectStatuses, projectType.statuses)
+  }
+}
+
+const persistExistingTaskTypePlan = (
+  client: HulyClientOperations,
+  existing: TaskType,
+  projectType: ProjectType,
+  plan: ExistingTaskTypePlan
+): Effect.Effect<void, HulyClientError> =>
   Effect.gen(function* () {
-    const client = yield* HulyClient
-    const projectType = yield* resolveProjectType(client, params.projectType)
-    const workflowData = yield* loadWorkflowData(client, projectType)
-    const allProjectTaskTypes = yield* getTaskTypesByProjectType(client, projectType._id)
-    const existing = existingTaskTypeByName(allProjectTaskTypes, params.name)
-    const normalizedProjectStatuses = uniqueProjectStatuses(projectType.statuses)
-
-    if (existing !== undefined) {
-      const existingTaskTypeStatuses = uniqueStatusRefs(existing.statuses)
-      const taskTypeChanged = !sameStatusRefList(existingTaskTypeStatuses, existing.statuses)
-      const projectTypeTasks = projectType.tasks.includes(existing._id)
-        ? projectType.tasks
-        : [...projectType.tasks, existing._id]
-      const existingProjectStatuses = existingTaskTypeStatuses.reduce<Array<ProjectStatus>>(
-        (statuses, statusId) => replaceOrAppendProjectStatus(statuses, statusId, existing._id),
-        normalizedProjectStatuses
-      )
-      const projectTypeChanged =
-        projectTypeTasks.length !== projectType.tasks.length ||
-        !sameProjectStatusList(existingProjectStatuses, projectType.statuses)
-
-      if (taskTypeChanged) {
-        yield* client.updateDoc(task.class.TaskType, core.space.Model, existing._id, {
-          statuses: [...existingTaskTypeStatuses]
-        } satisfies DocumentUpdate<TaskType>)
-      }
-
-      if (projectTypeChanged) {
-        yield* client.updateDoc(task.class.ProjectType, core.space.Model, projectType._id, {
-          tasks: projectTypeTasks,
-          statuses: [...existingProjectStatuses]
-        } satisfies DocumentUpdate<ProjectType>)
-      }
-
-      const result = {
-        created: taskTypeChanged || projectTypeChanged,
-        projectType: projectTypeSummary({
-          projectType: { ...projectType, tasks: projectTypeTasks, statuses: existingProjectStatuses },
-          taskTypes: workflowData.taskTypes.some((taskType) => taskType._id === existing._id)
-            ? workflowData.taskTypes.map((taskType) =>
-                taskType._id === existing._id ? { ...taskType, statuses: existingTaskTypeStatuses } : taskType
-              )
-            : [...workflowData.taskTypes, { ...existing, statuses: existingTaskTypeStatuses }],
-          statuses: workflowData.statuses
-        }),
-        taskType: taskTypeSummary(projectType, { ...existing, statuses: existingTaskTypeStatuses }),
-        affectedTaskTypeIds: [TaskTypeId.make(existing._id)],
-        warning: WORKFLOW_WARNING
-      }
-      return yield* encodeOrConnectionError(CreateTaskTypeResultSchema, result, "createTaskType")
+    if (plan.taskTypeChanged) {
+      yield* client.updateDoc(task.class.TaskType, core.space.Model, existing._id, {
+        statuses: [...plan.existingTaskTypeStatuses]
+      } satisfies DocumentUpdate<TaskType>)
     }
+    if (plan.projectTypeChanged) {
+      yield* client.updateDoc(task.class.ProjectType, core.space.Model, projectType._id, {
+        tasks: [...plan.projectTypeTasks],
+        statuses: [...plan.existingProjectStatuses]
+      } satisfies DocumentUpdate<ProjectType>)
+    }
+  })
 
+const existingTaskTypeResult = (
+  existing: TaskType,
+  projectType: ProjectType,
+  workflowData: WorkflowData,
+  plan: ExistingTaskTypePlan
+): CreateTaskTypeResult => ({
+  created: plan.taskTypeChanged || plan.projectTypeChanged,
+  projectType: projectTypeSummary({
+    projectType: { ...projectType, tasks: [...plan.projectTypeTasks], statuses: plan.existingProjectStatuses },
+    taskTypes: workflowData.taskTypes.some((taskType) => taskType._id === existing._id)
+      ? workflowData.taskTypes.map((taskType) =>
+          taskType._id === existing._id ? { ...taskType, statuses: plan.existingTaskTypeStatuses } : taskType
+        )
+      : [...workflowData.taskTypes, { ...existing, statuses: plan.existingTaskTypeStatuses }],
+    statuses: workflowData.statuses
+  }),
+  taskType: taskTypeSummary(projectType, { ...existing, statuses: plan.existingTaskTypeStatuses }),
+  affectedTaskTypeIds: [TaskTypeId.make(existing._id)],
+  warning: WORKFLOW_WARNING
+})
+
+const repairExistingTaskType = (
+  client: HulyClientOperations,
+  existing: TaskType,
+  projectType: ProjectType,
+  workflowData: WorkflowData,
+  normalizedProjectStatuses: Array<ProjectStatus>
+): Effect.Effect<CreateTaskTypeResult, TaskManagementError, Diagnostics> =>
+  Effect.gen(function* () {
+    const plan = existingTaskTypePlan(existing, projectType, normalizedProjectStatuses)
+    yield* persistExistingTaskTypePlan(client, existing, projectType, plan)
+    return yield* encodeOrConnectionError(
+      CreateTaskTypeResultSchema,
+      existingTaskTypeResult(existing, projectType, workflowData, plan),
+      "createTaskType"
+    )
+  })
+
+const createNewTaskType = (
+  client: HulyClientOperations,
+  params: CreateTaskTypeParams,
+  projectType: ProjectType,
+  workflowData: WorkflowData,
+  normalizedProjectStatuses: Array<ProjectStatus>
+): Effect.Effect<CreateTaskTypeResult, TaskManagementError, Diagnostics> =>
+  Effect.gen(function* () {
     const template =
       params.templateTaskType === undefined
         ? workflowData.taskTypes.at(0)
         : yield* resolveTaskType(workflowData.taskTypes, params.templateTaskType)
     if (template === undefined) {
-      return yield* Effect.fail(
-        new HulyError({ message: `Project type '${projectType.name}' has no task type to copy.` })
-      )
+      return yield* new HulyError({ message: `Project type '${projectType.name}' has no task type to copy.` })
     }
-
     const taskTypeId = generateId<TaskType>()
     const targetClassId = `${taskTypeId}:type:mixin`
     const targetClassRef = toRef<Class<Task>>(targetClassId)
     const templateStatusIds = uniqueStatusRefs(template.statuses)
-
     yield* client.createDoc(
       core.class.Mixin,
       core.space.Model,
@@ -481,7 +519,6 @@ export const createTaskType = (
       taskType: taskTypeId,
       projectType: projectType._id
     })
-
     const taskTypeData: Data<TaskType> = {
       parent: projectType._id,
       descriptor: template.descriptor,
@@ -496,21 +533,15 @@ export const createTaskType = (
       ...(template.icon === undefined ? {} : { icon: template.icon }),
       ...(template.color === undefined ? {} : { color: template.color })
     }
-
     yield* client.createDoc(task.class.TaskType, core.space.Model, taskTypeData, taskTypeId)
-    yield* client.updateDoc(task.class.ProjectType, core.space.Model, projectType._id, {
-      tasks: [...projectType.tasks, taskTypeId],
-      statuses: [
-        ...normalizedProjectStatuses,
-        ...templateStatusIds.map((statusId) => ({ _id: statusId, taskType: taskTypeId }))
-      ]
-    } satisfies DocumentUpdate<ProjectType>)
-
     const createdProjectStatuses = [
       ...normalizedProjectStatuses,
       ...templateStatusIds.map((statusId) => ({ _id: statusId, taskType: taskTypeId }))
     ]
-
+    yield* client.updateDoc(task.class.ProjectType, core.space.Model, projectType._id, {
+      tasks: [...projectType.tasks, taskTypeId],
+      statuses: createdProjectStatuses
+    } satisfies DocumentUpdate<ProjectType>)
     const createdTaskType = {
       ...template,
       _id: taskTypeId,
@@ -534,42 +565,63 @@ export const createTaskType = (
     return yield* encodeOrConnectionError(CreateTaskTypeResultSchema, result, "createTaskType")
   })
 
-export const createIssueStatus = (
-  params: CreateIssueStatusParams
-): Effect.Effect<CreateIssueStatusResult, TaskManagementError, HulyClient | Diagnostics> =>
+export const createTaskType = (
+  params: CreateTaskTypeParams
+): Effect.Effect<CreateTaskTypeResult, TaskManagementError, HulyClient | Diagnostics> =>
   Effect.gen(function* () {
     const client = yield* HulyClient
     const projectType = yield* resolveProjectType(client, params.projectType)
     const workflowData = yield* loadWorkflowData(client, projectType)
+    const allProjectTaskTypes = yield* getTaskTypesByProjectType(client, projectType._id)
+    const existing = existingTaskTypeByName(allProjectTaskTypes, params.name)
     const normalizedProjectStatuses = uniqueProjectStatuses(projectType.statuses)
-    const targetTaskTypes =
-      params.taskType === undefined
-        ? workflowData.taskTypes
-        : [yield* resolveTaskType(workflowData.taskTypes, params.taskType)]
-    const statusClass = yield* resolveStatusClass(targetTaskTypes)
-    const statusesByName = yield* getRecoverableStatusesByName(client, params.name)
-    const existingStatus = existingStatusByName([...workflowData.statuses, ...statusesByName], params.name)
-    const statusId = existingStatus?._id ?? generateId<Status>()
 
+    if (existing !== undefined) {
+      return yield* repairExistingTaskType(client, existing, projectType, workflowData, normalizedProjectStatuses)
+    }
+    return yield* createNewTaskType(client, params, projectType, workflowData, normalizedProjectStatuses)
+  })
+
+const resolveStatusTargetTaskTypes = (
+  workflowData: WorkflowData,
+  taskType: CreateIssueStatusParams["taskType"]
+): Effect.Effect<ReadonlyArray<TaskType>, HulyError> =>
+  taskType === undefined
+    ? Effect.succeed(workflowData.taskTypes)
+    : Effect.map(resolveTaskType(workflowData.taskTypes, taskType), (resolved) => [resolved])
+
+const ensureIssueStatusDocument = (
+  client: HulyClientOperations,
+  statusClass: Ref<Class<Status>>,
+  existingStatus: StatusMetadata | undefined,
+  statusId: Ref<Status>,
+  params: CreateIssueStatusParams
+): Effect.Effect<void, TaskManagementError> =>
+  Effect.gen(function* () {
     if (existingStatus !== undefined) {
       yield* requireStatusCategoryMatch(existingStatus, params.category)
+      return
     }
+    yield* client.createDoc(
+      statusClass,
+      core.space.Model,
+      { ofAttribute: tracker.attribute.IssueStatus, name: params.name, category: CATEGORY_TO_REF[params.category] },
+      statusId
+    )
+  })
 
-    if (existingStatus === undefined) {
-      yield* client.createDoc(
-        statusClass,
-        core.space.Model,
-        { ofAttribute: tracker.attribute.IssueStatus, name: params.name, category: CATEGORY_TO_REF[params.category] },
-        statusId
-      )
-    }
-
-    const taskTypesNeedingStatusUpdate = targetTaskTypes.filter((taskType) => {
-      const normalizedStatuses = uniqueStatusRefs(taskType.statuses)
-      return !normalizedStatuses.includes(statusId) || !sameStatusRefList(normalizedStatuses, taskType.statuses)
-    })
-    yield* Effect.all(
-      taskTypesNeedingStatusUpdate.map((taskType) => {
+const updateTaskTypesWithStatus = (
+  client: HulyClientOperations,
+  targetTaskTypes: ReadonlyArray<TaskType>,
+  statusId: Ref<Status>
+): Effect.Effect<Array<TaskType>, HulyClientError> => {
+  const needingUpdate = targetTaskTypes.filter((taskType) => {
+    const normalizedStatuses = uniqueStatusRefs(taskType.statuses)
+    return !normalizedStatuses.includes(statusId) || !sameStatusRefList(normalizedStatuses, taskType.statuses)
+  })
+  return Effect.as(
+    Effect.all(
+      needingUpdate.map((taskType) => {
         const normalizedStatuses = uniqueStatusRefs(taskType.statuses)
         const updatedStatuses = normalizedStatuses.includes(statusId)
           ? normalizedStatuses
@@ -578,34 +630,84 @@ export const createIssueStatus = (
           statuses: [...updatedStatuses]
         } satisfies DocumentUpdate<TaskType>)
       })
-    )
+    ),
+    needingUpdate
+  )
+}
+
+const updateProjectTypeWithStatus = (
+  client: HulyClientOperations,
+  projectType: ProjectType,
+  updatedProjectStatuses: ReadonlyArray<ProjectStatus>
+): Effect.Effect<boolean, HulyClientError> =>
+  Effect.gen(function* () {
+    const changed = !sameProjectStatusList(updatedProjectStatuses, projectType.statuses)
+    if (changed) {
+      yield* client.updateDoc(task.class.ProjectType, core.space.Model, projectType._id, {
+        statuses: [...updatedProjectStatuses]
+      } satisfies DocumentUpdate<ProjectType>)
+    }
+    return changed
+  })
+
+const createIssueStatusResult = (
+  projectType: ProjectType,
+  workflowData: WorkflowData,
+  targetTaskTypes: ReadonlyArray<TaskType>,
+  statusDoc: StatusMetadata,
+  updatedProjectStatuses: Array<ProjectStatus>,
+  existingStatus: StatusMetadata | undefined,
+  taskTypesNeedingStatusUpdate: ReadonlyArray<TaskType>,
+  projectTypeChanged: boolean
+): CreateIssueStatusResult => ({
+  created: existingStatus === undefined || taskTypesNeedingStatusUpdate.length > 0 || projectTypeChanged,
+  projectType: projectTypeSummary({
+    projectType: { ...projectType, statuses: updatedProjectStatuses },
+    taskTypes: workflowData.taskTypes,
+    statuses: existingStatus === undefined ? [...workflowData.statuses, statusDoc] : workflowData.statuses
+  }),
+  status: statusSummary({ ...projectType, statuses: updatedProjectStatuses }, statusDoc),
+  affectedTaskTypeIds: targetTaskTypes.map((taskType) => TaskTypeId.make(taskType._id)),
+  warning: WORKFLOW_WARNING
+})
+
+export const createIssueStatus = (
+  params: CreateIssueStatusParams
+): Effect.Effect<CreateIssueStatusResult, TaskManagementError, HulyClient | Diagnostics> =>
+  Effect.gen(function* () {
+    const client = yield* HulyClient
+    const projectType = yield* resolveProjectType(client, params.projectType)
+    const workflowData = yield* loadWorkflowData(client, projectType)
+    const normalizedProjectStatuses = uniqueProjectStatuses(projectType.statuses)
+    const targetTaskTypes = yield* resolveStatusTargetTaskTypes(workflowData, params.taskType)
+    const statusClass = yield* resolveStatusClass(targetTaskTypes)
+    const statusesByName = yield* getRecoverableStatusesByName(client, params.name)
+    const existingStatus = existingStatusByName([...workflowData.statuses, ...statusesByName], params.name)
+    const statusId = existingStatus?._id ?? generateId<Status>()
+
+    yield* ensureIssueStatusDocument(client, statusClass, existingStatus, statusId, params)
+    const taskTypesNeedingStatusUpdate = yield* updateTaskTypesWithStatus(client, targetTaskTypes, statusId)
 
     const updatedProjectStatuses = targetTaskTypes.reduce<Array<ProjectStatus>>(
       (statuses, taskType) => replaceOrAppendProjectStatus(statuses, statusId, taskType._id),
       normalizedProjectStatuses
     )
-    const projectTypeChanged = !sameProjectStatusList(updatedProjectStatuses, projectType.statuses)
-    if (projectTypeChanged) {
-      yield* client.updateDoc(task.class.ProjectType, core.space.Model, projectType._id, {
-        statuses: [...updatedProjectStatuses]
-      } satisfies DocumentUpdate<ProjectType>)
-    }
+    const projectTypeChanged = yield* updateProjectTypeWithStatus(client, projectType, updatedProjectStatuses)
 
     const statusDoc: StatusMetadata = existingStatus ?? {
       _id: statusId,
       name: StatusName.make(params.name),
       category: CATEGORY_TO_REF[params.category]
     }
-    const result = {
-      created: existingStatus === undefined || taskTypesNeedingStatusUpdate.length > 0 || projectTypeChanged,
-      projectType: projectTypeSummary({
-        projectType: { ...projectType, statuses: updatedProjectStatuses },
-        taskTypes: workflowData.taskTypes,
-        statuses: existingStatus === undefined ? [...workflowData.statuses, statusDoc] : workflowData.statuses
-      }),
-      status: statusSummary({ ...projectType, statuses: updatedProjectStatuses }, statusDoc),
-      affectedTaskTypeIds: targetTaskTypes.map((taskType) => TaskTypeId.make(taskType._id)),
-      warning: WORKFLOW_WARNING
-    }
+    const result = createIssueStatusResult(
+      projectType,
+      workflowData,
+      targetTaskTypes,
+      statusDoc,
+      updatedProjectStatuses,
+      existingStatus,
+      taskTypesNeedingStatusUpdate,
+      projectTypeChanged
+    )
     return yield* encodeOrConnectionError(CreateIssueStatusResultSchema, result, "createIssueStatus")
   })

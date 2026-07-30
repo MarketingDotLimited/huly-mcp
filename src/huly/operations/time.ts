@@ -71,6 +71,91 @@ type ListWorkSlotsError = HulyClientError
 type StartTimerError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
 type StopTimerError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
 
+type TimeSpendReportWithLookup = WithLookup<HulyTimeSpendReport> & {
+  $lookup?: { attachedTo?: HulyIssue; employee?: Person }
+}
+
+interface IssueTimeAccumulator {
+  identifier?: IssueIdentifier
+  issueTitle: string
+  totalTime: TimeHours
+  reports: Array<TimeSpendReport>
+}
+
+interface EmployeeTimeAccumulator {
+  employeeName?: PersonName
+  totalTime: TimeHours
+}
+
+const timeReportIdentifier = (report: TimeSpendReportWithLookup): IssueIdentifier | undefined =>
+  report.$lookup?.attachedTo?.identifier === undefined
+    ? undefined
+    : IssueIdentifier.make(report.$lookup.attachedTo.identifier)
+
+const timeReportEmployee = (report: TimeSpendReportWithLookup): PersonName | undefined =>
+  report.$lookup?.employee?.name === undefined ? undefined : PersonName.make(report.$lookup.employee.name)
+
+const timeSpendReportSummary = (report: TimeSpendReportWithLookup): TimeSpendReport => {
+  const identifier = timeReportIdentifier(report)
+  const employee = timeReportEmployee(report)
+  return {
+    id: TimeSpendReportId.make(report._id),
+    ...(identifier === undefined ? {} : { identifier }),
+    ...(employee === undefined ? {} : { employee }),
+    date: toTimeReportDate(report.date),
+    value: TimeHours.make(report.value),
+    description: report.description
+  }
+}
+
+const applyTimeReportDateRange = (
+  query: DocumentQuery<TimeSpendReportWithLookup>,
+  from: ListTimeSpendReportsParams["from"],
+  to: ListTimeSpendReportsParams["to"]
+): void => {
+  if (from === undefined && to === undefined) return
+  const dateFilter: DocumentQuery<HulyTimeSpendReport>["date"] = {}
+  if (from !== undefined) dateFilter.$gte = from
+  if (to !== undefined) dateFilter.$lte = to
+  query.date = dateFilter
+}
+
+const makeIssueTimeAccumulator = (report: TimeSpendReportWithLookup): IssueTimeAccumulator => {
+  const identifier = timeReportIdentifier(report)
+  return {
+    ...(identifier === undefined ? {} : { identifier }),
+    issueTitle: report.$lookup?.attachedTo?.title ?? "Unknown",
+    totalTime: TimeHours.make(0),
+    reports: []
+  }
+}
+
+const accumulateIssueTime = (
+  report: TimeSpendReportWithLookup,
+  reportHours: TimeHours,
+  byIssueMap: Map<HulyTimeSpendReport["attachedTo"], IssueTimeAccumulator>
+): void => {
+  const existing = byIssueMap.get(report.attachedTo) ?? makeIssueTimeAccumulator(report)
+  existing.totalTime = TimeHours.make(existing.totalTime + reportHours)
+  existing.reports.push(timeSpendReportSummary(report))
+  byIssueMap.set(report.attachedTo, existing)
+}
+
+const makeEmployeeTimeAccumulator = (report: TimeSpendReportWithLookup): EmployeeTimeAccumulator => {
+  const employeeName = timeReportEmployee(report)
+  return { ...(employeeName === undefined ? {} : { employeeName }), totalTime: TimeHours.make(0) }
+}
+
+const accumulateEmployeeTime = (
+  report: TimeSpendReportWithLookup,
+  reportHours: TimeHours,
+  byEmployeeMap: Map<HulyTimeSpendReport["employee"], EmployeeTimeAccumulator>
+): void => {
+  const existing = byEmployeeMap.get(report.employee) ?? makeEmployeeTimeAccumulator(report)
+  existing.totalTime = TimeHours.make(existing.totalTime + reportHours)
+  byEmployeeMap.set(report.employee, existing)
+}
+
 export const logTime = (params: LogTimeParams): Effect.Effect<LogTimeResult, LogTimeError, HulyClient> =>
   Effect.gen(function* () {
     const { client, issue, project } = yield* findProjectAndIssue({
@@ -172,10 +257,6 @@ export const listTimeSpendReports = (
   Effect.gen(function* () {
     const client = yield* HulyClient
 
-    type TimeSpendReportWithLookup = WithLookup<HulyTimeSpendReport> & {
-      $lookup?: { attachedTo?: HulyIssue; employee?: Person }
-    }
-
     const query: DocumentQuery<TimeSpendReportWithLookup> = {}
 
     if (params.project !== undefined) {
@@ -186,12 +267,7 @@ export const listTimeSpendReports = (
       query.space = project._id
     }
 
-    if (params.from !== undefined || params.to !== undefined) {
-      const dateFilter: DocumentQuery<HulyTimeSpendReport>["date"] = {}
-      if (params.from !== undefined) dateFilter.$gte = params.from
-      if (params.to !== undefined) dateFilter.$lte = params.to
-      query.date = dateFilter
-    }
+    applyTimeReportDateRange(query, params.from, params.to)
 
     const limit = clampLimit(params.limit)
 
@@ -204,23 +280,7 @@ export const listTimeSpendReports = (
       )
     )
 
-    return reports.map((r) => {
-      const identifier =
-        r.$lookup?.attachedTo?.identifier !== undefined
-          ? IssueIdentifier.make(r.$lookup.attachedTo.identifier)
-          : undefined
-      const employee = r.$lookup?.employee?.name !== undefined ? PersonName.make(r.$lookup.employee.name) : undefined
-      const date = toTimeReportDate(r.date)
-
-      return {
-        id: TimeSpendReportId.make(r._id),
-        ...(identifier === undefined ? {} : { identifier }),
-        ...(employee === undefined ? {} : { employee }),
-        date,
-        value: TimeHours.make(r.value),
-        description: r.description
-      }
-    })
+    return reports.map(timeSpendReportSummary)
   })
 
 export const getDetailedTimeReport = (
@@ -229,18 +289,9 @@ export const getDetailedTimeReport = (
   Effect.gen(function* () {
     const { client, project } = yield* findProject(params.project)
 
-    type TimeSpendReportWithLookup = WithLookup<HulyTimeSpendReport> & {
-      $lookup?: { attachedTo?: HulyIssue; employee?: Person }
-    }
-
     const query: DocumentQuery<TimeSpendReportWithLookup> = { space: project._id }
 
-    if (params.from !== undefined || params.to !== undefined) {
-      const dateFilter: DocumentQuery<HulyTimeSpendReport>["date"] = {}
-      if (params.from !== undefined) dateFilter.$gte = params.from
-      if (params.to !== undefined) dateFilter.$lte = params.to
-      query.date = dateFilter
-    }
+    applyTimeReportDateRange(query, params.from, params.to)
 
     const reports = yield* client.findAll<TimeSpendReportWithLookup>(
       tracker.class.TimeSpendReport,
@@ -251,16 +302,6 @@ export const getDetailedTimeReport = (
       )
     )
 
-    interface IssueTimeAccumulator {
-      identifier?: IssueIdentifier
-      issueTitle: string
-      totalTime: TimeHours
-      reports: Array<TimeSpendReport>
-    }
-    interface EmployeeTimeAccumulator {
-      employeeName?: PersonName
-      totalTime: TimeHours
-    }
     const byIssueMap = new Map<HulyTimeSpendReport["attachedTo"], IssueTimeAccumulator>()
     const byEmployeeMap = new Map<HulyTimeSpendReport["employee"], EmployeeTimeAccumulator>()
 
@@ -269,38 +310,8 @@ export const getDetailedTimeReport = (
     for (const r of reports) {
       const reportHours = TimeHours.make(r.value)
       totalTime = TimeHours.make(totalTime + reportHours)
-
-      const issueKey = r.attachedTo
-      const issue = r.$lookup?.attachedTo
-      const identifier = issue?.identifier === undefined ? undefined : IssueIdentifier.make(issue.identifier)
-      const existing = byIssueMap.get(issueKey) ?? {
-        ...(identifier === undefined ? {} : { identifier }),
-        issueTitle: issue?.title ?? "Unknown",
-        totalTime: TimeHours.make(0),
-        reports: []
-      }
-      existing.totalTime = TimeHours.make(existing.totalTime + reportHours)
-      const employee = r.$lookup?.employee?.name === undefined ? undefined : PersonName.make(r.$lookup.employee.name)
-      const date = toTimeReportDate(r.date)
-      existing.reports.push({
-        id: TimeSpendReportId.make(r._id),
-        ...(identifier === undefined ? {} : { identifier }),
-        ...(employee === undefined ? {} : { employee }),
-        date,
-        value: reportHours,
-        description: r.description
-      })
-      byIssueMap.set(issueKey, existing)
-
-      const empKey = r.employee
-      const employeeName =
-        r.$lookup?.employee?.name === undefined ? undefined : PersonName.make(r.$lookup.employee.name)
-      const empExisting = byEmployeeMap.get(empKey) ?? {
-        ...(employeeName === undefined ? {} : { employeeName }),
-        totalTime: TimeHours.make(0)
-      }
-      empExisting.totalTime = TimeHours.make(empExisting.totalTime + reportHours)
-      byEmployeeMap.set(empKey, empExisting)
+      accumulateIssueTime(r, reportHours, byIssueMap)
+      accumulateEmployeeTime(r, reportHours, byEmployeeMap)
     }
 
     const byIssue: DetailedTimeReport["byIssue"] = Array.from(byIssueMap.values())

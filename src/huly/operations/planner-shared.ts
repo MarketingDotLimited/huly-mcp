@@ -228,6 +228,30 @@ const queryForAttachment = (query: StrictDocumentQuery<HulyToDo>, attachment: Re
 // Error diagnostics use compact JSON because locators are already LLM-facing shapes.
 const describeLocator = (locator: TodoLocator): string => JSON.stringify(locator)
 
+const applyTodoDueDateFilters = (
+  query: StrictDocumentQuery<HulyToDo>,
+  dueFrom: Timestamp | undefined,
+  dueTo: Timestamp | undefined
+): void => {
+  if (dueFrom === undefined && dueTo === undefined) return
+  query.dueDate = {}
+  if (dueFrom !== undefined) query.dueDate.$gte = dueFrom
+  if (dueTo !== undefined) query.dueDate.$lte = dueTo
+}
+
+const applyTodoValueFilters = (
+  query: StrictDocumentQuery<HulyToDo>,
+  filters: {
+    readonly title?: NonEmptyString | undefined
+    readonly priority?: TodoPriority | undefined
+    readonly visibility?: TodoVisibility | undefined
+  }
+): void => {
+  if (filters.title !== undefined) query.title = filters.title
+  if (filters.priority !== undefined) query.priority = stringToTodoPriority(filters.priority)
+  if (filters.visibility !== undefined) query.visibility = stringToTodoVisibility(filters.visibility)
+}
+
 export const queryFromListFilters = (
   owner: Ref<Employee> | undefined,
   attachment: ResolvedTodoAttachment | undefined,
@@ -243,15 +267,9 @@ export const queryFromListFilters = (
   const query: StrictDocumentQuery<HulyToDo> = {}
   if (owner !== undefined) query.user = owner
   if (attachment !== undefined) queryForAttachment(query, attachment)
-  if (filters.title !== undefined) query.title = filters.title
-  if (filters.dueFrom !== undefined || filters.dueTo !== undefined) {
-    query.dueDate = {}
-    if (filters.dueFrom !== undefined) query.dueDate.$gte = filters.dueFrom
-    if (filters.dueTo !== undefined) query.dueDate.$lte = filters.dueTo
-  }
+  applyTodoValueFilters(query, filters)
+  applyTodoDueDateFilters(query, filters.dueFrom, filters.dueTo)
   applyCompletionState(query, filters.completionState)
-  if (filters.priority !== undefined) query.priority = stringToTodoPriority(filters.priority)
-  if (filters.visibility !== undefined) query.visibility = stringToTodoVisibility(filters.visibility)
   return query
 }
 

@@ -75,19 +75,35 @@ const hulyRuleToRule = (rule: HulyRecurringRule): Effect.Effect<RecurringRule, H
     )
   )
 
-const ruleToHulyRule = (rule: RecurringRule): HulyRecurringRule => {
-  const result: HulyRecurringRule = { freq: rule.freq }
-
+const applyRecurringRuleScalarFields = (result: HulyRecurringRule, rule: RecurringRule): void => {
   if (rule.endDate !== undefined) result.endDate = rule.endDate
   if (rule.count !== undefined) result.count = rule.count
   if (rule.interval !== undefined) result.interval = rule.interval
+  if (rule.wkst !== undefined) result.wkst = rule.wkst
+}
+
+const applyRecurringRuleListFields = (result: HulyRecurringRule, rule: RecurringRule): void => {
   if (rule.byDay !== undefined) result.byDay = [...rule.byDay]
   if (rule.byMonthDay !== undefined) result.byMonthDay = [...rule.byMonthDay]
   if (rule.byMonth !== undefined) result.byMonth = [...rule.byMonth]
   if (rule.bySetPos !== undefined) result.bySetPos = [...rule.bySetPos]
-  if (rule.wkst !== undefined) result.wkst = rule.wkst
+}
 
+const ruleToHulyRule = (rule: RecurringRule): HulyRecurringRule => {
+  const result: HulyRecurringRule = { freq: rule.freq }
+  applyRecurringRuleScalarFields(result, rule)
+  applyRecurringRuleListFields(result, rule)
   return result
+}
+
+const applyRecurringEventOptionalFields = (
+  eventData: AttachedData<HulyRecurringEvent>,
+  params: CreateRecurringEventParams
+): void => {
+  eventData.externalParticipants = params.externalParticipants === undefined ? [] : [...params.externalParticipants]
+  if (params.reminders !== undefined) eventData.reminders = [...params.reminders]
+  if (params.location !== undefined) eventData.location = params.location
+  if (params.visibility !== undefined) eventData.visibility = params.visibility
 }
 
 export const listRecurringEvents = (
@@ -160,23 +176,7 @@ export const createRecurringEvent = (
       timeZone: params.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
     }
 
-    if (params.externalParticipants !== undefined) {
-      eventData.externalParticipants = [...params.externalParticipants]
-    } else {
-      eventData.externalParticipants = []
-    }
-
-    if (params.reminders !== undefined) {
-      eventData.reminders = [...params.reminders]
-    }
-
-    if (params.location !== undefined) {
-      eventData.location = params.location
-    }
-
-    if (params.visibility !== undefined) {
-      eventData.visibility = params.visibility
-    }
+    applyRecurringEventOptionalFields(eventData, params)
 
     yield* client.addCollection(
       calendar.class.ReccuringEvent,

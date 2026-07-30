@@ -92,6 +92,29 @@ export const createInventoryProduct = (
     return { id: InventoryProductId.make(id), created: true }
   })
 
+const updateProductCollection = (
+  client: HulyClient["Type"],
+  product: HulyInventoryProduct,
+  newCategory: HulyInventoryCategory | undefined,
+  update: DocumentUpdate<HulyInventoryProduct>
+): Effect.Effect<void, InventoryError> =>
+  Effect.gen(function* () {
+    if (newCategory === undefined) {
+      return yield* client.updateDoc(inventory.class.Product, workspace, product._id, update)
+    }
+    const updateCollection = requireUpdateCollection(client)
+    if (updateCollection instanceof InventoryMutationUnsupportedError) return yield* updateCollection
+    yield* updateCollection(
+      inventory.class.Product,
+      workspace,
+      product._id,
+      newCategory._id,
+      inventory.class.Category,
+      PRODUCTS_COLLECTION,
+      update
+    )
+  })
+
 export const updateInventoryProduct = (
   params: UpdateInventoryProductParams
 ): Effect.Effect<InventoryUpdatedResult, InventoryError, HulyClient> =>
@@ -114,22 +137,26 @@ export const updateInventoryProduct = (
         : { attachedTo: newCategory._id, attachedToClass: inventory.class.Category, collection: PRODUCTS_COLLECTION }
     ]
     const update = mergeUpdateEntries(entries)
-    if (newCategory === undefined) {
-      yield* client.updateDoc(inventory.class.Product, workspace, product._id, update)
-    } else {
-      const updateCollection = requireUpdateCollection(client)
-      if (updateCollection instanceof InventoryMutationUnsupportedError) return yield* updateCollection
-      yield* updateCollection(
-        inventory.class.Product,
-        workspace,
-        product._id,
-        newCategory._id,
-        inventory.class.Category,
-        PRODUCTS_COLLECTION,
-        update
-      )
-    }
+    yield* updateProductCollection(client, product, newCategory, update)
     return { id: InventoryProductId.make(product._id), updated: true }
+  })
+
+interface InventoryProductContents {
+  readonly attachmentCount: number
+  readonly commentCount: number
+  readonly photoCount: number
+  readonly variantCount: number
+}
+
+const productHasContents = (contents: InventoryProductContents): boolean =>
+  Object.values(contents).some((count) => count > 0)
+
+const inventoryNotEmptyError = (
+  product: HulyInventoryProduct,
+  contents: InventoryProductContents
+): InventoryNotEmptyError =>
+  new InventoryNotEmptyError({
+    message: `Inventory product '${product.name}' is not empty: ${contents.variantCount} variants, ${contents.photoCount} photos, ${contents.attachmentCount} attachments, ${contents.commentCount} comments`
   })
 
 export const deleteInventoryProduct = (
@@ -166,15 +193,13 @@ export const deleteInventoryProduct = (
       }),
       { total: true }
     )
-    const variantCount = Math.max(product.variants ?? 0, variants.length)
-    const attachmentCount = Math.max(product.attachments ?? 0, findResultTotal(attachments))
-    const photoCount = Math.max(product.photos ?? 0, findResultTotal(photos))
-    const commentCount = findResultTotal(comments)
-    if (variantCount > 0 || photoCount > 0 || attachmentCount > 0 || commentCount > 0) {
-      return yield* new InventoryNotEmptyError({
-        message: `Inventory product '${product.name}' is not empty: ${variantCount} variants, ${photoCount} photos, ${attachmentCount} attachments, ${commentCount} comments`
-      })
+    const contents: InventoryProductContents = {
+      variantCount: Math.max(product.variants ?? 0, variants.length),
+      attachmentCount: Math.max(product.attachments ?? 0, findResultTotal(attachments)),
+      photoCount: Math.max(product.photos ?? 0, findResultTotal(photos)),
+      commentCount: findResultTotal(comments)
     }
+    if (productHasContents(contents)) return yield* inventoryNotEmptyError(product, contents)
     const removeCollection = requireRemoveCollection(client)
     if (removeCollection instanceof InventoryMutationUnsupportedError) return yield* removeCollection
     yield* removeCollection(

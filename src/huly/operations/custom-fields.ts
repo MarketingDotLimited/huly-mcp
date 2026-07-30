@@ -86,17 +86,30 @@ const decodeSdkRecord = (value: unknown): JsonMap => {
 const modelLabelOrDefault = (value: unknown, fallback: string): string =>
   Either.getOrElse(decodeHulyModelLabelTail(value), () => fallback)
 
-const decodeTypeDescriptor = (value: unknown): TypeDescriptor => {
-  const record = decodeSdkRecord(value)
-  const typeName = hulyCustomFieldTypeNameFromClass(record._class)
+type SimpleCustomFieldType = "boolean" | "date" | "markup" | "number" | "string"
 
+const simpleCustomFieldType = (
+  typeName: ReturnType<typeof hulyCustomFieldTypeNameFromClass>
+): SimpleCustomFieldType | undefined => {
   switch (typeName) {
     case "string":
     case "number":
     case "boolean":
     case "date":
     case "markup":
-      return { typeName, typeDetails: {} }
+      return typeName
+    default:
+      return undefined
+  }
+}
+
+const decodeTypeDescriptor = (value: unknown): TypeDescriptor => {
+  const record = decodeSdkRecord(value)
+  const typeName = hulyCustomFieldTypeNameFromClass(record._class)
+  const simpleType = simpleCustomFieldType(typeName)
+  if (simpleType !== undefined) return { typeName: simpleType, typeDetails: {} }
+
+  switch (typeName) {
     case "enum":
       return { typeName, typeDetails: { ...record, enumRef: record.of } }
     case "array":
@@ -105,6 +118,8 @@ const decodeTypeDescriptor = (value: unknown): TypeDescriptor => {
       return { typeName, typeDetails: { ...record, to: record.to } }
     case "unknown":
       return { typeName, typeDetails: record }
+    default:
+      return { typeName, typeDetails: {} }
   }
 }
 

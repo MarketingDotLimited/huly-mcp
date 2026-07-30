@@ -120,6 +120,31 @@ const fetchFullDescription = (client: HulyClient["Type"], vacancy: Vacancy) =>
         "markdown"
       )
 
+const vacancyDescriptionFields = (
+  vacancy: Vacancy,
+  fullDescription: string | undefined
+): Pick<VacancyDetail, "fullDescription" | "shortDescription"> => ({
+  ...(vacancy.description === "" ? {} : { shortDescription: vacancy.description }),
+  ...(fullDescription === undefined || fullDescription === "" ? {} : { fullDescription })
+})
+
+const vacancyLocationFields = (vacancy: Vacancy): Pick<VacancyDetail, "createdOn" | "dueTo" | "location"> => ({
+  ...(vacancy.location === undefined || vacancy.location === "" ? {} : { location: vacancy.location }),
+  ...(vacancy.dueTo === undefined ? {} : { dueTo: Timestamp.make(vacancy.dueTo) }),
+  ...(vacancy.createdOn === undefined ? {} : { createdOn: Timestamp.make(vacancy.createdOn) })
+})
+
+const vacancyCountFields = (vacancy: Vacancy): Pick<VacancyDetail, "applicants" | "attachments" | "comments"> => {
+  const applicants = optionalCount(vacancy.applications)
+  const comments = optionalCount(vacancy.comments)
+  const attachments = optionalCount(vacancy.attachments)
+  return {
+    ...(applicants === undefined ? {} : { applicants }),
+    ...(comments === undefined ? {} : { comments }),
+    ...(attachments === undefined ? {} : { attachments })
+  }
+}
+
 const toVacancyDetail = (
   client: HulyClient["Type"],
   vacancy: Vacancy
@@ -130,24 +155,15 @@ const toVacancyDetail = (
       fetchFullDescription(client, vacancy),
       companySummary(client, vacancy.company)
     ])
-    const applicants = optionalCount(vacancy.applications)
-    const comments = optionalCount(vacancy.comments)
-    const attachments = optionalCount(vacancy.attachments)
-
     return {
       ...toVacancyRef(vacancy),
-      ...(vacancy.description === "" ? {} : { shortDescription: vacancy.description }),
-      ...(fullDescription === undefined || fullDescription === "" ? {} : { fullDescription }),
+      ...vacancyDescriptionFields(vacancy, fullDescription),
       type: toVacancyTypeSummary(type),
       ...(company === undefined ? {} : { company }),
-      ...(vacancy.location === undefined || vacancy.location === "" ? {} : { location: vacancy.location }),
-      ...(vacancy.dueTo === undefined ? {} : { dueTo: Timestamp.make(vacancy.dueTo) }),
+      ...vacancyLocationFields(vacancy),
       private: vacancy.private,
-      ...(applicants === undefined ? {} : { applicants }),
-      ...(comments === undefined ? {} : { comments }),
-      ...(attachments === undefined ? {} : { attachments }),
-      modifiedOn: Timestamp.make(vacancy.modifiedOn),
-      ...(vacancy.createdOn === undefined ? {} : { createdOn: Timestamp.make(vacancy.createdOn) })
+      ...vacancyCountFields(vacancy),
+      modifiedOn: Timestamp.make(vacancy.modifiedOn)
     }
   })
 
@@ -255,6 +271,49 @@ export const createRecruitingVacancy = (
     }
   })
 
+const vacancyBasicUpdate = (params: UpdateRecruitingVacancyParams): DocumentUpdate<Vacancy> => ({
+  ...(params.name === undefined ? {} : { name: params.name }),
+  ...(params.shortDescription === undefined ? {} : { description: params.shortDescription }),
+  ...(params.location === undefined ? {} : { location: params.location ?? "" }),
+  ...(params.dueTo === undefined || params.dueTo === null ? {} : { dueTo: params.dueTo }),
+  ...(params.private === undefined ? {} : { private: params.private })
+})
+
+const vacancyDescriptionUpdate = (
+  client: HulyClient["Type"],
+  vacancy: Vacancy,
+  fullDescription: UpdateRecruitingVacancyParams["fullDescription"]
+): Effect.Effect<DocumentUpdate<Vacancy>, HulyClientError> =>
+  Effect.gen(function* () {
+    if (fullDescription === undefined) return {}
+    if (fullDescription === null || fullDescription.trim() === "") return { fullDescription: null }
+    return { fullDescription: yield* uploadFullDescription(client, vacancy._id, fullDescription) }
+  })
+
+const vacancyRelationUpdate = (
+  client: HulyClient["Type"],
+  params: UpdateRecruitingVacancyParams
+): Effect.Effect<
+  DocumentUpdate<Vacancy>,
+  | HulyClientError
+  | OrganizationIdentifierAmbiguousError
+  | OrganizationNotFoundError
+  | RecruitingVacancyTypeNotFoundError
+> =>
+  Effect.gen(function* () {
+    const type = params.type === undefined ? undefined : (yield* resolveVacancyType(client, params.type))._id
+    const company =
+      params.company === undefined || params.company === null
+        ? undefined
+        : (yield* resolveOrganizationByIdentifier(client, params.company))._id
+    return { ...(type === undefined ? {} : { type }), ...(company === undefined ? {} : { company }) }
+  })
+
+const vacancyClearFields = (params: UpdateRecruitingVacancyParams) => ({
+  ...(params.company === null ? { company: "" } : {}),
+  ...(params.dueTo === null ? { dueTo: "" } : {})
+})
+
 const buildVacancyUpdate = (
   client: HulyClient["Type"],
   params: UpdateRecruitingVacancyParams,
@@ -267,30 +326,11 @@ const buildVacancyUpdate = (
   | RecruitingVacancyTypeNotFoundError
 > =>
   Effect.gen(function* () {
-    const clearFields = {
-      ...(params.company === null ? { company: "" } : {}),
-      ...(params.dueTo === null ? { dueTo: "" } : {})
-    }
+    const clearFields = vacancyClearFields(params)
     return {
-      ...(params.name === undefined ? {} : { name: params.name }),
-      ...(params.shortDescription === undefined ? {} : { description: params.shortDescription }),
-      ...(params.fullDescription === undefined
-        ? {}
-        : {
-            fullDescription:
-              params.fullDescription === null || params.fullDescription.trim() === ""
-                ? null
-                : yield* uploadFullDescription(client, vacancy._id, params.fullDescription)
-          }),
-      ...(params.type === undefined ? {} : { type: (yield* resolveVacancyType(client, params.type))._id }),
-      ...(params.company === undefined
-        ? {}
-        : params.company === null
-          ? {}
-          : { company: (yield* resolveOrganizationByIdentifier(client, params.company))._id }),
-      ...(params.location === undefined ? {} : { location: params.location ?? "" }),
-      ...(params.dueTo === undefined || params.dueTo === null ? {} : { dueTo: params.dueTo }),
-      ...(params.private === undefined ? {} : { private: params.private }),
+      ...vacancyBasicUpdate(params),
+      ...(yield* vacancyDescriptionUpdate(client, vacancy, params.fullDescription)),
+      ...(yield* vacancyRelationUpdate(client, params)),
       ...(Object.keys(clearFields).length === 0 ? {} : { $unset: clearFields })
     }
   })

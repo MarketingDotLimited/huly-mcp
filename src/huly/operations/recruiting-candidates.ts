@@ -96,6 +96,22 @@ const listCandidateSkillsForObject = (
     return tagRefs.map(toAttachedTagSummary)
   })
 
+const candidateTextFields = (candidate: Candidate): Pick<CandidateDetail, "source" | "title"> => ({
+  ...(candidate.title === undefined || candidate.title === "" ? {} : { title: candidate.title }),
+  ...(candidate.source === undefined || candidate.source === "" ? {} : { source: candidate.source })
+})
+
+const candidateWorkFields = (candidate: Candidate): Pick<CandidateDetail, "onsite" | "remote"> => ({
+  ...(candidate.onsite === undefined ? {} : { onsite: candidate.onsite }),
+  ...(candidate.remote === undefined ? {} : { remote: candidate.remote })
+})
+
+const candidateCountFields = (candidate: Candidate): Pick<CandidateDetail, "applications" | "reviews"> => {
+  const applications = optionalCount(candidate.applications)
+  const reviews = optionalCount(candidate.reviews)
+  return { ...(applications === undefined ? {} : { applications }), ...(reviews === undefined ? {} : { reviews }) }
+}
+
 const toCandidateDetail = (candidate: Candidate): Effect.Effect<CandidateDetail, HulyClientError, HulyClient> =>
   Effect.gen(function* () {
     const client = yield* HulyClient
@@ -103,16 +119,11 @@ const toCandidateDetail = (candidate: Candidate): Effect.Effect<CandidateDetail,
       candidateEmail(client, candidate._id),
       listCandidateSkillsForObject(candidate)
     ])
-    const applications = optionalCount(candidate.applications)
-    const reviews = optionalCount(candidate.reviews)
     return {
       ...toCandidateRef(candidate, email),
-      ...(candidate.title === undefined || candidate.title === "" ? {} : { title: candidate.title }),
-      ...(candidate.source === undefined || candidate.source === "" ? {} : { source: candidate.source }),
-      ...(candidate.onsite === undefined ? {} : { onsite: candidate.onsite }),
-      ...(candidate.remote === undefined ? {} : { remote: candidate.remote }),
-      ...(applications === undefined ? {} : { applications }),
-      ...(reviews === undefined ? {} : { reviews }),
+      ...candidateTextFields(candidate),
+      ...candidateWorkFields(candidate),
+      ...candidateCountFields(candidate),
       skills: [...skills],
       modifiedOn: Timestamp.make(candidate.modifiedOn),
       ...(candidate.createdOn === undefined ? {} : { createdOn: Timestamp.make(candidate.createdOn) })

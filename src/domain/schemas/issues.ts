@@ -225,29 +225,59 @@ const ListIssuesParamsBase = Schema.Struct({
   )
 })
 
-export const ListIssuesParamsSchema = ListIssuesParamsBase.pipe(
-  Schema.filter((params) => {
-    if (params.titleSearch !== undefined && params.titleRegex !== undefined) {
-      return "Cannot provide both 'titleSearch' and 'titleRegex'. Use one or the other."
-    }
-    if (params.status !== undefined && params.statusCategory !== undefined) {
-      return "Cannot provide both 'status' and 'statusCategory'. Use status for exact workflow status names or statusCategory for Huly workflow categories."
-    }
-    if (params.assignee !== undefined && params.hasAssignee !== undefined) {
-      return "Cannot provide both 'assignee' and 'hasAssignee'. Use one or the other."
-    }
-    if (params.component !== undefined && params.hasComponent !== undefined) {
-      return "Cannot provide both 'component' and 'hasComponent'. Use one or the other."
-    }
-    if (params.milestone !== undefined && params.hasMilestone !== undefined) {
-      return "Cannot provide both 'milestone' and 'hasMilestone'. Use one or the other."
-    }
-    if (params.parentIssue !== undefined && params.isTopLevel === true) {
-      return "Cannot provide both 'parentIssue' and 'isTopLevel: true'. parentIssue requests children; isTopLevel requests parentless issues."
-    }
-    return undefined
-  })
-).annotations({ title: "ListIssuesParams", description: "Parameters for listing issues" })
+type ListIssuesParamsBase = Schema.Schema.Type<typeof ListIssuesParamsBase>
+
+interface ExclusiveListIssueFields {
+  readonly left: keyof ListIssuesParamsBase
+  readonly right: keyof ListIssuesParamsBase
+  readonly message: string
+}
+
+const EXCLUSIVE_LIST_ISSUE_FIELDS: ReadonlyArray<ExclusiveListIssueFields> = [
+  {
+    left: "titleSearch",
+    right: "titleRegex",
+    message: "Cannot provide both 'titleSearch' and 'titleRegex'. Use one or the other."
+  },
+  {
+    left: "status",
+    right: "statusCategory",
+    message:
+      "Cannot provide both 'status' and 'statusCategory'. Use status for exact workflow status names or statusCategory for Huly workflow categories."
+  },
+  {
+    left: "assignee",
+    right: "hasAssignee",
+    message: "Cannot provide both 'assignee' and 'hasAssignee'. Use one or the other."
+  },
+  {
+    left: "component",
+    right: "hasComponent",
+    message: "Cannot provide both 'component' and 'hasComponent'. Use one or the other."
+  },
+  {
+    left: "milestone",
+    right: "hasMilestone",
+    message: "Cannot provide both 'milestone' and 'hasMilestone'. Use one or the other."
+  }
+]
+
+const exclusiveListIssueFieldsError = (params: ListIssuesParamsBase): string | undefined =>
+  EXCLUSIVE_LIST_ISSUE_FIELDS.find(({ left, right }) => params[left] !== undefined && params[right] !== undefined)
+    ?.message
+
+const parentScopeError = (params: ListIssuesParamsBase): string | undefined =>
+  params.parentIssue !== undefined && params.isTopLevel === true
+    ? "Cannot provide both 'parentIssue' and 'isTopLevel: true'. parentIssue requests children; isTopLevel requests parentless issues."
+    : undefined
+
+const listIssuesValidationError = (params: ListIssuesParamsBase): string | undefined =>
+  exclusiveListIssueFieldsError(params) ?? parentScopeError(params)
+
+export const ListIssuesParamsSchema = ListIssuesParamsBase.pipe(Schema.filter(listIssuesValidationError)).annotations({
+  title: "ListIssuesParams",
+  description: "Parameters for listing issues"
+})
 
 export type ListIssuesParams = Schema.Schema.Type<typeof ListIssuesParamsSchema>
 

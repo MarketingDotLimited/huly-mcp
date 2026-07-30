@@ -57,6 +57,14 @@ import {
 
 type GetSpaceTypeError = HulyClientError | SpaceTypeNotFoundError | SpaceTypeIdentifierAmbiguousError
 
+const descriptorDetail = (
+  descriptor: SpaceTypeDescriptor | undefined
+): Pick<SpaceTypeDetail, "baseClass" | "descriptorDescription" | "descriptorName"> => ({
+  descriptorName: descriptor === undefined ? undefined : String(descriptor.name),
+  descriptorDescription: descriptor === undefined ? undefined : String(descriptor.description),
+  baseClass: descriptor?.baseClass === undefined ? undefined : ObjectClassName.make(descriptor.baseClass)
+})
+
 const findSpaceType = (
   client: HulyClient["Type"],
   identifier: SpaceTypeIdentifier
@@ -215,9 +223,7 @@ export const getSpaceType = (
       name: spaceType.name,
       shortDescription: spaceType.shortDescription === "" ? undefined : spaceType.shortDescription,
       descriptor: spaceType.descriptor,
-      descriptorName: descriptor === undefined ? undefined : String(descriptor.name),
-      descriptorDescription: descriptor === undefined ? undefined : String(descriptor.description),
-      baseClass: descriptor?.baseClass === undefined ? undefined : ObjectClassName.make(descriptor.baseClass),
+      ...descriptorDetail(descriptor),
       targetClass: ObjectClassName.make(spaceType.targetClass),
       defaultMembers: (spaceType.members ?? []).map((member) => AccountUuid.make(member)),
       autoJoin: spaceType.autoJoin,

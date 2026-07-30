@@ -44,10 +44,10 @@ import {
   UPDATE_USER_PROFILE_FIELDS
 } from "../../domain/schemas/workspace.js"
 import type { InvalidPersonUuidError, NoUpdateFieldsError } from "../errors.js"
-import { WorkspaceClient, type WorkspaceClientError } from "../workspace-client.js"
+import { WorkspaceClient, type WorkspaceClientError, type WorkspaceClientOperations } from "../workspace-client.js"
 import { clampLimit } from "./query-helpers.js"
 import { validatePersonUuid } from "./sdk-boundary.js"
-import { type DirectUpdateEntry, requireUpdateFields } from "./update-guards.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 // Exhaustive map guarantees compile-time alignment between AccountRole literals and HulyAccountRole enum.
 // If either side adds a value, TS will error here.
@@ -84,6 +84,29 @@ type UpdateUserProfileError = WorkspaceClientError | NoUpdateFieldsError
 type UpdateGuestSettingsError = WorkspaceClientError | NoUpdateFieldsError
 type CreateAccessLinkError = WorkspaceClientError
 type GetRegionsError = WorkspaceClientError
+
+type UserProfileUpdate = Parameters<WorkspaceClientOperations["setMyProfile"]>[0]
+
+const profileLocationFields = (params: UpdateUserProfileParams): UserProfileUpdate => ({
+  ...(params.city === undefined ? {} : { city: params.city === null ? "" : params.city }),
+  ...(params.country === undefined ? {} : { country: params.country === null ? "" : params.country })
+})
+
+const profileWebFields = (params: UpdateUserProfileParams): UserProfileUpdate => ({
+  ...(params.bio === undefined ? {} : { bio: params.bio === null ? "" : params.bio }),
+  ...(params.website === undefined ? {} : { website: params.website === null ? "" : params.website })
+})
+
+const profileVisibilityFields = (params: UpdateUserProfileParams): UserProfileUpdate => ({
+  ...(params.socialLinks === undefined ? {} : { socialLinks: params.socialLinks === null ? {} : params.socialLinks }),
+  ...(params.isPublic === undefined ? {} : { isPublic: params.isPublic })
+})
+
+const userProfileUpdate = (params: UpdateUserProfileParams): UserProfileUpdate => ({
+  ...profileLocationFields(params),
+  ...profileWebFields(params),
+  ...profileVisibilityFields(params)
+})
 
 const formatVersion = (info: WorkspaceInfoWithStatus): string =>
   `${info.versionMajor}.${info.versionMinor}.${info.versionPatch}`
@@ -250,24 +273,7 @@ export const updateUserProfile = (
 
     const ops = yield* WorkspaceClient
 
-    type UpdateUserProfileField = (typeof UPDATE_USER_PROFILE_FIELDS)[number]
-    type UserProfileUpdate = Parameters<typeof ops.setMyProfile>[0]
-    type UpdateUserProfileEntries = {
-      readonly [Field in UpdateUserProfileField]: DirectUpdateEntry<UpdateUserProfileField, UserProfileUpdate, Field>
-    }
-    const profileEntries = {
-      bio: params.bio === undefined ? {} : { bio: params.bio === null ? "" : params.bio },
-      city: params.city === undefined ? {} : { city: params.city === null ? "" : params.city },
-      country: params.country === undefined ? {} : { country: params.country === null ? "" : params.country },
-      website: params.website === undefined ? {} : { website: params.website === null ? "" : params.website },
-      socialLinks:
-        params.socialLinks === undefined ? {} : { socialLinks: params.socialLinks === null ? {} : params.socialLinks },
-      isPublic: params.isPublic === undefined ? {} : { isPublic: params.isPublic }
-    } satisfies UpdateUserProfileEntries
-    const profileUpdate: UserProfileUpdate = {}
-    Object.assign(profileUpdate, ...Object.values(profileEntries))
-
-    yield* ops.setMyProfile(profileUpdate)
+    yield* ops.setMyProfile(userProfileUpdate(params))
 
     return { updated: true }
   })

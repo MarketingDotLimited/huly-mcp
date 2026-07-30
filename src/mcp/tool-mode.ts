@@ -171,29 +171,33 @@ const rawClientName = (clientInfo: McpClientInfoLike | undefined): string => {
 const withoutRemoteSuffix = (name: string): string => name.replace(/\s*\([^)]*\)\s*$/, "").trim()
 const makeClientKind = Schema.decodeUnknownSync(ClientKindSchema)
 
+interface ClientPrefixGroup {
+  readonly kind: ClientKind
+  readonly prefixes: ReadonlyArray<string>
+}
+
+const CLIENT_PREFIX_GROUPS: ReadonlyArray<ClientPrefixGroup> = [
+  { kind: makeClientKind("cursor"), prefixes: ["cursor"] },
+  { kind: makeClientKind("windsurf"), prefixes: ["windsurf", "cascade"] },
+  {
+    kind: makeClientKind("github-copilot"),
+    prefixes: ["github-copilot", "copilot", "visual studio code", "visual-studio-code"]
+  },
+  { kind: makeClientKind("codex"), prefixes: ["codex", "openai-codex"] },
+  { kind: makeClientKind("opencode"), prefixes: ["opencode"] }
+]
+
+const prefixedClientKind = (name: string): ClientKind | undefined =>
+  CLIENT_PREFIX_GROUPS.find(({ prefixes }) => prefixes.some((prefix) => name.startsWith(prefix)))?.kind
+
 export const classifyMcpClient = (clientInfo: McpClientInfoLike | undefined): ClientKind => {
   const rawName = rawClientName(clientInfo)
-
   if (rawName === "claude-code") return makeClientKind("claude-code")
 
   const name = withoutRemoteSuffix(rawName)
-
   if (name === "claude-code") return makeClientKind("unknown")
   if (name === "claude-ai") return makeClientKind("claude-ai")
-  if (name === "cursor-vscode" || name.startsWith("cursor")) return makeClientKind("cursor")
-  if (name.startsWith("windsurf") || name.startsWith("cascade")) return makeClientKind("windsurf")
-  if (
-    name.startsWith("github-copilot") ||
-    name.startsWith("copilot") ||
-    name.startsWith("visual studio code") ||
-    name.startsWith("visual-studio-code")
-  ) {
-    return makeClientKind("github-copilot")
-  }
-  if (name.startsWith("codex") || name.startsWith("openai-codex")) return makeClientKind("codex")
-  if (name.startsWith("opencode")) return makeClientKind("opencode")
-
-  return makeClientKind("unknown")
+  return prefixedClientKind(name) ?? makeClientKind("unknown")
 }
 
 export const resolveToolExposureMode = (input: ResolveToolExposureModeInput): ToolExposureMode => {

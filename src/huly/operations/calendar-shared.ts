@@ -174,6 +174,13 @@ export const resolveCalendarRef = (
     return cal._id
   })
 
+const participantSearchIdentifier = (
+  locator: Exclude<EventParticipantLocator, string>
+): Parameters<typeof findPersonByExactEmailOrName>[1] | undefined => {
+  if (locator.email !== undefined) return locator.email
+  return locator.name === undefined ? undefined : PersonName.make(locator.name)
+}
+
 const resolveParticipantLocator = (
   client: HulyClient["Type"],
   locator: EventParticipantLocator
@@ -194,12 +201,7 @@ const resolveParticipantLocator = (
       return person._id
     }
 
-    const identifier =
-      locator.email !== undefined
-        ? locator.email
-        : locator.name === undefined
-          ? undefined
-          : PersonName.make(locator.name)
+    const identifier = participantSearchIdentifier(locator)
     if (identifier === undefined) return yield* new PersonMissing({ identifier: "empty participant locator" })
     const person = yield* findPersonByExactEmailOrName(client, identifier)
     if (person === undefined) return yield* new PersonMissing({ identifier })
