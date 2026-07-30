@@ -2,12 +2,15 @@ import { describe, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 import { expect } from "vitest"
 import {
+  createLeadParamsJsonSchema,
+  CreateLeadResultSchema,
   FunnelSummarySchema,
   getLeadParamsJsonSchema,
   LeadDetailSchema,
   LeadSummarySchema,
   listFunnelsParamsJsonSchema,
   listLeadsParamsJsonSchema,
+  parseCreateLeadParams,
   parseGetLeadParams,
   parseListFunnelsParams,
   parseListLeadsParams
@@ -199,6 +202,77 @@ describe("Lead Schemas", () => {
       expect(schema.type).toBe("object")
       expect(schema.required).toContain("funnel")
       expect(schema.required).toContain("identifier")
+    })
+  })
+
+  describe("CreateLeadParams", () => {
+    it.effect("parses a person customer locator and optional workflow fields", () =>
+      Effect.gen(function* () {
+        const result = yield* parseCreateLeadParams({
+          funnel: "Sales",
+          customer: { kind: "person", identifier: "alex@example.com" },
+          title: "Enterprise renewal",
+          description: "See [the account](ref://workspace/contact:person:alex).",
+          assignee: "Owner,Alex",
+          status: "Negotiation",
+          taskType: "Lead"
+        })
+
+        expect(result.customer).toEqual({ kind: "person", identifier: "alex@example.com" })
+        expect(result.title).toBe("Enterprise renewal")
+        expect(result.taskType).toBe("Lead")
+      })
+    )
+
+    it.effect("parses an organization customer locator by stable ID", () =>
+      Effect.gen(function* () {
+        const result = yield* parseCreateLeadParams({
+          funnel: "funnel-1",
+          customer: { kind: "organization", identifier: "organization-1" },
+          title: "Account expansion"
+        })
+
+        expect(result.customer).toEqual({ kind: "organization", identifier: "organization-1" })
+      })
+    )
+
+    it.effect("rejects empty titles and inline customer data", () =>
+      Effect.gen(function* () {
+        const emptyTitle = yield* Effect.flip(
+          parseCreateLeadParams({
+            funnel: "funnel-1",
+            customer: { kind: "person", identifier: "person-1" },
+            title: "   "
+          })
+        )
+        const inlineCustomer = yield* Effect.flip(
+          parseCreateLeadParams({
+            funnel: "funnel-1",
+            customer: { kind: "organization", identifier: "org-1", name: "New organization" },
+            title: "New lead"
+          })
+        )
+
+        expect(emptyTitle._tag).toBe("ParseError")
+        expect(inlineCustomer._tag).toBe("ParseError")
+      })
+    )
+
+    it.effect("accepts the schema-owned create result", () =>
+      Effect.gen(function* () {
+        const result = yield* Schema.decodeUnknown(CreateLeadResultSchema)({
+          leadId: "lead-document-1",
+          identifier: "LEAD-42"
+        })
+
+        expect(result).toEqual({ leadId: "lead-document-1", identifier: "LEAD-42" })
+      })
+    )
+
+    it("generates an LLM-readable JSON schema", () => {
+      const schema = createLeadParamsJsonSchema as JsonSchemaObject
+      expect(schema.required).toEqual(expect.arrayContaining(["funnel", "customer", "title"]))
+      expect(schema.properties?.customer?.description).toMatch(/existing/i)
     })
   })
 })

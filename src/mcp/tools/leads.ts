@@ -1,14 +1,18 @@
 import {
+  createLeadParamsJsonSchema,
+  CreateLeadResultSchema,
   getLeadParamsJsonSchema,
   GetLeadResultSchema,
   listFunnelsParamsJsonSchema,
   ListFunnelsResultSchema,
   listLeadsParamsJsonSchema,
   ListLeadsResultSchema,
+  parseCreateLeadParams,
   parseGetLeadParams,
   parseListFunnelsParams,
   parseListLeadsParams
 } from "../../domain/schemas/leads.js"
+import { createLead } from "../../huly/operations/leads-create.js"
 import { getLead, listFunnels, listLeads } from "../../huly/operations/leads.js"
 import { defineTool, type RegisteredTool } from "./registry.js"
 
@@ -50,5 +54,17 @@ export const leadTools = [
     },
     parseGetLeadParams,
     getLead
+  ),
+  defineTool(
+    {
+      name: "create_lead",
+      description:
+        "Create one native Huly lead in an active funnel for an existing person or organization. Resolve the funnel by ID or exact name; identify the customer explicitly as person or organization; optionally choose an employee assignee, Lead-compatible task type, exact workflow status, and Markdown description. Automatically applies the Customer mixin when needed, preserves native Huly references, and returns both leadId and LEAD-<number>. This tool never creates a person or organization inline.",
+      category: CATEGORY,
+      inputSchema: createLeadParamsJsonSchema,
+      resultSchema: CreateLeadResultSchema
+    },
+    parseCreateLeadParams,
+    createLead
   )
 ] as const satisfies ReadonlyArray<RegisteredTool>

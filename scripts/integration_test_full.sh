@@ -1190,6 +1190,66 @@ if [ $? -eq 0 ]; then
       '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_funnels","arguments":{"limit":5}},"id":2}'
 
     if [ -n "$FIRST_FUNNEL_ID" ]; then
+      LEAD_FIXTURE_SUFFIX="$RUN_ID-$$"
+      LEAD_PERSON_EMAIL="lead-person-$LEAD_FIXTURE_SUFFIX@test.local"
+      LEAD_PERSON_EMAIL_JSON=$(json_string "$LEAD_PERSON_EMAIL")
+      LEAD_PERSON_TITLE="Integration person lead $LEAD_FIXTURE_SUFFIX"
+      LEAD_PERSON_TITLE_JSON=$(json_string "$LEAD_PERSON_TITLE")
+      run_capture_to_var LEAD_PERSON_TEXT "create_person(for_create_lead)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_person\",\"arguments\":{\"firstName\":\"Lead\",\"lastName\":\"Person $LEAD_FIXTURE_SUFFIX\",\"email\":$LEAD_PERSON_EMAIL_JSON}},\"id\":2}"
+      if [ $? -eq 0 ]; then
+        LEAD_PERSON_ID=$(echo "$LEAD_PERSON_TEXT" | jq -r '.id // empty' 2>/dev/null)
+        run_capture_to_var CREATED_PERSON_LEAD_TEXT "create_lead(person:$LEAD_PERSON_ID)" \
+          "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_lead\",\"arguments\":{\"funnel\":\"$FIRST_FUNNEL_ID\",\"customer\":{\"kind\":\"person\",\"identifier\":\"$LEAD_PERSON_ID\"},\"title\":$LEAD_PERSON_TITLE_JSON,\"description\":\"Created by the local Docker integration suite.\"}},\"id\":2}"
+        if [ $? -eq 0 ]; then
+          CREATED_PERSON_LEAD_IDENTIFIER=$(echo "$CREATED_PERSON_LEAD_TEXT" | jq -r '.identifier // empty' 2>/dev/null)
+          assert_json_field_nonempty "create_lead(person) returns leadId" "$CREATED_PERSON_LEAD_TEXT" '.leadId'
+          assert_json_field_nonempty "create_lead(person) returns identifier" "$CREATED_PERSON_LEAD_TEXT" '.identifier'
+          sleep 2
+          run_test "get_lead(created_person:$CREATED_PERSON_LEAD_IDENTIFIER)" \
+            "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_lead\",\"arguments\":{\"funnel\":\"$FIRST_FUNNEL_ID\",\"identifier\":\"$CREATED_PERSON_LEAD_IDENTIFIER\"}},\"id\":2}"
+          run_capture_to_var CREATED_PERSON_LEAD_LIST "list_leads(created_person)" \
+            "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_leads\",\"arguments\":{\"funnel\":\"$FIRST_FUNNEL_ID\",\"titleSearch\":$LEAD_PERSON_TITLE_JSON,\"limit\":5}},\"id\":2}"
+          if [ $? -eq 0 ]; then
+            assert_json_array_contains "list_leads includes created person lead" "$CREATED_PERSON_LEAD_LIST" "map(.identifier)" "$CREATED_PERSON_LEAD_IDENTIFIER"
+          fi
+        fi
+      else
+        skip_test "create_lead(person)" "could not create person fixture"
+      fi
+
+      LEAD_ORG_NAME="Integration Lead Org $LEAD_FIXTURE_SUFFIX"
+      LEAD_ORG_NAME_JSON=$(json_string "$LEAD_ORG_NAME")
+      LEAD_ORG_TITLE="Integration organization lead $LEAD_FIXTURE_SUFFIX"
+      LEAD_ORG_TITLE_JSON=$(json_string "$LEAD_ORG_TITLE")
+      run_capture_to_var LEAD_ORG_TEXT "create_organization(for_create_lead)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_organization\",\"arguments\":{\"name\":$LEAD_ORG_NAME_JSON}},\"id\":2}"
+      if [ $? -eq 0 ]; then
+        LEAD_ORG_ID=$(echo "$LEAD_ORG_TEXT" | jq -r '.id // empty' 2>/dev/null)
+        run_capture_to_var CREATED_ORG_LEAD_TEXT "create_lead(organization:$LEAD_ORG_NAME)" \
+          "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_lead\",\"arguments\":{\"funnel\":\"$FIRST_FUNNEL_ID\",\"customer\":{\"kind\":\"organization\",\"identifier\":$LEAD_ORG_NAME_JSON},\"title\":$LEAD_ORG_TITLE_JSON}},\"id\":2}"
+        if [ $? -eq 0 ]; then
+          CREATED_ORG_LEAD_IDENTIFIER=$(echo "$CREATED_ORG_LEAD_TEXT" | jq -r '.identifier // empty' 2>/dev/null)
+          assert_json_field_nonempty "create_lead(organization) returns leadId" "$CREATED_ORG_LEAD_TEXT" '.leadId'
+          assert_json_field_nonempty "create_lead(organization) returns identifier" "$CREATED_ORG_LEAD_TEXT" '.identifier'
+          run_capture_to_var PROMOTED_ORG_TEXT "make_organization_customer(after_create_lead)" \
+            "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"make_organization_customer\",\"arguments\":{\"identifier\":\"$LEAD_ORG_ID\"}},\"id\":2}"
+          if [ $? -eq 0 ]; then
+            assert_json_field_equals "create_lead promoted organization customer idempotently" "$PROMOTED_ORG_TEXT" '.applied' "false"
+          fi
+          sleep 2
+          run_test "get_lead(created_organization:$CREATED_ORG_LEAD_IDENTIFIER)" \
+            "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_lead\",\"arguments\":{\"funnel\":\"$FIRST_FUNNEL_ID\",\"identifier\":\"$CREATED_ORG_LEAD_IDENTIFIER\"}},\"id\":2}"
+          run_capture_to_var CREATED_ORG_LEAD_LIST "list_leads(created_organization)" \
+            "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_leads\",\"arguments\":{\"funnel\":\"$FIRST_FUNNEL_ID\",\"titleSearch\":$LEAD_ORG_TITLE_JSON,\"limit\":5}},\"id\":2}"
+          if [ $? -eq 0 ]; then
+            assert_json_array_contains "list_leads includes created organization lead" "$CREATED_ORG_LEAD_LIST" "map(.identifier)" "$CREATED_ORG_LEAD_IDENTIFIER"
+          fi
+        fi
+      else
+        skip_test "create_lead(organization)" "could not create organization fixture"
+      fi
+
       LEADS_TEXT=$(run_capture_only \
         "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_leads\",\"arguments\":{\"funnel\":\"$FIRST_FUNNEL_ID\",\"limit\":5}},\"id\":2}")
       if [ $? -eq 0 ]; then

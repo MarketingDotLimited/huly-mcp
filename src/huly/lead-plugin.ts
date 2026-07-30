@@ -11,17 +11,21 @@
  *
  * @module
  */
-import type { Organization as HulyOrganization } from "@hcengineering/contact"
+import type { Contact } from "@hcengineering/contact"
 import type { Class, Doc, Mixin, Ref } from "@hcengineering/core"
+import type { TaskType } from "@hcengineering/task"
 
 // Lead plugin refs are opaque strings from upstream Huly. There is no published
 // runtime factory for these phantom refs, so the bridge lives in one place.
 // eslint-disable-next-line no-restricted-syntax -- SDK boundary: upstream lead plugin refs are opaque phantom strings without constructors
 const leadRef = (identifier: string): Ref<Class<Doc>> => identifier as Ref<Class<Doc>>
+// eslint-disable-next-line no-restricted-syntax -- SDK boundary: upstream lead document refs are opaque phantom strings without constructors
+const leadDocRef = <T extends Doc>(identifier: string): Ref<T> => identifier as Ref<T>
 // eslint-disable-next-line no-restricted-syntax -- SDK boundary: upstream lead mixin refs are opaque phantom strings without constructors
 const leadMixinRef = <T extends Doc>(identifier: string): Ref<Mixin<T>> => identifier as Ref<Mixin<T>>
 
 export const leadClassIds = {
   class: { Lead: leadRef("lead:class:Lead"), Funnel: leadRef("lead:class:Funnel") },
-  mixin: { Customer: leadMixinRef<HulyOrganization>("lead:mixin:Customer") }
+  mixin: { Customer: leadMixinRef<Contact>("lead:mixin:Customer") },
+  taskType: { Lead: leadDocRef<TaskType>("lead:taskType:Lead") }
 } as const

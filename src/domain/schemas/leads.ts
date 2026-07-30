@@ -12,6 +12,7 @@ import {
   StatusName,
   Timestamp
 } from "./shared.js"
+import { TaskTypeRefSchema } from "./task-management.js"
 
 // --- Lead IDs ---
 // Upstream Huly reference:
@@ -137,15 +138,77 @@ export const GetLeadParamsSchema = Schema.Struct({
 
 export type GetLeadParams = Schema.Schema.Type<typeof GetLeadParamsSchema>
 
+const LeadPersonCustomerLocatorSchema = Schema.Struct({
+  kind: Schema.Literal("person"),
+  identifier: PersonRefInput.annotations({
+    description: "Existing person _id, exact email address, or exact display name."
+  })
+})
+
+const LeadOrganizationCustomerLocatorSchema = Schema.Struct({
+  kind: Schema.Literal("organization"),
+  identifier: NonEmptyString.annotations({
+    description: "Existing organization _id or exact unique organization name."
+  })
+})
+
+export const LeadCustomerLocatorSchema = Schema.Union(
+  LeadPersonCustomerLocatorSchema,
+  LeadOrganizationCustomerLocatorSchema
+).annotations({
+  title: "LeadCustomerLocator",
+  description:
+    "Explicit locator for an existing Huly customer contact. Use person for a person _id, exact email, or exact display name; use organization for an organization _id or exact unique name. This tool never creates contacts inline."
+})
+
+export type LeadCustomerLocator = Schema.Schema.Type<typeof LeadCustomerLocatorSchema>
+
+export const CreateLeadParamsSchema = Schema.Struct({
+  funnel: FunnelReference.annotations({
+    description: "Active funnel ID returned by list_funnels, or exact funnel name."
+  }),
+  customer: LeadCustomerLocatorSchema.annotations({
+    description:
+      "Existing person or organization to attach as the customer. The contact is promoted to a Huly Customer idempotently when needed."
+  }),
+  title: NonEmptyString.annotations({ description: "Non-empty lead title." }),
+  description: Schema.optional(
+    Schema.String.annotations({
+      description: "Optional Markdown description. Current-workspace Huly links are preserved as native references."
+    })
+  ),
+  assignee: Schema.optional(
+    PersonRefInput.annotations({
+      description: "Optional employee assignee by person/employee ID, exact email, or exact display name."
+    })
+  ),
+  status: Schema.optional(
+    StatusName.annotations({ description: "Optional exact status name within the selected task type workflow." })
+  ),
+  taskType: Schema.optional(
+    TaskTypeRefSchema.annotations({
+      description:
+        "Optional native Lead task type _id or exact display name within the funnel. Omit when the funnel has one deterministic Lead type."
+    })
+  )
+}).annotations({
+  title: "CreateLeadParams",
+  description: "Create one native Huly lead for an existing person or organization in an active funnel."
+})
+
+export type CreateLeadParams = Schema.Schema.Type<typeof CreateLeadParamsSchema>
+
 // --- JSON Schemas & Parsers ---
 
 export const listFunnelsParamsJsonSchema = JSONSchema.make(ListFunnelsParamsSchema)
 export const listLeadsParamsJsonSchema = JSONSchema.make(ListLeadsParamsSchema)
 export const getLeadParamsJsonSchema = JSONSchema.make(GetLeadParamsSchema)
+export const createLeadParamsJsonSchema = JSONSchema.make(CreateLeadParamsSchema)
 
 export const parseListFunnelsParams = Schema.decodeUnknown(ListFunnelsParamsSchema)
 export const parseListLeadsParams = Schema.decodeUnknown(ListLeadsParamsSchema)
 export const parseGetLeadParams = Schema.decodeUnknown(GetLeadParamsSchema)
+export const parseCreateLeadParams = Schema.decodeUnknown(CreateLeadParamsSchema, { onExcessProperty: "error" })
 export const parseLeadDetail = Schema.decodeUnknown(LeadDetailSchema)
 export const parseLeadSummary = Schema.decodeUnknown(LeadSummarySchema)
 export const ListFunnelsResultSchema = Schema.Struct({ funnels: Schema.Array(FunnelSummarySchema), total: ListTotal })
@@ -153,3 +216,10 @@ export type ListFunnelsResult = Schema.Schema.Type<typeof ListFunnelsResultSchem
 
 export const ListLeadsResultSchema = Schema.Array(LeadSummarySchema)
 export const GetLeadResultSchema = LeadDetailSchema
+
+export const CreateLeadResultSchema = Schema.Struct({
+  leadId: DocId.annotations({ description: "Raw Huly Lead document _id." }),
+  identifier: LeadIdentifier.annotations({ description: "Human lead identifier in LEAD-<number> form." })
+}).annotations({ title: "CreateLeadResult", description: "Identifiers for the newly created native Huly lead." })
+
+export type CreateLeadResult = Schema.Schema.Type<typeof CreateLeadResultSchema>

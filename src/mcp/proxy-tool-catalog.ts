@@ -202,7 +202,7 @@ const CATEGORY_DESCRIPTIONS: ReadonlyMap<ToolCategory, ToolDescription> = new Ma
     "cards",
     "Generic cards, card spaces, card relations, master tags, comments, and read-only version history."
   ),
-  categoryDescriptionEntry("leads", "CRM funnels and leads discovery."),
+  categoryDescriptionEntry("leads", "CRM funnel discovery and native lead creation and retrieval."),
   categoryDescriptionEntry(
     "recruiting",
     "Recruiting vacancies, applicants, reviews, opinions, candidate skills, and recruiting media."

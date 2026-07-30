@@ -79,6 +79,12 @@ export const businessMutationCliCommandCatalogA = {
     positional: ["product", "name", "sku"],
     description: "Create Inventory Variant"
   },
+  create_lead: {
+    path: ["leads", "create"],
+    positional: ["funnel", "customer", "title"],
+    description: "Create Lead",
+    behavior: { fileInput: { fields: ["description"] } }
+  },
   create_recruiting_applicant: {
     path: ["recruiting", "applicant", "create"],
     positional: ["vacancy", "candidate"],

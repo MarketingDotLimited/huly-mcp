@@ -2,6 +2,7 @@ import { describe, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { expect } from "vitest"
 import { leadTools } from "../../../src/mcp/tools/leads.js"
+import { resolveAnnotations } from "../../../src/mcp/tools/registry.js"
 
 describe("Lead MCP Tools", () => {
   it.effect("registers list_funnels tool", () =>
@@ -37,9 +38,32 @@ describe("Lead MCP Tools", () => {
     })
   )
 
-  it.effect("has exactly 3 tools", () =>
+  it.effect("registers create_lead with an explicit existing-customer contract", () =>
     Effect.sync(function () {
-      expect(leadTools).toHaveLength(3)
+      const tool = leadTools.find((candidate) => candidate.name === "create_lead")
+      expect(tool).toBeDefined()
+      if (tool === undefined) throw new Error("create_lead tool is missing")
+      expect(tool?.category).toBe("leads")
+      expect(tool?.description).toContain("existing person or organization")
+      expect(tool?.description).toContain("never creates")
+      expect(resolveAnnotations(tool)).toMatchObject({
+        idempotentHint: false,
+        destructiveHint: false,
+        readOnlyHint: false
+      })
+      expect(tool?.inputSchema).toBeDefined()
+      expect(tool.outputSchema.properties?.result).toMatchObject({
+        type: "object",
+        properties: { leadId: { type: "string" }, identifier: { type: "string", pattern: "^LEAD-[0-9]+$" } },
+        required: ["leadId", "identifier"]
+      })
+      expect(typeof tool?.handler).toBe("function")
+    })
+  )
+
+  it.effect("has exactly 4 tools", () =>
+    Effect.sync(function () {
+      expect(leadTools).toHaveLength(4)
     })
   )
 
