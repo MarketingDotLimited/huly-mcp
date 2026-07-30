@@ -1,5 +1,13 @@
 # @firfi/huly-mcp
 
+## 0.47.0
+
+### Minor Changes
+
+- af57ee2: Add `create_lead` for creating native Huly leads from existing person or organization customers in active funnels.
+- 31b232e: Expose stable issue creator person references on issue reads and filter issue lists by creator Person ID, exact email, or exact display name.
+- 3bb7494: Expose assigned milestone IDs and labels on issue reads, and filter issue lists by a project-scoped milestone or milestone presence.
+
 ## 0.46.1
 
 ### Patch Changes
