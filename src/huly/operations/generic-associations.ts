@@ -683,7 +683,7 @@ const findDocsByClass = (
 
 const validateExpectedClass = (
   summary: ResolvedObjectSummary,
-  expectedClass: string | undefined,
+  expectedClass: ObjectClassName | undefined,
   field: RelationEndpointField
 ): Effect.Effect<void, RelationEndpointClassMismatchError> => {
   if (expectedClass !== undefined && summary.class !== expectedClass) {
@@ -692,13 +692,15 @@ const validateExpectedClass = (
   return Effect.void
 }
 
-const endpointMatchesAssociationClass = (summary: ResolvedObjectSummary | undefined, className: string): boolean =>
-  summary === undefined || summary.class === className
+const endpointMatchesAssociationClass = (
+  summary: ResolvedObjectSummary | undefined,
+  className: ObjectClassName
+): boolean => summary === undefined || summary.class === className
 
 const endpointAssociationClassError = (
   summary: ResolvedObjectSummary | undefined,
-  sourceClass: string,
-  targetClass: string,
+  sourceClass: ObjectClassName,
+  targetClass: ObjectClassName,
   field: RelationEndpointField
 ): RelationEndpointClassMismatchError | undefined =>
   summary !== undefined && summary.class !== sourceClass && summary.class !== targetClass
@@ -712,8 +714,8 @@ const endpointAssociationClassError = (
 const eitherEndpointClassesMatch = (
   source: ResolvedObjectSummary | undefined,
   target: ResolvedObjectSummary | undefined,
-  sourceClass: string,
-  targetClass: string
+  sourceClass: ObjectClassName,
+  targetClass: ObjectClassName
 ): boolean =>
   (endpointMatchesAssociationClass(source, sourceClass) && endpointMatchesAssociationClass(target, targetClass)) ||
   (endpointMatchesAssociationClass(source, targetClass) && endpointMatchesAssociationClass(target, sourceClass))
@@ -721,8 +723,8 @@ const eitherEndpointClassesMatch = (
 const fallbackEndpointClassError = (
   source: ResolvedObjectSummary | undefined,
   target: ResolvedObjectSummary | undefined,
-  sourceClass: string,
-  targetClass: string
+  sourceClass: ObjectClassName,
+  targetClass: ObjectClassName
 ): RelationEndpointClassMismatchError =>
   new RelationEndpointClassMismatchError({
     field: "target",
@@ -736,8 +738,8 @@ const validateEitherEndpointClasses = (
   source: ResolvedObjectSummary | undefined,
   target: ResolvedObjectSummary | undefined
 ): Effect.Effect<void, RelationEndpointClassMismatchError> => {
-  const sourceClass = String(association.classA)
-  const targetClass = String(association.classB)
+  const sourceClass = ObjectClassName.make(association.classA)
+  const targetClass = ObjectClassName.make(association.classB)
   if (eitherEndpointClassesMatch(source, target, sourceClass, targetClass)) return Effect.void
 
   const sourceError = endpointAssociationClassError(source, sourceClass, targetClass, "source")
@@ -914,7 +916,7 @@ const resolveCardLocator = (
 const resolveRawObject = (
   client: HulyClientOperations,
   locator: Extract<GenericObjectLocator, { kind: "raw" }>,
-  expectedClass: string | undefined,
+  expectedClass: ObjectClassName | undefined,
   field: RelationEndpointField
 ): Effect.Effect<ResolvedObjectSummary, GenericAssociationsError> =>
   Effect.gen(function* () {
@@ -937,7 +939,7 @@ const resolveRawObject = (
 const resolveDocumentLocator = (
   client: HulyClientOperations,
   locator: Extract<GenericObjectLocator, { kind: "document" }>,
-  expectedClass: string | undefined,
+  expectedClass: ObjectClassName | undefined,
   field: RelationEndpointField
 ): Effect.Effect<ResolvedObjectSummary, GenericAssociationsError, HulyClient> =>
   Effect.gen(function* () {
@@ -955,7 +957,7 @@ const resolveDocumentLocator = (
 const resolveGenericObject = (
   client: HulyClientOperations,
   locator: GenericObjectLocator,
-  expectedClass: string | undefined,
+  expectedClass: ObjectClassName | undefined,
   field: RelationEndpointField
 ): Effect.Effect<ResolvedObjectSummary, GenericAssociationsError, HulyClient> =>
   Effect.gen(function* () {
@@ -1178,8 +1180,8 @@ const findRelationsForAssociation = (
 const associationEndpointClassesMatch = (
   source: ResolvedObjectSummary | undefined,
   target: ResolvedObjectSummary | undefined,
-  sourceClass: string,
-  targetClass: string
+  sourceClass: ObjectClassName,
+  targetClass: ObjectClassName
 ): boolean =>
   (source === undefined || String(source.class) === sourceClass) &&
   (target === undefined || String(target.class) === targetClass)
@@ -1190,17 +1192,19 @@ const associationMatchesEndpoints = (
   target: ResolvedObjectSummary | undefined,
   direction: RelationDirection
 ): boolean => {
+  const sourceClass = ObjectClassName.make(association.classA)
+  const targetClass = ObjectClassName.make(association.classB)
   if (direction === "target-to-source") {
-    return associationEndpointClassesMatch(source, target, association.classB, association.classA)
+    return associationEndpointClassesMatch(source, target, targetClass, sourceClass)
   }
 
   if (direction === "either") {
-    const matchesForward = associationEndpointClassesMatch(source, target, association.classA, association.classB)
-    const matchesReverse = associationEndpointClassesMatch(source, target, association.classB, association.classA)
+    const matchesForward = associationEndpointClassesMatch(source, target, sourceClass, targetClass)
+    const matchesReverse = associationEndpointClassesMatch(source, target, targetClass, sourceClass)
     return matchesForward || matchesReverse
   }
 
-  return associationEndpointClassesMatch(source, target, association.classA, association.classB)
+  return associationEndpointClassesMatch(source, target, sourceClass, targetClass)
 }
 
 const listRelationsForResolvedEndpoints = (
@@ -1310,12 +1314,14 @@ const listRelationsWithoutResolvedAssociation = (
     return { relations: summaries, total: listTotal(summaries.length), ...(warnings === undefined ? {} : { warnings }) }
   })
 
-const associationClassesForDirection = (association: HulyAssociation, direction: RelationDirection) => ({
-  sourceClass:
-    direction === "either" ? undefined : direction === "target-to-source" ? association.classB : association.classA,
-  targetClass:
-    direction === "either" ? undefined : direction === "target-to-source" ? association.classA : association.classB
-})
+const associationClassesForDirection = (association: HulyAssociation, direction: RelationDirection) => {
+  const sourceClass = ObjectClassName.make(association.classA)
+  const targetClass = ObjectClassName.make(association.classB)
+  return {
+    sourceClass: direction === "either" ? undefined : direction === "target-to-source" ? targetClass : sourceClass,
+    targetClass: direction === "either" ? undefined : direction === "target-to-source" ? sourceClass : targetClass
+  }
+}
 
 const listRelationsWithResolvedAssociation = (
   client: HulyClientOperations,
@@ -1367,14 +1373,34 @@ const resolveRelationWriteEndpoints = (
     const direction = params.direction ?? DefaultRelationDirection
 
     if (direction === "source-to-target") {
-      const source = yield* resolveGenericObject(client, params.source, association.classA, "source")
-      const target = yield* resolveGenericObject(client, params.target, association.classB, "target")
+      const source = yield* resolveGenericObject(
+        client,
+        params.source,
+        ObjectClassName.make(association.classA),
+        "source"
+      )
+      const target = yield* resolveGenericObject(
+        client,
+        params.target,
+        ObjectClassName.make(association.classB),
+        "target"
+      )
       return { docA: source, docB: target, source, target }
     }
 
     if (direction === "target-to-source") {
-      const source = yield* resolveGenericObject(client, params.source, association.classB, "source")
-      const target = yield* resolveGenericObject(client, params.target, association.classA, "target")
+      const source = yield* resolveGenericObject(
+        client,
+        params.source,
+        ObjectClassName.make(association.classB),
+        "source"
+      )
+      const target = yield* resolveGenericObject(
+        client,
+        params.target,
+        ObjectClassName.make(association.classA),
+        "target"
+      )
       return { docA: target, docB: source, source, target }
     }
 

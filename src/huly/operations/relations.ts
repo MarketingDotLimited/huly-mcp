@@ -18,6 +18,7 @@ import {
   IssueId,
   IssueIdentifier,
   ObjectClassName,
+  TeamspaceId,
   TeamspaceIdentifier
 } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
@@ -204,28 +205,32 @@ const partitionIssueRelations = (relations: ReadonlyArray<RelatedDocument>): Par
 const loadIssueIdentifiers = (
   client: HulyClient["Type"],
   relations: ReadonlyArray<RelatedDocument>
-): Effect.Effect<ReadonlyMap<string, string>, HulyClientError> =>
+): Effect.Effect<ReadonlyMap<IssueId, IssueIdentifier>, HulyClientError> =>
   Effect.gen(function* () {
-    if (relations.length === 0) return new Map()
+    if (relations.length === 0) return new Map<IssueId, IssueIdentifier>()
     const issues = yield* client.findAll<HulyIssue>(
       tracker.class.Issue,
       hulyQuery<HulyIssue>({ _id: { $in: relations.map((relation) => toRef<HulyIssue>(relation._id)) } })
     )
-    return new Map(issues.map((issue) => [String(issue._id), issue.identifier]))
+    return new Map<IssueId, IssueIdentifier>(
+      issues.map((issue) => [IssueId.make(issue._id), IssueIdentifier.make(issue.identifier)])
+    )
   })
 
 const loadTeamspaceNames = (
   client: HulyClient["Type"],
   documents: ReadonlyArray<HulyDocument>
-): Effect.Effect<ReadonlyMap<string, string>, HulyClientError> =>
+): Effect.Effect<ReadonlyMap<TeamspaceId, TeamspaceIdentifier>, HulyClientError> =>
   Effect.gen(function* () {
     const spaceIds = [...new Set(documents.map((document) => document.space))]
-    if (spaceIds.length === 0) return new Map()
+    if (spaceIds.length === 0) return new Map<TeamspaceId, TeamspaceIdentifier>()
     const teamspaces = yield* client.findAll<HulyTeamspace>(
       documentPlugin.class.Teamspace,
       hulyQuery<HulyTeamspace>({ _id: { $in: spaceIds.map(toRef<HulyTeamspace>) } })
     )
-    return new Map(teamspaces.map((teamspace) => [String(teamspace._id), teamspace.name]))
+    return new Map<TeamspaceId, TeamspaceIdentifier>(
+      teamspaces.map((teamspace) => [TeamspaceId.make(teamspace._id), TeamspaceIdentifier.make(teamspace.name)])
+    )
   })
 
 const loadDocumentRelationEntries = (
@@ -247,7 +252,7 @@ const loadDocumentRelationEntries = (
         teamspace: toTeamspaceIdentifier(
           document === undefined
             ? String(relation._id)
-            : (teamspaceNames.get(String(document.space)) ?? String(document.space))
+            : (teamspaceNames.get(TeamspaceId.make(document.space)) ?? String(document.space))
         ),
         _id: toDocumentId(String(relation._id)),
         _class: toObjectClassName(String(relation._class))
@@ -273,7 +278,7 @@ export const listIssueRelations = (
     const idToIdentifier = yield* loadIssueIdentifiers(client, [...blockedByRefs, ...issueRelations])
 
     const toEntry = (r: RelatedDocument): RelationEntry => ({
-      identifier: toIssueIdentifier(idToIdentifier.get(String(r._id)) ?? String(r._id)),
+      identifier: toIssueIdentifier(idToIdentifier.get(IssueId.make(r._id)) ?? String(r._id)),
       _id: toIssueId(String(r._id)),
       _class: toObjectClassName(String(r._class))
     })

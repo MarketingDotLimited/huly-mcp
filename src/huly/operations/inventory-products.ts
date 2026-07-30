@@ -18,7 +18,7 @@ import {
   UPDATE_INVENTORY_PRODUCT_FIELDS,
   type UpdateInventoryProductParams
 } from "../../domain/schemas/inventory.js"
-import { InventoryProductId } from "../../domain/schemas/shared.js"
+import { Count, type Count as CountValue, InventoryProductId } from "../../domain/schemas/shared.js"
 import { HulyClient } from "../client.js"
 import { InventoryMutationUnsupportedError, InventoryNotEmptyError } from "../errors.js"
 import { attachment, chunter, inventory } from "../huly-plugins.js"
@@ -142,10 +142,10 @@ export const updateInventoryProduct = (
   })
 
 interface InventoryProductContents {
-  readonly attachmentCount: number
-  readonly commentCount: number
-  readonly photoCount: number
-  readonly variantCount: number
+  readonly attachmentCount: CountValue
+  readonly commentCount: CountValue
+  readonly photoCount: CountValue
+  readonly variantCount: CountValue
 }
 
 const productHasContents = (contents: InventoryProductContents): boolean =>
@@ -194,10 +194,10 @@ export const deleteInventoryProduct = (
       { total: true }
     )
     const contents: InventoryProductContents = {
-      variantCount: Math.max(product.variants ?? 0, variants.length),
-      attachmentCount: Math.max(product.attachments ?? 0, findResultTotal(attachments)),
-      photoCount: Math.max(product.photos ?? 0, findResultTotal(photos)),
-      commentCount: findResultTotal(comments)
+      variantCount: Count.make(Math.max(product.variants ?? 0, variants.length)),
+      attachmentCount: Count.make(Math.max(product.attachments ?? 0, findResultTotal(attachments))),
+      photoCount: Count.make(Math.max(product.photos ?? 0, findResultTotal(photos))),
+      commentCount: Count.make(findResultTotal(comments))
     }
     if (productHasContents(contents)) return yield* inventoryNotEmptyError(product, contents)
     const removeCollection = requireRemoveCollection(client)

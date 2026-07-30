@@ -7,7 +7,7 @@ import type {
 import { Effect } from "effect"
 
 import type { DeletionImpact, PreviewDeletionParams } from "../../domain/schemas/deletion.js"
-import { Count, type ListTotal, UNKNOWN_TOTAL } from "../../domain/schemas/shared.js"
+import { Count, type Count as CountValue, type ListTotal, UNKNOWN_TOTAL } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import {
   ComponentNotFoundError,
@@ -32,18 +32,18 @@ type PreviewDeletionError =
 const sumListTotals = (values: ReadonlyArray<ListTotal>): ListTotal =>
   values.includes(UNKNOWN_TOTAL) ? UNKNOWN_TOTAL : Count.make(values.reduce((sum, value) => sum + value, 0))
 
-const countedDeletionWarning = (count: number, singular: string, suffix: string): string | undefined =>
+const countedDeletionWarning = (count: ListTotal, singular: string, suffix: string): string | undefined =>
   count > 0 ? `${count} ${singular}${count === 1 ? "" : "s"} ${suffix}` : undefined
 
 const compactWarnings = (warnings: ReadonlyArray<string | undefined>): Array<string> =>
   warnings.flatMap((warning) => (warning === undefined ? [] : [warning]))
 
 const issueDeletionWarnings = (impact: {
-  readonly attachments: number
-  readonly blockedBy: number
-  readonly comments: number
-  readonly relations: number
-  readonly subIssues: number
+  readonly attachments: CountValue
+  readonly blockedBy: CountValue
+  readonly comments: CountValue
+  readonly relations: CountValue
+  readonly subIssues: CountValue
 }): Array<string> =>
   compactWarnings([
     countedDeletionWarning(impact.subIssues, "sub-issue", "that will be orphaned")?.replace(/^/, "Has "),
@@ -75,11 +75,11 @@ const previewIssueDeletion = (
   Effect.gen(function* () {
     const { issue } = yield* findProjectAndIssue({ project: params.project, identifier: params.identifier })
 
-    const subIssues = issue.subIssues
-    const comments = issue.comments ?? 0
-    const attachments = issue.attachments ?? 0
-    const blockedBy = issue.blockedBy?.length ?? 0
-    const relations = issue.relations?.length ?? 0
+    const subIssues = Count.make(issue.subIssues)
+    const comments = Count.make(issue.comments ?? 0)
+    const attachments = Count.make(issue.attachments ?? 0)
+    const blockedBy = Count.make(issue.blockedBy?.length ?? 0)
+    const relations = Count.make(issue.relations?.length ?? 0)
 
     const totalAffected = subIssues + comments + attachments + blockedBy + relations
     const impact = { subIssues, comments, attachments, blockedBy, relations }
@@ -88,11 +88,11 @@ const previewIssueDeletion = (
       entityType: "issue" as const,
       identifier: issue.identifier,
       impact: {
-        subIssues: Count.make(impact.subIssues),
-        comments: Count.make(impact.comments),
-        attachments: Count.make(impact.attachments),
-        blockedBy: Count.make(impact.blockedBy),
-        relations: Count.make(impact.relations)
+        subIssues: impact.subIssues,
+        comments: impact.comments,
+        attachments: impact.attachments,
+        blockedBy: impact.blockedBy,
+        relations: impact.relations
       },
       warnings: issueDeletionWarnings(impact),
       totalAffected: Count.make(totalAffected)

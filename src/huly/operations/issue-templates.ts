@@ -82,7 +82,7 @@ import { findPersonByEmailOrName } from "./contacts-shared.js"
 import { attachIssueChild } from "./issues-parent.js"
 import { findProject, priorityToString, stringToPriority, zeroAsUnset } from "./issues-shared.js"
 import { createIssue } from "./issues.js"
-import { clampLimit } from "./query-helpers.js"
+import { clampLimit, hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
@@ -179,11 +179,14 @@ const resolveTemplateReferenceLabels = (
 ): Effect.Effect<{ readonly assigneeName?: string; readonly componentLabel?: string }, HulyClientError> =>
   Effect.gen(function* () {
     const assigneeName =
-      assignee === null ? undefined : (yield* client.findOne<Person>(contact.class.Person, { _id: assignee }))?.name
+      assignee === null
+        ? undefined
+        : (yield* client.findOne<Person>(contact.class.Person, hulyQuery<Person>({ _id: assignee })))?.name
     const componentLabel =
       component === null
         ? undefined
-        : (yield* client.findOne<HulyComponent>(tracker.class.Component, { _id: component }))?.label
+        : (yield* client.findOne<HulyComponent>(tracker.class.Component, hulyQuery<HulyComponent>({ _id: component })))
+            ?.label
     return {
       ...(assigneeName === undefined ? {} : { assigneeName }),
       ...(componentLabel === undefined ? {} : { componentLabel })
@@ -402,12 +405,12 @@ const resolveIssueFromTemplateAssignee = (
   Effect.gen(function* () {
     if (params.assignee !== undefined) return params.assignee
     if (template.assignee === null) return undefined
-    const person = yield* client.findOne<Person>(contact.class.Person, { _id: template.assignee })
+    const person = yield* client.findOne<Person>(contact.class.Person, hulyQuery<Person>({ _id: template.assignee }))
     if (person === undefined) return undefined
-    const emailChannel = yield* client.findOne<Channel>(contact.class.Channel, {
-      attachedTo: person._id,
-      provider: contact.channelProvider.Email
-    })
+    const emailChannel = yield* client.findOne<Channel>(
+      contact.class.Channel,
+      hulyQuery<Channel>({ attachedTo: person._id, provider: contact.channelProvider.Email })
+    )
     return Email.make(emailChannel?.value ?? person.name)
   })
 
