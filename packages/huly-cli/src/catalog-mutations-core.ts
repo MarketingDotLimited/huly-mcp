@@ -2,6 +2,16 @@ import type { McpToolName } from "../../../src/mcp/tools/index.js"
 import type { CliCommandSpec } from "./catalog-types.js"
 
 export const coreMutationCliCommandCatalog = {
+  create_huly_permission: {
+    path: ["model", "permissions", "create"],
+    positional: ["label", "scope"],
+    description: "Create Huly Permission"
+  },
+  create_space_role: {
+    path: ["spaces", "roles", "create"],
+    positional: ["spaceType", "name", "permissions"],
+    description: "Create Space Role"
+  },
   create_huly_attribute: {
     path: ["model", "attributes", "create"],
     positional: ["class", "name", "label"],
@@ -93,6 +103,18 @@ export const coreMutationCliCommandCatalog = {
     positional: ["attribute"],
     description: "Delete Huly Model Attribute",
     behavior: { confirmation: { type: "requires-yes", message: "model attributes delete requires --yes." } }
+  },
+  delete_class_collaborator_metadata: {
+    path: ["model", "collaborators", "delete"],
+    positional: ["class"],
+    description: "Delete Class Collaborator Metadata",
+    behavior: { confirmation: { type: "requires-yes", message: "model collaborators delete requires --yes." } }
+  },
+  delete_huly_permission: {
+    path: ["model", "permissions", "delete"],
+    positional: ["permission"],
+    description: "Delete Huly Permission",
+    behavior: { confirmation: { type: "requires-yes", message: "model permissions delete requires --yes." } }
   },
   delete_huly_enum: {
     path: ["model", "enums", "delete"],
@@ -195,6 +217,16 @@ export const coreMutationCliCommandCatalog = {
     description: "Set Global Space Admins",
     behavior: { confirmation: { type: "requires-yes", message: "spaces admins set requires --yes." } }
   },
+  set_class_collaborator_metadata: {
+    path: ["model", "collaborators", "set"],
+    positional: ["class", "fieldSelection"],
+    description: "Set Class Collaborator Metadata"
+  },
+  set_space_role_permissions: {
+    path: ["spaces", "roles", "permissions", "set"],
+    positional: ["spaceType", "role", "permissions"],
+    description: "Set Space Role Permissions"
+  },
   set_related_issue_target: {
     path: ["issues", "related-targets", "set"],
     positional: ["targetProject"],
@@ -215,6 +247,11 @@ export const coreMutationCliCommandCatalog = {
     path: ["model", "attributes", "update"],
     positional: ["attribute"],
     description: "Update Huly Model Attribute"
+  },
+  update_huly_permission: {
+    path: ["model", "permissions", "update"],
+    positional: ["permission"],
+    description: "Update Huly Permission"
   },
   update_huly_enum: { path: ["model", "enums", "update"], positional: ["enum"], description: "Update Huly Model Enum" },
   update_component: {

@@ -41,6 +41,7 @@ create_drive_folder
 create_group_direct_message
 create_huly_attribute
 create_huly_enum
+create_huly_permission
 create_inventory_category
 create_inventory_product
 create_inventory_variant
@@ -54,6 +55,7 @@ create_organization
 create_person
 create_project
 create_space
+create_space_role
 create_status_category
 create_recruiting_applicant
 create_recruiting_opinion
@@ -85,6 +87,7 @@ delete_drive_item
 delete_event
 delete_huly_attribute
 delete_huly_enum
+delete_huly_permission
 delete_inventory_category
 delete_inventory_product
 delete_inventory_product_attachment
@@ -116,6 +119,7 @@ delete_test_run
 delete_test_suite
 delete_todo
 delete_workflow_status
+delete_class_collaborator_metadata
 get_activity_message
 get_approval_request
 get_board
@@ -123,6 +127,7 @@ get_board_card
 get_board_common_preference
 get_board_saved_view
 get_card
+get_class_collaborator_metadata
 get_channel
 get_chat_message_attachment
 get_component
@@ -312,11 +317,13 @@ save_message
 schedule_todo
 set_conversation_closed
 set_conversation_starred
+set_class_collaborator_metadata
 set_global_space_admins
 set_issue_component
 set_issue_milestone
 set_recruiting_candidate_profile
 set_related_issue_target
+set_space_role_permissions
 unarchive_board
 unarchive_board_card
 unarchive_channel
@@ -341,6 +348,7 @@ update_drive
 update_drive_file_comment
 update_huly_attribute
 update_huly_enum
+update_huly_permission
 update_inventory_category
 update_inventory_product
 update_inventory_product_attachment

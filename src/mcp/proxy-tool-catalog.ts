@@ -180,6 +180,10 @@ const CATEGORY_DESCRIPTIONS: ReadonlyMap<ToolCategory, ToolDescription> = new Ma
     "sdk-discovery",
     "SDK and model discovery helpers for Huly platform classes, attributes, mixins, and enums."
   ),
+  categoryDescriptionEntry(
+    "security-administration",
+    "Guarded Huly permission definitions, typed-space role definitions, and class collaborator security metadata."
+  ),
   categoryDescriptionEntry("storage", "Storage diagnostics and storage-backed object helpers."),
   categoryDescriptionEntry(
     "attachments",

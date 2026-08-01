@@ -127,7 +127,7 @@ import {
 import { TagCategoryNotFoundError, TagNotFoundError } from "./errors-labels.js"
 import { FunnelNotFoundError, LeadNotFoundError } from "./errors-leads.js"
 import { FloorNotFoundError, MeetingMinutesNotFoundError, RoomNotFoundError } from "./errors-love.js"
-import { ModelAdministrationDomainError } from "./errors-model-administration.js"
+import { AdministrationDomainError } from "./errors-administration-domain.js"
 import {
   NotificationContextNotFoundError,
   NotificationNotFoundError,
@@ -383,7 +383,7 @@ export const HulyDomainError = Schema.Union(
   GenericObjectLocatorInvalidError,
   GenericObjectNotFoundError,
   HulyClassNotFoundError,
-  ModelAdministrationDomainError,
+  AdministrationDomainError,
   SpaceNotFoundError,
   SpaceIdentifierAmbiguousError,
   SpaceNotTypedError,

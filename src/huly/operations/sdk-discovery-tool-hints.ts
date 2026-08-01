@@ -120,9 +120,9 @@ const boardNotMcpFacingRationale =
 const chunterCoveredRationale =
   "Current channel and direct-message tools cover channels, channel messages, one-to-one DM create/list/message list/send/update/delete, thread replies, channel member list/add/remove, join/leave, archive/unarchive, conversation star/closed state, and group direct-message create."
 const coreCoveredRationale =
-  "Existing tools expose user statuses, generic workflow statuses and status categories with full CRUD, guarded enum and custom-attribute model CRUD, full-text search, blobs through storage/download flows, generic association/relation discovery/mutation helpers, class/interface/mixin, attribute, enum, plugin configuration, domain index configuration, sequence, and space type capability discovery."
+  "Existing tools expose user statuses, generic workflow statuses and status categories with full CRUD, guarded enum and custom-attribute model CRUD, guarded base permission definitions, typed-space role definitions, class collaborator metadata, full-text search, blobs through storage/download flows, generic association/relation discovery/mutation helpers, class/interface/mixin, attribute, enum, plugin configuration, domain index configuration, sequence, and space type capability discovery."
 const coreGapRationale =
-  "Remaining core write-side configuration, role/permission definition writes, generic space creation, class collaborator metadata, and built-in model mutation are represented as matrix gaps. Generic space discovery, space type/permission reads, safe existing-space metadata updates, member mutations, owner replacement, typed-space role member mutations, object collaborators, guarded enum/custom-attribute CRUD, read-only plugin configuration, domain index configuration, sequence discovery, and generic workflow status/category CRUD are covered."
+  "Remaining core gaps are specialized AttributePermission/ClassPermission definitions, configuration internals, raw system-space types, and built-in model mutation. Generic space discovery/creation, guarded base permission writes, typed-space role creation and permission replacement, class collaborator metadata, safe existing-space metadata updates, member/owner/role-member mutations, object collaborators, guarded enum/custom-attribute CRUD, read-only plugin configuration, domain index configuration, sequence discovery, and generic workflow status/category CRUD are covered."
 const coreNotMcpFacingRationale =
   "Core primitive model infrastructure, transaction classes, type wrappers, and versioning internals are not LLM-facing product resources by themselves."
 
@@ -347,7 +347,16 @@ export const runtimeParityRoutingRows: ReadonlyArray<RuntimeParityRoutingRow> = 
     String(core.class.Permission),
     "@hcengineering/core",
     "Permission",
-    covered(["list_space_permissions", "describe_huly_space_type_capabilities"], coreCoveredRationale)
+    covered(
+      [
+        "list_space_permissions",
+        "describe_huly_space_type_capabilities",
+        "create_huly_permission",
+        "update_huly_permission",
+        "delete_huly_permission"
+      ],
+      coreCoveredRationale
+    )
   ),
   routingRow(
     String(core.class.Status),
@@ -361,7 +370,21 @@ export const runtimeParityRoutingRows: ReadonlyArray<RuntimeParityRoutingRow> = 
     "StatusCategory",
     covered(["list_status_categories", "get_status_category", "create_status_category"], coreCoveredRationale)
   ),
-  routingRow(String(core.class.Role), "@hcengineering/core", "Role", gap(coreGapRationale)),
+  routingRow(
+    String(core.class.Role),
+    "@hcengineering/core",
+    "Role",
+    covered(["get_space_type", "create_space_role", "set_space_role_permissions"], coreCoveredRationale)
+  ),
+  routingRow(
+    String(core.class.ClassCollaborators),
+    "@hcengineering/core",
+    "ClassCollaborators",
+    covered(
+      ["get_class_collaborator_metadata", "set_class_collaborator_metadata", "delete_class_collaborator_metadata"],
+      coreCoveredRationale
+    )
+  ),
   routingRow(
     String(core.class.AttributePermission),
     "@hcengineering/core",

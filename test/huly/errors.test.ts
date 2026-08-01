@@ -1467,6 +1467,28 @@ describe("Huly Errors", () => {
               return `model-attribute-protected:${error.attributeId}`
             case "HulyAttributeInUseError":
               return `model-attribute-in-use:${error.attributeId}:${error.name}`
+            case "PermissionNotFoundError":
+              return `permission:${error.identifier}`
+            case "PermissionIdentifierAmbiguousError":
+              return `permission-ambiguous:${error.identifier}:${error.matches.length}`
+            case "PermissionLabelConflictError":
+              return `permission-conflict:${error.label}:${error.existingPermissionId}`
+            case "PermissionProtectedError":
+              return `permission-protected:${error.permissionId}`
+            case "PermissionInUseError":
+              return `permission-in-use:${error.permissionId}:${error.references.length}`
+            case "SpaceRoleNameConflictError":
+              return `space-role-conflict:${error.spaceTypeId}:${error.name}`
+            case "SpaceRoleWriteUnsupportedError":
+              return `space-role-unsupported:${error.operation}`
+            case "SpaceRolePermissionScopeError":
+              return `space-role-permission-scope:${error.spaceTypeId}:${error.permissionId}`
+            case "CollaboratorMetadataAmbiguousError":
+              return `collaborator-metadata-ambiguous:${error.classId}:${error.metadataIds.length}`
+            case "CollaboratorFieldNotFoundError":
+              return `collaborator-field:${error.classId}:${error.fields.length}`
+            case "ClassCollaboratorMetadataNotFoundError":
+              return `collaborator-metadata:${error.classId}`
             case "WorkflowAttributeNotFoundError":
               return `workflow-attribute:${error.identifier}`
             case "WorkflowAttributeIdentifierAmbiguousError":

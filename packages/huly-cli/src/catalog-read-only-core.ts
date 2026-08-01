@@ -2,6 +2,11 @@ import type { McpToolName } from "../../../src/mcp/tools/index.js"
 import type { CliCommandSpec } from "./catalog-types.js"
 
 export const coreReadOnlyCliCommandCatalog = {
+  get_class_collaborator_metadata: {
+    path: ["model", "collaborators", "get"],
+    positional: ["class"],
+    description: "Get Class Collaborator Metadata"
+  },
   get_document_snapshot: {
     path: ["documents", "snapshots", "get"],
     positional: ["teamspace", "document", "snapshot"],
