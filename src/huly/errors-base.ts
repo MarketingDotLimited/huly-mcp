@@ -5,6 +5,7 @@
  */
 import { Schema } from "effect"
 
+import { NonEmptyString } from "../domain/schemas/shared.js"
 import {
   HulyEndpointOriginSchema,
   HulyUnavailableDetailCodeSchema,
@@ -50,3 +51,13 @@ export class HulyUnavailableError extends Schema.TaggedError<HulyUnavailableErro
  * Authentication error - invalid credentials or expired session.
  */
 export class HulyAuthError extends Schema.TaggedError<HulyAuthError>()("HulyAuthError", { message: Schema.String }) {}
+
+/** Untrusted Huly SDK model metadata did not satisfy the domain boundary contract. */
+export class HulyModelMetadataError extends Schema.TaggedError<HulyModelMetadataError>()("HulyModelMetadataError", {
+  model: NonEmptyString,
+  field: NonEmptyString
+}) {
+  override get message(): string {
+    return `Huly ${this.model} metadata contains an invalid '${this.field}' field. Repair the affected backend model data before retrying.`
+  }
+}

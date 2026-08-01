@@ -138,9 +138,6 @@ interface UpdateSchemaCase {
   readonly mutuallyExclusiveFieldSets?: ReadonlyArray<ReadonlyArray<string>>
 }
 
-const decodeSucceeds = (schema: Schema.Schema.AnyNoContext, input: unknown): boolean =>
-  Schema.decodeUnknownEither(schema)(input)._tag === "Right"
-
 const jsonSchemaRequiredFields = (schema: JsonSchemaObject): ReadonlyArray<string> =>
   (schema.anyOf ?? []).flatMap((branch) => branch.required ?? [])
 
@@ -570,7 +567,29 @@ describe("access-link and document state-machine properties", () => {
   it("EditDocumentParamsSchema runtime acceptance matches the documented edit modes", () => {
     fc.assert(
       fc.property(editDocumentParamsArbitrary, (params) => {
-        expect(decodeSucceeds(EditDocumentParamsSchema, params)).toBe(modelEditDocumentAcceptance(params))
+        const decoded = Schema.decodeUnknownEither(EditDocumentParamsSchema)(params)
+        expect(decoded._tag === "Right").toBe(modelEditDocumentAcceptance(params))
+        if (decoded._tag === "Left") return
+        switch (decoded.right._tag) {
+          case "TitleOnly":
+            expect(decoded.right).toEqual({
+              _tag: "TitleOnly",
+              teamspace: params.teamspace,
+              document: params.document,
+              title: params.title?.trim()
+            })
+            break
+          case "ReplaceContent":
+            expect(decoded.right).toHaveProperty("content")
+            expect(decoded.right).not.toHaveProperty("oldText")
+            break
+          case "SearchAndReplace":
+            expect(decoded.right).toHaveProperty("oldText")
+            expect(decoded.right).toHaveProperty("newText")
+            expect(decoded.right.replaceAll).toBe(params.replace_all ?? false)
+            expect(decoded.right).not.toHaveProperty("content")
+            break
+        }
       }),
       propertyTestParameters
     )

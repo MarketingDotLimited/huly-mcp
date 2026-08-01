@@ -40,6 +40,7 @@ import {
   GenericObjectIdentifierAmbiguousError,
   GenericObjectLocatorInvalidError,
   GenericObjectNotFoundError,
+  HulyModelMetadataError,
   RelationCardinalityViolationError,
   RelationDirectionAmbiguousError,
   RelationEndpointClassMismatchError,
@@ -316,6 +317,19 @@ const testLayer = (data: TestData, onFindAll?: FindAllObserver) => {
 }
 
 describe("listAssociations", () => {
+  it.effect("fails through the typed channel for a malformed association class", () =>
+    Effect.gen(function* () {
+      const malformed = association({ classA: "" as Ref<Class<Doc>> })
+      const error = yield* Effect.flip(
+        listAssociations({ includeSystem: true }).pipe(Effect.provide(testLayer({ associations: [malformed] })))
+      )
+
+      expect(error).toBeInstanceOf(HulyModelMetadataError)
+      expect(error).toMatchObject({ model: "Association", field: "classA" })
+      expect(error.message).not.toContain("assoc-1")
+    })
+  )
+
   it.effect("lists visible associations and hides core system associations by default", () =>
     Effect.gen(function* () {
       const visible = association({ _id: "assoc-visible" as Ref<HulyAssociation> })
@@ -528,6 +542,32 @@ describe("listAssociations", () => {
 })
 
 describe("listRelations", () => {
+  it.effect("fails through the typed channel for a malformed relation ID", () =>
+    Effect.gen(function* () {
+      const malformed = relation({ _id: "" as Ref<HulyRelation> })
+      const error = yield* Effect.flip(
+        listRelations({ association: assocId }).pipe(
+          Effect.provide(testLayer({ associations: [association({})], relations: [malformed] }))
+        )
+      )
+
+      expect(error).toBeInstanceOf(HulyModelMetadataError)
+      expect(error).toMatchObject({ model: "Relation", field: "_id" })
+    })
+  )
+
+  it.effect("omits absent relation creation metadata without degrading valid relation IDs", () =>
+    Effect.gen(function* () {
+      const { createdOn: _createdOn, ...withoutCreatedOn } = relation({})
+      const result = yield* listRelations({ association: assocId }).pipe(
+        Effect.provide(testLayer({ associations: [association({})], relations: [withoutCreatedOn] }))
+      )
+
+      expect(assertAt(result.relations, 0).relationId).toBe("rel-1")
+      expect(assertAt(result.relations, 0).createdOn).toBeUndefined()
+    })
+  )
+
   it.effect("lists relation instances with resolved endpoint display", () =>
     Effect.gen(function* () {
       const assoc = association({ _id: "assoc-1" as Ref<HulyAssociation> })

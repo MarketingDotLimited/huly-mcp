@@ -36,7 +36,6 @@ import type {
 } from "../../domain/schemas/generic-associations.js"
 import {
   AssociationName,
-  AssociationRoleName,
   DEFAULT_ASSOCIATION_AUTOMATION_ONLY,
   DEFAULT_INCLUDE_SYSTEM_ASSOCIATIONS,
   DefaultRelationDirection,
@@ -65,6 +64,7 @@ import type {
   RelationNotFoundError,
   TeamspaceNotFoundError
 } from "../errors.js"
+import type { HulyModelMetadataError } from "../errors-base.js"
 import {
   AssociationConflictError,
   AssociationIdentifierAmbiguousError,
@@ -81,6 +81,11 @@ import {
   RelationMutationUnsupportedError
 } from "../errors.js"
 import { cardPlugin, core, documentPlugin, tracker } from "../huly-plugins.js"
+import {
+  parseHulyAssociationMetadata,
+  parseHulyCreatedRelationId,
+  parseHulyRelationMetadata
+} from "../model-metadata.js"
 import { listTotal } from "./counts.js"
 import { findTeamspaceAndDocument } from "./documents.js"
 import { findIssueInProject, findProject, findProjectAndIssue } from "./issues-shared.js"
@@ -109,6 +114,7 @@ type GenericAssociationsError =
   | GenericObjectLocatorInvalidError
   | GenericObjectNotFoundError
   | IssueNotFoundError
+  | HulyModelMetadataError
 
 type AssociationCandidate = {
   readonly id: AssociationId
@@ -240,37 +246,40 @@ const SDK_CARDINALITY = { "one-to-one": "1:1", "one-to-many": "1:N", "many-to-ma
   HulyAssociation["type"]
 >
 
-const toAssociationSummary = (association: AssociationForSummary): AssociationSummary => {
-  const sourceClass = ObjectClassName.make(association.classA)
-  const targetClass = ObjectClassName.make(association.classB)
-  const unsupportedReason = relationWriteUnsupportedReason(association)
+const toAssociationSummary = (
+  association: AssociationForSummary
+): Effect.Effect<AssociationSummary, HulyModelMetadataError> =>
+  Effect.gen(function* () {
+    const metadata = yield* parseHulyAssociationMetadata(association)
+    const unsupportedReason = relationWriteUnsupportedReason(association)
 
-  return {
-    associationId: AssociationId.make(association._id),
+    return {
+      associationId: metadata.id,
+      name: associationName(association),
+      sourceClass: metadata.sourceClass,
+      sourceClassLabel: classLabel(metadata.sourceClass),
+      targetClass: metadata.targetClass,
+      targetClassLabel: classLabel(metadata.targetClass),
+      sourceRole: metadata.sourceRole,
+      targetRole: metadata.targetRole,
+      relationClass: ObjectClassName.make(core.class.Relation),
+      cardinality: cardinality(metadata.cardinality),
+      symmetric: isSymmetric(association),
+      system: isSystemAssociation(association),
+      canListRelations: true,
+      canCreateRelation: unsupportedReason === undefined,
+      canDeleteRelation: unsupportedReason === undefined,
+      ...(unsupportedReason === undefined ? {} : { unsupportedReason })
+    }
+  })
+
+const toCandidate = (association: HulyAssociation): Effect.Effect<AssociationCandidate, HulyModelMetadataError> =>
+  Effect.map(parseHulyAssociationMetadata(association), (metadata) => ({
+    id: metadata.id,
     name: associationName(association),
-    sourceClass,
-    sourceClassLabel: classLabel(sourceClass),
-    targetClass,
-    targetClassLabel: classLabel(targetClass),
-    sourceRole: AssociationRoleName.make(association.nameA),
-    targetRole: AssociationRoleName.make(association.nameB),
-    relationClass: ObjectClassName.make(core.class.Relation),
-    cardinality: cardinality(association.type),
-    symmetric: isSymmetric(association),
-    system: isSystemAssociation(association),
-    canListRelations: true,
-    canCreateRelation: unsupportedReason === undefined,
-    canDeleteRelation: unsupportedReason === undefined,
-    ...(unsupportedReason === undefined ? {} : { unsupportedReason })
-  }
-}
-
-const toCandidate = (association: HulyAssociation): AssociationCandidate => ({
-  id: AssociationId.make(association._id),
-  name: associationName(association),
-  sourceClass: ObjectClassName.make(association.classA),
-  targetClass: ObjectClassName.make(association.classB)
-})
+    sourceClass: metadata.sourceClass,
+    targetClass: metadata.targetClass
+  }))
 
 const matchesAssociationIdentifier = (association: HulyAssociation, identifier: string): boolean => {
   const normalized = identifier.trim().toLowerCase()
@@ -313,7 +322,7 @@ const filterVisible = (
 const listAssociationDocs = (
   client: HulyClientOperations,
   params: ListAssociationsParams
-): Effect.Effect<Array<HulyAssociation>, HulyClientError> => {
+): Effect.Effect<Array<HulyAssociation>, HulyClientError | HulyModelMetadataError> => {
   const query: StrictDocumentQuery<HulyAssociation> = {}
 
   if (params.sourceClass !== undefined) {
@@ -323,12 +332,12 @@ const listAssociationDocs = (
     query.classB = toClassRef(params.targetClass)
   }
 
-  return Effect.map(
+  return Effect.flatMap(
     client.findAll<HulyAssociation>(core.class.Association, hulyQuery(query), {
       limit: clampLimit(params.limit),
       sort: { modifiedOn: SortingOrder.Descending }
     }),
-    (result) => [...result]
+    (result) => Effect.as(Effect.forEach(result, parseHulyAssociationMetadata), [...result])
   )
 }
 
@@ -358,6 +367,7 @@ const resolveAssociation = (
       hulyQuery<HulyAssociation>({ _id: toRef<HulyAssociation>(identifier) })
     )
     if (exactId !== undefined) {
+      yield* parseHulyAssociationMetadata(exactId)
       if (!associationMatchesFilters(exactId, filters)) {
         return yield* new AssociationNotFoundError({ identifier })
       }
@@ -373,40 +383,44 @@ const resolveAssociation = (
       }
     }
 
-    addCandidates(
-      yield* client.findAll<HulyAssociation>(
-        core.class.Association,
-        hulyQuery<HulyAssociation>({ ...associationClassFilterQuery(filters), nameA: identifier }),
-        { limit: ASSOCIATION_LOOKUP_AMBIGUITY_LIMIT }
-      )
+    const sourceRoleMatches = yield* client.findAll<HulyAssociation>(
+      core.class.Association,
+      hulyQuery<HulyAssociation>({ ...associationClassFilterQuery(filters), nameA: identifier }),
+      { limit: ASSOCIATION_LOOKUP_AMBIGUITY_LIMIT }
     )
-    addCandidates(
-      yield* client.findAll<HulyAssociation>(
-        core.class.Association,
-        hulyQuery<HulyAssociation>({ ...associationClassFilterQuery(filters), nameB: identifier }),
-        { limit: ASSOCIATION_LOOKUP_AMBIGUITY_LIMIT }
-      )
+    yield* Effect.forEach(sourceRoleMatches, parseHulyAssociationMetadata)
+    addCandidates(sourceRoleMatches)
+    const targetRoleMatches = yield* client.findAll<HulyAssociation>(
+      core.class.Association,
+      hulyQuery<HulyAssociation>({ ...associationClassFilterQuery(filters), nameB: identifier }),
+      { limit: ASSOCIATION_LOOKUP_AMBIGUITY_LIMIT }
     )
+    yield* Effect.forEach(targetRoleMatches, parseHulyAssociationMetadata)
+    addCandidates(targetRoleMatches)
 
     const rolePair = identifier.split(" -> ")
     if (isPair(rolePair)) {
       const [nameA, nameB] = rolePair
-      addCandidates(
-        yield* client.findAll<HulyAssociation>(
-          core.class.Association,
-          hulyQuery<HulyAssociation>({ ...associationClassFilterQuery(filters), nameA, nameB }),
-          { limit: ASSOCIATION_LOOKUP_AMBIGUITY_LIMIT }
-        )
+      const rolePairMatches = yield* client.findAll<HulyAssociation>(
+        core.class.Association,
+        hulyQuery<HulyAssociation>({ ...associationClassFilterQuery(filters), nameA, nameB }),
+        { limit: ASSOCIATION_LOOKUP_AMBIGUITY_LIMIT }
       )
+      yield* Effect.forEach(rolePairMatches, parseHulyAssociationMetadata)
+      addCandidates(rolePairMatches)
     }
 
     const candidates = [...nameCandidates.values()]
+    yield* Effect.forEach(candidates, parseHulyAssociationMetadata)
 
     if (candidates.length === 0) {
       return yield* new AssociationNotFoundError({ identifier })
     }
     if (candidates.length > 1) {
-      return yield* new AssociationIdentifierAmbiguousError({ identifier, candidates: candidates.map(toCandidate) })
+      return yield* new AssociationIdentifierAmbiguousError({
+        identifier,
+        candidates: yield* Effect.forEach(candidates, toCandidate)
+      })
     }
     return assertAt(candidates, 0)
   })
@@ -483,27 +497,28 @@ export const createAssociation = (
       hulyQuery(exactAssociationQuery(params))
     )
     if (existing !== undefined) {
+      const existingMetadata = yield* parseHulyAssociationMetadata(existing)
       if (params.ifExists === "fail") {
         return yield* new AssociationConflictError({
-          associationId: AssociationId.make(existing._id),
+          associationId: existingMetadata.id,
           reason: "ifExists=fail was requested"
         })
       }
       if (cardinality(existing.type) !== params.cardinality) {
         return yield* new AssociationConflictError({
-          associationId: AssociationId.make(existing._id),
+          associationId: existingMetadata.id,
           reason: `existing cardinality is ${cardinality(existing.type)}, requested ${params.cardinality}`
         })
       }
       if (associationAutomationOnly(existing) !== (params.automationOnly ?? DEFAULT_ASSOCIATION_AUTOMATION_ONLY)) {
         return yield* new AssociationConflictError({
-          associationId: AssociationId.make(existing._id),
+          associationId: existingMetadata.id,
           reason: `existing automationOnly is ${associationAutomationOnly(existing)}, requested ${
             params.automationOnly ?? DEFAULT_ASSOCIATION_AUTOMATION_ONLY
           }`
         })
       }
-      return { association: toAssociationSummary(existing), created: false, existing: true }
+      return { association: yield* toAssociationSummary(existing), created: false, existing: true }
     }
 
     const attributes: AssociationDataWithAutomation = {
@@ -521,7 +536,7 @@ export const createAssociation = (
     )
 
     return {
-      association: toAssociationSummary(createdAssociationSummaryInput(associationId, params)),
+      association: yield* toAssociationSummary(createdAssociationSummaryInput(associationId, params)),
       created: true,
       existing: false
     }
@@ -543,22 +558,24 @@ const countAssociationRelations = (
   association: HulyAssociation
 ): Effect.Effect<
   Readonly<{ total: ListTotal; hasRelations: boolean; sampleRelationIds: Array<RelationId> }>,
-  HulyClientError
+  HulyClientError | HulyModelMetadataError
 > =>
-  Effect.map(
+  Effect.flatMap(
     client.findAll<HulyRelation>(
       core.class.Relation,
       hulyQuery<HulyRelation>({ association: toRef<HulyAssociation>(association._id) }),
       { limit: 5 }
     ),
-    (relations) => {
-      const sdkTotal = listTotal(relations.total)
-      return {
-        total: sdkTotal === UNKNOWN_TOTAL ? UNKNOWN_TOTAL : Count.make(Math.max(sdkTotal, relations.length)),
-        hasRelations: relations.total > 0 || relations.length > 0,
-        sampleRelationIds: relations.map((relation) => RelationId.make(relation._id))
-      }
-    }
+    (relations) =>
+      Effect.gen(function* () {
+        const metadata = yield* Effect.forEach(relations, parseHulyRelationMetadata)
+        const sdkTotal = listTotal(relations.total)
+        return {
+          total: sdkTotal === UNKNOWN_TOTAL ? UNKNOWN_TOTAL : Count.make(Math.max(sdkTotal, relations.length)),
+          hasRelations: relations.total > 0 || relations.length > 0,
+          sampleRelationIds: metadata.map((relation) => relation.id)
+        }
+      })
   )
 
 export const deleteAssociation = (
@@ -602,7 +619,7 @@ export const listAssociations = (
 
     if (params.association !== undefined) {
       const association = yield* resolveAssociation(client, params.association, associationFiltersFromParams(params))
-      const summary = toAssociationSummary(association)
+      const summary = yield* toAssociationSummary(association)
       return {
         associations: params.writableOnly === true && !summary.canCreateRelation ? [] : [summary],
         total: listTotal(params.writableOnly === true && !summary.canCreateRelation ? 0 : 1)
@@ -613,7 +630,7 @@ export const listAssociations = (
       yield* listAssociationDocs(client, { ...params, limit: ASSOCIATION_DISCOVERY_LIMIT }),
       associationListFiltersFromParams(params)
     ).slice(0, clampLimit(params.limit))
-    const summaries = associations.map(toAssociationSummary)
+    const summaries = yield* Effect.forEach(associations, toAssociationSummary)
 
     return { associations: summaries, total: listTotal(summaries.length) }
   })
@@ -1002,20 +1019,25 @@ const relationToSummary = (
   association: HulyAssociation,
   relation: HulyRelation,
   docsByClass: ReadonlyMap<Ref<Class<Doc>>, ReadonlyMap<Ref<Doc>, Doc>>
-): RelationSummary => ({
-  relationId: RelationId.make(relation._id),
-  associationId: AssociationId.make(association._id),
-  associationName: associationName(association),
-  source: resolveRelationEndpointFromCache(docsByClass, relation.docA, association.classA),
-  target: resolveRelationEndpointFromCache(docsByClass, relation.docB, association.classB),
-  createdOn: relation.createdOn === undefined ? undefined : Timestamp.make(relation.createdOn),
-  modifiedOn: Timestamp.make(relation.modifiedOn)
-})
+): Effect.Effect<RelationSummary, HulyModelMetadataError> =>
+  Effect.gen(function* () {
+    const associationMetadata = yield* parseHulyAssociationMetadata(association)
+    const relationMetadata = yield* parseHulyRelationMetadata(relation)
+    return {
+      relationId: relationMetadata.id,
+      associationId: associationMetadata.id,
+      associationName: associationName(association),
+      source: resolveRelationEndpointFromCache(docsByClass, relation.docA, association.classA),
+      target: resolveRelationEndpointFromCache(docsByClass, relation.docB, association.classB),
+      createdOn: relation.createdOn === undefined ? undefined : Timestamp.make(relation.createdOn),
+      modifiedOn: Timestamp.make(relation.modifiedOn)
+    }
+  })
 
 const relationsToSummaries = (
   client: HulyClientOperations,
   pairs: ReadonlyArray<RelationAssociationPair>
-): Effect.Effect<Array<RelationSummary>, HulyClientError> =>
+): Effect.Effect<Array<RelationSummary>, HulyClientError | HulyModelMetadataError> =>
   Effect.gen(function* () {
     const idsByClass = new Map<Ref<Class<Doc>>, Set<Ref<Doc>>>()
     const addEndpoint = (className: Ref<Class<Doc>>, id: Ref<Doc>): void => {
@@ -1037,7 +1059,9 @@ const relationsToSummaries = (
     )
     const docsByClass = new Map(docsByClassEntries)
 
-    return pairs.map(({ association, relation }) => relationToSummary(association, relation, docsByClass))
+    return yield* Effect.forEach(pairs, ({ association, relation }) =>
+      relationToSummary(association, relation, docsByClass)
+    )
   })
 
 const directionQueries = (
@@ -1131,16 +1155,17 @@ const findVisibleAssociationsForEndpoints = (
   source: ResolvedObjectSummary | undefined,
   target: ResolvedObjectSummary | undefined,
   direction: RelationDirection
-): Effect.Effect<AssociationDiscoveryResult, HulyClientError> =>
+): Effect.Effect<AssociationDiscoveryResult, HulyClientError | HulyModelMetadataError> =>
   Effect.gen(function* () {
     const discoveryResults = yield* Effect.forEach(
       associationEndpointQueries(source, target, direction),
-      (query): Effect.Effect<AssociationDiscoveryResult, HulyClientError> =>
+      (query): Effect.Effect<AssociationDiscoveryResult, HulyClientError | HulyModelMetadataError> =>
         Effect.gen(function* () {
           const associations = yield* client.findAll<HulyAssociation>(core.class.Association, hulyQuery(query), {
             limit: ASSOCIATION_DISCOVERY_LIMIT,
             sort: { modifiedOn: SortingOrder.Descending }
           })
+          yield* Effect.forEach(associations, parseHulyAssociationMetadata)
           return { associations, limitReached: associations.length >= ASSOCIATION_DISCOVERY_LIMIT }
         })
     )
@@ -1165,11 +1190,12 @@ const findRelationsForAssociation = (
   target: ResolvedObjectSummary | undefined,
   direction: RelationDirection,
   limit: number
-): Effect.Effect<Array<HulyRelation>, HulyClientError> =>
+): Effect.Effect<Array<HulyRelation>, HulyClientError | HulyModelMetadataError> =>
   Effect.gen(function* () {
     const byId = new Map<string, HulyRelation>()
     for (const query of directionQueries(association, source, target, direction)) {
       const relations = yield* client.findAll<HulyRelation>(core.class.Relation, hulyQuery(query), { limit })
+      yield* Effect.forEach(relations, parseHulyRelationMetadata)
       for (const relation of relations) {
         byId.set(relation._id, relation)
       }
@@ -1214,7 +1240,7 @@ const listRelationsForResolvedEndpoints = (
   target: ResolvedObjectSummary | undefined,
   direction: RelationDirection,
   limit: number
-): Effect.Effect<Array<RelationSummary>, HulyClientError> =>
+): Effect.Effect<Array<RelationSummary>, HulyClientError | HulyModelMetadataError> =>
   Effect.gen(function* () {
     const pairs: Array<RelationAssociationPair> = []
     for (const association of associations) {
@@ -1245,7 +1271,7 @@ const findRelationsForAssociationIdsAndEndpoints = (
   target: ResolvedObjectSummary | undefined,
   direction: RelationDirection,
   limit: number
-): Effect.Effect<Array<HulyRelation>, HulyClientError> =>
+): Effect.Effect<Array<HulyRelation>, HulyClientError | HulyModelMetadataError> =>
   Effect.gen(function* () {
     if (associationIds.length === 0) {
       return []
@@ -1257,6 +1283,7 @@ const findRelationsForAssociationIdsAndEndpoints = (
         hulyQuery<HulyRelation>({ ...query, association: { $in: [...associationIds] } }),
         { limit, sort: { modifiedOn: SortingOrder.Descending } }
       )
+      yield* Effect.forEach(relations, parseHulyRelationMetadata)
       for (const relation of relations) {
         byId.set(relation._id, relation)
       }
@@ -1272,7 +1299,7 @@ const listRelationsWithoutAssociation = (
   limit: number
 ): Effect.Effect<
   { readonly summaries: Array<RelationSummary>; readonly warnings?: ListRelationsWarnings },
-  HulyClientError
+  HulyClientError | HulyModelMetadataError
 > =>
   Effect.gen(function* () {
     const { associations, limitReached } = yield* findVisibleAssociationsForEndpoints(client, source, target, direction)
@@ -1453,17 +1480,17 @@ const findExactRelations = (
   association: HulyAssociation,
   endpoints: Pick<ResolvedRelationWriteEndpoints, "docA" | "docB">,
   limit: number
-): Effect.Effect<Array<HulyRelation>, HulyClientError> =>
-  Effect.map(
+): Effect.Effect<Array<HulyRelation>, HulyClientError | HulyModelMetadataError> =>
+  Effect.flatMap(
     client.findAll<HulyRelation>(core.class.Relation, hulyQuery(exactRelationQuery(association, endpoints)), { limit }),
-    (relations) => [...relations]
+    (relations) => Effect.as(Effect.forEach(relations, parseHulyRelationMetadata), [...relations])
   )
 
 const findCardinalityConflict = (
   client: HulyClientOperations,
   association: HulyAssociation,
   endpoints: Pick<ResolvedRelationWriteEndpoints, "docA" | "docB">
-): Effect.Effect<HulyRelation | undefined, HulyClientError> =>
+): Effect.Effect<HulyRelation | undefined, HulyClientError | HulyModelMetadataError> =>
   Effect.gen(function* () {
     if (association.type === "N:N") {
       return undefined
@@ -1477,17 +1504,20 @@ const findCardinalityConflict = (
       })
     )
     if (docBConflict !== undefined) {
+      yield* parseHulyRelationMetadata(docBConflict)
       return docBConflict
     }
 
     if (association.type === "1:1") {
-      return yield* client.findOne<HulyRelation>(
+      const docAConflict = yield* client.findOne<HulyRelation>(
         core.class.Relation,
         hulyQuery<HulyRelation>({
           association: toRef<HulyAssociation>(association._id),
           docA: toRef<Doc>(endpoints.docA.id)
         })
       )
+      if (docAConflict !== undefined) yield* parseHulyRelationMetadata(docAConflict)
+      return docAConflict
     }
     return undefined
   })
@@ -1496,7 +1526,7 @@ const enforceCardinality = (
   client: HulyClientOperations,
   association: HulyAssociation,
   endpoints: Pick<ResolvedRelationWriteEndpoints, "docA" | "docB">
-): Effect.Effect<void, HulyClientError | RelationCardinalityViolationError> =>
+): Effect.Effect<void, HulyClientError | HulyModelMetadataError | RelationCardinalityViolationError> =>
   Effect.gen(function* () {
     const conflict = yield* findCardinalityConflict(client, association, endpoints)
     if (conflict === undefined) {
@@ -1526,6 +1556,7 @@ export const createRelation = (
     const exact = yield* findExactRelations(client, association, endpoints, 1)
     const existing = exact.at(0)
     if (existing !== undefined) {
+      const existingMetadata = yield* parseHulyRelationMetadata(existing)
       if (params.ifExists === "fail") {
         return yield* new RelationCardinalityViolationError({
           associationId: AssociationId.make(association._id),
@@ -1534,7 +1565,7 @@ export const createRelation = (
         })
       }
       return {
-        relationId: RelationId.make(existing._id),
+        relationId: existingMetadata.id,
         associationId: AssociationId.make(association._id),
         source: endpoints.source,
         target: endpoints.target,
@@ -1544,14 +1575,19 @@ export const createRelation = (
     }
 
     yield* enforceCardinality(client, association, endpoints)
-    const relationId = yield* client.createDoc<HulyRelation>(core.class.Relation, toRef<Space>(core.space.Workspace), {
-      association: toRef<HulyAssociation>(association._id),
-      docA: toRef<Doc>(endpoints.docA.id),
-      docB: toRef<Doc>(endpoints.docB.id)
-    })
+    const createdRelationId = yield* client.createDoc<HulyRelation>(
+      core.class.Relation,
+      toRef<Space>(core.space.Workspace),
+      {
+        association: toRef<HulyAssociation>(association._id),
+        docA: toRef<Doc>(endpoints.docA.id),
+        docB: toRef<Doc>(endpoints.docB.id)
+      }
+    )
+    const relationId = yield* parseHulyCreatedRelationId(createdRelationId)
 
     return {
-      relationId: RelationId.make(relationId),
+      relationId,
       associationId: AssociationId.make(association._id),
       source: endpoints.source,
       target: endpoints.target,
@@ -1574,12 +1610,17 @@ export const deleteRelation = (
       if (existing === undefined) {
         return { relationId: RelationId.make(params.relation), deleted: false, reason: "not_found" }
       }
+      const existingMetadata = yield* parseHulyRelationMetadata(existing)
 
-      const association = yield* resolveAssociation(client, existing.association, MUTATION_ASSOCIATION_FILTERS)
+      const association = yield* resolveAssociation(
+        client,
+        existingMetadata.associationId,
+        MUTATION_ASSOCIATION_FILTERS
+      )
       yield* ensureRelationMutationSupported(association, "delete_relation")
       yield* client.removeDoc<HulyRelation>(core.class.Relation, existing.space, existing._id)
       return {
-        relationId: RelationId.make(existing._id),
+        relationId: existingMetadata.id,
         associationId: AssociationId.make(association._id),
         deleted: true,
         reason: "deleted"
@@ -1595,9 +1636,10 @@ export const deleteRelation = (
       return { associationId: AssociationId.make(association._id), deleted: false, reason: "not_found" }
     }
     if (matches.length > 1) {
+      const matchMetadata = yield* Effect.forEach(matches, parseHulyRelationMetadata)
       return yield* new RelationIdentifierAmbiguousError({
         identifier: `${params.association}/${endpoints.docA.id}/${endpoints.docB.id}`,
-        relationIds: matches.map((relation) => RelationId.make(relation._id))
+        relationIds: matchMetadata.map((relation) => relation.id)
       })
     }
 
@@ -1605,9 +1647,10 @@ export const deleteRelation = (
       return { associationId: AssociationId.make(association._id), deleted: false, reason: "not_found" }
     }
     const relation = matches[0]
+    const relationMetadata = yield* parseHulyRelationMetadata(relation)
     yield* client.removeDoc<HulyRelation>(core.class.Relation, relation.space, relation._id)
     return {
-      relationId: RelationId.make(relation._id),
+      relationId: relationMetadata.id,
       associationId: AssociationId.make(association._id),
       deleted: true,
       reason: "deleted"

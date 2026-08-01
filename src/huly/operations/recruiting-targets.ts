@@ -144,7 +144,7 @@ const applicantTarget = (
 const reviewTarget = (
   client: HulyClient["Type"],
   review: Review
-): Effect.Effect<RecruitingTargetCoordinates, HulyClientError | RecruitingModelMissingError> =>
+): Effect.Effect<RecruitingTargetCoordinates, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
   Effect.gen(function* () {
     const ref = yield* reviewRefFromDoc(client, review)
     return coordinates(
@@ -168,7 +168,7 @@ const opinionTarget = (
   client: HulyClient["Type"],
   opinion: Opinion,
   review: Review
-): Effect.Effect<RecruitingTargetCoordinates, HulyClientError | RecruitingModelMissingError> =>
+): Effect.Effect<RecruitingTargetCoordinates, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
   Effect.gen(function* () {
     const ref = yield* opinionRefFromDoc(client, opinion, review)
     return coordinates(

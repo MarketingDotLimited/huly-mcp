@@ -24,6 +24,7 @@ import {
 } from "@hcengineering/tracker"
 import { Effect } from "effect"
 import { expect } from "vitest"
+import type { ListIssuesInput } from "../../../src/domain/schemas/issues.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
 import type {
@@ -32,7 +33,13 @@ import type {
   PersonNotFoundError,
   ProjectNotFoundError
 } from "../../../src/huly/errors.js"
-import { addLabel, createIssue, getIssue, listIssues, updateIssue } from "../../../src/huly/operations/issues.js"
+import {
+  addLabel,
+  createIssue,
+  getIssue,
+  listIssues as listIssuesOperation,
+  updateIssue
+} from "../../../src/huly/operations/issues.js"
 import { assertAt, assertExists } from "../../../src/utils/assertions.js"
 
 import { contact, core, tags, task, tracker } from "../../../src/huly/huly-plugins.js"
@@ -51,6 +58,9 @@ import {
 import { withDiagnostics } from "../../helpers/diagnostics.js"
 import { corePersonId, docRef } from "../../helpers/huly-sdk.js"
 import { capturedMarkupChildNodes, capturedMarkupReferenceNodes } from "../../helpers/markup-capture.js"
+import { listIssuesParams } from "../../helpers/parsed-params.js"
+
+const listIssues = (input: ListIssuesInput) => listIssuesOperation(listIssuesParams(input))
 
 // Helper to create properly typed FindResult for tests
 // FindResult<T> = T[] & { total: number; lookupMap?: Record<string, Doc> }
@@ -1015,7 +1025,7 @@ describe("listIssues", () => {
           captureIssueQuery: captureQuery
         })
 
-        yield* listIssues({ project: projectIdentifier("TEST"), limit: 500 }).pipe(
+        yield* listIssues({ project: projectIdentifier("TEST"), limit: 200 }).pipe(
           Effect.provide(testLayer),
           withDiagnostics
         )

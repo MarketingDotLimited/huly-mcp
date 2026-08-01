@@ -22,6 +22,7 @@ import type {
 import { IssuePriority, TimeReportDayType } from "@hcengineering/tracker"
 import { Effect, Schema } from "effect"
 import { expect } from "vitest"
+import type { ListIssuesInput } from "../../../src/domain/schemas/issues.js"
 import type { StatusName } from "../../../src/domain/schemas/shared.js"
 import { Timestamp } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
@@ -29,10 +30,18 @@ import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics
 import { HulyConnectionError, type InvalidStatusError, type PersonNotFoundError } from "../../../src/huly/errors.js"
 import { contact, core, task, tracker } from "../../../src/huly/huly-plugins.js"
 import { findStatusDocs, StatusMetadataSchema } from "../../../src/huly/operations/issues-shared.js"
-import { createIssue, getIssue, listIssues, updateIssue } from "../../../src/huly/operations/issues.js"
+import {
+  createIssue,
+  getIssue,
+  listIssues as listIssuesOperation,
+  updateIssue
+} from "../../../src/huly/operations/issues.js"
 import { assertAt, assertExists } from "../../../src/utils/assertions.js"
 import { componentIdentifier, email, issueIdentifier, projectIdentifier, statusName } from "../../helpers/brands.js"
 import { withDiagnostics } from "../../helpers/diagnostics.js"
+import { listIssuesParams } from "../../helpers/parsed-params.js"
+
+const listIssues = (input: ListIssuesInput) => listIssuesOperation(listIssuesParams(input))
 
 const toFindResult = <T extends Doc>(docs: Array<T>): FindResult<T> => {
   const result = docs as FindResult<T>

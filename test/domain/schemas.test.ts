@@ -8,6 +8,7 @@ import {
   createIssueParamsJsonSchema,
   deleteDocumentParamsJsonSchema,
   editDocumentParamsJsonSchema,
+  EditDocumentParamsSchema,
   getDocumentParamsJsonSchema,
   getIssueParamsJsonSchema,
   getTimeReportParamsJsonSchema,
@@ -836,8 +837,9 @@ describe("Domain Schemas", () => {
           title: "Updated Title",
           content: "Updated content"
         })
+        expect(result._tag).toBe("ReplaceContent")
         expect(result.title).toBe("Updated Title")
-        expect(result.content).toBe("Updated content")
+        if (result._tag === "ReplaceContent") expect(result.content).toBe("Updated content")
       })
     )
 
@@ -849,8 +851,12 @@ describe("Domain Schemas", () => {
           old_text: "old stuff",
           new_text: "new stuff"
         })
-        expect(result.old_text).toBe("old stuff")
-        expect(result.new_text).toBe("new stuff")
+        expect(result._tag).toBe("SearchAndReplace")
+        if (result._tag === "SearchAndReplace") {
+          expect(result.oldText).toBe("old stuff")
+          expect(result.newText).toBe("new stuff")
+          expect(result.replaceAll).toBe(false)
+        }
       })
     )
 
@@ -863,7 +869,72 @@ describe("Domain Schemas", () => {
           new_text: "bar",
           replace_all: true
         })
-        expect(result.replace_all).toBe(true)
+        expect(result._tag).toBe("SearchAndReplace")
+        if (result._tag === "SearchAndReplace") expect(result.replaceAll).toBe(true)
+      })
+    )
+
+    it.effect("encodes every internal command variant back to the stable flat input shape", () =>
+      Effect.gen(function* () {
+        const titleOnly = yield* parseEditDocumentParams({
+          teamspace: "My Docs",
+          document: "Getting Started",
+          title: "Renamed"
+        })
+        const contentOnly = yield* parseEditDocumentParams({
+          teamspace: "My Docs",
+          document: "Getting Started",
+          content: "Replacement"
+        })
+        const titledContent = yield* parseEditDocumentParams({
+          teamspace: "My Docs",
+          document: "Getting Started",
+          title: "Renamed",
+          content: "Replacement"
+        })
+        const searchOnly = yield* parseEditDocumentParams({
+          teamspace: "My Docs",
+          document: "Getting Started",
+          old_text: "old",
+          new_text: "new"
+        })
+        const titledSearch = yield* parseEditDocumentParams({
+          teamspace: "My Docs",
+          document: "Getting Started",
+          title: "Renamed",
+          old_text: "old",
+          new_text: "new",
+          replace_all: true
+        })
+        const encode = Schema.encodeUnknownSync(EditDocumentParamsSchema)
+
+        expect(encode(titleOnly)).toEqual({ teamspace: "My Docs", document: "Getting Started", title: "Renamed" })
+        expect(encode(contentOnly)).toEqual({
+          teamspace: "My Docs",
+          document: "Getting Started",
+          content: "Replacement"
+        })
+        expect(encode(titledContent)).toEqual({
+          teamspace: "My Docs",
+          document: "Getting Started",
+          title: "Renamed",
+          content: "Replacement"
+        })
+        expect(encode(searchOnly)).toEqual({
+          teamspace: "My Docs",
+          document: "Getting Started",
+          old_text: "old",
+          new_text: "new",
+          replace_all: false
+        })
+        expect(encode(titledSearch)).toEqual({
+          teamspace: "My Docs",
+          document: "Getting Started",
+          title: "Renamed",
+          old_text: "old",
+          new_text: "new",
+          replace_all: true
+        })
       })
     )
 

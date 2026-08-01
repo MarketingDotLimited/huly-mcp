@@ -1437,6 +1437,8 @@ describe("Huly Errors", () => {
               return `template-field-category:${error.identifier}`
             case "TemplateFieldCategoryIdentifierAmbiguousError":
               return `template-field-category-ambiguous:${error.identifier}:${error.matches}`
+            case "HulyModelMetadataError":
+              return `model-metadata:${error.model}:${error.field}`
             default: {
               const _exhaustive: never = error
               return _exhaustive

@@ -12,15 +12,19 @@ import {
 import { Effect } from "effect"
 import { expect } from "vitest"
 
+import type { ListIssuesInput } from "../../../src/domain/schemas/issues.js"
 import type { ToolWarning } from "../../../src/domain/schemas/tool-warnings.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
 import { contact, core, tracker } from "../../../src/huly/huly-plugins.js"
-import { getIssue, listIssues } from "../../../src/huly/operations/issues.js"
+import { getIssue, listIssues as listIssuesOperation } from "../../../src/huly/operations/issues.js"
 import { toSocialIdentityRef } from "../../../src/huly/operations/sdk-boundary.js"
 import { assertAt } from "../../../src/utils/assertions.js"
 import { email, issueIdentifier, personName, projectIdentifier } from "../../helpers/brands.js"
 import { corePersonId, docRef, personRef } from "../../helpers/huly-sdk.js"
+import { listIssuesParams } from "../../helpers/parsed-params.js"
+
+const listIssues = (input: ListIssuesInput) => listIssuesOperation(listIssuesParams(input))
 
 const toFindResult = <T extends Doc>(docs: Array<T>): FindResult<T> => {
   // eslint-disable-next-line no-restricted-syntax -- Huly SDK FindResult is an array with attached metadata

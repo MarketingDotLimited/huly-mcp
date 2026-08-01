@@ -51,7 +51,13 @@ import { markdownToMarkupString } from "./markup.js"
 import { resolveOrganizationByIdentifier } from "./organization-resolvers.js"
 import { hulyQuery, type StrictDocumentQuery } from "./query-helpers.js"
 import { candidateEmail, ensureCandidateMixin, resolveCandidatePerson } from "./recruiting-candidate-shared.js"
-import { reviewDetail, reviewRefFromCandidate, reviewRefFromDoc } from "./recruiting-review-detail.js"
+import {
+  reviewDetail,
+  reviewRefFromCandidate,
+  reviewRefFromDoc,
+  reviewRefProjectionFromDoc,
+  warnRecruitingReviewMetadataDegraded
+} from "./recruiting-review-detail.js"
 import { findApplicant, incrementSequence, listLimit } from "./recruiting-shared.js"
 import { toRef } from "./sdk-boundary.js"
 
@@ -150,7 +156,7 @@ export const resolveReviewLocator = (client: HulyClient["Type"], params: GetRecr
 
 export const listRecruitingReviews = (
   params: ListRecruitingReviewsParams
-): Effect.Effect<ListRecruitingReviewsResult, ReviewReadError, HulyClient> =>
+): Effect.Effect<ListRecruitingReviewsResult, ReviewReadError, HulyClient | Diagnostics> =>
   Effect.gen(function* () {
     const client = yield* HulyClient
     const candidate = yield* optionalCandidate(client, params.candidate)
@@ -167,7 +173,10 @@ export const listRecruitingReviews = (
     const limited = reviews
       .filter((review) => matchesReviewText(review, params.query))
       .slice(0, listLimit(params.limit))
-    const refs = yield* Effect.forEach(limited, (review) => reviewRefFromDoc(client, review))
+    const projections = yield* Effect.forEach(limited, (review) => reviewRefProjectionFromDoc(client, review))
+    const synthesizedTitles = projections.filter((projection) => projection.synthesizedTitle).length
+    yield* warnRecruitingReviewMetadataDegraded(synthesizedTitles, 0)
+    const refs = projections.map((projection) => projection.ref)
     return { reviews: refs, total: Count.make(refs.length) }
   })
 
@@ -189,7 +198,7 @@ const resolveParticipants = (
 
 export const createRecruitingReview = (
   params: CreateRecruitingReviewParams
-): Effect.Effect<{ readonly review: ReviewRef }, ReviewWriteError, HulyClient> =>
+): Effect.Effect<{ readonly review: ReviewRef }, ReviewWriteError, HulyClient | Diagnostics> =>
   Effect.gen(function* () {
     const client = yield* HulyClient
     const person = yield* resolveCandidatePerson(client, params.candidate)
@@ -302,7 +311,7 @@ const reviewUnsetFields = (
 
 export const updateRecruitingReview = (
   params: UpdateRecruitingReviewParams
-): Effect.Effect<{ readonly review: ReviewRef }, ReviewWriteError, HulyClient> =>
+): Effect.Effect<{ readonly review: ReviewRef }, ReviewWriteError, HulyClient | Diagnostics> =>
   Effect.gen(function* () {
     const client = yield* HulyClient
     const updateCollection = client.updateCollection
@@ -334,7 +343,7 @@ export const updateRecruitingReview = (
 
 export const deleteRecruitingReview = (
   params: DeleteRecruitingReviewParams
-): Effect.Effect<DeleteRecruitingReviewResult, ReviewWriteError, HulyClient> =>
+): Effect.Effect<DeleteRecruitingReviewResult, ReviewWriteError, HulyClient | Diagnostics> =>
   Effect.gen(function* () {
     const client = yield* HulyClient
     const removeCollection = client.removeCollection

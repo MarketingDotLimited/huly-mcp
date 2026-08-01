@@ -4,6 +4,7 @@ import {
   HulyAuthError,
   HulyConnectionError,
   HulyError,
+  HulyModelMetadataError,
   HulyUnavailableError,
   NoUpdateFieldsError
 } from "./errors-base.js"
@@ -13,5 +14,6 @@ export const HulyDomainBaseError = Schema.Union(
   NoUpdateFieldsError,
   HulyConnectionError,
   HulyUnavailableError,
-  HulyAuthError
+  HulyAuthError,
+  HulyModelMetadataError
 )

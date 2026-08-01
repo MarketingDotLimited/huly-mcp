@@ -7,6 +7,7 @@ import { IssuePriority, TimeReportDayType } from "@hcengineering/tracker"
 import { Effect } from "effect"
 import { expect } from "vitest"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
+import { HulyModelMetadataError } from "../../../src/huly/errors.js"
 import { documentPlugin, tracker } from "../../../src/huly/huly-plugins.js"
 import { addIssueRelation, listIssueRelations, removeIssueRelation } from "../../../src/huly/operations/relations.js"
 import { assertAt, assertExists } from "../../../src/utils/assertions.js"
@@ -638,6 +639,49 @@ describe("removeIssueRelation", () => {
 })
 
 describe("listIssueRelations", () => {
+  it.effect("fails through the typed channel for malformed related document metadata", () =>
+    Effect.gen(function* () {
+      const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
+      const issue = makeIssue({
+        _id: "issue-1" as Ref<HulyIssue>,
+        space: "proj-1" as Ref<HulyProject>,
+        identifier: "TEST-1",
+        relations: [{ _id: "" as Ref<Doc>, _class: documentPlugin.class.Document }]
+      })
+
+      const error = yield* Effect.flip(
+        listIssueRelations({ project: projectIdentifier("TEST"), issueIdentifier: issueIdentifier("TEST-1") }).pipe(
+          Effect.provide(createTestLayerWithMocks({ projects: [project], issues: [issue] }))
+        )
+      )
+
+      expect(error).toBeInstanceOf(HulyModelMetadataError)
+      expect(error).toMatchObject({ model: "RelatedDocument", field: "_id" })
+    })
+  )
+
+  it.effect("fails through the typed channel for a malformed document teamspace reference", () =>
+    Effect.gen(function* () {
+      const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
+      const issue = makeIssue({
+        _id: "issue-1" as Ref<HulyIssue>,
+        space: "proj-1" as Ref<HulyProject>,
+        identifier: "TEST-1",
+        relations: [{ _id: "doc-1" as Ref<Doc>, _class: documentPlugin.class.Document }]
+      })
+      const document = makeDocument({ _id: "doc-1" as Ref<HulyDocument>, space: "" as Ref<HulyTeamspace> })
+
+      const error = yield* Effect.flip(
+        listIssueRelations({ project: projectIdentifier("TEST"), issueIdentifier: issueIdentifier("TEST-1") }).pipe(
+          Effect.provide(createTestLayerWithMocks({ projects: [project], issues: [issue], documents: [document] }))
+        )
+      )
+
+      expect(error).toBeInstanceOf(HulyModelMetadataError)
+      expect(error).toMatchObject({ model: "Document", field: "space" })
+    })
+  )
+
   it.effect("returns resolved relations with identifiers", () =>
     Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })

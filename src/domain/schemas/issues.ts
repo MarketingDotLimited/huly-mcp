@@ -274,12 +274,13 @@ const parentScopeError = (params: ListIssuesParamsBase): string | undefined =>
 const listIssuesValidationError = (params: ListIssuesParamsBase): string | undefined =>
   exclusiveListIssueFieldsError(params) ?? parentScopeError(params)
 
-export const ListIssuesParamsSchema = ListIssuesParamsBase.pipe(Schema.filter(listIssuesValidationError)).annotations({
-  title: "ListIssuesParams",
-  description: "Parameters for listing issues"
-})
+export const ListIssuesParamsSchema = ListIssuesParamsBase.pipe(
+  Schema.filter(listIssuesValidationError),
+  Schema.brand("ParsedListIssuesParams")
+).annotations({ title: "ListIssuesParams", description: "Parameters for listing issues" })
 
 export type ListIssuesParams = Schema.Schema.Type<typeof ListIssuesParamsSchema>
+export type ListIssuesInput = Schema.Schema.Encoded<typeof ListIssuesParamsSchema>
 
 export const GetIssueParamsSchema = Schema.Struct({
   project: ProjectIdentifier.annotations({ description: "Project identifier (e.g., 'HULY')" }),

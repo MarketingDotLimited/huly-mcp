@@ -1,7 +1,7 @@
 import type { Class, Doc, DocumentUpdate, FindOptions, Ref, RelatedDocument } from "@hcengineering/core"
 import type { Document as HulyDocument, Teamspace as HulyTeamspace } from "@hcengineering/document"
 import type { Issue as HulyIssue, Project as HulyProject } from "@hcengineering/tracker"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 
 import type {
   AddIssueRelationParams,
@@ -17,24 +17,27 @@ import {
   DocumentId,
   IssueId,
   IssueIdentifier,
-  ObjectClassName,
-  TeamspaceId,
+  type TeamspaceId,
   TeamspaceIdentifier
 } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
-import type { IssueNotFoundError, ProjectNotFoundError } from "../errors.js"
+import { HulyModelMetadataError, type IssueNotFoundError, type ProjectNotFoundError } from "../errors.js"
 import { documentPlugin, tracker } from "../huly-plugins.js"
+import {
+  parseHulyDocumentRelationMetadata,
+  parseHulyIssueRelationMetadata,
+  parseHulyRelatedDocumentMetadata,
+  parseHulyTeamspaceMetadata
+} from "../model-metadata.js"
 import { findIssueInProject, findProject, findProjectAndIssue, parseIssueIdentifier } from "./issues-shared.js"
 import { hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
-type RelationError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
+type RelationError = HulyClientError | ProjectNotFoundError | IssueNotFoundError | HulyModelMetadataError
 
 const toIssueIdentifier = (value: string): IssueIdentifier => IssueIdentifier.make(value)
 const toIssueId = (value: string): IssueId => IssueId.make(value)
-const toObjectClassName = (value: string): ObjectClassName => ObjectClassName.make(value)
 const toTeamspaceIdentifier = (value: string): TeamspaceIdentifier => TeamspaceIdentifier.make(value)
-const toDocumentId = (value: string): DocumentId => DocumentId.make(value)
 
 const blockingIssueFindOptions = {
   projection: { _id: 1, _class: 1, identifier: 1, blockedBy: 1 }
@@ -86,10 +89,12 @@ export const addIssueRelation = (
       project
     } = yield* findProjectAndIssue({ project: params.project, identifier: params.issueIdentifier })
     const { issue: target, project: targetProject } = yield* resolveTargetIssue(client, project, params.targetIssue)
+    const sourceMetadata = yield* parseHulyIssueRelationMetadata(source)
+    const targetMetadata = yield* parseHulyIssueRelationMetadata(target)
 
     const result = {
-      sourceIssue: toIssueIdentifier(source.identifier),
-      targetIssue: toIssueIdentifier(target.identifier),
+      sourceIssue: sourceMetadata.identifier,
+      targetIssue: targetMetadata.identifier,
       relationType: params.relationType
     }
 
@@ -143,10 +148,12 @@ export const removeIssueRelation = (
       project
     } = yield* findProjectAndIssue({ project: params.project, identifier: params.issueIdentifier })
     const { issue: target, project: targetProject } = yield* resolveTargetIssue(client, project, params.targetIssue)
+    const sourceMetadata = yield* parseHulyIssueRelationMetadata(source)
+    const targetMetadata = yield* parseHulyIssueRelationMetadata(target)
 
     const result = {
-      sourceIssue: toIssueIdentifier(source.identifier),
-      targetIssue: toIssueIdentifier(target.identifier),
+      sourceIssue: sourceMetadata.identifier,
+      targetIssue: targetMetadata.identifier,
       relationType: params.relationType
     }
 
@@ -205,22 +212,21 @@ const partitionIssueRelations = (relations: ReadonlyArray<RelatedDocument>): Par
 const loadIssueIdentifiers = (
   client: HulyClient["Type"],
   relations: ReadonlyArray<RelatedDocument>
-): Effect.Effect<ReadonlyMap<IssueId, IssueIdentifier>, HulyClientError> =>
+): Effect.Effect<ReadonlyMap<IssueId, IssueIdentifier>, HulyClientError | HulyModelMetadataError> =>
   Effect.gen(function* () {
     if (relations.length === 0) return new Map<IssueId, IssueIdentifier>()
     const issues = yield* client.findAll<HulyIssue>(
       tracker.class.Issue,
       hulyQuery<HulyIssue>({ _id: { $in: relations.map((relation) => toRef<HulyIssue>(relation._id)) } })
     )
-    return new Map<IssueId, IssueIdentifier>(
-      issues.map((issue) => [IssueId.make(issue._id), IssueIdentifier.make(issue.identifier)])
-    )
+    const metadata = yield* Effect.forEach(issues, parseHulyIssueRelationMetadata)
+    return new Map<IssueId, IssueIdentifier>(metadata.map((issue) => [issue.id, issue.identifier]))
   })
 
 const loadTeamspaceNames = (
   client: HulyClient["Type"],
   documents: ReadonlyArray<HulyDocument>
-): Effect.Effect<ReadonlyMap<TeamspaceId, TeamspaceIdentifier>, HulyClientError> =>
+): Effect.Effect<ReadonlyMap<TeamspaceId, TeamspaceIdentifier>, HulyClientError | HulyModelMetadataError> =>
   Effect.gen(function* () {
     const spaceIds = [...new Set(documents.map((document) => document.space))]
     if (spaceIds.length === 0) return new Map<TeamspaceId, TeamspaceIdentifier>()
@@ -228,36 +234,44 @@ const loadTeamspaceNames = (
       documentPlugin.class.Teamspace,
       hulyQuery<HulyTeamspace>({ _id: { $in: spaceIds.map(toRef<HulyTeamspace>) } })
     )
-    return new Map<TeamspaceId, TeamspaceIdentifier>(
-      teamspaces.map((teamspace) => [TeamspaceId.make(teamspace._id), TeamspaceIdentifier.make(teamspace.name)])
-    )
+    const metadata = yield* Effect.forEach(teamspaces, parseHulyTeamspaceMetadata)
+    return new Map<TeamspaceId, TeamspaceIdentifier>(metadata.map((teamspace) => [teamspace.id, teamspace.name]))
   })
 
 const loadDocumentRelationEntries = (
   client: HulyClient["Type"],
   relations: ReadonlyArray<RelatedDocument>
-): Effect.Effect<Array<DocumentRelationEntry>, HulyClientError> =>
+): Effect.Effect<Array<DocumentRelationEntry>, HulyClientError | HulyModelMetadataError> =>
   Effect.gen(function* () {
     if (relations.length === 0) return []
     const documents = yield* client.findAll<HulyDocument>(
       documentPlugin.class.Document,
       hulyQuery<HulyDocument>({ _id: { $in: relations.map((relation) => toRef<HulyDocument>(relation._id)) } })
     )
+    const documentMetadata = yield* Effect.forEach(documents, parseHulyDocumentRelationMetadata)
     const documentsById = new Map(documents.map((document) => [String(document._id), document]))
+    const metadataById = new Map(documentMetadata.map((metadata) => [String(metadata.id), metadata]))
     const teamspaceNames = yield* loadTeamspaceNames(client, documents)
-    return relations.map((relation) => {
-      const document = documentsById.get(String(relation._id))
-      return {
-        title: document?.title ?? String(relation._id),
-        teamspace: toTeamspaceIdentifier(
-          document === undefined
-            ? String(relation._id)
-            : (teamspaceNames.get(TeamspaceId.make(document.space)) ?? String(document.space))
-        ),
-        _id: toDocumentId(String(relation._id)),
-        _class: toObjectClassName(String(relation._class))
-      }
-    })
+    return yield* Effect.forEach(relations, (relation) =>
+      Effect.gen(function* () {
+        const relationMetadata = yield* parseHulyRelatedDocumentMetadata(relation)
+        const document = documentsById.get(String(relation._id))
+        const metadata = metadataById.get(String(relation._id))
+        const documentId = yield* Schema.decodeUnknown(DocumentId)(relationMetadata.id).pipe(
+          Effect.mapError(() => new HulyModelMetadataError({ model: "RelatedDocument", field: "_id" }))
+        )
+        return {
+          title: document?.title ?? String(relation._id),
+          teamspace: toTeamspaceIdentifier(
+            document === undefined || metadata === undefined
+              ? String(relation._id)
+              : (teamspaceNames.get(metadata.teamspaceId) ?? String(metadata.teamspaceId))
+          ),
+          _id: documentId,
+          _class: relationMetadata.class
+        }
+      })
+    )
   })
 
 export const listIssueRelations = (
@@ -268,26 +282,22 @@ export const listIssueRelations = (
       project: params.project,
       identifier: params.issueIdentifier
     })
+    yield* parseHulyIssueRelationMetadata(issue)
 
     const blockedByRefs = issue.blockedBy ?? []
     const relationsRefs = issue.relations ?? []
+    const blockedByMetadata = yield* Effect.forEach(blockedByRefs, parseHulyRelatedDocumentMetadata)
+    const relationsMetadata = yield* Effect.forEach(relationsRefs, parseHulyRelatedDocumentMetadata)
 
     const { documentRelations, issueRelations } = partitionIssueRelations(relationsRefs)
 
     // Resolve issue refs (blockedBy are always issues; issueRelationsRefs are issue relations)
     const idToIdentifier = yield* loadIssueIdentifiers(client, [...blockedByRefs, ...issueRelations])
 
-    const toEntry = (r: RelatedDocument): RelationEntry => ({
-      identifier: toIssueIdentifier(idToIdentifier.get(IssueId.make(r._id)) ?? String(r._id)),
-      _id: toIssueId(String(r._id)),
-      _class: toObjectClassName(String(r._class))
-    })
-
-    const toIssueEntry = (i: HulyIssue): RelationEntry => ({
-      identifier: toIssueIdentifier(i.identifier),
-      _id: toIssueId(String(i._id)),
-      _class: toObjectClassName(String(i._class))
-    })
+    const toEntry = (metadata: (typeof blockedByMetadata)[number]): RelationEntry => {
+      const id = toIssueId(metadata.id)
+      return { identifier: toIssueIdentifier(idToIdentifier.get(id) ?? String(id)), _id: id, _class: metadata.class }
+    }
 
     // Huly stores "source blocks target" on the target issue as a RelatedDocument
     // in `blockedBy`. Live local-Huly verification for PR #48 showed that querying
@@ -298,11 +308,24 @@ export const listIssueRelations = (
       hulyQuery<HulyIssue>({ blockedBy: makeRelatedDoc(issue) }),
       blockingIssueFindOptions
     )
-    const blocks = blockingIssueCandidates
-      .filter((candidate) => candidate._id !== issue._id && hasRelationById(candidate.blockedBy, issue._id))
-      .map(toIssueEntry)
+    const blocks = yield* Effect.forEach(
+      blockingIssueCandidates.filter(
+        (candidate) => candidate._id !== issue._id && hasRelationById(candidate.blockedBy, issue._id)
+      ),
+      (candidate): Effect.Effect<RelationEntry, HulyModelMetadataError> =>
+        Effect.map(parseHulyIssueRelationMetadata(candidate), (metadata) => ({
+          identifier: metadata.identifier,
+          _id: metadata.id,
+          _class: metadata.class
+        }))
+    )
 
     const documents = yield* loadDocumentRelationEntries(client, documentRelations)
 
-    return { blockedBy: blockedByRefs.map(toEntry), blocks, relations: issueRelations.map(toEntry), documents }
+    const blockedBy = blockedByMetadata.map(toEntry)
+    const issueRelationIds = new Set(issueRelations.map((relation) => String(relation._id)))
+    const relationEntries = relationsMetadata
+      .filter((metadata) => issueRelationIds.has(String(metadata.id)))
+      .map(toEntry)
+    return { blockedBy, blocks, relations: relationEntries, documents }
   })

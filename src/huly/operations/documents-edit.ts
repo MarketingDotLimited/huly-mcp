@@ -11,18 +11,17 @@ import type { Document as HulyDocument } from "@hcengineering/document"
 import { Effect } from "effect"
 
 import type { EditDocumentParams } from "../../domain/schemas.js"
-import { EDIT_DOCUMENT_UPDATE_FIELD_GROUPS, type EditDocumentResult } from "../../domain/schemas/documents.js"
-import { Count, DocumentId } from "../../domain/schemas/shared.js"
+import type { EditDocumentResult } from "../../domain/schemas/documents.js"
+import { Count } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import {
-  DocumentEditModeError,
   DocumentEmptyContentError,
   type DocumentNotFoundError,
   type DocumentReferenceError,
   DocumentTextMultipleMatchesError,
   DocumentTextNotFoundError,
   type IssueNotFoundError,
-  NoUpdateFieldsError,
+  type HulyModelMetadataError,
   type PersonIdentifierAmbiguousError,
   type PersonNotFoundError,
   type ProjectNotFoundError,
@@ -33,6 +32,7 @@ import { renderDocumentContentForWrite } from "./document-native-references.js"
 import { findTeamspaceAndDocument } from "./documents-shared.js"
 
 import { documentPlugin } from "../huly-plugins.js"
+import { parseHulyDocumentRelationMetadata, parseHulyTeamspaceMetadata } from "../model-metadata.js"
 
 type EditDocumentError =
   | HulyClientError
@@ -41,54 +41,12 @@ type EditDocumentError =
   | DocumentTextNotFoundError
   | DocumentTextMultipleMatchesError
   | DocumentEmptyContentError
-  | DocumentEditModeError
   | DocumentReferenceError
   | ProjectNotFoundError
   | IssueNotFoundError
   | PersonIdentifierAmbiguousError
   | PersonNotFoundError
-  | NoUpdateFieldsError
-
-const hasSearchReplace = (params: EditDocumentParams): boolean =>
-  params.old_text !== undefined && params.new_text !== undefined
-
-type EditDocumentInputError = DocumentEditModeError | NoUpdateFieldsError
-
-const contentModeInputError = (params: EditDocumentParams): EditDocumentInputError | undefined =>
-  params.content !== undefined && (params.old_text !== undefined || params.new_text !== undefined)
-    ? new DocumentEditModeError({ reason: "content cannot be combined with old_text or new_text" })
-    : undefined
-
-const searchReplacePairInputError = (params: EditDocumentParams): EditDocumentInputError | undefined =>
-  (params.old_text !== undefined) !== (params.new_text !== undefined)
-    ? new DocumentEditModeError({ reason: "old_text and new_text must be provided together" })
-    : undefined
-
-const oldTextInputError = (params: EditDocumentParams): EditDocumentInputError | undefined =>
-  params.old_text !== undefined && params.old_text.trim() === ""
-    ? new DocumentEditModeError({ reason: "old_text must be non-empty" })
-    : undefined
-
-const replaceAllInputError = (params: EditDocumentParams): EditDocumentInputError | undefined =>
-  params.replace_all !== undefined && !hasSearchReplace(params)
-    ? new DocumentEditModeError({ reason: "replace_all requires both old_text and new_text" })
-    : undefined
-
-const missingDocumentUpdateError = (params: EditDocumentParams): EditDocumentInputError | undefined =>
-  params.title === undefined && params.content === undefined && !hasSearchReplace(params)
-    ? new NoUpdateFieldsError({ operation: "edit_document", fields: EDIT_DOCUMENT_UPDATE_FIELD_GROUPS })
-    : undefined
-
-const validateEditDocumentParams = (params: EditDocumentParams): Effect.Effect<void, EditDocumentInputError> => {
-  const error = [
-    contentModeInputError(params),
-    searchReplacePairInputError(params),
-    oldTextInputError(params),
-    replaceAllInputError(params),
-    missingDocumentUpdateError(params)
-  ].find((candidate) => candidate !== undefined)
-  return error === undefined ? Effect.void : Effect.fail(error)
-}
+  | HulyModelMetadataError
 
 const applyFullDocumentContent = (
   client: HulyClient["Type"],
@@ -157,21 +115,11 @@ const applyDocumentContentEdit = (
   params: EditDocumentParams,
   updateOps: DocumentUpdate<HulyDocument>
 ): Effect.Effect<void, EditDocumentError, HulyClient> =>
-  Effect.gen(function* () {
-    if (params.content !== undefined) {
-      return yield* applyFullDocumentContent(client, doc, params.content, updateOps)
-    }
-    if (params.old_text !== undefined && params.new_text !== undefined) {
-      yield* applyDocumentSearchReplace(
-        client,
-        doc,
-        params.document,
-        params.old_text,
-        params.new_text,
-        params.replace_all ?? false
-      )
-    }
-  })
+  params._tag === "ReplaceContent"
+    ? applyFullDocumentContent(client, doc, params.content, updateOps)
+    : params._tag === "SearchAndReplace"
+      ? applyDocumentSearchReplace(client, doc, params.document, params.oldText, params.newText, params.replaceAll)
+      : Effect.void
 
 const persistDocumentFields = (
   client: HulyClient["Type"],
@@ -187,15 +135,16 @@ export const editDocument = (
   params: EditDocumentParams
 ): Effect.Effect<EditDocumentResult, EditDocumentError, HulyClient> =>
   Effect.gen(function* () {
-    yield* validateEditDocumentParams(params)
     const { client, doc, teamspace } = yield* findTeamspaceAndDocument(params)
+    const documentMetadata = yield* parseHulyDocumentRelationMetadata(doc)
+    yield* parseHulyTeamspaceMetadata(teamspace)
     const updateOps: DocumentUpdate<HulyDocument> = params.title === undefined ? {} : { title: params.title }
     yield* applyDocumentContentEdit(client, doc, params, updateOps)
 
     const finalTitle = updateOps.title ?? doc.title
-    const url = buildDocumentUrlFromConfig(client.workbenchUrlConfig, finalTitle, DocumentId.make(doc._id))
+    const url = buildDocumentUrlFromConfig(client.workbenchUrlConfig, finalTitle, documentMetadata.id)
     yield* persistDocumentFields(client, doc, teamspace._id, updateOps)
-    return { id: DocumentId.make(doc._id), updated: true, url }
+    return { id: documentMetadata.id, updated: true, url }
   })
 
 const NOT_FOUND_INDEX = -1

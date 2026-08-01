@@ -4,10 +4,14 @@ import type { Document as HulyDocument, Teamspace as HulyTeamspace } from "@hcen
 import { Effect } from "effect"
 import { expect } from "vitest"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
-import { editDocument, listDocuments } from "../../../src/huly/operations/documents.js"
+import { editDocument as editDocumentOperation, listDocuments } from "../../../src/huly/operations/documents.js"
 import { documentIdentifier, teamspaceIdentifier } from "../../helpers/brands.js"
+import { editDocumentParams } from "../../helpers/parsed-params.js"
 
 import { documentPlugin } from "../../../src/huly/huly-plugins.js"
+
+const editDocument = (input: Parameters<typeof editDocumentParams>[0]) =>
+  editDocumentOperation(editDocumentParams(input))
 
 // --- Mock Data Builders ---
 

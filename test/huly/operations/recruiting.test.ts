@@ -64,6 +64,7 @@ import {
   Timestamp
 } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
+import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
 import {
   InvalidStatusError,
   PersonNotAnEmployeeError,
@@ -136,6 +137,7 @@ import {
   deleteRecruitingReview,
   getRecruitingReview,
   listRecruitingReviews,
+  reviewRefFromDoc,
   updateRecruitingReview
 } from "../../../src/huly/operations/recruiting-reviews.js"
 import { resolveDefaultRecruitingStatus } from "../../../src/huly/operations/recruiting-shared.js"
@@ -1827,7 +1829,7 @@ describe("Recruiting Operations", () => {
         )
       )
       expect(unsupportedDelete).toBeInstanceOf(RecruitingMutationUnsupportedError)
-    })
+    }).pipe(withDiagnostics)
   )
 
   it.effect("lists applicants, resolves ambiguous applicant numbers, updates, and deletes", () =>
@@ -2035,7 +2037,7 @@ describe("Recruiting Operations", () => {
         id: "review-1",
         collection: "reviews"
       })
-    })
+    }).pipe(withDiagnostics)
   )
 
   it.effect("handles sparse review detail, default create values, and direct review updates", () =>
@@ -2143,7 +2145,7 @@ describe("Recruiting Operations", () => {
         type: "reference",
         attrs: { id: "issue-1", objectclass: "tracker:class:Issue", label: "HULY-1" }
       })
-    })
+    }).pipe(withDiagnostics)
   )
 
   it.effect("reports review model gaps, locator mismatches, and unsupported deletes", () =>
@@ -2220,6 +2222,76 @@ describe("Recruiting Operations", () => {
         )
       )
       expect(unsupportedDelete).toBeInstanceOf(RecruitingMutationUnsupportedError)
+    }).pipe(withDiagnostics)
+  )
+
+  it.effect("warns once when recruiting review metadata uses title and participant fallbacks", () =>
+    Effect.gen(function* () {
+      const degradedReview = makeReview({ title: "   ", participants: [personRef("missing-person")] })
+      const { layer } = createRecruitingLayer({ reviews: [degradedReview] })
+      const diagnostics = yield* makeDiagnosticsScope
+
+      const detail = yield* getRecruitingReview({ review: ReviewIdentifier.make("RVE-1") }).pipe(
+        Effect.provide(layer),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+      const warnings = yield* diagnostics.drainWarnings
+
+      expect(detail.title).toBe("Untitled Review")
+      expect(detail.participants).toEqual([{ id: "missing-person", name: "missing-person" }])
+      expect(warnings).toEqual([
+        {
+          code: "recruiting_review_metadata_degraded",
+          message:
+            "Recruiting review metadata was degraded: 1 title fallback(s) used 'Untitled Review' and 1 participant name fallback(s) used the participant ID."
+        }
+      ])
+
+      const referenceDiagnostics = yield* makeDiagnosticsScope
+      const ref = yield* Effect.gen(function* () {
+        const client = yield* HulyClient
+        return yield* reviewRefFromDoc(client, degradedReview)
+      }).pipe(Effect.provide(layer), Effect.provideService(Diagnostics, referenceDiagnostics.service))
+      expect(ref.title).toBe("Untitled Review")
+      expect(yield* referenceDiagnostics.drainWarnings).toHaveLength(1)
+    })
+  )
+
+  it.effect("coalesces degraded titles from a recruiting review list", () =>
+    Effect.gen(function* () {
+      const reviews = [
+        makeReview({ _id: docRef("review-1"), number: 1, title: "" }),
+        makeReview({ _id: docRef("review-2"), number: 2, title: "   " })
+      ]
+      const { layer } = createRecruitingLayer({ reviews })
+      const diagnostics = yield* makeDiagnosticsScope
+
+      const listed = yield* listRecruitingReviews({}).pipe(
+        Effect.provide(layer),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+      const warnings = yield* diagnostics.drainWarnings
+
+      expect(listed.reviews.map((review) => review.title)).toEqual(["Untitled Review", "Untitled Review"])
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]?.code).toBe("recruiting_review_metadata_degraded")
+      expect(warnings[0]?.message).toContain("2 title fallback(s)")
+    })
+  )
+
+  it.effect("does not warn for complete recruiting review metadata", () =>
+    Effect.gen(function* () {
+      const { layer } = createRecruitingLayer({ reviews: [makeReview()] })
+      const diagnostics = yield* makeDiagnosticsScope
+
+      const detail = yield* getRecruitingReview({ review: ReviewIdentifier.make("RVE-1") }).pipe(
+        Effect.provide(layer),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+
+      expect(detail.title).toBe("Technical Interview")
+      expect(detail.participants[0]?.name).toBe("Ada Lovelace")
+      expect(yield* diagnostics.drainWarnings).toEqual([])
     })
   )
 
@@ -2241,7 +2313,7 @@ describe("Recruiting Operations", () => {
         )
       )
       expect(unsupported).toBeInstanceOf(RecruitingMutationUnsupportedError)
-    })
+    }).pipe(withDiagnostics)
   )
 
   it.effect("lists, reads, creates, updates, and deletes recruiting opinions", () =>
@@ -2296,7 +2368,7 @@ describe("Recruiting Operations", () => {
         id: "opinion-1",
         collection: "opinions"
       })
-    })
+    }).pipe(withDiagnostics)
   )
 
   it.effect("handles sparse opinions, raw-id opinion lookup, and non-clear updates", () =>
@@ -2372,7 +2444,7 @@ describe("Recruiting Operations", () => {
       )
       expect(deleted.opinion.id).toBe("opinion-1")
       expect(deleted.deleted).toBe(true)
-    })
+    }).pipe(withDiagnostics)
   )
 
   it.effect("reports opinion raw-id misses, review mismatches, and unsupported deletes", () =>
@@ -2405,7 +2477,7 @@ describe("Recruiting Operations", () => {
         )
       )
       expect(unsupportedDelete).toBeInstanceOf(RecruitingMutationUnsupportedError)
-    })
+    }).pipe(withDiagnostics)
   )
 
   it.effect("reports opinion ambiguity and unsupported collection updates", () =>
@@ -2425,7 +2497,7 @@ describe("Recruiting Operations", () => {
         )
       )
       expect(unsupported).toBeInstanceOf(RecruitingMutationUnsupportedError)
-    })
+    }).pipe(withDiagnostics)
   )
 
   it.effect("resolves every recruiting media target through friendly locators", () =>

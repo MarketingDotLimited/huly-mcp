@@ -11,11 +11,17 @@ import type {
 import type { HulyClient, HulyClientError } from "../client.js"
 import type {
   DocumentNotFoundError,
+  HulyModelMetadataError,
   IssueNotFoundError,
   ProjectNotFoundError,
   TeamspaceNotFoundError
 } from "../errors.js"
 import { documentPlugin } from "../huly-plugins.js"
+import {
+  parseHulyDocumentRelationMetadata,
+  parseHulyIssueRelationMetadata,
+  parseHulyTeamspaceMetadata
+} from "../model-metadata.js"
 import { findTeamspaceAndDocument } from "./documents.js"
 import { findProjectAndIssue } from "./issues-shared.js"
 import { hasRelationById, makeRelatedDocEntry } from "./relations.js"
@@ -27,18 +33,22 @@ type DocRelationError =
   | IssueNotFoundError
   | TeamspaceNotFoundError
   | DocumentNotFoundError
+  | HulyModelMetadataError
 
 export const linkDocumentToIssue = (
   params: LinkDocumentToIssueParams
 ): Effect.Effect<LinkDocumentToIssueResult, DocRelationError, HulyClient> =>
   Effect.gen(function* () {
-    const [{ client, issue, project }, { doc }] = yield* Effect.all([
+    const [{ client, issue, project }, { doc, teamspace }] = yield* Effect.all([
       findProjectAndIssue({ project: params.project, identifier: params.issueIdentifier }),
       findTeamspaceAndDocument({ teamspace: params.teamspace, document: params.document })
     ])
+    const issueMetadata = yield* parseHulyIssueRelationMetadata(issue)
+    const documentMetadata = yield* parseHulyDocumentRelationMetadata(doc)
+    yield* parseHulyTeamspaceMetadata(teamspace)
 
     if (hasRelationById(issue.relations, doc._id)) {
-      return { issue: issue.identifier, document: doc._id, documentTitle: doc.title, linked: false }
+      return { issue: issueMetadata.identifier, document: documentMetadata.id, documentTitle: doc.title, linked: false }
     }
 
     yield* client.updateDoc(
@@ -49,20 +59,28 @@ export const linkDocumentToIssue = (
       { $push: { relations: makeRelatedDocEntry(doc._id, documentPlugin.class.Document) } } as DocumentUpdate<HulyIssue>
     )
 
-    return { issue: issue.identifier, document: doc._id, documentTitle: doc.title, linked: true }
+    return { issue: issueMetadata.identifier, document: documentMetadata.id, documentTitle: doc.title, linked: true }
   })
 
 export const unlinkDocumentFromIssue = (
   params: UnlinkDocumentFromIssueParams
 ): Effect.Effect<UnlinkDocumentFromIssueResult, DocRelationError, HulyClient> =>
   Effect.gen(function* () {
-    const [{ client, issue, project }, { doc }] = yield* Effect.all([
+    const [{ client, issue, project }, { doc, teamspace }] = yield* Effect.all([
       findProjectAndIssue({ project: params.project, identifier: params.issueIdentifier }),
       findTeamspaceAndDocument({ teamspace: params.teamspace, document: params.document })
     ])
+    const issueMetadata = yield* parseHulyIssueRelationMetadata(issue)
+    const documentMetadata = yield* parseHulyDocumentRelationMetadata(doc)
+    yield* parseHulyTeamspaceMetadata(teamspace)
 
     if (!hasRelationById(issue.relations, doc._id)) {
-      return { issue: issue.identifier, document: doc._id, documentTitle: doc.title, unlinked: false }
+      return {
+        issue: issueMetadata.identifier,
+        document: documentMetadata.id,
+        documentTitle: doc.title,
+        unlinked: false
+      }
     }
 
     yield* client.updateDoc(
@@ -73,5 +91,5 @@ export const unlinkDocumentFromIssue = (
       { $pull: { relations: { _id: toRef<Doc>(doc._id) } } } as DocumentUpdate<HulyIssue>
     )
 
-    return { issue: issue.identifier, document: doc._id, documentTitle: doc.title, unlinked: true }
+    return { issue: issueMetadata.identifier, document: documentMetadata.id, documentTitle: doc.title, unlinked: true }
   })

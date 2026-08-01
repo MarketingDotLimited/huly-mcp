@@ -214,9 +214,93 @@ const editDocumentValidationError = (params: EditDocumentParamsBase): string | u
     emptyOldTextError(params)
   ].find((error) => error !== undefined)
 
-export const EditDocumentParamsSchema = EditDocumentParamsBase.pipe(
-  Schema.filter(editDocumentValidationError)
-).annotations({
+const ValidatedEditDocumentInputSchema = EditDocumentParamsBase.pipe(Schema.filter(editDocumentValidationError))
+const EditDocumentSearchText = Schema.String.pipe(
+  /* v8 ignore next -- the outer input schema rejects blank old_text before constructing the command */
+  Schema.filter((value) => (value.trim() === "" ? "old_text must be non-empty" : undefined)),
+  Schema.brand("EditDocumentSearchText")
+)
+
+const EditDocumentLocatorSchema = Schema.Struct({ teamspace: TeamspaceIdentifier, document: DocumentIdentifier })
+
+export const EditDocumentCommandSchema = Schema.Union(
+  Schema.Struct({ ...EditDocumentLocatorSchema.fields, _tag: Schema.Literal("TitleOnly"), title: NonEmptyString }),
+  Schema.Struct({
+    ...EditDocumentLocatorSchema.fields,
+    _tag: Schema.Literal("ReplaceContent"),
+    title: Schema.optionalWith(NonEmptyString, { exact: true }),
+    content: Schema.String
+  }),
+  Schema.Struct({
+    ...EditDocumentLocatorSchema.fields,
+    _tag: Schema.Literal("SearchAndReplace"),
+    title: Schema.optionalWith(NonEmptyString, { exact: true }),
+    oldText: EditDocumentSearchText,
+    newText: Schema.String,
+    replaceAll: Schema.Boolean
+  })
+).annotations({ identifier: "EditDocumentCommand", title: "EditDocumentCommand" })
+
+export type EditDocumentCommand = Schema.Schema.Type<typeof EditDocumentCommandSchema>
+
+const toEditDocumentCommand = (params: EditDocumentParamsBase): EditDocumentCommand => {
+  if (params.content !== undefined) {
+    return {
+      _tag: "ReplaceContent",
+      teamspace: params.teamspace,
+      document: params.document,
+      ...(params.title === undefined ? {} : { title: params.title }),
+      content: params.content
+    }
+  }
+  if (params.old_text !== undefined && params.new_text !== undefined) {
+    return {
+      _tag: "SearchAndReplace",
+      teamspace: params.teamspace,
+      document: params.document,
+      ...(params.title === undefined ? {} : { title: params.title }),
+      oldText: EditDocumentSearchText.make(params.old_text),
+      newText: params.new_text,
+      replaceAll: params.replace_all ?? DEFAULT_REPLACE_ALL
+    }
+  }
+  return {
+    _tag: "TitleOnly",
+    teamspace: params.teamspace,
+    document: params.document,
+    /* v8 ignore next -- the validated title-only input necessarily contains title */
+    title: NonEmptyString.make(params.title ?? "")
+  }
+}
+
+const fromEditDocumentCommand = (command: EditDocumentCommand): EditDocumentParamsBase => {
+  switch (command._tag) {
+    case "TitleOnly":
+      return { teamspace: command.teamspace, document: command.document, title: command.title }
+    case "ReplaceContent":
+      return {
+        teamspace: command.teamspace,
+        document: command.document,
+        ...(command.title === undefined ? {} : { title: command.title }),
+        content: command.content
+      }
+    case "SearchAndReplace":
+      return {
+        teamspace: command.teamspace,
+        document: command.document,
+        ...(command.title === undefined ? {} : { title: command.title }),
+        old_text: command.oldText,
+        new_text: command.newText,
+        replace_all: command.replaceAll
+      }
+  }
+}
+
+export const EditDocumentParamsSchema = Schema.transform(ValidatedEditDocumentInputSchema, EditDocumentCommandSchema, {
+  strict: true,
+  decode: toEditDocumentCommand,
+  encode: (_encoded, command) => fromEditDocumentCommand(command)
+}).annotations({
   title: "EditDocumentParams",
   description: `Edit a document. Two content modes (mutually exclusive): (1) 'content' for full replace, (2) 'old_text' + 'new_text' for targeted search-and-replace. Also supports renaming via 'title'. ${atLeastOneUpdateFieldMessage(
     EDIT_DOCUMENT_UPDATE_FIELD_GROUPS
@@ -224,6 +308,7 @@ export const EditDocumentParamsSchema = EditDocumentParamsBase.pipe(
 })
 
 export type EditDocumentParams = Schema.Schema.Type<typeof EditDocumentParamsSchema>
+export type EditDocumentInput = Schema.Schema.Encoded<typeof EditDocumentParamsSchema>
 
 export const DeleteDocumentParamsSchema = Schema.Struct({
   teamspace: TeamspaceIdentifier.annotations({ description: "Teamspace name or ID" }),
