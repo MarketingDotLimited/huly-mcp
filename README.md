@@ -290,7 +290,7 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `get_tool_schema` | Returns the exact input and output schema for one proxy-visible Huly tool. Use this before invoke_tool when you are not certain about required argument names or result shape. |
 | `invoke_tool` | Invokes one proxy-visible Huly tool by exact name with its arguments. This tool can call read or write Huly operations; check get_tool_schema and the target tool annotations when safety matters. |
 
-**`TOOLSETS` categories:** `projects`, `issues`, `comments`, `milestones`, `documents`, `storage`, `attachments`, `contacts`, `channels`, `calendar`, `time tracking`, `search`, `associations`, `activity`, `notifications`, `workspace`, `approvals`, `boards`, `cards`, `collaborators`, `custom-fields`, `drive`, `inventory`, `labels`, `leads`, `templates`, `planner`, `preferences`, `processes`, `recruiting`, `sdk-discovery`, `spaces`, `tag-categories`, `tags`, `task-management`, `test-management`, `user-statuses`, `views`, `virtual-office`
+**`TOOLSETS` categories:** `projects`, `issues`, `comments`, `milestones`, `documents`, `storage`, `attachments`, `contacts`, `channels`, `calendar`, `time tracking`, `search`, `associations`, `activity`, `notifications`, `workspace`, `approvals`, `boards`, `cards`, `collaborators`, `custom-fields`, `drive`, `inventory`, `labels`, `leads`, `templates`, `planner`, `preferences`, `processes`, `recruiting`, `sdk-discovery`, `spaces`, `tag-categories`, `tags`, `task-management`, `test-management`, `user-statuses`, `views`, `virtual-office`, `workflow-statuses`
 
 ### Projects
 
@@ -966,6 +966,21 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `get_meeting_minutes` | Get one meeting notes/transcript record (minutes) by meetingMinutesId, including description when readable. |
 | `list_device_preferences` | List readable virtual-office media device preferences. |
 | `list_office_defaults` | List room-level language, default recording, and default transcription settings. |
+
+### Workflow-Statuses
+
+| Tool | Description |
+|------|-------------|
+| `list_workflow_statuses` | List generic Huly workflow Status records across the workspace model. Filter by status attribute ID/exact name and category ID/exact label. Returns resolved attribute and category relationships. For one tracker project's issue statuses, use list_statuses instead. |
+| `get_workflow_status` | Get one generic Huly workflow Status by ID or exact case-insensitive name. Pass ofAttribute when a name exists for multiple status attributes; ambiguous names are rejected with matching IDs. |
+| `create_workflow_status` | Create a generic Huly workflow Status for an attribute resolved by ID or exact name. Optionally resolve a shared category by ID or exact label; pass a category ID when its label is ambiguous. Idempotently returns the existing normalized name in that attribute with created=false. Tracker project-type wiring remains owned by create_issue_status. |
+| `update_workflow_status` | Update a generic workflow Status by ID or exact name. Use currentOfAttribute to disambiguate the target. category, color, and description accept null to clear. Renaming is refused while a StatusCategory uses the status as its default; update that default first. Moving attributes is allowed only when the status is unreferenced and both attributes use the same concrete Status class. Categories may be shared across attributes. |
+| `delete_workflow_status` | Permanently delete an unreferenced generic workflow Status by ID or exact name. Refuses deletion while any StatusCategory default, ProjectType, TaskType, or task record references it. This tool never rewrites tracker workflow arrays; use tracker-specific workflow tools to remove those references first. |
+| `list_status_categories` | List generic Huly StatusCategory records, optionally filtered by status attribute ID or exact name. Returns each category's resolved attribute, default status, and number of statuses that reference it. |
+| `get_status_category` | Get one generic Huly StatusCategory by ID or exact case-insensitive label. Pass ofAttribute when a label exists for multiple status attributes; ambiguous labels are rejected with matching IDs. |
+| `create_status_category` | Create a generic Huly StatusCategory for an attribute resolved by ID or exact name. defaultStatus is resolved within the same attribute, preserving the category/default relationship. Idempotently returns an existing normalized label with created=false. |
+| `update_status_category` | Update a generic StatusCategory by ID or exact label. The resulting default status must belong to the resulting attribute. Statuses from other attributes may continue to reference the category because Huly categories can be shared. |
+| `delete_status_category` | Permanently delete an unreferenced generic StatusCategory by ID or exact label. Refuses deletion while any Status references the category, preventing dangling relationships. |
 
 <!-- tools:end -->
 

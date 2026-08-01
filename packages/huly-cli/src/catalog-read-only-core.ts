@@ -19,6 +19,16 @@ export const coreReadOnlyCliCommandCatalog = {
     description: "Get Global Space Admins"
   },
   get_project_type: { path: ["project-types", "get"], positional: [], description: "Get Project Type" },
+  get_status_category: {
+    path: ["status-categories", "get"],
+    positional: ["category"],
+    description: "Get Generic Status Category"
+  },
+  get_workflow_status: {
+    path: ["workflow-statuses", "get"],
+    positional: ["status"],
+    description: "Get Generic Workflow Status"
+  },
   list_document_snapshots: {
     path: ["documents", "snapshots", "list"],
     positional: ["teamspace", "document"],
@@ -36,6 +46,11 @@ export const coreReadOnlyCliCommandCatalog = {
     description: "List Project Target Preferences"
   },
   list_project_types: { path: ["project-types", "list"], positional: [], description: "List Project Types" },
+  list_status_categories: {
+    path: ["status-categories", "list"],
+    positional: [],
+    description: "List Generic Status Categories"
+  },
   list_related_issue_targets: {
     path: ["issues", "related-targets", "list"],
     positional: [],
@@ -46,5 +61,10 @@ export const coreReadOnlyCliCommandCatalog = {
     positional: [],
     description: "List Saved Attachments"
   },
-  list_task_types: { path: ["task-types", "list"], positional: [], description: "List Task Types" }
+  list_task_types: { path: ["task-types", "list"], positional: [], description: "List Task Types" },
+  list_workflow_statuses: {
+    path: ["workflow-statuses", "list"],
+    positional: [],
+    description: "List Generic Workflow Statuses"
+  }
 } as const satisfies Partial<Record<McpToolName, CliCommandSpec>>

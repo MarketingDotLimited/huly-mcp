@@ -64,6 +64,14 @@ export const firstClassToolHints = new Map<string, ReadonlyArray<HulyClassToolHi
   [
     String(tracker.class.RelatedIssueTarget),
     [toolHint("issues", ["list_related_issue_targets", "set_related_issue_target"])]
+  ],
+  [
+    String(core.class.Status),
+    [toolHint("workflow-statuses", ["list_workflow_statuses", "get_workflow_status", "create_workflow_status"])]
+  ],
+  [
+    String(core.class.StatusCategory),
+    [toolHint("workflow-statuses", ["list_status_categories", "get_status_category", "create_status_category"])]
   ]
 ])
 
@@ -112,9 +120,9 @@ const boardNotMcpFacingRationale =
 const chunterCoveredRationale =
   "Current channel and direct-message tools cover channels, channel messages, one-to-one DM create/list/message list/send/update/delete, thread replies, channel member list/add/remove, join/leave, archive/unarchive, conversation star/closed state, and group direct-message create."
 const coreCoveredRationale =
-  "Existing tools expose user statuses, full-text search, blobs through storage/download flows, generic association/relation discovery/mutation helpers, class/interface/mixin, attribute, enum, plugin configuration, domain index configuration, sequence, and space type capability discovery."
+  "Existing tools expose user statuses, generic workflow statuses and status categories with full CRUD, full-text search, blobs through storage/download flows, generic association/relation discovery/mutation helpers, class/interface/mixin, attribute, enum, plugin configuration, domain index configuration, sequence, and space type capability discovery."
 const coreGapRationale =
-  "Remaining core write-side configuration, role/permission definition writes, generic space creation, class collaborator metadata, statuses, and write-side model management are represented as matrix gaps. Generic space discovery, space type/permission reads, safe existing-space metadata updates, member mutations, owner replacement, typed-space role member mutations, object collaborators, read-only plugin configuration, domain index configuration, and sequence discovery are covered."
+  "Remaining core write-side configuration, role/permission definition writes, generic space creation, class collaborator metadata, and write-side model management are represented as matrix gaps. Generic space discovery, space type/permission reads, safe existing-space metadata updates, member mutations, owner replacement, typed-space role member mutations, object collaborators, read-only plugin configuration, domain index configuration, sequence discovery, and generic workflow status/category CRUD are covered."
 const coreNotMcpFacingRationale =
   "Core primitive model infrastructure, transaction classes, type wrappers, and versioning internals are not LLM-facing product resources by themselves."
 
@@ -325,6 +333,18 @@ export const runtimeParityRoutingRows: ReadonlyArray<RuntimeParityRoutingRow> = 
     "@hcengineering/core",
     "Permission",
     covered(["list_space_permissions", "describe_huly_space_type_capabilities"], coreCoveredRationale)
+  ),
+  routingRow(
+    String(core.class.Status),
+    "@hcengineering/core",
+    "Status",
+    covered(["list_workflow_statuses", "get_workflow_status", "create_workflow_status"], coreCoveredRationale)
+  ),
+  routingRow(
+    String(core.class.StatusCategory),
+    "@hcengineering/core",
+    "StatusCategory",
+    covered(["list_status_categories", "get_status_category", "create_status_category"], coreCoveredRationale)
   ),
   routingRow(String(core.class.Role), "@hcengineering/core", "Role", gap(coreGapRationale)),
   routingRow(

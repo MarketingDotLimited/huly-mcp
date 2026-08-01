@@ -1443,6 +1443,32 @@ describe("Huly Errors", () => {
               return `template-field-category-ambiguous:${error.identifier}:${error.matches}`
             case "HulyModelMetadataError":
               return `model-metadata:${error.model}:${error.field}`
+            case "WorkflowAttributeNotFoundError":
+              return `workflow-attribute:${error.identifier}`
+            case "WorkflowAttributeIdentifierAmbiguousError":
+              return `workflow-attribute-ambiguous:${error.identifier}:${error.matches.length}`
+            case "WorkflowAttributeUnsupportedError":
+              return `workflow-attribute-unsupported:${error.attributeId}:${error.reason}`
+            case "WorkflowStatusNotFoundError":
+              return `workflow-status:${error.identifier}`
+            case "WorkflowStatusIdentifierAmbiguousError":
+              return `workflow-status-ambiguous:${error.identifier}:${error.matches.length}`
+            case "WorkflowStatusCategoryNotFoundError":
+              return `workflow-category:${error.identifier}`
+            case "WorkflowStatusCategoryIdentifierAmbiguousError":
+              return `workflow-category-ambiguous:${error.identifier}:${error.matches.length}`
+            case "WorkflowRelationshipInvalidError":
+              return `workflow-relationship:${error.entityId}:${error.relationship}:${error.target}`
+            case "WorkflowStatusClassMismatchError":
+              return `workflow-status-class-mismatch:${error.statusId}:${error.targetClassId}`
+            case "WorkflowStatusNameConflictError":
+              return `workflow-status-name-conflict:${error.name}:${error.existingStatusId}`
+            case "WorkflowStatusCategoryLabelConflictError":
+              return `workflow-category-label-conflict:${error.label}:${error.existingCategoryId}`
+            case "WorkflowStatusInUseError":
+              return `workflow-status-in-use:${error.statusId}:${error.references.length}`
+            case "WorkflowStatusCategoryInUseError":
+              return `workflow-category-in-use:${error.categoryId}:${error.statusIds.length}`
             default: {
               const _exhaustive: never = error
               return _exhaustive

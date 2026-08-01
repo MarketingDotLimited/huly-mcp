@@ -220,6 +220,7 @@ import {
   ViewletIdentifierAmbiguousError,
   ViewletNotFoundError
 } from "./errors-views.js"
+import { WorkflowStatusDomainError } from "./errors-workflow-statuses.js"
 
 export const HulyDomainError = Schema.Union(
   HulyDomainBaseError,
@@ -413,7 +414,8 @@ export const HulyDomainError = Schema.Union(
   MessageTemplateNotFoundError,
   MessageTemplateIdentifierAmbiguousError,
   TemplateFieldCategoryNotFoundError,
-  TemplateFieldCategoryIdentifierAmbiguousError
+  TemplateFieldCategoryIdentifierAmbiguousError,
+  WorkflowStatusDomainError
 )
 
 export type HulyDomainError = Schema.Schema.Type<typeof HulyDomainError>

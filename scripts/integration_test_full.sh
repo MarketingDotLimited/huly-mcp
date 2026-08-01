@@ -54,6 +54,8 @@ TM_TASK_TYPE_NAME=""
 TM_STATUS_NAME=""
 WORKFLOW_CLEANED=false
 GLOBAL_ADMINS_CLEANUP_JSON=""
+GENERIC_WORKFLOW_STATUS_CLEANUP_ID=""
+GENERIC_WORKFLOW_CATEGORY_CLEANUP_ID=""
 
 if [ -z "$HULY_URL" ]; then
   echo "ERROR: HULY_URL not set. Run: set -a && source .env.local && set +a"
@@ -336,7 +338,28 @@ cleanup_global_space_admins() {
   return 1
 }
 
+cleanup_generic_workflow_artifacts() {
+  if [ -n "$GENERIC_WORKFLOW_STATUS_CLEANUP_ID" ] && [ -n "$GENERIC_WORKFLOW_CATEGORY_CLEANUP_ID" ]; then
+    local status_json
+    status_json=$(json_string "$GENERIC_WORKFLOW_STATUS_CLEANUP_ID")
+    call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_workflow_status\",\"arguments\":{\"status\":$status_json,\"category\":null}},\"id\":2}" >/dev/null 2>&1 || true
+  fi
+  if [ -n "$GENERIC_WORKFLOW_CATEGORY_CLEANUP_ID" ]; then
+    local category_json
+    category_json=$(json_string "$GENERIC_WORKFLOW_CATEGORY_CLEANUP_ID")
+    call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_status_category\",\"arguments\":{\"category\":$category_json}},\"id\":2}" >/dev/null 2>&1 || true
+    GENERIC_WORKFLOW_CATEGORY_CLEANUP_ID=""
+  fi
+  if [ -n "$GENERIC_WORKFLOW_STATUS_CLEANUP_ID" ]; then
+    local status_json
+    status_json=$(json_string "$GENERIC_WORKFLOW_STATUS_CLEANUP_ID")
+    call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_workflow_status\",\"arguments\":{\"status\":$status_json}},\"id\":2}" >/dev/null 2>&1 || true
+    GENERIC_WORKFLOW_STATUS_CLEANUP_ID=""
+  fi
+}
+
 cleanup_all() {
+  cleanup_generic_workflow_artifacts
   cleanup_global_space_admins || true
   cleanup_card_version_artifacts || true
   cleanup_custom_field_date_artifacts || true
@@ -1192,6 +1215,76 @@ if [ $? -eq 0 ]; then
     FAILED=$((FAILED + 1))
     ERRORS="${ERRORS}\n  - get_project_type missing created task type or status"
   fi
+fi
+echo ""
+
+##############################
+# 1aa. GENERIC WORKFLOW STATUS CRUD
+##############################
+echo "=== 1aa. Generic Workflow Status CRUD ==="
+GENERIC_WORKFLOW_ATTRIBUTE="tracker:attribute:IssueStatus"
+GENERIC_WORKFLOW_STATUS_NAME="MCP Generic Status $RUN_ID"
+GENERIC_WORKFLOW_STATUS_RENAMED="MCP Generic Status Renamed $RUN_ID"
+GENERIC_WORKFLOW_CATEGORY_LABEL="MCP Generic Category $RUN_ID"
+GENERIC_WORKFLOW_CATEGORY_UPDATED_LABEL="MCP Generic Category Updated $RUN_ID"
+GENERIC_WORKFLOW_ATTRIBUTE_JSON=$(json_string "$GENERIC_WORKFLOW_ATTRIBUTE")
+GENERIC_WORKFLOW_STATUS_NAME_JSON=$(json_string "$GENERIC_WORKFLOW_STATUS_NAME")
+GENERIC_WORKFLOW_STATUS_RENAMED_JSON=$(json_string "$GENERIC_WORKFLOW_STATUS_RENAMED")
+GENERIC_WORKFLOW_CATEGORY_LABEL_JSON=$(json_string "$GENERIC_WORKFLOW_CATEGORY_LABEL")
+GENERIC_WORKFLOW_CATEGORY_UPDATED_LABEL_JSON=$(json_string "$GENERIC_WORKFLOW_CATEGORY_UPDATED_LABEL")
+
+run_test "list_workflow_statuses($GENERIC_WORKFLOW_ATTRIBUTE)" \
+  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_workflow_statuses\",\"arguments\":{\"ofAttribute\":$GENERIC_WORKFLOW_ATTRIBUTE_JSON,\"limit\":5}},\"id\":2}"
+run_test "list_status_categories($GENERIC_WORKFLOW_ATTRIBUTE)" \
+  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_status_categories\",\"arguments\":{\"ofAttribute\":$GENERIC_WORKFLOW_ATTRIBUTE_JSON,\"limit\":5}},\"id\":2}"
+
+run_capture_to_var GENERIC_WORKFLOW_STATUS_TEXT "create_workflow_status($GENERIC_WORKFLOW_STATUS_NAME)" \
+  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_workflow_status\",\"arguments\":{\"ofAttribute\":$GENERIC_WORKFLOW_ATTRIBUTE_JSON,\"name\":$GENERIC_WORKFLOW_STATUS_NAME_JSON,\"color\":6,\"description\":\"Generic workflow integration fixture\"}},\"id\":2}"
+GENERIC_WORKFLOW_STATUS_CLEANUP_ID=$(echo "$GENERIC_WORKFLOW_STATUS_TEXT" | jq -r '.status.statusId // empty' 2>/dev/null)
+if [ -n "$GENERIC_WORKFLOW_STATUS_CLEANUP_ID" ]; then
+  GENERIC_WORKFLOW_STATUS_ID_JSON=$(json_string "$GENERIC_WORKFLOW_STATUS_CLEANUP_ID")
+  assert_json_field_equals "create_workflow_status preserves attribute" "$GENERIC_WORKFLOW_STATUS_TEXT" ".status.ofAttribute.attributeId" "$GENERIC_WORKFLOW_ATTRIBUTE"
+  sleep 2
+  run_capture_to_var GENERIC_WORKFLOW_CATEGORY_TEXT "create_status_category($GENERIC_WORKFLOW_CATEGORY_LABEL)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_status_category\",\"arguments\":{\"ofAttribute\":$GENERIC_WORKFLOW_ATTRIBUTE_JSON,\"label\":$GENERIC_WORKFLOW_CATEGORY_LABEL_JSON,\"defaultStatus\":$GENERIC_WORKFLOW_STATUS_ID_JSON,\"order\":90}},\"id\":2}"
+  GENERIC_WORKFLOW_CATEGORY_CLEANUP_ID=$(echo "$GENERIC_WORKFLOW_CATEGORY_TEXT" | jq -r '.category.categoryId // empty' 2>/dev/null)
+  if [ -n "$GENERIC_WORKFLOW_CATEGORY_CLEANUP_ID" ]; then
+    GENERIC_WORKFLOW_CATEGORY_ID_JSON=$(json_string "$GENERIC_WORKFLOW_CATEGORY_CLEANUP_ID")
+    assert_json_field_equals "create_status_category preserves default status" "$GENERIC_WORKFLOW_CATEGORY_TEXT" ".category.defaultStatus.statusId" "$GENERIC_WORKFLOW_STATUS_CLEANUP_ID"
+    sleep 2
+    run_capture_to_var GENERIC_WORKFLOW_UPDATE_TEXT "update_workflow_status(category relationship)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_workflow_status\",\"arguments\":{\"status\":$GENERIC_WORKFLOW_STATUS_ID_JSON,\"category\":$GENERIC_WORKFLOW_CATEGORY_ID_JSON,\"description\":\"Generic workflow integration fixture updated\"}},\"id\":2}"
+    assert_json_field_equals "update_workflow_status preserves category relationship" "$GENERIC_WORKFLOW_UPDATE_TEXT" ".status.category.categoryId" "$GENERIC_WORKFLOW_CATEGORY_CLEANUP_ID"
+    sleep 2
+    run_capture_to_var GENERIC_WORKFLOW_GET_TEXT "get_workflow_status(created)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_workflow_status\",\"arguments\":{\"status\":$GENERIC_WORKFLOW_STATUS_ID_JSON}},\"id\":2}"
+    assert_json_field_equals "get_workflow_status resolves category" "$GENERIC_WORKFLOW_GET_TEXT" ".category.categoryId" "$GENERIC_WORKFLOW_CATEGORY_CLEANUP_ID"
+    run_capture_to_var GENERIC_WORKFLOW_CATEGORY_UPDATE_TEXT "update_status_category(created)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_status_category\",\"arguments\":{\"category\":$GENERIC_WORKFLOW_CATEGORY_ID_JSON,\"label\":$GENERIC_WORKFLOW_CATEGORY_UPDATED_LABEL_JSON,\"order\":91}},\"id\":2}"
+    assert_json_field_equals "update_status_category preserves default status" "$GENERIC_WORKFLOW_CATEGORY_UPDATE_TEXT" ".category.defaultStatus.statusId" "$GENERIC_WORKFLOW_STATUS_CLEANUP_ID"
+    run_expect_error_contains "update_workflow_status(reject default rename)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_workflow_status\",\"arguments\":{\"status\":$GENERIC_WORKFLOW_STATUS_ID_JSON,\"name\":$GENERIC_WORKFLOW_STATUS_RENAMED_JSON}},\"id\":2}" \
+      "still referenced"
+    run_capture_to_var GENERIC_WORKFLOW_CATEGORY_AFTER_RENAME_TEXT "get_status_category(after rejected default rename)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_status_category\",\"arguments\":{\"category\":$GENERIC_WORKFLOW_CATEGORY_ID_JSON}},\"id\":2}"
+    assert_json_field_equals "rejected status rename preserves category default" "$GENERIC_WORKFLOW_CATEGORY_AFTER_RENAME_TEXT" ".defaultStatus.name" "$GENERIC_WORKFLOW_STATUS_NAME"
+    run_expect_error_contains "delete_status_category(in use)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_status_category\",\"arguments\":{\"category\":$GENERIC_WORKFLOW_CATEGORY_ID_JSON}},\"id\":2}" \
+      "is referenced by statuses"
+    run_test "update_workflow_status(clear category)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_workflow_status\",\"arguments\":{\"status\":$GENERIC_WORKFLOW_STATUS_ID_JSON,\"category\":null}},\"id\":2}"
+    sleep 2
+    run_test "delete_status_category(created)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_status_category\",\"arguments\":{\"category\":$GENERIC_WORKFLOW_CATEGORY_ID_JSON}},\"id\":2}"
+    GENERIC_WORKFLOW_CATEGORY_CLEANUP_ID=""
+  else
+    skip_test "generic workflow category update/get/delete" "create_status_category did not return a category id"
+  fi
+  run_test "delete_workflow_status(created)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_workflow_status\",\"arguments\":{\"status\":$GENERIC_WORKFLOW_STATUS_ID_JSON}},\"id\":2}"
+  GENERIC_WORKFLOW_STATUS_CLEANUP_ID=""
+else
+  skip_test "generic workflow category lifecycle" "create_workflow_status did not return a status id"
 fi
 echo ""
 

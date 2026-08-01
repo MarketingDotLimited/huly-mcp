@@ -25,6 +25,16 @@ export const coreMutationCliCommandCatalog = {
     positional: ["name", "category"],
     description: "Create Issue Status"
   },
+  create_status_category: {
+    path: ["status-categories", "create"],
+    positional: ["ofAttribute", "label", "defaultStatus"],
+    description: "Create Generic Status Category"
+  },
+  create_workflow_status: {
+    path: ["workflow-statuses", "create"],
+    positional: ["ofAttribute", "name"],
+    description: "Create Generic Workflow Status"
+  },
   create_issue_template: {
     path: ["issues", "templates", "create"],
     positional: ["project", "title"],
@@ -116,6 +126,18 @@ export const coreMutationCliCommandCatalog = {
     description: "Delete Project",
     behavior: { confirmation: { type: "requires-yes", message: "projects delete requires --yes." } }
   },
+  delete_status_category: {
+    path: ["status-categories", "delete"],
+    positional: ["category"],
+    description: "Delete Generic Status Category",
+    behavior: { confirmation: { type: "requires-yes", message: "status-categories delete requires --yes." } }
+  },
+  delete_workflow_status: {
+    path: ["workflow-statuses", "delete"],
+    positional: ["status"],
+    description: "Delete Generic Workflow Status",
+    behavior: { confirmation: { type: "requires-yes", message: "workflow-statuses delete requires --yes." } }
+  },
   delete_related_issue_space_target: {
     path: ["issues", "related-targets", "delete"],
     positional: ["space"],
@@ -172,6 +194,16 @@ export const coreMutationCliCommandCatalog = {
     positional: ["project", "component"],
     description: "Update Component",
     behavior: { fileInput: { fields: ["description"] } }
+  },
+  update_status_category: {
+    path: ["status-categories", "update"],
+    positional: ["category"],
+    description: "Update Generic Status Category"
+  },
+  update_workflow_status: {
+    path: ["workflow-statuses", "update"],
+    positional: ["status"],
+    description: "Update Generic Workflow Status"
   },
   update_issue_template: {
     path: ["issues", "templates", "update"],

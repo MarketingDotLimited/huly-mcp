@@ -156,6 +156,12 @@ export type TaskTypeId = Schema.Schema.Type<typeof TaskTypeId>
 export const IssueStatusId = HulyRef("IssueStatusId")
 export type IssueStatusId = Schema.Schema.Type<typeof IssueStatusId>
 
+export const WorkflowStatusId = HulyRef("WorkflowStatusId")
+export type WorkflowStatusId = Schema.Schema.Type<typeof WorkflowStatusId>
+
+export const StatusCategoryId = HulyRef("StatusCategoryId")
+export type StatusCategoryId = Schema.Schema.Type<typeof StatusCategoryId>
+
 export const ChannelId = HulyRef("ChannelId")
 export type ChannelId = Schema.Schema.Type<typeof ChannelId>
 
@@ -339,7 +345,7 @@ export type Email = Schema.Schema.Type<typeof Email>
 
 export const StatusName = NonEmptyString.annotations({
   description:
-    "Exact workflow status display name from the target project. Status names are workspace data, not a fixed enum; call list_statuses or get_project_type to discover valid values."
+    "Exact workflow status display name. Status names are workspace data, not a fixed enum; use the relevant workflow-status listing tool to discover valid values."
 }).pipe(Schema.brand("StatusName"))
 export type StatusName = Schema.Schema.Type<typeof StatusName>
 
@@ -550,6 +556,15 @@ export type TagIdentifier = Schema.Schema.Type<typeof TagIdentifier>
 
 export const TagCategoryIdentifier = NonEmptyString.pipe(Schema.brand("TagCategoryIdentifier"))
 export type TagCategoryIdentifier = Schema.Schema.Type<typeof TagCategoryIdentifier>
+
+export const WorkflowStatusIdentifier = NonEmptyString.pipe(Schema.brand("WorkflowStatusIdentifier"))
+export type WorkflowStatusIdentifier = Schema.Schema.Type<typeof WorkflowStatusIdentifier>
+
+export const StatusCategoryIdentifier = NonEmptyString.pipe(Schema.brand("StatusCategoryIdentifier"))
+export type StatusCategoryIdentifier = Schema.Schema.Type<typeof StatusCategoryIdentifier>
+
+export const HulyAttributeIdentifier = NonEmptyString.pipe(Schema.brand("HulyAttributeIdentifier"))
+export type HulyAttributeIdentifier = Schema.Schema.Type<typeof HulyAttributeIdentifier>
 
 export const InventoryCategoryIdentifier = NonEmptyString.pipe(Schema.brand("InventoryCategoryIdentifier"))
 export type InventoryCategoryIdentifier = Schema.Schema.Type<typeof InventoryCategoryIdentifier>

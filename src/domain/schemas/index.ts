@@ -17,6 +17,7 @@ export {
   emptyParamsJsonSchema,
   EmptyParamsSchema,
   HulyAttributeId,
+  HulyAttributeIdentifier,
   HulyEnumId,
   Integer,
   InventoryCategoryId,
@@ -58,13 +59,20 @@ export {
   SpaceIdentifier,
   SpaceTypeId,
   SpaceTypeIdentifier,
+  StatusCategoryId,
+  StatusCategoryIdentifier,
   TaskTypeId,
   Timestamp,
   TimeZoneId,
   UNKNOWN_TOTAL,
   VirtualOfficeCoordinate,
-  VirtualOfficeDimension
+  VirtualOfficeDimension,
+  WorkflowStatusId,
+  WorkflowStatusIdentifier
 } from "./shared.js"
+
+export * from "./workflow-statuses.js"
+export * from "./workflow-status-results.js"
 
 export { optionalOutput } from "./output-helpers.js"
 

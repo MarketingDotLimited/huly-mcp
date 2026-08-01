@@ -285,7 +285,7 @@
       "package": "@hcengineering/core",
       "status": "covered",
       "matrixLocation": "Core classes, attributes, enums; Core spaces, permissions, roles; #92 SDK discovery phase 2",
-      "rationale": "Existing tools expose user statuses, full-text search, blobs through storage/download flows, generic association/relation discovery/mutation helpers, class/interface/mixin, attribute, enum, plugin configuration, domain index configuration, sequence, and space type capability discovery.",
+      "rationale": "Existing tools expose user statuses, generic workflow statuses and status categories with full CRUD, full-text search, blobs through storage/download flows, generic association/relation discovery/mutation helpers, class/interface/mixin, attribute, enum, plugin configuration, domain index configuration, sequence, and space type capability discovery.",
       "exports": [
         "Association",
         "Attribute",
@@ -304,6 +304,8 @@
         "Sequence",
         "SpaceType",
         "SpaceTypeDescriptor",
+        "Status",
+        "StatusCategory",
         "UserStatus"
       ]
     },
@@ -321,7 +323,7 @@
       "status": "gap",
       "matrixLocation": "Core classes, attributes, enums; Core spaces, permissions, roles",
       "backlogIssue": 92,
-      "rationale": "Remaining core write-side configuration, role/permission definition writes, generic space creation, class collaborator metadata, statuses, and write-side model management are represented as matrix gaps. Generic space discovery, space type/permission reads, safe existing-space metadata updates, member mutations, owner replacement, typed-space role member mutations, object collaborators, read-only plugin configuration, domain index configuration, and sequence discovery are covered.",
+      "rationale": "Remaining core write-side configuration, role/permission definition writes, generic space creation, class collaborator metadata, and write-side model management are represented as matrix gaps. Generic space discovery, space type/permission reads, safe existing-space metadata updates, member mutations, owner replacement, typed-space role member mutations, object collaborators, read-only plugin configuration, domain index configuration, sequence discovery, and generic workflow status/category CRUD are covered.",
       "exports": [
         "AttributePermission",
         "ClassCollaborators",
@@ -332,8 +334,6 @@
         "MigrationState",
         "Role",
         "Space",
-        "Status",
-        "StatusCategory",
         "SystemSpace",
         "TypedSpace"
       ]
