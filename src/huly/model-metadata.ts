@@ -12,11 +12,11 @@ import {
   TeamspaceId,
   TeamspaceIdentifier
 } from "../domain/schemas/shared.js"
-import { HulyModelMetadataError } from "./errors-base.js"
+import { type HulyModelField, HulyModelMetadataError, type HulyModelName } from "./errors-base.js"
 
 const AssociationCardinalitySchema = Schema.Literal("1:1", "1:N", "N:N")
 
-export const HulyAssociationMetadataSchema = Schema.Struct({
+const HulyAssociationMetadataSchema = Schema.Struct({
   id: AssociationId,
   sourceClass: ObjectClassName,
   targetClass: ObjectClassName,
@@ -27,7 +27,7 @@ export const HulyAssociationMetadataSchema = Schema.Struct({
 })
 export type HulyAssociationMetadata = Schema.Schema.Type<typeof HulyAssociationMetadataSchema>
 
-export const HulyRelationMetadataSchema = Schema.Struct({
+const HulyRelationMetadataSchema = Schema.Struct({
   id: RelationId,
   associationId: AssociationId,
   sourceId: DocId,
@@ -35,31 +35,39 @@ export const HulyRelationMetadataSchema = Schema.Struct({
 })
 export type HulyRelationMetadata = Schema.Schema.Type<typeof HulyRelationMetadataSchema>
 
-export const HulyRelatedDocumentMetadataSchema = Schema.Struct({ id: DocId, class: ObjectClassName })
+export interface ParsedHulyMetadata<T, M> {
+  readonly doc: T
+  readonly metadata: M
+}
+
+const HulyRelatedDocumentMetadataSchema = Schema.Struct({ id: DocId, class: ObjectClassName })
 export type HulyRelatedDocumentMetadata = Schema.Schema.Type<typeof HulyRelatedDocumentMetadataSchema>
 
-export const HulyIssueRelationMetadataSchema = Schema.Struct({
+const HulyIssueRelationMetadataSchema = Schema.Struct({
   id: IssueId,
   identifier: IssueIdentifier,
   class: ObjectClassName
 })
-export type HulyIssueRelationMetadata = Schema.Schema.Type<typeof HulyIssueRelationMetadataSchema>
+type HulyIssueRelationMetadata = Schema.Schema.Type<typeof HulyIssueRelationMetadataSchema>
 
-export const HulyDocumentRelationMetadataSchema = Schema.Struct({
+const HulyDocumentRelationMetadataSchema = Schema.Struct({
   id: DocumentId,
   class: ObjectClassName,
   teamspaceId: TeamspaceId
 })
 export type HulyDocumentRelationMetadata = Schema.Schema.Type<typeof HulyDocumentRelationMetadataSchema>
 
-export const HulyTeamspaceMetadataSchema = Schema.Struct({ id: TeamspaceId, name: TeamspaceIdentifier })
-export type HulyTeamspaceMetadata = Schema.Schema.Type<typeof HulyTeamspaceMetadataSchema>
+const HulyTeamspaceMetadataSchema = Schema.Struct({ id: TeamspaceId, name: TeamspaceIdentifier })
+type HulyTeamspaceMetadata = Schema.Schema.Type<typeof HulyTeamspaceMetadataSchema>
+
+const HulyObjectMetadataSchema = Schema.Struct({ id: DocId, class: ObjectClassName })
+type HulyObjectMetadata = Schema.Schema.Type<typeof HulyObjectMetadataSchema>
 
 const parseField = <A, I>(
   schema: Schema.Schema<A, I>,
   value: unknown,
-  model: string,
-  field: string
+  model: HulyModelName,
+  field: HulyModelField
 ): Effect.Effect<A, HulyModelMetadataError> =>
   Schema.decodeUnknown(schema)(value).pipe(Effect.mapError(() => new HulyModelMetadataError({ model, field })))
 
@@ -92,6 +100,11 @@ export const parseHulyAssociationMetadata = (
     }
   })
 
+export const parseHulyAssociation = <T extends AssociationMetadataInput>(
+  input: T
+): Effect.Effect<ParsedHulyMetadata<T, HulyAssociationMetadata>, HulyModelMetadataError> =>
+  Effect.map(parseHulyAssociationMetadata(input), (metadata) => ({ doc: input, metadata }))
+
 export const parseHulyRelationMetadata = (input: {
   readonly _id: unknown
   readonly association: unknown
@@ -106,6 +119,13 @@ export const parseHulyRelationMetadata = (input: {
       targetId: yield* parseField(DocId, input.docB, "Relation", "docB")
     }
   })
+
+export const parseHulyRelation = <
+  T extends { readonly _id: unknown; readonly association: unknown; readonly docA: unknown; readonly docB: unknown }
+>(
+  input: T
+): Effect.Effect<ParsedHulyMetadata<T, HulyRelationMetadata>, HulyModelMetadataError> =>
+  Effect.map(parseHulyRelationMetadata(input), (metadata) => ({ doc: input, metadata }))
 
 export const parseHulyCreatedRelationId = (value: unknown): Effect.Effect<RelationId, HulyModelMetadataError> =>
   parseField(RelationId, value, "Relation", "_id")
@@ -155,5 +175,16 @@ export const parseHulyTeamspaceMetadata = (input: {
     return {
       id: yield* parseField(TeamspaceId, input._id, "Teamspace", "_id"),
       name: yield* parseField(TeamspaceIdentifier, input.name, "Teamspace", "name")
+    }
+  })
+
+export const parseHulyObjectMetadata = (input: {
+  readonly _id: unknown
+  readonly _class: unknown
+}): Effect.Effect<HulyObjectMetadata, HulyModelMetadataError> =>
+  Effect.gen(function* () {
+    return {
+      id: yield* parseField(DocId, input._id, "Object", "_id"),
+      class: yield* parseField(ObjectClassName, input._class, "Object", "_class")
     }
   })

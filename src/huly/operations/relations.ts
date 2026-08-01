@@ -1,7 +1,7 @@
 import type { Class, Doc, DocumentUpdate, FindOptions, Ref, RelatedDocument } from "@hcengineering/core"
 import type { Document as HulyDocument, Teamspace as HulyTeamspace } from "@hcengineering/document"
 import type { Issue as HulyIssue, Project as HulyProject } from "@hcengineering/tracker"
-import { Effect, Schema } from "effect"
+import { Effect } from "effect"
 
 import type {
   AddIssueRelationParams,
@@ -20,10 +20,15 @@ import {
   type TeamspaceId,
   TeamspaceIdentifier
 } from "../../domain/schemas/shared.js"
+import { IssueRelationMetadataDegradedWarningCode } from "../../domain/schemas/tool-warnings.js"
+import { assertAt } from "../../utils/assertions.js"
 import type { HulyClient, HulyClientError } from "../client.js"
-import { HulyModelMetadataError, type IssueNotFoundError, type ProjectNotFoundError } from "../errors.js"
+import { Diagnostics } from "../diagnostics.js"
+import type { HulyModelMetadataError, IssueNotFoundError, ProjectNotFoundError } from "../errors.js"
 import { documentPlugin, tracker } from "../huly-plugins.js"
 import {
+  type HulyDocumentRelationMetadata,
+  type HulyRelatedDocumentMetadata,
   parseHulyDocumentRelationMetadata,
   parseHulyIssueRelationMetadata,
   parseHulyRelatedDocumentMetadata,
@@ -199,6 +204,36 @@ interface PartitionedIssueRelations {
   readonly issueRelations: Array<RelatedDocument>
 }
 
+interface DocumentRelationProjection {
+  readonly entries: Array<DocumentRelationEntry>
+  readonly degradedCount: number
+}
+
+interface ResolvedDocumentRelation {
+  readonly document: HulyDocument
+  readonly metadata: HulyDocumentRelationMetadata
+}
+
+const documentRelationEntryProjection = (
+  relation: HulyRelatedDocumentMetadata,
+  documentId: DocumentId,
+  resolved: ResolvedDocumentRelation | undefined,
+  teamspaceNames: ReadonlyMap<TeamspaceId, TeamspaceIdentifier>
+) => {
+  const teamspaceName = resolved === undefined ? undefined : teamspaceNames.get(resolved.metadata.teamspaceId)
+  return {
+    entry: {
+      title: resolved?.document.title ?? String(relation.id),
+      teamspace: toTeamspaceIdentifier(
+        resolved === undefined ? String(relation.id) : (teamspaceName ?? String(resolved.metadata.teamspaceId))
+      ),
+      _id: documentId,
+      _class: relation.class
+    },
+    degraded: resolved === undefined || teamspaceName === undefined
+  }
+}
+
 const partitionIssueRelations = (relations: ReadonlyArray<RelatedDocument>): PartitionedIssueRelations => {
   const documentRelations: Array<RelatedDocument> = []
   const issueRelations: Array<RelatedDocument> = []
@@ -241,48 +276,49 @@ const loadTeamspaceNames = (
 const loadDocumentRelationEntries = (
   client: HulyClient["Type"],
   relations: ReadonlyArray<RelatedDocument>
-): Effect.Effect<Array<DocumentRelationEntry>, HulyClientError | HulyModelMetadataError> =>
+): Effect.Effect<DocumentRelationProjection, HulyClientError | HulyModelMetadataError> =>
   Effect.gen(function* () {
-    if (relations.length === 0) return []
+    if (relations.length === 0) return { entries: [], degradedCount: 0 }
     const documents = yield* client.findAll<HulyDocument>(
       documentPlugin.class.Document,
       hulyQuery<HulyDocument>({ _id: { $in: relations.map((relation) => toRef<HulyDocument>(relation._id)) } })
     )
     const documentMetadata = yield* Effect.forEach(documents, parseHulyDocumentRelationMetadata)
-    const documentsById = new Map(documents.map((document) => [String(document._id), document]))
-    const metadataById = new Map(documentMetadata.map((metadata) => [String(metadata.id), metadata]))
+    const resolvedDocumentsById = new Map(
+      documentMetadata.map((metadata, index) => [
+        String(metadata.id),
+        { document: assertAt(documents, index), metadata }
+      ])
+    )
     const teamspaceNames = yield* loadTeamspaceNames(client, documents)
-    return yield* Effect.forEach(relations, (relation) =>
+    const projections = yield* Effect.forEach(relations, (relation) =>
       Effect.gen(function* () {
         const relationMetadata = yield* parseHulyRelatedDocumentMetadata(relation)
-        const document = documentsById.get(String(relation._id))
-        const metadata = metadataById.get(String(relation._id))
-        const documentId = yield* Schema.decodeUnknown(DocumentId)(relationMetadata.id).pipe(
-          Effect.mapError(() => new HulyModelMetadataError({ model: "RelatedDocument", field: "_id" }))
+        // DocId and DocumentId share the same non-empty runtime contract; the related-document parser proved it.
+        const documentId = DocumentId.make(relationMetadata.id)
+        return documentRelationEntryProjection(
+          relationMetadata,
+          documentId,
+          resolvedDocumentsById.get(String(relationMetadata.id)),
+          teamspaceNames
         )
-        return {
-          title: document?.title ?? String(relation._id),
-          teamspace: toTeamspaceIdentifier(
-            document === undefined || metadata === undefined
-              ? String(relation._id)
-              : (teamspaceNames.get(metadata.teamspaceId) ?? String(metadata.teamspaceId))
-          ),
-          _id: documentId,
-          _class: relationMetadata.class
-        }
       })
     )
+    return {
+      entries: projections.map((projection) => projection.entry),
+      degradedCount: projections.filter((projection) => projection.degraded).length
+    }
   })
 
 export const listIssueRelations = (
   params: ListIssueRelationsParams
-): Effect.Effect<ListIssueRelationsResult, RelationError, HulyClient> =>
+): Effect.Effect<ListIssueRelationsResult, RelationError, HulyClient | Diagnostics> =>
   Effect.gen(function* () {
     const { client, issue } = yield* findProjectAndIssue({
       project: params.project,
       identifier: params.issueIdentifier
     })
-    yield* parseHulyIssueRelationMetadata(issue)
+    const issueMetadata = yield* parseHulyIssueRelationMetadata(issue)
 
     const blockedByRefs = issue.blockedBy ?? []
     const relationsRefs = issue.relations ?? []
@@ -294,9 +330,13 @@ export const listIssueRelations = (
     // Resolve issue refs (blockedBy are always issues; issueRelationsRefs are issue relations)
     const idToIdentifier = yield* loadIssueIdentifiers(client, [...blockedByRefs, ...issueRelations])
 
-    const toEntry = (metadata: (typeof blockedByMetadata)[number]): RelationEntry => {
+    const toEntry = (metadata: (typeof blockedByMetadata)[number]) => {
       const id = toIssueId(metadata.id)
-      return { identifier: toIssueIdentifier(idToIdentifier.get(id) ?? String(id)), _id: id, _class: metadata.class }
+      const identifier = idToIdentifier.get(id)
+      return {
+        entry: { identifier: toIssueIdentifier(identifier ?? String(id)), _id: id, _class: metadata.class },
+        degraded: identifier === undefined
+      }
     }
 
     // Huly stores "source blocks target" on the target issue as a RelatedDocument
@@ -310,7 +350,8 @@ export const listIssueRelations = (
     )
     const blocks = yield* Effect.forEach(
       blockingIssueCandidates.filter(
-        (candidate) => candidate._id !== issue._id && hasRelationById(candidate.blockedBy, issue._id)
+        (candidate) =>
+          String(candidate._id) !== issueMetadata.id && hasRelationById(candidate.blockedBy, issueMetadata.id)
       ),
       (candidate): Effect.Effect<RelationEntry, HulyModelMetadataError> =>
         Effect.map(parseHulyIssueRelationMetadata(candidate), (metadata) => ({
@@ -320,12 +361,28 @@ export const listIssueRelations = (
         }))
     )
 
-    const documents = yield* loadDocumentRelationEntries(client, documentRelations)
+    const documentProjection = yield* loadDocumentRelationEntries(client, documentRelations)
 
-    const blockedBy = blockedByMetadata.map(toEntry)
+    const blockedByProjections = blockedByMetadata.map(toEntry)
     const issueRelationIds = new Set(issueRelations.map((relation) => String(relation._id)))
-    const relationEntries = relationsMetadata
+    const relationProjections = relationsMetadata
       .filter((metadata) => issueRelationIds.has(String(metadata.id)))
       .map(toEntry)
-    return { blockedBy, blocks, relations: relationEntries, documents }
+    const degradedCount =
+      documentProjection.degradedCount +
+      blockedByProjections.filter((projection) => projection.degraded).length +
+      relationProjections.filter((projection) => projection.degraded).length
+    if (degradedCount > 0) {
+      const diagnostics = yield* Diagnostics
+      yield* diagnostics.warnAgent({
+        code: IssueRelationMetadataDegradedWarningCode,
+        message: `Issue relation metadata was degraded for ${degradedCount} relation(s); unresolved titles, identifiers, or teamspace names use backend IDs.`
+      })
+    }
+    return {
+      blockedBy: blockedByProjections.map((projection) => projection.entry),
+      blocks,
+      relations: relationProjections.map((projection) => projection.entry),
+      documents: documentProjection.entries
+    }
   })

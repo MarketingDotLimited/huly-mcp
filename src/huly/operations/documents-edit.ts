@@ -7,12 +7,12 @@
  * @module
  */
 import type { DocumentUpdate } from "@hcengineering/core"
-import type { Document as HulyDocument } from "@hcengineering/document"
+import type { Document as HulyDocument, Teamspace as HulyTeamspace } from "@hcengineering/document"
 import { Effect } from "effect"
 
 import type { EditDocumentParams } from "../../domain/schemas.js"
 import type { EditDocumentResult } from "../../domain/schemas/documents.js"
-import { Count } from "../../domain/schemas/shared.js"
+import { Count, type DocumentId, type ObjectClassName, type TeamspaceId } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import {
   DocumentEmptyContentError,
@@ -33,6 +33,7 @@ import { findTeamspaceAndDocument } from "./documents-shared.js"
 
 import { documentPlugin } from "../huly-plugins.js"
 import { parseHulyDocumentRelationMetadata, parseHulyTeamspaceMetadata } from "../model-metadata.js"
+import { toClassRef, toRef } from "./sdk-boundary.js"
 
 type EditDocumentError =
   | HulyClientError
@@ -51,6 +52,8 @@ type EditDocumentError =
 const applyFullDocumentContent = (
   client: HulyClient["Type"],
   doc: HulyDocument,
+  documentId: DocumentId,
+  documentClass: ObjectClassName,
   content: string,
   updateOps: DocumentUpdate<HulyDocument>
 ): Effect.Effect<void, EditDocumentError, HulyClient> =>
@@ -62,8 +65,8 @@ const applyFullDocumentContent = (
     const renderedContent = yield* renderDocumentContentForWrite(content)
     if (doc.content) {
       yield* client.updateMarkup(
-        documentPlugin.class.Document,
-        doc._id,
+        toClassRef<HulyDocument>(documentClass),
+        toRef<HulyDocument>(documentId),
         "content",
         renderedContent.markup,
         renderedContent.format
@@ -71,8 +74,8 @@ const applyFullDocumentContent = (
       return
     }
     updateOps.content = yield* client.uploadMarkup(
-      documentPlugin.class.Document,
-      doc._id,
+      toClassRef<HulyDocument>(documentClass),
+      toRef<HulyDocument>(documentId),
       "content",
       renderedContent.markup,
       renderedContent.format
@@ -82,6 +85,8 @@ const applyFullDocumentContent = (
 const applyDocumentSearchReplace = (
   client: HulyClient["Type"],
   doc: HulyDocument,
+  documentId: DocumentId,
+  documentClass: ObjectClassName,
   identifier: EditDocumentParams["document"],
   oldText: string,
   newText: string,
@@ -89,7 +94,13 @@ const applyDocumentSearchReplace = (
 ): Effect.Effect<void, EditDocumentError, HulyClient> =>
   Effect.gen(function* () {
     if (!doc.content) return yield* new DocumentEmptyContentError({ identifier })
-    const currentContent = yield* client.fetchMarkup(doc._class, doc._id, "content", doc.content, "markdown")
+    const currentContent = yield* client.fetchMarkup(
+      toClassRef<HulyDocument>(documentClass),
+      toRef<HulyDocument>(documentId),
+      "content",
+      doc.content,
+      "markdown"
+    )
     const occurrences = countOccurrences(currentContent, oldText)
     if (occurrences === 0) return yield* new DocumentTextNotFoundError({ searchText: oldText })
     if (occurrences > 1 && !replaceAll) {
@@ -101,8 +112,8 @@ const applyDocumentSearchReplace = (
       : currentContent.substring(0, index) + newText + currentContent.substring(index + oldText.length)
     const renderedContent = yield* renderDocumentContentForWrite(newContent)
     yield* client.updateMarkup(
-      documentPlugin.class.Document,
-      doc._id,
+      toClassRef<HulyDocument>(documentClass),
+      toRef<HulyDocument>(documentId),
       "content",
       renderedContent.markup,
       renderedContent.format
@@ -112,24 +123,40 @@ const applyDocumentSearchReplace = (
 const applyDocumentContentEdit = (
   client: HulyClient["Type"],
   doc: HulyDocument,
+  documentId: DocumentId,
+  documentClass: ObjectClassName,
   params: EditDocumentParams,
   updateOps: DocumentUpdate<HulyDocument>
 ): Effect.Effect<void, EditDocumentError, HulyClient> =>
   params._tag === "ReplaceContent"
-    ? applyFullDocumentContent(client, doc, params.content, updateOps)
+    ? applyFullDocumentContent(client, doc, documentId, documentClass, params.content, updateOps)
     : params._tag === "SearchAndReplace"
-      ? applyDocumentSearchReplace(client, doc, params.document, params.oldText, params.newText, params.replaceAll)
+      ? applyDocumentSearchReplace(
+          client,
+          doc,
+          documentId,
+          documentClass,
+          params.document,
+          params.oldText,
+          params.newText,
+          params.replaceAll
+        )
       : Effect.void
 
 const persistDocumentFields = (
   client: HulyClient["Type"],
-  doc: HulyDocument,
-  teamspaceId: Parameters<HulyClient["Type"]["updateDoc"]>[1],
+  documentId: DocumentId,
+  teamspaceId: TeamspaceId,
   updateOps: DocumentUpdate<HulyDocument>
 ): Effect.Effect<void, HulyClientError> =>
   Object.keys(updateOps).length === 0
     ? Effect.void
-    : client.updateDoc(documentPlugin.class.Document, teamspaceId, doc._id, updateOps)
+    : client.updateDoc(
+        documentPlugin.class.Document,
+        toRef<HulyTeamspace>(teamspaceId),
+        toRef<HulyDocument>(documentId),
+        updateOps
+      )
 
 export const editDocument = (
   params: EditDocumentParams
@@ -137,13 +164,13 @@ export const editDocument = (
   Effect.gen(function* () {
     const { client, doc, teamspace } = yield* findTeamspaceAndDocument(params)
     const documentMetadata = yield* parseHulyDocumentRelationMetadata(doc)
-    yield* parseHulyTeamspaceMetadata(teamspace)
+    const teamspaceMetadata = yield* parseHulyTeamspaceMetadata(teamspace)
     const updateOps: DocumentUpdate<HulyDocument> = params.title === undefined ? {} : { title: params.title }
-    yield* applyDocumentContentEdit(client, doc, params, updateOps)
+    yield* applyDocumentContentEdit(client, doc, documentMetadata.id, documentMetadata.class, params, updateOps)
 
     const finalTitle = updateOps.title ?? doc.title
     const url = buildDocumentUrlFromConfig(client.workbenchUrlConfig, finalTitle, documentMetadata.id)
-    yield* persistDocumentFields(client, doc, teamspace._id, updateOps)
+    yield* persistDocumentFields(client, documentMetadata.id, teamspaceMetadata.id, updateOps)
     return { id: documentMetadata.id, updated: true, url }
   })
 

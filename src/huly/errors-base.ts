@@ -5,7 +5,6 @@
  */
 import { Schema } from "effect"
 
-import { NonEmptyString } from "../domain/schemas/shared.js"
 import {
   HulyEndpointOriginSchema,
   HulyUnavailableDetailCodeSchema,
@@ -52,10 +51,39 @@ export class HulyUnavailableError extends Schema.TaggedError<HulyUnavailableErro
  */
 export class HulyAuthError extends Schema.TaggedError<HulyAuthError>()("HulyAuthError", { message: Schema.String }) {}
 
+const HulyModelNameSchema = Schema.Literal(
+  "Association",
+  "Relation",
+  "RelatedDocument",
+  "Issue",
+  "Document",
+  "Teamspace",
+  "Object"
+)
+export type HulyModelName = Schema.Schema.Type<typeof HulyModelNameSchema>
+
+const HulyModelFieldSchema = Schema.Literal(
+  "_id",
+  "_class",
+  "association",
+  "docA",
+  "docB",
+  "classA",
+  "classB",
+  "nameA",
+  "nameB",
+  "type",
+  "automationOnly",
+  "identifier",
+  "space",
+  "name"
+)
+export type HulyModelField = Schema.Schema.Type<typeof HulyModelFieldSchema>
+
 /** Untrusted Huly SDK model metadata did not satisfy the domain boundary contract. */
 export class HulyModelMetadataError extends Schema.TaggedError<HulyModelMetadataError>()("HulyModelMetadataError", {
-  model: NonEmptyString,
-  field: NonEmptyString
+  model: HulyModelNameSchema,
+  field: HulyModelFieldSchema
 }) {
   override get message(): string {
     return `Huly ${this.model} metadata contains an invalid '${this.field}' field. Repair the affected backend model data before retrying.`

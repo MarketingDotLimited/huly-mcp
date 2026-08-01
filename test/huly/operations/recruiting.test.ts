@@ -2295,6 +2295,34 @@ describe("Recruiting Operations", () => {
     })
   )
 
+  it.effect("coalesces a degraded shared review title in an opinion list", () =>
+    Effect.gen(function* () {
+      const opinions = [makeOpinion(), makeOpinion({ _id: docRef("opinion-2"), number: 2 })]
+      const { layer } = createRecruitingLayer({ reviews: [makeReview({ title: "" })], opinions })
+      const diagnostics = yield* makeDiagnosticsScope
+
+      const listed = yield* listRecruitingOpinions({ review: ReviewIdentifier.make("RVE-1") }).pipe(
+        Effect.provide(layer),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+      const warnings = yield* diagnostics.drainWarnings
+
+      expect(listed.opinions).toHaveLength(2)
+      expect(listed.opinions.every((opinion) => opinion.review.title === "Untitled Review")).toBe(true)
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]?.code).toBe("recruiting_review_metadata_degraded")
+      expect(warnings[0]?.message).toContain("1 title fallback(s)")
+
+      const detailDiagnostics = yield* makeDiagnosticsScope
+      const detail = yield* getRecruitingOpinion({ opinion: OpinionIdentifier.make("OPE-1") }).pipe(
+        Effect.provide(layer),
+        Effect.provideService(Diagnostics, detailDiagnostics.service)
+      )
+      expect(detail.review.title).toBe("Untitled Review")
+      expect(yield* detailDiagnostics.drainWarnings).toHaveLength(1)
+    })
+  )
+
   it.effect("reports review ambiguity and unsupported collection updates", () =>
     Effect.gen(function* () {
       const ambiguous = yield* Effect.flip(

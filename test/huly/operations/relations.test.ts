@@ -4,12 +4,15 @@ import type { Document as HulyDocument, Teamspace as HulyTeamspace } from "@hcen
 import type { TaskType } from "@hcengineering/task"
 import type { Issue as HulyIssue, Project as HulyProject } from "@hcengineering/tracker"
 import { IssuePriority, TimeReportDayType } from "@hcengineering/tracker"
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { expect } from "vitest"
+import type { ToolWarning } from "../../../src/domain/schemas/tool-warnings.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
+import { Diagnostics } from "../../../src/huly/diagnostics.js"
 import { HulyModelMetadataError } from "../../../src/huly/errors.js"
 import { documentPlugin, tracker } from "../../../src/huly/huly-plugins.js"
 import { addIssueRelation, listIssueRelations, removeIssueRelation } from "../../../src/huly/operations/relations.js"
+import { toRef } from "../../../src/huly/operations/sdk-boundary.js"
 import { assertAt, assertExists } from "../../../src/utils/assertions.js"
 import { issueIdentifier, projectIdentifier } from "../../helpers/brands.js"
 
@@ -142,6 +145,7 @@ interface MockConfig {
   teamspaces?: Array<HulyTeamspace>
   capturedFindAllQueries?: Array<{ _class: unknown; query: unknown; options: unknown }>
   capturedUpdateDocs?: Array<{ _class: unknown; space: unknown; objectId: unknown; operations: unknown }>
+  capturedWarnings?: Array<ToolWarning>
 }
 
 const createTestLayerWithMocks = (config: MockConfig) => {
@@ -151,6 +155,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const teamspaces = config.teamspaces ?? []
   const capturedFindAllQueries = config.capturedFindAllQueries ?? []
   const captured = config.capturedUpdateDocs ?? []
+  const capturedWarnings = config.capturedWarnings ?? []
 
   const findAllImpl: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown, options: unknown) => {
     capturedFindAllQueries.push({ _class, query, options })
@@ -212,16 +217,22 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     return Effect.succeed({} as TxResult)
   }) as HulyClientOperations["updateDoc"]
 
-  return HulyClient.testLayer({ findAll: findAllImpl, findOne: findOneImpl, updateDoc: updateDocImpl })
+  return Layer.merge(
+    HulyClient.testLayer({ findAll: findAllImpl, findOne: findOneImpl, updateDoc: updateDocImpl }),
+    Layer.succeed(Diagnostics, {
+      warnAgent: (warning) => Effect.sync(() => capturedWarnings.push(warning)).pipe(Effect.asVoid),
+      trail: () => Effect.void
+    })
+  )
 }
 
 describe("addIssueRelation", () => {
   it.effect("uses same-project lookup when the target identifier has no parseable project prefix", () =>
     Effect.gen(function* () {
-      const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
+      const project = makeProject({ _id: toRef<HulyProject>("proj-1"), identifier: "TEST" })
       const source = makeIssue({
-        _id: "issue-1" as Ref<HulyIssue>,
-        space: "proj-1" as Ref<HulyProject>,
+        _id: toRef<HulyIssue>("issue-1"),
+        space: toRef<HulyProject>("proj-1"),
         identifier: "TEST-1",
         number: 1
       })
@@ -641,12 +652,12 @@ describe("removeIssueRelation", () => {
 describe("listIssueRelations", () => {
   it.effect("fails through the typed channel for malformed related document metadata", () =>
     Effect.gen(function* () {
-      const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
+      const project = makeProject({ _id: toRef<HulyProject>("proj-1"), identifier: "TEST" })
       const issue = makeIssue({
-        _id: "issue-1" as Ref<HulyIssue>,
-        space: "proj-1" as Ref<HulyProject>,
+        _id: toRef<HulyIssue>("issue-1"),
+        space: toRef<HulyProject>("proj-1"),
         identifier: "TEST-1",
-        relations: [{ _id: "" as Ref<Doc>, _class: documentPlugin.class.Document }]
+        relations: [{ _id: toRef<Doc>(""), _class: documentPlugin.class.Document }]
       })
 
       const error = yield* Effect.flip(
@@ -662,14 +673,14 @@ describe("listIssueRelations", () => {
 
   it.effect("fails through the typed channel for a malformed document teamspace reference", () =>
     Effect.gen(function* () {
-      const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
+      const project = makeProject({ _id: toRef<HulyProject>("proj-1"), identifier: "TEST" })
       const issue = makeIssue({
-        _id: "issue-1" as Ref<HulyIssue>,
-        space: "proj-1" as Ref<HulyProject>,
+        _id: toRef<HulyIssue>("issue-1"),
+        space: toRef<HulyProject>("proj-1"),
         identifier: "TEST-1",
-        relations: [{ _id: "doc-1" as Ref<Doc>, _class: documentPlugin.class.Document }]
+        relations: [{ _id: toRef<Doc>("doc-1"), _class: documentPlugin.class.Document }]
       })
-      const document = makeDocument({ _id: "doc-1" as Ref<HulyDocument>, space: "" as Ref<HulyTeamspace> })
+      const document = makeDocument({ _id: toRef<HulyDocument>("doc-1"), space: toRef<HulyTeamspace>("") })
 
       const error = yield* Effect.flip(
         listIssueRelations({ project: projectIdentifier("TEST"), issueIdentifier: issueIdentifier("TEST-1") }).pipe(
@@ -684,6 +695,7 @@ describe("listIssueRelations", () => {
 
   it.effect("returns resolved relations with identifiers", () =>
     Effect.gen(function* () {
+      const warnings: Array<ToolWarning> = []
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -705,7 +717,11 @@ describe("listIssueRelations", () => {
         identifier: "TEST-3",
         number: 3
       })
-      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue, blocker, related] })
+      const testLayer = createTestLayerWithMocks({
+        projects: [project],
+        issues: [issue, blocker, related],
+        capturedWarnings: warnings
+      })
 
       const result = yield* listIssueRelations({
         project: projectIdentifier("TEST"),
@@ -720,11 +736,13 @@ describe("listIssueRelations", () => {
       expect(assertAt(result.relations, 0).identifier).toBe("TEST-3")
       expect(assertAt(result.relations, 0)._id).toBe("issue-3")
       expect(result.documents).toHaveLength(0)
+      expect(warnings).toEqual([])
     })
   )
 
   it.effect("resolves document relations and falls back when a document is missing", () =>
     Effect.gen(function* () {
+      const warnings: Array<ToolWarning> = []
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -746,7 +764,8 @@ describe("listIssueRelations", () => {
             space: "teamspace-1" as Ref<HulyTeamspace>
           })
         ],
-        teamspaces: [makeTeamspace("teamspace-1", "Engineering Docs")]
+        teamspaces: [makeTeamspace("teamspace-1", "Engineering Docs")],
+        capturedWarnings: warnings
       })
 
       const result = yield* listIssueRelations({
@@ -767,6 +786,8 @@ describe("listIssueRelations", () => {
         title: "doc-missing",
         teamspace: "doc-missing"
       })
+      expect(warnings).toHaveLength(1)
+      expect(assertAt(warnings, 0)).toMatchObject({ code: "issue_relation_metadata_degraded" })
     })
   )
 
@@ -862,6 +883,7 @@ describe("listIssueRelations", () => {
 
   it.effect("falls back to _id when issue is not resolvable", () =>
     Effect.gen(function* () {
+      const warnings: Array<ToolWarning> = []
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
       const issue = makeIssue({
         _id: "issue-1" as Ref<HulyIssue>,
@@ -870,7 +892,7 @@ describe("listIssueRelations", () => {
         number: 1,
         blockedBy: [{ _id: "deleted-issue" as Ref<Doc>, _class: tracker.class.Issue }]
       })
-      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue] })
+      const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], capturedWarnings: warnings })
 
       const result = yield* listIssueRelations({
         project: projectIdentifier("TEST"),
@@ -881,6 +903,8 @@ describe("listIssueRelations", () => {
       expect(assertAt(result.blockedBy, 0).identifier).toBe("deleted-issue")
       expect(assertAt(result.blockedBy, 0)._id).toBe("deleted-issue")
       expect(result.documents).toHaveLength(0)
+      expect(warnings).toHaveLength(1)
+      expect(assertAt(warnings, 0)).toMatchObject({ code: "issue_relation_metadata_degraded" })
     })
   )
 

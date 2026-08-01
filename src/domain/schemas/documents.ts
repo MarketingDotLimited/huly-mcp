@@ -223,7 +223,7 @@ const EditDocumentSearchText = Schema.String.pipe(
 
 const EditDocumentLocatorSchema = Schema.Struct({ teamspace: TeamspaceIdentifier, document: DocumentIdentifier })
 
-export const EditDocumentCommandSchema = Schema.Union(
+const EditDocumentCommandSchema = Schema.Union(
   Schema.Struct({ ...EditDocumentLocatorSchema.fields, _tag: Schema.Literal("TitleOnly"), title: NonEmptyString }),
   Schema.Struct({
     ...EditDocumentLocatorSchema.fields,
@@ -241,7 +241,7 @@ export const EditDocumentCommandSchema = Schema.Union(
   })
 ).annotations({ identifier: "EditDocumentCommand", title: "EditDocumentCommand" })
 
-export type EditDocumentCommand = Schema.Schema.Type<typeof EditDocumentCommandSchema>
+type EditDocumentCommand = Schema.Schema.Type<typeof EditDocumentCommandSchema>
 
 const toEditDocumentCommand = (params: EditDocumentParamsBase): EditDocumentCommand => {
   if (params.content !== undefined) {

@@ -56,6 +56,7 @@ import {
   listAssociations,
   listRelations
 } from "../../../src/huly/operations/generic-associations.js"
+import { toRef } from "../../../src/huly/operations/sdk-boundary.js"
 import {
   docId,
   documentIdentifier,
@@ -319,7 +320,7 @@ const testLayer = (data: TestData, onFindAll?: FindAllObserver) => {
 describe("listAssociations", () => {
   it.effect("fails through the typed channel for a malformed association class", () =>
     Effect.gen(function* () {
-      const malformed = association({ classA: "" as Ref<Class<Doc>> })
+      const malformed = association({ classA: toRef<Class<Doc>>("") })
       const error = yield* Effect.flip(
         listAssociations({ includeSystem: true }).pipe(Effect.provide(testLayer({ associations: [malformed] })))
       )
@@ -544,7 +545,7 @@ describe("listAssociations", () => {
 describe("listRelations", () => {
   it.effect("fails through the typed channel for a malformed relation ID", () =>
     Effect.gen(function* () {
-      const malformed = relation({ _id: "" as Ref<HulyRelation> })
+      const malformed = relation({ _id: toRef<HulyRelation>("") })
       const error = yield* Effect.flip(
         listRelations({ association: assocId }).pipe(
           Effect.provide(testLayer({ associations: [association({})], relations: [malformed] }))
@@ -1957,6 +1958,20 @@ describe("generic-associations direction and cardinality branch coverage", () =>
         )
       )
       expect(error._tag).toBeDefined()
+    })
+  )
+
+  it.effect("fails through the typed channel for malformed resolved endpoint metadata", () =>
+    Effect.gen(function* () {
+      const malformedIssue = { ...issue("issue-1", "HULY-1"), _class: toRef<Class<HulyIssue>>("") }
+      const error = yield* Effect.flip(
+        listRelations({ source: { kind: "raw", id: docId("issue-1"), class: issueClass } }).pipe(
+          Effect.provide(testLayer({ associations: [association({})], issues: [malformedIssue] }))
+        )
+      )
+
+      expect(error).toBeInstanceOf(HulyModelMetadataError)
+      expect(error).toMatchObject({ model: "Object", field: "_class" })
     })
   )
 

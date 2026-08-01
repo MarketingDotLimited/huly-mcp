@@ -43,7 +43,12 @@ import type { Opinion, Review } from "../types/recruiting.js"
 import { markdownToMarkupString, optionalMarkupToMarkdown } from "./markup.js"
 import { hulyNonEmptyTextOrFallback } from "./non-empty-text.js"
 import { hulyQuery, type StrictDocumentQuery } from "./query-helpers.js"
-import { findReview, reviewRefFromDoc } from "./recruiting-reviews.js"
+import {
+  reviewRefFromDoc,
+  reviewRefProjectionFromDoc,
+  warnRecruitingReviewMetadataDegraded
+} from "./recruiting-review-detail.js"
+import { findReview } from "./recruiting-reviews.js"
 import { incrementSequence, listLimit, optionalCount } from "./recruiting-shared.js"
 import { toRef } from "./sdk-boundary.js"
 
@@ -73,18 +78,38 @@ const opinionIdentifierFromNumber = (number: number): OpinionIdentifier => Opini
 const opinionValue = (value: string) =>
   hulyNonEmptyTextOrFallback(RecruitingOpinionValue, value, UNTITLED_OPINION_VALUE)
 
+interface OpinionRefProjection {
+  readonly ref: OpinionRef
+  readonly synthesizedReviewTitle: boolean
+}
+
+const opinionRefProjectionFromDoc = (
+  client: HulyClient["Type"],
+  opinion: Opinion,
+  review: Review
+): Effect.Effect<OpinionRefProjection, HulyClientError | RecruitingModelMissingError> =>
+  Effect.gen(function* () {
+    const reviewProjection = yield* reviewRefProjectionFromDoc(client, review)
+    return {
+      ref: {
+        id: OpinionId.make(opinion._id),
+        identifier: opinionIdentifierFromNumber(opinion.number),
+        review: reviewProjection.ref,
+        value: opinionValue(opinion.value)
+      },
+      synthesizedReviewTitle: reviewProjection.synthesizedTitle
+    }
+  })
+
 export const opinionRefFromDoc = (
   client: HulyClient["Type"],
   opinion: Opinion,
   review: Review
 ): Effect.Effect<OpinionRef, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
   Effect.gen(function* () {
-    return {
-      id: OpinionId.make(opinion._id),
-      identifier: opinionIdentifierFromNumber(opinion.number),
-      review: yield* reviewRefFromDoc(client, review),
-      value: opinionValue(opinion.value)
-    }
+    const projection = yield* opinionRefProjectionFromDoc(client, opinion, review)
+    yield* warnRecruitingReviewMetadataDegraded(projection.synthesizedReviewTitle ? 1 : 0, 0)
+    return projection.ref
   })
 
 const opinionDetail = (
@@ -154,7 +179,14 @@ export const listRecruitingOpinions = (
       hulyQuery<Opinion>({ attachedTo: review._id }),
       { limit: listLimit(params.limit), sort: { modifiedOn: SortingOrder.Descending } }
     )
-    const refs = yield* Effect.forEach(opinions, (opinion) => opinionRefFromDoc(client, opinion, review))
+    const projections = yield* Effect.forEach(opinions, (opinion) =>
+      opinionRefProjectionFromDoc(client, opinion, review)
+    )
+    yield* warnRecruitingReviewMetadataDegraded(
+      projections.some((projection) => projection.synthesizedReviewTitle) ? 1 : 0,
+      0
+    )
+    const refs = projections.map((projection) => projection.ref)
     return { opinions: refs, total: Count.make(refs.length) }
   })
 

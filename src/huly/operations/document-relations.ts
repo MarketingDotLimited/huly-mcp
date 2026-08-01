@@ -17,15 +17,11 @@ import type {
   TeamspaceNotFoundError
 } from "../errors.js"
 import { documentPlugin } from "../huly-plugins.js"
-import {
-  parseHulyDocumentRelationMetadata,
-  parseHulyIssueRelationMetadata,
-  parseHulyTeamspaceMetadata
-} from "../model-metadata.js"
+import { parseHulyDocumentRelationMetadata, parseHulyIssueRelationMetadata } from "../model-metadata.js"
 import { findTeamspaceAndDocument } from "./documents.js"
 import { findProjectAndIssue } from "./issues-shared.js"
 import { hasRelationById, makeRelatedDocEntry } from "./relations.js"
-import { toRef } from "./sdk-boundary.js"
+import { toClassRef, toRef } from "./sdk-boundary.js"
 
 type DocRelationError =
   | HulyClientError
@@ -35,28 +31,38 @@ type DocRelationError =
   | DocumentNotFoundError
   | HulyModelMetadataError
 
-export const linkDocumentToIssue = (
-  params: LinkDocumentToIssueParams
-): Effect.Effect<LinkDocumentToIssueResult, DocRelationError, HulyClient> =>
+type DocumentRelationParams = Pick<LinkDocumentToIssueParams, "project" | "issueIdentifier" | "teamspace" | "document">
+
+const resolveDocumentRelationContext = (params: DocumentRelationParams) =>
   Effect.gen(function* () {
-    const [{ client, issue, project }, { doc, teamspace }] = yield* Effect.all([
+    const [{ client, issue, project }, { doc }] = yield* Effect.all([
       findProjectAndIssue({ project: params.project, identifier: params.issueIdentifier }),
       findTeamspaceAndDocument({ teamspace: params.teamspace, document: params.document })
     ])
     const issueMetadata = yield* parseHulyIssueRelationMetadata(issue)
     const documentMetadata = yield* parseHulyDocumentRelationMetadata(doc)
-    yield* parseHulyTeamspaceMetadata(teamspace)
+    return { client, issue, project, doc, issueMetadata, documentMetadata }
+  })
 
-    if (hasRelationById(issue.relations, doc._id)) {
+export const linkDocumentToIssue = (
+  params: LinkDocumentToIssueParams
+): Effect.Effect<LinkDocumentToIssueResult, DocRelationError, HulyClient> =>
+  Effect.gen(function* () {
+    const { client, doc, documentMetadata, issue, issueMetadata, project } =
+      yield* resolveDocumentRelationContext(params)
+
+    if (hasRelationById(issue.relations, documentMetadata.id)) {
       return { issue: issueMetadata.identifier, document: documentMetadata.id, documentTitle: doc.title, linked: false }
     }
 
     yield* client.updateDoc(
-      issue._class,
+      toClassRef<HulyIssue>(issueMetadata.class),
       project._id,
-      issue._id,
+      toRef<HulyIssue>(issueMetadata.id),
       // eslint-disable-next-line no-restricted-syntax -- DocumentUpdate<HulyIssue> cast: see relations.ts
-      { $push: { relations: makeRelatedDocEntry(doc._id, documentPlugin.class.Document) } } as DocumentUpdate<HulyIssue>
+      {
+        $push: { relations: makeRelatedDocEntry(documentMetadata.id, documentPlugin.class.Document) }
+      } as DocumentUpdate<HulyIssue>
     )
 
     return { issue: issueMetadata.identifier, document: documentMetadata.id, documentTitle: doc.title, linked: true }
@@ -66,15 +72,10 @@ export const unlinkDocumentFromIssue = (
   params: UnlinkDocumentFromIssueParams
 ): Effect.Effect<UnlinkDocumentFromIssueResult, DocRelationError, HulyClient> =>
   Effect.gen(function* () {
-    const [{ client, issue, project }, { doc, teamspace }] = yield* Effect.all([
-      findProjectAndIssue({ project: params.project, identifier: params.issueIdentifier }),
-      findTeamspaceAndDocument({ teamspace: params.teamspace, document: params.document })
-    ])
-    const issueMetadata = yield* parseHulyIssueRelationMetadata(issue)
-    const documentMetadata = yield* parseHulyDocumentRelationMetadata(doc)
-    yield* parseHulyTeamspaceMetadata(teamspace)
+    const { client, doc, documentMetadata, issue, issueMetadata, project } =
+      yield* resolveDocumentRelationContext(params)
 
-    if (!hasRelationById(issue.relations, doc._id)) {
+    if (!hasRelationById(issue.relations, documentMetadata.id)) {
       return {
         issue: issueMetadata.identifier,
         document: documentMetadata.id,
@@ -84,11 +85,11 @@ export const unlinkDocumentFromIssue = (
     }
 
     yield* client.updateDoc(
-      issue._class,
+      toClassRef<HulyIssue>(issueMetadata.class),
       project._id,
-      issue._id,
+      toRef<HulyIssue>(issueMetadata.id),
       // eslint-disable-next-line no-restricted-syntax -- DocumentUpdate<HulyIssue> cast: see relations.ts
-      { $pull: { relations: { _id: toRef<Doc>(doc._id) } } } as DocumentUpdate<HulyIssue>
+      { $pull: { relations: { _id: toRef<Doc>(documentMetadata.id) } } } as DocumentUpdate<HulyIssue>
     )
 
     return { issue: issueMetadata.identifier, document: documentMetadata.id, documentTitle: doc.title, unlinked: true }

@@ -63,7 +63,7 @@ export const reviewRefFromCandidate = (
   candidate: toCandidateRef(person, email)
 })
 
-export interface ReviewRefProjection {
+interface ReviewRefProjection {
   readonly ref: ReviewRef
   readonly synthesizedTitle: boolean
 }
