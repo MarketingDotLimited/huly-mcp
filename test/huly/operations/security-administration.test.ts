@@ -10,7 +10,7 @@ import type {
   SpaceTypeDescriptor
 } from "@hcengineering/core"
 import { ClassifierKind, toFindResult } from "@hcengineering/core"
-import { Effect, Exit } from "effect"
+import { Effect, Exit, Layer } from "effect"
 import { expect } from "vitest"
 
 import {
@@ -26,6 +26,7 @@ import { NonEmptyString, SpaceTypeIdentifier } from "../../../src/domain/schemas
 import { SpaceRoleIdentifier } from "../../../src/domain/schemas/spaces.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import { HulyConnectionError } from "../../../src/huly/errors.js"
+import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
 import { core } from "../../../src/huly/huly-plugins.js"
 import {
   createHulyPermission,
@@ -44,9 +45,9 @@ import { corePersonId } from "../../helpers/huly-sdk.js"
 const personId = corePersonId("person-security-admin")
 type DynamicClassDoc = Doc & Readonly<Record<string, unknown>>
 type ClassCollaboratorRecord = ClassCollaborators<DynamicClassDoc>
-// SDK IntlString is a phantom string with no public constructor.
+// Brands are erased at runtime; SDK IntlString is a string and has no public fixture constructor.
 const intlString = (value: string): Permission["label"] => value as Permission["label"]
-// SDK Asset is also a phantom string with no public constructor.
+// Brands are erased at runtime; SDK Asset is a string and has no public fixture constructor.
 const asset = (value: string): SpaceTypeDescriptor["icon"] => value as SpaceTypeDescriptor["icon"]
 
 const makePermission = (overrides: Partial<Permission> = {}): Permission => ({
@@ -141,7 +142,13 @@ interface CapturedWrite {
   readonly operations?: unknown
 }
 
-const permissionLayer = (config: PermissionHarnessConfig, writes: Array<CapturedWrite>) => {
+const permissionLayer = (
+  config: PermissionHarnessConfig,
+  writes: Array<CapturedWrite>,
+  diagnostics: Diagnostics["Type"] = { warnAgent: () => Effect.void, trail: () => Effect.void }
+) => {
+  // The SDK port methods are generic, while this heterogeneous fixture dispatches by the exact runtime class token;
+  // each adapter cast is safe because every branch returns documents for that token and no generic fixture API exists.
   const findAll: HulyClientOperations["findAll"] = ((_class: unknown) => {
     if (_class === core.class.Permission) return Effect.succeed(toFindResult([...(config.permissions ?? [])]))
     if (_class === core.class.Role) return Effect.succeed(toFindResult([...(config.roles ?? [])]))
@@ -218,7 +225,7 @@ const permissionLayer = (config: PermissionHarnessConfig, writes: Array<Captured
     writes.push({ action: "removeCollection", id })
     return Effect.succeed(toRef<SpaceType>("space-type-training"))
   }) as NonNullable<HulyClientOperations["removeCollection"]>
-  return HulyClient.testLayer({
+  const clientLayer = HulyClient.testLayer({
     findAll,
     findAllInModel,
     findOne,
@@ -229,6 +236,8 @@ const permissionLayer = (config: PermissionHarnessConfig, writes: Array<Captured
     ...(config.omitUpdateCollection === true ? {} : { updateCollection }),
     ...(config.omitRemoveCollection === true ? {} : { removeCollection })
   })
+  const diagnosticsLayer = Layer.succeed(Diagnostics, diagnostics)
+  return Layer.merge(clientLayer, diagnosticsLayer)
 }
 
 const permissionIdentifier = (value: string) => PermissionIdentifier.make(value)
@@ -447,6 +456,20 @@ describe("permission definition administration", () => {
     })
   )
 
+  it.effect("omits optional fields absent from an existing permission", () =>
+    Effect.gen(function* () {
+      const permission = makePermission()
+      delete permission.scope
+      const result = yield* updateHulyPermission({
+        permission: permissionIdentifier("custom-permission"),
+        label: NonEmptyString.make("Renamed"),
+        confirm: true
+      }).pipe(Effect.provide(permissionLayer({ permissions: [permission] }, [])))
+
+      expect(result.permission).toEqual({ id: "custom-permission", label: "Renamed" })
+    })
+  )
+
   it.effect("protects built-in deletion and reports descriptor references", () =>
     Effect.gen(function* () {
       const builtIn = makePermission({ _id: toRef<Permission>("core:permission:UpdateObject") })
@@ -454,6 +477,14 @@ describe("permission definition administration", () => {
         permission: permissionIdentifier("core:permission:UpdateObject"),
         confirm: true
       }).pipe(Effect.provide(permissionLayer({ permissions: [builtIn] }, [])), Effect.exit)
+      const specialized = makePermission({
+        _id: toRef<Permission>("custom-specialized-permission"),
+        _class: toClassRef<Permission>("core:class:ClassPermission")
+      })
+      const specializedDelete = yield* deleteHulyPermission({
+        permission: permissionIdentifier("custom-specialized-permission"),
+        confirm: true
+      }).pipe(Effect.provide(permissionLayer({ permissions: [specialized] }, [])), Effect.exit)
       const permission = makePermission()
       const descriptor: SpaceTypeDescriptor = {
         _id: toRef<SpaceTypeDescriptor>("descriptor-training"),
@@ -476,6 +507,7 @@ describe("permission definition administration", () => {
       )
 
       expect(Exit.isFailure(protectedDelete)).toBe(true)
+      expect(Exit.isFailure(specializedDelete)).toBe(true)
       expect(Exit.isFailure(referenced)).toBe(true)
     })
   )
@@ -776,17 +808,20 @@ describe("class collaborator metadata administration", () => {
 
   it.effect("supports explicit no-fields metadata and refuses deletion when unconfigured", () =>
     Effect.gen(function* () {
-      const cls = makeClass({ _id: toRef<Class<Doc>>("PlainClass"), label: intlString("plain") })
+      const cls = makeClass({ _id: toRef<Class<Doc>>("PlainClass"), label: intlString("") })
       const writes: Array<CapturedWrite> = []
+      const diagnostics = yield* makeDiagnosticsScope
       const created = yield* setClassCollaboratorMetadata(
         setCollaboratorParams({ class: ModelIdentifier.make("PlainClass"), fieldSelection: { mode: "none" } })
-      ).pipe(Effect.provide(permissionLayer({ classes: [cls] }, writes)))
+      ).pipe(Effect.provide(permissionLayer({ classes: [cls] }, writes, diagnostics.service)))
       const missing = yield* deleteClassCollaboratorMetadata({
         class: ModelIdentifier.make("PlainClass"),
         confirm: true
       }).pipe(Effect.provide(permissionLayer({ classes: [cls] }, [])), Effect.exit)
 
-      expect(created.metadata).toMatchObject({ classLabel: "plain", fieldSelection: { mode: "none" } })
+      const warnings = yield* diagnostics.drainWarnings
+      expect(created.metadata).toMatchObject({ classLabel: "PlainClass", fieldSelection: { mode: "none" } })
+      expect(warnings).toEqual([expect.objectContaining({ code: "class_collaborator_metadata_degraded" })])
       expect(Exit.isFailure(missing)).toBe(true)
     })
   )

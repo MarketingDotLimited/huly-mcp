@@ -1,4 +1,5 @@
-import type { ClassifierKind } from "@hcengineering/core"
+import coreSdkDefault, { type ClassifierKind } from "@hcengineering/core"
+import * as coreSdkNamespace from "@hcengineering/core"
 import { JSONSchema, Schema } from "effect"
 
 import { HulyClassRoutingHintSchema, HulyDomainName } from "./sdk-discovery-configurations.js"
@@ -30,15 +31,13 @@ const NormalizedAttributeTypeKindValues = [
 
 type HulyKnownClassifierKindLiteral = (typeof KnownClassifierKindValues)[number]
 
-// The installed CommonJS SDK does not expose this enum consistently to native ESM and Vitest loaders.
-const HULY_CLASSIFIER_CLASS: ClassifierKind = 0
-const HULY_CLASSIFIER_INTERFACE: ClassifierKind = 1
-const HULY_CLASSIFIER_MIXIN: ClassifierKind = 2
+// Native ESM exposes this CommonJS enum under default; Vitest exposes the named export.
+const RuntimeClassifierKind = coreSdkNamespace.ClassifierKind ?? coreSdkDefault.ClassifierKind
 
 const HulySdkClassifierKindPairs = [
-  [HULY_CLASSIFIER_CLASS, "class"],
-  [HULY_CLASSIFIER_INTERFACE, "interface"],
-  [HULY_CLASSIFIER_MIXIN, "mixin"]
+  [RuntimeClassifierKind.CLASS, "class"],
+  [RuntimeClassifierKind.INTERFACE, "interface"],
+  [RuntimeClassifierKind.MIXIN, "mixin"]
 ] as const satisfies ReadonlyArray<readonly [ClassifierKind, HulyKnownClassifierKindLiteral]>
 
 export const HulyClassifierKindSchema = Schema.Literal(...ClassifierKindValues).annotations({

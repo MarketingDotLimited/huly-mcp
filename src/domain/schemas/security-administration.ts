@@ -136,8 +136,16 @@ export type CollaboratorFieldSelection = Schema.Schema.Type<typeof CollaboratorF
 export const SetClassCollaboratorMetadataParamsSchema = Schema.Struct({
   class: ModelIdentifier.annotations({ description: "Class ID, tail name, or label." }),
   fieldSelection: CollaboratorFieldSelectionSchema,
-  provideSecurity: Schema.optionalWith(Schema.Boolean, { exact: true }),
-  provideAttachedSecurity: Schema.optionalWith(Schema.Boolean, { exact: true }),
+  provideSecurity: Schema.optionalWith(
+    Schema.Boolean.annotations({ description: "Propagate security through collaborator fields; defaults to false." }),
+    { exact: true }
+  ),
+  provideAttachedSecurity: Schema.optionalWith(
+    Schema.Boolean.annotations({
+      description: "Propagate security through attached collaborator documents; defaults to false."
+    }),
+    { exact: true }
+  ),
   confirm: ConfirmSecurityWrite
 }).annotations({ title: "SetClassCollaboratorMetadataParams" })
 export type SetClassCollaboratorMetadataParams = Schema.Schema.Type<typeof SetClassCollaboratorMetadataParamsSchema>

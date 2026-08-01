@@ -63,6 +63,8 @@ CLASS_COLLABORATOR_CLEANUP_CLASS=""
 SPACE_ROLE_CLEANUP_SPACE_TYPE=""
 SPACE_ROLE_CLEANUP_ROLE=""
 SPACE_ROLE_CLEANUP_PERMISSIONS_JSON=""
+SPACE_ROLE_CREATED_CLEANUP_SPACE_TYPE=""
+SPACE_ROLE_CREATED_CLEANUP_ROLE=""
 
 if [ -z "$HULY_URL" ]; then
   echo "ERROR: HULY_URL not set. Run: set -a && source .env.local && set +a"
@@ -381,26 +383,35 @@ cleanup_model_administration_artifacts() {
 }
 
 cleanup_security_administration_artifacts() {
+  if [ -n "$SPACE_ROLE_CREATED_CLEANUP_SPACE_TYPE" ] && [ -n "$SPACE_ROLE_CREATED_CLEANUP_ROLE" ]; then
+    if pnpm tsx scripts/integration-security-role.ts --action delete --spaceType "$SPACE_ROLE_CREATED_CLEANUP_SPACE_TYPE" --role "$SPACE_ROLE_CREATED_CLEANUP_ROLE" >/dev/null 2>&1; then
+      SPACE_ROLE_CREATED_CLEANUP_SPACE_TYPE=""
+      SPACE_ROLE_CREATED_CLEANUP_ROLE=""
+    fi
+  fi
   if [ -n "$SPACE_ROLE_CLEANUP_SPACE_TYPE" ] && [ -n "$SPACE_ROLE_CLEANUP_ROLE" ] && [ -n "$SPACE_ROLE_CLEANUP_PERMISSIONS_JSON" ]; then
     local space_type_json role_json
     space_type_json=$(json_string "$SPACE_ROLE_CLEANUP_SPACE_TYPE")
     role_json=$(json_string "$SPACE_ROLE_CLEANUP_ROLE")
-    call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_space_role_permissions\",\"arguments\":{\"spaceType\":$space_type_json,\"role\":$role_json,\"permissions\":$SPACE_ROLE_CLEANUP_PERMISSIONS_JSON,\"confirm\":true}},\"id\":2}" >/dev/null 2>&1 || true
-    SPACE_ROLE_CLEANUP_SPACE_TYPE=""
-    SPACE_ROLE_CLEANUP_ROLE=""
-    SPACE_ROLE_CLEANUP_PERMISSIONS_JSON=""
+    if run_capture_only "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_space_role_permissions\",\"arguments\":{\"spaceType\":$space_type_json,\"role\":$role_json,\"permissions\":$SPACE_ROLE_CLEANUP_PERMISSIONS_JSON,\"confirm\":true}},\"id\":2}" >/dev/null 2>&1; then
+      SPACE_ROLE_CLEANUP_SPACE_TYPE=""
+      SPACE_ROLE_CLEANUP_ROLE=""
+      SPACE_ROLE_CLEANUP_PERMISSIONS_JSON=""
+    fi
   fi
   if [ -n "$CLASS_COLLABORATOR_CLEANUP_CLASS" ]; then
     local class_json
     class_json=$(json_string "$CLASS_COLLABORATOR_CLEANUP_CLASS")
-    call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_class_collaborator_metadata\",\"arguments\":{\"class\":$class_json,\"confirm\":true}},\"id\":2}" >/dev/null 2>&1 || true
-    CLASS_COLLABORATOR_CLEANUP_CLASS=""
+    if run_capture_only "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_class_collaborator_metadata\",\"arguments\":{\"class\":$class_json,\"confirm\":true}},\"id\":2}" >/dev/null 2>&1; then
+      CLASS_COLLABORATOR_CLEANUP_CLASS=""
+    fi
   fi
   if [ -n "$SECURITY_PERMISSION_CLEANUP_ID" ]; then
     local permission_json
     permission_json=$(json_string "$SECURITY_PERMISSION_CLEANUP_ID")
-    call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_huly_permission\",\"arguments\":{\"permission\":$permission_json,\"confirm\":true}},\"id\":2}" >/dev/null 2>&1 || true
-    SECURITY_PERMISSION_CLEANUP_ID=""
+    if run_capture_only "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_huly_permission\",\"arguments\":{\"permission\":$permission_json,\"confirm\":true}},\"id\":2}" >/dev/null 2>&1; then
+      SECURITY_PERMISSION_CLEANUP_ID=""
+    fi
   fi
 }
 
@@ -588,6 +599,20 @@ run_test() {
   echo "PASS: $name"
   PASSED=$((PASSED + 1))
   return 0
+}
+
+run_shell_test() {
+  local name="$1"
+  shift
+  if "$@" >/dev/null 2>&1; then
+    echo "PASS: $name"
+    PASSED=$((PASSED + 1))
+    return 0
+  fi
+  echo "FAIL: $name"
+  FAILED=$((FAILED + 1))
+  ERRORS="${ERRORS}\n  - ${name}: command failed"
+  return 1
 }
 
 run_capture() {
@@ -1407,13 +1432,22 @@ if [ -n "$SECURITY_PERMISSION_CLEANUP_ID" ]; then
   run_capture_to_var SECURITY_PERMISSION_UPDATE_TEXT "update_huly_permission(clear label lookup)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_huly_permission\",\"arguments\":{\"permission\":$SECURITY_PERMISSION_LABEL_JSON,\"description\":\"Updated integration permission\",\"confirm\":true}},\"id\":2}"
   assert_json_field_equals "update_huly_permission persists description" "$SECURITY_PERMISSION_UPDATE_TEXT" ".permission.description" "Updated integration permission"
+  sleep 2
+  run_capture_to_var SECURITY_PERMISSION_REREAD_TEXT "list_space_permissions(after update)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_space_permissions\",\"arguments\":{\"search\":$SECURITY_PERMISSION_LABEL_JSON,\"limit\":10}},\"id\":2}"
+  assert_json_field_equals "permission reread sees persisted description label" "$SECURITY_PERMISSION_REREAD_TEXT" ".permissions[0].description" "embedded:embedded:Updated integration permission"
   run_expect_error_contains "delete_huly_permission(protect built-in)" \
     '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"delete_huly_permission","arguments":{"permission":"core:permission:UpdateObject","confirm":true}},"id":2}' \
     "built-in"
   SECURITY_PERMISSION_ID_JSON=$(json_string "$SECURITY_PERMISSION_CLEANUP_ID")
-  run_test "delete_huly_permission(unreferenced custom)" \
-    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_huly_permission\",\"arguments\":{\"permission\":$SECURITY_PERMISSION_ID_JSON,\"confirm\":true}},\"id\":2}"
-  SECURITY_PERMISSION_CLEANUP_ID=""
+  if run_test "delete_huly_permission(unreferenced custom)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_huly_permission\",\"arguments\":{\"permission\":$SECURITY_PERMISSION_ID_JSON,\"confirm\":true}},\"id\":2}"; then
+    sleep 2
+    run_capture_to_var SECURITY_PERMISSION_DELETED_TEXT "list_space_permissions(after delete)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_space_permissions\",\"arguments\":{\"search\":$SECURITY_PERMISSION_LABEL_JSON,\"limit\":10}},\"id\":2}"
+    assert_json_field_equals "permission reread confirms deletion" "$SECURITY_PERMISSION_DELETED_TEXT" ".total" "0"
+    SECURITY_PERMISSION_CLEANUP_ID=""
+  fi
 else
   skip_test "permission update/delete lifecycle" "create_huly_permission did not return an id"
 fi
@@ -1432,9 +1466,14 @@ if [ "$CLASS_COLLABORATOR_INITIAL_CONFIGURED" = "false" ]; then
   run_capture_to_var CLASS_COLLABORATOR_GET_TEXT "get_class_collaborator_metadata(after set)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_class_collaborator_metadata\",\"arguments\":{\"class\":$CLASS_COLLABORATOR_FIXTURE_CLASS_JSON}},\"id\":2}"
   assert_json_field_equals "get_class_collaborator_metadata sees direct record" "$CLASS_COLLABORATOR_GET_TEXT" ".configured" "true"
-  run_test "delete_class_collaborator_metadata(direct record)" \
-    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_class_collaborator_metadata\",\"arguments\":{\"class\":$CLASS_COLLABORATOR_FIXTURE_CLASS_JSON,\"confirm\":true}},\"id\":2}"
-  CLASS_COLLABORATOR_CLEANUP_CLASS=""
+  if run_test "delete_class_collaborator_metadata(direct record)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_class_collaborator_metadata\",\"arguments\":{\"class\":$CLASS_COLLABORATOR_FIXTURE_CLASS_JSON,\"confirm\":true}},\"id\":2}"; then
+    sleep 2
+    run_capture_to_var CLASS_COLLABORATOR_DELETED_TEXT "get_class_collaborator_metadata(after delete)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_class_collaborator_metadata\",\"arguments\":{\"class\":$CLASS_COLLABORATOR_FIXTURE_CLASS_JSON}},\"id\":2}"
+    assert_json_field_equals "collaborator metadata reread confirms deletion" "$CLASS_COLLABORATOR_DELETED_TEXT" ".configured" "false"
+    CLASS_COLLABORATOR_CLEANUP_CLASS=""
+  fi
 else
   skip_test "class collaborator metadata lifecycle" "$CLASS_COLLABORATOR_FIXTURE_CLASS already has direct metadata"
 fi
@@ -1460,12 +1499,48 @@ if [ -n "$TRAINING_SPACE_TYPE_ID" ] && [ -n "$TRAINING_ROLE_NAME" ] && [ -n "$TR
   run_capture_to_var SPACE_ROLE_SET_TEXT "set_space_role_permissions(clear names)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_space_role_permissions\",\"arguments\":{\"spaceType\":$TRAINING_SPACE_TYPE_NAME_JSON,\"role\":$TRAINING_ROLE_NAME_JSON,\"permissions\":$TRAINING_MUTATED_PERMISSIONS_JSON,\"confirm\":true}},\"id\":2}"
   assert_json_array_contains "set_space_role_permissions resolves permission label" "$SPACE_ROLE_SET_TEXT" ".role.permissions" "$TRAINING_EXTRA_PERMISSION_ID"
+  sleep 2
+  run_capture_to_var SPACE_ROLE_REREAD_TEXT "get_space_type(after permission set)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_space_type\",\"arguments\":{\"spaceType\":$TRAINING_SPACE_TYPE_NAME_JSON}},\"id\":2}"
+  assert_json_array_contains "role reread sees added permission" "$SPACE_ROLE_REREAD_TEXT" ".roles[] | select(.name == $TRAINING_ROLE_NAME_JSON) | .permissions" "$TRAINING_EXTRA_PERMISSION_ID"
   TRAINING_SPACE_TYPE_ID_JSON=$(json_string "$TRAINING_SPACE_TYPE_ID")
-  run_test "set_space_role_permissions(restore)" \
-    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_space_role_permissions\",\"arguments\":{\"spaceType\":$TRAINING_SPACE_TYPE_ID_JSON,\"role\":$TRAINING_ROLE_NAME_JSON,\"permissions\":$TRAINING_ROLE_PERMISSIONS_JSON,\"confirm\":true}},\"id\":2}"
-  SPACE_ROLE_CLEANUP_SPACE_TYPE=""
-  SPACE_ROLE_CLEANUP_ROLE=""
-  SPACE_ROLE_CLEANUP_PERMISSIONS_JSON=""
+  if run_test "set_space_role_permissions(restore)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_space_role_permissions\",\"arguments\":{\"spaceType\":$TRAINING_SPACE_TYPE_ID_JSON,\"role\":$TRAINING_ROLE_NAME_JSON,\"permissions\":$TRAINING_ROLE_PERMISSIONS_JSON,\"confirm\":true}},\"id\":2}"; then
+    sleep 2
+    run_capture_to_var SPACE_ROLE_RESTORED_TEXT "get_space_type(after role restore)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_space_type\",\"arguments\":{\"spaceType\":$TRAINING_SPACE_TYPE_ID_JSON}},\"id\":2}"
+    RESTORED_ROLE_PERMISSIONS_JSON=$(printf '%s\n' "$SPACE_ROLE_RESTORED_TEXT" | jq -c --arg role "$TRAINING_ROLE_NAME" '.roles[]? | select(.name == $role) | .permissions | sort' 2>/dev/null)
+    EXPECTED_ROLE_PERMISSIONS_JSON=$(printf '%s\n' "$TRAINING_ROLE_PERMISSIONS_JSON" | jq -c 'sort')
+    assert_json_field_equals "role reread confirms exact restoration" "{\"actual\":$RESTORED_ROLE_PERMISSIONS_JSON}" ".actual | sort | join(\",\")" "$(printf '%s' "$EXPECTED_ROLE_PERMISSIONS_JSON" | jq -r 'sort | join(",")')"
+    SPACE_ROLE_CLEANUP_SPACE_TYPE=""
+    SPACE_ROLE_CLEANUP_ROLE=""
+    SPACE_ROLE_CLEANUP_PERMISSIONS_JSON=""
+  fi
+
+  SECURITY_ROLE_NAME="MCP Integration Role $RUN_ID"
+  SECURITY_ROLE_NAME_JSON=$(json_string "$SECURITY_ROLE_NAME")
+  TRAINING_EXTRA_PERMISSION_LABEL_JSON=$(json_string "$TRAINING_EXTRA_PERMISSION_LABEL")
+  run_capture_to_var SECURITY_ROLE_CREATE_TEXT "create_space_role($SECURITY_ROLE_NAME)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_space_role\",\"arguments\":{\"spaceType\":$TRAINING_SPACE_TYPE_NAME_JSON,\"name\":$SECURITY_ROLE_NAME_JSON,\"permissions\":[$TRAINING_EXTRA_PERMISSION_LABEL_JSON],\"confirm\":true}},\"id\":2}"
+  SECURITY_ROLE_ID=$(printf '%s\n' "$SECURITY_ROLE_CREATE_TEXT" | jq -r '.role.id // empty' 2>/dev/null)
+  if [ -n "$SECURITY_ROLE_ID" ]; then
+    SPACE_ROLE_CREATED_CLEANUP_SPACE_TYPE="$TRAINING_SPACE_TYPE_ID"
+    SPACE_ROLE_CREATED_CLEANUP_ROLE="$SECURITY_ROLE_ID"
+    sleep 2
+    run_shell_test "create_space_role persists Role and assignment Attribute" \
+      pnpm tsx scripts/integration-security-role.ts --action verify --spaceType "$TRAINING_SPACE_TYPE_ID" --role "$SECURITY_ROLE_ID"
+    if run_shell_test "cleanup create_space_role fixture" \
+      pnpm tsx scripts/integration-security-role.ts --action delete --spaceType "$TRAINING_SPACE_TYPE_ID" --role "$SECURITY_ROLE_ID"; then
+      sleep 2
+      if run_shell_test "create_space_role cleanup is persistent" \
+        pnpm tsx scripts/integration-security-role.ts --action verify-absent --spaceType "$TRAINING_SPACE_TYPE_ID" --role "$SECURITY_ROLE_ID"; then
+        SPACE_ROLE_CREATED_CLEANUP_SPACE_TYPE=""
+        SPACE_ROLE_CREATED_CLEANUP_ROLE=""
+      fi
+    fi
+  else
+    skip_test "create_space_role persistence lifecycle" "create_space_role did not return a role id"
+  fi
 else
   skip_test "space role permission lifecycle" "no restorable Default Trainings role and extra space permission fixture"
 fi

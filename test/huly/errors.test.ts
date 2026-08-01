@@ -1475,6 +1475,8 @@ describe("Huly Errors", () => {
               return `permission-conflict:${error.label}:${error.existingPermissionId}`
             case "PermissionProtectedError":
               return `permission-protected:${error.permissionId}`
+            case "PermissionKindUnsupportedError":
+              return `permission-kind-unsupported:${error.permissionId}:${error.actualClass}`
             case "PermissionInUseError":
               return `permission-in-use:${error.permissionId}:${error.references.length}`
             case "SpaceRoleNameConflictError":

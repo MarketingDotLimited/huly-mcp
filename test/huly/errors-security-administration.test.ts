@@ -14,6 +14,7 @@ import {
   CollaboratorMetadataAmbiguousError,
   PermissionIdentifierAmbiguousError,
   PermissionInUseError,
+  PermissionKindUnsupportedError,
   PermissionLabelConflictError,
   PermissionNotFoundError,
   PermissionProtectedError,
@@ -37,6 +38,10 @@ describe("security administration errors", () => {
           existingPermissionId: permissionId
         }).message,
         new PermissionProtectedError({ permissionId }).message,
+        new PermissionKindUnsupportedError({
+          permissionId,
+          actualClass: ObjectClassName.make("core:class:ClassPermission")
+        }).message,
         new PermissionInUseError({ permissionId, references: [NonEmptyString.make("role:reviewer")] }).message,
         new SpaceRoleNameConflictError({
           name: NonEmptyString.make("Reviewer"),
@@ -55,7 +60,7 @@ describe("security administration errors", () => {
         new ClassCollaboratorMetadataNotFoundError({ classId: ObjectClassName.make("class:issue") }).message
       ]
 
-      expect(messages).toHaveLength(11)
+      expect(messages).toHaveLength(12)
       expect(messages.every((message) => message.length > 20)).toBe(true)
     })
   )

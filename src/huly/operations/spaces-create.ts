@@ -43,6 +43,7 @@ import type {
 } from "../errors.js"
 import { SpaceCreationConflictError, SpaceTypeCreationUnsupportedError } from "../errors.js"
 import { core } from "../huly-plugins.js"
+import { RoleAssignmentEditor } from "../security-metadata-constants.js"
 import { hulyQuery } from "./query-helpers.js"
 import { toClassRef, toMixinRef, toRef } from "./sdk-boundary.js"
 import { findSpaceType } from "./spaces-read.js"
@@ -90,15 +91,13 @@ const TargetAttributeMetadataSchema = Schema.Array(
 const TargetRoleMetadataSchema = Schema.Array(Schema.Struct({ id: RoleId }))
 type TargetAttributeMetadata = Schema.Schema.Type<typeof TargetAttributeMetadataSchema>
 type TargetRoleMetadata = Schema.Schema.Type<typeof TargetRoleMetadataSchema>
-const roleAssignmentEditor = NonEmptyString.make("setting:component:RoleAssignmentEditor")
-
 const unsupported = (spaceType: SpaceTypeId, reason: NonEmptyString): SpaceTypeCreationUnsupportedError =>
   new SpaceTypeCreationUnsupportedError({ spaceType, reason })
 
 const isCanonicalRoleAttribute = (attribute: TargetAttributeMetadata[number]): boolean =>
   attribute.type._class === ObjectClassName.make(core.class.TypeAny) &&
-  attribute.type.presenter === roleAssignmentEditor &&
-  attribute.type.editor === roleAssignmentEditor
+  attribute.type.presenter === RoleAssignmentEditor &&
+  attribute.type.editor === RoleAssignmentEditor
 
 const targetShapeProblem = (
   metadata: SpaceCreationMetadata,

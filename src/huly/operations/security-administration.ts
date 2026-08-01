@@ -1,7 +1,7 @@
 import type { Data, Doc, DocumentUpdate, Permission, Role, SpaceTypeDescriptor } from "@hcengineering/core"
 import { generateId } from "@hcengineering/core"
 import { getEmbeddedLabel } from "@hcengineering/platform"
-import { Effect, Either } from "effect"
+import { Effect } from "effect"
 
 import type {
   CreateHulyPermissionParams,
@@ -20,13 +20,15 @@ import { HulyClient, type HulyClientError } from "../client.js"
 import {
   PermissionIdentifierAmbiguousError,
   PermissionInUseError,
+  PermissionKindUnsupportedError,
   PermissionLabelConflictError,
   PermissionNotFoundError,
   PermissionProtectedError
 } from "../errors-security-administration.js"
 import type { ModelClassAmbiguousError, ModelClassNotFoundError } from "../errors-model-administration.js"
-import { decodeHulyModelLabelTail } from "../huly-labels.js"
+import { hulyModelLabelTail } from "../huly-labels.js"
 import { core } from "../huly-plugins.js"
+import { hasNamespacedModelId } from "../security-metadata-constants.js"
 import { hulyQuery } from "./query-helpers.js"
 import { toClassRef } from "./sdk-boundary.js"
 import { loadClasses, normalizeModelIdentifier, resolveModelClass } from "./model-administration-shared.js"
@@ -36,16 +38,17 @@ type PermissionWriteError =
   | HulyClientError
   | PermissionResolverError
   | PermissionInUseError
+  | PermissionKindUnsupportedError
   | PermissionLabelConflictError
   | PermissionProtectedError
   | ModelClassAmbiguousError
   | ModelClassNotFoundError
 
-export const displaySecurityLabel = (value: unknown): NonEmptyString =>
-  Either.getOrElse(decodeHulyModelLabelTail(value), () => NonEmptyString.make(String(value)))
+export const displaySecurityLabel = (value: Permission["label"]): NonEmptyString =>
+  NonEmptyString.make(hulyModelLabelTail(value))
 
 const optionalDisplayLabel = (value: unknown): NonEmptyString | undefined =>
-  value === undefined ? undefined : displaySecurityLabel(value)
+  typeof value === "string" ? NonEmptyString.make(hulyModelLabelTail(value)) : undefined
 
 const toSecurityPermissionSummary = (permission: Permission): SpacePermissionSummary => ({
   id: PermissionId.make(String(permission._id)),
@@ -112,7 +115,17 @@ export const resolvePermission = (
   /* v8 ignore stop */
 }
 
-const isBuiltInPermission = (permission: Permission): boolean => String(permission._id).includes(":")
+const isBuiltInPermission = (permission: Permission): boolean => hasNamespacedModelId(String(permission._id))
+
+const assertBasePermission = (permission: Permission): Effect.Effect<void, PermissionKindUnsupportedError> =>
+  permission._class === core.class.Permission
+    ? Effect.void
+    : Effect.fail(
+        new PermissionKindUnsupportedError({
+          permissionId: PermissionId.make(String(permission._id)),
+          actualClass: ObjectClassName.make(String(permission._class))
+        })
+      )
 
 const assertPermissionMutable = (permission: Permission): Effect.Effect<void, PermissionProtectedError> =>
   isBuiltInPermission(permission)
@@ -346,6 +359,7 @@ export const updateHulyPermission = (
   Effect.gen(function* () {
     const client = yield* HulyClient
     const current = yield* resolvePermission(yield* loadPermissions(client), params.permission)
+    yield* assertBasePermission(current)
     yield* assertPermissionMutable(current)
     if (changesPermissionSemantics(params)) yield* assertPermissionUnreferenced(client, current)
     const objectClass = yield* resolvePermissionObjectClass(client, params.objectClass)
@@ -359,6 +373,7 @@ export const deleteHulyPermission = (
   Effect.gen(function* () {
     const client = yield* HulyClient
     const current = yield* resolvePermission(yield* loadPermissions(client), params.permission)
+    yield* assertBasePermission(current)
     yield* assertPermissionMutable(current)
     yield* assertPermissionUnreferenced(client, current)
     yield* client.removeDoc(current._class, current.space, current._id)

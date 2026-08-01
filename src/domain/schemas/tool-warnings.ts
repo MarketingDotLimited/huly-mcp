@@ -15,7 +15,8 @@ export const ToolWarningCodeSchema = Schema.Literal(
   "card_version_metadata_degraded",
   "issue_creator_metadata_degraded",
   "recruiting_review_metadata_degraded",
-  "issue_relation_metadata_degraded"
+  "issue_relation_metadata_degraded",
+  "class_collaborator_metadata_degraded"
 ).annotations({
   identifier: "ToolWarningCode",
   title: "ToolWarningCode",
@@ -37,6 +38,7 @@ export const CardVersionMetadataDegradedWarningCode = ToolWarningCodeSchema.lite
 export const IssueCreatorMetadataDegradedWarningCode = ToolWarningCodeSchema.literals[12]
 export const RecruitingReviewMetadataDegradedWarningCode = ToolWarningCodeSchema.literals[13]
 export const IssueRelationMetadataDegradedWarningCode = ToolWarningCodeSchema.literals[14]
+export const ClassCollaboratorMetadataDegradedWarningCode = ToolWarningCodeSchema.literals[15]
 
 export const ToolWarningSchema = Schema.Struct({
   code: ToolWarningCodeSchema,

@@ -23,6 +23,7 @@ import type {
   SpaceTypeNotFoundError
 } from "../errors.js"
 import { core } from "../huly-plugins.js"
+import { RoleAssignmentEditor } from "../security-metadata-constants.js"
 import { hulyQuery } from "./query-helpers.js"
 import { toClassRef } from "./sdk-boundary.js"
 import {
@@ -46,8 +47,6 @@ type SpaceRoleWriteError =
   | SpaceRoleWriteUnsupportedError
   | SpaceTypeIdentifierAmbiguousError
   | SpaceTypeNotFoundError
-
-const ROLE_ASSIGNMENT_COMPONENT = "setting:component:RoleAssignmentEditor"
 
 const resolvePermissions = (
   permissions: ReadonlyArray<Permission>,
@@ -100,7 +99,7 @@ const roleAttributeData = (spaceType: SpaceType, roleId: Role["_id"], roleName: 
     name: roleId,
     attributeOf: toClassRef<Space>(String(spaceType.targetClass)),
     label,
-    type: { _class: core.class.TypeAny, label, presenter: ROLE_ASSIGNMENT_COMPONENT, editor: ROLE_ASSIGNMENT_COMPONENT }
+    type: { _class: core.class.TypeAny, label, presenter: RoleAssignmentEditor, editor: RoleAssignmentEditor }
   }
 }
 

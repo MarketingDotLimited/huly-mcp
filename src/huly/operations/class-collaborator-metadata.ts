@@ -12,7 +12,9 @@ import type {
 } from "../../domain/schemas/security-administration.js"
 import { ClassCollaboratorMetadataId, CollaboratorFieldName } from "../../domain/schemas/security-administration.js"
 import { NonEmptyString, ObjectClassName } from "../../domain/schemas/shared.js"
+import { ClassCollaboratorMetadataDegradedWarningCode } from "../../domain/schemas/tool-warnings.js"
 import { HulyClient, type HulyClientError } from "../client.js"
+import { Diagnostics } from "../diagnostics.js"
 import {
   ClassCollaboratorMetadataNotFoundError,
   CollaboratorFieldNotFoundError,
@@ -26,6 +28,7 @@ import { hulyQuery } from "./query-helpers.js"
 import { toClassRef } from "./sdk-boundary.js"
 import type { MetadataClassDoc } from "./sdk-discovery-mappers.js"
 
+// ClassCollaborators keys are model-defined property names; the SDK generic narrows them to Doc's static keys.
 type DynamicClassDoc = Doc & Readonly<Record<string, unknown>>
 type ClassCollaboratorRecord = ClassCollaborators<DynamicClassDoc>
 type CollaboratorMetadataWriteError =
@@ -55,12 +58,30 @@ const loadDirectCollaboratorMetadata = (
     return records[0]
   })
 
-const classIdentity = (cls: MetadataClassDoc) => ({
-  classId: ObjectClassName.make(String(cls._id)),
-  classLabel: Either.getOrElse(decodeHulyModelLabelTail(cls.label), () =>
-    Either.getOrElse(decodeHulyModelLabelTail(String(cls._id)), () => NonEmptyString.make(String(cls._id)))
+const classIdentity = (cls: MetadataClassDoc) => {
+  const classId = ObjectClassName.make(String(cls._id))
+  const decodedLabel = decodeHulyModelLabelTail(cls.label)
+  return Either.isRight(decodedLabel)
+    ? { identity: { classId, classLabel: decodedLabel.right }, synthesized: false }
+    : {
+        identity: {
+          classId,
+          classLabel: Either.getOrElse(decodeHulyModelLabelTail(classId), () => NonEmptyString.make(classId))
+        },
+        synthesized: true
+      }
+}
+
+const warnSynthesizedClassLabel = (cls: MetadataClassDoc): Effect.Effect<void, never, Diagnostics> => {
+  const identity = classIdentity(cls)
+  if (!identity.synthesized) return Effect.void
+  return Effect.flatMap(Diagnostics, (diagnostics) =>
+    diagnostics.warnAgent({
+      code: ClassCollaboratorMetadataDegradedWarningCode,
+      message: `Class '${identity.identity.classId}' has no resolvable label; classLabel was synthesized from its ID.`
+    })
   )
-})
+}
 
 const collaboratorFieldSelection = (metadata: ClassCollaboratorRecord) => {
   if (metadata.allFields === true) return { mode: "all" as const }
@@ -70,7 +91,7 @@ const collaboratorFieldSelection = (metadata: ClassCollaboratorRecord) => {
 
 const collaboratorMetadataSummary = (metadata: ClassCollaboratorRecord, cls: MetadataClassDoc) => ({
   metadataId: ClassCollaboratorMetadataId.make(String(metadata._id)),
-  ...classIdentity(cls),
+  ...classIdentity(cls).identity,
   fieldSelection: collaboratorFieldSelection(metadata),
   provideSecurity: metadata.provideSecurity === true,
   provideAttachedSecurity: metadata.provideAttachedSecurity === true
@@ -88,13 +109,14 @@ const resolveCollaboratorClass = (
 
 export const getClassCollaboratorMetadata = (
   params: GetClassCollaboratorMetadataParams
-): Effect.Effect<GetClassCollaboratorMetadataResult, CollaboratorMetadataWriteError, HulyClient> =>
+): Effect.Effect<GetClassCollaboratorMetadataResult, CollaboratorMetadataWriteError, HulyClient | Diagnostics> =>
   Effect.gen(function* () {
     const client = yield* HulyClient
     const { cls } = yield* resolveCollaboratorClass(client, params.class)
+    yield* warnSynthesizedClassLabel(cls)
     const metadata = yield* loadDirectCollaboratorMetadata(client, ObjectClassName.make(String(cls._id)))
     return metadata === undefined
-      ? { ...classIdentity(cls), configured: false as const }
+      ? { ...classIdentity(cls).identity, configured: false as const }
       : { ...collaboratorMetadataSummary(metadata, cls), configured: true as const }
   })
 
@@ -152,7 +174,7 @@ const collaboratorMetadataData = (
 
 export const setClassCollaboratorMetadata = (
   params: SetClassCollaboratorMetadataParams
-): Effect.Effect<SetClassCollaboratorMetadataResult, CollaboratorMetadataWriteError, HulyClient> =>
+): Effect.Effect<SetClassCollaboratorMetadataResult, CollaboratorMetadataWriteError, HulyClient | Diagnostics> =>
   Effect.gen(function* () {
     const client = yield* HulyClient
     const [{ classes, cls }, attributes] = yield* Effect.all([
@@ -160,6 +182,7 @@ export const setClassCollaboratorMetadata = (
       client.findAll<AnyAttribute>(core.class.Attribute, hulyQuery<AnyAttribute>({}))
     ])
     const fields = collaboratorFields(params)
+    yield* warnSynthesizedClassLabel(cls)
     yield* assertCollaboratorFieldsExist(classes, cls, attributes, fields)
     const classId = ObjectClassName.make(String(cls._id))
     const current = yield* loadDirectCollaboratorMetadata(client, classId)
@@ -184,10 +207,11 @@ export const setClassCollaboratorMetadata = (
 
 export const deleteClassCollaboratorMetadata = (
   params: DeleteClassCollaboratorMetadataParams
-): Effect.Effect<DeleteClassCollaboratorMetadataResult, CollaboratorMetadataWriteError, HulyClient> =>
+): Effect.Effect<DeleteClassCollaboratorMetadataResult, CollaboratorMetadataWriteError, HulyClient | Diagnostics> =>
   Effect.gen(function* () {
     const client = yield* HulyClient
     const { cls } = yield* resolveCollaboratorClass(client, params.class)
+    yield* warnSynthesizedClassLabel(cls)
     const classId = ObjectClassName.make(String(cls._id))
     const current = yield* loadDirectCollaboratorMetadata(client, classId)
     if (current === undefined) return yield* new ClassCollaboratorMetadataNotFoundError({ classId })

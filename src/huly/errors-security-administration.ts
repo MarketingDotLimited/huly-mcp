@@ -47,6 +47,15 @@ export class PermissionProtectedError extends Schema.TaggedError<PermissionProte
   }
 }
 
+export class PermissionKindUnsupportedError extends Schema.TaggedError<PermissionKindUnsupportedError>()(
+  "PermissionKindUnsupportedError",
+  { permissionId: PermissionId, actualClass: ObjectClassName }
+) {
+  override get message(): string {
+    return `Permission '${this.permissionId}' is a specialized '${this.actualClass}' definition; only direct core Permission records are supported`
+  }
+}
+
 export class PermissionInUseError extends Schema.TaggedError<PermissionInUseError>()("PermissionInUseError", {
   permissionId: PermissionId,
   references: Schema.Array(NonEmptyString).pipe(Schema.minItems(1))
@@ -118,6 +127,7 @@ export const SecurityAdministrationDomainError = Schema.Union(
   PermissionIdentifierAmbiguousError,
   PermissionLabelConflictError,
   PermissionProtectedError,
+  PermissionKindUnsupportedError,
   PermissionInUseError,
   SpaceRoleNameConflictError,
   SpaceRoleWriteUnsupportedError,
