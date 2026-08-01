@@ -2,6 +2,11 @@ import type { McpToolName } from "../../../src/mcp/tools/index.js"
 import type { CliCommandSpec } from "./catalog-types.js"
 
 export const coreMutationCliCommandCatalog = {
+  create_huly_sequence: {
+    path: ["model", "sequences", "create"],
+    positional: ["class", "kind"],
+    description: "Create Huly Sequence"
+  },
   create_huly_permission: {
     path: ["model", "permissions", "create"],
     positional: ["label", "scope"],
@@ -103,6 +108,12 @@ export const coreMutationCliCommandCatalog = {
     positional: ["attribute"],
     description: "Delete Huly Model Attribute",
     behavior: { confirmation: { type: "requires-yes", message: "model attributes delete requires --yes." } }
+  },
+  delete_huly_sequence: {
+    path: ["model", "sequences", "delete"],
+    positional: ["sequence", "expectedCurrentValue"],
+    description: "Delete Huly Sequence",
+    behavior: { confirmation: { type: "requires-yes", message: "model sequences delete requires --yes." } }
   },
   delete_class_collaborator_metadata: {
     path: ["model", "collaborators", "delete"],
@@ -247,6 +258,11 @@ export const coreMutationCliCommandCatalog = {
     path: ["model", "attributes", "update"],
     positional: ["attribute"],
     description: "Update Huly Model Attribute"
+  },
+  update_huly_custom_sequence: {
+    path: ["model", "sequences", "update"],
+    positional: ["sequence", "prefix"],
+    description: "Update Huly Custom Sequence"
   },
   update_huly_permission: {
     path: ["model", "permissions", "update"],

@@ -58,6 +58,7 @@ GENERIC_WORKFLOW_STATUS_CLEANUP_ID=""
 GENERIC_WORKFLOW_CATEGORY_CLEANUP_ID=""
 MODEL_ATTRIBUTE_CLEANUP_ID=""
 MODEL_ENUM_CLEANUP_ID=""
+SEQUENCE_CLEANUP_ENTRIES=""
 SECURITY_PERMISSION_CLEANUP_ID=""
 CLASS_COLLABORATOR_CLEANUP_CLASS=""
 SPACE_ROLE_CLEANUP_SPACE_TYPE=""
@@ -382,6 +383,38 @@ cleanup_model_administration_artifacts() {
   fi
 }
 
+cleanup_sequence_administration_artifacts() {
+  if [ -z "$SEQUENCE_CLEANUP_ENTRIES" ]; then
+    return 0
+  fi
+  local cleanup_entry sequence_id expected_value cleanup_method sequence_json cleanup_attempt cleaned
+  local remaining_entries=""
+  while IFS= read -r cleanup_entry; do
+    [ -z "$cleanup_entry" ] && continue
+    sequence_id=$(printf '%s\n' "$cleanup_entry" | jq -r '.sequenceId')
+    expected_value=$(printf '%s\n' "$cleanup_entry" | jq -r '.expectedCurrentValue')
+    cleanup_method=$(printf '%s\n' "$cleanup_entry" | jq -r '.method')
+    sequence_json=$(json_string "$sequence_id")
+    cleaned=false
+    for cleanup_attempt in 1 2 3; do
+      if [ "$cleanup_method" = "owned-sdk-delete" ]; then
+        if pnpm tsx scripts/integration-sequence.ts --action delete-owned --sequence "$sequence_id" >/dev/null 2>&1; then
+          cleaned=true
+          break
+        fi
+      elif run_capture_only "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_huly_sequence\",\"arguments\":{\"sequence\":$sequence_json,\"expectedCurrentValue\":$expected_value,\"confirm\":true}},\"id\":2}" >/dev/null 2>&1; then
+        cleaned=true
+        break
+      fi
+    done
+    if [ "$cleaned" != "true" ]; then
+      remaining_entries="${remaining_entries}${cleanup_entry}"$'\n'
+      echo "WARNING: sequence fixture '$sequence_id' cleanup failed after 3 attempts; retry marker retained" >&2
+    fi
+  done <<<"$SEQUENCE_CLEANUP_ENTRIES"
+  SEQUENCE_CLEANUP_ENTRIES="$remaining_entries"
+}
+
 cleanup_security_administration_artifacts() {
   if [ -n "$SPACE_ROLE_CREATED_CLEANUP_SPACE_TYPE" ] && [ -n "$SPACE_ROLE_CREATED_CLEANUP_ROLE" ]; then
     if pnpm tsx scripts/integration-security-role.ts --action delete --spaceType "$SPACE_ROLE_CREATED_CLEANUP_SPACE_TYPE" --role "$SPACE_ROLE_CREATED_CLEANUP_ROLE" >/dev/null 2>&1; then
@@ -417,6 +450,7 @@ cleanup_security_administration_artifacts() {
 
 cleanup_all() {
   cleanup_security_administration_artifacts
+  cleanup_sequence_administration_artifacts
   cleanup_model_administration_artifacts
   cleanup_generic_workflow_artifacts
   cleanup_global_space_admins || true
@@ -1414,9 +1448,104 @@ fi
 echo ""
 
 ##############################
-# 1ac. SECURITY METADATA ADMINISTRATION
+# 1ac. SEQUENCE ADMINISTRATION
 ##############################
-echo "=== 1ac. Security Metadata Administration ==="
+echo "=== 1ac. Sequence Administration ==="
+SEQUENCE_STANDARD_CLASS="core:class:DomainIndexConfiguration"
+SEQUENCE_CUSTOM_CLASS="core:class:UserStatus"
+SEQUENCE_CUSTOM_PREFIX="MCP${RUN_ID//[^a-zA-Z0-9]/}"
+SEQUENCE_CUSTOM_UPDATED_PREFIX="MCPU${RUN_ID//[^a-zA-Z0-9]/}"
+SEQUENCE_STANDARD_CLASS_JSON=$(json_string "$SEQUENCE_STANDARD_CLASS")
+SEQUENCE_CUSTOM_CLASS_JSON=$(json_string "$SEQUENCE_CUSTOM_CLASS")
+SEQUENCE_CUSTOM_PREFIX_JSON=$(json_string "$SEQUENCE_CUSTOM_PREFIX")
+SEQUENCE_CUSTOM_UPDATED_PREFIX_JSON=$(json_string "$SEQUENCE_CUSTOM_UPDATED_PREFIX")
+
+run_expect_error_contains "create_huly_sequence(requires confirmation)" \
+  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_huly_sequence\",\"arguments\":{\"class\":$SEQUENCE_STANDARD_CLASS_JSON,\"kind\":\"standard\"}},\"id\":2}" \
+  "confirm"
+run_capture_to_var SEQUENCE_STANDARD_TEXT "create_huly_sequence(standard)" \
+  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_huly_sequence\",\"arguments\":{\"class\":$SEQUENCE_STANDARD_CLASS_JSON,\"kind\":\"standard\",\"confirm\":true}},\"id\":2}"
+SEQUENCE_STANDARD_CLEANUP_ID=$(printf '%s\n' "$SEQUENCE_STANDARD_TEXT" | jq -r '.sequence.sequenceId // empty' 2>/dev/null)
+SEQUENCE_STANDARD_CREATED=$(printf '%s\n' "$SEQUENCE_STANDARD_TEXT" | jq -r '.created // false' 2>/dev/null)
+if [ -n "$SEQUENCE_STANDARD_CLEANUP_ID" ] && [ "$SEQUENCE_STANDARD_CREATED" = "true" ]; then
+  SEQUENCE_STANDARD_CLEANUP_ENTRY=$(jq -nc --arg sequenceId "$SEQUENCE_STANDARD_CLEANUP_ID" \
+    '{sequenceId: $sequenceId, expectedCurrentValue: 0, method: "guarded-tool-delete"}')
+  SEQUENCE_CLEANUP_ENTRIES="${SEQUENCE_CLEANUP_ENTRIES}${SEQUENCE_STANDARD_CLEANUP_ENTRY}"$'\n'
+  assert_json_field_equals "create_huly_sequence starts standard counter at zero" "$SEQUENCE_STANDARD_TEXT" ".sequence.currentValue" "0"
+  sleep 2
+  SEQUENCE_STANDARD_ID_JSON=$(json_string "$SEQUENCE_STANDARD_CLEANUP_ID")
+  if run_test "delete_huly_sequence(standard rollback)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_huly_sequence\",\"arguments\":{\"sequence\":$SEQUENCE_STANDARD_ID_JSON,\"expectedCurrentValue\":0,\"confirm\":true}},\"id\":2}"; then
+    SEQUENCE_CLEANUP_ENTRIES=$(printf '%s' "$SEQUENCE_CLEANUP_ENTRIES" | jq -c --arg id "$SEQUENCE_STANDARD_CLEANUP_ID" 'select(.sequenceId != $id)' || true)
+    sleep 2
+    run_capture_to_var SEQUENCE_STANDARD_AFTER_DELETE_TEXT "list_huly_sequences(after standard rollback)" \
+      '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_huly_sequences","arguments":{}},"id":2}'
+    assert_json_field_equals "standard rollback removed the created sequence" "$SEQUENCE_STANDARD_AFTER_DELETE_TEXT" \
+      "[.sequences[] | select(.sequenceId == \"$SEQUENCE_STANDARD_CLEANUP_ID\")] | length" "0"
+  fi
+elif [ -n "$SEQUENCE_STANDARD_CLEANUP_ID" ]; then
+  skip_test "standard sequence rollback" "target class already had a sequence; pre-existing metadata was left untouched"
+else
+  skip_test "standard sequence rollback" "create_huly_sequence did not return a sequence id"
+fi
+
+run_capture_to_var SEQUENCE_CUSTOM_TEXT "create_huly_sequence(custom)" \
+  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_huly_sequence\",\"arguments\":{\"class\":$SEQUENCE_CUSTOM_CLASS_JSON,\"kind\":\"custom\",\"prefix\":$SEQUENCE_CUSTOM_PREFIX_JSON,\"confirm\":true}},\"id\":2}"
+SEQUENCE_CUSTOM_CLEANUP_ID=$(printf '%s\n' "$SEQUENCE_CUSTOM_TEXT" | jq -r '.sequence.sequenceId // empty' 2>/dev/null)
+SEQUENCE_CUSTOM_CREATED=$(printf '%s\n' "$SEQUENCE_CUSTOM_TEXT" | jq -r '.created // false' 2>/dev/null)
+if [ -n "$SEQUENCE_CUSTOM_CLEANUP_ID" ] && [ "$SEQUENCE_CUSTOM_CREATED" = "true" ]; then
+  SEQUENCE_CUSTOM_CLEANUP_ENTRY=$(jq -nc --arg sequenceId "$SEQUENCE_CUSTOM_CLEANUP_ID" \
+    '{sequenceId: $sequenceId, expectedCurrentValue: 0, method: "owned-sdk-delete"}')
+  SEQUENCE_CLEANUP_ENTRIES="${SEQUENCE_CLEANUP_ENTRIES}${SEQUENCE_CUSTOM_CLEANUP_ENTRY}"$'\n'
+  assert_json_field_equals "create_huly_sequence returns custom prefix" "$SEQUENCE_CUSTOM_TEXT" ".sequence.prefix" "$SEQUENCE_CUSTOM_PREFIX"
+  sleep 2
+  SEQUENCE_CUSTOM_ID_JSON=$(json_string "$SEQUENCE_CUSTOM_CLEANUP_ID")
+  run_shell_test "increment owned custom sequence fixture" \
+    pnpm tsx scripts/integration-sequence.ts --action increment --sequence "$SEQUENCE_CUSTOM_CLEANUP_ID"
+  sleep 2
+  run_capture_to_var SEQUENCE_CUSTOM_AFTER_INCREMENT_TEXT "list_huly_sequences(after semantic increment)" \
+    '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_huly_sequences","arguments":{}},"id":2}'
+  assert_json_field_equals "semantic increment persisted a nonzero counter" "$SEQUENCE_CUSTOM_AFTER_INCREMENT_TEXT" \
+    ".sequences[] | select(.sequenceId == \"$SEQUENCE_CUSTOM_CLEANUP_ID\") | .currentValue" "1"
+  run_capture_to_var SEQUENCE_CUSTOM_RETRY_TEXT "create_huly_sequence(custom retry)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_huly_sequence\",\"arguments\":{\"class\":$SEQUENCE_CUSTOM_CLASS_JSON,\"kind\":\"custom\",\"prefix\":$SEQUENCE_CUSTOM_PREFIX_JSON,\"confirm\":true}},\"id\":2}"
+  assert_json_field_equals "create_huly_sequence retry does not recreate" "$SEQUENCE_CUSTOM_RETRY_TEXT" ".created" "false"
+  sleep 2
+  run_capture_to_var SEQUENCE_CUSTOM_AFTER_RETRY_TEXT "list_huly_sequences(after retry)" \
+    '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_huly_sequences","arguments":{}},"id":2}'
+  assert_json_field_equals "create_huly_sequence retry preserves advanced counter" "$SEQUENCE_CUSTOM_AFTER_RETRY_TEXT" \
+    ".sequences[] | select(.sequenceId == \"$SEQUENCE_CUSTOM_CLEANUP_ID\") | .currentValue" "1"
+  run_capture_to_var SEQUENCE_CUSTOM_UPDATE_TEXT "update_huly_custom_sequence(prefix only)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_huly_custom_sequence\",\"arguments\":{\"sequence\":$SEQUENCE_CUSTOM_ID_JSON,\"prefix\":$SEQUENCE_CUSTOM_UPDATED_PREFIX_JSON,\"confirm\":true}},\"id\":2}"
+  assert_json_field_equals "update_huly_custom_sequence preserves counter" "$SEQUENCE_CUSTOM_UPDATE_TEXT" ".sequence.currentValue" "1"
+  sleep 2
+  run_capture_to_var SEQUENCE_CUSTOM_AFTER_UPDATE_TEXT "list_huly_sequences(after prefix update)" \
+    '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_huly_sequences","arguments":{}},"id":2}'
+  assert_json_field_equals "prefix update persisted without changing counter" "$SEQUENCE_CUSTOM_AFTER_UPDATE_TEXT" \
+    ".sequences[] | select(.sequenceId == \"$SEQUENCE_CUSTOM_CLEANUP_ID\") | [.prefix, .currentValue] | join(\":\")" "$SEQUENCE_CUSTOM_UPDATED_PREFIX:1"
+  run_expect_error_contains "delete_huly_sequence(refuses used sequence)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_huly_sequence\",\"arguments\":{\"sequence\":$SEQUENCE_CUSTOM_ID_JSON,\"expectedCurrentValue\":0,\"confirm\":true}},\"id\":2}" \
+    "not expected value"
+  if run_shell_test "delete owned custom sequence fixture" \
+    pnpm tsx scripts/integration-sequence.ts --action delete-owned --sequence "$SEQUENCE_CUSTOM_CLEANUP_ID"; then
+    SEQUENCE_CLEANUP_ENTRIES=$(printf '%s' "$SEQUENCE_CLEANUP_ENTRIES" | jq -c --arg id "$SEQUENCE_CUSTOM_CLEANUP_ID" 'select(.sequenceId != $id)' || true)
+    sleep 2
+    run_capture_to_var SEQUENCE_CUSTOM_AFTER_DELETE_TEXT "list_huly_sequences(after owned fixture rollback)" \
+      '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_huly_sequences","arguments":{}},"id":2}'
+    assert_json_field_equals "owned fixture rollback removed the custom sequence" "$SEQUENCE_CUSTOM_AFTER_DELETE_TEXT" \
+      "[.sequences[] | select(.sequenceId == \"$SEQUENCE_CUSTOM_CLEANUP_ID\")] | length" "0"
+  fi
+elif [ -n "$SEQUENCE_CUSTOM_CLEANUP_ID" ]; then
+  skip_test "custom sequence retry/update/rollback" "target class already had a sequence; pre-existing metadata was left untouched"
+else
+  skip_test "custom sequence retry/update/rollback" "create_huly_sequence did not return a custom sequence id"
+fi
+echo ""
+
+##############################
+# 1ad. SECURITY METADATA ADMINISTRATION
+##############################
+echo "=== 1ad. Security Metadata Administration ==="
 SECURITY_PERMISSION_LABEL="MCP Security Permission $RUN_ID"
 SECURITY_PERMISSION_LABEL_JSON=$(json_string "$SECURITY_PERMISSION_LABEL")
 

@@ -184,6 +184,10 @@ const CATEGORY_DESCRIPTIONS: ReadonlyMap<ToolCategory, ToolDescription> = new Ma
     "security-administration",
     "Guarded Huly permission definitions, typed-space role definitions, and class collaborator security metadata."
   ),
+  categoryDescriptionEntry(
+    "sequence-administration",
+    "Guarded, retry-safe Huly Sequence and CustomSequence definition administration."
+  ),
   categoryDescriptionEntry("storage", "Storage diagnostics and storage-backed object helpers."),
   categoryDescriptionEntry(
     "attachments",

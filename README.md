@@ -290,7 +290,7 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `get_tool_schema` | Returns the exact input and output schema for one proxy-visible Huly tool. Use this before invoke_tool when you are not certain about required argument names or result shape. |
 | `invoke_tool` | Invokes one proxy-visible Huly tool by exact name with its arguments. This tool can call read or write Huly operations; check get_tool_schema and the target tool annotations when safety matters. |
 
-**`TOOLSETS` categories:** `projects`, `issues`, `comments`, `milestones`, `documents`, `storage`, `attachments`, `contacts`, `channels`, `calendar`, `time tracking`, `search`, `associations`, `activity`, `notifications`, `workspace`, `approvals`, `boards`, `cards`, `collaborators`, `custom-fields`, `drive`, `inventory`, `labels`, `leads`, `templates`, `model-administration`, `planner`, `preferences`, `processes`, `recruiting`, `sdk-discovery`, `security-administration`, `spaces`, `tag-categories`, `tags`, `task-management`, `test-management`, `user-statuses`, `views`, `virtual-office`, `workflow-statuses`
+**`TOOLSETS` categories:** `projects`, `issues`, `comments`, `milestones`, `documents`, `storage`, `attachments`, `contacts`, `channels`, `calendar`, `time tracking`, `search`, `associations`, `activity`, `notifications`, `workspace`, `approvals`, `boards`, `cards`, `collaborators`, `custom-fields`, `drive`, `inventory`, `labels`, `leads`, `templates`, `model-administration`, `planner`, `preferences`, `processes`, `recruiting`, `sdk-discovery`, `security-administration`, `sequence-administration`, `spaces`, `tag-categories`, `tags`, `task-management`, `test-management`, `user-statuses`, `views`, `virtual-office`, `workflow-statuses`
 
 ### Projects
 
@@ -874,6 +874,14 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `get_class_collaborator_metadata` | Get the direct core ClassCollaborators metadata for a Huly class resolved by class ID, tail name, or label. Returns configured=false when the class inherits defaults or has no direct record. |
 | `set_class_collaborator_metadata` | Create or replace direct core ClassCollaborators metadata for a class resolved by class ID, tail name, or label. fieldSelection supports all person-like fields, no fields, or exact property names validated against the class and its ancestors. Security propagation flags are normalized explicitly. This changes workspace access-control metadata. confirm=true is required so an agent cannot mutate security configuration accidentally. |
 | `delete_class_collaborator_metadata` | Permanently delete the direct core ClassCollaborators metadata record for a class resolved by ID, tail name, or label. Inherited metadata is never selected or deleted. This changes workspace access-control metadata. confirm=true is required so an agent cannot mutate security configuration accidentally. |
+
+### Sequence-Administration
+
+| Tool | Description |
+|------|-------------|
+| `create_huly_sequence` | Create a zero-valued standard Sequence or prefixed CustomSequence for a class resolved by exact ID, tail name, or label. Retrying returns the matching existing definition and never resets or increments its counter; a different kind or prefix returns a conflict. This changes a workspace sequence definition. confirm=true is required so an agent cannot mutate sequence metadata accidentally. |
+| `update_huly_custom_sequence` | Set only the prefix of a CustomSequence resolved by exact sequence ID or attached class ID/name. The compare-and-set guard does not change the counter and refuses a concurrent change; standard Sequence records are protected. This changes a workspace sequence definition. confirm=true is required so an agent cannot mutate sequence metadata accidentally. |
+| `delete_huly_sequence` | Permanently delete a never-used Sequence or CustomSequence resolved by exact sequence ID or attached class ID/name. expectedCurrentValue must be 0 and is an atomic compare-and-delete guard, so an active or advanced counter cannot be removed; referenced CustomSequence records are protected. This changes a workspace sequence definition. confirm=true is required so an agent cannot mutate sequence metadata accidentally. |
 
 ### Spaces
 

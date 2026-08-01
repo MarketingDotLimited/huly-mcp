@@ -7,6 +7,7 @@ import {
   type Data,
   type Doc,
   type DocumentQuery,
+  type DocumentUpdate,
   type FindOptions,
   type FindResult,
   type Mixin,
@@ -27,10 +28,12 @@ import {
 import { Cause, Effect, Exit, Fiber, Layer, TestClock } from "effect"
 import { beforeEach, expect } from "vitest"
 import { HulyConfigService } from "../../src/config/config.js"
+import { HulyTransactionScope } from "../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../../src/huly/client.js"
 import { HulyAuthError, HulyConnectionError, HulyUnavailableError } from "../../src/huly/errors.js"
 import { INLINE_COMMENT_MARK_TYPE } from "../../src/huly/operations/inline-comment-mark.js"
 import { MARKDOWN_INPUT_REF_URL } from "../../src/huly/operations/markup.js"
+import { toClassRef, toRef } from "../../src/huly/operations/sdk-boundary.js"
 import { HulySdk, type HulySdkDependencies } from "../../src/huly/sdk-deps.js"
 import { normalizeHulyOrigin } from "../../src/huly/unavailable-diagnostics.js"
 import { assertAt } from "../../src/utils/assertions.js"
@@ -46,6 +49,13 @@ const mockUpdateDoc = mockFn()
 const mockAddCollection = mockFn()
 const mockRemoveCollection = mockFn()
 const mockRemoveDoc = mockFn()
+const mockApply = mockFn()
+const mockApplyNotMatch = mockFn()
+const mockApplyMatch = mockFn()
+const mockApplyCreateDoc = mockFn()
+const mockApplyUpdateDoc = mockFn()
+const mockApplyRemoveDoc = mockFn()
+const mockApplyCommit = mockFn()
 const mockCreateMixin = mockFn()
 const mockUpdateMixin = mockFn()
 const mockSearchFulltext = mockFn()
@@ -61,6 +71,7 @@ const mockTxOperations = {
   addCollection: mockAddCollection,
   removeCollection: mockRemoveCollection,
   removeDoc: mockRemoveDoc,
+  apply: mockApply,
   createMixin: mockCreateMixin,
   updateMixin: mockUpdateMixin,
   searchFulltext: mockSearchFulltext,
@@ -82,6 +93,13 @@ const clearAllMockFns = () => {
   mockAddCollection.mockClear()
   mockRemoveCollection.mockClear()
   mockRemoveDoc.mockClear()
+  mockApply.mockClear()
+  mockApplyNotMatch.mockClear()
+  mockApplyMatch.mockClear()
+  mockApplyCreateDoc.mockClear()
+  mockApplyUpdateDoc.mockClear()
+  mockApplyRemoveDoc.mockClear()
+  mockApplyCommit.mockClear()
   mockCreateMixin.mockClear()
   mockUpdateMixin.mockClear()
   mockSearchFulltext.mockClear()
@@ -92,6 +110,21 @@ const clearAllMockFns = () => {
   mockUpdateMarkup.mockClear()
   mockMarkdownToMarkup.mockClear()
   mockCreateRestTxOperations.mockClear()
+}
+
+const resetApplyDefaults = () => {
+  mockApplyCreateDoc.mockResolvedValue(undefined)
+  mockApplyUpdateDoc.mockResolvedValue(undefined)
+  mockApplyRemoveDoc.mockResolvedValue(undefined)
+  mockApplyCommit.mockResolvedValue({ result: true })
+  mockApply.mockReturnValue({
+    notMatch: mockApplyNotMatch,
+    match: mockApplyMatch,
+    createDoc: mockApplyCreateDoc,
+    updateDoc: mockApplyUpdateDoc,
+    removeDoc: mockApplyRemoveDoc,
+    commit: mockApplyCommit
+  })
 }
 
 const mockCollaboratorClient = {
@@ -187,6 +220,7 @@ describe("HulyClient Service", () => {
     mockGetMarkup.mockResolvedValue("raw-markup")
     mockCreateMarkup.mockResolvedValue("markup-ref-id")
     mockUpdateMarkup.mockResolvedValue(undefined)
+    resetApplyDefaults()
     resetSdkDefaults()
   })
 
@@ -628,6 +662,7 @@ describe("HulyClient.layer (live layer with mocked externals)", () => {
     mockGetMarkup.mockResolvedValue("raw-markup")
     mockCreateMarkup.mockResolvedValue("markup-ref-id")
     mockUpdateMarkup.mockResolvedValue(undefined)
+    resetApplyDefaults()
   })
 
   describe("connection", () => {
@@ -834,6 +869,92 @@ describe("HulyClient.layer (live layer with mocked externals)", () => {
 
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toContain("createDoc failed")
+      })
+    )
+  })
+
+  describe("conditional document writes", () => {
+    it.effect("delegates guarded create, update, and removal through ApplyOperations", () =>
+      Effect.gen(function* () {
+        const client = yield* HulyClient.pipe(Effect.provide(liveClientLayer))
+        const createDocIfNotMatched = client.createDocIfNotMatched
+        const updateDocIfMatched = client.updateDocIfMatched
+        const removeDocIfMatched = client.removeDocIfMatched
+        if (
+          createDocIfNotMatched === undefined ||
+          updateDocIfMatched === undefined ||
+          removeDocIfMatched === undefined
+        ) {
+          return yield* Effect.die(new Error("conditional document operations missing"))
+        }
+        const objectClass = toClassRef<TestDoc>("class")
+        const space = toRef<Space>("space")
+        const objectId = toRef<TestDoc>("id")
+        const attributes: Data<TestDoc> = { title: "Initial" }
+        const matchQuery: DocumentQuery<TestDoc> = { _id: objectId, title: "Initial" }
+        const update: DocumentUpdate<TestDoc> = { title: "Updated" }
+
+        const created = yield* createDocIfNotMatched(
+          objectClass,
+          space,
+          attributes,
+          objectId,
+          objectClass,
+          matchQuery,
+          HulyTransactionScope.make("create-scope")
+        )
+        const updated = yield* updateDocIfMatched(
+          objectClass,
+          space,
+          objectId,
+          matchQuery,
+          update,
+          HulyTransactionScope.make("update-scope")
+        )
+        const removed = yield* removeDocIfMatched(
+          objectClass,
+          space,
+          objectId,
+          matchQuery,
+          HulyTransactionScope.make("remove-scope")
+        )
+
+        expect(created).toBe("applied")
+        expect(updated).toBe("applied")
+        expect(removed).toBe("applied")
+        expect(mockApply.mock.calls).toEqual([["create-scope"], ["update-scope"], ["remove-scope"]])
+        expect(mockApplyNotMatch.mock.calls).toEqual([[objectClass, matchQuery]])
+        expect(mockApplyMatch.mock.calls).toEqual([
+          [objectClass, matchQuery],
+          [objectClass, matchQuery]
+        ])
+        expect(mockApplyCreateDoc.mock.calls).toEqual([[objectClass, space, attributes, objectId]])
+        expect(mockApplyUpdateDoc.mock.calls).toEqual([[objectClass, space, objectId, update]])
+        expect(mockApplyRemoveDoc.mock.calls).toEqual([[objectClass, space, objectId]])
+        expect(mockApplyCommit.mock.calls).toHaveLength(3)
+
+        mockApplyCommit.mockResolvedValue({ result: false })
+        const refused = yield* Effect.all([
+          createDocIfNotMatched(
+            objectClass,
+            space,
+            attributes,
+            objectId,
+            objectClass,
+            matchQuery,
+            HulyTransactionScope.make("refused-create")
+          ),
+          updateDocIfMatched(
+            objectClass,
+            space,
+            objectId,
+            matchQuery,
+            update,
+            HulyTransactionScope.make("refused-update")
+          ),
+          removeDocIfMatched(objectClass, space, objectId, matchQuery, HulyTransactionScope.make("refused-remove"))
+        ])
+        expect(refused).toEqual(["condition-not-met", "condition-not-met", "condition-not-met"])
       })
     )
   })

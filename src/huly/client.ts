@@ -41,7 +41,12 @@ import {
 import { absurd, Context, Effect, Layer, Redacted, Schedule } from "effect"
 
 import { type Auth, HulyConfigService } from "../config/config.js"
-import { UrlString, WorkspaceUrlSlug } from "../domain/schemas/shared.js"
+import {
+  type HulyConditionalWriteResult,
+  type HulyTransactionScope,
+  UrlString,
+  WorkspaceUrlSlug
+} from "../domain/schemas/shared.js"
 import { concatLink } from "../utils/url.js"
 import { HulyAuthError, HulyConnectionError, HulyUnavailableError } from "./errors.js"
 import { PlatformError } from "./huly-platform.js"
@@ -213,6 +218,16 @@ export interface HulyClientOperations extends HulyClientContext {
     id?: Ref<T>
   ) => Effect.Effect<Ref<T>, HulyClientError>
 
+  readonly createDocIfNotMatched?: <T extends Doc, M extends Doc>(
+    _class: Ref<Class<T>>,
+    space: Ref<Space>,
+    attributes: Data<T>,
+    id: Ref<T>,
+    matchClass: Ref<Class<M>>,
+    matchQuery: DocumentQuery<M>,
+    scope: HulyTransactionScope
+  ) => Effect.Effect<HulyConditionalWriteResult, HulyClientError>
+
   readonly updateDoc: <T extends Doc>(
     _class: Ref<Class<T>>,
     space: Ref<Space>,
@@ -220,6 +235,15 @@ export interface HulyClientOperations extends HulyClientContext {
     operations: DocumentUpdate<T>,
     retrieve?: boolean
   ) => Effect.Effect<TxResult, HulyClientError>
+
+  readonly updateDocIfMatched?: <T extends Doc>(
+    _class: Ref<Class<T>>,
+    space: Ref<Space>,
+    objectId: Ref<T>,
+    matchQuery: DocumentQuery<T>,
+    operations: DocumentUpdate<T>,
+    scope: HulyTransactionScope
+  ) => Effect.Effect<HulyConditionalWriteResult, HulyClientError>
 
   readonly updateCollection?: <T extends Doc, P extends AttachedDoc>(
     _class: Ref<Class<P>>,
@@ -256,6 +280,14 @@ export interface HulyClientOperations extends HulyClientContext {
     space: Ref<Space>,
     objectId: Ref<T>
   ) => Effect.Effect<TxResult, HulyClientError>
+
+  readonly removeDocIfMatched?: <T extends Doc>(
+    _class: Ref<Class<T>>,
+    space: Ref<Space>,
+    objectId: Ref<T>,
+    matchQuery: DocumentQuery<T>,
+    scope: HulyTransactionScope
+  ) => Effect.Effect<HulyConditionalWriteResult, HulyClientError>
 
   readonly uploadMarkup: (
     objectClass: Ref<Class<Doc>>,
@@ -345,6 +377,22 @@ export class HulyClient extends Context.Tag("@hulymcp/HulyClient")<HulyClient, H
           createDoc: <T extends Doc>(_class: Ref<Class<T>>, space: Ref<Space>, attributes: Data<T>, id?: Ref<T>) =>
             withClient((client) => client.createDoc(_class, space, attributes, id), "createDoc failed"),
 
+          createDocIfNotMatched: <T extends Doc, M extends Doc>(
+            _class: Ref<Class<T>>,
+            space: Ref<Space>,
+            attributes: Data<T>,
+            id: Ref<T>,
+            matchClass: Ref<Class<M>>,
+            matchQuery: DocumentQuery<M>,
+            scope: HulyTransactionScope
+          ) =>
+            withClient(async (client) => {
+              const apply = client.apply(scope)
+              apply.notMatch(matchClass, matchQuery)
+              await apply.createDoc(_class, space, attributes, id)
+              return (await apply.commit()).result ? "applied" : "condition-not-met"
+            }, "conditional createDoc failed"),
+
           updateDoc: <T extends Doc>(
             _class: Ref<Class<T>>,
             space: Ref<Space>,
@@ -352,6 +400,21 @@ export class HulyClient extends Context.Tag("@hulymcp/HulyClient")<HulyClient, H
             ops: DocumentUpdate<T>,
             retrieve?: boolean
           ) => withClient((client) => client.updateDoc(_class, space, objectId, ops, retrieve), "updateDoc failed"),
+
+          updateDocIfMatched: <T extends Doc>(
+            _class: Ref<Class<T>>,
+            space: Ref<Space>,
+            objectId: Ref<T>,
+            matchQuery: DocumentQuery<T>,
+            operations: DocumentUpdate<T>,
+            scope: HulyTransactionScope
+          ) =>
+            withClient(async (client) => {
+              const apply = client.apply(scope)
+              apply.match(_class, matchQuery)
+              await apply.updateDoc(_class, space, objectId, operations)
+              return (await apply.commit()).result ? "applied" : "condition-not-met"
+            }, "conditional updateDoc failed"),
 
           addCollection: <T extends Doc, P extends AttachedDoc>(
             _class: Ref<Class<P>>,
@@ -407,6 +470,20 @@ export class HulyClient extends Context.Tag("@hulymcp/HulyClient")<HulyClient, H
 
           removeDoc: <T extends Doc>(_class: Ref<Class<T>>, space: Ref<Space>, objectId: Ref<T>) =>
             withClient((client) => client.removeDoc(_class, space, objectId), "removeDoc failed"),
+
+          removeDocIfMatched: <T extends Doc>(
+            _class: Ref<Class<T>>,
+            space: Ref<Space>,
+            objectId: Ref<T>,
+            matchQuery: DocumentQuery<T>,
+            scope: HulyTransactionScope
+          ) =>
+            withClient(async (client) => {
+              const apply = client.apply(scope)
+              apply.match(_class, matchQuery)
+              await apply.removeDoc(_class, space, objectId)
+              return (await apply.commit()).result ? "applied" : "condition-not-met"
+            }, "conditional removeDoc failed"),
 
           createMixin: <D extends Doc, M extends D>(
             objectId: Ref<D>,
@@ -489,9 +566,12 @@ export class HulyClient extends Context.Tag("@hulymcp/HulyClient")<HulyClient, H
       findAllInModel: noopFindAll,
       findOne: noopFindOne,
       createDoc: notImplemented("createDoc"),
+      createDocIfNotMatched: notImplemented("createDocIfNotMatched"),
       updateDoc: notImplemented("updateDoc"),
+      updateDocIfMatched: notImplemented("updateDocIfMatched"),
       addCollection: notImplemented("addCollection"),
       removeDoc: notImplemented("removeDoc"),
+      removeDocIfMatched: notImplemented("removeDocIfMatched"),
       uploadMarkup: notImplemented("uploadMarkup"),
       fetchMarkup: noopFetchMarkup,
       createMixin: notImplemented("createMixin"),

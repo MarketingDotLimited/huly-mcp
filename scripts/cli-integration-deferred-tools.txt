@@ -42,6 +42,7 @@ create_group_direct_message
 create_huly_attribute
 create_huly_enum
 create_huly_permission
+create_huly_sequence
 create_inventory_category
 create_inventory_product
 create_inventory_variant
@@ -88,6 +89,7 @@ delete_event
 delete_huly_attribute
 delete_huly_enum
 delete_huly_permission
+delete_huly_sequence
 delete_inventory_category
 delete_inventory_product
 delete_inventory_product_attachment
@@ -349,6 +351,7 @@ update_drive_file_comment
 update_huly_attribute
 update_huly_enum
 update_huly_permission
+update_huly_custom_sequence
 update_inventory_category
 update_inventory_product
 update_inventory_product_attachment

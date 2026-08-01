@@ -346,6 +346,28 @@ export {
 } from "./sdk-discovery-configurations.js"
 
 export {
+  type CreateHulySequenceParams,
+  createHulySequenceParamsJsonSchema,
+  CreateHulySequenceParamsSchema,
+  type CreateHulySequenceResult,
+  CreateHulySequenceResultSchema,
+  type DeleteHulySequenceParams,
+  deleteHulySequenceParamsJsonSchema,
+  DeleteHulySequenceParamsSchema,
+  type DeleteHulySequenceResult,
+  DeleteHulySequenceResultSchema,
+  parseCreateHulySequenceParams,
+  parseDeleteHulySequenceParams,
+  parseUpdateHulyCustomSequenceParams,
+  SequenceIdentifier,
+  type UpdateHulyCustomSequenceParams,
+  updateHulyCustomSequenceParamsJsonSchema,
+  UpdateHulyCustomSequenceParamsSchema,
+  type UpdateHulyCustomSequenceResult,
+  UpdateHulyCustomSequenceResultSchema
+} from "./sequence-administration.js"
+
+export {
   type GetHulyContextResult,
   getHulyContextResultJsonSchema,
   GetHulyContextResultSchema

@@ -308,13 +308,16 @@ export const runtimeParityRoutingRows: ReadonlyArray<RuntimeParityRoutingRow> = 
     String(core.class.Sequence),
     "@hcengineering/core",
     "Sequence",
-    covered(["list_huly_sequences"], coreCoveredRationale)
+    covered(["list_huly_sequences", "create_huly_sequence", "delete_huly_sequence"], coreCoveredRationale)
   ),
   routingRow(
     String(core.class.CustomSequence),
     "@hcengineering/core",
     "CustomSequence",
-    covered(["list_huly_sequences"], coreCoveredRationale)
+    covered(
+      ["list_huly_sequences", "create_huly_sequence", "update_huly_custom_sequence", "delete_huly_sequence"],
+      coreCoveredRationale
+    )
   ),
   routingRow(
     String(core.class.Enum),

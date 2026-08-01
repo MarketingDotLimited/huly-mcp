@@ -30,6 +30,7 @@ import type { SpaceTypeIdentifierAmbiguousError, SpaceTypeNotFoundError } from "
 import { decodeHulyModelLabelTail } from "../huly-labels.js"
 import { core } from "../huly-plugins.js"
 import { hulyQuery } from "./query-helpers.js"
+import { mergeSequenceDocuments } from "./sequence-shared.js"
 import { getSpaceType } from "./spaces-read.js"
 
 type DescribeHulySpaceTypeCapabilitiesError =
@@ -77,9 +78,7 @@ const toDomainIndexConfigurationSummary = (config: HulyDomainIndexConfiguration)
   skip: metadataKeys(config.skip)
 })
 
-const sequenceKey = (sequence: HulySequence): string => String(sequence._id)
-
-const toSequenceSummary = (sequence: HulySequence | HulyCustomSequence) => ({
+export const toSequenceSummary = (sequence: HulySequence | HulyCustomSequence) => ({
   sequenceId: HulySequenceId.make(String(sequence._id)),
   attachedClass: ObjectClassName.make(String(sequence.attachedTo)),
   currentValue: HulySequenceValue.make(sequence.sequence),
@@ -129,11 +128,7 @@ export const listHulySequences = (): Effect.Effect<ListHulySequencesResult, Huly
       hulyQuery<HulyCustomSequence>({}),
       { sort: { _id: SortingOrder.Ascending } }
     )
-    const merged = new Map<string, HulySequence | HulyCustomSequence>([
-      ...sequences.map((sequence) => [sequenceKey(sequence), sequence] as const),
-      ...customSequences.map((sequence) => [sequenceKey(sequence), sequence] as const)
-    ])
-    const sequenceSummaries = [...merged.values()].map(toSequenceSummary)
+    const sequenceSummaries = mergeSequenceDocuments(sequences, customSequences).map(toSequenceSummary)
     return { sequences: sequenceSummaries, total: Count.make(sequenceSummaries.length) }
   })
 

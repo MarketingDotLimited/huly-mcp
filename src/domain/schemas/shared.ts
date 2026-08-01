@@ -47,6 +47,12 @@ export type ListTotal = Schema.Schema.Type<typeof ListTotal>
 export const NonEmptyString = Schema.Trim.pipe(Schema.nonEmptyString())
 export type NonEmptyString = Schema.Schema.Type<typeof NonEmptyString>
 
+export const HulyTransactionScope = NonEmptyString.pipe(Schema.brand("HulyTransactionScope"))
+export type HulyTransactionScope = Schema.Schema.Type<typeof HulyTransactionScope>
+
+export const HulyConditionalWriteResult = Schema.Literal("applied", "condition-not-met")
+export type HulyConditionalWriteResult = Schema.Schema.Type<typeof HulyConditionalWriteResult>
+
 export const Timestamp = NonNegativeInteger.pipe(Schema.brand("Timestamp")).annotations({
   identifier: "Timestamp",
   title: "Timestamp",

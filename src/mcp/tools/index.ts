@@ -47,6 +47,7 @@ import { relatedIssueTargetTools } from "./related-issue-targets.js"
 import { sdkDiscoveryTools } from "./sdk-discovery.js"
 import { searchTools } from "./search.js"
 import { securityAdministrationTools } from "./security-administration.js"
+import { sequenceAdministrationTools } from "./sequence-administration.js"
 import { spaceTools } from "./spaces.js"
 import { storageTools } from "./storage.js"
 import { tagCategoryTools } from "./tag-categories.js"
@@ -84,6 +85,7 @@ export const allTools = [
   ...sdkDiscoveryTools,
   ...modelAdministrationTools,
   ...securityAdministrationTools,
+  ...sequenceAdministrationTools,
   ...storageTools,
   ...attachmentTools,
   ...contactTools,

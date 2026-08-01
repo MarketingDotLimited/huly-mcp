@@ -1491,6 +1491,20 @@ describe("Huly Errors", () => {
               return `collaborator-field:${error.classId}:${error.fields.length}`
             case "ClassCollaboratorMetadataNotFoundError":
               return `collaborator-metadata:${error.classId}`
+            case "SequenceDefinitionConflictError":
+              return `sequence-definition:${error.classId}:${error.existingSequenceId}`
+            case "SequenceConcurrentWriteError":
+              return `sequence-concurrent:${error.sequenceId}:${error.operation}`
+            case "SequenceNotFoundError":
+              return `sequence-not-found:${error.identifier}`
+            case "SequenceIdentifierAmbiguousError":
+              return `sequence-ambiguous:${error.identifier}:${error.matches.length}`
+            case "SequenceKindUnsupportedError":
+              return `sequence-kind:${error.sequenceId}`
+            case "SequenceCurrentValueMismatchError":
+              return `sequence-value:${error.sequenceId}:${error.expected}:${error.actual}`
+            case "SequenceInUseError":
+              return `sequence-in-use:${error.sequenceId}:${error.attributeIds.length}`
             case "WorkflowAttributeNotFoundError":
               return `workflow-attribute:${error.identifier}`
             case "WorkflowAttributeIdentifierAmbiguousError":

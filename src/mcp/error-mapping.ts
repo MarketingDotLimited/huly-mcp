@@ -224,7 +224,14 @@ const INVALID_PARAMS_TAGS: ReadonlySet<HulyDomainError["_tag"]> = new Set<HulyDo
   "MessageTemplateIdentifierAmbiguousError",
   "TemplateFieldCategoryNotFoundError",
   "TemplateFieldCategoryIdentifierAmbiguousError",
-  "NoUpdateFieldsError"
+  "NoUpdateFieldsError",
+  "SequenceDefinitionConflictError",
+  "SequenceConcurrentWriteError",
+  "SequenceNotFoundError",
+  "SequenceIdentifierAmbiguousError",
+  "SequenceKindUnsupportedError",
+  "SequenceCurrentValueMismatchError",
+  "SequenceInUseError"
 ])
 
 const INTERNAL_ERROR_PREFIX: Partial<Record<HulyDomainError["_tag"], string>> = {
