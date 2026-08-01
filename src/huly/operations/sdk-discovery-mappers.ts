@@ -237,6 +237,7 @@ export const toAttributeSummary = (
     ...(attr.isCustom === undefined ? {} : { isCustom: attr.isCustom }),
     ...("defaultValue" in record ? { defaultValue: record.defaultValue } : {}),
     ...(attr.automationOnly === undefined ? {} : { automationOnly: attr.automationOnly }),
+    ...(attr.hidden === undefined ? {} : { hidden: attr.hidden }),
     inherited: requestedClass !== undefined && ownerClassId !== requestedClass
   }
 }

@@ -120,9 +120,9 @@ const boardNotMcpFacingRationale =
 const chunterCoveredRationale =
   "Current channel and direct-message tools cover channels, channel messages, one-to-one DM create/list/message list/send/update/delete, thread replies, channel member list/add/remove, join/leave, archive/unarchive, conversation star/closed state, and group direct-message create."
 const coreCoveredRationale =
-  "Existing tools expose user statuses, generic workflow statuses and status categories with full CRUD, full-text search, blobs through storage/download flows, generic association/relation discovery/mutation helpers, class/interface/mixin, attribute, enum, plugin configuration, domain index configuration, sequence, and space type capability discovery."
+  "Existing tools expose user statuses, generic workflow statuses and status categories with full CRUD, guarded enum and custom-attribute model CRUD, full-text search, blobs through storage/download flows, generic association/relation discovery/mutation helpers, class/interface/mixin, attribute, enum, plugin configuration, domain index configuration, sequence, and space type capability discovery."
 const coreGapRationale =
-  "Remaining core write-side configuration, role/permission definition writes, generic space creation, class collaborator metadata, and write-side model management are represented as matrix gaps. Generic space discovery, space type/permission reads, safe existing-space metadata updates, member mutations, owner replacement, typed-space role member mutations, object collaborators, read-only plugin configuration, domain index configuration, sequence discovery, and generic workflow status/category CRUD are covered."
+  "Remaining core write-side configuration, role/permission definition writes, generic space creation, class collaborator metadata, and built-in model mutation are represented as matrix gaps. Generic space discovery, space type/permission reads, safe existing-space metadata updates, member mutations, owner replacement, typed-space role member mutations, object collaborators, guarded enum/custom-attribute CRUD, read-only plugin configuration, domain index configuration, sequence discovery, and generic workflow status/category CRUD are covered."
 const coreNotMcpFacingRationale =
   "Core primitive model infrastructure, transaction classes, type wrappers, and versioning internals are not LLM-facing product resources by themselves."
 
@@ -315,6 +315,21 @@ export const runtimeParityRoutingRows: ReadonlyArray<RuntimeParityRoutingRow> = 
     "@hcengineering/core",
     "CustomSequence",
     covered(["list_huly_sequences"], coreCoveredRationale)
+  ),
+  routingRow(
+    String(core.class.Enum),
+    "@hcengineering/core",
+    "Enum",
+    covered(["list_huly_enums", "create_huly_enum", "update_huly_enum", "delete_huly_enum"], coreCoveredRationale)
+  ),
+  routingRow(
+    String(core.class.Attribute),
+    "@hcengineering/core",
+    "Attribute",
+    covered(
+      ["list_huly_attributes", "create_huly_attribute", "update_huly_attribute", "delete_huly_attribute"],
+      coreCoveredRationale
+    )
   ),
   routingRow(
     String(core.class.SpaceType),

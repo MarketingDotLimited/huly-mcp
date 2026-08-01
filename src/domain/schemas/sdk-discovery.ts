@@ -106,7 +106,7 @@ type HulyArrayAttributeType = {
   readonly arrayOf: HulyAttributeType
 }
 
-type HulyArrayAttributeTypeEncoded = {
+export type HulyArrayAttributeTypeEncoded = {
   readonly kind: "array"
   readonly classId?: string | undefined
   readonly raw?: { readonly [key: string]: unknown } | undefined
@@ -192,6 +192,7 @@ export const HulyAttributeSummarySchema = Schema.Struct({
   isCustom: Schema.optional(Schema.Boolean),
   defaultValue: Schema.optional(Schema.Unknown),
   automationOnly: Schema.optional(Schema.Boolean),
+  hidden: Schema.optional(Schema.Boolean),
   inherited: Schema.Boolean
 })
 export type HulyAttributeSummary = Schema.Schema.Type<typeof HulyAttributeSummarySchema>

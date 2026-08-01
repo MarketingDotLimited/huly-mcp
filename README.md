@@ -290,7 +290,7 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `get_tool_schema` | Returns the exact input and output schema for one proxy-visible Huly tool. Use this before invoke_tool when you are not certain about required argument names or result shape. |
 | `invoke_tool` | Invokes one proxy-visible Huly tool by exact name with its arguments. This tool can call read or write Huly operations; check get_tool_schema and the target tool annotations when safety matters. |
 
-**`TOOLSETS` categories:** `projects`, `issues`, `comments`, `milestones`, `documents`, `storage`, `attachments`, `contacts`, `channels`, `calendar`, `time tracking`, `search`, `associations`, `activity`, `notifications`, `workspace`, `approvals`, `boards`, `cards`, `collaborators`, `custom-fields`, `drive`, `inventory`, `labels`, `leads`, `templates`, `planner`, `preferences`, `processes`, `recruiting`, `sdk-discovery`, `spaces`, `tag-categories`, `tags`, `task-management`, `test-management`, `user-statuses`, `views`, `virtual-office`, `workflow-statuses`
+**`TOOLSETS` categories:** `projects`, `issues`, `comments`, `milestones`, `documents`, `storage`, `attachments`, `contacts`, `channels`, `calendar`, `time tracking`, `search`, `associations`, `activity`, `notifications`, `workspace`, `approvals`, `boards`, `cards`, `collaborators`, `custom-fields`, `drive`, `inventory`, `labels`, `leads`, `templates`, `model-administration`, `planner`, `preferences`, `processes`, `recruiting`, `sdk-discovery`, `spaces`, `tag-categories`, `tags`, `task-management`, `test-management`, `user-statuses`, `views`, `virtual-office`, `workflow-statuses`
 
 ### Projects
 
@@ -756,6 +756,17 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `get_message_template` | Retrieve one global Huly message template by template ID or exact title. If a title is ambiguous, pass category as category ID or exact category name. Returns the full message converted to Markdown plus placeholderFieldIds parsed from dollar-brace tokens. Match placeholderFieldIds to list_message_template_fields.id for labels and resource IDs. |
 | `render_message_template` | Render one global Huly message template by template ID or exact title. Substitutes only caller-provided values for matching dollar-brace placeholder field IDs from placeholderFieldIds; does not execute Huly TemplateField provider resources. Unresolved placeholders remain in renderedMessage and are reported in unresolvedFieldIds. |
 | `list_message_template_fields` | List Huly message template fields/placeholders without executing provider resources or rendering templates. Optionally filter by field category ID or exact raw label string, and search raw field labels by substring. Returns field IDs, labels, category summaries, and provider resource IDs. |
+
+### Model-Administration
+
+| Tool | Description |
+|------|-------------|
+| `create_huly_enum` | Create a Huly model enum with ordered option values. An exact case-insensitive name is idempotent only when its ordered values match; otherwise the call returns a conflict. This changes workspace model metadata. confirm=true is required so an agent cannot mutate the model accidentally. |
+| `update_huly_enum` | Update a Huly model enum resolved by exact ID or name. Renaming and adding options are safe; removing an option is refused while any attribute references the enum. This changes workspace model metadata. confirm=true is required so an agent cannot mutate the model accidentally. |
+| `delete_huly_enum` | Permanently delete a Huly model enum resolved by exact ID or name. Refuses deletion while any attribute references it. This changes workspace model metadata. confirm=true is required so an agent cannot mutate the model accidentally. |
+| `create_huly_attribute` | Create a custom Huly Attribute/property on a class resolved by exact ID, tail name, or label. Supports string, number, boolean, date, markup, enum, and reference types; enum and reference targets also resolve by name. Existing same-name attributes are idempotent only when their definition matches; otherwise the call returns a conflict. New records are always isCustom=true. This changes workspace model metadata. confirm=true is required so an agent cannot mutate the model accidentally. |
+| `update_huly_attribute` | Update label, index, automation-only, or hidden state for a Huly Attribute resolved by ID or exact name. Pass class by ID/name to disambiguate. Built-in attributes permit hidden-only updates; all other built-in mutations are protected, and property keys/types cannot be changed here. Hide/unhide uses the SDK behavior exercised by Huly settings. This changes workspace model metadata. confirm=true is required so an agent cannot mutate the model accidentally. |
+| `delete_huly_attribute` | Permanently delete an unused custom Huly Attribute resolved by ID or exact name. Pass class by ID/name to disambiguate. Built-in attributes and attributes present on any owning-class document are protected. This changes workspace model metadata. confirm=true is required so an agent cannot mutate the model accidentally. |
 
 ### Planner
 

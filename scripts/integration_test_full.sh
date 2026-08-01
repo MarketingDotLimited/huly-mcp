@@ -56,6 +56,8 @@ WORKFLOW_CLEANED=false
 GLOBAL_ADMINS_CLEANUP_JSON=""
 GENERIC_WORKFLOW_STATUS_CLEANUP_ID=""
 GENERIC_WORKFLOW_CATEGORY_CLEANUP_ID=""
+MODEL_ATTRIBUTE_CLEANUP_ID=""
+MODEL_ENUM_CLEANUP_ID=""
 
 if [ -z "$HULY_URL" ]; then
   echo "ERROR: HULY_URL not set. Run: set -a && source .env.local && set +a"
@@ -358,7 +360,23 @@ cleanup_generic_workflow_artifacts() {
   fi
 }
 
+cleanup_model_administration_artifacts() {
+  if [ -n "$MODEL_ATTRIBUTE_CLEANUP_ID" ]; then
+    local attribute_json
+    attribute_json=$(json_string "$MODEL_ATTRIBUTE_CLEANUP_ID")
+    call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_huly_attribute\",\"arguments\":{\"attribute\":$attribute_json,\"confirm\":true}},\"id\":2}" >/dev/null 2>&1 || true
+    MODEL_ATTRIBUTE_CLEANUP_ID=""
+  fi
+  if [ -n "$MODEL_ENUM_CLEANUP_ID" ]; then
+    local enum_json
+    enum_json=$(json_string "$MODEL_ENUM_CLEANUP_ID")
+    call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_huly_enum\",\"arguments\":{\"enum\":$enum_json,\"confirm\":true}},\"id\":2}" >/dev/null 2>&1 || true
+    MODEL_ENUM_CLEANUP_ID=""
+  fi
+}
+
 cleanup_all() {
+  cleanup_model_administration_artifacts
   cleanup_generic_workflow_artifacts
   cleanup_global_space_admins || true
   cleanup_card_version_artifacts || true
@@ -1285,6 +1303,58 @@ if [ -n "$GENERIC_WORKFLOW_STATUS_CLEANUP_ID" ]; then
   GENERIC_WORKFLOW_STATUS_CLEANUP_ID=""
 else
   skip_test "generic workflow category lifecycle" "create_workflow_status did not return a status id"
+fi
+echo ""
+
+##############################
+# 1ab. MODEL ENUM / ATTRIBUTE ADMINISTRATION
+##############################
+echo "=== 1ab. Model Enum / Attribute Administration ==="
+MODEL_ENUM_NAME="MCP Model Enum $RUN_ID"
+MODEL_ENUM_RENAMED="MCP Model Enum Renamed $RUN_ID"
+MODEL_ATTRIBUTE_NAME="mcpModelField${RUN_ID//[^a-zA-Z0-9]/}"
+MODEL_ENUM_NAME_JSON=$(json_string "$MODEL_ENUM_NAME")
+MODEL_ENUM_RENAMED_JSON=$(json_string "$MODEL_ENUM_RENAMED")
+MODEL_ATTRIBUTE_NAME_JSON=$(json_string "$MODEL_ATTRIBUTE_NAME")
+
+run_expect_error_contains "create_huly_enum(requires confirmation)" \
+  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_huly_enum\",\"arguments\":{\"name\":$MODEL_ENUM_NAME_JSON,\"values\":[\"One\",\"Two\"]}},\"id\":2}" \
+  "confirm"
+run_capture_to_var MODEL_ENUM_TEXT "create_huly_enum($MODEL_ENUM_NAME)" \
+  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_huly_enum\",\"arguments\":{\"name\":$MODEL_ENUM_NAME_JSON,\"values\":[\"One\",\"Two\"],\"confirm\":true}},\"id\":2}"
+MODEL_ENUM_CLEANUP_ID=$(echo "$MODEL_ENUM_TEXT" | jq -r '.enum.enumId // empty' 2>/dev/null)
+if [ -n "$MODEL_ENUM_CLEANUP_ID" ]; then
+  assert_json_field_equals "create_huly_enum returns name" "$MODEL_ENUM_TEXT" ".enum.name" "$MODEL_ENUM_NAME"
+  sleep 2
+  run_capture_to_var MODEL_ENUM_UPDATE_TEXT "update_huly_enum(add option and rename)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_huly_enum\",\"arguments\":{\"enum\":$MODEL_ENUM_NAME_JSON,\"name\":$MODEL_ENUM_RENAMED_JSON,\"values\":[\"One\",\"Two\",\"Three\"],\"confirm\":true}},\"id\":2}"
+  assert_json_field_equals "update_huly_enum resolves name" "$MODEL_ENUM_UPDATE_TEXT" ".enum.name" "$MODEL_ENUM_RENAMED"
+  sleep 2
+  run_capture_to_var MODEL_ATTRIBUTE_TEXT "create_huly_attribute(class and enum names)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_huly_attribute\",\"arguments\":{\"class\":\"Issue\",\"name\":$MODEL_ATTRIBUTE_NAME_JSON,\"label\":\"MCP Model Field\",\"type\":{\"kind\":\"enum\",\"enum\":$MODEL_ENUM_RENAMED_JSON},\"hidden\":false,\"confirm\":true}},\"id\":2}"
+  MODEL_ATTRIBUTE_CLEANUP_ID=$(echo "$MODEL_ATTRIBUTE_TEXT" | jq -r '.attribute.attributeId // empty' 2>/dev/null)
+  if [ -n "$MODEL_ATTRIBUTE_CLEANUP_ID" ]; then
+    MODEL_ATTRIBUTE_ID_JSON=$(json_string "$MODEL_ATTRIBUTE_CLEANUP_ID")
+    assert_json_field_equals "create_huly_attribute resolves Issue class" "$MODEL_ATTRIBUTE_TEXT" ".attribute.ownerClassId" "tracker:class:Issue"
+    run_capture_to_var MODEL_ATTRIBUTE_HIDE_TEXT "update_huly_attribute(hide)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_huly_attribute\",\"arguments\":{\"attribute\":$MODEL_ATTRIBUTE_ID_JSON,\"hidden\":true,\"confirm\":true}},\"id\":2}"
+    assert_json_field_equals "update_huly_attribute hides attribute" "$MODEL_ATTRIBUTE_HIDE_TEXT" ".attribute.hidden" "true"
+    run_test "update_huly_attribute(unhide)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_huly_attribute\",\"arguments\":{\"attribute\":$MODEL_ATTRIBUTE_ID_JSON,\"hidden\":false,\"confirm\":true}},\"id\":2}"
+    sleep 2
+    run_test "delete_huly_attribute(unused custom attribute)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_huly_attribute\",\"arguments\":{\"attribute\":$MODEL_ATTRIBUTE_ID_JSON,\"confirm\":true}},\"id\":2}"
+    MODEL_ATTRIBUTE_CLEANUP_ID=""
+  else
+    skip_test "model attribute update/delete" "create_huly_attribute did not return an attribute id"
+  fi
+  sleep 2
+  MODEL_ENUM_ID_JSON=$(json_string "$MODEL_ENUM_CLEANUP_ID")
+  run_test "delete_huly_enum(unreferenced)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_huly_enum\",\"arguments\":{\"enum\":$MODEL_ENUM_ID_JSON,\"confirm\":true}},\"id\":2}"
+  MODEL_ENUM_CLEANUP_ID=""
+else
+  skip_test "model attribute lifecycle" "create_huly_enum did not return an enum id"
 fi
 echo ""
 

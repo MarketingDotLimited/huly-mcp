@@ -25,6 +25,7 @@ import { issueTools } from "./issues.js"
 import { labelTools } from "./labels.js"
 import { leadTools } from "./leads.js"
 import { messageTemplateTools } from "./message-templates.js"
+import { modelAdministrationTools } from "./model-administration.js"
 import { milestoneTools } from "./milestones.js"
 import { notificationTools } from "./notifications.js"
 import { plannerTools } from "./planner.js"
@@ -80,6 +81,7 @@ export const allTools = [
   ...inventoryMediaTools,
   ...spaceTools,
   ...sdkDiscoveryTools,
+  ...modelAdministrationTools,
   ...storageTools,
   ...attachmentTools,
   ...contactTools,

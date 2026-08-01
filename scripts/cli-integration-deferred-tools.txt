@@ -39,6 +39,8 @@ create_direct_message
 create_drive
 create_drive_folder
 create_group_direct_message
+create_huly_attribute
+create_huly_enum
 create_inventory_category
 create_inventory_product
 create_inventory_variant
@@ -81,6 +83,8 @@ delete_drive
 delete_drive_file_comment
 delete_drive_item
 delete_event
+delete_huly_attribute
+delete_huly_enum
 delete_inventory_category
 delete_inventory_product
 delete_inventory_product_attachment
@@ -335,6 +339,8 @@ update_chat_message_attachment
 update_component
 update_drive
 update_drive_file_comment
+update_huly_attribute
+update_huly_enum
 update_inventory_category
 update_inventory_product
 update_inventory_product_attachment

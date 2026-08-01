@@ -1443,6 +1443,30 @@ describe("Huly Errors", () => {
               return `template-field-category-ambiguous:${error.identifier}:${error.matches}`
             case "HulyModelMetadataError":
               return `model-metadata:${error.model}:${error.field}`
+            case "ModelClassNotFoundError":
+              return `model-class:${error.identifier}`
+            case "ModelClassAmbiguousError":
+              return `model-class-ambiguous:${error.identifier}:${error.matches.length}`
+            case "HulyEnumNotFoundError":
+              return `model-enum:${error.identifier}`
+            case "HulyEnumAmbiguousError":
+              return `model-enum-ambiguous:${error.identifier}:${error.matches.length}`
+            case "HulyEnumNameConflictError":
+              return `model-enum-conflict:${error.name}:${error.existingEnumId}`
+            case "HulyEnumOptionsInUseError":
+              return `model-enum-options-in-use:${error.enumId}:${error.attributeIds.length}`
+            case "HulyEnumInUseError":
+              return `model-enum-in-use:${error.enumId}:${error.attributeIds.length}`
+            case "HulyAttributeNotFoundError":
+              return `model-attribute:${error.identifier}`
+            case "HulyAttributeAmbiguousError":
+              return `model-attribute-ambiguous:${error.identifier}:${error.matches.length}`
+            case "HulyAttributeNameConflictError":
+              return `model-attribute-conflict:${error.name}:${error.existingAttributeId}`
+            case "HulyAttributeProtectedError":
+              return `model-attribute-protected:${error.attributeId}`
+            case "HulyAttributeInUseError":
+              return `model-attribute-in-use:${error.attributeId}:${error.name}`
             case "WorkflowAttributeNotFoundError":
               return `workflow-attribute:${error.identifier}`
             case "WorkflowAttributeIdentifierAmbiguousError":

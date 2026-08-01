@@ -2,6 +2,16 @@ import type { McpToolName } from "../../../src/mcp/tools/index.js"
 import type { CliCommandSpec } from "./catalog-types.js"
 
 export const coreMutationCliCommandCatalog = {
+  create_huly_attribute: {
+    path: ["model", "attributes", "create"],
+    positional: ["class", "name", "label"],
+    description: "Create Huly Model Attribute"
+  },
+  create_huly_enum: {
+    path: ["model", "enums", "create"],
+    positional: ["name", "values"],
+    description: "Create Huly Model Enum"
+  },
   add_template_child: {
     path: ["issues", "templates", "children", "add"],
     positional: ["title", "project", "template"],
@@ -77,6 +87,18 @@ export const coreMutationCliCommandCatalog = {
     positional: ["attachmentId"],
     description: "Delete Attachment",
     behavior: { confirmation: { type: "requires-yes", message: "attachments delete requires --yes." } }
+  },
+  delete_huly_attribute: {
+    path: ["model", "attributes", "delete"],
+    positional: ["attribute"],
+    description: "Delete Huly Model Attribute",
+    behavior: { confirmation: { type: "requires-yes", message: "model attributes delete requires --yes." } }
+  },
+  delete_huly_enum: {
+    path: ["model", "enums", "delete"],
+    positional: ["enum"],
+    description: "Delete Huly Model Enum",
+    behavior: { confirmation: { type: "requires-yes", message: "model enums delete requires --yes." } }
   },
   delete_component: {
     path: ["components", "delete"],
@@ -189,6 +211,12 @@ export const coreMutationCliCommandCatalog = {
     description: "Update Attachment",
     behavior: { fileInput: { fields: ["description"] } }
   },
+  update_huly_attribute: {
+    path: ["model", "attributes", "update"],
+    positional: ["attribute"],
+    description: "Update Huly Model Attribute"
+  },
+  update_huly_enum: { path: ["model", "enums", "update"], positional: ["enum"], description: "Update Huly Model Enum" },
   update_component: {
     path: ["components", "update"],
     positional: ["project", "component"],
