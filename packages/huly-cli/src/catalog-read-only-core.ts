@@ -13,6 +13,11 @@ export const coreReadOnlyCliCommandCatalog = {
     positional: ["project", "template"],
     description: "Get Issue Template"
   },
+  get_global_space_admins: {
+    path: ["spaces", "admins", "get"],
+    positional: [],
+    description: "Get Global Space Admins"
+  },
   get_project_type: { path: ["project-types", "get"], positional: [], description: "Get Project Type" },
   list_document_snapshots: {
     path: ["documents", "snapshots", "list"],

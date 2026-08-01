@@ -49,6 +49,12 @@ export const coreMutationCliCommandCatalog = {
     description: "Create Project",
     behavior: { fileInput: { fields: ["description"] } }
   },
+  create_space: {
+    path: ["spaces", "create"],
+    positional: ["spaceType", "name"],
+    description: "Create Generic Typed Space",
+    behavior: { fileInput: { fields: ["description"] } }
+  },
   create_task_type: { path: ["task-types", "create"], positional: ["name"], description: "Create Task Type" },
   create_teamspace: {
     path: ["teamspaces", "create"],
@@ -139,6 +145,12 @@ export const coreMutationCliCommandCatalog = {
     behavior: { confirmation: { type: "requires-yes", message: "issues templates children remove requires --yes." } }
   },
   save_attachment: { path: ["attachments", "save"], positional: ["attachmentId"], description: "Save Attachment" },
+  set_global_space_admins: {
+    path: ["spaces", "admins", "set"],
+    positional: [],
+    description: "Set Global Space Admins",
+    behavior: { confirmation: { type: "requires-yes", message: "spaces admins set requires --yes." } }
+  },
   set_related_issue_target: {
     path: ["issues", "related-targets", "set"],
     positional: ["targetProject"],

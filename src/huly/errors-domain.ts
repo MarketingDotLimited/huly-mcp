@@ -180,6 +180,8 @@ import {
   SpaceRoleAssignmentsMalformedError,
   SpaceRoleIdentifierAmbiguousError,
   SpaceRoleNotFoundError,
+  SpaceCreationConflictError,
+  SpaceTypeCreationUnsupportedError,
   SpaceTypeIdentifierAmbiguousError,
   SpaceTypeNotFoundError
 } from "./errors-spaces.js"
@@ -385,6 +387,8 @@ export const HulyDomainError = Schema.Union(
   SpaceRoleNotFoundError,
   SpaceRoleIdentifierAmbiguousError,
   SpaceRoleAssignmentsMalformedError,
+  SpaceCreationConflictError,
+  SpaceTypeCreationUnsupportedError,
   SpaceTypeNotFoundError,
   SpaceTypeIdentifierAmbiguousError,
   TodoNotFoundError,

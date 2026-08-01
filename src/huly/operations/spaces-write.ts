@@ -75,7 +75,7 @@ const findSpaceType = (
     return result
   })
 
-const resolveSpaceRole = (
+export const resolveSpaceRole = (
   client: HulyClient["Type"],
   spaceType: SpaceTypeId,
   role: SpaceRoleMemberMutationParams["role"]

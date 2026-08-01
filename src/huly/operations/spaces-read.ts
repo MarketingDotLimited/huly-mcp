@@ -65,7 +65,7 @@ const descriptorDetail = (
   baseClass: descriptor?.baseClass === undefined ? undefined : ObjectClassName.make(descriptor.baseClass)
 })
 
-const findSpaceType = (
+export const findSpaceType = (
   client: HulyClient["Type"],
   identifier: SpaceTypeIdentifier
 ): Effect.Effect<HulySpaceType, GetSpaceTypeError> =>

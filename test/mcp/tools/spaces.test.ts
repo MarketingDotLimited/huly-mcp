@@ -92,6 +92,9 @@ describe("spaceTools", () => {
         "list_space_types",
         "get_space_type",
         "list_space_permissions",
+        "create_space",
+        "get_global_space_admins",
+        "set_global_space_admins",
         "update_space",
         "add_space_members",
         "remove_space_members",
@@ -128,6 +131,18 @@ describe("spaceTools", () => {
 
       expect(result.isError).toBe(true)
       expect(assertAt(result.content, 0).text).toContain("Invalid parameters for update_space")
+    })
+  )
+
+  it.effect("create_space handler rejects incomplete LLM input before calling Huly", () =>
+    Effect.gen(function* () {
+      const result = yield* Effect.promise(() =>
+        findTool("create_space").handler({ spaceType: "Default Trainings" }, hulyClient, storageClient)
+      )
+
+      expect(result.isError).toBe(true)
+      expect(result._meta?.errorCode).toBe(McpErrorCode.InvalidParams)
+      expect(assertAt(result.content, 0).text).toContain("Invalid parameters for create_space")
     })
   )
 

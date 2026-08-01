@@ -1,20 +1,26 @@
 import {
+  createSpaceParamsJsonSchema,
+  getGlobalSpaceAdminsParamsJsonSchema,
   getSpaceParamsJsonSchema,
   getSpaceTypeParamsJsonSchema,
   listSpacePermissionsParamsJsonSchema,
   listSpacesParamsJsonSchema,
   listSpaceTypesParamsJsonSchema,
   parseGetSpaceParams,
+  parseCreateSpaceParams,
+  parseGetGlobalSpaceAdminsParams,
   parseGetSpaceTypeParams,
   parseListSpacePermissionsParams,
   parseListSpacesParams,
   parseListSpaceTypesParams,
   parseSetSpaceOwnersParams,
+  parseSetGlobalSpaceAdminsParams,
   parseSetSpaceRoleMembersParams,
   parseSpaceMemberMutationParams,
   parseSpaceRoleMemberMutationParams,
   parseUpdateSpaceParams,
   setSpaceOwnersParamsJsonSchema,
+  setGlobalSpaceAdminsParamsJsonSchema,
   setSpaceRoleMembersParamsJsonSchema,
   spaceMemberMutationParamsJsonSchema,
   spaceRoleMemberMutationParamsJsonSchema,
@@ -36,8 +42,15 @@ import {
   UpdateSpaceResultSchema
 } from "../../domain/schemas/spaces.js"
 import {
+  CreateSpaceResultSchema,
+  GetGlobalSpaceAdminsResultSchema,
+  SetGlobalSpaceAdminsResultSchema
+} from "../../domain/schemas/spaces-administration.js"
+import {
   addSpaceMembers,
   addSpaceRoleMembers,
+  createSpace,
+  getGlobalSpaceAdmins,
   getSpace,
   getSpaceType,
   listSpacePermissions,
@@ -46,6 +59,7 @@ import {
   removeSpaceMembers,
   removeSpaceRoleMembers,
   setSpaceOwners,
+  setGlobalSpaceAdmins,
   setSpaceRoleMembers,
   updateSpace
 } from "../../huly/operations/spaces.js"
@@ -112,6 +126,44 @@ export const spaceTools = [
     },
     parseListSpacePermissionsParams,
     listSpacePermissions
+  ),
+  defineTool(
+    {
+      name: "create_space",
+      description:
+        "Create a generic Huly typed space by SpaceType _id or exact name. This single call resolves member, owner, and role locators; applies SpaceType default members; and creates role assignments. For safety, only non-system types whose SDK descriptor base class is exactly core:class:TypedSpace are supported. Specialized project, teamspace, drive, funnel, vacancy, and similar types fail with a typed error directing callers to their purpose-built tools. Defaults: private=false, autoJoin=false, restricted=false, owners=[calling account].",
+      category: CATEGORY,
+      inputSchema: createSpaceParamsJsonSchema,
+      annotations: { destructiveHint: false },
+      resultSchema: CreateSpaceResultSchema
+    },
+    parseCreateSpaceParams,
+    createSpace
+  ),
+  defineTool(
+    {
+      name: "get_global_space_admins",
+      description:
+        "Get the workspace-wide Huly space administrators from the stable core Admin role on the all-spaces typed space. Returns account UUIDs and requires no raw space, role, or mixin refs.",
+      category: CATEGORY,
+      inputSchema: getGlobalSpaceAdminsParamsJsonSchema,
+      resultSchema: GetGlobalSpaceAdminsResultSchema
+    },
+    parseGetGlobalSpaceAdminsParams,
+    getGlobalSpaceAdmins
+  ),
+  defineTool(
+    {
+      name: "set_global_space_admins",
+      description:
+        "Replace the workspace-wide Huly space-admin list. Admins accept account UUIDs, exact emails, or exact person display names; pass admins=[] to clear the role. The tool resolves the stable core all-spaces space and Admin role internally.",
+      category: CATEGORY,
+      inputSchema: setGlobalSpaceAdminsParamsJsonSchema,
+      annotations: { idempotentHint: true, destructiveHint: true },
+      resultSchema: SetGlobalSpaceAdminsResultSchema
+    },
+    parseSetGlobalSpaceAdminsParams,
+    setGlobalSpaceAdmins
   ),
   defineTool(
     {

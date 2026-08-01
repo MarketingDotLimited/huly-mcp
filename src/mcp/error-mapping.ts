@@ -201,6 +201,8 @@ const INVALID_PARAMS_TAGS: ReadonlySet<HulyDomainError["_tag"]> = new Set<HulyDo
   "SpaceNotTypedError",
   "SpaceRoleNotFoundError",
   "SpaceRoleIdentifierAmbiguousError",
+  "SpaceCreationConflictError",
+  "SpaceTypeCreationUnsupportedError",
   "SpaceTypeNotFoundError",
   "SpaceTypeIdentifierAmbiguousError",
   "DriveNotFoundError",

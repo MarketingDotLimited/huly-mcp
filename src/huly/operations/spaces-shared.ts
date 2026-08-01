@@ -53,6 +53,12 @@ export type SpaceMemberMutationError =
   | PersonNotFoundError
   | PersonNotAnEmployeeError
 
+export type ResolveMembersError =
+  | HulyClientError
+  | PersonIdentifierAmbiguousError
+  | PersonNotFoundError
+  | PersonNotAnEmployeeError
+
 export type UpdateSpaceError = SpaceMutationError | NoUpdateFieldsError
 
 export const spaceClass = toClassRef<GenericSpace>(core.class.Space)
@@ -318,7 +324,7 @@ export const updateSpaceDoc = (
 export const resolveMembers = (
   client: HulyClient["Type"],
   members: ReadonlyArray<SpaceMemberIdentifier>
-): Effect.Effect<Array<HulyAccountUuid>, SpaceMemberMutationError> =>
+): Effect.Effect<Array<HulyAccountUuid>, ResolveMembersError> =>
   Effect.forEach(members, (member) =>
     Schema.is(AccountUuid)(member) ? Effect.succeed(toAccountUuid(member)) : resolveEmployeeAccountUuid(client, member)
   ).pipe(Effect.map(uniqueSorted))

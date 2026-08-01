@@ -228,6 +228,30 @@ export {
 } from "./spaces.js"
 
 export {
+  type CreateSpaceParams,
+  createSpaceParamsJsonSchema,
+  CreateSpaceParamsSchema,
+  type CreateSpaceResult,
+  CreateSpaceResultSchema,
+  DEFAULT_TYPED_SPACE_AUTO_JOIN,
+  DEFAULT_TYPED_SPACE_PRIVATE,
+  DEFAULT_TYPED_SPACE_RESTRICTED,
+  type GetGlobalSpaceAdminsParams,
+  getGlobalSpaceAdminsParamsJsonSchema,
+  GetGlobalSpaceAdminsParamsSchema,
+  type GetGlobalSpaceAdminsResult,
+  GetGlobalSpaceAdminsResultSchema,
+  parseCreateSpaceParams,
+  parseGetGlobalSpaceAdminsParams,
+  parseSetGlobalSpaceAdminsParams,
+  type SetGlobalSpaceAdminsParams,
+  setGlobalSpaceAdminsParamsJsonSchema,
+  SetGlobalSpaceAdminsParamsSchema,
+  type SetGlobalSpaceAdminsResult,
+  SetGlobalSpaceAdminsResultSchema
+} from "./spaces-administration.js"
+
+export {
   type GetHulyClassParams,
   getHulyClassParamsJsonSchema,
   GetHulyClassParamsSchema,

@@ -51,6 +51,7 @@ create_milestone
 create_organization
 create_person
 create_project
+create_space
 create_recruiting_applicant
 create_recruiting_opinion
 create_recruiting_review
@@ -299,6 +300,7 @@ save_message
 schedule_todo
 set_conversation_closed
 set_conversation_starred
+set_global_space_admins
 set_issue_component
 set_issue_milestone
 set_recruiting_candidate_profile

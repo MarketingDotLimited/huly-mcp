@@ -53,6 +53,7 @@ CARD_UNVERSIONED_CLEANUP_ID=""
 TM_TASK_TYPE_NAME=""
 TM_STATUS_NAME=""
 WORKFLOW_CLEANED=false
+GLOBAL_ADMINS_CLEANUP_JSON=""
 
 if [ -z "$HULY_URL" ]; then
   echo "ERROR: HULY_URL not set. Run: set -a && source .env.local && set +a"
@@ -316,7 +317,27 @@ cleanup_card_version_artifacts() {
   return "$cleanup_failed"
 }
 
+cleanup_global_space_admins() {
+  if [ -z "$GLOBAL_ADMINS_CLEANUP_JSON" ]; then
+    return 0
+  fi
+  local cleanup_attempt cleanup_response
+  for cleanup_attempt in 1 2 3; do
+    cleanup_response=$(call_tool \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_global_space_admins\",\"arguments\":{\"admins\":$GLOBAL_ADMINS_CLEANUP_JSON}},\"id\":2}" \
+      2>/dev/null) || continue
+    if printf '%s\n' "$cleanup_response" \
+      | jq -e '(.error == null) and (.result != null) and ((.result.isError // false) == false)' >/dev/null 2>&1; then
+      GLOBAL_ADMINS_CLEANUP_JSON=""
+      return 0
+    fi
+  done
+  echo "WARNING: global space-admin cleanup failed after 3 attempts" >&2
+  return 1
+}
+
 cleanup_all() {
+  cleanup_global_space_admins || true
   cleanup_card_version_artifacts || true
   cleanup_custom_field_date_artifacts || true
   cleanup_board_artifacts || true
@@ -3906,6 +3927,77 @@ fi
 
 run_test "list_space_permissions" \
   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_space_permissions","arguments":{"limit":5}},"id":2}'
+
+run_expect_error_contains "create_space rejects system space type" \
+  '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"create_space","arguments":{"spaceType":"core:spaceType:SpacesType","name":"Unsafe Generic System Space"}},"id":2}' \
+  "system-managed"
+
+run_capture_to_var GLOBAL_ADMINS_TEXT "get_global_space_admins" \
+  '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_global_space_admins","arguments":{}},"id":2}'
+if [ $? -eq 0 ]; then
+  INITIAL_GLOBAL_ADMINS_JSON=$(printf '%s\n' "$GLOBAL_ADMINS_TEXT" | jq -c '.admins // []' 2>/dev/null)
+  GLOBAL_SPACE_TEXT=$(run_capture_only \
+    '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_space","arguments":{"space":"core:space:Space","includeArchived":true}},"id":2}')
+  GLOBAL_ADMIN_CANDIDATE=$(printf '%s\n' "$GLOBAL_SPACE_TEXT" | jq -r '.members[0] // empty' 2>/dev/null)
+  if [ -n "$GLOBAL_ADMIN_CANDIDATE" ]; then
+    MUTATED_GLOBAL_ADMINS_JSON=$(printf '%s\n' "$INITIAL_GLOBAL_ADMINS_JSON" | jq -c --arg member "$GLOBAL_ADMIN_CANDIDATE" \
+      'if index($member) then map(select(. != $member)) else . + [$member] | unique end' 2>/dev/null)
+    GLOBAL_ADMINS_CLEANUP_JSON="$INITIAL_GLOBAL_ADMINS_JSON"
+    if run_capture_to_var SET_GLOBAL_ADMINS_TEXT "set_global_space_admins(mutate)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_global_space_admins\",\"arguments\":{\"admins\":$MUTATED_GLOBAL_ADMINS_JSON}},\"id\":2}"; then
+      assert_json_array_same_set "set_global_space_admins returns mutated admins" "$SET_GLOBAL_ADMINS_TEXT" ".admins // []" "$MUTATED_GLOBAL_ADMINS_JSON"
+      sleep 2
+      run_capture_to_var PERSISTED_GLOBAL_ADMINS_TEXT "get_global_space_admins(after mutate)" \
+        '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_global_space_admins","arguments":{}},"id":2}'
+      if [ $? -eq 0 ]; then
+        assert_json_array_same_set "get_global_space_admins sees persisted mutation" "$PERSISTED_GLOBAL_ADMINS_TEXT" ".admins // []" "$MUTATED_GLOBAL_ADMINS_JSON"
+      fi
+    fi
+    if run_test "set_global_space_admins(restore)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_global_space_admins\",\"arguments\":{\"admins\":$INITIAL_GLOBAL_ADMINS_JSON}},\"id\":2}"; then
+      sleep 2
+      run_capture_to_var RESTORED_GLOBAL_ADMINS_TEXT "get_global_space_admins(after restore)" \
+        '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_global_space_admins","arguments":{}},"id":2}'
+      if [ $? -eq 0 ]; then
+        assert_json_array_same_set "get_global_space_admins sees restored admins" "$RESTORED_GLOBAL_ADMINS_TEXT" ".admins // []" "$INITIAL_GLOBAL_ADMINS_JSON"
+        GLOBAL_ADMINS_CLEANUP_JSON=""
+      fi
+    fi
+  else
+    skip_test "set_global_space_admins" "all-spaces document has no member candidate"
+  fi
+fi
+
+GENERIC_TYPED_SPACE_TYPE_ID=$(printf '%s\n' "$SPACE_TYPES_TEXT" | jq -r \
+  '.spaceTypes[]? | select(.baseClass == "core:class:TypedSpace") | .id' 2>/dev/null | head -n 1)
+GENERIC_TYPED_SPACE_TYPE_NAME=$(printf '%s\n' "$SPACE_TYPES_TEXT" | jq -r --arg id "$GENERIC_TYPED_SPACE_TYPE_ID" \
+  '.spaceTypes[]? | select(.id == $id) | .name' 2>/dev/null | head -n 1)
+if [ -n "$GENERIC_TYPED_SPACE_TYPE_ID" ] && [ -n "$GENERIC_TYPED_SPACE_TYPE_NAME" ]; then
+  GENERIC_TYPED_SPACE_NAME="IntTest Generic Typed Space $RUN_ID"
+  GENERIC_TYPED_SPACE_NAME_JSON=$(json_string "$GENERIC_TYPED_SPACE_NAME")
+  GENERIC_TYPED_SPACE_TYPE_NAME_JSON=$(json_string "$GENERIC_TYPED_SPACE_TYPE_NAME")
+  GENERIC_TYPED_SPACE_ARGS=$(jq -nc \
+    --argjson spaceType "$GENERIC_TYPED_SPACE_TYPE_NAME_JSON" \
+    --argjson name "$GENERIC_TYPED_SPACE_NAME_JSON" \
+    '{spaceType:$spaceType,name:$name,description:"generic typed-space integration fixture"}')
+  run_capture_to_var CREATE_GENERIC_TYPED_SPACE_TEXT "create_space($GENERIC_TYPED_SPACE_TYPE_NAME)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_space\",\"arguments\":$GENERIC_TYPED_SPACE_ARGS},\"id\":2}"
+  if [ $? -eq 0 ]; then
+    GENERIC_TYPED_SPACE_ID=$(printf '%s\n' "$CREATE_GENERIC_TYPED_SPACE_TEXT" | jq -r '.id // empty' 2>/dev/null)
+    assert_json_field_equals "create_space returns requested type" "$CREATE_GENERIC_TYPED_SPACE_TEXT" ".type" "$GENERIC_TYPED_SPACE_TYPE_ID"
+    assert_json_field_equals "create_space returns TypedSpace class" "$CREATE_GENERIC_TYPED_SPACE_TEXT" ".class" "core:class:TypedSpace"
+    sleep 2
+    run_capture_to_var CREATED_GENERIC_TYPED_SPACE_TEXT "get_space($GENERIC_TYPED_SPACE_ID after create_space)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_space\",\"arguments\":{\"space\":\"$GENERIC_TYPED_SPACE_ID\",\"includeArchived\":true}},\"id\":2}"
+    if [ $? -eq 0 ]; then
+      assert_json_field_equals "get_space sees generic typed-space type" "$CREATED_GENERIC_TYPED_SPACE_TEXT" ".type" "$GENERIC_TYPED_SPACE_TYPE_ID"
+    fi
+    run_test "update_space($GENERIC_TYPED_SPACE_ID archive generic typed fixture)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_space\",\"arguments\":{\"space\":\"$GENERIC_TYPED_SPACE_ID\",\"archived\":true}},\"id\":2}"
+  fi
+else
+  skip_test "create_space" "no non-system core:class:TypedSpace-backed SpaceType found"
+fi
 
 ROLE_SPACE_FIXTURE=""
 if [ -n "$SPACE_TYPES_TEXT" ]; then

@@ -144,6 +144,7 @@ cover_cli_json "list_channels" "channels list" channels list
 cover_cli_json "list_persons" "contacts persons list" contacts persons list
 cover_cli_json "get_unread_notification_count" "notifications unread-count get" notifications unread-count get
 cover_cli_json "list_spaces" "spaces list" spaces list
+cover_cli_json "get_global_space_admins" "spaces admins get" spaces admins get
 cover_cli_json "list_message_templates" "templates list" templates list
 cover_cli_json "list_events" "calendar events list" calendar events list
 cover_cli_json "list_calendars" "calendar calendars list" calendar calendars list

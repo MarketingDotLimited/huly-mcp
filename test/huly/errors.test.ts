@@ -1285,6 +1285,10 @@ describe("Huly Errors", () => {
               return `space-type:${error.identifier}`
             case "SpaceTypeIdentifierAmbiguousError":
               return `space-type-ambiguous:${error.identifier}:${error.matches.length}`
+            case "SpaceTypeCreationUnsupportedError":
+              return `space-type-creation-unsupported:${error.spaceType}:${error.reason}`
+            case "SpaceCreationConflictError":
+              return `space-creation-conflict:${error.spaceType}:${error.name}:${error.existingSpace}`
             case "SpaceNotTypedError":
               return `space-not-typed:${error.id}:${error.name}`
             case "SpaceRoleNotFoundError":

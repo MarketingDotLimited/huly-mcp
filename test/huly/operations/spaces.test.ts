@@ -1,7 +1,9 @@
 import { describe, it } from "@effect/vitest"
 import type { Channel, Employee, Person } from "@hcengineering/contact"
 import type {
+  AnyAttribute,
   Class,
+  Data,
   Doc,
   DocumentQuery,
   DocumentUpdate,
@@ -13,9 +15,10 @@ import type {
   Space,
   SpaceType,
   SpaceTypeDescriptor,
+  TypeAny,
   TypedSpace
 } from "@hcengineering/core"
-import { toFindResult } from "@hcengineering/core"
+import { ClassifierKind, toFindResult } from "@hcengineering/core"
 import { Effect, Exit, Layer } from "effect"
 import { expect } from "vitest"
 import { assertAt } from "../../../src/utils/assertions.js"
@@ -39,20 +42,24 @@ import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.
 import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
 import {
   SpaceIdentifierAmbiguousError,
+  SpaceCreationConflictError,
   SpaceNotFoundError,
   SpaceNotTypedError,
   SpaceRoleAssignmentsMalformedError,
   SpaceRoleIdentifierAmbiguousError,
   SpaceRoleNotFoundError,
+  SpaceTypeCreationUnsupportedError,
   SpaceTypeIdentifierAmbiguousError,
   SpaceTypeNotFoundError
 } from "../../../src/huly/errors-spaces.js"
 import { contact, core } from "../../../src/huly/huly-plugins.js"
 import { testMarkupUrlConfig } from "../../../src/huly/operations/markup.js"
-import { toAccountUuid, toRef } from "../../../src/huly/operations/sdk-boundary.js"
+import { toAccountUuid, toClassRef, toRef } from "../../../src/huly/operations/sdk-boundary.js"
 import {
   addSpaceMembers,
   addSpaceRoleMembers,
+  createSpace,
+  getGlobalSpaceAdmins,
   getSpace,
   getSpaceType,
   listSpacePermissions,
@@ -61,6 +68,7 @@ import {
   removeSpaceMembers,
   removeSpaceRoleMembers,
   setSpaceOwners,
+  setGlobalSpaceAdmins,
   setSpaceRoleMembers,
   updateSpace
 } from "../../../src/huly/operations/spaces.js"
@@ -68,7 +76,7 @@ import { testWorkbenchUrlConfig } from "../../../src/huly/url-builders.js"
 import { withDiagnostics } from "../../helpers/diagnostics.js"
 import { corePersonId } from "../../helpers/huly-sdk.js"
 
-type GenericSpace = Space & Partial<Pick<TypedSpace, "type">>
+type GenericSpace = Space & Partial<Pick<TypedSpace, "autoJoin" | "restricted" | "type">>
 
 const personId = corePersonId("person-social-1")
 const accountA = toAccountUuid("00000000-0000-4000-8000-000000000001")
@@ -153,6 +161,42 @@ const makeRole = (overrides: Partial<Role> = {}): Role => ({
   ...overrides
 })
 
+const makeTargetClassifier = (overrides: Partial<Class<Doc>> = {}): Class<Doc> => ({
+  _id: toRef<Class<Doc>>("training:mixin:TrainingsTypeData"),
+  _class: toClassRef<Class<Doc>>(core.class.Class),
+  space: core.space.Model,
+  modifiedBy: personId,
+  modifiedOn: 0,
+  createdBy: personId,
+  createdOn: 0,
+  label: intlString("Trainings type data"),
+  kind: ClassifierKind.MIXIN,
+  extends: core.class.TypedSpace,
+  ...overrides
+})
+
+const makeRoleAssignmentType = (): TypeAny => ({
+  _class: core.class.TypeAny,
+  label: intlString("Role assignment"),
+  presenter: "setting:component:RoleAssignmentEditor",
+  editor: "setting:component:RoleAssignmentEditor"
+})
+
+const makeTargetAttribute = (overrides: Partial<AnyAttribute> = {}): AnyAttribute => ({
+  _id: toRef<AnyAttribute>("training:attribute:role-admin"),
+  _class: core.class.Attribute,
+  space: core.space.Model,
+  modifiedBy: personId,
+  modifiedOn: 0,
+  createdBy: personId,
+  createdOn: 0,
+  name: "role-admin",
+  label: intlString("Admins"),
+  attributeOf: toClassRef<Doc>("training:mixin:TrainingsTypeData"),
+  type: makeRoleAssignmentType(),
+  ...overrides
+})
+
 const makePermission = (overrides: Partial<Permission> = {}): Permission => ({
   _id: toRef<Permission>("permission-update"),
   _class: core.class.Permission,
@@ -224,6 +268,8 @@ const makeEmployee = (overrides: Partial<Employee> = {}): Employee => {
 }
 
 interface MockConfig {
+  readonly attributes?: ReadonlyArray<AnyAttribute>
+  readonly classifiers?: ReadonlyArray<Class<Doc>>
   readonly spaces?: ReadonlyArray<GenericSpace>
   readonly spaceTypes?: ReadonlyArray<SpaceType>
   readonly descriptors?: ReadonlyArray<SpaceTypeDescriptor>
@@ -233,6 +279,7 @@ interface MockConfig {
   readonly channels?: ReadonlyArray<Channel>
   readonly employees?: ReadonlyArray<Employee>
   readonly captureUpdate?: { operations?: unknown; id?: string }
+  readonly captureCreate?: { attributes?: unknown; class?: string; id?: string; space?: string }
   readonly captureMixin?: { action?: "create" | "update"; attributes?: unknown; id?: string; mixin?: string }
   readonly captureFindOptions?: Array<FindOptions<Doc> | undefined>
   readonly sdkTotal?: number
@@ -273,6 +320,8 @@ const toResult = <T extends Doc>(docs: ReadonlyArray<T>, total?: number): FindRe
 
 const createTestLayer = (config: MockConfig) => {
   const spaces = [...(config.spaces ?? [])]
+  const attributes = [...(config.attributes ?? [])]
+  const classifiers = [...(config.classifiers ?? [])]
   const spaceTypes = [...(config.spaceTypes ?? [])]
   const descriptors = [...(config.descriptors ?? [])]
   const roles = [...(config.roles ?? [])]
@@ -302,6 +351,8 @@ const createTestLayer = (config: MockConfig) => {
       if (_class === core.class.Permission) {
         return permissions.filter((doc) => matchesQuery(doc, queryRecord))
       }
+      if (_class === core.class.Attribute) return attributes.filter((doc) => matchesQuery(doc, queryRecord))
+      if (_class === core.class.Class) return classifiers.filter((doc) => matchesQuery(doc, queryRecord))
       if (_class === contact.class.Person) return persons.filter((doc) => matchesQuery(doc, queryRecord))
       if (_class === contact.class.Channel) {
         return channels.filter((doc) => matchesQuery(doc, queryRecord))
@@ -331,7 +382,16 @@ const createTestLayer = (config: MockConfig) => {
     findAll,
     findAllInModel: findAll,
     findOne,
-    createDoc: () => Effect.die(new Error("not implemented")),
+    createDoc: <T extends Doc>(_class: Ref<Class<T>>, space: Ref<Space>, attributes: Data<T>, id?: Ref<T>) => {
+      if (config.captureCreate !== undefined) {
+        config.captureCreate.attributes = attributes
+        config.captureCreate.class = String(_class)
+        if (id !== undefined) config.captureCreate.id = String(id)
+        config.captureCreate.space = String(space)
+      }
+      if (id === undefined) return Effect.die(new Error("Expected createSpace to provide an id"))
+      return Effect.succeed(id)
+    },
     updateDoc: <T extends Doc>(
       _class: Ref<Class<T>>,
       _space: Ref<Space>,
@@ -694,6 +754,409 @@ describe("spaces operations", () => {
       })
       expect(detail.shortDescription).toBe("Short type")
       expect(assertAt(detail.availablePermissions, 0).id).toBe("permission-update")
+    })
+  )
+
+  it.effect("createSpace creates a metadata-proven TypedSpace with resolved owners and role members", () =>
+    Effect.gen(function* () {
+      const captureCreate: MockConfig["captureCreate"] = {}
+      const captureMixin: MockConfig["captureMixin"] = {}
+      const layer = createTestLayer({
+        attributes: [makeTargetAttribute()],
+        classifiers: [makeTargetClassifier()],
+        spaceTypes: [makeSpaceType({ members: [accountA], targetClass: toRef("training:mixin:TrainingsTypeData") })],
+        descriptors: [makeDescriptor({ baseClass: core.class.TypedSpace, availablePermissions: [] })],
+        roles: [makeRole()],
+        persons: [makePerson()],
+        channels: [makeChannel()],
+        employees: [makeEmployee()],
+        captureCreate,
+        captureMixin
+      })
+
+      const result = yield* createSpace({
+        spaceType: spaceTypeIdentifier("Default Type"),
+        name: NonEmptyString.make("Safety Training"),
+        owners: [spaceMemberIdentifier("jane@example.com")],
+        roleAssignments: [{ role: spaceRoleIdentifier("Admins"), members: [spaceMemberIdentifier(accountA)] }]
+      }).pipe(Effect.provide(layer))
+
+      expect(result).toMatchObject({
+        name: "Safety Training",
+        class: core.class.TypedSpace,
+        type: "space-type-1",
+        members: [accountA, accountB],
+        owners: [accountB]
+      })
+      expect(captureCreate).toMatchObject({
+        class: core.class.TypedSpace,
+        space: core.space.Space,
+        attributes: {
+          name: "Safety Training",
+          description: "",
+          private: false,
+          archived: false,
+          members: [accountA, accountB],
+          owners: [accountB],
+          type: "space-type-1",
+          autoJoin: false,
+          restricted: false
+        }
+      })
+      expect(captureMixin).toMatchObject({
+        action: "create",
+        mixin: "training:mixin:TrainingsTypeData",
+        attributes: { "role-admin": [accountA] }
+      })
+    })
+  )
+
+  it.effect("createSpace rejects system and specialized space types with typed errors", () =>
+    Effect.gen(function* () {
+      const system = yield* Effect.flip(
+        createSpace({ spaceType: spaceTypeIdentifier("space-type-1"), name: NonEmptyString.make("Unsafe") }).pipe(
+          Effect.provide(
+            createTestLayer({
+              spaceTypes: [makeSpaceType()],
+              descriptors: [makeDescriptor({ baseClass: core.class.TypedSpace, system: true })]
+            })
+          )
+        )
+      )
+      const specialized = yield* Effect.flip(
+        createSpace({ spaceType: spaceTypeIdentifier("space-type-1"), name: NonEmptyString.make("Unsafe") }).pipe(
+          Effect.provide(
+            createTestLayer({
+              spaceTypes: [makeSpaceType()],
+              descriptors: [makeDescriptor({ baseClass: toRef("tracker:class:Project") })]
+            })
+          )
+        )
+      )
+
+      expect(system).toBeInstanceOf(SpaceTypeCreationUnsupportedError)
+      expect(system).toMatchObject({ _tag: "SpaceTypeCreationUnsupportedError", spaceType: "space-type-1" })
+      expect(specialized).toBeInstanceOf(SpaceTypeCreationUnsupportedError)
+      expect(specialized).toMatchObject({
+        _tag: "SpaceTypeCreationUnsupportedError",
+        spaceType: "space-type-1",
+        reason: expect.stringContaining("module-specific")
+      })
+    })
+  )
+
+  it.effect("createSpace rejects missing and malformed descriptor metadata", () =>
+    Effect.gen(function* () {
+      const missing = yield* Effect.exit(
+        createSpace({ spaceType: spaceTypeIdentifier("space-type-1"), name: NonEmptyString.make("Missing") }).pipe(
+          Effect.provide(createTestLayer({ spaceTypes: [makeSpaceType()] }))
+        )
+      )
+      const malformed = yield* Effect.exit(
+        createSpace({ spaceType: spaceTypeIdentifier("space-type-1"), name: NonEmptyString.make("Malformed") }).pipe(
+          Effect.provide(
+            createTestLayer({ spaceTypes: [makeSpaceType()], descriptors: [makeDescriptor({ baseClass: toRef("") })] })
+          )
+        )
+      )
+
+      expect(exitCauseText(missing)).toContain("descriptor 'descriptor-1' was not found")
+      expect(exitCauseText(malformed)).toContain("descriptor metadata is missing or malformed")
+    })
+  )
+
+  it.effect("createSpace rejects an existing active space with a typed conflict", () =>
+    Effect.gen(function* () {
+      const captureCreate: MockConfig["captureCreate"] = {}
+      const existing = makeSpace({
+        _class: core.class.TypedSpace,
+        type: toRef<SpaceType>("space-type-1"),
+        owners: [accountA],
+        autoJoin: true,
+        restricted: true
+      })
+      const layer = createTestLayer({
+        classifiers: [makeTargetClassifier()],
+        spaces: [existing],
+        spaceTypes: [makeSpaceType({ roles: 0, targetClass: toRef("training:mixin:TrainingsTypeData") })],
+        descriptors: [makeDescriptor({ baseClass: core.class.TypedSpace })],
+        captureCreate
+      })
+
+      const conflict = yield* Effect.flip(
+        createSpace({ spaceType: spaceTypeIdentifier("space-type-1"), name: NonEmptyString.make("General") }).pipe(
+          Effect.provide(layer)
+        )
+      )
+
+      expect(conflict).toBeInstanceOf(SpaceCreationConflictError)
+      expect(conflict).toMatchObject({
+        _tag: "SpaceCreationConflictError",
+        existingSpace: "space-1",
+        name: "General",
+        spaceType: "space-type-1"
+      })
+      expect(conflict.message).toContain("already exists")
+      expect(captureCreate).toEqual({})
+    })
+  )
+
+  it.effect("createSpace rejects target mixins with non-role fields", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        createSpace({ spaceType: spaceTypeIdentifier("space-type-1"), name: NonEmptyString.make("Unsafe") }).pipe(
+          Effect.provide(
+            createTestLayer({
+              attributes: [makeTargetAttribute({ name: "unexpected" })],
+              classifiers: [makeTargetClassifier()],
+              descriptors: [makeDescriptor({ baseClass: core.class.TypedSpace })],
+              roles: [makeRole()],
+              spaceTypes: [makeSpaceType({ targetClass: toRef("training:mixin:TrainingsTypeData") })]
+            })
+          )
+        )
+      )
+      const missingRoleAttribute = yield* Effect.flip(
+        createSpace({ spaceType: spaceTypeIdentifier("space-type-1"), name: NonEmptyString.make("Unsafe") }).pipe(
+          Effect.provide(
+            createTestLayer({
+              classifiers: [makeTargetClassifier()],
+              descriptors: [makeDescriptor({ baseClass: core.class.TypedSpace })],
+              roles: [makeRole()],
+              spaceTypes: [makeSpaceType({ targetClass: toRef("training:mixin:TrainingsTypeData") })]
+            })
+          )
+        )
+      )
+      const roleCountMismatch = yield* Effect.flip(
+        createSpace({ spaceType: spaceTypeIdentifier("space-type-1"), name: NonEmptyString.make("Unsafe") }).pipe(
+          Effect.provide(
+            createTestLayer({
+              attributes: [makeTargetAttribute()],
+              classifiers: [makeTargetClassifier()],
+              descriptors: [makeDescriptor({ baseClass: core.class.TypedSpace })],
+              roles: [makeRole()],
+              spaceTypes: [makeSpaceType({ roles: 2, targetClass: toRef("training:mixin:TrainingsTypeData") })]
+            })
+          )
+        )
+      )
+      const malformedRole = yield* Effect.flip(
+        createSpace({ spaceType: spaceTypeIdentifier("space-type-1"), name: NonEmptyString.make("Unsafe") }).pipe(
+          Effect.provide(
+            createTestLayer({
+              classifiers: [makeTargetClassifier()],
+              descriptors: [makeDescriptor({ baseClass: core.class.TypedSpace })],
+              roles: [makeRole({ _id: toRef<Role>("") })],
+              spaceTypes: [makeSpaceType({ targetClass: toRef("training:mixin:TrainingsTypeData") })]
+            })
+          )
+        )
+      )
+      const wrongRoleAttributeType = yield* Effect.flip(
+        createSpace({ spaceType: spaceTypeIdentifier("space-type-1"), name: NonEmptyString.make("Unsafe") }).pipe(
+          Effect.provide(
+            createTestLayer({
+              attributes: [
+                makeTargetAttribute({ type: { _class: core.class.TypeString, label: intlString("String") } })
+              ],
+              classifiers: [makeTargetClassifier()],
+              descriptors: [makeDescriptor({ baseClass: core.class.TypedSpace })],
+              roles: [makeRole()],
+              spaceTypes: [makeSpaceType({ targetClass: toRef("training:mixin:TrainingsTypeData") })]
+            })
+          )
+        )
+      )
+      const duplicateRoleAttributes = yield* Effect.flip(
+        createSpace({ spaceType: spaceTypeIdentifier("space-type-1"), name: NonEmptyString.make("Unsafe") }).pipe(
+          Effect.provide(
+            createTestLayer({
+              attributes: [
+                makeTargetAttribute(),
+                makeTargetAttribute({ _id: toRef<AnyAttribute>("training:attribute:role-admin-duplicate") })
+              ],
+              classifiers: [makeTargetClassifier()],
+              descriptors: [makeDescriptor({ baseClass: core.class.TypedSpace })],
+              roles: [makeRole()],
+              spaceTypes: [makeSpaceType({ targetClass: toRef("training:mixin:TrainingsTypeData") })]
+            })
+          )
+        )
+      )
+
+      expect(error).toBeInstanceOf(SpaceTypeCreationUnsupportedError)
+      expect(error).toMatchObject({
+        _tag: "SpaceTypeCreationUnsupportedError",
+        reason: expect.stringContaining("non-role field 'unexpected'")
+      })
+      expect(missingRoleAttribute).toMatchObject({
+        _tag: "SpaceTypeCreationUnsupportedError",
+        reason: expect.stringContaining("has no declared attribute for configured role 'role-admin'")
+      })
+      expect(roleCountMismatch).toMatchObject({
+        _tag: "SpaceTypeCreationUnsupportedError",
+        reason: "space type declares 2 roles but SDK metadata returned 1"
+      })
+      expect(malformedRole).toMatchObject({
+        _tag: "SpaceTypeCreationUnsupportedError",
+        reason: "target mixin role metadata is malformed"
+      })
+      expect(wrongRoleAttributeType).toMatchObject({
+        _tag: "SpaceTypeCreationUnsupportedError",
+        reason: expect.stringContaining("is not a canonical Huly role-assignment field")
+      })
+      expect(duplicateRoleAttributes).toMatchObject({
+        _tag: "SpaceTypeCreationUnsupportedError",
+        reason: expect.stringContaining("declares duplicate role attributes")
+      })
+    })
+  )
+
+  it.effect("createSpace rejects missing, wrong-kind, and malformed target metadata", () =>
+    Effect.gen(function* () {
+      const params = { spaceType: spaceTypeIdentifier("space-type-1"), name: NonEmptyString.make("Unsafe") }
+      const common = {
+        descriptors: [makeDescriptor({ baseClass: core.class.TypedSpace })],
+        spaceTypes: [makeSpaceType({ targetClass: toRef("training:mixin:TrainingsTypeData") })]
+      }
+      const missing = yield* Effect.flip(createSpace(params).pipe(Effect.provide(createTestLayer(common))))
+      const wrongKind = yield* Effect.flip(
+        createSpace(params).pipe(
+          Effect.provide(
+            createTestLayer({ ...common, classifiers: [makeTargetClassifier({ kind: ClassifierKind.CLASS })] })
+          )
+        )
+      )
+      const malformedClassifier = yield* Effect.flip(
+        createSpace(params).pipe(
+          Effect.provide(
+            createTestLayer({ ...common, classifiers: [Object.assign(makeTargetClassifier(), { kind: -1 })] })
+          )
+        )
+      )
+      const malformedAttribute = yield* Effect.flip(
+        createSpace(params).pipe(
+          Effect.provide(
+            createTestLayer({
+              ...common,
+              attributes: [makeTargetAttribute({ name: "" })],
+              classifiers: [makeTargetClassifier()]
+            })
+          )
+        )
+      )
+
+      expect(missing).toMatchObject({
+        _tag: "SpaceTypeCreationUnsupportedError",
+        reason: expect.stringContaining("was not found in SDK model metadata")
+      })
+      expect(wrongKind).toMatchObject({
+        _tag: "SpaceTypeCreationUnsupportedError",
+        reason: expect.stringContaining("is not a direct TypedSpace mixin")
+      })
+      expect(malformedClassifier).toMatchObject({
+        _tag: "SpaceTypeCreationUnsupportedError",
+        reason: "target mixin SDK metadata is malformed"
+      })
+      expect(malformedAttribute).toMatchObject({
+        _tag: "SpaceTypeCreationUnsupportedError",
+        reason: "target mixin attribute metadata is malformed"
+      })
+    })
+  )
+
+  it.effect("createSpace applies explicit common fields with default owner and empty assignments", () =>
+    Effect.gen(function* () {
+      const captureCreate: MockConfig["captureCreate"] = {}
+      const captureMixin: MockConfig["captureMixin"] = {}
+      const layer = createTestLayer({
+        classifiers: [makeTargetClassifier()],
+        spaceTypes: [
+          makeSpaceType({ autoJoin: true, roles: 0, targetClass: toRef("training:mixin:TrainingsTypeData") })
+        ],
+        descriptors: [makeDescriptor({ baseClass: core.class.TypedSpace })],
+        captureCreate,
+        captureMixin
+      })
+
+      const result = yield* createSpace({
+        spaceType: spaceTypeIdentifier("space-type-1"),
+        name: NonEmptyString.make("Private Training"),
+        description: "Explicit description",
+        private: true,
+        autoJoin: false,
+        restricted: true,
+        members: []
+      }).pipe(Effect.provide(layer))
+
+      expect(result).toMatchObject({ members: [accountA], owners: [accountA] })
+      expect(captureCreate?.attributes).toMatchObject({
+        description: "Explicit description",
+        private: true,
+        autoJoin: false,
+        restricted: true,
+        members: [accountA],
+        owners: [accountA]
+      })
+      expect(captureMixin?.attributes).toEqual({})
+    })
+  )
+
+  it.effect("global space admin operations resolve the stable core space and role", () =>
+    Effect.gen(function* () {
+      const captureMixin: MockConfig["captureMixin"] = {}
+      const globalSpace = makeSpace({
+        _id: toRef<Space>(core.space.Space),
+        _class: core.class.TypedSpace,
+        name: "Spaces",
+        type: core.spaceType.SpacesType,
+        [core.mixin.SpacesTypeData]: { [core.role.Admin]: [accountA] }
+      })
+      const globalType = makeSpaceType({
+        _id: core.spaceType.SpacesType,
+        name: "All spaces' space type",
+        targetClass: core.mixin.SpacesTypeData
+      })
+      const globalRole = makeRole({ _id: core.role.Admin, attachedTo: core.spaceType.SpacesType, name: "Admin" })
+      const layer = createTestLayer({
+        spaces: [globalSpace],
+        spaceTypes: [globalType],
+        roles: [globalRole],
+        captureMixin
+      })
+
+      const discovered = yield* getGlobalSpaceAdmins({}).pipe(Effect.provide(layer), withDiagnostics)
+      const updated = yield* setGlobalSpaceAdmins({ admins: [spaceMemberIdentifier(accountB)] }).pipe(
+        Effect.provide(layer)
+      )
+
+      expect(discovered.admins).toEqual([accountA])
+      expect(updated).toEqual({ admins: [accountB], changed: true })
+      expect(captureMixin).toMatchObject({
+        action: "update",
+        id: core.space.Space,
+        mixin: core.mixin.SpacesTypeData,
+        attributes: { [core.role.Admin]: [accountB] }
+      })
+
+      const withoutAssignments = yield* getGlobalSpaceAdmins({}).pipe(
+        Effect.provide(
+          createTestLayer({
+            spaces: [
+              makeSpace({
+                _id: toRef<Space>(core.space.Space),
+                _class: core.class.TypedSpace,
+                type: core.spaceType.SpacesType
+              })
+            ],
+            spaceTypes: [globalType],
+            roles: [globalRole]
+          })
+        ),
+        withDiagnostics
+      )
+      expect(withoutAssignments.admins).toEqual([])
     })
   )
 

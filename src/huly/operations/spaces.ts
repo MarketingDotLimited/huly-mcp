@@ -2,12 +2,16 @@
  * Generic Huly space, space type, role, and permission operations.
  *
  * This layer intentionally handles discovery and safe metadata/member updates
- * only. Module-specific tools remain the friendly entrypoints for creating or
- * deleting project, teamspace, card, drive, and other typed spaces.
+ * only. Generic creation is limited to metadata-proven core TypedSpace types;
+ * module-specific tools remain the entrypoints for richer space classes.
  *
  * @module
  */
 export { getSpace, getSpaceType, listSpacePermissions, listSpaces, listSpaceTypes } from "./spaces-read.js"
+
+export { getGlobalSpaceAdmins, setGlobalSpaceAdmins } from "./spaces-admins.js"
+
+export { createSpace } from "./spaces-create.js"
 
 export {
   addSpaceMembers,

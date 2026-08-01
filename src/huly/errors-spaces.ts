@@ -68,6 +68,24 @@ export class SpaceTypeIdentifierAmbiguousError extends Schema.TaggedError<SpaceT
   }
 }
 
+export class SpaceTypeCreationUnsupportedError extends Schema.TaggedError<SpaceTypeCreationUnsupportedError>()(
+  "SpaceTypeCreationUnsupportedError",
+  { spaceType: SpaceTypeId, reason: NonEmptyString }
+) {
+  override get message(): string {
+    return `Generic creation is unsupported for space type '${this.spaceType}': ${this.reason}`
+  }
+}
+
+export class SpaceCreationConflictError extends Schema.TaggedError<SpaceCreationConflictError>()(
+  "SpaceCreationConflictError",
+  { spaceType: SpaceTypeId, name: NonEmptyString, existingSpace: SpaceId }
+) {
+  override get message(): string {
+    return `An active space named '${this.name}' already exists for space type '${this.spaceType}' (${this.existingSpace})`
+  }
+}
+
 export class SpaceNotTypedError extends Schema.TaggedError<SpaceNotTypedError>()("SpaceNotTypedError", {
   id: SpaceId,
   name: NonEmptyString
