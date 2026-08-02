@@ -1,5 +1,17 @@
 # @firfi/huly-cli
 
+## 0.46.0
+
+### Minor Changes
+
+- 29a2b13: Add an explicit Gmail/Telegram message compatibility assessment. Gmail reports `supported=false` because Huly does not expose the live deployment-wide writer version needed to distinguish current v1 records from stale data after a v2 upgrade; Telegram remains unsupported without a compatible published package.
+- 6dfa416: Add locator-backed pinned channel and direct-message workflows, plus explicit unsupported results for channel request-access and browser-only translation.
+- 3dc27ca: Add guarded Huly enum and custom-attribute model administration with name-aware resolution, reference checks, and safe hide/unhide support.
+- 798c2b2: Add guarded permission definitions, typed-space role definition writes, and class collaborator metadata administration with clear-name resolution and local-Huly lifecycle coverage.
+- bd19f35: Add generic workflow status and status-category CRUD tools with relationship-aware resolution and lifecycle safeguards.
+- cec66fb: Add guarded Sequence and CustomSequence administration with atomic retry protection, identifier resolution, and local-Huly rollback coverage.
+- a9436d0: Add metadata-gated generic typed-space creation and global space-admin discovery and replacement tools.
+
 ## 0.45.0
 
 ### Minor Changes
