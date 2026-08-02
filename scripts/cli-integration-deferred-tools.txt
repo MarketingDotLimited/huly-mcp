@@ -217,6 +217,7 @@ list_drive_items
 list_employees
 list_event_instances
 list_external_channel_messages
+list_pinned_chat_messages
 list_filtered_views
 list_inventory_product_activity
 list_inventory_product_attachments
@@ -312,6 +313,7 @@ remove_template_child
 remove_test_plan_item
 rename_drive_item
 reopen_todo
+request_channel_access
 restore_drive_file_version
 run_test_plan
 save_attachment
@@ -319,6 +321,7 @@ save_message
 schedule_todo
 set_conversation_closed
 set_conversation_starred
+set_chat_message_pinned
 set_class_collaborator_metadata
 set_global_space_admins
 set_issue_component
@@ -326,6 +329,7 @@ set_issue_milestone
 set_recruiting_candidate_profile
 set_related_issue_target
 set_space_role_permissions
+translate_chat_message
 unarchive_board
 unarchive_board_card
 unarchive_channel

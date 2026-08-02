@@ -92,6 +92,7 @@ import {
   updateThreadReply
 } from "../../huly/operations/threads.js"
 import { channelConversationTools } from "./channel-conversations.js"
+import { channelMessageWorkflowTools } from "./channel-message-workflow-tools.js"
 import { channelAttachmentTools } from "./channel-attachment-tools.js"
 import { defineTool, type RegisteredTool } from "./registry.js"
 const CATEGORY = "channels" as const
@@ -154,6 +155,7 @@ export const channelTools = [
     deleteChannel
   ),
   ...channelConversationTools,
+  ...channelMessageWorkflowTools,
   defineTool(
     {
       name: "list_channel_messages",

@@ -221,7 +221,7 @@
       "package": "@hcengineering/chunter",
       "status": "covered",
       "matrixLocation": "Chat channel membership/options",
-      "rationale": "Current channel and direct-message tools cover channels, channel messages, one-to-one DM create/list/message list/send/update/delete, thread replies, channel member list/add/remove, join/leave, archive/unarchive, conversation star/closed state, and group direct-message create.",
+      "rationale": "Current channel and direct-message tools cover channels, channel messages, one-to-one DM create/list/message list/send/update/delete, thread replies, channel member list/add/remove, join/leave, archive/unarchive, conversation star/closed state, group direct-message create, message attachments, and locator-backed pinned-message list/set workflows.",
       "exports": [
         "Channel",
         "ChatMessage",
@@ -234,7 +234,7 @@
       "package": "@hcengineering/chunter",
       "status": "gap",
       "matrixLocation": "Chat channel membership/options",
-      "rationale": "Chat viewlets, sync metadata, object chat panels, request-access flows if modeled, pinned messages, message attachments, and translation remain matrix gaps.",
+      "rationale": "Chat viewlets, sync metadata, and object chat panels remain matrix gaps. Request-access and translation have explicit unsupported MCP results because current Chunter exposes no request-access model and translation is a browser-only optional-AI workflow with client-local results.",
       "exports": [
         "ChatMessageViewlet",
         "ChatSyncInfo",

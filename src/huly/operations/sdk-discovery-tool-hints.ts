@@ -118,7 +118,7 @@ const preferenceCoveredRationale =
 const boardNotMcpFacingRationale =
   "Board card cover values are exposed through board card create/update fields. The CardCover SDK export is the underlying type metadata rather than a separate LLM-facing resource."
 const chunterCoveredRationale =
-  "Current channel and direct-message tools cover channels, channel messages, one-to-one DM create/list/message list/send/update/delete, thread replies, channel member list/add/remove, join/leave, archive/unarchive, conversation star/closed state, and group direct-message create."
+  "Current channel and direct-message tools cover channels, channel messages, one-to-one DM create/list/message list/send/update/delete, thread replies, channel member list/add/remove, join/leave, archive/unarchive, conversation star/closed state, group direct-message create, message attachments, and locator-backed pinned-message list/set workflows."
 const coreCoveredRationale =
   "Existing tools expose user statuses, generic workflow statuses and status categories with full CRUD, guarded enum and custom-attribute model CRUD, guarded base permission definitions, typed-space role definitions, class collaborator metadata, full-text search, blobs through storage/download flows, generic association/relation discovery/mutation helpers, class/interface/mixin, attribute, enum, plugin configuration, domain index configuration, sequence, and space type capability discovery."
 const coreGapRationale =
@@ -275,7 +275,10 @@ export const runtimeParityRoutingRows: ReadonlyArray<RuntimeParityRoutingRow> = 
     String(chunter.class.ChatMessage),
     "@hcengineering/chunter",
     "ChatMessage",
-    covered(["list_channel_messages", "send_channel_message"], chunterCoveredRationale)
+    covered(
+      ["list_channel_messages", "send_channel_message", "list_pinned_chat_messages", "set_chat_message_pinned"],
+      chunterCoveredRationale
+    )
   ),
   routingRow(
     String(tracker.class.ProjectTargetPreference),

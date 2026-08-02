@@ -121,6 +121,11 @@ export const collaborationReadOnlyCliCommandCatalog = {
     description: "List External Channel Messages"
   },
   list_mentions: { path: ["activity", "mentions", "list"], positional: [], description: "List Mentions" },
+  list_pinned_chat_messages: {
+    path: ["channels", "messages", "pinned", "list"],
+    positional: [],
+    description: "List Pinned Chat Messages"
+  },
   list_message_template_categories: {
     path: ["templates", "categories", "list"],
     positional: [],

@@ -42,6 +42,11 @@ export const collaborationMutationCliCommandCatalogB = {
     description: "Remove Reaction",
     behavior: { confirmation: { type: "requires-yes", message: "activity reactions remove requires --yes." } }
   },
+  request_channel_access: {
+    path: ["channels", "access", "request"],
+    positional: ["channel"],
+    description: "Request Channel Access"
+  },
   save_message: { path: ["activity", "messages", "save"], positional: ["messageId"], description: "Save Message" },
   set_conversation_closed: {
     path: ["channels", "conversations", "closed", "set"],
@@ -52,6 +57,16 @@ export const collaborationMutationCliCommandCatalogB = {
     path: ["channels", "conversations", "starred", "set"],
     positional: ["starred"],
     description: "Set Conversation Starred"
+  },
+  set_chat_message_pinned: {
+    path: ["channels", "messages", "pinned", "set"],
+    positional: ["messageId", "pinned"],
+    description: "Set Chat Message Pinned"
+  },
+  translate_chat_message: {
+    path: ["channels", "messages", "translate"],
+    positional: ["messageId", "targetLanguage"],
+    description: "Translate Chat Message"
   },
   unarchive_board: { path: ["boards", "unarchive"], positional: ["board"], description: "Unarchive Board" },
   unarchive_board_card: {

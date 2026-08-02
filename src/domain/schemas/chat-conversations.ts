@@ -97,7 +97,7 @@ export const CreateGroupDirectMessageParamsSchema = Schema.Struct({
 })
 export type CreateGroupDirectMessageParams = Schema.Schema.Type<typeof CreateGroupDirectMessageParamsSchema>
 
-const ConversationTargetSchema = Schema.Struct({
+export const ConversationTargetSchema = Schema.Struct({
   channel: Schema.optional(
     ChannelIdentifier.annotations({ description: "Channel name or ID. Provide exactly one of channel or dm." })
   ),
@@ -131,6 +131,8 @@ export const SetConversationStarredParamsSchema = Schema.extend(
   description:
     "Parameters for setting the authenticated user's starred state for a channel or direct-message conversation."
 })
+
+export type ConversationTarget = Schema.Schema.Type<typeof ConversationTargetSchema>
 export type SetConversationStarredParams = Schema.Schema.Type<typeof SetConversationStarredParamsSchema>
 
 export const SetConversationClosedParamsSchema = Schema.extend(
@@ -148,7 +150,7 @@ export const SetConversationClosedParamsSchema = Schema.extend(
 })
 export type SetConversationClosedParams = Schema.Schema.Type<typeof SetConversationClosedParamsSchema>
 
-const withExactlyOneConversationTarget = (schema: object): object =>
+export const withExactlyOneConversationTarget = (schema: object): object =>
   withMutuallyExclusiveFields(withAtLeastOneRequired(schema, ["channel", "dm"]), ["channel", "dm"])
 
 export const listChannelMembersParamsJsonSchema = JSONSchema.make(ListChannelMembersParamsSchema)

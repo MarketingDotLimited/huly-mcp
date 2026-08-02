@@ -3479,6 +3479,13 @@ if [ $? -eq 0 ]; then
     assert_json_field_equals "join_channel existing member changed=false" "$JOIN_TEXT" ".changed" "false"
   fi
 
+  run_capture_to_var ACCESS_REQUEST_TEXT "request_channel_access($CH_ID unsupported)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"request_channel_access\",\"arguments\":{\"channel\":\"$CH_ID\"}},\"id\":2}"
+  if [ $? -eq 0 ]; then
+    assert_json_field_equals "request_channel_access supported=false" "$ACCESS_REQUEST_TEXT" ".supported" "false"
+    assert_json_field_equals "request_channel_access reason code" "$ACCESS_REQUEST_TEXT" ".reasonCode" "chunter_access_request_unavailable"
+  fi
+
   if [ -n "$CHANNEL_MEMBER_CANDIDATE" ]; then
     CHANNEL_MEMBER_CANDIDATE_JSON=$(json_string "$CHANNEL_MEMBER_CANDIDATE")
     run_capture_to_var ADD_MEMBERS_TEXT "add_channel_members($CH_ID)" \
@@ -3573,6 +3580,33 @@ if [ $? -eq 0 ]; then
     MSG_ID_JSON=$(json_string "$MSG_ID")
     CHANNEL_MSG_TARGET_JSON="{\"kind\":\"channel_message\",\"channel\":$CH_ID_JSON,\"messageId\":$MSG_ID_JSON}"
     run_chat_attachment_lifecycle "channel_message" "$CHANNEL_MSG_TARGET_JSON"
+
+    run_capture_to_var PIN_CHAT_TEXT "set_chat_message_pinned($MSG_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_chat_message_pinned\",\"arguments\":{\"channel\":\"$CH_ID\",\"messageId\":\"$MSG_ID\",\"pinned\":true}},\"id\":2}"
+    if [ $? -eq 0 ]; then
+      assert_json_field_equals "set_chat_message_pinned pinned=true" "$PIN_CHAT_TEXT" ".pinned" "true"
+      assert_json_field_equals "set_chat_message_pinned changed=true" "$PIN_CHAT_TEXT" ".changed" "true"
+    fi
+
+    run_capture_to_var PINNED_CHAT_TEXT "list_pinned_chat_messages($CH_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_pinned_chat_messages\",\"arguments\":{\"channel\":\"$CH_ID\"}},\"id\":2}"
+    if [ $? -eq 0 ]; then
+      assert_json_array_contains "list_pinned_chat_messages includes pinned message" "$PINNED_CHAT_TEXT" ".messages | map(.id)" "$MSG_ID"
+    fi
+
+    run_capture_to_var TRANSLATE_CHAT_TEXT "translate_chat_message($MSG_ID unsupported)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"translate_chat_message\",\"arguments\":{\"channel\":\"$CH_ID\",\"messageId\":\"$MSG_ID\",\"targetLanguage\":\"fr\"}},\"id\":2}"
+    if [ $? -eq 0 ]; then
+      assert_json_field_equals "translate_chat_message supported=false" "$TRANSLATE_CHAT_TEXT" ".supported" "false"
+      assert_json_field_equals "translate_chat_message reason code" "$TRANSLATE_CHAT_TEXT" ".reasonCode" "server_translation_unavailable"
+    fi
+
+    run_capture_to_var UNPIN_CHAT_TEXT "set_chat_message_pinned($MSG_ID unpin)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_chat_message_pinned\",\"arguments\":{\"channel\":\"$CH_ID\",\"messageId\":\"$MSG_ID\",\"pinned\":false}},\"id\":2}"
+    if [ $? -eq 0 ]; then
+      assert_json_field_equals "set_chat_message_pinned pinned=false" "$UNPIN_CHAT_TEXT" ".pinned" "false"
+      assert_json_field_equals "set_chat_message_pinned unpin changed=true" "$UNPIN_CHAT_TEXT" ".changed" "true"
+    fi
 
     # Thread replies
     run_capture_to_var REPLY_TEXT "add_thread_reply($MSG_ID)" \

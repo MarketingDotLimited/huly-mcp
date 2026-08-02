@@ -12,6 +12,7 @@ import type { DocNotifyContext as HulyDocNotifyContext } from "@hcengineering/no
 import { Effect } from "effect"
 
 import type {
+  ConversationTarget,
   ConversationKind,
   ConversationStateResult,
   SetConversationClosedParams,
@@ -32,24 +33,24 @@ import { findDirectMessage } from "./direct-message-shared.js"
 import { hulyQuery } from "./query-helpers.js"
 import { toClassRef, toRef } from "./sdk-boundary.js"
 
-type ConversationStateError =
+export type ResolveConversationError =
   | HulyClientError
   | ChannelNotFoundError
   | DirectMessageIdentifierAmbiguousError
   | DirectMessageNotFoundError
-  | NotificationPersonSpaceNotFoundError
 
-interface ResolvedConversation {
+type ConversationStateError = ResolveConversationError | NotificationPersonSpaceNotFoundError
+
+export interface ResolvedConversation {
   readonly kind: ConversationKind
   readonly objectId: Ref<Doc>
   readonly objectClass: Ref<Class<Doc>>
   readonly objectSpace: Ref<Space>
 }
 
-const resolveConversation = (params: {
-  readonly channel?: SetConversationStarredParams["channel"]
-  readonly dm?: SetConversationStarredParams["dm"]
-}): Effect.Effect<ResolvedConversation, ConversationStateError, HulyClient> =>
+export const resolveConversation = (
+  params: ConversationTarget
+): Effect.Effect<ResolvedConversation, ResolveConversationError, HulyClient> =>
   Effect.gen(function* () {
     if (params.channel !== undefined) {
       const { channel } = yield* findChannel(params.channel)

@@ -203,6 +203,22 @@ const structuredResult = (result: { readonly structuredContent?: { readonly resu
 }
 
 describe("channel MCP tools", () => {
+  it.effect("registers locator-backed pinning and explicit unsupported chat workflows", () =>
+    Effect.sync(function () {
+      const names = [
+        "list_pinned_chat_messages",
+        "set_chat_message_pinned",
+        "request_channel_access",
+        "translate_chat_message"
+      ]
+
+      for (const name of names) {
+        expect(channelTools.some((tool) => tool.name === name)).toBe(true)
+        expect(toolRegistry.tools.has(name)).toBe(true)
+      }
+    })
+  )
+
   it.effect("registers chat message attachment tools in channel tool order and tools/list", () =>
     Effect.sync(function () {
       const names = channelTools.map((tool) => tool.name)

@@ -1740,6 +1740,38 @@ export {
 } from "./chat-conversations.js"
 
 export {
+  type ListPinnedChatMessagesParams,
+  listPinnedChatMessagesParamsJsonSchema,
+  ListPinnedChatMessagesParamsSchema,
+  type ListPinnedChatMessagesResult,
+  ListPinnedChatMessagesResultSchema,
+  parseListPinnedChatMessagesParams,
+  parseRequestChannelAccessParams,
+  parseSetChatMessagePinnedParams,
+  parseTranslateChatMessageParams,
+  type PinnedChatMessage,
+  PinnedChatMessageSchema,
+  type RequestChannelAccessParams,
+  requestChannelAccessParamsJsonSchema,
+  RequestChannelAccessParamsSchema,
+  type RequestChannelAccessResult,
+  RequestChannelAccessResultSchema,
+  type SetChatMessagePinnedParams,
+  setChatMessagePinnedParamsJsonSchema,
+  SetChatMessagePinnedParamsSchema,
+  type SetChatMessagePinnedResult,
+  SetChatMessagePinnedResultSchema,
+  type TranslateChatMessageParams,
+  translateChatMessageParamsJsonSchema,
+  TranslateChatMessageParamsSchema,
+  type TranslateChatMessageResult,
+  TranslateChatMessageResultSchema,
+  TranslationLanguageTag,
+  type TranslationTarget,
+  TranslationTargetSchema
+} from "./chat-message-workflows.js"
+
+export {
   CalendarEventTitle,
   CalendarName,
   type CreateEventParams,
