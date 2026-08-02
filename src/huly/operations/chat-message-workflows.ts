@@ -11,8 +11,7 @@ import type {
   SetChatMessagePinnedParams,
   SetChatMessagePinnedResult,
   TranslateChatMessageParams,
-  TranslateChatMessageResult,
-  TranslationTarget
+  TranslateChatMessageResult
 } from "../../domain/schemas/chat-message-workflows.js"
 import { ChannelId, MessageId, PersonId, Timestamp } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
@@ -160,22 +159,15 @@ const CHAT_TRANSLATION_UNSUPPORTED_REASON =
   "server-api-unavailable: current Huly Chunter translation calls an optional AI endpoint from browser resources and stores translated text only in client-side UI state; the installed SDK exposes no stable server-side translation operation"
 
 export const translateChatMessage = (params: TranslateChatMessageParams): Effect.Effect<TranslateChatMessageResult> =>
-  Effect.gen(function* () {
-    const target: TranslationTarget =
-      params.channel !== undefined
-        ? { kind: "channel", channel: params.channel }
-        : params.dm !== undefined
-          ? { kind: "direct_message", dm: params.dm }
-          : /* v8 ignore next -- public schema requires exactly one conversation target. */
-            yield* Effect.die(new Error("Conversation target schema allowed neither channel nor dm"))
-
-    return {
-      supported: false,
-      flow: "chat_message_translation",
-      target,
-      messageId: params.messageId,
-      targetLanguage: params.targetLanguage,
-      reasonCode: "server_translation_unavailable",
-      unsupportedReason: CHAT_TRANSLATION_UNSUPPORTED_REASON
-    }
+  Effect.succeed({
+    supported: false,
+    flow: "chat_message_translation",
+    target:
+      params.channel === undefined
+        ? { kind: "direct_message", dm: params.dm }
+        : { kind: "channel", channel: params.channel },
+    messageId: params.messageId,
+    targetLanguage: params.targetLanguage,
+    reasonCode: "server_translation_unavailable",
+    unsupportedReason: CHAT_TRANSLATION_UNSUPPORTED_REASON
   })

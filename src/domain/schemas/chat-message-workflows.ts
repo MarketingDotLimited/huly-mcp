@@ -1,6 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
-import { ConversationTargetSchema, withExactlyOneConversationTarget } from "./chat-conversations.js"
+import { ConversationTargetSchema } from "./chat-conversations.js"
 import {
   ChannelId,
   ChannelIdentifier,
@@ -87,18 +87,18 @@ export const RequestChannelAccessResultSchema = Schema.Struct({
 })
 export type RequestChannelAccessResult = Schema.Schema.Type<typeof RequestChannelAccessResultSchema>
 
-export const TranslationLanguageTag = NonEmptyString.pipe(Schema.brand("TranslationLanguageTag")).annotations({
-  identifier: "TranslationLanguageTag",
-  title: "TranslationLanguageTag",
-  description: "Requested translation language as a language tag, such as `fr` or `fr-CA`."
+export const TranslationLanguage = NonEmptyString.pipe(Schema.brand("TranslationLanguage")).annotations({
+  identifier: "TranslationLanguage",
+  title: "TranslationLanguage",
+  description: "Requested non-empty translation language value, such as `French`, `fr`, or `fr-CA`."
 })
-export type TranslationLanguageTag = Schema.Schema.Type<typeof TranslationLanguageTag>
+export type TranslationLanguage = Schema.Schema.Type<typeof TranslationLanguage>
 
 export const TranslateChatMessageParamsSchema = Schema.extend(
   ConversationTargetSchema,
   Schema.Struct({
     messageId: MessageId.annotations({ description: "Message or thread-reply ID to translate." }),
-    targetLanguage: TranslationLanguageTag
+    targetLanguage: TranslationLanguage
   })
 ).annotations({
   title: "TranslateChatMessageParams",
@@ -117,22 +117,16 @@ export const TranslateChatMessageResultSchema = Schema.Struct({
   flow: Schema.Literal("chat_message_translation"),
   target: TranslationTargetSchema,
   messageId: MessageId,
-  targetLanguage: TranslationLanguageTag,
+  targetLanguage: TranslationLanguage,
   reasonCode: Schema.Literal("server_translation_unavailable"),
   unsupportedReason: NonEmptyString
 })
 export type TranslateChatMessageResult = Schema.Schema.Type<typeof TranslateChatMessageResultSchema>
 
-export const setChatMessagePinnedParamsJsonSchema = withExactlyOneConversationTarget(
-  JSONSchema.make(SetChatMessagePinnedParamsSchema)
-)
-export const listPinnedChatMessagesParamsJsonSchema = withExactlyOneConversationTarget(
-  JSONSchema.make(ListPinnedChatMessagesParamsSchema)
-)
+export const setChatMessagePinnedParamsJsonSchema = JSONSchema.make(SetChatMessagePinnedParamsSchema)
+export const listPinnedChatMessagesParamsJsonSchema = JSONSchema.make(ListPinnedChatMessagesParamsSchema)
 export const requestChannelAccessParamsJsonSchema = JSONSchema.make(RequestChannelAccessParamsSchema)
-export const translateChatMessageParamsJsonSchema = withExactlyOneConversationTarget(
-  JSONSchema.make(TranslateChatMessageParamsSchema)
-)
+export const translateChatMessageParamsJsonSchema = JSONSchema.make(TranslateChatMessageParamsSchema)
 export const parseSetChatMessagePinnedParams = Schema.decodeUnknown(SetChatMessagePinnedParamsSchema)
 export const parseListPinnedChatMessagesParams = Schema.decodeUnknown(ListPinnedChatMessagesParamsSchema)
 export const parseRequestChannelAccessParams = Schema.decodeUnknown(RequestChannelAccessParamsSchema)

@@ -1766,7 +1766,7 @@ export {
   TranslateChatMessageParamsSchema,
   type TranslateChatMessageResult,
   TranslateChatMessageResultSchema,
-  TranslationLanguageTag,
+  TranslationLanguage,
   type TranslationTarget,
   TranslationTargetSchema
 } from "./chat-message-workflows.js"

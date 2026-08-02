@@ -33,7 +33,7 @@ import { findDirectMessage } from "./direct-message-shared.js"
 import { hulyQuery } from "./query-helpers.js"
 import { toClassRef, toRef } from "./sdk-boundary.js"
 
-export type ResolveConversationError =
+type ResolveConversationError =
   | HulyClientError
   | ChannelNotFoundError
   | DirectMessageIdentifierAmbiguousError
@@ -61,12 +61,6 @@ export const resolveConversation = (
         objectSpace: toRef<Space>(channel._id)
       }
     }
-
-    /* v8 ignore start -- public schemas require exactly one target before this operation runs. */
-    if (params.dm === undefined) {
-      return yield* Effect.die(new Error("Conversation target schema allowed neither channel nor dm"))
-    }
-    /* v8 ignore stop */
 
     const { dm } = yield* findDirectMessage(params.dm)
     return {
@@ -173,10 +167,7 @@ const stateValues = (
 })
 
 const setConversationState = (
-  params: {
-    readonly channel?: SetConversationStarredParams["channel"]
-    readonly dm?: SetConversationStarredParams["dm"]
-  },
+  params: ConversationTarget,
   target: ConversationStateTarget
 ): Effect.Effect<ConversationStateResult, ConversationStateError, HulyClient> =>
   Effect.gen(function* () {

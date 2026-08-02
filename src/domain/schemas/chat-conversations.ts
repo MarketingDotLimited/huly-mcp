@@ -11,9 +11,7 @@ import {
   DirectMessageIdentifier,
   NotificationContextId,
   PersonName,
-  PersonRefInput,
-  withAtLeastOneRequired,
-  withMutuallyExclusiveFields
+  PersonRefInput
 } from "./shared.js"
 
 export const GroupDirectMessageMinimumOtherPeople = 2
@@ -97,26 +95,20 @@ export const CreateGroupDirectMessageParamsSchema = Schema.Struct({
 })
 export type CreateGroupDirectMessageParams = Schema.Schema.Type<typeof CreateGroupDirectMessageParamsSchema>
 
-export const ConversationTargetSchema = Schema.Struct({
-  channel: Schema.optional(
-    ChannelIdentifier.annotations({ description: "Channel name or ID. Provide exactly one of channel or dm." })
-  ),
-  dm: Schema.optional(
-    DirectMessageIdentifier.annotations({
-      description:
-        "Direct-message conversation ID, or a one-to-one participant display name. Provide exactly one of channel or dm."
-    })
-  )
-}).pipe(
-  Schema.filter((params) => {
-    if (params.channel === undefined && params.dm === undefined) {
-      return "Provide exactly one of channel or dm."
-    }
-    if (params.channel !== undefined && params.dm !== undefined) {
-      return "Provide exactly one of channel or dm, not both."
-    }
-    return undefined
+const ChannelConversationTargetSchema = Schema.Struct({
+  channel: ChannelIdentifier.annotations({ description: "Channel name or ID. Provide exactly one of channel or dm." }),
+  dm: Schema.optionalWith(Schema.Never, { exact: true })
+})
+const DirectMessageConversationTargetSchema = Schema.Struct({
+  channel: Schema.optionalWith(Schema.Never, { exact: true }),
+  dm: DirectMessageIdentifier.annotations({
+    description:
+      "Direct-message conversation ID, or a one-to-one participant display name. Provide exactly one of channel or dm."
   })
+})
+export const ConversationTargetSchema = Schema.Union(
+  ChannelConversationTargetSchema,
+  DirectMessageConversationTargetSchema
 )
 
 export const SetConversationStarredParamsSchema = Schema.extend(
@@ -150,19 +142,12 @@ export const SetConversationClosedParamsSchema = Schema.extend(
 })
 export type SetConversationClosedParams = Schema.Schema.Type<typeof SetConversationClosedParamsSchema>
 
-export const withExactlyOneConversationTarget = (schema: object): object =>
-  withMutuallyExclusiveFields(withAtLeastOneRequired(schema, ["channel", "dm"]), ["channel", "dm"])
-
 export const listChannelMembersParamsJsonSchema = JSONSchema.make(ListChannelMembersParamsSchema)
 export const channelMemberMutationParamsJsonSchema = JSONSchema.make(ChannelMemberMutationParamsSchema)
 export const channelLifecycleParamsJsonSchema = JSONSchema.make(ChannelLifecycleParamsSchema)
 export const createGroupDirectMessageParamsJsonSchema = JSONSchema.make(CreateGroupDirectMessageParamsSchema)
-export const setConversationStarredParamsJsonSchema = withExactlyOneConversationTarget(
-  JSONSchema.make(SetConversationStarredParamsSchema)
-)
-export const setConversationClosedParamsJsonSchema = withExactlyOneConversationTarget(
-  JSONSchema.make(SetConversationClosedParamsSchema)
-)
+export const setConversationStarredParamsJsonSchema = JSONSchema.make(SetConversationStarredParamsSchema)
+export const setConversationClosedParamsJsonSchema = JSONSchema.make(SetConversationClosedParamsSchema)
 
 export const parseListChannelMembersParams = Schema.decodeUnknown(ListChannelMembersParamsSchema)
 export const parseChannelMemberMutationParams = Schema.decodeUnknown(ChannelMemberMutationParamsSchema)

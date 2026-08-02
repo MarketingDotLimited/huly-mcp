@@ -12,7 +12,7 @@ import { Effect, Exit } from "effect"
 import { expect } from "vitest"
 
 import { HulyClient } from "../../../src/huly/client.js"
-import { TranslationLanguageTag } from "../../../src/domain/schemas/chat-message-workflows.js"
+import { TranslationLanguage } from "../../../src/domain/schemas/chat-message-workflows.js"
 import { chunter } from "../../../src/huly/huly-plugins.js"
 import {
   listPinnedChatMessages,
@@ -218,12 +218,12 @@ describe("chat message workflows", () => {
       const translation = yield* translateChatMessage({
         channel: channelIdentifier("general"),
         messageId: messageBrandId("message-1"),
-        targetLanguage: TranslationLanguageTag.make("fr-CA")
+        targetLanguage: TranslationLanguage.make("fr-CA")
       })
       const dmTranslation = yield* translateChatMessage({
         dm: directMessageIdentifier("dm-1"),
         messageId: messageBrandId("message-1"),
-        targetLanguage: TranslationLanguageTag.make("de")
+        targetLanguage: TranslationLanguage.make("de")
       })
 
       expect(access).toMatchObject({

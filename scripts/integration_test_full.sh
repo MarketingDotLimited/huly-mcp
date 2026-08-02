@@ -1061,6 +1061,39 @@ run_chat_attachment_lifecycle() {
   assert_json_field_equals "delete_chat_message_attachment $label deleted" "$CHAT_DELETE_ATTACHMENT_TEXT" ".deleted" "true"
 }
 
+run_pinned_chat_message_lifecycle() {
+  local label="$1" target_key="$2" target_value="$3" message_id="$4" expected_kind="$5"
+  local pin_args_json list_args_json unpin_args_json
+  local PIN_CHAT_TEXT PINNED_CHAT_TEXT UNPIN_CHAT_TEXT
+
+  pin_args_json=$(jq -cn --arg key "$target_key" --arg target "$target_value" --arg messageId "$message_id" \
+    '{($key): $target, messageId: $messageId, pinned: true}')
+  list_args_json=$(jq -cn --arg key "$target_key" --arg target "$target_value" '{($key): $target}')
+  unpin_args_json=$(jq -cn --arg key "$target_key" --arg target "$target_value" --arg messageId "$message_id" \
+    '{($key): $target, messageId: $messageId, pinned: false}')
+
+  run_capture_to_var PIN_CHAT_TEXT "set_chat_message_pinned($label:$message_id)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_chat_message_pinned\",\"arguments\":$pin_args_json},\"id\":2}"
+  if [ $? -eq 0 ]; then
+    assert_json_field_equals "set_chat_message_pinned $label kind" "$PIN_CHAT_TEXT" ".kind" "$expected_kind"
+    assert_json_field_equals "set_chat_message_pinned $label pinned=true" "$PIN_CHAT_TEXT" ".pinned" "true"
+    assert_json_field_equals "set_chat_message_pinned $label changed=true" "$PIN_CHAT_TEXT" ".changed" "true"
+  fi
+
+  run_capture_to_var PINNED_CHAT_TEXT "list_pinned_chat_messages($label)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_pinned_chat_messages\",\"arguments\":$list_args_json},\"id\":2}"
+  if [ $? -eq 0 ]; then
+    assert_json_array_contains "list_pinned_chat_messages includes $label" "$PINNED_CHAT_TEXT" ".messages | map(.id)" "$message_id"
+  fi
+
+  run_capture_to_var UNPIN_CHAT_TEXT "set_chat_message_pinned($label:$message_id unpin)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_chat_message_pinned\",\"arguments\":$unpin_args_json},\"id\":2}"
+  if [ $? -eq 0 ]; then
+    assert_json_field_equals "set_chat_message_pinned $label pinned=false" "$UNPIN_CHAT_TEXT" ".pinned" "false"
+    assert_json_field_equals "set_chat_message_pinned $label unpin changed=true" "$UNPIN_CHAT_TEXT" ".changed" "true"
+  fi
+}
+
 remember_drive_item_cleanup() {
   local drive_id="$1" item_path="$2"
   DRIVE_CLEANUP_ITEMS="${DRIVE_CLEANUP_ITEMS}${drive_id}"$'\t'"${item_path}"$'\n'
@@ -3439,6 +3472,7 @@ if [ -n "$DM_ID" ]; then
       DM_MSG_ID_JSON=$(json_string "$DM_MSG_ID")
       DM_MSG_TARGET_JSON="{\"kind\":\"dm_message\",\"dm\":$DM_ID_JSON,\"messageId\":$DM_MSG_ID_JSON}"
       run_chat_attachment_lifecycle "dm_message" "$DM_MSG_TARGET_JSON"
+      run_pinned_chat_message_lifecycle "dm_message" "dm" "$DM_ID" "$DM_MSG_ID" "direct_message"
       run_test "update_dm_message($DM_MSG_ID)" \
         "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_dm_message\",\"arguments\":{\"dm\":\"$DM_ID\",\"messageId\":\"$DM_MSG_ID\",\"body\":\"Updated IntTest DM msg $RUN_ID\"}},\"id\":2}"
       run_test "delete_dm_message($DM_MSG_ID)" \
@@ -3581,31 +3615,13 @@ if [ $? -eq 0 ]; then
     CHANNEL_MSG_TARGET_JSON="{\"kind\":\"channel_message\",\"channel\":$CH_ID_JSON,\"messageId\":$MSG_ID_JSON}"
     run_chat_attachment_lifecycle "channel_message" "$CHANNEL_MSG_TARGET_JSON"
 
-    run_capture_to_var PIN_CHAT_TEXT "set_chat_message_pinned($MSG_ID)" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_chat_message_pinned\",\"arguments\":{\"channel\":\"$CH_ID\",\"messageId\":\"$MSG_ID\",\"pinned\":true}},\"id\":2}"
-    if [ $? -eq 0 ]; then
-      assert_json_field_equals "set_chat_message_pinned pinned=true" "$PIN_CHAT_TEXT" ".pinned" "true"
-      assert_json_field_equals "set_chat_message_pinned changed=true" "$PIN_CHAT_TEXT" ".changed" "true"
-    fi
-
-    run_capture_to_var PINNED_CHAT_TEXT "list_pinned_chat_messages($CH_ID)" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_pinned_chat_messages\",\"arguments\":{\"channel\":\"$CH_ID\"}},\"id\":2}"
-    if [ $? -eq 0 ]; then
-      assert_json_array_contains "list_pinned_chat_messages includes pinned message" "$PINNED_CHAT_TEXT" ".messages | map(.id)" "$MSG_ID"
-    fi
+    run_pinned_chat_message_lifecycle "channel_message" "channel" "$CH_ID" "$MSG_ID" "channel_message"
 
     run_capture_to_var TRANSLATE_CHAT_TEXT "translate_chat_message($MSG_ID unsupported)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"translate_chat_message\",\"arguments\":{\"channel\":\"$CH_ID\",\"messageId\":\"$MSG_ID\",\"targetLanguage\":\"fr\"}},\"id\":2}"
     if [ $? -eq 0 ]; then
       assert_json_field_equals "translate_chat_message supported=false" "$TRANSLATE_CHAT_TEXT" ".supported" "false"
       assert_json_field_equals "translate_chat_message reason code" "$TRANSLATE_CHAT_TEXT" ".reasonCode" "server_translation_unavailable"
-    fi
-
-    run_capture_to_var UNPIN_CHAT_TEXT "set_chat_message_pinned($MSG_ID unpin)" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_chat_message_pinned\",\"arguments\":{\"channel\":\"$CH_ID\",\"messageId\":\"$MSG_ID\",\"pinned\":false}},\"id\":2}"
-    if [ $? -eq 0 ]; then
-      assert_json_field_equals "set_chat_message_pinned pinned=false" "$UNPIN_CHAT_TEXT" ".pinned" "false"
-      assert_json_field_equals "set_chat_message_pinned unpin changed=true" "$UNPIN_CHAT_TEXT" ".changed" "true"
     fi
 
     # Thread replies
@@ -3619,6 +3635,7 @@ if [ $? -eq 0 ]; then
       REPLY_ID_JSON=$(json_string "$REPLY_ID")
       THREAD_REPLY_TARGET_JSON="{\"kind\":\"thread_reply\",\"channel\":$CH_ID_JSON,\"messageId\":$MSG_ID_JSON,\"replyId\":$REPLY_ID_JSON}"
       run_chat_attachment_lifecycle "thread_reply" "$THREAD_REPLY_TARGET_JSON"
+      run_pinned_chat_message_lifecycle "thread_reply" "channel" "$CH_ID" "$REPLY_ID" "channel_message"
       run_test "update_thread_reply($REPLY_ID)" \
         "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_thread_reply\",\"arguments\":{\"channel\":\"$CH_ID\",\"messageId\":\"$MSG_ID\",\"replyId\":\"$REPLY_ID\",\"body\":\"Updated reply\"}},\"id\":2}"
       run_test "delete_thread_reply($REPLY_ID)" \
