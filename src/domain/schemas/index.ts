@@ -79,6 +79,7 @@ export { optionalOutput } from "./output-helpers.js"
 export {
   ApprovalRequestCountMetadataDegradedWarningCode,
   ApprovalRequestPersonMetadataDegradedWarningCode,
+  ExternalChannelRuntimeUnsupportedWarningCode,
   MessageTemplateMetadataDegradedWarningCode,
   SpacePreferenceMetadataDegradedWarningCode,
   SpaceRoleAssignmentsDegradedWarningCode,
@@ -1553,19 +1554,14 @@ export {
 export {
   DEFAULT_EXTERNAL_CHANNEL_MESSAGE_LIMIT,
   encodeListExternalChannelMessagesResult,
-  ExternalChannelMessageId,
   type ExternalChannelMessageProvider,
   ExternalChannelMessageProviderSchema,
   ExternalChannelMessageProviderValues,
-  type ExternalChannelMessageSummary,
-  ExternalChannelMessageSummarySchema,
   type ListExternalChannelMessagesParams,
   listExternalChannelMessagesParamsJsonSchema,
   ListExternalChannelMessagesParamsSchema,
   type ListExternalChannelMessagesResult,
   ListExternalChannelMessagesResultSchema,
-  ListExternalChannelMessagesSupportedResultSchema,
-  ListExternalChannelMessagesUnsupportedResultSchema,
   parseListExternalChannelMessagesParams
 } from "./external-channel-messages.js"
 

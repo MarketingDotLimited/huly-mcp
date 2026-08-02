@@ -171,7 +171,7 @@ export const channelTools = [
     {
       name: "list_external_channel_messages",
       description:
-        "List read-only messages for an external Gmail or Telegram channel by channel name or ID. The limit defaults to 50 and is capped at 200. When this build does not include a compatible Huly external-message SDK/model for the requested provider, returns supported=false, an unsupportedReason, and an empty messages array; it never sends, replies, deletes, mutates, or returns fake messages.",
+        "Assess whether external messages can be listed safely for a provider channel. Gmail returns supported=false because Huly does not expose the live deployment-wide v1/v2 writer version needed to distinguish current legacy records from stale data; Telegram returns supported=false because no compatible published message package is installed. Returns an unsupportedReason and an empty messages array. The limit defaults to 50 and is capped at 200. This tool never sends, replies, deletes, mutates, or returns fake messages.",
       category: CATEGORY,
       inputSchema: listExternalChannelMessagesParamsJsonSchema,
       resultSchema: ListExternalChannelMessagesResultSchema

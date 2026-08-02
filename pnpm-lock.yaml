@@ -40,6 +40,9 @@ importers:
       '@hcengineering/document':
         specifier: 0.7.0
         version: 0.7.0
+      '@hcengineering/gmail':
+        specifier: 0.7.0
+        version: 0.7.0
       '@hcengineering/inventory':
         specifier: 0.7.0
         version: 0.7.0
@@ -971,6 +974,9 @@ packages:
 
   '@hcengineering/drive@0.7.423':
     resolution: {integrity: sha512-Mn28w6cQ+S9SCFgP3IOSXUVb/3wlgPPm+vDasZdTSZKFscexiyjjHQM6pz06ux5ytM0CNBgfuNqYRQch4rBIew==}
+
+  '@hcengineering/gmail@0.7.0':
+    resolution: {integrity: sha512-SS7VOqDG8Rmd583oz7FvPxbR8giyH+9Y5PlqgFwPIMwRku5LHLh+/DR+BtPHlE6e/Qrak2f9luxP6LMc4xITmw==}
 
   '@hcengineering/inventory@0.7.0':
     resolution: {integrity: sha512-s4zKczZxlingtCmvYxxc+2ZgqFTPbKccJZkOFbI0vUr/7BUs2FBCF0z49cL2BtHNCmuxGQ2czMJCZGjNRHR3/w==}
@@ -4076,6 +4082,15 @@ snapshots:
       '@hcengineering/platform': 0.7.423
       '@hcengineering/preference': 0.7.423
       '@hcengineering/ui': 0.7.423
+
+  '@hcengineering/gmail@0.7.0':
+    dependencies:
+      '@hcengineering/contact': 0.7.0
+      '@hcengineering/core': 0.7.26
+      '@hcengineering/notification': 0.7.0
+      '@hcengineering/platform': 0.7.20
+      '@hcengineering/setting': 0.7.0
+      '@hcengineering/ui': 0.7.0
 
   '@hcengineering/inventory@0.7.0':
     dependencies:

@@ -21,6 +21,10 @@ export const contact = load("@hcengineering/contact").default as typeof import("
 export const core = load("@hcengineering/core").default as typeof import("@hcengineering/core").default
 export const documentPlugin = load("@hcengineering/document")
   .default as typeof import("@hcengineering/document").default
+// The Gmail package is CommonJS-only at runtime. The assertion restores the exact published module shape;
+// focused compatibility tests verify the default plugin's Message class reference.
+const gmailModule = load("@hcengineering/gmail") as typeof import("@hcengineering/gmail")
+export const gmail: typeof import("@hcengineering/gmail").default = gmailModule.default
 export const inventory = load("@hcengineering/inventory").default as typeof import("@hcengineering/inventory").default
 export const love = load("@hcengineering/love").default as typeof import("@hcengineering/love").default
 export const notification = load("@hcengineering/notification")

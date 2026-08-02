@@ -3694,6 +3694,12 @@ run_test "get_user_profile" \
   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_user_profile","arguments":{}},"id":2}'
 run_test "list_contact_channel_providers" \
   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_contact_channel_providers","arguments":{}},"id":2}'
+run_capture_to_var TELEGRAM_MESSAGES_TEXT "list_external_channel_messages(telegram unsupported)" \
+  '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_external_channel_messages","arguments":{"provider":"telegram","channel":"Ops","limit":5}},"id":2}'
+if [ $? -eq 0 ]; then
+  assert_json_field_equals "list_external_channel_messages Telegram supported=false" "$TELEGRAM_MESSAGES_TEXT" ".supported" "false"
+  assert_json_field_equals "list_external_channel_messages Telegram messages array" "$TELEGRAM_MESSAGES_TEXT" ".messages | type" "array"
+fi
 
 PERSON_FIRST_NAME="IntTest-$RUN_ID"
 PERSON_EMAIL="inttest-$RUN_ID@test.local"
@@ -3807,6 +3813,14 @@ if [ $? -eq 0 ]; then
 	        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_organization_channels\",\"arguments\":{\"organizationId\":\"$ORG_ID\"}},\"id\":2}"
 	      if [ $? -eq 0 ]; then
 	        assert_json_array_contains "list_organization_channels includes email channel" "$ORG_CHANNELS_TEXT" ".channels | map(.channelId)" "$ORG_CHANNEL_ID"
+	      fi
+	      run_capture_to_var GMAIL_MESSAGES_TEXT "list_external_channel_messages(gmail:$ORG_CHANNEL_ID)" \
+	        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_external_channel_messages\",\"arguments\":{\"provider\":\"gmail\",\"channel\":\"$ORG_CHANNEL_ID\",\"limit\":5}},\"id\":2}"
+	      if [ $? -eq 0 ]; then
+	        assert_json_field_equals "list_external_channel_messages Gmail unsupported without authoritative runtime" "$GMAIL_MESSAGES_TEXT" ".supported" "false"
+	        assert_json_field_equals "list_external_channel_messages Gmail reason code" "$GMAIL_MESSAGES_TEXT" ".unsupportedReasonCode" "runtime-unverifiable"
+	        assert_json_field_equals "list_external_channel_messages Gmail channel" "$GMAIL_MESSAGES_TEXT" ".channel" "$ORG_CHANNEL_ID"
+	        assert_json_field_equals "list_external_channel_messages Gmail messages empty" "$GMAIL_MESSAGES_TEXT" ".messages | length" "0"
 	      fi
 	      run_capture_to_var ORG_GET_TEXT "get_organization($ORG_ID channels)" \
 	        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_organization\",\"arguments\":{\"identifier\":\"$ORG_ID\"}},\"id\":2}"

@@ -61,6 +61,7 @@ export const Timestamp = NonNegativeInteger.pipe(Schema.brand("Timestamp")).anno
 export type Timestamp = Schema.Schema.Type<typeof Timestamp>
 
 export const LimitParam = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.lessThanOrEqualTo(MAX_LIMIT))
+export type LimitParam = Schema.Schema.Type<typeof LimitParam>
 
 export const EmptyParamsSchema = Schema.Struct({}).annotations({
   jsonSchema: { type: "object", properties: {}, additionalProperties: false }

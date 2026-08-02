@@ -407,6 +407,19 @@
       ]
     },
     {
+      "package": "@hcengineering/gmail",
+      "status": "gap",
+      "matrixLocation": "Gmail / email channel",
+      "rationale": "The compatibility tool reports supported=false because the published package exposes legacy records while Huly's live deployment-wide writer version is not queryable. Reads, queued sends, replies, attachments, shared-message records, and delivery status remain deferred until authoritative runtime-safe contracts are available.",
+      "exports": [
+        "BaseMessage",
+        "Message",
+        "NewMessage",
+        "SharedMessage",
+        "SharedMessages"
+      ]
+    },
+    {
       "package": "@hcengineering/inventory",
       "status": "covered",
       "matrixLocation": "Inventory",
