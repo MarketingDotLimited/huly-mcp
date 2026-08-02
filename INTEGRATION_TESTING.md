@@ -249,7 +249,7 @@ HULY_URL="${HULY_URL/localhost/host.docker.internal}" pnpm integration:cli
 
 `pnpm verify-cli-integration-coverage` is the drift gate. It parses live tool names from `cover_cli_json` / `capture_cli_json` calls in `scripts/integration_test_cli.sh` and compares them with the CLI catalog plus `scripts/cli-integration-deferred-tools.txt`. Any new CLI command must be added to the live CLI integration suite or explicitly deferred in that ledger. Stale covered/deferred names, duplicate deferred names, and commands listed in both places fail the check.
 
-`scripts/local_release.sh` runs both `pnpm verify-cli-integration-coverage` and `pnpm integration:cli` before `changesets publish`, so a local release cannot publish the CLI package without the live CLI gate passing.
+`scripts/local_release.sh` reruns `pnpm verify-cli-integration-coverage` when the CLI package needs publishing, but it intentionally does not depend on a live Huly workspace. Run this live CLI suite on the clean release-candidate commit immediately before publishing; after it passes, `pnpm local-release` remains the single version-and-publish command.
 
 ### What It Tests
 
