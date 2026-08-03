@@ -1,6 +1,6 @@
 {
   "name": "@firfi/huly-cli",
-  "version": "0.46.0",
+  "version": "0.46.1",
   "description": "Huly CLI backed by the huly-mcp operation registry",
   "type": "module",
   "main": "./dist/index.cjs",

@@ -1,5 +1,11 @@
 # @firfi/huly-cli
 
+## 0.46.1
+
+### Patch Changes
+
+- cc387f9: Declare the Gmail plugin runtime dependency so packed CLI installations can start successfully.
+
 ## 0.46.0
 
 ### Minor Changes
