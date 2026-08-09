@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
+source scripts/packed-cli-test-helpers.sh
 
 if ! command -v jq >/dev/null 2>&1; then
   echo "jq is required for CLI integration tests." >&2
@@ -36,28 +37,6 @@ TODO_LABEL_ID=""
 DRAWING_ID=""
 EVENT_ID=""
 
-prepare_cli() {
-  if [[ -n "${HULY_CLI_INTEGRATION_EXECUTABLE:-}" ]]; then
-    CLI=("$HULY_CLI_INTEGRATION_EXECUTABLE")
-    return
-  fi
-
-  local package_dir="$TEST_TMPDIR/package"
-  local install_dir="$TEST_TMPDIR/install"
-  mkdir -p "$package_dir" "$install_dir"
-  pnpm --filter @firfi/huly-cli build >/dev/null
-  npm_config_ignore_scripts=true pnpm --dir packages/huly-cli pack --pack-destination "$package_dir" >/dev/null
-  local tarball
-  tarball="$(find "$package_dir" -maxdepth 1 -type f -name '*.tgz' -print -quit)"
-  if [[ -z "$tarball" ]]; then
-    echo "Packed CLI tarball was not created." >&2
-    return 1
-  fi
-  printf '{"private":true,"type":"module"}\n' >"$install_dir/package.json"
-  pnpm --dir "$install_dir" add "$tarball" >/dev/null
-  CLI=("$install_dir/node_modules/.bin/huly")
-}
-
 cleanup() {
   set +e
   if [[ -n "$EVENT_ID" ]]; then
@@ -90,7 +69,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-prepare_cli
+prepare_packed_cli "$TEST_TMPDIR"
+CLI=("$HULY_PREPARED_CLI")
 
 run_cli_json_output() {
   local stdout_file

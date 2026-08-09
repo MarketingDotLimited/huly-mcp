@@ -218,23 +218,23 @@ For HTTP header mode, send the same JSON-RPC methods to `/mcp` with `x-huly-url`
 
 ## Full Integration Test Suite
 
-**Coverage**: 800+ tool calls across 22 domains. Self-cleaning: all created entities are deleted at the end of each section. Tools that would leak data (no delete counterpart) are skipped. Run time: ~3 minutes.
+**Coverage**: 800+ tool calls across 22 domains. Self-cleaning: all created entities are deleted at the end of each section. Tools that would leak data (no delete counterpart) are skipped.
 
-**Last verified**: 2026-06-29 — 792 passed, 0 failed, 27 skipped (of 819 total).
+**Last verified**: 2026-08-09 — MCP and packed CLI mirror each passed 1095, failed 0, and skipped 27 (of 1122 total per surface).
 
 ### How to Run
 
 ```bash
 pnpm build
 set -a && source .env.local && set +a
-bash scripts/integration_test_full.sh
+pnpm integration:mcp:full
 ```
 
 The script requires `jq` for JSON parsing.
 
 The script is a native-tool lifecycle suite, not a proxy exposure suite. It selects `HULY_TOOL_MODE=native` by default so the documented command works with the new `auto` default, where unknown or generic clients resolve to proxy mode.
 
-## CLI Integration Test Suite
+## CLI Integration Test Suites
 
 The standalone CLI has its own live integration suite. This is required before publishing `@firfi/huly-cli`, the same way the MCP full suite is required before publishing MCP changes.
 
@@ -243,11 +243,18 @@ pnpm build
 pnpm verify-cli-integration-coverage
 set -a && source .env.local && set +a
 HULY_URL="${HULY_URL/localhost/host.docker.internal}" pnpm integration:cli
+HULY_URL="${HULY_URL/localhost/host.docker.internal}" pnpm integration:cli:full
 ```
 
-`scripts/integration_test_cli.sh` exercises the built CLI binary directly, not MCP JSON-RPC. It verifies JSON output and self-cleaning CLI lifecycles for projects, teamspaces, issues, comments, documents, attachments, and search, plus broad read-only coverage across activity, boards, channels, contacts, notifications, spaces, templates, calendar, cards, drive, inventory, leads, planner, recruiting, tests, office, associations, custom fields, processes, user statuses, and workspace info.
+Both CLI suites build, pack, and install `@firfi/huly-cli` into a temporary project before invoking it; they do not exercise the source tree as a substitute for the published artifact.
 
-`pnpm verify-cli-integration-coverage` is the drift gate. It parses live tool names from `cover_cli_json` / `capture_cli_json` calls in `scripts/integration_test_cli.sh` and compares them with the CLI catalog plus `scripts/cli-integration-deferred-tools.txt`. Any new CLI command must be added to the live CLI integration suite or explicitly deferred in that ledger. Stale covered/deferred names, duplicate deferred names, and commands listed in both places fail the check.
+`scripts/integration_test_cli.sh` is the focused CLI adapter and safety suite. It verifies native argument parsing, output conventions, confirmation boundaries, representative risks, and self-cleaning lifecycles.
+
+`scripts/integration_test_cli_full.sh` runs the same lifecycle program, fixtures, tool payloads, result assertions, and cleanup as `scripts/integration_test_full.sh`, but routes every `tools/call` through the installed CLI command catalog. The adapter normalizes CLI JSON, warnings, errors, and image files into the MCP result envelope consumed by the shared assertions. This makes a passing MCP run and a passing full CLI run direct behavioral evidence for the same tested operations, rather than two independently maintained approximations.
+
+MCP resource discovery and `huly://` resource reads are protocol-only. The CLI mirror explicitly substitutes native command discovery plus `list_projects`, `get_project`, and `get_issue`; it does not claim that MCP resources are CLI commands.
+
+`pnpm verify-cli-integration-coverage` is the static drift gate for the focused suite's reviewed live risk decisions. The full mirror additionally exposes `--list-tool-cases` on both entrypoints, and its unit contract requires identical inventories (currently more than 700 invocations across more than 400 unique tools).
 
 `scripts/local_release.sh` reruns `pnpm verify-cli-integration-coverage` when the CLI package needs publishing, but it intentionally does not depend on a live Huly workspace. Run this live CLI suite on the clean release-candidate commit immediately before publishing; after it passes, `pnpm local-release` remains the single version-and-publish command.
 

@@ -3,6 +3,7 @@ import { Console, Schema } from "effect"
 
 import { SupportedAttachmentImageTypeSchema } from "../../../src/domain/schemas/attachments.js"
 import { Count } from "../../../src/domain/schemas/shared.js"
+import { ToolWarningSchema } from "../../../src/domain/schemas/tool-warnings.js"
 import type { ToolOperationSuccess } from "../../../src/mcp/tools/registry.js"
 import type { CliGlobalOptions } from "./cli-options.js"
 
@@ -99,6 +100,21 @@ const CliImageDescriptorSchema = Schema.Struct({
   encoding: Schema.Literal("base64"),
   base64Length: Count
 })
+const CliJsonImageResultSchema = Schema.Struct({ result: Schema.Unknown, image: CliImageDescriptorSchema })
+const CliJsonWarningResultSchema = Schema.Struct({
+  result: Schema.Unknown,
+  warnings: Schema.NonEmptyArray(ToolWarningSchema)
+})
+const CliJsonImageWarningResultSchema = Schema.Struct({
+  result: Schema.Unknown,
+  image: CliImageDescriptorSchema,
+  warnings: Schema.NonEmptyArray(ToolWarningSchema)
+})
+export const CliJsonWrappedResultSchema = Schema.Union(
+  CliJsonImageWarningResultSchema,
+  CliJsonImageResultSchema,
+  CliJsonWarningResultSchema
+)
 
 const imageDescriptor = (image: NonNullable<ToolOperationSuccess["image"]>) =>
   Schema.encodeSync(CliImageDescriptorSchema)({
@@ -109,17 +125,15 @@ const imageDescriptor = (image: NonNullable<ToolOperationSuccess["image"]>) =>
 
 export const renderOperationResult = (success: ToolOperationSuccess, globals: CliGlobalOptions): string => {
   if (globals.json) {
-    return JSON.stringify(
+    const jsonOutput =
       success.warnings.length === 0 && success.image === undefined
         ? success.result
-        : {
+        : Schema.decodeUnknownSync(CliJsonWrappedResultSchema)({
             result: success.result,
             ...(success.image === undefined ? {} : { image: imageDescriptor(success.image) }),
             ...(success.warnings.length === 0 ? {} : { warnings: success.warnings })
-          },
-      null,
-      JSON_INDENT_SPACES
-    )
+          })
+    return JSON.stringify(jsonOutput, null, JSON_INDENT_SPACES)
   }
   const output = renderHuman(success.result)
   const withImage =

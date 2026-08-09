@@ -8,12 +8,18 @@ set -o pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$SCRIPT_DIR"
 
+if [ "${1:-}" = "--list-tool-cases" ]; then
+  exec node scripts/run-bundled.mjs scripts/list-full-integration-cases.ts \
+    scripts/integration_test_full.sh mcp bundled-mcp
+fi
+
 if ! command -v jq &>/dev/null; then
   echo "ERROR: jq is required but not found"
   exit 1
 fi
 
 INTEGRATION_TRANSPORT="${INTEGRATION_TRANSPORT:-stdio}"
+INTEGRATION_SURFACE="${INTEGRATION_SURFACE:-mcp}"
 INTEGRATION_HTTP_CONFIG="${INTEGRATION_HTTP_CONFIG:-env}"
 INTEGRATION_HTTP_HOST="${INTEGRATION_HTTP_HOST:-127.0.0.1}"
 INTEGRATION_HTTP_PORT="${INTEGRATION_HTTP_PORT:-19888}"
@@ -73,6 +79,19 @@ SPACE_ROLE_CREATED_CLEANUP_ROLE=""
 
 if [ -z "$HULY_URL" ]; then
   echo "ERROR: HULY_URL not set. Run: set -a && source .env.local && set +a"
+  exit 1
+fi
+
+if [ "$INTEGRATION_SURFACE" != "mcp" ] && [ "$INTEGRATION_SURFACE" != "cli" ]; then
+  echo "ERROR: INTEGRATION_SURFACE must be 'mcp' or 'cli'"
+  exit 1
+fi
+
+if [ "$INTEGRATION_SURFACE" = "cli" ] \
+  && { [ -z "${HULY_CLI_INTEGRATION_EXECUTABLE:-}" ] \
+    || [ -z "${HULY_CLI_MIRROR_ADAPTER:-}" ] \
+    || [ -z "${HULY_CLI_MIRROR_IMAGE_PATH:-}" ]; }; then
+  echo "ERROR: CLI integration surface requires its executable, adapter, and image output path."
   exit 1
 fi
 
@@ -585,7 +604,7 @@ start_http_transport() {
 
 restart_http_transport_if_needed() {
   local reason="$1"
-  if [ "$INTEGRATION_TRANSPORT" != "http" ]; then
+  if [ "$INTEGRATION_SURFACE" != "mcp" ] || [ "$INTEGRATION_TRANSPORT" != "http" ]; then
     return 0
   fi
   echo "Restarting HTTP integration transport ($reason)"
@@ -632,16 +651,26 @@ call_tool_http() {
   extract_http_json_response "$response" | grep '"id":2'
 }
 
+call_tool_cli() {
+  local payload="$1"
+  timeout "$TOOL_TIMEOUT" node "$HULY_CLI_MIRROR_ADAPTER" \
+    "$HULY_CLI_INTEGRATION_EXECUTABLE" \
+    "$payload" \
+    "$HULY_CLI_MIRROR_IMAGE_PATH"
+}
+
 call_tool() {
   local payload="$1"
-  if [ "$INTEGRATION_TRANSPORT" = "http" ]; then
+  if [ "$INTEGRATION_SURFACE" = "cli" ]; then
+    call_tool_cli "$payload"
+  elif [ "$INTEGRATION_TRANSPORT" = "http" ]; then
     call_tool_http "$payload"
   else
     call_tool_stdio "$payload"
   fi
 }
 
-if [ "$INTEGRATION_TRANSPORT" = "http" ]; then
+if [ "$INTEGRATION_SURFACE" = "mcp" ] && [ "$INTEGRATION_TRANSPORT" = "http" ]; then
   start_http_transport || exit 1
 fi
 
@@ -807,7 +836,7 @@ fail_test() {
 }
 
 verify_http_tool_discovery() {
-  if [ "$INTEGRATION_TRANSPORT" != "http" ]; then
+  if [ "$INTEGRATION_SURFACE" != "mcp" ] || [ "$INTEGRATION_TRANSPORT" != "http" ]; then
     return 0
   fi
 
@@ -1258,7 +1287,7 @@ fi
 
 echo "========================================="
 echo "  Full Integration Test Suite"
-echo "  Project: $PROJECT | URL: $HULY_URL"
+echo "  Surface: $INTEGRATION_SURFACE | Project: $PROJECT | URL: $HULY_URL"
 echo "========================================="
 echo ""
 
@@ -1312,17 +1341,31 @@ echo ""
 ##############################
 # 1r. MCP RESOURCES
 ##############################
-echo "=== 1r. MCP Resources ==="
-run_test "resources/templates/list" \
-  '{"jsonrpc":"2.0","method":"resources/templates/list","id":2}'
-RESOURCE_LIST_JSON=""
-if run_result_to_var RESOURCE_LIST_JSON "resources/list(projects)" \
-  '{"jsonrpc":"2.0","method":"resources/list","id":2}'; then
-  assert_json_field_equals "resources/list includes project($PROJECT)" "$RESOURCE_LIST_JSON" \
-    ".resources[]? | select(.uri == \"huly://projects/$PROJECT\") | .name" "$PROJECT"
+if [ "$INTEGRATION_SURFACE" = "mcp" ]; then
+  echo "=== 1r. MCP Resources ==="
+  run_test "resources/templates/list" \
+    '{"jsonrpc":"2.0","method":"resources/templates/list","id":2}'
+  RESOURCE_LIST_JSON=""
+  if run_result_to_var RESOURCE_LIST_JSON "resources/list(projects)" \
+    '{"jsonrpc":"2.0","method":"resources/list","id":2}'; then
+    assert_json_field_equals "resources/list includes project($PROJECT)" "$RESOURCE_LIST_JSON" \
+      ".resources[]? | select(.uri == \"huly://projects/$PROJECT\") | .name" "$PROJECT"
+  fi
+  run_test "resources/read project($PROJECT)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"resources/read\",\"params\":{\"uri\":\"huly://projects/$PROJECT\"},\"id\":2}"
+else
+  echo "=== 1r. CLI Resource Equivalents ==="
+  run_shell_test "CLI command discovery (resources/templates/list equivalent)" \
+    "$HULY_CLI_INTEGRATION_EXECUTABLE" --help
+  RESOURCE_LIST_JSON=""
+  if run_result_to_var RESOURCE_LIST_JSON "list_projects (resources/list equivalent)" \
+    '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_projects","arguments":{}},"id":2}'; then
+    assert_json_field_equals "list_projects includes project($PROJECT)" "$RESOURCE_LIST_JSON" \
+      ".content[0].text | fromjson | .projects[]? | select(.identifier == \"$PROJECT\") | .identifier" "$PROJECT"
+  fi
+  run_test "get_project($PROJECT) (resources/read equivalent)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_project\",\"arguments\":{\"project\":\"$PROJECT\"}},\"id\":2}"
 fi
-run_test "resources/read project($PROJECT)" \
-  "{\"jsonrpc\":\"2.0\",\"method\":\"resources/read\",\"params\":{\"uri\":\"huly://projects/$PROJECT\"},\"id\":2}"
 echo ""
 
 ##############################
@@ -2593,8 +2636,13 @@ if [ $? -eq 0 ]; then
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"isTopLevel\":true,\"limit\":200}},\"id\":2}" \
     "map(.identifier)" "$ISSUE_ID"
 
-  run_test "resources/read issue($ISSUE_ID)" \
-    "{\"jsonrpc\":\"2.0\",\"method\":\"resources/read\",\"params\":{\"uri\":\"huly://issues/$ISSUE_ID\"},\"id\":2}"
+  if [ "$INTEGRATION_SURFACE" = "mcp" ]; then
+    run_test "resources/read issue($ISSUE_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"resources/read\",\"params\":{\"uri\":\"huly://issues/$ISSUE_ID\"},\"id\":2}"
+  else
+    run_test "get_issue($ISSUE_ID) (resources/read equivalent)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\"}},\"id\":2}"
+  fi
 
   run_capture_to_var LIST_ISSUES_TEXT "list_issues" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"titleSearch\":$ISSUE_TITLE_JSON,\"limit\":10}},\"id\":2}"
