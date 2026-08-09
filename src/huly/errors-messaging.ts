@@ -5,7 +5,7 @@
  */
 import { Schema } from "effect"
 
-import { AttachmentId, Count, NonEmptyString } from "../domain/schemas/shared.js"
+import { AttachmentId, ChannelIdentifier, Count, NonEmptyString } from "../domain/schemas/shared.js"
 
 const MIN_AMBIGUOUS_DM_MATCHES = 2
 const AmbiguousMatchCount = Count.pipe(Schema.greaterThanOrEqualTo(MIN_AMBIGUOUS_DM_MATCHES))
@@ -18,6 +18,18 @@ export class ChannelNotFoundError extends Schema.TaggedError<ChannelNotFoundErro
 }) {
   override get message(): string {
     return `Channel '${this.identifier}' not found`
+  }
+}
+
+/**
+ * Telegram contact-channel value resolves to more than one channel.
+ */
+export class TelegramChannelIdentifierAmbiguousError extends Schema.TaggedError<TelegramChannelIdentifierAmbiguousError>()(
+  "TelegramChannelIdentifierAmbiguousError",
+  { identifier: ChannelIdentifier, matches: AmbiguousMatchCount }
+) {
+  override get message(): string {
+    return `Telegram channel '${this.identifier}' is ambiguous (${this.matches} matches); use the stable contact-channel ID`
   }
 }
 

@@ -13,6 +13,7 @@ import {
 import {
   AssociationId,
   CardId,
+  ChannelIdentifier,
   Count,
   DocId,
   IssueIdentifier,
@@ -81,7 +82,8 @@ import {
   SpaceRoleNotFoundError,
   TagCategoryNotFoundError,
   TagIdentifierAmbiguousError,
-  TagNotFoundError
+  TagNotFoundError,
+  TelegramChannelIdentifierAmbiguousError
 } from "../../src/huly/errors.js"
 import { normalizeHulyOrigin } from "../../src/huly/unavailable-diagnostics.js"
 import {
@@ -123,6 +125,21 @@ describe("Error Mapping to MCP", () => {
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
           expect(assertAt(response.content, 0).text).toBe("Project 'MISSING' not found")
+        })
+      )
+
+      it.effect("maps ambiguous Telegram channel values to invalid params", () =>
+        Effect.sync(function () {
+          const error = new TelegramChannelIdentifierAmbiguousError({
+            identifier: ChannelIdentifier.make("@ops"),
+            matches: Count.make(2)
+          })
+          const response = mapDomainErrorToMcp(error)
+
+          expect(response.isError).toBe(true)
+          expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
+          expect(response._meta.errorTag).toBe("TelegramChannelIdentifierAmbiguousError")
+          expect(assertAt(response.content, 0).text).toContain("use the stable contact-channel ID")
         })
       )
 
