@@ -17,7 +17,8 @@ import {
 import {
   cliIntegrationCoverageDecision,
   CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS,
-  CLI_REVIEWED_COVERAGE_CATEGORIES
+  CLI_REVIEWED_COVERAGE_CATEGORIES,
+  CLI_UNIQUE_RISK_DECISIONS
 } from "../../packages/huly-cli/src/live-coverage.js"
 import {
   collectFieldSpecs,
@@ -57,12 +58,27 @@ describe("CLI catalog", () => {
     const decisions = allTools.map((tool) => cliIntegrationCoverageDecision(tool.name, tool.category))
 
     expect(allTools).toHaveLength(CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS)
-    expect([...categories].filter((category) => !CLI_REVIEWED_COVERAGE_CATEGORIES.includes(category))).toEqual([])
+    expect(
+      [...categories].filter(
+        (category) => !CLI_REVIEWED_COVERAGE_CATEGORIES.some((candidate) => candidate === category)
+      )
+    ).toEqual([])
     expect(decisions).toHaveLength(allTools.length)
     expect(decisions.filter((decision) => decision.risks.length > 0 && decision.type !== "dedicated-live")).toEqual([])
     expect([...new Set(decisions.flatMap((decision) => decision.risks))].sort()).toEqual(
       [...CLI_DEDICATED_LIVE_RISK_CLASSES].sort()
     )
+    for (const riskDecision of CLI_UNIQUE_RISK_DECISIONS) {
+      for (const toolName of riskDecision.tools) {
+        const tool = allTools.find((candidate) => candidate.name === toolName)
+        if (tool === undefined) throw new Error(`Unknown unique-risk tool ${toolName}.`)
+        expect(cliIntegrationCoverageDecision(toolName, tool.category)).toMatchObject({
+          type: "dedicated-live",
+          caseIds: expect.arrayContaining([riskDecision.caseId]),
+          risks: expect.arrayContaining([...riskDecision.risks])
+        })
+      }
+    }
     expect(() => cliIntegrationCoverageDecision("list_projects", "new-unreviewed-category")).toThrow(
       "risk classification is missing category"
     )

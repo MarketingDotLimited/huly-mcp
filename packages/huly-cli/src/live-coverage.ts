@@ -22,60 +22,57 @@ export type CliIntegrationCoverageDecision =
 
 export const CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS = 522
 
-const CLI_REVIEWED_CATEGORY_POTENTIAL_RISKS = [
-  ["activity", []],
-  ["approvals", []],
-  ["associations", []],
-  ["attachments", ["transport"]],
-  ["boards", []],
-  ["calendar", ["lifecycle"]],
-  ["cards", []],
-  ["channels", ["privacy"]],
-  ["collaborators", []],
-  ["comments", []],
-  ["contacts", ["privacy"]],
-  ["custom-fields", []],
-  ["documents", []],
-  ["drive", []],
-  ["inventory", []],
-  ["issues", []],
-  ["labels", []],
-  ["leads", ["privacy"]],
-  ["mail", ["privacy"]],
-  ["milestones", []],
-  ["model-administration", []],
-  ["notifications", ["privacy"]],
-  ["planner", []],
-  ["preferences", ["privacy"]],
-  ["processes", ["lifecycle"]],
-  ["projects", []],
-  ["recruiting", ["privacy"]],
-  ["sdk-discovery", []],
-  ["search", []],
-  ["security-administration", ["privacy"]],
-  ["sequence-administration", []],
-  ["spaces", []],
-  ["storage", ["transport"]],
-  ["support", ["privacy"]],
-  ["tag-categories", []],
-  ["tags", []],
-  ["task-management", []],
-  ["templates", []],
-  ["test-management", []],
-  ["time tracking", ["lifecycle"]],
-  ["user-statuses", ["privacy"]],
-  ["views", []],
-  ["virtual-office", ["privacy"]],
-  ["workbench", ["privacy"]],
-  ["workflow-statuses", []],
-  ["workspace", ["lifecycle", "workspace-client"]]
-] as const satisfies ReadonlyArray<readonly [string, ReadonlyArray<CliDedicatedLiveRiskClass>]>
-
-export const CLI_REVIEWED_COVERAGE_CATEGORIES = CLI_REVIEWED_CATEGORY_POTENTIAL_RISKS.map(([category]) => category)
+export const CLI_REVIEWED_COVERAGE_CATEGORIES = [
+  "activity",
+  "approvals",
+  "associations",
+  "attachments",
+  "boards",
+  "calendar",
+  "cards",
+  "channels",
+  "collaborators",
+  "comments",
+  "contacts",
+  "custom-fields",
+  "documents",
+  "drive",
+  "inventory",
+  "issues",
+  "labels",
+  "leads",
+  "mail",
+  "milestones",
+  "model-administration",
+  "notifications",
+  "planner",
+  "preferences",
+  "processes",
+  "projects",
+  "recruiting",
+  "sdk-discovery",
+  "search",
+  "security-administration",
+  "sequence-administration",
+  "spaces",
+  "storage",
+  "support",
+  "tag-categories",
+  "tags",
+  "task-management",
+  "templates",
+  "test-management",
+  "time tracking",
+  "user-statuses",
+  "views",
+  "virtual-office",
+  "workbench",
+  "workflow-statuses",
+  "workspace"
+] as const
 
 const assertReviewedCategory = (category: string): void => {
-  const reviewed = CLI_REVIEWED_CATEGORY_POTENTIAL_RISKS.find(([candidate]) => candidate === category)
-  if (reviewed === undefined) {
+  if (!CLI_REVIEWED_COVERAGE_CATEGORIES.some((candidate) => candidate === category)) {
     throw new Error(`CLI integration risk classification is missing category '${category}'.`)
   }
 }
@@ -129,14 +126,57 @@ export const CLI_LIVE_COVERAGE_CASES: ReadonlyArray<CliLiveCoverageCase> = [
   { id: "mail-thread-privacy", tools: ["list_mail_threads"], behaviors: [], risks: ["privacy"] }
 ]
 
+interface CliUniqueRiskDecision {
+  readonly caseId: string
+  readonly risks: ReadonlyArray<CliDedicatedLiveRiskClass>
+  readonly tools: ReadonlyArray<McpToolName>
+}
+
+export const CLI_UNIQUE_RISK_DECISIONS: ReadonlyArray<CliUniqueRiskDecision> = [
+  { caseId: "structured-calendar-lifecycle", tools: ["create_event", "delete_event"], risks: ["lifecycle"] },
+  {
+    caseId: "nullable-drawing-lifecycle",
+    tools: ["create_drawing", "update_drawing", "delete_drawing"],
+    risks: ["lifecycle"]
+  },
+  { caseId: "raw-upload", tools: ["add_attachment"], risks: ["transport"] },
+  { caseId: "binary-download", tools: ["download_attachment"], risks: ["transport"] },
+  { caseId: "image-output", tools: ["read_attachment_content"], risks: ["transport"] },
+  { caseId: "agent-warning", tools: ["list_workbench_applications"], risks: ["privacy"] },
+  {
+    caseId: "consequential-refusals",
+    tools: [
+      "create_workspace",
+      "update_member_role",
+      "approve_approval_request",
+      "add_space_members",
+      "start_process",
+      "mark_all_notifications_read"
+    ],
+    risks: ["safety"]
+  },
+  { caseId: "workspace-client-read", tools: ["get_workspace_info"], risks: ["workspace-client"] },
+  { caseId: "caller-private-status", tools: ["get_support_status"], risks: ["privacy"] },
+  { caseId: "external-channel-privacy", tools: ["list_external_channel_messages"], risks: ["privacy"] },
+  { caseId: "mail-thread-privacy", tools: ["list_mail_threads"], risks: ["privacy"] }
+]
+
+const uniqueRisksFor = (toolName: McpToolName): ReadonlyArray<CliDedicatedLiveRiskClass> => [
+  ...new Set(
+    CLI_UNIQUE_RISK_DECISIONS.filter((decision) => decision.tools.includes(toolName)).flatMap(
+      (decision) => decision.risks
+    )
+  )
+]
+
 export const cliIntegrationCoverageDecision = (
   toolName: McpToolName,
   category: string
 ): CliIntegrationCoverageDecision => {
   assertReviewedCategory(category)
   const cases = CLI_LIVE_COVERAGE_CASES.filter((coverageCase) => coverageCase.tools.includes(toolName))
-  const risks = [...new Set(cases.flatMap((coverageCase) => coverageCase.risks))]
+  const risks = uniqueRisksFor(toolName)
   return cases.length === 0
-    ? { type: "representative", rationale: "shared-operation-and-adapter-class", risks: [] }
+    ? { type: "representative", rationale: "shared-operation-and-adapter-class", risks }
     : { type: "dedicated-live", caseIds: cases.map((coverageCase) => coverageCase.id), risks }
 }

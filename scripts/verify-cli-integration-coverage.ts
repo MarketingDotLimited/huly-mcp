@@ -5,7 +5,8 @@ import {
   cliIntegrationCoverageDecision,
   CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS,
   CLI_LIVE_COVERAGE_CASES,
-  CLI_REVIEWED_COVERAGE_CATEGORIES
+  CLI_REVIEWED_COVERAGE_CATEGORIES,
+  CLI_UNIQUE_RISK_DECISIONS
 } from "../packages/huly-cli/src/live-coverage.js"
 import { CLI_BEHAVIOR_CLASSES, CLI_DEDICATED_LIVE_RISK_CLASSES } from "../packages/huly-cli/src/parity-contract.js"
 import { allTools } from "../src/mcp/tools/index.js"
@@ -55,6 +56,16 @@ const caseToolMismatches = CLI_LIVE_COVERAGE_CASES.flatMap((coverageCase) => {
     ? []
     : [`${coverageCase.id}: expected ${expected.join(", ")}; executed ${execution.tools.join(", ")}`]
 })
+const riskDecisionMismatches = CLI_UNIQUE_RISK_DECISIONS.flatMap((decision) => {
+  const coverageCase = CLI_LIVE_COVERAGE_CASES.find((candidate) => candidate.id === decision.caseId)
+  if (coverageCase === undefined) return [`${decision.caseId}: risk decision has no live case`]
+  const missingTools = decision.tools.filter((tool) => !coverageCase.tools.includes(tool))
+  const missingRisks = decision.risks.filter((risk) => !coverageCase.risks.includes(risk))
+  return [
+    ...(missingTools.length === 0 ? [] : [`${decision.caseId}: live case omits ${missingTools.join(", ")}`]),
+    ...(missingRisks.length === 0 ? [] : [`${decision.caseId}: live case omits ${missingRisks.join(", ")}`])
+  ]
+})
 const coverageDecisions = allTools.map((tool) => cliIntegrationCoverageDecision(tool.name, tool.category))
 const representativeRoutes = coverageDecisions.filter((decision) => decision.type === "representative").length
 const representativeRiskRoutes = coverageDecisions.filter(
@@ -64,7 +75,7 @@ const classifiedRisks = new Set(coverageDecisions.flatMap((decision) => decision
 const unclassifiedRegistryRisks = CLI_DEDICATED_LIVE_RISK_CLASSES.filter((risk) => !classifiedRisks.has(risk))
 const registryCategories = uniqueSorted(allTools.map((tool) => tool.category))
 const unreviewedCategories = registryCategories.filter(
-  (category) => !CLI_REVIEWED_COVERAGE_CATEGORIES.includes(category)
+  (category) => !CLI_REVIEWED_COVERAGE_CATEGORIES.some((candidate) => candidate === category)
 )
 
 const errors = [
@@ -82,6 +93,9 @@ const errors = [
   caseToolMismatches.length === 0
     ? undefined
     : `Live case tool membership differs from the manifest: ${caseToolMismatches.join("; ")}`,
+  riskDecisionMismatches.length === 0
+    ? undefined
+    : `Unique-risk decisions differ from live cases: ${riskDecisionMismatches.join("; ")}`,
   coverageDecisions.length === catalogTools.length ? undefined : "Not every CLI route has a coverage decision.",
   representativeRiskRoutes.length === 0
     ? undefined
