@@ -1,78 +1,206 @@
 # Huly CLI
 
-Command-line frontend for the Huly operations shipped by [`@firfi/huly-mcp`](https://www.npmjs.com/package/@firfi/huly-mcp).
+[![npm](https://img.shields.io/npm/v/@firfi/huly-cli)](https://www.npmjs.com/package/@firfi/huly-cli)
+[![npm downloads](https://img.shields.io/npm/dm/@firfi/huly-cli)](https://www.npmjs.com/package/@firfi/huly-cli)
+[![CI](https://github.com/dearlordylord/huly-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dearlordylord/huly-mcp/actions/workflows/ci.yml)
+[![Package smoke](https://github.com/dearlordylord/huly-mcp/actions/workflows/package-smoke.yml/badge.svg)](https://github.com/dearlordylord/huly-mcp/actions/workflows/package-smoke.yml)
+[![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-The CLI uses the same schema-owned operation registry as the MCP server. It does not proxy through MCP, JSON-RPC, or `tools/call`.
+**Huly CLI** is a feature-complete command-line interface for [Huly](https://huly.io/), with full Huly operation parity with [`@firfi/huly-mcp`](https://www.npmjs.com/package/@firfi/huly-mcp). Every shared Huly operation is available as a native, schema-aware command.
+
+Use readable terminal output interactively or `--json` in scripts and coding-agent workflows. The CLI invokes the shared operation registry directly: it does not start an MCP server or translate commands through JSON-RPC.
+
+> [!IMPORTANT]
+> **Hosted Huly is being discontinued.** If you use `https://huly.app`, [export and migrate your data](https://github.com/hcengineering/platform/blob/develop/README.md). See Huly's [backup and restore guide](https://github.com/hcengineering/platform/blob/develop/docs/guides/backup-restore.en.md) and [self-hosting repository](https://github.com/hcengineering/huly-selfhost). Self-hosted deployments are not affected.
+
+## Highlights
+
+- Full operation parity with Huly MCP, enforced against the shared operation registry.
+- Native commands for projects, issues, documents, chat, calendar, time tracking, workspace administration, and more.
+- Generated, schema-aware command help with clear flags and named positionals.
+- Human-readable output for interactive use and structured JSON output for automation.
+- JSON, file-backed text, upload, download, and binary/image workflows.
+- Typed errors, visible warnings, and explicit `--yes` confirmation for consequential operations.
 
 ## Installation
 
+Requires Node.js 20 or later.
+
+Run without installing:
+
 ```bash
+pnpm dlx @firfi/huly-cli@latest --help
+# or, with the npm package runner
 npx -y @firfi/huly-cli@latest --help
 ```
 
-Or install it globally:
+Or install the `huly` command globally:
 
 ```bash
-npm install -g @firfi/huly-cli
+pnpm add --global @firfi/huly-cli
+
 huly --help
 ```
 
-## Configuration
+## Quick start
 
-The CLI reads the same Huly environment variables as the MCP server:
-
-> **Hosted Huly is shutting down.** If you use `https://huly.app`, follow Huly's [migration announcement](https://github.com/hcengineering/platform/blob/develop/README.md), [backup and restore guide](https://github.com/hcengineering/platform/blob/develop/docs/guides/backup-restore.en.md), and [self-hosting instructions](https://github.com/hcengineering/huly-selfhost). Self-hosted deployments are not affected.
+Configure a reachable Huly deployment and run a command:
 
 ```bash
 export HULY_URL=https://your-huly-instance.example.com
 export HULY_WORKSPACE=yourworkspace
 export HULY_EMAIL=your@email.com
 export HULY_PASSWORD=yourpassword
+
+huly projects list
 ```
 
-You can use `HULY_TOKEN` instead of `HULY_EMAIL` and `HULY_PASSWORD`. `HULY_CONNECTION_TIMEOUT` is also supported.
+Use `HULY_TOKEN` instead of `HULY_EMAIL` and `HULY_PASSWORD` when your deployment provides an API token.
 
-Aggregate CLI analytics are enabled by default and can be disabled with:
+## Configuration
+
+The CLI reads the same Huly connection settings as the MCP server.
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `HULY_URL` | Yes | Reachable self-hosted or replacement hosted Huly instance URL. |
+| `HULY_WORKSPACE` | Yes | Workspace identifier. |
+| `HULY_EMAIL` | Auth* | Account email. |
+| `HULY_PASSWORD` | Auth* | Account password. |
+| `HULY_TOKEN` | Auth* | API token; use instead of email/password. |
+| `HULY_CONNECTION_TIMEOUT` | No | Connection timeout in milliseconds. |
+
+*Auth: provide either `HULY_EMAIL` and `HULY_PASSWORD`, or `HULY_TOKEN`.
+
+## Usage
+
+Run `huly --help` for the generated command tree and append `--help` to any command for its schema-derived inputs.
+
+```bash
+huly projects list
+huly issues get PROJ 123 --json
+huly issues create --project PROJ --title "Fix login flow" --description-file ./body.md
+huly comments delete --project PROJ --issue-identifier 123 --comment-id 0123456789abcdef --yes
+huly attachments download 0123456789abcdef --output ./attachment.bin
+huly search "customer import"
+```
+
+### JSON and automation
+
+Every command supports `--json`, `--input-json '<object>'`, and `--input-file path/to/input.json`. JSON sources make nested objects, arrays, unions, and explicit `null` available without awkward shell syntax.
+
+```bash
+# Inspect structured output.
+huly projects list --json | jq '.projects[] | {identifier, name}'
+
+# Supply a complete operation input from a file.
+huly issues create --input-file ./new-issue.json --json
+
+# Override fields from JSON with explicit flags.
+huly issues create \
+  --input-json '{"project":"PROJ","title":"Draft title"}' \
+  --title "Final title" \
+  --json
+```
+
+Inputs are merged from lowest to highest precedence: JSON sources in command-line order, named positionals, explicit field flags, then file-backed field flags.
+
+### Files and binary output
+
+Text inputs can be read from files with command-specific flags such as `--description-file`. Upload commands accept their documented path, URL, or base64 sources. Commands that return supported attachment or image bytes can write them with `--output`.
+
+```bash
+huly issues create --project PROJ --title "Release notes" --description-file ./release-notes.md
+huly attachments download 0123456789abcdef --output ./attachment.bin
+```
+
+### Consequential operations
+
+Commands that delete data, change access, or perform other consequential actions require `--yes`. The CLI refuses them before creating a Huly client when confirmation is absent.
+
+```bash
+huly comments delete --project PROJ --issue-identifier 123 --comment-id 0123456789abcdef --yes
+```
+
+## Capability overview
+
+| Area | Examples |
+| --- | --- |
+| Planning and delivery | Projects, issues, milestones, components, time tracking, test management, processes. |
+| Documents and storage | Teamspaces, documents, snapshots, Drive, attachments, drawings, templates. |
+| Collaboration | Channels, direct messages, comments, activity, notifications, approvals, virtual office. |
+| Business workflows | Boards, cards, inventory, leads, recruiting, support, mail, calendar. |
+| People and workspace | Contacts, collaborators, workspace members, profiles, preferences, user statuses. |
+| Administration | Spaces, labels, tags, custom fields, workflows, permissions, sequences, SDK discovery. |
+
+## Full operation parity
+
+The CLI exposes exactly one native command for every operation in the shared Huly operation registry. Inputs, outputs, warnings, and typed failures therefore stay aligned with Huly MCP, and parity drift fails the project quality gate.
+
+“Full operation parity” describes Huly capabilities rather than MCP protocol mechanics. The CLI provides native command-line equivalents where presentation differs:
+
+- generated root and command help instead of MCP tool discovery;
+- flags, named positionals, and JSON/file inputs instead of JSON-RPC arguments;
+- terminal or JSON output instead of MCP content envelopes;
+- file output and safe metadata for supported attachment and image bytes; and
+- terminal warning sections or JSON `warnings` for agent-visible diagnostics.
+
+MCP resources, prompts, proxy discovery, toolset filtering, and transport negotiation remain server-only protocol features; they are not missing Huly operations.
+
+## Output, warnings, and exit status
+
+Successful commands write their result to stdout and exit with status 0. Without `--json`, the CLI renders readable summaries and tables. With `--json`, it writes one structured JSON value suitable for further processing.
+
+Operation warnings are part of a successful result. Human-readable output appends a `Warnings:` section to stdout; JSON output includes `warnings` alongside `result`. Errors—including invalid input, missing `--yes` confirmation, authentication failures, connection failures, and failed operations—are written to stderr and produce a non-zero exit status.
+
+## Telemetry
+
+Aggregate CLI analytics are enabled by default. Disable them with:
 
 ```bash
 export HULY_CLI_TELEMETRY=0
 ```
 
-The CLI uses the same PostHog project as `@firfi/huly-mcp`, but events are tagged with `surface=cli` and `package_name=@firfi/huly-cli` so CLI and MCP usage can be separated. Set `HULY_CLI_TELEMETRY_DEBUG=1` to print telemetry debug logs.
+The CLI uses the same PostHog project as `@firfi/huly-mcp`, with `surface=cli` and `package_name=@firfi/huly-cli` tags so the two surfaces can be measured separately. Set `HULY_CLI_TELEMETRY_DEBUG=1` to print telemetry diagnostics to stderr.
 
-## Usage
+## Updating
 
-Every command supports `--json`, `--input-json '<object>'`, and `--input-file path/to/input.json`. Explicit command-line flags override JSON/file input.
+`@latest` asks the package runner for the newest published release:
 
 ```bash
-huly projects list
-huly projects list --json
-huly issues get PROJ 123 --json
-huly issues create --project PROJ --title "Fix login flow" --description-file ./body.md
-huly comments delete --comment-id 0123456789abcdef --yes
-huly attachments download 0123456789abcdef --output ./attachment.bin
-huly search "customer import"
+pnpm dlx @firfi/huly-cli@latest --help
 ```
 
-Run `huly --help` for the generated command tree.
+For a global installation, rerun the install command with `@latest`:
 
-## Parity boundary
+```bash
+pnpm add --global @firfi/huly-cli@latest
+```
 
-This release exposes exactly one native CLI command for each of the 522 shared Huly operations. The CLI calls the shared operation registry directly, so operation inputs, outputs, warnings, and typed failures stay aligned with the MCP server.
+## Troubleshooting
 
-MCP protocol mechanics are outside that operation count. The CLI uses native equivalents:
+- Run `huly <command> --help` to inspect the exact accepted flags, positionals, alternatives, and defaults.
+- Use `--json` when another program consumes stdout; successful operation warnings remain part of that structured output, while errors are written to stderr.
+- If authentication fails, verify that `HULY_URL` is reachable and provide either token auth or the complete email/password pair.
+- Quote shell-sensitive environment values, especially passwords containing characters such as `*`, `%`, `!`, or `#`.
+- Increase `HULY_CONNECTION_TIMEOUT` when a self-hosted deployment needs more time to connect.
 
-- generated root and command help instead of MCP tool discovery;
-- flags, named positionals, `--input-json`, and `--input-file` instead of JSON-RPC arguments;
-- human-readable terminal output or `--json` instead of MCP content envelopes;
-- `--output` for supported attachment and image bytes, with safe image metadata in terminal/JSON output; and
-- terminal warning sections (or JSON `warnings`) for agent-visible diagnostics.
+## Project
 
-MCP resource templates, proxy discovery, toolset filtering, and transport negotiation remain server-only protocol features; they are not missing Huly operations. Consequential commands require `--yes` before a Huly client is created.
+- [Source code](https://github.com/dearlordylord/huly-mcp/tree/master/packages/huly-cli)
+- [Issue tracker](https://github.com/dearlordylord/huly-mcp/issues)
+- [Changelog](https://github.com/dearlordylord/huly-mcp/blob/master/packages/huly-cli/CHANGELOG.md)
+- [MIT license](https://github.com/dearlordylord/huly-mcp/blob/master/LICENSE)
+
+<details>
+<summary><strong>Complete generated command reference</strong></summary>
 
 <!-- CLI_COMMAND_REFERENCE_START -->
 <!-- Generated from cliCommandCatalog and shared operation schemas. Run `pnpm update-cli-readme`. -->
 ## Complete command reference
+
+This release provides 522 native commands for 522 shared Huly operations.
 
 All commands also accept `--json`, `--input-json <object>`, and `--input-file <path>`. Explicit field flags override JSON sources. Structured fields accept JSON. Named positionals are required and are not duplicated as flags. Required non-positional inputs may instead be supplied through either JSON source.
 
@@ -601,3 +729,5 @@ All commands also accept `--json`, `--input-json <object>`, and `--input-file <p
 | `huly workspace profile update` | Update the current user's profile; pass null to clear nullable fields Requires `--yes`. | — | — | `--bio <value>` — Bio text (null to clear) Type: string. Choose one input alternative: { bio } \| { city } \| { country } \| { website } \| { socialLinks } \| { isPublic }. Pass null to clear the field.<br>`--city <value>` — City (null to clear) Type: string. Choose one input alternative: { bio } \| { city } \| { country } \| { website } \| { socialLinks } \| { isPublic }. Pass null to clear the field.<br>`--country <value>` — Country (null to clear) Type: string. Choose one input alternative: { bio } \| { city } \| { country } \| { website } \| { socialLinks } \| { isPublic }. Pass null to clear the field.<br>`--website <value>` — Website URL (null to clear) Type: string. Choose one input alternative: { bio } \| { city } \| { country } \| { website } \| { socialLinks } \| { isPublic }. Pass null to clear the field.<br>`--social-links <value>` — Social links as key-value pairs (null to clear) Type: object. Choose one input alternative: { bio } \| { city } \| { country } \| { website } \| { socialLinks } \| { isPublic }. Pass arrays or objects as JSON. Pass null to clear the field.<br>`--is-public` / `--no-is-public` — Whether profile is public Type: boolean. Choose one input alternative: { bio } \| { city } \| { country } \| { website } \| { socialLinks } \| { isPublic }. |
 | `huly workspace regions get` | Get Regions | — | — | — |
 <!-- CLI_COMMAND_REFERENCE_END -->
+
+</details>
