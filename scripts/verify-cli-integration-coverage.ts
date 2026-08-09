@@ -1,8 +1,14 @@
 import { readFileSync } from "node:fs"
 
-import { cliCommandCatalog, isCliToolName } from "../packages/huly-cli/src/catalog.js"
-import { cliIntegrationCoverageDecision, CLI_LIVE_COVERAGE_CASES } from "../packages/huly-cli/src/live-coverage.js"
+import { cliCommandCatalog } from "../packages/huly-cli/src/catalog.js"
+import {
+  cliIntegrationCoverageDecision,
+  CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS,
+  CLI_LIVE_COVERAGE_CASES,
+  CLI_REVIEWED_COVERAGE_CATEGORIES
+} from "../packages/huly-cli/src/live-coverage.js"
 import { CLI_BEHAVIOR_CLASSES, CLI_DEDICATED_LIVE_RISK_CLASSES } from "../packages/huly-cli/src/parity-contract.js"
+import { allTools } from "../src/mcp/tools/index.js"
 
 const integrationScriptPath = "scripts/integration_test_cli.sh"
 const coveredToolPattern =
@@ -49,11 +55,16 @@ const caseToolMismatches = CLI_LIVE_COVERAGE_CASES.flatMap((coverageCase) => {
     ? []
     : [`${coverageCase.id}: expected ${expected.join(", ")}; executed ${execution.tools.join(", ")}`]
 })
-const coverageDecisions = catalogTools.map((toolName) => {
-  if (!isCliToolName(toolName)) throw new Error(`Unknown catalog tool ${toolName}.`)
-  return cliIntegrationCoverageDecision(toolName)
-})
+const coverageDecisions = allTools.map((tool) =>
+  cliIntegrationCoverageDecision(tool.name, tool.category, cliCommandCatalog[tool.name])
+)
 const representativeRoutes = coverageDecisions.filter((decision) => decision.type === "representative").length
+const classifiedRisks = new Set(coverageDecisions.flatMap((decision) => decision.risks))
+const unclassifiedRegistryRisks = CLI_DEDICATED_LIVE_RISK_CLASSES.filter((risk) => !classifiedRisks.has(risk))
+const registryCategories = uniqueSorted(allTools.map((tool) => tool.category))
+const unreviewedCategories = registryCategories.filter(
+  (category) => !CLI_REVIEWED_COVERAGE_CATEGORIES.includes(category)
+)
 
 const errors = [
   staleCoveredTools.length === 0 ? undefined : `Covered tools not in CLI catalog: ${staleCoveredTools.join(", ")}`,
@@ -70,7 +81,16 @@ const errors = [
   caseToolMismatches.length === 0
     ? undefined
     : `Live case tool membership differs from the manifest: ${caseToolMismatches.join("; ")}`,
-  coverageDecisions.length === catalogTools.length ? undefined : "Not every CLI route has a coverage decision."
+  coverageDecisions.length === catalogTools.length ? undefined : "Not every CLI route has a coverage decision.",
+  allTools.length === CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS
+    ? undefined
+    : `Registry changed from reviewed revision ${String(CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS)} to ${String(allTools.length)}; review every new operation's behavior and risk classification.`,
+  unreviewedCategories.length === 0
+    ? undefined
+    : `CLI coverage risk classification is missing categories: ${unreviewedCategories.join(", ")}`,
+  unclassifiedRegistryRisks.length === 0
+    ? undefined
+    : `No registry operations are classified for CLI risks: ${unclassifiedRegistryRisks.join(", ")}`
 ].filter((message) => message !== undefined)
 
 if (errors.length > 0) {

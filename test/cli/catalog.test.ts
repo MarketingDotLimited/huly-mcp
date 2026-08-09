@@ -13,7 +13,16 @@ import {
   CONSEQUENTIAL_CLI_TOOLS,
   hasExplicitCliConfirmationPolicy
 } from "../../packages/huly-cli/src/safety-policies.js"
-import { collectFieldSpecs, collectRequiredFieldNames } from "../../packages/huly-cli/src/schema-fields.js"
+import {
+  cliIntegrationCoverageDecision,
+  CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS,
+  CLI_REVIEWED_COVERAGE_CATEGORIES
+} from "../../packages/huly-cli/src/live-coverage.js"
+import {
+  collectFieldSpecs,
+  collectRequiredFieldNames,
+  fieldOptionDescription
+} from "../../packages/huly-cli/src/schema-fields.js"
 
 const catalogEntries = () => Object.entries(cliCommandCatalog)
 
@@ -40,6 +49,20 @@ describe("CLI catalog", () => {
     expect(ignoredMcpTools).toEqual([])
     expect(implemented.size).toBe(allTools.length)
     expect(toolNames.filter((name) => !implemented.has(name))).toEqual([])
+  })
+
+  it("requires an explicit integration-risk review when the registry or its categories change", () => {
+    const categories = new Set(allTools.map((tool) => tool.category))
+    const decisions = allTools.map((tool) =>
+      cliIntegrationCoverageDecision(tool.name, tool.category, cliCommandCatalog[tool.name])
+    )
+
+    expect(allTools).toHaveLength(CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS)
+    expect([...categories].filter((category) => !CLI_REVIEWED_COVERAGE_CATEGORIES.includes(category))).toEqual([])
+    expect(decisions).toHaveLength(allTools.length)
+    expect(() =>
+      cliIntegrationCoverageDecision("list_projects", "new-unreviewed-category", cliCommandCatalog.list_projects)
+    ).toThrow("risk classification is missing category")
   })
 
   it("keeps generated CLI command paths unique and non-overlapping", () => {
@@ -137,6 +160,18 @@ describe("CLI catalog", () => {
       expect(description).toContain("canonical base64")
       expect(description).toContain("--data-base64-file")
     }
+  })
+
+  it("derives allowed values and union-field guidance from operation schemas", () => {
+    const createIssue = allTools.find((tool) => tool.name === "create_issue")
+    const setConversationClosed = allTools.find((tool) => tool.name === "set_conversation_closed")
+    if (createIssue === undefined || setConversationClosed === undefined) throw new Error("Missing CLI help fixtures.")
+    const priority = collectFieldSpecs(createIssue.inputSchema).get("priority")
+    const channel = collectFieldSpecs(setConversationClosed.inputSchema).get("channel")
+    if (priority === undefined || channel === undefined) throw new Error("Missing CLI help fixture fields.")
+
+    expect(fieldOptionDescription(createIssue.inputSchema, priority)).toContain('Allowed values: "urgent"')
+    expect(fieldOptionDescription(setConversationClosed.inputSchema, channel)).toContain("{ channel } | { dm }")
   })
 
   it("narrows CLI tool names at runtime", () => {

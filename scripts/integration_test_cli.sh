@@ -153,9 +153,10 @@ cover_cli_failure() {
 cover_cli_confirmed_failure() {
   local tool_name="$1"
   local label="$2"
+  local expected="$3"
   local stdout_file="$TEST_TMPDIR/confirmed-failure-stdout"
   local stderr_file="$TEST_TMPDIR/confirmed-failure-stderr"
-  shift 2
+  shift 3
 
   if timeout 30 "${CLI[@]}" "$@" --yes --json >"$stdout_file" 2>"$stderr_file"; then
     echo "FAIL: $label unexpectedly succeeded [$tool_name]" >&2
@@ -163,6 +164,11 @@ cover_cli_confirmed_failure() {
   fi
   if grep -Fq -- "requires --yes" "$stderr_file"; then
     echo "FAIL: $label did not cross the confirmation boundary [$tool_name]" >&2
+    cat "$stderr_file" >&2
+    return 1
+  fi
+  if ! grep -Fq -- "$expected" "$stderr_file"; then
+    echo "FAIL: $label did not report operation-specific evidence '$expected' [$tool_name]" >&2
     cat "$stderr_file" >&2
     return 1
   fi
@@ -283,11 +289,15 @@ cover_cli_failure "start_process" "process start confirmation" "requires --yes" 
 cover_cli_failure "mark_all_notifications_read" "bulk notification confirmation" "requires --yes" \
   notifications all read
 cover_cli_confirmed_failure "update_member_role" "confirmed workspace role update" \
+  "Failed to update workspace role" \
   workspace members role update "00000000-0000-0000-0000-000000000000" USER
-cover_cli_confirmed_failure "approve_approval_request" "confirmed approval decision" approvals approve "missing-$RUN_ID"
+cover_cli_confirmed_failure "approve_approval_request" "confirmed approval decision" \
+  "Approval request 'missing-$RUN_ID' not found" approvals approve "missing-$RUN_ID"
 cover_cli_confirmed_failure "add_space_members" "confirmed space membership update" \
+  "Space 'missing-$RUN_ID' not found" \
   spaces members add "missing-$RUN_ID" '["missing@example.com"]'
 cover_cli_confirmed_failure "start_process" "confirmed process start" \
+  "Process 'missing-process-$RUN_ID' not found" \
   processes start "missing-process-$RUN_ID" "missing-card-$RUN_ID"
 cover_cli_json "mark_all_notifications_read" "confirmed bulk notification update" notifications all read --yes
 cli_live_case_end "consequential-refusals"

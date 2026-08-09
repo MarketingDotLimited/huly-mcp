@@ -192,32 +192,51 @@ const collectPositionals = (
     return input
   })
 
+const booleanExplicitOptionInput = (
+  option: Extract<ParsedCliOption, { readonly _tag: "BooleanFieldOption" }>,
+  raw: ReadonlyArray<string>,
+  fields: ReadonlyMap<string, FieldSpec>
+): Effect.Effect<Record<string, unknown>, CliInputError> =>
+  Effect.gen(function* () {
+    if (!rawOptionPresent(raw, option.optionName)) return {}
+    const field = fields.get(option.optionName)
+    if (field === undefined) return {}
+    const inlineValue = rawOptionInlineValue(raw, option.optionName)
+    const value = inlineValue === undefined ? option.value : yield* parseBooleanValue(option.fieldName, inlineValue)
+    return { [option.fieldName]: value }
+  })
+
+const fieldExplicitOptionInput = (
+  option: Extract<ParsedCliOption, { readonly _tag: "FieldOption" }>,
+  rootSchema: object,
+  fields: ReadonlyMap<string, FieldSpec>
+): Effect.Effect<Record<string, unknown>, CliInputError> => {
+  const field = fields.get(option.optionName)
+  return field === undefined
+    ? Effect.succeed({})
+    : parseFieldValue(rootSchema, field, option.value).pipe(Effect.map((value) => ({ [option.fieldName]: value })))
+}
+
 const explicitOptionInput = (
   option: ParsedCliOption,
   raw: ReadonlyArray<string>,
   rootSchema: object,
   fields: ReadonlyMap<string, FieldSpec>
-): Effect.Effect<Record<string, unknown>, CliInputError> =>
-  Effect.gen(function* () {
-    if (option._tag === "BooleanFieldOption" && rawOptionPresent(raw, option.optionName)) {
-      const field = fields.get(option.optionName)
-      if (field === undefined) return {}
-      const inlineValue = rawOptionInlineValue(raw, option.optionName)
-      const value = inlineValue === undefined ? option.value : yield* parseBooleanValue(option.fieldName, inlineValue)
-      return { [option.fieldName]: value }
-    }
-    if (option._tag === "FieldOption") {
-      const field = fields.get(option.optionName)
-      return field === undefined ? {} : { [option.fieldName]: yield* parseFieldValue(rootSchema, field, option.value) }
-    }
-    if (option._tag === "FileFieldOption") {
-      return { [option.fieldName]: yield* readTextFile(option.path) }
-    }
-    if (option._tag === "Base64FileFieldOption") {
-      return { [option.fieldName]: yield* readBase64File(option.path) }
-    }
-    return {}
-  })
+): Effect.Effect<Record<string, unknown>, CliInputError> => {
+  switch (option._tag) {
+    case "BooleanFieldOption":
+      return booleanExplicitOptionInput(option, raw, fields)
+    case "FieldOption":
+      return fieldExplicitOptionInput(option, rootSchema, fields)
+    case "FileFieldOption":
+      return readTextFile(option.path).pipe(Effect.map((value) => ({ [option.fieldName]: value })))
+    case "Base64FileFieldOption":
+      return readBase64File(option.path).pipe(Effect.map((value) => ({ [option.fieldName]: value })))
+    case "GlobalBooleanOption":
+    case "GlobalOption":
+      return Effect.succeed({})
+  }
+}
 
 const collectExplicitOptions = (
   parsed: ParsedCliCommandLine,

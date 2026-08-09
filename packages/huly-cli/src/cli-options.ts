@@ -184,8 +184,12 @@ const globalOptions: ReadonlyArray<Options.Options<ReadonlyArray<ParsedCliOption
 const flattenOptions = (parsed: ReadonlyArray<ReadonlyArray<ParsedCliOption>>): ReadonlyArray<ParsedCliOption> =>
   parsed.flat()
 
-export const buildCliCommandConfig = (tool: ToolDefinition, spec: CliCommandSpec) => {
-  const fields = collectFieldSpecs(tool.inputSchema)
+interface BehaviorFieldSets {
+  readonly base64: ReadonlySet<string>
+  readonly text: ReadonlySet<string>
+}
+
+const behaviorFieldSets = (fields: ReadonlyMap<string, FieldSpec>, spec: CliCommandSpec): BehaviorFieldSets => {
   const fileInputFields = new Set(spec.behavior?.fileInput?.fields ?? [])
   const base64FileInputFields = new Set(spec.behavior?.base64FileInput?.fields ?? [])
   const schemaFieldNames = new Set([...fields.values()].map((field) => field.fieldName))
@@ -195,17 +199,10 @@ export const buildCliCommandConfig = (tool: ToolDefinition, spec: CliCommandSpec
   if (unknownBehaviorFields.length > 0) {
     throw new Error(`CLI behavior references unknown schema fields: ${unknownBehaviorFields.join(", ")}.`)
   }
-  const options = Options.all([
-    ...globalOptions,
-    ...fieldOptions(
-      tool.inputSchema,
-      spec,
-      new Map([...fields].filter(([, field]) => !spec.positional.includes(field.fieldName))),
-      fileInputFields,
-      base64FileInputFields
-    )
-  ]).pipe(Options.map(flattenOptions))
+  return { text: fileInputFields, base64: base64FileInputFields }
+}
 
+const positionalArgs = (tool: ToolDefinition, spec: CliCommandSpec, fields: ReadonlyMap<string, FieldSpec>) => {
   const requiredFields = collectRequiredFieldNames(tool.inputSchema)
   const namedPositionals = spec.positional.map((fieldName) => {
     if (!requiredFields.has(fieldName)) {
@@ -217,12 +214,25 @@ export const buildCliCommandConfig = (tool: ToolDefinition, spec: CliCommandSpec
       ? argument
       : argument.pipe(Args.withDescription(cliFieldOptionDescription(spec, tool.inputSchema, field)))
   })
-  const positionals =
-    namedPositionals.length === 0
-      ? Args.none.pipe(Args.map((): ReadonlyArray<string> => []))
-      : Args.all(namedPositionals)
+  return namedPositionals.length === 0
+    ? Args.none.pipe(Args.map((): ReadonlyArray<string> => []))
+    : Args.all(namedPositionals)
+}
 
-  return { options, positionals }
+export const buildCliCommandConfig = (tool: ToolDefinition, spec: CliCommandSpec) => {
+  const fields = collectFieldSpecs(tool.inputSchema)
+  const behaviorFields = behaviorFieldSets(fields, spec)
+  const options = Options.all([
+    ...globalOptions,
+    ...fieldOptions(
+      tool.inputSchema,
+      spec,
+      new Map([...fields].filter(([, field]) => !spec.positional.includes(field.fieldName))),
+      behaviorFields.text,
+      behaviorFields.base64
+    )
+  ]).pipe(Options.map(flattenOptions))
+  return { options, positionals: positionalArgs(tool, spec, fields) }
 }
 
 export const buildGlobalOptionsConfig = () => ({

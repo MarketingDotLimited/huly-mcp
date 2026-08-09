@@ -24,8 +24,10 @@ const report = {
     ignoredOperations: ignoredMcpTools.length,
     directLiveCases: coveredTools.size,
     deferredLiveCases: 0,
-    representativeRoutes: allTools.filter((tool) => cliIntegrationCoverageDecision(tool.name).type === "representative")
-      .length
+    representativeRoutes: allTools.filter(
+      (tool) =>
+        cliIntegrationCoverageDecision(tool.name, tool.category, cliCommandCatalog[tool.name]).type === "representative"
+    ).length
   },
   target: CLI_PARITY_TARGET
 }
