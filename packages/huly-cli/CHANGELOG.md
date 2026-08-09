@@ -1,5 +1,11 @@
 # @firfi/huly-cli
 
+## 0.47.1
+
+### Patch Changes
+
+- 8488ab2: Present Huly CLI as a feature-complete command-line interface with full Huly operation parity, clearer installation and automation guidance, package trust metadata, and an approachable generated command reference.
+
 ## 0.47.0
 
 ### Minor Changes

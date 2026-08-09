@@ -1,6 +1,6 @@
 {
   "name": "@firfi/huly-cli",
-  "version": "0.47.0",
+  "version": "0.47.1",
   "description": "Feature-complete CLI for Huly with full operation parity with Huly MCP",
   "type": "module",
   "main": "./dist/index.cjs",
