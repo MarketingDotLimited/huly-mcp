@@ -1,5 +1,21 @@
 # @firfi/huly-cli
 
+## 0.47.0
+
+### Minor Changes
+
+- 041b76d: Expose all 522 shared Huly operations through 522 native CLI routes with generated schema-aware help, structured and file-backed input, binary/image output, agent-visible warnings, and typed errors. Consequential actions now require `--yes`; behavior/risk coverage, generated documentation, and packed-package dependency closure are permanent release gates.
+
+  The parity boundary is the shared Huly operation registry. JSON-RPC discovery, MCP resources/prompts, proxy discovery, MCP toolsets, and MCP multimodal envelopes remain protocol-only; the CLI provides native help, flags and ordered JSON sources, terminal/file rendering, warning output, and binary/image file output instead.
+
+  Release evidence: `pnpm check-all` passed; the packed CLI live behavior/risk suite passed against local Huly; the full MCP suite and its packed-CLI mirror each passed the same 1,095 tests with 0 failures and 27 intentional skips; fresh tarballs installed and passed smoke tests with both pnpm and npm; and the packed 522-route CLI passed on Node 20, 22, 24, and 26.
+
+- 7367dcc: Add human-oriented document and Planner ToDo label tools that hide raw tag target classes, object classes, spaces, and collection fields while preserving generic tag tools as the SDK-level fallback.
+- a53f5e8: Discover read-only Workbench application and navigation declarations by human URL alias, including caller-scoped hidden preference state, without exposing private browser-local tabs or widget internals.
+- 7a71c3e: Add read-only Huly Mail thread metadata discovery with human-resolved spaces, neutral channel titles, and bounded child subject summaries through both MCP and CLI.
+- 0677da4: Add read-only support-system discovery and authenticated-account stored widget status, with explicit missing and ambiguous setup states and no provider-freshness or message-content claim.
+- b51b017: Read persisted legacy Telegram contact-channel messages by exact stored value or stable Huly ID, with Markdown content and explicit model/channel unavailability while keeping sends and provider-freshness claims unsupported.
+
 ## 0.46.1
 
 ### Patch Changes

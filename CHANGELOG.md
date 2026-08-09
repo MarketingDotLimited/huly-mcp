@@ -1,5 +1,15 @@
 # @firfi/huly-mcp
 
+## 0.49.0
+
+### Minor Changes
+
+- 7367dcc: Add human-oriented document and Planner ToDo label tools that hide raw tag target classes, object classes, spaces, and collection fields while preserving generic tag tools as the SDK-level fallback.
+- a53f5e8: Discover read-only Workbench application and navigation declarations by human URL alias, including caller-scoped hidden preference state, without exposing private browser-local tabs or widget internals.
+- 7a71c3e: Add read-only Huly Mail thread metadata discovery with human-resolved spaces, neutral channel titles, and bounded child subject summaries through both MCP and CLI.
+- 0677da4: Add read-only support-system discovery and authenticated-account stored widget status, with explicit missing and ambiguous setup states and no provider-freshness or message-content claim.
+- b51b017: Read persisted legacy Telegram contact-channel messages by exact stored value or stable Huly ID, with Markdown content and explicit model/channel unavailability while keeping sends and provider-freshness claims unsupported.
+
 ## 0.48.0
 
 ### Minor Changes
