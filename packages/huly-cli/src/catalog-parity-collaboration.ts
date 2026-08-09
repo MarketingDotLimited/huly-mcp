@@ -22,11 +22,7 @@ export const parityCollaborationCliCommandCatalog = {
     path: ["channels", "messages", "attachments", "add"],
     positional: [],
     description: `Attach a file to a channel, direct-message, or thread message; pass --target as JSON. ${CLI_UPLOAD_SOURCE_SEMANTICS}`,
-    behavior: {
-      base64FileInput: { fields: ["data"] },
-      fileInput: { fields: ["description"] },
-      uploadInput: { type: "huly-upload-source" }
-    }
+    behavior: { base64FileInput: { fields: ["data"] }, fileInput: { fields: ["description"] } }
   },
   add_thread_reply: {
     path: ["channels", "threads", "replies", "add"],

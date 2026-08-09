@@ -82,7 +82,7 @@ describe("CLI command tree", () => {
   it("maps root global option parse errors into CLI runtime errors", async () => {
     const error = await rejected(runCommand(["issues", "list", "--json=maybe"]))
 
-    expect(errorMessage(error)).toContain("Too many positional arguments")
+    expect(errorMessage(error)).toContain("Received unknown argument")
   })
 
   it("renders nested command help without duplicate path segments", async () => {

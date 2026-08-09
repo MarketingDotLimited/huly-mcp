@@ -98,21 +98,13 @@ export const cliCommandCatalog = {
     path: ["attachments", "add-to-issue"],
     positional: [],
     description: `Add an attachment to an issue. ${CLI_UPLOAD_SOURCE_SEMANTICS}`,
-    behavior: {
-      base64FileInput: { fields: ["data"] },
-      fileInput: { fields: ["description"] },
-      uploadInput: { type: "huly-upload-source" }
-    }
+    behavior: { base64FileInput: { fields: ["data"] }, fileInput: { fields: ["description"] } }
   },
   add_document_attachment: {
     path: ["attachments", "add-to-document"],
     positional: [],
     description: `Add an attachment to a document. ${CLI_UPLOAD_SOURCE_SEMANTICS}`,
-    behavior: {
-      base64FileInput: { fields: ["data"] },
-      fileInput: { fields: ["description"] },
-      uploadInput: { type: "huly-upload-source" }
-    }
+    behavior: { base64FileInput: { fields: ["data"] }, fileInput: { fields: ["description"] } }
   },
   list_documents: { path: ["documents", "list"], positional: [], description: "List documents" },
   get_document: { path: ["documents", "get"], positional: [], description: "Get a document" },

@@ -6,6 +6,7 @@ import type { ToolDefinition } from "../../../src/mcp/tools/registry.js"
 import type { CliCommandSpec } from "./catalog-types.js"
 import {
   collectFieldSpecs,
+  collectRequiredFieldNames,
   fieldAcceptsBoolean,
   fieldAcceptsJson,
   fieldAcceptsNull,
@@ -13,6 +14,7 @@ import {
   fieldAcceptsString,
   type FieldSpec
 } from "./schema-fields.js"
+import { cliFieldOptionDescription } from "./field-help.js"
 
 export interface CliGlobalOptions {
   readonly json: boolean
@@ -74,8 +76,6 @@ export interface ParsedCliCommandLine {
   readonly raw: ReadonlyArray<string>
 }
 
-const positionals = Args.text({ name: "arg" }).pipe(Args.repeated)
-
 const emptyOptions: ReadonlyArray<ParsedCliOption> = []
 
 const optionalTextOption = (
@@ -92,12 +92,32 @@ const booleanOption = (name: "json" | "yes"): Options.Options<ReadonlyArray<Pars
     Options.map((value) => [{ _tag: "GlobalBooleanOption", name, value }])
   )
 
-const fieldTextOption = (optionName: string, field: FieldSpec): Options.Options<ReadonlyArray<ParsedCliOption>> =>
-  optionalTextOption(optionName, (value) => ({ _tag: "FieldOption", fieldName: field.fieldName, optionName, value }))
+const fieldTextOption = (
+  rootSchema: object,
+  spec: CliCommandSpec,
+  optionName: string,
+  field: FieldSpec
+): Options.Options<ReadonlyArray<ParsedCliOption>> =>
+  optionalTextOption(optionName, (value) => ({
+    _tag: "FieldOption",
+    fieldName: field.fieldName,
+    optionName,
+    value
+  })).pipe(Options.withDescription(cliFieldOptionDescription(spec, rootSchema, field)))
 
-const fieldBooleanOption = (optionName: string, field: FieldSpec): Options.Options<ReadonlyArray<ParsedCliOption>> =>
+const fieldBooleanOption = (
+  rootSchema: object,
+  spec: CliCommandSpec,
+  optionName: string,
+  field: FieldSpec
+): Options.Options<ReadonlyArray<ParsedCliOption>> =>
   Options.boolean(optionName, { negationNames: [`no-${optionName}`] }).pipe(
-    Options.map((value) => [{ _tag: "BooleanFieldOption", fieldName: field.fieldName, optionName, value }])
+    Options.map(
+      (value): ReadonlyArray<ParsedCliOption> => [
+        { _tag: "BooleanFieldOption", fieldName: field.fieldName, optionName, value }
+      ]
+    ),
+    Options.withDescription(cliFieldOptionDescription(spec, rootSchema, field))
   )
 
 const fieldFileOption = (optionName: string, field: FieldSpec): Options.Options<ReadonlyArray<ParsedCliOption>> =>
@@ -106,7 +126,7 @@ const fieldFileOption = (optionName: string, field: FieldSpec): Options.Options<
     fieldName: field.fieldName,
     optionName,
     path
-  }))
+  })).pipe(Options.withDescription(`Read ${field.fieldName} text from this file.`))
 
 const fieldBase64FileOption = (optionName: string, field: FieldSpec): Options.Options<ReadonlyArray<ParsedCliOption>> =>
   optionalTextOption(`${optionName}-base64-file`, (path) => ({
@@ -114,7 +134,7 @@ const fieldBase64FileOption = (optionName: string, field: FieldSpec): Options.Op
     fieldName: field.fieldName,
     optionName,
     path
-  }))
+  })).pipe(Options.withDescription(`Read this file as bytes and pass ${field.fieldName} as canonical base64.`))
 
 const fieldUsesBooleanOption = (rootSchema: object, field: FieldSpec): boolean =>
   fieldAcceptsBoolean(rootSchema, field) &&
@@ -125,6 +145,7 @@ const fieldUsesBooleanOption = (rootSchema: object, field: FieldSpec): boolean =
 
 const fieldOptions = (
   rootSchema: object,
+  spec: CliCommandSpec,
   fields: ReadonlyMap<string, FieldSpec>,
   fileInputFields: ReadonlySet<string>,
   base64FileInputFields: ReadonlySet<string>
@@ -133,8 +154,8 @@ const fieldOptions = (
   for (const [optionName, field] of fields) {
     descriptors.push(
       fieldUsesBooleanOption(rootSchema, field)
-        ? fieldBooleanOption(optionName, field)
-        : fieldTextOption(optionName, field)
+        ? fieldBooleanOption(rootSchema, spec, optionName, field)
+        : fieldTextOption(rootSchema, spec, optionName, field)
     )
     if (fileInputFields.has(field.fieldName)) {
       descriptors.push(fieldFileOption(optionName, field))
@@ -147,11 +168,17 @@ const fieldOptions = (
 }
 
 const globalOptions: ReadonlyArray<Options.Options<ReadonlyArray<ParsedCliOption>>> = [
-  booleanOption("json"),
-  booleanOption("yes"),
-  optionalTextOption("input-json", (value) => ({ _tag: "GlobalOption", name: "input-json", value })),
-  optionalTextOption("input-file", (value) => ({ _tag: "GlobalOption", name: "input-file", value })),
-  optionalTextOption("output", (value) => ({ _tag: "GlobalOption", name: "output", value }))
+  booleanOption("json").pipe(Options.withDescription("Print the operation result as JSON.")),
+  booleanOption("yes").pipe(Options.withDescription("Confirm a consequential operation.")),
+  optionalTextOption("input-json", (value) => ({ _tag: "GlobalOption", name: "input-json", value })).pipe(
+    Options.withDescription("Merge this JSON object into operation input before explicit field flags.")
+  ),
+  optionalTextOption("input-file", (value) => ({ _tag: "GlobalOption", name: "input-file", value })).pipe(
+    Options.withDescription("Merge a JSON object from this file before explicit field flags.")
+  ),
+  optionalTextOption("output", (value) => ({ _tag: "GlobalOption", name: "output", value })).pipe(
+    Options.withDescription("Write supported attachment or image bytes to this path.")
+  )
 ]
 
 const flattenOptions = (parsed: ReadonlyArray<ReadonlyArray<ParsedCliOption>>): ReadonlyArray<ParsedCliOption> =>
@@ -161,10 +188,39 @@ export const buildCliCommandConfig = (tool: ToolDefinition, spec: CliCommandSpec
   const fields = collectFieldSpecs(tool.inputSchema)
   const fileInputFields = new Set(spec.behavior?.fileInput?.fields ?? [])
   const base64FileInputFields = new Set(spec.behavior?.base64FileInput?.fields ?? [])
+  const schemaFieldNames = new Set([...fields.values()].map((field) => field.fieldName))
+  const unknownBehaviorFields = [...fileInputFields, ...base64FileInputFields].filter(
+    (fieldName) => !schemaFieldNames.has(fieldName)
+  )
+  if (unknownBehaviorFields.length > 0) {
+    throw new Error(`CLI behavior references unknown schema fields: ${unknownBehaviorFields.join(", ")}.`)
+  }
   const options = Options.all([
     ...globalOptions,
-    ...fieldOptions(tool.inputSchema, fields, fileInputFields, base64FileInputFields)
+    ...fieldOptions(
+      tool.inputSchema,
+      spec,
+      new Map([...fields].filter(([, field]) => !spec.positional.includes(field.fieldName))),
+      fileInputFields,
+      base64FileInputFields
+    )
   ]).pipe(Options.map(flattenOptions))
+
+  const requiredFields = collectRequiredFieldNames(tool.inputSchema)
+  const namedPositionals = spec.positional.map((fieldName) => {
+    if (!requiredFields.has(fieldName)) {
+      throw new Error(`CLI positional ${fieldName} is not an unconditionally required schema field.`)
+    }
+    const field = [...fields.values()].find((candidate) => candidate.fieldName === fieldName)
+    const argument = Args.text({ name: fieldName })
+    return field === undefined
+      ? argument
+      : argument.pipe(Args.withDescription(cliFieldOptionDescription(spec, tool.inputSchema, field)))
+  })
+  const positionals =
+    namedPositionals.length === 0
+      ? Args.none.pipe(Args.map((): ReadonlyArray<string> => []))
+      : Args.all(namedPositionals)
 
   return { options, positionals }
 }

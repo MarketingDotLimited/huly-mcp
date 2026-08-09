@@ -8,8 +8,17 @@ interface CliLiveCoverageCase {
   readonly tools: ReadonlyArray<McpToolName>
 }
 
+export type CliIntegrationCoverageDecision =
+  | { readonly caseIds: ReadonlyArray<string>; readonly type: "dedicated-live" }
+  | { readonly rationale: "shared-operation-and-adapter-class"; readonly type: "representative" }
+
 export const CLI_LIVE_COVERAGE_CASES: ReadonlyArray<CliLiveCoverageCase> = [
-  { id: "scalar-read", tools: ["list_projects"], behaviors: ["scalar-input"], risks: [] },
+  {
+    id: "scalar-structured-read",
+    tools: ["list_projects"],
+    behaviors: ["scalar-input", "structured-output"],
+    risks: []
+  },
   {
     id: "structured-calendar-lifecycle",
     tools: ["create_event", "delete_event"],
@@ -24,7 +33,6 @@ export const CLI_LIVE_COVERAGE_CASES: ReadonlyArray<CliLiveCoverageCase> = [
   },
   { id: "text-file-input", tools: ["add_comment"], behaviors: ["text-file-input"], risks: [] },
   { id: "raw-upload", tools: ["add_attachment"], behaviors: ["upload-input"], risks: ["transport"] },
-  { id: "structured-output", tools: ["list_projects"], behaviors: ["structured-output"], risks: [] },
   { id: "binary-download", tools: ["download_attachment"], behaviors: ["binary-output"], risks: ["transport"] },
   { id: "image-output", tools: ["read_attachment_content"], behaviors: ["image-output"], risks: ["transport"] },
   { id: "agent-warning", tools: ["list_workbench_applications"], behaviors: ["agent-warning"], risks: [] },
@@ -33,6 +41,7 @@ export const CLI_LIVE_COVERAGE_CASES: ReadonlyArray<CliLiveCoverageCase> = [
     id: "consequential-refusals",
     tools: [
       "create_workspace",
+      "update_member_role",
       "approve_approval_request",
       "add_space_members",
       "start_process",
@@ -49,3 +58,12 @@ export const CLI_LIVE_COVERAGE_CASES: ReadonlyArray<CliLiveCoverageCase> = [
   },
   { id: "caller-private-status", tools: ["get_support_status"], behaviors: [], risks: ["privacy"] }
 ]
+
+export const cliIntegrationCoverageDecision = (toolName: McpToolName): CliIntegrationCoverageDecision => {
+  const caseIds = CLI_LIVE_COVERAGE_CASES.filter((coverageCase) => coverageCase.tools.includes(toolName)).map(
+    (coverageCase) => coverageCase.id
+  )
+  return caseIds.length === 0
+    ? { type: "representative", rationale: "shared-operation-and-adapter-class" }
+    : { type: "dedicated-live", caseIds }
+}

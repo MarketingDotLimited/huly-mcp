@@ -150,7 +150,30 @@ cover_cli_failure() {
   echo "PASS: $label [$tool_name]"
 }
 
-cli_live_case() {
+cover_cli_confirmed_failure() {
+  local tool_name="$1"
+  local label="$2"
+  local stdout_file="$TEST_TMPDIR/confirmed-failure-stdout"
+  local stderr_file="$TEST_TMPDIR/confirmed-failure-stderr"
+  shift 2
+
+  if timeout 30 "${CLI[@]}" "$@" --yes --json >"$stdout_file" 2>"$stderr_file"; then
+    echo "FAIL: $label unexpectedly succeeded [$tool_name]" >&2
+    return 1
+  fi
+  if grep -Fq -- "requires --yes" "$stderr_file"; then
+    echo "FAIL: $label did not cross the confirmation boundary [$tool_name]" >&2
+    cat "$stderr_file" >&2
+    return 1
+  fi
+  echo "PASS: $label reached the Huly operation [$tool_name]"
+}
+
+cli_live_case_begin() {
+  echo "BEGIN: CLI live behavior/risk case [$1]"
+}
+
+cli_live_case_end() {
   echo "PASS: CLI live behavior/risk case [$1]"
 }
 
@@ -180,9 +203,9 @@ echo "URL: ${HULY_URL:-<unset>}"
 echo "Project: $PROJECT"
 echo "Run: $RUN_ID"
 
+cli_live_case_begin "scalar-structured-read"
 cover_cli_json "list_projects" "projects list" projects list
-cli_live_case "scalar-read"
-cli_live_case "structured-output"
+cli_live_case_end "scalar-structured-read"
 capture_cli_json "get_project" "projects get" PROJECT_JSON projects get "$PROJECT"
 PROJECT_ID="$(json_value "$PROJECT_JSON" '.id // empty')"
 if [[ -z "$PROJECT_ID" ]]; then
@@ -200,19 +223,21 @@ capture_cli_json "list_external_channel_messages" "Telegram missing-channel asse
 assert_json "Telegram missing-channel assessment is explicit" "$TELEGRAM_EXTERNAL_JSON" \
   '.supported == false and .unsupportedReasonCode == "channel-unavailable" and .messages == []'
 cover_cli_json "list_mail_threads" "mail threads list" mail threads list --limit 1
+cli_live_case_begin "caller-private-status"
 capture_cli_json "get_support_status" "support status get" SUPPORT_STATUS_JSON support status get
 assert_json "support status reports the local missing setup" "$SUPPORT_STATUS_JSON" \
   '.supported == true and .setup.status == "missing" and (.statusRecords | type) == "array"'
-cli_live_case "caller-private-status"
+cli_live_case_end "caller-private-status"
 capture_cli_json "list_workbench_applications" "workbench applications list" WORKBENCH_APPLICATIONS_JSON \
   workbench applications list --alias board
 assert_json "workbench returns the Board model declaration independently of disabled plugin capability" "$WORKBENCH_APPLICATIONS_JSON" \
   '.total == 1 and (.applications | length) == 1 and .applications[0].alias == "board" and (.applications[0].navigation.spaces | type) == "array"'
+cli_live_case_begin "agent-warning"
 capture_cli_json "list_workbench_applications" "workbench warning projection" WORKBENCH_WARNING_JSON \
   workbench applications list --limit 100
 assert_json "workbench degradation is agent-visible" "$WORKBENCH_WARNING_JSON" \
   '(.warnings | type) == "array" and (.warnings | length) > 0'
-cli_live_case "agent-warning"
+cli_live_case_end "agent-warning"
 cover_cli_json "list_persons" "contacts persons list" contacts persons list
 cover_cli_json "get_unread_notification_count" "notifications unread-count get" notifications unread-count get
 cover_cli_json "list_spaces" "spaces list" spaces list
@@ -239,12 +264,15 @@ cover_cli_json "list_associations" "platform associations list" platform associa
 cover_cli_json "list_custom_fields" "custom-fields list" custom-fields list
 cover_cli_json "list_processes" "processes list" processes list
 cover_cli_json "list_user_statuses" "user-statuses list" user-statuses list
+cli_live_case_begin "workspace-client-read"
 cover_cli_json "get_workspace_info" "workspace info get" workspace info get
-cli_live_case "workspace-client-read"
+cli_live_case_end "workspace-client-read"
 
+cli_live_case_begin "typed-error"
 cover_cli_failure "get_issue" "typed not-found error" "not found" issues get "$PROJECT" "CLI-NOT-FOUND-$RUN_ID"
-cli_live_case "typed-error"
+cli_live_case_end "typed-error"
 
+cli_live_case_begin "consequential-refusals"
 cover_cli_failure "create_workspace" "workspace creation confirmation" "requires --yes" \
   workspace create "CLI Guard $RUN_ID"
 cover_cli_failure "approve_approval_request" "approval confirmation" "requires --yes" approvals approve "missing-$RUN_ID"
@@ -254,8 +282,17 @@ cover_cli_failure "start_process" "process start confirmation" "requires --yes" 
   processes start "missing-process-$RUN_ID" "missing-card-$RUN_ID"
 cover_cli_failure "mark_all_notifications_read" "bulk notification confirmation" "requires --yes" \
   notifications all read
-cli_live_case "consequential-refusals"
+cover_cli_confirmed_failure "update_member_role" "confirmed workspace role update" \
+  workspace members role update "00000000-0000-0000-0000-000000000000" USER
+cover_cli_confirmed_failure "approve_approval_request" "confirmed approval decision" approvals approve "missing-$RUN_ID"
+cover_cli_confirmed_failure "add_space_members" "confirmed space membership update" \
+  spaces members add "missing-$RUN_ID" '["missing@example.com"]'
+cover_cli_confirmed_failure "start_process" "confirmed process start" \
+  processes start "missing-process-$RUN_ID" "missing-card-$RUN_ID"
+cover_cli_json "mark_all_notifications_read" "confirmed bulk notification update" notifications all read --yes
+cli_live_case_end "consequential-refusals"
 
+cli_live_case_begin "structured-calendar-lifecycle"
 EVENT_AT=1893456000000
 capture_cli_json "create_event" "calendar structured event create" EVENT_JSON \
   calendar events create "CLI Integration Event $RUN_ID" "$EVENT_AT" --participants '["missing@example.com"]'
@@ -266,7 +303,7 @@ if [[ -z "$EVENT_ID" ]]; then
 fi
 cover_cli_json "delete_event" "calendar event cleanup" calendar events delete "$EVENT_ID" --yes
 EVENT_ID=""
-cli_live_case "structured-calendar-lifecycle"
+cli_live_case_end "structured-calendar-lifecycle"
 
 capture_cli_json "list_teamspaces" "teamspaces list" TEAMSPACES_JSON teamspaces list
 TEAMSPACE="$(json_value "$TEAMSPACES_JSON" '.teamspaces[0].name // .teamspaces[0].id // empty')"
@@ -285,17 +322,19 @@ ISSUE_ID="$(json_value "$ISSUE_JSON" '.identifier')"
 ISSUE_OBJECT_ID="$(json_value "$ISSUE_JSON" '.issueId')"
 
 printf 'raw attachment from cli integration %s\n' "$RUN_ID" >"$TEST_TMPDIR/raw-attachment.bin"
+cli_live_case_begin "raw-upload"
 capture_cli_json "add_attachment" "generic attachment base64-file upload" RAW_ATTACHMENT_JSON \
   attachments add "$ISSUE_OBJECT_ID" "tracker:class:Issue" "$PROJECT_ID" "raw-$RUN_ID.bin" \
     application/octet-stream --data-base64-file "$TEST_TMPDIR/raw-attachment.bin"
 ATTACHMENT_ID="$(json_value "$RAW_ATTACHMENT_JSON" '.attachmentId')"
 assert_json "add_attachment returns attachment id" "$RAW_ATTACHMENT_JSON" \
   '.attachmentId | type == "string" and length > 0'
+cli_live_case_end "raw-upload"
 cover_cli_json "delete_attachment" "generic attachment cleanup" attachments delete "$ATTACHMENT_ID" --yes
 ATTACHMENT_ID=""
-cli_live_case "raw-upload"
 
 printf '{"nodes":[{"id":"%s"}]}\n' "$RUN_ID" >"$TEST_TMPDIR/drawing.json"
+cli_live_case_begin "nullable-drawing-lifecycle"
 capture_cli_json "create_drawing" "drawing content-file create" DRAWING_JSON \
   drawings create "$ISSUE_OBJECT_ID" "tracker:class:Issue" "$PROJECT_ID" --content-file "$TEST_TMPDIR/drawing.json"
 DRAWING_ID="$(json_value "$DRAWING_JSON" '.drawingId // .id // empty')"
@@ -306,18 +345,19 @@ fi
 cover_cli_json "update_drawing" "drawing nullable clear" drawings update "$DRAWING_ID" --content null
 cover_cli_json "delete_drawing" "drawing cleanup" drawings delete "$DRAWING_ID" --yes
 DRAWING_ID=""
-cli_live_case "nullable-drawing-lifecycle"
+cli_live_case_end "nullable-drawing-lifecycle"
 
 cover_cli_json "get_issue" "issues get" issues get "$PROJECT" "$ISSUE_ID"
 cover_cli_json "update_issue" "issues update" issues update "$PROJECT" "$ISSUE_ID" --title "$ISSUE_TITLE updated"
 cover_cli_json "list_issues" "issues list" issues list --project "$PROJECT" --title-search "CLI Integration Issue"
 
 printf 'body from file for %s\n' "$RUN_ID" >"$TEST_TMPDIR/comment.md"
+cli_live_case_begin "text-file-input"
 capture_cli_json "add_comment" "comments add" COMMENT_JSON \
   comments add --project "$PROJECT" --issue-identifier "$ISSUE_ID" --body-file "$TEST_TMPDIR/comment.md"
 assert_json "add_comment returns comment id" "$COMMENT_JSON" '.commentId | type == "string" and length > 0'
 COMMENT_ID="$(json_value "$COMMENT_JSON" '.commentId')"
-cli_live_case "text-file-input"
+cli_live_case_end "text-file-input"
 cover_cli_json "list_comments" "comments list" comments list --project "$PROJECT" --issue-identifier "$ISSUE_ID"
 cover_cli_json "update_comment" "comments update" \
   comments update --project "$PROJECT" --issue-identifier "$ISSUE_ID" --comment-id "$COMMENT_ID" --body "updated $RUN_ID"
@@ -335,12 +375,13 @@ cover_cli_json "list_attachments" "attachments list" \
   attachments list --object-id "$ISSUE_OBJECT_ID" --object-class "tracker:class:Issue"
 cover_cli_json "get_attachment" "attachments get" attachments get "$ATTACHMENT_ID"
 cover_cli_json "download_attachment" "attachments download metadata" attachments download "$ATTACHMENT_ID"
+cli_live_case_begin "binary-download"
 capture_cli_json "download_attachment" "attachments download output" DOWNLOAD_JSON \
   attachments download "$ATTACHMENT_ID" --output "$TEST_TMPDIR/downloaded-attachment.txt"
 assert_json "download_attachment output returns metadata" "$DOWNLOAD_JSON" '.attachmentId | type == "string" and length > 0'
 grep -q "attachment from cli integration" "$TEST_TMPDIR/downloaded-attachment.txt"
 echo "PASS: attachment bytes downloaded"
-cli_live_case "binary-download"
+cli_live_case_end "binary-download"
 cover_cli_json "delete_attachment" "attachments delete" attachments delete "$ATTACHMENT_ID" --yes
 ATTACHMENT_ID=""
 
@@ -350,12 +391,13 @@ capture_cli_json "add_issue_attachment" "image attachment upload" IMAGE_ATTACHME
   attachments add-to-issue --project "$PROJECT" --identifier "$ISSUE_ID" \
     --data-base64-file "$TEST_TMPDIR/pixel.png" --filename "pixel-$RUN_ID.png" --content-type image/png
 ATTACHMENT_ID="$(json_value "$IMAGE_ATTACHMENT_JSON" '.attachmentId')"
+cli_live_case_begin "image-output"
 capture_cli_json "read_attachment_content" "image attachment output" IMAGE_JSON \
   attachments read-image "$ATTACHMENT_ID" --output "$TEST_TMPDIR/pixel-output.png"
 assert_json "read_attachment_content returns image metadata" "$IMAGE_JSON" '.type == "image/png"'
 cmp "$TEST_TMPDIR/pixel.png" "$TEST_TMPDIR/pixel-output.png"
 echo "PASS: image bytes written"
-cli_live_case "image-output"
+cli_live_case_end "image-output"
 cover_cli_json "delete_attachment" "image attachment cleanup" attachments delete "$ATTACHMENT_ID" --yes
 ATTACHMENT_ID=""
 

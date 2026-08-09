@@ -2,7 +2,7 @@ import type { McpToolName } from "../../../src/mcp/tools/index.js"
 import type { CliCommandSpec } from "./catalog-types.js"
 import { CLI_UPLOAD_SOURCE_SEMANTICS } from "./parity-contract.js"
 
-const uploadBehavior = { base64FileInput: { fields: ["data"] }, uploadInput: { type: "huly-upload-source" } } as const
+const uploadBehavior = { base64FileInput: { fields: ["data"] } } as const
 
 export const parityBusinessCliCommandCatalog = {
   create_event: {

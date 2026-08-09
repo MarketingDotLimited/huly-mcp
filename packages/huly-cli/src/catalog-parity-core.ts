@@ -7,17 +7,13 @@ export const parityCoreCliCommandCatalog = {
     path: ["attachments", "add"],
     positional: ["objectId", "objectClass", "space", "filename", "contentType"],
     description: `Add an attachment to a raw Huly object. ${CLI_UPLOAD_SOURCE_SEMANTICS}`,
-    behavior: {
-      base64FileInput: { fields: ["data"] },
-      fileInput: { fields: ["description"] },
-      uploadInput: { type: "huly-upload-source" }
-    }
+    behavior: { base64FileInput: { fields: ["data"] }, fileInput: { fields: ["description"] } }
   },
   upload_file: {
     path: ["storage", "upload"],
     positional: ["filename", "contentType"],
     description: `Upload a file to Huly storage. ${CLI_UPLOAD_SOURCE_SEMANTICS}`,
-    behavior: { base64FileInput: { fields: ["data"] }, uploadInput: { type: "huly-upload-source" } }
+    behavior: { base64FileInput: { fields: ["data"] } }
   },
   create_drawing: {
     path: ["drawings", "create"],

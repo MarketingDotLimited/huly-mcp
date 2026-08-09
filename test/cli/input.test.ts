@@ -367,7 +367,7 @@ describe("CLI input merging", () => {
   it("reports invalid boolean-only positional values", async () => {
     const booleanTool = {
       ...getTool("list_issues"),
-      inputSchema: { type: "object", properties: { enabled: { type: "boolean" } } }
+      inputSchema: { type: "object", required: ["enabled"], properties: { enabled: { type: "boolean" } } }
     }
     const error = await rejected(
       runCliEffect(

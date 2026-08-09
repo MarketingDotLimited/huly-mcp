@@ -13,6 +13,7 @@ import {
   CONSEQUENTIAL_CLI_TOOLS,
   hasExplicitCliConfirmationPolicy
 } from "../../packages/huly-cli/src/safety-policies.js"
+import { collectFieldSpecs, collectRequiredFieldNames } from "../../packages/huly-cli/src/schema-fields.js"
 
 const catalogEntries = () => Object.entries(cliCommandCatalog)
 
@@ -77,12 +78,48 @@ describe("CLI catalog", () => {
     expect(missing).toEqual([])
   })
 
+  it("requires explicit confirmation for every security-administration write", () => {
+    const missing = allTools.flatMap((tool) => {
+      if (tool.category !== "security-administration" || !isCliToolName(tool.name)) return []
+      const spec: CliCommandSpec = cliCommandCatalog[tool.name]
+      return resolveAnnotations(tool.operation).readOnlyHint !== true &&
+        !hasExplicitCliConfirmationPolicy(tool.name, spec)
+        ? [tool.name]
+        : []
+    })
+
+    expect(missing).toEqual([])
+  })
+
   it("keeps every classified consequential operation behind explicit confirmation", () => {
     const missing = CONSEQUENTIAL_CLI_TOOLS.filter(
       (toolName) => !hasExplicitCliConfirmationPolicy(toolName, cliCommandCatalog[toolName])
     )
 
     expect(missing).toEqual([])
+  })
+
+  it("keeps positional and file-policy field names synchronized with operation schemas", () => {
+    const errors = allTools.flatMap((tool) => {
+      if (!isCliToolName(tool.name)) return []
+      const spec: CliCommandSpec = cliCommandCatalog[tool.name]
+      const fields = new Set(
+        [...collectFieldSpecs(tool.operation.inputSchema).values()].map((field) => field.fieldName)
+      )
+      const required = collectRequiredFieldNames(tool.operation.inputSchema)
+      const behaviorFields = [
+        ...(spec.behavior?.fileInput?.fields ?? []),
+        ...(spec.behavior?.base64FileInput?.fields ?? [])
+      ]
+      const unknown = [...spec.positional, ...behaviorFields].filter((field) => !fields.has(field))
+      const optionalPositionals = spec.positional.filter((field) => !required.has(field))
+      return [
+        ...unknown.map((field) => `${tool.name}: unknown field ${field}`),
+        ...optionalPositionals.map((field) => `${tool.name}: optional positional ${field}`)
+      ]
+    })
+
+    expect(errors).toEqual([])
   })
 
   it("keeps notable generated paths aligned with the public command vocabulary", () => {

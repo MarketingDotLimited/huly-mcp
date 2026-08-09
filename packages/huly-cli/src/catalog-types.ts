@@ -10,7 +10,6 @@ interface CliCommandBehavior {
   readonly confirmation?: CliConfirmationPolicy
   readonly fileInput?: CliFileInputPolicy
   readonly fileOutput?: CliFileOutputPolicy
-  readonly uploadInput?: { readonly type: "huly-upload-source" }
 }
 
 interface CliConfirmationPolicy {
@@ -30,5 +29,7 @@ interface CliImageFileOutputPolicy {
 type CliFileOutputPolicy = CliAttachmentFileOutputPolicy | CliImageFileOutputPolicy
 
 interface CliFileInputPolicy {
-  readonly fields: ReadonlyArray<string>
+  readonly fields: ReadonlyArray<CliSchemaFieldName>
 }
+
+export type CliSchemaFieldName = string

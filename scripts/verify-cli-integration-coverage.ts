@@ -1,12 +1,13 @@
 import { readFileSync } from "node:fs"
 
-import { cliCommandCatalog } from "../packages/huly-cli/src/catalog.js"
-import { CLI_LIVE_COVERAGE_CASES } from "../packages/huly-cli/src/live-coverage.js"
+import { cliCommandCatalog, isCliToolName } from "../packages/huly-cli/src/catalog.js"
+import { cliIntegrationCoverageDecision, CLI_LIVE_COVERAGE_CASES } from "../packages/huly-cli/src/live-coverage.js"
 import { CLI_BEHAVIOR_CLASSES, CLI_DEDICATED_LIVE_RISK_CLASSES } from "../packages/huly-cli/src/parity-contract.js"
 
 const integrationScriptPath = "scripts/integration_test_cli.sh"
-const coveredToolPattern = /(?:cover_cli_json|capture_cli_json|cover_cli_failure) "([a-z0-9_]+)"/g
-const coveredCasePattern = /cli_live_case "([a-z0-9-]+)"/g
+const coveredToolPattern =
+  /(?:cover_cli_json|capture_cli_json|cover_cli_failure|cover_cli_confirmed_failure) "([a-z0-9_]+)"/g
+const coveredCasePattern = /cli_live_case_begin "([a-z0-9-]+)"([\s\S]*?)cli_live_case_end "\1"/g
 
 const coveredToolFromMatch = (match: RegExpExecArray): string => {
   const toolName = match[1]
@@ -23,7 +24,11 @@ const catalogToolSet = new Set(catalogTools)
 const integrationScript = readFileSync(integrationScriptPath, "utf8")
 const coveredTools = uniqueSorted(Array.from(integrationScript.matchAll(coveredToolPattern), coveredToolFromMatch))
 const coveredToolSet = new Set(coveredTools)
-const coveredCases = uniqueSorted(Array.from(integrationScript.matchAll(coveredCasePattern), coveredToolFromMatch))
+const caseExecutions = Array.from(integrationScript.matchAll(coveredCasePattern), (match) => ({
+  id: coveredToolFromMatch(match),
+  tools: uniqueSorted(Array.from((match[2] ?? "").matchAll(coveredToolPattern), coveredToolFromMatch))
+}))
+const coveredCases = uniqueSorted(caseExecutions.map((execution) => execution.id))
 const manifestCaseIds = uniqueSorted(CLI_LIVE_COVERAGE_CASES.map((coverageCase) => coverageCase.id))
 const manifestTools = uniqueSorted(CLI_LIVE_COVERAGE_CASES.flatMap((coverageCase) => coverageCase.tools))
 const coveredBehaviors = new Set(CLI_LIVE_COVERAGE_CASES.flatMap((coverageCase) => coverageCase.behaviors))
@@ -36,6 +41,19 @@ const unrecordedCases = coveredCases.filter((caseId) => !manifestCaseIds.include
 const unexecutedCases = manifestCaseIds.filter((caseId) => !coveredCases.includes(caseId))
 const uncoveredBehaviors = CLI_BEHAVIOR_CLASSES.filter((behavior) => !coveredBehaviors.has(behavior))
 const uncoveredRisks = CLI_DEDICATED_LIVE_RISK_CLASSES.filter((risk) => !coveredRisks.has(risk))
+const caseToolMismatches = CLI_LIVE_COVERAGE_CASES.flatMap((coverageCase) => {
+  const execution = caseExecutions.find((candidate) => candidate.id === coverageCase.id)
+  if (execution === undefined) return []
+  const expected = uniqueSorted(coverageCase.tools)
+  return expected.length === execution.tools.length && expected.every((tool, index) => tool === execution.tools[index])
+    ? []
+    : [`${coverageCase.id}: expected ${expected.join(", ")}; executed ${execution.tools.join(", ")}`]
+})
+const coverageDecisions = catalogTools.map((toolName) => {
+  if (!isCliToolName(toolName)) throw new Error(`Unknown catalog tool ${toolName}.`)
+  return cliIntegrationCoverageDecision(toolName)
+})
+const representativeRoutes = coverageDecisions.filter((decision) => decision.type === "representative").length
 
 const errors = [
   staleCoveredTools.length === 0 ? undefined : `Covered tools not in CLI catalog: ${staleCoveredTools.join(", ")}`,
@@ -48,7 +66,11 @@ const errors = [
     ? undefined
     : `Manifest cases missing from the live script: ${unexecutedCases.join(", ")}`,
   uncoveredBehaviors.length === 0 ? undefined : `CLI behaviors without live proof: ${uncoveredBehaviors.join(", ")}`,
-  uncoveredRisks.length === 0 ? undefined : `CLI risks without live proof: ${uncoveredRisks.join(", ")}`
+  uncoveredRisks.length === 0 ? undefined : `CLI risks without live proof: ${uncoveredRisks.join(", ")}`,
+  caseToolMismatches.length === 0
+    ? undefined
+    : `Live case tool membership differs from the manifest: ${caseToolMismatches.join("; ")}`,
+  coverageDecisions.length === catalogTools.length ? undefined : "Not every CLI route has a coverage decision."
 ].filter((message) => message !== undefined)
 
 if (errors.length > 0) {
@@ -59,6 +81,6 @@ if (errors.length > 0) {
   process.exitCode = 1
 } else {
   console.log(
-    `CLI live coverage is in sync: ${coveredCases.length} behavior/risk cases, ${coveredTools.length} directly exercised commands, ${catalogTools.length} catalog routes, zero deferrals.`
+    `CLI live coverage is in sync: ${coveredCases.length} behavior/risk cases, ${coveredTools.length} directly exercised commands, ${representativeRoutes} routes covered by shared operations plus adapter-class cases, ${catalogTools.length} catalog routes, zero deferrals.`
   )
 }

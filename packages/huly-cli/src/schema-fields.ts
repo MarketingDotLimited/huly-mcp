@@ -57,6 +57,32 @@ const resolveLocalRef = (rootSchema: object, schema: unknown): unknown => {
   return rootSchema.$defs[name] ?? schema
 }
 
+const directRequiredFieldNames = (schema: Record<string, unknown>): ReadonlySet<string> =>
+  new Set(
+    Array.isArray(schema.required) ? schema.required.filter((name): name is string => typeof name === "string") : []
+  )
+
+const intersectSets = (sets: ReadonlyArray<ReadonlySet<string>>): ReadonlySet<string> => {
+  const [first, ...rest] = sets
+  return first === undefined ? new Set() : new Set([...first].filter((name) => rest.every((set) => set.has(name))))
+}
+
+const requiredFieldNamesFor = (schema: unknown): ReadonlySet<string> => {
+  if (!isRecord(schema)) return new Set()
+  const required = new Set(directRequiredFieldNames(schema))
+  const allOf = Array.isArray(schema.allOf) ? schema.allOf : []
+  for (const name of allOf.flatMap((variant) => [...requiredFieldNamesFor(variant)])) required.add(name)
+  for (const variantKey of ["anyOf", "oneOf"]) {
+    const variants = schema[variantKey]
+    if (Array.isArray(variants)) {
+      for (const name of intersectSets(variants.map(requiredFieldNamesFor))) required.add(name)
+    }
+  }
+  return required
+}
+
+export const collectRequiredFieldNames = (schema: object): ReadonlySet<string> => requiredFieldNamesFor(schema)
+
 const directSchemaTypeMatches = (schema: Record<string, unknown>, typeName: string): boolean =>
   schema.type === typeName || (Array.isArray(schema.type) && schema.type.includes(typeName))
 
@@ -95,3 +121,17 @@ export const fieldAcceptsString = (rootSchema: object, field: FieldSpec): boolea
 
 export const fieldAcceptsJson = (rootSchema: object, field: FieldSpec): boolean =>
   schemaHasType(rootSchema, field.schema, "array") || schemaHasType(rootSchema, field.schema, "object")
+
+const fieldSchemaDescription = (rootSchema: object, field: FieldSpec): string | undefined => {
+  if (!isRecord(field.schema)) return undefined
+  const resolved = resolveLocalRef(rootSchema, field.schema)
+  const direct = typeof field.schema.description === "string" ? field.schema.description : undefined
+  return direct ?? (isRecord(resolved) && typeof resolved.description === "string" ? resolved.description : undefined)
+}
+
+export const fieldOptionDescription = (rootSchema: object, field: FieldSpec): string => {
+  const description = fieldSchemaDescription(rootSchema, field)
+  const json = fieldAcceptsJson(rootSchema, field) ? "Pass arrays or objects as JSON." : undefined
+  const nullable = fieldAcceptsNull(rootSchema, field) ? "Pass null to clear the field." : undefined
+  return [description, json, nullable].filter((part) => part !== undefined).join(" ")
+}
