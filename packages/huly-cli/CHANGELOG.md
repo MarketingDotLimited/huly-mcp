@@ -1,5 +1,11 @@
 # @firfi/huly-cli
 
+## 0.47.2
+
+### Patch Changes
+
+- 9f20cab: Improve CLI search discovery with a dedicated website, focused usage guides, richer npm keywords, and stronger links between documentation surfaces.
+
 ## 0.47.1
 
 ### Patch Changes

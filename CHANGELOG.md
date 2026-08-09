@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.49.2
+
+### Patch Changes
+
+- 9f20cab: Add dedicated Huly CLI landing, examples, automation, and MCP comparison pages to the project website, sitemap, and machine-readable documentation.
+
 ## 0.49.1
 
 ### Patch Changes
