@@ -1,12 +1,13 @@
-import { Command } from "@effect/cli"
+import { Command, type CommandDescriptor } from "@effect/cli"
 import type { NodeContext } from "@effect/platform-node"
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 
 import { operationRegistry } from "../../../src/mcp/tools/index.js"
 import type { TelemetryService } from "../../../src/telemetry/telemetry.js"
 import type { CliCommandSpec } from "./catalog-types.js"
 import { cliCommandCatalog, type CliToolName, isCliToolName } from "./catalog.js"
 import { buildCliCommandConfig, buildGlobalOptionsConfig, parseGlobalCommandLine } from "./cli-options.js"
+import type { CliCommandPath } from "./command-schema.js"
 import type { CliInputError } from "./input.js"
 import { CliRuntimeError } from "./render.js"
 import { runCliTool } from "./runner.js"
@@ -109,6 +110,18 @@ const makeGroupCommand = (node: MutableCommandNode, argv: ReadonlyArray<string>)
 
 const makeCommand = (node: MutableCommandNode, argv: ReadonlyArray<string>): HulyCommand =>
   node.toolName === undefined ? makeGroupCommand(node, argv) : makeLeafCommand(node, argv)
+
+const nodeAtPath = (node: MutableCommandNode, path: CliCommandPath): Option.Option<MutableCommandNode> => {
+  const [segment, ...remaining] = path
+  if (segment === undefined) return Option.some(node)
+  const child = node.children.get(segment)
+  return child === undefined ? Option.none() : nodeAtPath(child, remaining)
+}
+
+export const buildCommandDescriptorAtPath = (path: CliCommandPath): Option.Option<CommandDescriptor.Command<unknown>> =>
+  Option.flatMap(nodeAtPath(buildCatalogTree(), path), (node) =>
+    node.toolName === undefined ? Option.none() : Option.some(makeLeafCommand(node, []).descriptor)
+  )
 
 export const buildRootCommand = (argv: ReadonlyArray<string>): HulyCommand => {
   const tree = buildCatalogTree()

@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 import { Command } from "@effect/cli"
 import { NodeContext, NodeRuntime } from "@effect/platform-node"
-import { Console, Effect, Layer, Logger, LogLevel } from "effect"
+import { Console, Effect, Layer, Logger, LogLevel, Option } from "effect"
 
 import { TelemetryService } from "../../../src/telemetry/telemetry.js"
 import { buildRootCommand } from "./command-tree.js"
-import { isRootHelpRequest, renderRootHelp } from "./help.js"
+import { renderCliHelp } from "./help.js"
+import { parseCliHelpRequest } from "./help-schema.js"
 import { CliInputError } from "./input.js"
 import { CliRuntimeError } from "./render.js"
 
-declare const PKG_VERSION: string
+declare const PKG_VERSION: unknown
 
 const cliVersion = typeof PKG_VERSION === "string" ? PKG_VERSION : "0.43.0"
 const NODE_ARGUMENT_OFFSET = 2
@@ -23,7 +24,15 @@ const isKnownCliError = (error: unknown): error is CliInputError | CliRuntimeErr
 
 const main = Effect.suspend(() => {
   const argv = process.argv.slice(NODE_ARGUMENT_OFFSET)
-  return isRootHelpRequest(argv) ? Console.log(renderRootHelp(cliVersion)) : makeCli(argv)(process.argv)
+  return Effect.gen(function* () {
+    const helpRequest = yield* parseCliHelpRequest({
+      argv,
+      version: cliVersion,
+      terminalColumns: process.stdout.columns
+    })
+    const help = Option.flatMap(helpRequest, renderCliHelp)
+    return yield* Option.match(help, { onNone: () => makeCli(argv)(process.argv), onSome: Console.log })
+  })
 }).pipe(
   Logger.withMinimumLogLevel(LogLevel.Warning),
   Effect.provide(Layer.mergeAll(NodeContext.layer, TelemetryService.cliLayer, cliLoggerLayer)),

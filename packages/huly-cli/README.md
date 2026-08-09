@@ -77,7 +77,7 @@ The CLI reads the same Huly connection settings as the MCP server.
 
 ## Usage
 
-Run `huly --help` for the generated command tree and append `--help` to any command for its schema-derived inputs.
+Help is progressive: `huly --help` lists top-level command domains, `huly <domain> --help` lists its immediate commands, and leaf help shows the complete schema-derived inputs. Generate shell completion with `huly --completions sh`, `huly --completions bash`, `huly --completions fish`, or `huly --completions zsh`.
 
 ```bash
 huly projects list
