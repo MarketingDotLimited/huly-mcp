@@ -16,6 +16,7 @@ import { cliCommandCatalog, type CliToolName } from "./catalog.js"
 import type { CliGlobalOptions, ParsedCliCommandLine } from "./cli-options.js"
 import { buildCliInvocation, type CliInputError } from "./input.js"
 import { CliRuntimeError, renderOperationSuccess } from "./render.js"
+import { explicitCliConfirmationMessage } from "./safety-policies.js"
 
 type CliOperation = ReturnType<typeof operationRegistry.getOperation>
 
@@ -31,6 +32,7 @@ export interface CliRunnerPorts {
     success: ToolOperationSuccess,
     globals: CliGlobalOptions
   ) => Effect.Effect<void, CliRuntimeError>
+  readonly writeImage: (success: ToolOperationSuccess, output: string) => Effect.Effect<void, CliRuntimeError>
   readonly useClientBundle: <A, E>(
     use: (bundle: ClientBundle) => Effect.Effect<A, E>
   ) => Effect.Effect<A, E | CliRuntimeError>
@@ -92,10 +94,27 @@ const downloadAttachmentToFile = (
     })
   })
 
+const writeImageToFile = (success: ToolOperationSuccess, output: string): Effect.Effect<void, CliRuntimeError> =>
+  Effect.gen(function* () {
+    const image = success.image
+    if (image === undefined) {
+      return yield* new CliRuntimeError({ message: "Image result is missing image content." })
+    }
+    const bytes = Buffer.from(image.data, "base64")
+    yield* Effect.tryPromise({
+      try: async () => {
+        await fs.mkdir(path.dirname(output), { recursive: true })
+        await fs.writeFile(output, bytes)
+      },
+      catch: (error) => new CliRuntimeError({ message: `Failed to write image to ${output}: ${errorMessage(error)}` })
+    })
+  })
+
 const defaultRunnerPorts: CliRunnerPorts = {
   downloadAttachment: downloadAttachmentToFile,
   getOperation: operationRegistry.getOperation,
   renderSuccess: renderOperationSuccess,
+  writeImage: writeImageToFile,
   useClientBundle: (use) =>
     Effect.acquireUseRelease(
       buildScopedClientBundle(buildCombinedClientLayer()).pipe(
@@ -107,11 +126,13 @@ const defaultRunnerPorts: CliRunnerPorts = {
 }
 /* c8 ignore stop */
 
-const confirmationMessage = (spec: CliCommandSpec, operation: CliOperation): string | undefined => {
-  const catalogConfirmation = spec.behavior?.confirmation
-  if (catalogConfirmation?.type === "requires-yes") return catalogConfirmation.message
-  return resolveAnnotations(operation).destructiveHint === true ? `${spec.path.join(" ")} requires --yes.` : undefined
-}
+const confirmationMessage = (
+  toolName: CliToolName,
+  spec: CliCommandSpec,
+  operation: CliOperation
+): string | undefined =>
+  explicitCliConfirmationMessage(toolName, spec) ??
+  (resolveAnnotations(operation).destructiveHint === true ? `${spec.path.join(" ")} requires --yes.` : undefined)
 
 export const runCliToolWithPorts = (
   ports: CliRunnerPorts,
@@ -149,7 +170,7 @@ export const runCliToolWithPorts = (
     const command = Effect.gen(function* () {
       const invocation = yield* buildCliInvocation(operation, spec, parsed)
       inputBytes = jsonBytes(invocation.input)
-      const requiredConfirmationMessage = confirmationMessage(spec, operation)
+      const requiredConfirmationMessage = confirmationMessage(toolName, spec, operation)
       if (requiredConfirmationMessage !== undefined && !invocation.globals.yes) {
         return yield* new CliRuntimeError({ message: requiredConfirmationMessage })
       }
@@ -166,6 +187,9 @@ export const runCliToolWithPorts = (
           const fileOutput = spec.behavior?.fileOutput
           if (fileOutput?.type === "attachment-download" && invocation.globals.output !== undefined) {
             yield* ports.downloadAttachment(bundle, result, fileOutput.attachmentIdField, invocation.globals.output)
+          }
+          if (fileOutput?.type === "image-content" && invocation.globals.output !== undefined) {
+            yield* ports.writeImage(result, invocation.globals.output)
           }
 
           return result

@@ -13,6 +13,7 @@ declare const PKG_VERSION: string
 
 const cliVersion = typeof PKG_VERSION === "string" ? PKG_VERSION : "0.43.0"
 const NODE_ARGUMENT_OFFSET = 2
+const cliLoggerLayer = Logger.replace(Logger.defaultLogger, Logger.prettyLogger({ stderr: true }))
 
 const makeCli = (argv: ReadonlyArray<string>) =>
   Command.run(buildRootCommand(argv), { name: "Huly CLI", version: cliVersion })
@@ -24,9 +25,8 @@ const main = Effect.suspend(() => {
   const argv = process.argv.slice(NODE_ARGUMENT_OFFSET)
   return isRootHelpRequest(argv) ? Console.log(renderRootHelp(cliVersion)) : makeCli(argv)(process.argv)
 }).pipe(
-  Effect.provide(
-    Layer.mergeAll(NodeContext.layer, TelemetryService.cliLayer, Logger.minimumLogLevel(LogLevel.Warning))
-  ),
+  Logger.withMinimumLogLevel(LogLevel.Warning),
+  Effect.provide(Layer.mergeAll(NodeContext.layer, TelemetryService.cliLayer, cliLoggerLayer)),
   Effect.catchAll((error) =>
     isKnownCliError(error)
       ? Console.error(error.message).pipe(
@@ -46,5 +46,5 @@ const isMainModule = (() => {
 })()
 
 if (isMainModule) {
-  NodeRuntime.runMain(main)
+  NodeRuntime.runMain(main, { disablePrettyLogger: true })
 }

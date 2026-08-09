@@ -1,12 +1,9 @@
-import { UPLOAD_SOURCE_SEMANTICS } from "../../../src/domain/schemas/upload-source.js"
 import type { McpToolName } from "../../../src/mcp/tools/index.js"
 import { mutationCliCommandCatalog } from "./catalog-mutations.js"
+import { parityCliCommandCatalog } from "./catalog-parity.js"
 import { readOnlyCliCommandCatalog } from "./catalog-read-only.js"
 import type { CliCommandSpec } from "./catalog-types.js"
-import { ignoredBusinessMcpTools } from "./ignored-tools-business.js"
-import { ignoredCollaborationMcpTools } from "./ignored-tools-collaboration.js"
-import { ignoredCoreMcpTools } from "./ignored-tools-core.js"
-import { ignoredPlatformMcpTools } from "./ignored-tools-platform.js"
+import { CLI_UPLOAD_SOURCE_SEMANTICS } from "./parity-contract.js"
 
 export const cliCommandCatalog = {
   list_projects: { path: ["projects", "list"], positional: [], description: "List projects" },
@@ -94,19 +91,20 @@ export const cliCommandCatalog = {
   read_attachment_content: {
     path: ["attachments", "read-image"],
     positional: ["attachmentId"],
-    description: "Read a supported image attachment as multimodal content"
+    description: "Read a supported image attachment; use --output to write its decoded bytes",
+    behavior: { fileOutput: { type: "image-content" } }
   },
   add_issue_attachment: {
     path: ["attachments", "add-to-issue"],
     positional: [],
-    description: `Add an attachment to an issue. ${UPLOAD_SOURCE_SEMANTICS}`,
-    behavior: { fileInput: { fields: ["description"] } }
+    description: `Add an attachment to an issue. ${CLI_UPLOAD_SOURCE_SEMANTICS}`,
+    behavior: { base64FileInput: { fields: ["data"] }, fileInput: { fields: ["description"] } }
   },
   add_document_attachment: {
     path: ["attachments", "add-to-document"],
     positional: [],
-    description: `Add an attachment to a document. ${UPLOAD_SOURCE_SEMANTICS}`,
-    behavior: { fileInput: { fields: ["description"] } }
+    description: `Add an attachment to a document. ${CLI_UPLOAD_SOURCE_SEMANTICS}`,
+    behavior: { base64FileInput: { fields: ["data"] }, fileInput: { fields: ["description"] } }
   },
   list_documents: { path: ["documents", "list"], positional: [], description: "List documents" },
   get_document: { path: ["documents", "get"], positional: [], description: "Get a document" },
@@ -136,35 +134,12 @@ export const cliCommandCatalog = {
   get_component: { path: ["components", "get"], positional: [], description: "Get a component" },
   fulltext_search: { path: ["search"], positional: ["query"], description: "Search Huly" },
   ...readOnlyCliCommandCatalog,
-  ...mutationCliCommandCatalog
-} as const satisfies Partial<Record<McpToolName, CliCommandSpec>>
+  ...mutationCliCommandCatalog,
+  ...parityCliCommandCatalog
+} as const satisfies Record<McpToolName, CliCommandSpec>
 
 export type CliToolName = keyof typeof cliCommandCatalog
 
 export const isCliToolName = (name: string): name is CliToolName => Object.hasOwn(cliCommandCatalog, name)
 
-type ImplementedMcpTool = keyof typeof cliCommandCatalog
-
-export const ignoredMcpTools = [
-  ...ignoredCoreMcpTools,
-  ...ignoredCollaborationMcpTools,
-  ...ignoredBusinessMcpTools,
-  ...ignoredPlatformMcpTools
-] as const satisfies ReadonlyArray<Exclude<McpToolName, ImplementedMcpTool>>
-
-type IgnoredMcpTool = (typeof ignoredMcpTools)[number]
-type AssertNever<T extends never> = T
-
-type MissingMcpToolDecision = Exclude<McpToolName, ImplementedMcpTool | IgnoredMcpTool>
-type StaleIgnoredMcpTool = Exclude<IgnoredMcpTool, McpToolName>
-type ImplementedAndIgnoredMcpTool = Extract<ImplementedMcpTool, IgnoredMcpTool>
-type NonexistentImplementedMcpTool = Exclude<ImplementedMcpTool, McpToolName>
-
-type CatalogSyncAssertions = readonly [
-  AssertNever<MissingMcpToolDecision>?,
-  AssertNever<StaleIgnoredMcpTool>?,
-  AssertNever<ImplementedAndIgnoredMcpTool>?,
-  AssertNever<NonexistentImplementedMcpTool>?
-]
-
-export const catalogSyncAssertions: CatalogSyncAssertions = []
+export const ignoredMcpTools: readonly [] = []

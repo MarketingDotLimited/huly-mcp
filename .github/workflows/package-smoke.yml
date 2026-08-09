@@ -149,6 +149,7 @@ jobs:
         run: |
           set -euo pipefail
 
+          repo_root="$PWD"
           tarball="$(realpath "$(ls .package-smoke-cli/*.tgz | head -n 1)")"
           expected_version="$(node -p "require('./packages/huly-cli/package.json').version")"
           smoke_dir="$(mktemp -d)"
@@ -175,6 +176,8 @@ jobs:
 
           pnpm exec huly --help > help.log
           grep -q "Huly CLI" help.log
+          node "$repo_root/scripts/run-bundled.mjs" "$repo_root/scripts/smoke-packed-cli.ts" \
+            "$(pwd)/node_modules/.bin/huly"
 
           npm_smoke_dir="$(mktemp -d)"
           cd "$npm_smoke_dir"
@@ -183,6 +186,8 @@ jobs:
 
           ./node_modules/.bin/huly --help > help.log
           grep -q "Huly CLI" help.log
+          node "$repo_root/scripts/run-bundled.mjs" "$repo_root/scripts/smoke-packed-cli.ts" \
+            "$(pwd)/node_modules/.bin/huly"
 
   docker-image:
     name: Docker image

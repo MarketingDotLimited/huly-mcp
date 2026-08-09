@@ -1,43 +1,87 @@
 import { describe, expect, it } from "vitest"
 
-import { deferredMechanicalCliCommandTools } from "../../packages/huly-cli/src/catalog-deferred.js"
-import { deferredReadOnlyCliCommandTools } from "../../packages/huly-cli/src/catalog-read-only.js"
+import type { CliCommandSpec } from "../../packages/huly-cli/src/catalog-types.js"
+import { cliCommandCatalog, ignoredMcpTools, isCliToolName } from "../../packages/huly-cli/src/catalog.js"
+import { buildCliCommandConfig } from "../../packages/huly-cli/src/cli-options.js"
+import { allTools, resolveAnnotations } from "../../src/mcp/tools/index.js"
 import {
-  catalogSyncAssertions,
-  cliCommandCatalog,
-  ignoredMcpTools,
-  isCliToolName
-} from "../../packages/huly-cli/src/catalog.js"
-import { allTools } from "../../src/mcp/tools/index.js"
+  CLI_BEHAVIOR_CLASSES,
+  CLI_DEDICATED_LIVE_RISK_CLASSES,
+  CLI_PARITY_BASELINE,
+  CLI_PARITY_TARGET
+} from "../../packages/huly-cli/src/parity-contract.js"
+import {
+  CONSEQUENTIAL_CLI_TOOLS,
+  hasExplicitCliConfirmationPolicy
+} from "../../packages/huly-cli/src/safety-policies.js"
+import {
+  cliIntegrationCoverageDecision,
+  CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS,
+  CLI_REVIEWED_COVERAGE_CATEGORIES,
+  CLI_UNIQUE_RISK_DECISIONS
+} from "../../packages/huly-cli/src/live-coverage.js"
+import {
+  collectFieldSpecs,
+  collectRequiredFieldNames,
+  fieldOptionDescription
+} from "../../packages/huly-cli/src/schema-fields.js"
 
 const catalogEntries = () => Object.entries(cliCommandCatalog)
 
 const pathKey = (path: ReadonlyArray<string>): string => path.join(" ")
 
 describe("CLI catalog", () => {
-  it("keeps implemented and ignored MCP tool decisions disjoint at runtime", () => {
-    const implemented = new Set(Object.keys(cliCommandCatalog))
-    const ignored = new Set(ignoredMcpTools)
-
-    expect([...implemented].filter((name) => ignored.has(name))).toEqual([])
+  it("records the auditable parity baseline and target", () => {
+    expect(CLI_PARITY_BASELINE).toEqual({
+      registryOperations: 522,
+      cliRoutes: 451,
+      ignoredOperations: 71,
+      directLiveCases: 68,
+      deferredLiveCases: 383
+    })
+    expect(CLI_PARITY_TARGET).toEqual({ ignoredOperations: 0, routesPerRegistryOperation: 1 })
+    expect(CLI_BEHAVIOR_CLASSES).toContain("structured-json-input")
+    expect(CLI_BEHAVIOR_CLASSES).toContain("workspace-administration")
+    expect(CLI_DEDICATED_LIVE_RISK_CLASSES).toEqual(["transport", "safety", "privacy", "workspace-client", "lifecycle"])
   })
-
-  it("has an explicit CLI decision for every registry MCP tool", () => {
-    const decided = new Set([...Object.keys(cliCommandCatalog), ...ignoredMcpTools])
+  it("has exactly one CLI route for every registry operation and no ignored operations", () => {
+    const implemented = new Set(Object.keys(cliCommandCatalog))
     const toolNames = allTools.map((tool) => tool.name)
 
-    expect(toolNames.filter((name) => !decided.has(name))).toEqual([])
-    expect(catalogSyncAssertions).toEqual([])
+    expect(ignoredMcpTools).toEqual([])
+    expect(implemented.size).toBe(allTools.length)
+    expect(toolNames.filter((name) => !implemented.has(name))).toEqual([])
   })
 
-  it("keeps only logged non-mechanical read-like tools ignored", () => {
-    const ignoredReadLikeTools = ignoredMcpTools.filter((name) => /^(list|get|describe)_/.test(name))
+  it("requires an explicit integration-risk review when the registry or its categories change", () => {
+    const categories = new Set(allTools.map((tool) => tool.category))
+    const decisions = allTools.map((tool) => cliIntegrationCoverageDecision(tool.name, tool.category))
 
-    expect(ignoredReadLikeTools.toSorted()).toEqual([...deferredReadOnlyCliCommandTools].toSorted())
-  })
-
-  it("keeps every ignored MCP tool in the mechanical deferral list", () => {
-    expect(ignoredMcpTools.toSorted()).toEqual([...deferredMechanicalCliCommandTools].toSorted())
+    expect(allTools).toHaveLength(CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS)
+    expect(
+      [...categories].filter(
+        (category) => !CLI_REVIEWED_COVERAGE_CATEGORIES.some((candidate) => candidate === category)
+      )
+    ).toEqual([])
+    expect(decisions).toHaveLength(allTools.length)
+    expect(decisions.filter((decision) => decision.risks.length > 0 && decision.type !== "dedicated-live")).toEqual([])
+    expect([...new Set(decisions.flatMap((decision) => decision.risks))].sort()).toEqual(
+      [...CLI_DEDICATED_LIVE_RISK_CLASSES].sort()
+    )
+    for (const riskDecision of CLI_UNIQUE_RISK_DECISIONS) {
+      for (const toolName of riskDecision.tools) {
+        const tool = allTools.find((candidate) => candidate.name === toolName)
+        if (tool === undefined) throw new Error(`Unknown unique-risk tool ${toolName}.`)
+        expect(cliIntegrationCoverageDecision(toolName, tool.category)).toMatchObject({
+          type: "dedicated-live",
+          caseIds: expect.arrayContaining([riskDecision.caseId]),
+          risks: expect.arrayContaining([...riskDecision.risks])
+        })
+      }
+    }
+    expect(() => cliIntegrationCoverageDecision("list_projects", "new-unreviewed-category")).toThrow(
+      "risk classification is missing category"
+    )
   })
 
   it("keeps generated CLI command paths unique and non-overlapping", () => {
@@ -63,6 +107,78 @@ describe("CLI catalog", () => {
     expect(prefixConflicts).toEqual([])
   })
 
+  it("records explicit CLI confirmation for every destructive operation", () => {
+    const missing = allTools.flatMap((tool) => {
+      if (!isCliToolName(tool.name)) return []
+      const spec: CliCommandSpec = cliCommandCatalog[tool.name]
+      return resolveAnnotations(tool.operation).destructiveHint === true &&
+        !hasExplicitCliConfirmationPolicy(tool.name, spec)
+        ? [tool.name]
+        : []
+    })
+
+    expect(missing).toEqual([])
+  })
+
+  it("requires explicit confirmation for every security-administration write", () => {
+    const missing = allTools.flatMap((tool) => {
+      if (tool.category !== "security-administration" || !isCliToolName(tool.name)) return []
+      const spec: CliCommandSpec = cliCommandCatalog[tool.name]
+      return resolveAnnotations(tool.operation).readOnlyHint !== true &&
+        !hasExplicitCliConfirmationPolicy(tool.name, spec)
+        ? [tool.name]
+        : []
+    })
+
+    expect(missing).toEqual([])
+  })
+
+  it("keeps every classified consequential operation behind explicit confirmation", () => {
+    const missing = CONSEQUENTIAL_CLI_TOOLS.filter(
+      (toolName) => !hasExplicitCliConfirmationPolicy(toolName, cliCommandCatalog[toolName])
+    )
+
+    expect(missing).toEqual([])
+  })
+
+  it("keeps positional and file-policy field names synchronized with operation schemas", () => {
+    const errors = allTools.flatMap((tool) => {
+      if (!isCliToolName(tool.name)) return []
+      const spec: CliCommandSpec = cliCommandCatalog[tool.name]
+      const fields = new Set(
+        [...collectFieldSpecs(tool.operation.inputSchema).values()].map((field) => field.fieldName)
+      )
+      const required = collectRequiredFieldNames(tool.operation.inputSchema)
+      const behaviorFields = [
+        ...(spec.behavior?.fileInput?.fields ?? []),
+        ...(spec.behavior?.base64FileInput?.fields ?? [])
+      ]
+      const unknown = [...spec.positional, ...behaviorFields].filter((field) => !fields.has(field))
+      const optionalPositionals = spec.positional.filter((field) => !required.has(field))
+      return [
+        ...unknown.map((field) => `${tool.name}: unknown field ${field}`),
+        ...optionalPositionals.map((field) => `${tool.name}: optional positional ${field}`)
+      ]
+    })
+
+    expect(errors).toEqual([])
+  })
+
+  it("rejects file behavior metadata that names a missing schema field", () => {
+    const listProjects = allTools.find((tool) => tool.name === "list_projects")
+    if (listProjects === undefined) throw new Error("Missing list_projects fixture.")
+    const invalidSpec: CliCommandSpec = {
+      path: ["invalid"],
+      positional: [],
+      description: "Invalid behavior fixture",
+      behavior: { fileInput: { fields: ["missing"] } }
+    }
+
+    expect(() => buildCliCommandConfig(listProjects, invalidSpec)).toThrow(
+      "CLI behavior references unknown schema fields: missing."
+    )
+  })
+
   it("keeps notable generated paths aligned with the public command vocabulary", () => {
     expect(cliCommandCatalog.list_tags.path).toEqual(["tags", "list"])
     expect(cliCommandCatalog.create_tag.path).toEqual(["tags", "create"])
@@ -74,10 +190,48 @@ describe("CLI catalog", () => {
       cliCommandCatalog.add_issue_attachment.description,
       cliCommandCatalog.add_document_attachment.description
     ]) {
-      expect(description).toContain("MCP server host")
-      expect(description).toContain("client-local base64")
-      expect(description).toContain("fetched by the MCP server")
+      expect(description).toContain("CLI process")
+      expect(description).toContain("canonical base64")
+      expect(description).toContain("--data-base64-file")
     }
+  })
+
+  it("derives allowed values and union-field guidance from operation schemas", () => {
+    const createIssue = allTools.find((tool) => tool.name === "create_issue")
+    const setConversationClosed = allTools.find((tool) => tool.name === "set_conversation_closed")
+    if (createIssue === undefined || setConversationClosed === undefined) throw new Error("Missing CLI help fixtures.")
+    const priority = collectFieldSpecs(createIssue.inputSchema).get("priority")
+    const channel = collectFieldSpecs(setConversationClosed.inputSchema).get("channel")
+    if (priority === undefined || channel === undefined) throw new Error("Missing CLI help fixture fields.")
+
+    expect(fieldOptionDescription(createIssue.inputSchema, priority)).toContain('Allowed values: "urgent"')
+    expect(fieldOptionDescription(setConversationClosed.inputSchema, channel)).toContain("{ channel } | { dm }")
+  })
+
+  it("describes nested schema constraints without assuming every variant is an object", () => {
+    const rootSchema = {
+      allOf: [
+        null,
+        {
+          oneOf: [
+            { required: ["choice"], properties: { choice: { type: "string" } } },
+            { required: ["other"], properties: { other: { type: "string" } } }
+          ]
+        }
+      ]
+    }
+    const description = fieldOptionDescription(rootSchema, {
+      fieldName: "choice",
+      schema: { type: ["string", "null", 1], enum: [undefined, "x"], pattern: "^x$", default: "x" }
+    })
+    const constDescription = fieldOptionDescription({}, { fieldName: "fixed", schema: { const: "only" } })
+
+    expect(description).toContain('Allowed values: "x"')
+    expect(description).toContain("Pattern: ^x$")
+    expect(description).toContain('Default: "x"')
+    expect(description).toContain("{ choice } | { other }")
+    expect(constDescription).toContain('Allowed values: "only"')
+    expect(collectRequiredFieldNames({ anyOf: [] })).toEqual(new Set())
   })
 
   it("narrows CLI tool names at runtime", () => {

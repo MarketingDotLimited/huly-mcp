@@ -1,5 +1,7 @@
+import type { CliOptionName, CliSchemaFieldName } from "./catalog-types.js"
+
 export interface FieldSpec {
-  readonly fieldName: string
+  readonly fieldName: CliSchemaFieldName
   readonly schema: unknown
 }
 
@@ -8,7 +10,7 @@ const MAX_SCHEMA_REF_DEPTH = 8
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
 
-const fieldNameToOptionName = (fieldName: string): string =>
+export const fieldNameToOptionName = (fieldName: CliSchemaFieldName): CliOptionName =>
   fieldName
     .replaceAll("_", "-")
     .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
@@ -34,11 +36,16 @@ const collectPropertyRecords = (schema: unknown): Array<Record<string, unknown>>
   return records
 }
 
-export const collectFieldSpecs = (schema: object): ReadonlyMap<string, FieldSpec> => {
-  const fields = new Map<string, FieldSpec>()
+export const collectFieldSpecs = (schema: object): ReadonlyMap<CliOptionName, FieldSpec> => {
+  const fields = new Map<CliOptionName, FieldSpec>()
   for (const properties of collectPropertyRecords(schema)) {
     for (const [fieldName, fieldSchema] of Object.entries(properties)) {
-      fields.set(fieldNameToOptionName(fieldName), { fieldName, schema: fieldSchema })
+      const optionName = fieldNameToOptionName(fieldName)
+      const existing = fields.get(optionName)
+      fields.set(optionName, {
+        fieldName,
+        schema: existing === undefined ? fieldSchema : { anyOf: [existing.schema, fieldSchema] }
+      })
     }
   }
   return fields
@@ -55,6 +62,68 @@ const resolveLocalRef = (rootSchema: object, schema: unknown): unknown => {
   const name = localRefName(schema.$ref)
   if (name === undefined || !isRecord(rootSchema.$defs)) return schema
   return rootSchema.$defs[name] ?? schema
+}
+
+const directRequiredFieldNames = (schema: Record<string, unknown>): ReadonlySet<string> =>
+  new Set(
+    Array.isArray(schema.required) ? schema.required.filter((name): name is string => typeof name === "string") : []
+  )
+
+const intersectSets = (sets: ReadonlyArray<ReadonlySet<string>>): ReadonlySet<string> => {
+  const [first, ...rest] = sets
+  return first === undefined ? new Set() : new Set([...first].filter((name) => rest.every((set) => set.has(name))))
+}
+
+const requiredFieldNamesFor = (schema: unknown): ReadonlySet<string> => {
+  if (!isRecord(schema)) return new Set()
+  const required = new Set(directRequiredFieldNames(schema))
+  const allOf = Array.isArray(schema.allOf) ? schema.allOf : []
+  for (const name of allOf.flatMap((variant) => [...requiredFieldNamesFor(variant)])) required.add(name)
+  for (const variantKey of ["anyOf", "oneOf"]) {
+    const variants = schema[variantKey]
+    if (Array.isArray(variants)) {
+      for (const name of intersectSets(variants.map(requiredFieldNamesFor))) required.add(name)
+    }
+  }
+  return required
+}
+
+export const collectRequiredFieldNames = (schema: object): ReadonlySet<string> => requiredFieldNamesFor(schema)
+
+const directUnionAlternatives = (schema: Record<string, unknown>): ReadonlyArray<unknown> | undefined => {
+  for (const variantKey of ["anyOf", "oneOf"]) {
+    const variants = schema[variantKey]
+    if (Array.isArray(variants) && variants.length > 1) return variants
+  }
+  return undefined
+}
+
+const findFieldUnionAlternatives = (
+  schema: unknown,
+  fieldName: string
+): ReadonlyArray<ReadonlySet<string>> | undefined => {
+  if (!isRecord(schema)) return undefined
+  const direct = directUnionAlternatives(schema)
+  if (direct !== undefined) {
+    const requiredSets = direct.map(requiredFieldNamesFor)
+    const present = requiredSets.filter((required) => required.has(fieldName)).length
+    if (present > 0 && present < requiredSets.length) return requiredSets
+  }
+  const allOf = Array.isArray(schema.allOf) ? schema.allOf : []
+  for (const variant of allOf) {
+    const nested = findFieldUnionAlternatives(variant, fieldName)
+    if (nested !== undefined) return nested
+  }
+  return undefined
+}
+
+const unionAlternativesDescription = (rootSchema: object, fieldName: string): string | undefined => {
+  const alternatives = findFieldUnionAlternatives(rootSchema, fieldName)
+  if (alternatives === undefined) return undefined
+  const shared = intersectSets(alternatives)
+  const choices = alternatives.map((required) => [...required].filter((name) => !shared.has(name)))
+  if (choices.some((choice) => choice.length === 0)) return undefined
+  return `Choose one input alternative: ${choices.map((choice) => `{ ${choice.join(", ")} }`).join(" | ")}.`
 }
 
 const directSchemaTypeMatches = (schema: Record<string, unknown>, typeName: string): boolean =>
@@ -95,3 +164,140 @@ export const fieldAcceptsString = (rootSchema: object, field: FieldSpec): boolea
 
 export const fieldAcceptsJson = (rootSchema: object, field: FieldSpec): boolean =>
   schemaHasType(rootSchema, field.schema, "array") || schemaHasType(rootSchema, field.schema, "object")
+
+export const fieldUsesBooleanOption = (rootSchema: object, field: FieldSpec): boolean =>
+  fieldAcceptsBoolean(rootSchema, field) &&
+  !fieldAcceptsString(rootSchema, field) &&
+  !fieldAcceptsNumber(rootSchema, field) &&
+  !fieldAcceptsNull(rootSchema, field) &&
+  !fieldAcceptsJson(rootSchema, field)
+
+const firstVariantDescription = (
+  rootSchema: object,
+  schema: Record<string, unknown>,
+  depth: number
+): string | undefined => {
+  for (const variantKey of ["allOf", "anyOf", "oneOf"]) {
+    const variants = schema[variantKey]
+    if (!Array.isArray(variants)) continue
+    for (const variant of variants) {
+      const description = schemaDescription(rootSchema, variant, depth + 1)
+      if (description !== undefined) return description
+    }
+  }
+  return undefined
+}
+
+const schemaDescription = (rootSchema: object, schema: unknown, depth = 0): string | undefined => {
+  if (depth > MAX_SCHEMA_REF_DEPTH || !isRecord(schema)) return undefined
+  if (typeof schema.description === "string") return schema.description
+  const resolved = resolveLocalRef(rootSchema, schema)
+  if (!isRecord(resolved)) return undefined
+  return typeof resolved.description === "string"
+    ? resolved.description
+    : firstVariantDescription(rootSchema, resolved, depth)
+}
+
+const fieldSchemaDescription = (rootSchema: object, field: FieldSpec): string | undefined =>
+  schemaDescription(rootSchema, field.schema)
+
+interface FieldConstraints {
+  readonly defaults: Set<string>
+  readonly literals: Set<string>
+  readonly patterns: Set<string>
+  readonly shapes: Set<string>
+  readonly types: Set<string>
+}
+
+const emptyFieldConstraints = (): FieldConstraints => ({
+  defaults: new Set(),
+  literals: new Set(),
+  patterns: new Set(),
+  shapes: new Set(),
+  types: new Set()
+})
+
+const encodedLiteral = (value: unknown): string | undefined => {
+  const encoded = JSON.stringify(value)
+  return typeof encoded === "string" ? encoded : undefined
+}
+
+const addTypeConstraints = (schema: Record<string, unknown>, constraints: FieldConstraints): void => {
+  const types = Array.isArray(schema.type) ? schema.type : [schema.type]
+  for (const typeName of types) if (typeof typeName === "string" && typeName !== "null") constraints.types.add(typeName)
+}
+
+const addLiteralConstraints = (schema: Record<string, unknown>, constraints: FieldConstraints): void => {
+  const literals = Array.isArray(schema.enum) ? schema.enum : schema.const === undefined ? [] : [schema.const]
+  for (const literal of literals) {
+    const encoded = encodedLiteral(literal)
+    if (encoded !== undefined) constraints.literals.add(encoded)
+  }
+}
+
+const addScalarConstraints = (schema: Record<string, unknown>, constraints: FieldConstraints): void => {
+  if (typeof schema.pattern === "string") constraints.patterns.add(schema.pattern)
+  const encodedDefault = encodedLiteral(schema.default)
+  if (encodedDefault !== undefined) constraints.defaults.add(encodedDefault)
+}
+
+const addShapeConstraints = (schema: Record<string, unknown>, constraints: FieldConstraints): void => {
+  const required = Array.isArray(schema.required)
+    ? schema.required.filter((name): name is string => typeof name === "string")
+    : []
+  if (required.length > 0) constraints.shapes.add(`{ ${required.join(", ")} }`)
+}
+
+const addDirectConstraints = (schema: Record<string, unknown>, constraints: FieldConstraints): void => {
+  addTypeConstraints(schema, constraints)
+  addLiteralConstraints(schema, constraints)
+  addScalarConstraints(schema, constraints)
+  addShapeConstraints(schema, constraints)
+}
+
+const collectVariantConstraints = (
+  rootSchema: object,
+  schema: Record<string, unknown>,
+  constraints: FieldConstraints,
+  depth: number
+): void => {
+  for (const variantKey of ["allOf", "anyOf", "oneOf"]) {
+    const variants = schema[variantKey]
+    if (!Array.isArray(variants)) continue
+    for (const variant of variants) collectFieldConstraints(rootSchema, variant, constraints, depth + 1)
+  }
+}
+
+const collectFieldConstraints = (
+  rootSchema: object,
+  schema: unknown,
+  constraints: FieldConstraints,
+  depth = 0
+): void => {
+  if (depth > MAX_SCHEMA_REF_DEPTH || !isRecord(schema)) return
+  const resolved = resolveLocalRef(rootSchema, schema)
+  if (!isRecord(resolved)) return
+  addDirectConstraints(resolved, constraints)
+  if (resolved !== schema) collectFieldConstraints(rootSchema, resolved, constraints, depth + 1)
+  collectVariantConstraints(rootSchema, resolved, constraints, depth)
+}
+
+const joinedConstraint = (label: string, values: ReadonlySet<string>): string | undefined =>
+  values.size === 0 ? undefined : `${label}: ${[...values].join(" | ")}.`
+
+export const fieldOptionDescription = (rootSchema: object, field: FieldSpec): string => {
+  const description = fieldSchemaDescription(rootSchema, field)
+  const constraints = emptyFieldConstraints()
+  collectFieldConstraints(rootSchema, field.schema, constraints)
+  const allowed = joinedConstraint("Allowed values", constraints.literals)
+  const types = joinedConstraint("Type", constraints.types)
+  const patterns = joinedConstraint("Pattern", constraints.patterns)
+  const shapes = joinedConstraint("JSON shape alternatives", constraints.shapes)
+  const defaults = joinedConstraint("Default", constraints.defaults)
+  const unionAlternatives = unionAlternativesDescription(rootSchema, field.fieldName)
+  const json = fieldAcceptsJson(rootSchema, field) ? "Pass arrays or objects as JSON." : undefined
+  const nullable = fieldAcceptsNull(rootSchema, field) ? "Pass null to clear the field." : undefined
+  return [description, allowed, types, patterns, shapes, defaults, unionAlternatives, json, nullable]
+    .filter((part) => part !== undefined)
+    .join(" ")
+}

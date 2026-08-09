@@ -1,11 +1,12 @@
 import { NodeContext } from "@effect/platform-node"
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 import type { ClientBundle } from "../../src/mcp/server.js"
 
 import { cliCommandCatalog, type CliToolName } from "../../packages/huly-cli/src/catalog.js"
 import { parseCliCommandLine } from "../../packages/huly-cli/src/cli-options.js"
 import { type CliRunnerPorts, runCliTool, runCliToolWithPorts } from "../../packages/huly-cli/src/runner.js"
+import { McpImageContentSchema } from "../../src/domain/schemas/attachments.js"
 import { operationRegistry } from "../../src/mcp/tools/index.js"
 import type { ToolOperationSuccess } from "../../src/mcp/tools/registry.js"
 import { TelemetryService } from "../../src/telemetry/telemetry.js"
@@ -35,6 +36,10 @@ const makePorts = (result: ToolOperationSuccess, observation: RunnerObservation)
   renderSuccess: (success) =>
     Effect.sync(() => {
       observation.rendered.push(success)
+    }),
+  writeImage: (_success, output) =>
+    Effect.sync(() => {
+      observation.downloads.push({ attachmentIdField: "image", output, result })
     }),
   useClientBundle: (use) => use(emptyBundle)
 })
@@ -199,6 +204,25 @@ describe("CLI runner", () => {
     await run("download_attachment", ["attachment-1"], makePorts(result, observation), observation)
 
     expect(observation.downloads).toEqual([])
+    expect(observation.rendered).toEqual([result])
+  })
+
+  it("writes MCP image content through the native CLI output policy", async () => {
+    const result = {
+      result: { attachmentId: "attachment-1", type: "image/png" },
+      warnings: [],
+      image: Schema.decodeUnknownSync(McpImageContentSchema)({ type: "image", data: "aW1hZ2U=", mimeType: "image/png" })
+    }
+    const observation = { downloads: [], rendered: [], telemetry: [] }
+
+    await run(
+      "read_attachment_content",
+      ["attachment-1", "--output", "artifact.png"],
+      makePorts(result, observation),
+      observation
+    )
+
+    expect(observation.downloads).toEqual([{ attachmentIdField: "image", output: "artifact.png", result }])
     expect(observation.rendered).toEqual([result])
   })
 
