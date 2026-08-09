@@ -164,6 +164,21 @@ Open the global configuration file (`~/.config/opencode/opencode.json`) and merg
 
 </details>
 
+<details>
+<summary>Pi</summary>
+
+Pi requires an MCP adapter. Install it, then use Huly MCP in `auto` mode with the four proxy tools
+promoted into Pi's native tool list:
+
+```bash
+pi install npm:pi-mcp-adapter
+```
+
+See the [Pi setup guide](docs/PI_SETUP.md) for the user-global configuration, optional
+`TOOLSETS`/`TOOLS` native pins, and verification steps.
+
+</details>
+
 ## Updating
 
 The `@latest` tag asks the package runner for the newest version. Some MCP clients keep server processes or resolved installs alive, so restart or re-add the server when updating:
@@ -175,6 +190,7 @@ The `@latest` tag asks the package runner for the newest version. Some MCP clien
 | **Claude Desktop** | Restart the app (it runs `npx` on startup) |
 | **VS Code / Cursor** | Restart the MCP server from the command palette/configured client or reload the window |
 | **OpenCode** | Restart OpenCode or start a new session after config changes |
+| **Pi** | Run `/mcp reconnect huly`, then `/reload` if the registered direct-tool surface changed |
 | **npx (manual)** | `npx -y @firfi/huly-mcp@latest` — the `-y` flag auto-confirms install prompts |
 
 ## HTTP Transport

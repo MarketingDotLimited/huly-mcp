@@ -1,0 +1,116 @@
+# Pi setup
+
+[Pi](https://github.com/earendil-works/pi) does not include an MCP client by default. Install the
+[Pi MCP Adapter](https://github.com/nicobailon/pi-mcp-adapter), then configure Huly MCP as a lazy
+stdio server:
+
+Current Pi releases require Node.js 22.19 or newer. Check the runtime before installing or updating
+Pi:
+
+```bash
+node --version
+pi update self
+```
+
+```bash
+pi install npm:pi-mcp-adapter
+```
+
+Restart Pi after installation. Put the following configuration in the user-global
+`~/.config/mcp/mcp.json`. Keep real credentials out of project-local `.mcp.json` and `.pi/mcp.json`
+files.
+
+```json
+{
+  "mcpServers": {
+    "huly": {
+      "command": "npx",
+      "args": ["-y", "@firfi/huly-mcp@latest"],
+      "lifecycle": "lazy",
+      "directTools": [
+        "list_tool_categories",
+        "search_tools",
+        "get_tool_schema",
+        "invoke_tool"
+      ],
+      "env": {
+        "HULY_URL": "https://your-huly-instance.example.com",
+        "HULY_TOKEN": "your-api-token",
+        "HULY_WORKSPACE": "yourworkspace",
+        "HULY_TOOL_MODE": "auto"
+      }
+    }
+  }
+}
+```
+
+Use `HULY_EMAIL` and `HULY_PASSWORD` instead of `HULY_TOKEN` only when token authentication is not
+available. Restrict the user-global configuration file to your account because it contains Huly
+credentials.
+
+```bash
+chmod 600 ~/.config/mcp/mcp.json
+```
+
+## Why this is the recommended default
+
+The Pi MCP Adapter normally places all MCP servers behind its shared `mcp` proxy. The per-server
+`directTools` list above promotes only Huly's four discovery and invocation tools into Pi's native
+tool list. Huly MCP remains responsible for searching, describing, and invoking its complete
+operation catalog.
+
+`HULY_TOOL_MODE=auto` resolves the Pi adapter's MCP client to proxy mode, so Huly MCP does not send
+hundreds of native operation schemas to Pi. In addition to the four proxy tools, Huly MCP keeps its
+small `get_version` and `get_huly_context` diagnostics available through the adapter's shared `mcp`
+tool.
+
+The first session after enabling `directTools` may initially show only the adapter's proxy while its
+metadata cache is populated. Run `/mcp reconnect huly` if the four direct Huly tools do not appear.
+If Pi fails to load the adapter with a missing `@earendil-works/pi-ai` compatibility module, update
+Pi under Node.js 22.19 or newer; the installed Pi and adapter releases are out of sync.
+
+## Pin common native tools
+
+Pin native Huly operations when a project repeatedly uses the same domains. Change `directTools` to
+`true`, then add `TOOLSETS` and optionally `TOOLS` to the Huly server environment:
+
+```json
+{
+  "mcpServers": {
+    "huly": {
+      "command": "npx",
+      "args": ["-y", "@firfi/huly-mcp@latest"],
+      "lifecycle": "lazy",
+      "directTools": true,
+      "env": {
+        "HULY_URL": "https://your-huly-instance.example.com",
+        "HULY_TOKEN": "your-api-token",
+        "HULY_WORKSPACE": "yourworkspace",
+        "HULY_TOOL_MODE": "auto",
+        "TOOLSETS": "issues,projects,search",
+        "TOOLS": "list_documents,create_document"
+      }
+    }
+  }
+}
+```
+
+With the default `PROXY_OUTPUT_STRICT=false`, these operations become first-class Pi tools while the
+rest of Huly remains discoverable through `search_tools` and callable through `invoke_tool`. Set
+`PROXY_OUTPUT_STRICT=true` only when `TOOLSETS` and `TOOLS` should be a hard allow-list for both
+native exposure and proxy invocation.
+
+Use `TOOLSETS` for categories and `TOOLS` for exact operation names. The complete category list is
+in the main [Huly MCP README](../README.md#proxy-meta-tools).
+
+## Verify the setup
+
+1. Run `/mcp reconnect huly` in Pi.
+2. Ask Pi to call Huly MCP's `get_huly_context` through the MCP adapter.
+3. Confirm that `toolExposure.configuredMode` is `auto`, `resolvedMode` is `proxy`, and
+   `proxyToolNames` contains the four `directTools` configured above.
+4. Ask Pi to search for an operation such as "list open issues", inspect its schema, and invoke it.
+5. Confirm that no credentials appear in the tool result or Pi transcript.
+
+Use `/mcp` to inspect adapter status. After changing MCP configuration, run `/reload` or start a new
+Pi session so its registered tool surface is refreshed.
