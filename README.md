@@ -13,6 +13,12 @@
 > [!IMPORTANT]
 > **Hosted Huly is shutting down.** Huly's upstream README says shutdown is expected July 20. If you use `https://huly.app`, [export and migrate your data](https://github.com/hcengineering/platform/blob/develop/README.md) as soon as possible. See the [backup and restore guide](https://github.com/hcengineering/platform/blob/develop/docs/guides/backup-restore.en.md) and [self-hosting repository](https://github.com/hcengineering/huly-selfhost). Self-hosted deployments are not affected.
 
+## Huly CLI Alternative
+
+Looking for a Huly CLI, terminal-native Huly integration, or a scripting and automation alternative to running an MCP server? [`@firfi/huly-cli`](https://www.npmjs.com/package/@firfi/huly-cli) is a feature-complete command-line interface for Huly with full Huly operation parity with Huly MCP. It exposes the same Huly operations as native, schema-aware commands with human-readable or JSON output, file-backed inputs, uploads, and downloads.
+
+Huly MCP and Huly CLI are maintained together in this monorepo and derive from the same shared operation registry, keeping operation inputs, outputs, warnings, and typed failures aligned. See the [Huly CLI documentation](packages/huly-cli/README.md) for installation, examples, and the complete generated command reference.
+
 ## Installation
 
 The standard configuration works with most MCP clients:

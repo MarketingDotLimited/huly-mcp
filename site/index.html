@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Huly MCP - Model Context Protocol server for Huly workspaces</title>
-  <meta name="description" content="Huly MCP is a TypeScript Model Context Protocol server that gives coding agents context-rich, full-parity access to Huly workspaces.">
+  <title>Huly MCP Server for Coding Agents | Huly CLI</title>
+  <meta name="description" content="Huly MCP gives coding agents full-parity access to Huly workspaces. Prefer a terminal? Use the jointly maintained Huly CLI for command-line automation.">
   <meta name="robots" content="index,follow">
   <meta name="application-name" content="Huly MCP">
   <meta name="theme-color" content="#05080a">
@@ -17,12 +17,12 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Huly MCP">
   <meta property="og:title" content="Huly MCP">
-  <meta property="og:description" content="Context-rich MCP middleware for coding agents working with Huly workspaces.">
+  <meta property="og:description" content="Full-parity Huly MCP server for coding agents, with a jointly maintained Huly CLI alternative for terminal automation.">
   <meta property="og:url" content="https://huly-mcp.dearlordylord.com/">
   <meta property="og:image" content="https://huly-mcp.dearlordylord.com/icon.svg">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Huly MCP">
-  <meta name="twitter:description" content="Context-rich MCP middleware for coding agents working with Huly workspaces.">
+  <meta name="twitter:description" content="Full-parity Huly MCP server for coding agents, with a jointly maintained Huly CLI alternative for terminal automation.">
   <meta name="twitter:image" content="https://huly-mcp.dearlordylord.com/icon.svg">
   <script type="application/ld+json">
     {
@@ -38,12 +38,29 @@
       "license": "https://github.com/dearlordylord/huly-mcp/blob/master/LICENSE",
       "programmingLanguage": "TypeScript",
       "isAccessibleForFree": true,
-      "keywords": "Huly MCP, Model Context Protocol, MCP server, Huly, coding agents, AI agents, TypeScript",
+      "keywords": "Huly MCP, Huly CLI, Huly command line, Huly automation, Model Context Protocol, MCP server, Huly, coding agents, AI agents, TypeScript",
       "sameAs": [
         "https://huly.io/",
         "https://github.com/dearlordylord/huly-mcp",
         "https://www.npmjs.com/package/@firfi/huly-mcp"
       ]
+    }
+  </script>
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Huly CLI",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Cross-platform",
+      "description": "Feature-complete command-line interface for Huly with full Huly operation parity with Huly MCP.",
+      "url": "https://www.npmjs.com/package/@firfi/huly-cli",
+      "codeRepository": "https://github.com/dearlordylord/huly-mcp/tree/master/packages/huly-cli",
+      "downloadUrl": "https://www.npmjs.com/package/@firfi/huly-cli",
+      "license": "https://github.com/dearlordylord/huly-mcp/blob/master/LICENSE",
+      "programmingLanguage": "TypeScript",
+      "isAccessibleForFree": true,
+      "keywords": "Huly CLI, Huly command line, Huly automation, Huly scripting, coding agents"
     }
   </script>
   <script type="application/ld+json">
@@ -129,7 +146,7 @@
 
     .links {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 0;
       margin: 36px -24px -34px;
       border-top: 1px solid var(--line);
@@ -187,6 +204,12 @@
       font-size: 13px;
       font-weight: 800;
       letter-spacing: 0;
+    }
+
+    .icon.cli {
+      color: var(--brand);
+      font-size: 13px;
+      font-weight: 700;
     }
 
     .link-title {
@@ -256,6 +279,41 @@
       border-color: var(--dim);
       color: var(--ink);
       background: var(--soft);
+    }
+
+    .agent-instructions-panel {
+      padding: 24px;
+      background: var(--paper-strong);
+    }
+
+    .agent-instructions-note {
+      margin: 0 0 14px;
+      color: var(--dim);
+      font-size: 14px;
+    }
+
+    .agent-instructions {
+      max-height: 32rem;
+      margin: 0;
+      overflow: auto;
+      padding: 20px;
+      border: 1px solid var(--line-strong);
+      color: var(--muted);
+      background: var(--bg);
+      font: inherit;
+      font-size: 14px;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      user-select: text;
+    }
+
+    .text-link {
+      color: var(--brand);
+      text-underline-offset: 4px;
+    }
+
+    .text-link:hover {
+      color: var(--brand-hover);
     }
 
     section {
@@ -406,6 +464,14 @@
             <span class="link-note">install with npx</span>
           </span>
         </a>
+
+        <a class="link-card" href="https://www.npmjs.com/package/@firfi/huly-cli">
+          <span class="icon cli" aria-hidden="true">&gt;_</span>
+          <span>
+            <span class="link-title">Huly CLI</span>
+            <span class="link-note">terminal alternative</span>
+          </span>
+        </a>
       </nav>
     </section>
 
@@ -421,6 +487,45 @@
           <span data-copy-label>Copy Agent Instructions</span>
         </button>
       </div>
+      <div class="agent-instructions-panel">
+        <p class="agent-instructions-note">
+          Read or select these instructions directly, or copy the complete text with the button above.
+        </p>
+        <pre class="agent-instructions" id="agent-instructions" tabindex="0">Set up Huly MCP in my local MCP client.
+
+Use the npm package @firfi/huly-mcp with:
+
+command: npx
+args: ["-y", "@firfi/huly-mcp@latest"]
+
+Configure the MCP server with the name "huly".
+
+Ask me for:
+- HULY_URL for a reachable self-hosted or replacement hosted Huly instance
+- HULY_WORKSPACE
+- Either HULY_TOKEN, or HULY_EMAIL and HULY_PASSWORD
+
+Warn me that hosted Huly at https://huly.app is shutting down, link the migration announcement at https://github.com/hcengineering/platform/blob/develop/README.md, and do not configure that hosted URL for a new installation.
+
+Do not write Huly credentials into project files. Prefer user-level MCP configuration when credentials are involved, and do not expose secrets in chat, logs, or summaries.
+
+After adding the server, tell me how to restart or reload my MCP client. Then verify the setup by calling get_huly_context and checking that the workspace, URL origin, transport, and auth mode look right without exposing secrets.</pre>
+      </div>
+    </section>
+
+    <section aria-labelledby="cli-heading">
+      <h2 id="cli-heading">Prefer a Huly CLI?</h2>
+      <p class="section-copy">
+        <a class="text-link" href="https://www.npmjs.com/package/@firfi/huly-cli">Huly CLI</a>
+        is the feature-complete, terminal-native alternative to Huly MCP for shell scripts,
+        command-line automation, and coding-agent workflows. It has full Huly operation parity
+        with Huly MCP through native, schema-aware commands and structured JSON output.
+      </p>
+      <p class="section-copy">
+        Huly MCP and Huly CLI are maintained together in the
+        <a class="text-link" href="https://github.com/dearlordylord/huly-mcp/tree/master/packages/huly-cli">same monorepo</a>
+        and derive from the same shared operation registry.
+      </p>
     </section>
 
     <section aria-labelledby="principles-heading">
@@ -484,28 +589,6 @@
     </footer>
   </main>
 
-  <template id="agent-instructions">
-Set up Huly MCP in my local MCP client.
-
-Use the npm package @firfi/huly-mcp with:
-
-command: npx
-args: ["-y", "@firfi/huly-mcp@latest"]
-
-Configure the MCP server with the name "huly".
-
-Ask me for:
-- HULY_URL for a reachable self-hosted or replacement hosted Huly instance
-- HULY_WORKSPACE
-- Either HULY_TOKEN, or HULY_EMAIL and HULY_PASSWORD
-
-Warn me that hosted Huly at https://huly.app is shutting down, link the migration announcement at https://github.com/hcengineering/platform/blob/develop/README.md, and do not configure that hosted URL for a new installation.
-
-Do not write Huly credentials into project files. Prefer user-level MCP configuration when credentials are involved, and do not expose secrets in chat, logs, or summaries.
-
-After adding the server, tell me how to restart or reload my MCP client. Then verify the setup by calling get_huly_context and checking that the workspace, URL origin, transport, and auth mode look right without exposing secrets.
-  </template>
-
   <script>
     const agentInstructions = document.querySelector("#agent-instructions")?.textContent.trim() ?? "";
     const button = document.querySelector("[data-copy-agent-instructions]");
@@ -514,9 +597,15 @@ After adding the server, tell me how to restart or reload my MCP client. Then ve
     let resetTimer;
 
     const copyWithFallback = async (text) => {
+      if (text.length === 0) {
+        throw new Error("Agent instructions are empty");
+      }
+
       if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(text);
-        return;
+        try {
+          await navigator.clipboard.writeText(text);
+          return;
+        } catch {}
       }
 
       const textArea = document.createElement("textarea");
@@ -526,8 +615,11 @@ After adding the server, tell me how to restart or reload my MCP client. Then ve
       textArea.style.left = "-9999px";
       document.body.appendChild(textArea);
       textArea.select();
-      document.execCommand("copy");
+      const copied = document.execCommand("copy");
       textArea.remove();
+      if (!copied) {
+        throw new Error("Clipboard fallback failed");
+      }
     };
 
     button?.addEventListener("click", async () => {

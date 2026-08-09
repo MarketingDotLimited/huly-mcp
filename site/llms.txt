@@ -12,6 +12,8 @@ Use Huly MCP when an agent needs to inspect, plan, update, or verify work in Hul
 - Huly: https://huly.io/
 - Source repository: https://github.com/dearlordylord/huly-mcp
 - npm package: https://www.npmjs.com/package/@firfi/huly-mcp
+- Huly CLI alternative: https://www.npmjs.com/package/@firfi/huly-cli
+- Huly CLI documentation: https://github.com/dearlordylord/huly-mcp/tree/master/packages/huly-cli
 
 ## Positioning
 
@@ -19,6 +21,8 @@ Use Huly MCP when an agent needs to inspect, plan, update, or verify work in Hul
 - Full Huly parity through MCP tools.
 - LLM-friendly, context-rich programmatic access to Huly workspace state.
 - Middleware between Huly and coding agents.
+- Huly CLI is the jointly maintained, terminal-native alternative for shell scripts, command-line automation, and coding-agent workflows.
+- Huly MCP and Huly CLI have full shared-operation parity through the same schema-owned operation registry.
 
 ## Quick Start: Agent-Guided Setup
 
