@@ -87,7 +87,7 @@ if (missingRepresentatives.length > 0) {
   throw new Error(`Packed CLI is missing category representatives: ${missingRepresentatives.join(", ")}.`)
 }
 
-const leafHelpCommands = [
+const behaviorSpecificLeafHelpCommands = [
   ["attachments", "add"],
   ["attachments", "download"],
   ["attachments", "read-image"],
@@ -97,6 +97,12 @@ const leafHelpCommands = [
   ["workbench", "applications", "list"],
   ["workspace", "info"]
 ]
+const leafHelpCommands = [
+  ...categoryRepresentativeCommands.map((command) => command.split(" ")),
+  ...behaviorSpecificLeafHelpCommands
+].filter(
+  (command, index, commands) => commands.findIndex((candidate) => candidate.join(" ") === command.join(" ")) === index
+)
 for (const command of leafHelpCommands) {
   const help = runCli([...command, "--help"])
   if (help.status !== 0 || !help.stdout.includes("USAGE")) {

@@ -130,6 +130,30 @@ describe("CLI input merging", () => {
     }
   })
 
+  it("merges repeated JSON sources in command-line order", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "huly-cli-source-order-"))
+    const inputPath = path.join(dir, "input.json")
+    await fs.writeFile(inputPath, '{"query":"from file","limit":1}', "utf8")
+
+    try {
+      const jsonLast = await invoke("fulltext_search", [
+        "--input-file",
+        inputPath,
+        "--input-json",
+        '{"query":"from json","limit":2}'
+      ])
+      const fileLast = await invoke("fulltext_search", [
+        '--input-json={"query":"from json","limit":2}',
+        `--input-file=${inputPath}`
+      ])
+
+      expect(jsonLast.input).toEqual({ query: "from json", limit: 2 })
+      expect(fileLast.input).toEqual({ query: "from file", limit: 1 })
+    } finally {
+      await fs.rm(dir, { force: true, recursive: true })
+    }
+  })
+
   it("encodes local binary files for upload data and gives the file flag explicit precedence", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "huly-cli-binary-"))
     const inputPath = path.join(dir, "payload.bin")

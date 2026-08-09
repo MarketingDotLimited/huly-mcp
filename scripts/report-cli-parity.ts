@@ -25,8 +25,7 @@ const report = {
     directLiveCases: coveredTools.size,
     deferredLiveCases: 0,
     representativeRoutes: allTools.filter(
-      (tool) =>
-        cliIntegrationCoverageDecision(tool.name, tool.category, cliCommandCatalog[tool.name]).type === "representative"
+      (tool) => cliIntegrationCoverageDecision(tool.name, tool.category).type === "representative"
     ).length
   },
   target: CLI_PARITY_TARGET

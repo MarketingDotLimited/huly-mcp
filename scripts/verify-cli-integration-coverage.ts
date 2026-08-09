@@ -55,10 +55,11 @@ const caseToolMismatches = CLI_LIVE_COVERAGE_CASES.flatMap((coverageCase) => {
     ? []
     : [`${coverageCase.id}: expected ${expected.join(", ")}; executed ${execution.tools.join(", ")}`]
 })
-const coverageDecisions = allTools.map((tool) =>
-  cliIntegrationCoverageDecision(tool.name, tool.category, cliCommandCatalog[tool.name])
-)
+const coverageDecisions = allTools.map((tool) => cliIntegrationCoverageDecision(tool.name, tool.category))
 const representativeRoutes = coverageDecisions.filter((decision) => decision.type === "representative").length
+const representativeRiskRoutes = coverageDecisions.filter(
+  (decision) => decision.type === "representative" && decision.risks.length > 0
+)
 const classifiedRisks = new Set(coverageDecisions.flatMap((decision) => decision.risks))
 const unclassifiedRegistryRisks = CLI_DEDICATED_LIVE_RISK_CLASSES.filter((risk) => !classifiedRisks.has(risk))
 const registryCategories = uniqueSorted(allTools.map((tool) => tool.category))
@@ -82,6 +83,9 @@ const errors = [
     ? undefined
     : `Live case tool membership differs from the manifest: ${caseToolMismatches.join("; ")}`,
   coverageDecisions.length === catalogTools.length ? undefined : "Not every CLI route has a coverage decision.",
+  representativeRiskRoutes.length === 0
+    ? undefined
+    : `${String(representativeRiskRoutes.length)} risk-classified routes lack dedicated live cases.`,
   allTools.length === CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS
     ? undefined
     : `Registry changed from reviewed revision ${String(CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS)} to ${String(allTools.length)}; review every new operation's behavior and risk classification.`,

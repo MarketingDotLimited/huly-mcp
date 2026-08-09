@@ -1,5 +1,7 @@
+import type { CliOptionName, CliSchemaFieldName } from "./catalog-types.js"
+
 export interface FieldSpec {
-  readonly fieldName: string
+  readonly fieldName: CliSchemaFieldName
   readonly schema: unknown
 }
 
@@ -8,7 +10,7 @@ const MAX_SCHEMA_REF_DEPTH = 8
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
 
-const fieldNameToOptionName = (fieldName: string): string =>
+export const fieldNameToOptionName = (fieldName: CliSchemaFieldName): CliOptionName =>
   fieldName
     .replaceAll("_", "-")
     .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
@@ -34,8 +36,8 @@ const collectPropertyRecords = (schema: unknown): Array<Record<string, unknown>>
   return records
 }
 
-export const collectFieldSpecs = (schema: object): ReadonlyMap<string, FieldSpec> => {
-  const fields = new Map<string, FieldSpec>()
+export const collectFieldSpecs = (schema: object): ReadonlyMap<CliOptionName, FieldSpec> => {
+  const fields = new Map<CliOptionName, FieldSpec>()
   for (const properties of collectPropertyRecords(schema)) {
     for (const [fieldName, fieldSchema] of Object.entries(properties)) {
       const optionName = fieldNameToOptionName(fieldName)
@@ -162,6 +164,13 @@ export const fieldAcceptsString = (rootSchema: object, field: FieldSpec): boolea
 
 export const fieldAcceptsJson = (rootSchema: object, field: FieldSpec): boolean =>
   schemaHasType(rootSchema, field.schema, "array") || schemaHasType(rootSchema, field.schema, "object")
+
+export const fieldUsesBooleanOption = (rootSchema: object, field: FieldSpec): boolean =>
+  fieldAcceptsBoolean(rootSchema, field) &&
+  !fieldAcceptsString(rootSchema, field) &&
+  !fieldAcceptsNumber(rootSchema, field) &&
+  !fieldAcceptsNull(rootSchema, field) &&
+  !fieldAcceptsJson(rootSchema, field)
 
 const firstVariantDescription = (
   rootSchema: object,

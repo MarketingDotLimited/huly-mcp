@@ -3,7 +3,7 @@ import * as fs from "node:fs/promises"
 import { Effect, Schema } from "effect"
 
 import type { ToolDefinition } from "../../../src/mcp/tools/registry.js"
-import type { CliCommandSpec } from "./catalog-types.js"
+import type { CliCommandSpec, CliOptionName } from "./catalog-types.js"
 import {
   type CliGlobalOptions,
   type ParsedCliCommandLine,
@@ -18,6 +18,7 @@ import {
   fieldAcceptsNull,
   fieldAcceptsNumber,
   fieldAcceptsString,
+  fieldNameToOptionName,
   type FieldSpec
 } from "./schema-fields.js"
 
@@ -143,18 +144,47 @@ const parseFieldValue = (rootSchema: object, field: FieldSpec, raw: string): Eff
   )
 }
 
-const collectSourceInput = (
-  options: ReadonlyArray<ParsedCliOption>
-): Effect.Effect<Record<string, unknown>, CliInputError> =>
+type CliJsonSourceName = "input-file" | "input-json"
+
+interface CliJsonSourceOccurrence {
+  readonly name: CliJsonSourceName
+  readonly value: string
+}
+
+const jsonSourceOccurrence = (token: string, next: string | undefined): CliJsonSourceOccurrence | undefined => {
+  for (const name of ["input-file", "input-json"] as const) {
+    const flag = `--${name}`
+    if (token === flag && next !== undefined) return { name, value: next }
+    const inlinePrefix = `${flag}=`
+    if (token.startsWith(inlinePrefix)) return { name, value: token.slice(inlinePrefix.length) }
+  }
+  return undefined
+}
+
+const collectJsonSourceOccurrences = (raw: ReadonlyArray<string>): ReadonlyArray<CliJsonSourceOccurrence> => {
+  const occurrences: Array<CliJsonSourceOccurrence> = []
+  const consumedValueIndexes = new Set<number>()
+  for (const [index, token] of raw.entries()) {
+    if (consumedValueIndexes.has(index)) continue
+    const occurrence = jsonSourceOccurrence(token, raw[index + 1])
+    if (occurrence !== undefined) {
+      occurrences.push(occurrence)
+      if (token === `--${occurrence.name}`) consumedValueIndexes.add(index + 1)
+    }
+  }
+  return occurrences
+}
+
+const collectSourceInput = (raw: ReadonlyArray<string>): Effect.Effect<Record<string, unknown>, CliInputError> =>
   Effect.gen(function* () {
     let input: Record<string, unknown> = {}
-    for (const option of options) {
-      if (option._tag === "GlobalOption" && option.name === "input-json") {
-        input = { ...input, ...(yield* parseJsonObjectText("--input-json", option.value)) }
+    for (const source of collectJsonSourceOccurrences(raw)) {
+      if (source.name === "input-json") {
+        input = { ...input, ...(yield* parseJsonObjectText("--input-json", source.value)) }
       }
-      if (option._tag === "GlobalOption" && option.name === "input-file") {
-        const content = yield* readTextFile(option.value)
-        input = { ...input, ...(yield* parseJsonObjectText(option.value, content)) }
+      if (source.name === "input-file") {
+        const content = yield* readTextFile(source.value)
+        input = { ...input, ...(yield* parseJsonObjectText(source.value, content)) }
       }
     }
     return input
@@ -164,7 +194,7 @@ const collectPositionals = (
   spec: CliCommandSpec,
   positionals: ReadonlyArray<string>,
   rootSchema: object,
-  fields: ReadonlyMap<string, FieldSpec>
+  fields: ReadonlyMap<CliOptionName, FieldSpec>
 ): Effect.Effect<Record<string, unknown>, CliInputError> =>
   Effect.gen(function* () {
     const unknownOption = positionals.find((value) => value.startsWith("--"))
@@ -181,10 +211,7 @@ const collectPositionals = (
     for (const [index, fieldName] of spec.positional.entries()) {
       const value = positionals[index]
       if (value !== undefined) {
-        const optionName = fieldName
-          .replaceAll("_", "-")
-          .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-          .toLowerCase()
+        const optionName = fieldNameToOptionName(fieldName)
         const field = fields.get(optionName)
         input[fieldName] = field === undefined ? value : yield* parseFieldValue(rootSchema, field, value)
       }
@@ -195,7 +222,7 @@ const collectPositionals = (
 const booleanExplicitOptionInput = (
   option: Extract<ParsedCliOption, { readonly _tag: "BooleanFieldOption" }>,
   raw: ReadonlyArray<string>,
-  fields: ReadonlyMap<string, FieldSpec>
+  fields: ReadonlyMap<CliOptionName, FieldSpec>
 ): Effect.Effect<Record<string, unknown>, CliInputError> =>
   Effect.gen(function* () {
     if (!rawOptionPresent(raw, option.optionName)) return {}
@@ -209,7 +236,7 @@ const booleanExplicitOptionInput = (
 const fieldExplicitOptionInput = (
   option: Extract<ParsedCliOption, { readonly _tag: "FieldOption" }>,
   rootSchema: object,
-  fields: ReadonlyMap<string, FieldSpec>
+  fields: ReadonlyMap<CliOptionName, FieldSpec>
 ): Effect.Effect<Record<string, unknown>, CliInputError> => {
   const field = fields.get(option.optionName)
   return field === undefined
@@ -221,7 +248,7 @@ const explicitOptionInput = (
   option: ParsedCliOption,
   raw: ReadonlyArray<string>,
   rootSchema: object,
-  fields: ReadonlyMap<string, FieldSpec>
+  fields: ReadonlyMap<CliOptionName, FieldSpec>
 ): Effect.Effect<Record<string, unknown>, CliInputError> => {
   switch (option._tag) {
     case "BooleanFieldOption":
@@ -241,7 +268,7 @@ const explicitOptionInput = (
 const collectExplicitOptions = (
   parsed: ParsedCliCommandLine,
   rootSchema: object,
-  fields: ReadonlyMap<string, FieldSpec>
+  fields: ReadonlyMap<CliOptionName, FieldSpec>
 ): Effect.Effect<Record<string, unknown>, CliInputError> =>
   Effect.gen(function* () {
     const input: Record<string, unknown> = {}
@@ -291,7 +318,7 @@ export const buildCliInvocation = (
 ): Effect.Effect<CliInvocation, CliInputError> =>
   Effect.gen(function* () {
     const fields = collectFieldSpecs(tool.inputSchema)
-    const sourceInput = yield* collectSourceInput(parsed.options)
+    const sourceInput = yield* collectSourceInput(parsed.raw)
     const explicitInput = yield* collectExplicitOptions(parsed, tool.inputSchema, fields)
     const positionalInput = yield* collectPositionals(spec, parsed.positionals, tool.inputSchema, fields)
     const globals = yield* collectGlobalOptions(parsed.options, parsed.raw)

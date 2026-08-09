@@ -1,7 +1,5 @@
 import type { McpToolName } from "../../../src/mcp/tools/index.js"
-import type { CliCommandSpec } from "./catalog-types.js"
 import type { CliBehaviorClass, CliDedicatedLiveRiskClass } from "./parity-contract.js"
-import { hasExplicitCliConfirmationPolicy } from "./safety-policies.js"
 
 interface CliLiveCoverageCase {
   readonly behaviors: ReadonlyArray<CliBehaviorClass>
@@ -24,7 +22,7 @@ export type CliIntegrationCoverageDecision =
 
 export const CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS = 522
 
-const CLI_REVIEWED_CATEGORY_RISKS = [
+const CLI_REVIEWED_CATEGORY_POTENTIAL_RISKS = [
   ["activity", []],
   ["approvals", []],
   ["associations", []],
@@ -73,31 +71,13 @@ const CLI_REVIEWED_CATEGORY_RISKS = [
   ["workspace", ["lifecycle", "workspace-client"]]
 ] as const satisfies ReadonlyArray<readonly [string, ReadonlyArray<CliDedicatedLiveRiskClass>]>
 
-export const CLI_REVIEWED_COVERAGE_CATEGORIES = CLI_REVIEWED_CATEGORY_RISKS.map(([category]) => category)
+export const CLI_REVIEWED_COVERAGE_CATEGORIES = CLI_REVIEWED_CATEGORY_POTENTIAL_RISKS.map(([category]) => category)
 
-const categoryRisks = (category: string): ReadonlyArray<CliDedicatedLiveRiskClass> => {
-  const reviewed = CLI_REVIEWED_CATEGORY_RISKS.find(([candidate]) => candidate === category)
+const assertReviewedCategory = (category: string): void => {
+  const reviewed = CLI_REVIEWED_CATEGORY_POTENTIAL_RISKS.find(([candidate]) => candidate === category)
   if (reviewed === undefined) {
     throw new Error(`CLI integration risk classification is missing category '${category}'.`)
   }
-  return reviewed[1]
-}
-
-const classifiedRisks = (
-  toolName: McpToolName,
-  category: string,
-  spec: CliCommandSpec
-): ReadonlyArray<CliDedicatedLiveRiskClass> => {
-  const risks = new Set(categoryRisks(category))
-  if (
-    spec.behavior?.base64FileInput !== undefined ||
-    spec.behavior?.fileInput !== undefined ||
-    spec.behavior?.fileOutput !== undefined
-  ) {
-    risks.add("transport")
-  }
-  if (hasExplicitCliConfirmationPolicy(toolName, spec)) risks.add("safety")
-  return [...risks]
 }
 
 export const CLI_LIVE_COVERAGE_CASES: ReadonlyArray<CliLiveCoverageCase> = [
@@ -123,7 +103,7 @@ export const CLI_LIVE_COVERAGE_CASES: ReadonlyArray<CliLiveCoverageCase> = [
   { id: "raw-upload", tools: ["add_attachment"], behaviors: ["upload-input"], risks: ["transport"] },
   { id: "binary-download", tools: ["download_attachment"], behaviors: ["binary-output"], risks: ["transport"] },
   { id: "image-output", tools: ["read_attachment_content"], behaviors: ["image-output"], risks: ["transport"] },
-  { id: "agent-warning", tools: ["list_workbench_applications"], behaviors: ["agent-warning"], risks: [] },
+  { id: "agent-warning", tools: ["list_workbench_applications"], behaviors: ["agent-warning"], risks: ["privacy"] },
   { id: "typed-error", tools: ["get_issue"], behaviors: ["typed-error"], risks: [] },
   {
     id: "consequential-refusals",
@@ -144,19 +124,19 @@ export const CLI_LIVE_COVERAGE_CASES: ReadonlyArray<CliLiveCoverageCase> = [
     behaviors: ["workspace-administration"],
     risks: ["workspace-client"]
   },
-  { id: "caller-private-status", tools: ["get_support_status"], behaviors: [], risks: ["privacy"] }
+  { id: "caller-private-status", tools: ["get_support_status"], behaviors: [], risks: ["privacy"] },
+  { id: "external-channel-privacy", tools: ["list_external_channel_messages"], behaviors: [], risks: ["privacy"] },
+  { id: "mail-thread-privacy", tools: ["list_mail_threads"], behaviors: [], risks: ["privacy"] }
 ]
 
 export const cliIntegrationCoverageDecision = (
   toolName: McpToolName,
-  category: string,
-  spec: CliCommandSpec
+  category: string
 ): CliIntegrationCoverageDecision => {
-  const caseIds = CLI_LIVE_COVERAGE_CASES.filter((coverageCase) => coverageCase.tools.includes(toolName)).map(
-    (coverageCase) => coverageCase.id
-  )
-  const risks = classifiedRisks(toolName, category, spec)
-  return caseIds.length === 0
-    ? { type: "representative", rationale: "shared-operation-and-adapter-class", risks }
-    : { type: "dedicated-live", caseIds, risks }
+  assertReviewedCategory(category)
+  const cases = CLI_LIVE_COVERAGE_CASES.filter((coverageCase) => coverageCase.tools.includes(toolName))
+  const risks = [...new Set(cases.flatMap((coverageCase) => coverageCase.risks))]
+  return cases.length === 0
+    ? { type: "representative", rationale: "shared-operation-and-adapter-class", risks: [] }
+    : { type: "dedicated-live", caseIds: cases.map((coverageCase) => coverageCase.id), risks }
 }

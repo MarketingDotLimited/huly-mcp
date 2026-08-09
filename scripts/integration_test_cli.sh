@@ -9,10 +9,6 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 
-if [[ ! -f packages/huly-cli/dist/index.cjs ]]; then
-  pnpm --filter @firfi/huly-cli build
-fi
-
 is_container_environment() {
   [[ -f /.dockerenv ]] && return 0
   [[ -r /proc/1/cgroup ]] && grep -Eq "(docker|containerd|kubepods)" /proc/1/cgroup
@@ -22,11 +18,11 @@ if [[ "${HULY_URL:-}" == *localhost* ]] && is_container_environment; then
   export HULY_URL="${HULY_URL/localhost/host.docker.internal}"
 fi
 
-CLI=(node packages/huly-cli/dist/index.cjs)
 PROJECT="${HULY_TEST_PROJECT:-HULY}"
 PROJECT_ID=""
 RUN_ID="${HULY_CLI_INTEGRATION_RUN_ID:-$(printf '%s-%s' "$$" "$RANDOM")}"
 TEST_TMPDIR="${TEST_TMPDIR:-$(mktemp -d)}"
+CLI=()
 
 ISSUE_ID=""
 ISSUE_OBJECT_ID=""
@@ -39,6 +35,28 @@ TODO_ID=""
 TODO_LABEL_ID=""
 DRAWING_ID=""
 EVENT_ID=""
+
+prepare_cli() {
+  if [[ -n "${HULY_CLI_INTEGRATION_EXECUTABLE:-}" ]]; then
+    CLI=("$HULY_CLI_INTEGRATION_EXECUTABLE")
+    return
+  fi
+
+  local package_dir="$TEST_TMPDIR/package"
+  local install_dir="$TEST_TMPDIR/install"
+  mkdir -p "$package_dir" "$install_dir"
+  pnpm --filter @firfi/huly-cli build >/dev/null
+  npm_config_ignore_scripts=true pnpm --dir packages/huly-cli pack --pack-destination "$package_dir" >/dev/null
+  local tarball
+  tarball="$(find "$package_dir" -maxdepth 1 -type f -name '*.tgz' -print -quit)"
+  if [[ -z "$tarball" ]]; then
+    echo "Packed CLI tarball was not created." >&2
+    return 1
+  fi
+  printf '{"private":true,"type":"module"}\n' >"$install_dir/package.json"
+  pnpm --dir "$install_dir" add "$tarball" >/dev/null
+  CLI=("$install_dir/node_modules/.bin/huly")
+}
 
 cleanup() {
   set +e
@@ -71,6 +89,8 @@ cleanup() {
   rm -rf "$TEST_TMPDIR"
 }
 trap cleanup EXIT
+
+prepare_cli
 
 run_cli_json_output() {
   local stdout_file
@@ -219,11 +239,15 @@ cover_cli_json "get_project_type" "project-types get" project-types get
 cover_cli_json "list_mentions" "activity mentions list" activity mentions list
 cover_cli_json "list_boards" "boards list" boards list
 cover_cli_json "list_channels" "channels list" channels list
+cli_live_case_begin "external-channel-privacy"
 capture_cli_json "list_external_channel_messages" "Telegram missing-channel assessment" TELEGRAM_EXTERNAL_JSON \
   channels external-messages list telegram "mcp-cli-no-channel-$RUN_ID" --limit 1
 assert_json "Telegram missing-channel assessment is explicit" "$TELEGRAM_EXTERNAL_JSON" \
   '.supported == false and .unsupportedReasonCode == "channel-unavailable" and .messages == []'
+cli_live_case_end "external-channel-privacy"
+cli_live_case_begin "mail-thread-privacy"
 cover_cli_json "list_mail_threads" "mail threads list" mail threads list --limit 1
+cli_live_case_end "mail-thread-privacy"
 cli_live_case_begin "caller-private-status"
 capture_cli_json "get_support_status" "support status get" SUPPORT_STATUS_JSON support status get
 assert_json "support status reports the local missing setup" "$SUPPORT_STATUS_JSON" \

@@ -54,16 +54,18 @@ describe("CLI catalog", () => {
 
   it("requires an explicit integration-risk review when the registry or its categories change", () => {
     const categories = new Set(allTools.map((tool) => tool.category))
-    const decisions = allTools.map((tool) =>
-      cliIntegrationCoverageDecision(tool.name, tool.category, cliCommandCatalog[tool.name])
-    )
+    const decisions = allTools.map((tool) => cliIntegrationCoverageDecision(tool.name, tool.category))
 
     expect(allTools).toHaveLength(CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS)
     expect([...categories].filter((category) => !CLI_REVIEWED_COVERAGE_CATEGORIES.includes(category))).toEqual([])
     expect(decisions).toHaveLength(allTools.length)
-    expect(() =>
-      cliIntegrationCoverageDecision("list_projects", "new-unreviewed-category", cliCommandCatalog.list_projects)
-    ).toThrow("risk classification is missing category")
+    expect(decisions.filter((decision) => decision.risks.length > 0 && decision.type !== "dedicated-live")).toEqual([])
+    expect([...new Set(decisions.flatMap((decision) => decision.risks))].sort()).toEqual(
+      [...CLI_DEDICATED_LIVE_RISK_CLASSES].sort()
+    )
+    expect(() => cliIntegrationCoverageDecision("list_projects", "new-unreviewed-category")).toThrow(
+      "risk classification is missing category"
+    )
   })
 
   it("keeps generated CLI command paths unique and non-overlapping", () => {

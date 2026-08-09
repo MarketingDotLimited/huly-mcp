@@ -6,11 +6,8 @@ import { operationRegistry } from "../src/mcp/tools/index.js"
 import {
   collectFieldSpecs,
   collectRequiredFieldNames,
-  fieldAcceptsBoolean,
-  fieldAcceptsJson,
-  fieldAcceptsNull,
-  fieldAcceptsNumber,
-  fieldAcceptsString,
+  fieldNameToOptionName,
+  fieldUsesBooleanOption,
   type FieldSpec
 } from "../packages/huly-cli/src/schema-fields.js"
 import { cliFieldOptionDescription } from "../packages/huly-cli/src/field-help.js"
@@ -22,24 +19,13 @@ const endMarker = "<!-- CLI_COMMAND_REFERENCE_END -->"
 const checkOnly = process.argv.includes("--check")
 const NOT_FOUND = -1
 
-const optionName = (fieldName: string): string =>
-  fieldName
-    .replaceAll("_", "-")
-    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-    .toLowerCase()
-
 const escapeCell = (value: string): string => value.replaceAll("|", "\\|").replaceAll("\n", " ")
 
 const fieldFlag = (spec: CliCommandSpec, rootSchema: object, field: FieldSpec): string => {
-  const booleanOnly =
-    fieldAcceptsBoolean(rootSchema, field) &&
-    !fieldAcceptsString(rootSchema, field) &&
-    !fieldAcceptsNumber(rootSchema, field) &&
-    !fieldAcceptsNull(rootSchema, field) &&
-    !fieldAcceptsJson(rootSchema, field)
-  const syntax = booleanOnly
-    ? `\`--${optionName(field.fieldName)}\` / \`--no-${optionName(field.fieldName)}\``
-    : `\`--${optionName(field.fieldName)} <value>\``
+  const optionName = fieldNameToOptionName(field.fieldName)
+  const syntax = fieldUsesBooleanOption(rootSchema, field)
+    ? `\`--${optionName}\` / \`--no-${optionName}\``
+    : `\`--${optionName} <value>\``
   const description = cliFieldOptionDescription(spec, rootSchema, field)
   return description.length === 0 ? syntax : `${syntax} — ${escapeCell(description)}`
 }
@@ -69,10 +55,10 @@ const commandRows = (): string =>
         .filter((field) => !positional.has(field.fieldName) && !required.has(field.fieldName))
         .map((field) => fieldFlag(commandSpec, operation.inputSchema, field))
       const fileFlags = (commandSpec.behavior?.fileInput?.fields ?? []).map(
-        (field) => `\`--${optionName(field)}-file <path>\` — read ${field} as text`
+        (field) => `\`--${fieldNameToOptionName(field)}-file <path>\` — read ${field} as text`
       )
       const base64FileFlags = (commandSpec.behavior?.base64FileInput?.fields ?? []).map(
-        (field) => `\`--${optionName(field)}-base64-file <path>\` — encode local bytes as canonical base64`
+        (field) => `\`--${fieldNameToOptionName(field)}-base64-file <path>\` — encode local bytes as canonical base64`
       )
       const confirmation =
         explicitCliConfirmationMessage(toolName, commandSpec) === undefined ? "" : " Requires `--yes`."

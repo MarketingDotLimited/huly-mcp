@@ -1,6 +1,9 @@
+export type CliOptionName = string
+export type CliSchemaFieldName = string
+
 export interface CliCommandSpec {
   readonly path: readonly [string, ...Array<string>]
-  readonly positional: ReadonlyArray<string>
+  readonly positional: ReadonlyArray<CliSchemaFieldName>
   readonly description: string
   readonly behavior?: CliCommandBehavior
 }
@@ -18,7 +21,7 @@ interface CliConfirmationPolicy {
 }
 
 interface CliAttachmentFileOutputPolicy {
-  readonly attachmentIdField: string
+  readonly attachmentIdField: CliSchemaFieldName
   readonly type: "attachment-download"
 }
 
@@ -31,5 +34,3 @@ type CliFileOutputPolicy = CliAttachmentFileOutputPolicy | CliImageFileOutputPol
 interface CliFileInputPolicy {
   readonly fields: ReadonlyArray<CliSchemaFieldName>
 }
-
-export type CliSchemaFieldName = string
