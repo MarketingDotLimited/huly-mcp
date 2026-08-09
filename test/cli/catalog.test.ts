@@ -1,20 +1,18 @@
 import { describe, expect, it } from "vitest"
 
-import { deferredMechanicalCliCommandTools } from "../../packages/huly-cli/src/catalog-deferred.js"
-import { deferredReadOnlyCliCommandTools } from "../../packages/huly-cli/src/catalog-read-only.js"
-import {
-  catalogSyncAssertions,
-  cliCommandCatalog,
-  ignoredMcpTools,
-  isCliToolName
-} from "../../packages/huly-cli/src/catalog.js"
-import { allTools } from "../../src/mcp/tools/index.js"
+import type { CliCommandSpec } from "../../packages/huly-cli/src/catalog-types.js"
+import { cliCommandCatalog, ignoredMcpTools, isCliToolName } from "../../packages/huly-cli/src/catalog.js"
+import { allTools, resolveAnnotations } from "../../src/mcp/tools/index.js"
 import {
   CLI_BEHAVIOR_CLASSES,
   CLI_DEDICATED_LIVE_RISK_CLASSES,
   CLI_PARITY_BASELINE,
   CLI_PARITY_TARGET
 } from "../../packages/huly-cli/src/parity-contract.js"
+import {
+  CONSEQUENTIAL_CLI_TOOLS,
+  hasExplicitCliConfirmationPolicy
+} from "../../packages/huly-cli/src/safety-policies.js"
 
 const catalogEntries = () => Object.entries(cliCommandCatalog)
 
@@ -34,29 +32,13 @@ describe("CLI catalog", () => {
     expect(CLI_BEHAVIOR_CLASSES).toContain("workspace-administration")
     expect(CLI_DEDICATED_LIVE_RISK_CLASSES).toEqual(["transport", "safety", "privacy", "workspace-client", "lifecycle"])
   })
-  it("keeps implemented and ignored MCP tool decisions disjoint at runtime", () => {
+  it("has exactly one CLI route for every registry operation and no ignored operations", () => {
     const implemented = new Set(Object.keys(cliCommandCatalog))
-    const ignored = new Set(ignoredMcpTools)
-
-    expect([...implemented].filter((name) => ignored.has(name))).toEqual([])
-  })
-
-  it("has an explicit CLI decision for every registry MCP tool", () => {
-    const decided = new Set([...Object.keys(cliCommandCatalog), ...ignoredMcpTools])
     const toolNames = allTools.map((tool) => tool.name)
 
-    expect(toolNames.filter((name) => !decided.has(name))).toEqual([])
-    expect(catalogSyncAssertions).toEqual([])
-  })
-
-  it("keeps only logged non-mechanical read-like tools ignored", () => {
-    const ignoredReadLikeTools = ignoredMcpTools.filter((name) => /^(list|get|describe)_/.test(name))
-
-    expect(ignoredReadLikeTools.toSorted()).toEqual([...deferredReadOnlyCliCommandTools].toSorted())
-  })
-
-  it("keeps every ignored MCP tool in the mechanical deferral list", () => {
-    expect(ignoredMcpTools.toSorted()).toEqual([...deferredMechanicalCliCommandTools].toSorted())
+    expect(ignoredMcpTools).toEqual([])
+    expect(implemented.size).toBe(allTools.length)
+    expect(toolNames.filter((name) => !implemented.has(name))).toEqual([])
   })
 
   it("keeps generated CLI command paths unique and non-overlapping", () => {
@@ -82,6 +64,27 @@ describe("CLI catalog", () => {
     expect(prefixConflicts).toEqual([])
   })
 
+  it("records explicit CLI confirmation for every destructive operation", () => {
+    const missing = allTools.flatMap((tool) => {
+      if (!isCliToolName(tool.name)) return []
+      const spec: CliCommandSpec = cliCommandCatalog[tool.name]
+      return resolveAnnotations(tool.operation).destructiveHint === true &&
+        !hasExplicitCliConfirmationPolicy(tool.name, spec)
+        ? [tool.name]
+        : []
+    })
+
+    expect(missing).toEqual([])
+  })
+
+  it("keeps every classified consequential operation behind explicit confirmation", () => {
+    const missing = CONSEQUENTIAL_CLI_TOOLS.filter(
+      (toolName) => !hasExplicitCliConfirmationPolicy(toolName, cliCommandCatalog[toolName])
+    )
+
+    expect(missing).toEqual([])
+  })
+
   it("keeps notable generated paths aligned with the public command vocabulary", () => {
     expect(cliCommandCatalog.list_tags.path).toEqual(["tags", "list"])
     expect(cliCommandCatalog.create_tag.path).toEqual(["tags", "create"])
@@ -93,9 +96,9 @@ describe("CLI catalog", () => {
       cliCommandCatalog.add_issue_attachment.description,
       cliCommandCatalog.add_document_attachment.description
     ]) {
-      expect(description).toContain("MCP server host")
-      expect(description).toContain("client-local base64")
-      expect(description).toContain("fetched by the MCP server")
+      expect(description).toContain("CLI process")
+      expect(description).toContain("canonical base64")
+      expect(description).toContain("--data-base64-file")
     }
   })
 

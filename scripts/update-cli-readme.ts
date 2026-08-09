@@ -4,6 +4,7 @@ import { cliCommandCatalog, isCliToolName } from "../packages/huly-cli/src/catal
 import type { CliCommandSpec } from "../packages/huly-cli/src/catalog-types.js"
 import { operationRegistry } from "../src/mcp/tools/index.js"
 import { collectFieldSpecs } from "../packages/huly-cli/src/schema-fields.js"
+import { explicitCliConfirmationMessage } from "../packages/huly-cli/src/safety-policies.js"
 
 const readmePath = "packages/huly-cli/README.md"
 const startMarker = "<!-- CLI_COMMAND_REFERENCE_START -->"
@@ -31,9 +32,13 @@ const commandRows = (): string =>
       const fileFlags = (commandSpec.behavior?.fileInput?.fields ?? []).map(
         (field) => `\`--${optionName(field)}-file\``
       )
-      const confirmation = commandSpec.behavior?.confirmation === undefined ? "" : " Requires `--yes`."
+      const base64FileFlags = (commandSpec.behavior?.base64FileInput?.fields ?? []).map(
+        (field) => `\`--${optionName(field)}-base64-file\``
+      )
+      const confirmation =
+        explicitCliConfirmationMessage(toolName, commandSpec) === undefined ? "" : " Requires `--yes`."
       const output = commandSpec.behavior?.fileOutput === undefined ? "" : " Supports `--output <path>`."
-      const inputs = [...flags, ...fileFlags]
+      const inputs = [...flags, ...fileFlags, ...base64FileFlags]
       return `| \`huly ${commandSpec.path.join(" ")}\` | ${commandSpec.description}${confirmation}${output} | ${inputs.length === 0 ? "—" : inputs.join(", ")} |`
     })
     .join("\n")

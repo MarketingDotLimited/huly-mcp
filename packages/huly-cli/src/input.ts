@@ -52,6 +52,12 @@ const readTextFile = (path: string): Effect.Effect<string, CliInputError> =>
     catch: (error) => new CliInputError({ message: `Failed to read ${path}: ${String(error)}` })
   })
 
+const readBase64File = (path: string): Effect.Effect<string, CliInputError> =>
+  Effect.tryPromise({
+    try: async () => (await fs.readFile(path)).toString("base64"),
+    catch: (error) => new CliInputError({ message: `Failed to read ${path}: ${String(error)}` })
+  })
+
 const parseBooleanValue = (fieldName: string, raw: string): Effect.Effect<boolean, CliInputError> => {
   const normalized = raw.toLowerCase()
   if (normalized === "true" || normalized === "1") return Effect.succeed(true)
@@ -206,6 +212,9 @@ const explicitOptionInput = (
     }
     if (option._tag === "FileFieldOption") {
       return { [option.fieldName]: yield* readTextFile(option.path) }
+    }
+    if (option._tag === "Base64FileFieldOption") {
+      return { [option.fieldName]: yield* readBase64File(option.path) }
     }
     return {}
   })

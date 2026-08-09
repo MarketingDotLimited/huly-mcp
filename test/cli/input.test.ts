@@ -130,6 +130,27 @@ describe("CLI input merging", () => {
     }
   })
 
+  it("encodes local binary files for upload data and gives the file flag explicit precedence", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "huly-cli-binary-"))
+    const inputPath = path.join(dir, "payload.bin")
+    await fs.writeFile(inputPath, Buffer.from([0, 1, 2, 255]))
+
+    try {
+      const invocation = await invoke("add_issue_attachment", [
+        "--input-json",
+        '{"data":"b2xk"}',
+        "--data",
+        "c3RpbGwtb2xk",
+        "--data-base64-file",
+        inputPath
+      ])
+
+      expect(invocation.input).toEqual({ data: "AAEC/w==" })
+    } finally {
+      await fs.rm(dir, { force: true, recursive: true })
+    }
+  })
+
   it("collects destructive confirmation as a global option, not tool input", async () => {
     const invocation = await invoke("delete_comment", [
       "--project",

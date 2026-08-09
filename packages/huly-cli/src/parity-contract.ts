@@ -34,3 +34,6 @@ export const CLI_DEDICATED_LIVE_RISK_CLASSES = [
 ] as const
 
 export type CliDedicatedLiveRiskClass = (typeof CLI_DEDICATED_LIVE_RISK_CLASSES)[number]
+
+export const CLI_UPLOAD_SOURCE_SEMANTICS =
+  "filePath is read by the CLI process, fileUrl is fetched by the CLI process, data is canonical base64, and --data-base64-file encodes local bytes as base64. Provide exactly one source."

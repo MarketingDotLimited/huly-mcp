@@ -6,9 +6,11 @@ export interface CliCommandSpec {
 }
 
 interface CliCommandBehavior {
+  readonly base64FileInput?: CliFileInputPolicy
   readonly confirmation?: CliConfirmationPolicy
   readonly fileInput?: CliFileInputPolicy
   readonly fileOutput?: CliFileOutputPolicy
+  readonly uploadInput?: { readonly type: "huly-upload-source" }
 }
 
 interface CliConfirmationPolicy {
@@ -16,10 +18,16 @@ interface CliConfirmationPolicy {
   readonly type: "requires-yes"
 }
 
-interface CliFileOutputPolicy {
+interface CliAttachmentFileOutputPolicy {
   readonly attachmentIdField: string
   readonly type: "attachment-download"
 }
+
+interface CliImageFileOutputPolicy {
+  readonly type: "image-content"
+}
+
+type CliFileOutputPolicy = CliAttachmentFileOutputPolicy | CliImageFileOutputPolicy
 
 interface CliFileInputPolicy {
   readonly fields: ReadonlyArray<string>

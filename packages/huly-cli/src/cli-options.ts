@@ -41,6 +41,13 @@ interface ParsedFileFieldOption {
   readonly path: string
 }
 
+interface ParsedBase64FileFieldOption {
+  readonly _tag: "Base64FileFieldOption"
+  readonly fieldName: string
+  readonly optionName: string
+  readonly path: string
+}
+
 interface ParsedGlobalOption {
   readonly _tag: "GlobalOption"
   readonly name: "input-file" | "input-json" | "output"
@@ -54,6 +61,7 @@ interface ParsedGlobalBooleanOption {
 }
 
 export type ParsedCliOption =
+  | ParsedBase64FileFieldOption
   | ParsedBooleanFieldOption
   | ParsedFieldOption
   | ParsedFileFieldOption
@@ -100,6 +108,14 @@ const fieldFileOption = (optionName: string, field: FieldSpec): Options.Options<
     path
   }))
 
+const fieldBase64FileOption = (optionName: string, field: FieldSpec): Options.Options<ReadonlyArray<ParsedCliOption>> =>
+  optionalTextOption(`${optionName}-base64-file`, (path) => ({
+    _tag: "Base64FileFieldOption",
+    fieldName: field.fieldName,
+    optionName,
+    path
+  }))
+
 const fieldUsesBooleanOption = (rootSchema: object, field: FieldSpec): boolean =>
   fieldAcceptsBoolean(rootSchema, field) &&
   !fieldAcceptsString(rootSchema, field) &&
@@ -110,7 +126,8 @@ const fieldUsesBooleanOption = (rootSchema: object, field: FieldSpec): boolean =
 const fieldOptions = (
   rootSchema: object,
   fields: ReadonlyMap<string, FieldSpec>,
-  fileInputFields: ReadonlySet<string>
+  fileInputFields: ReadonlySet<string>,
+  base64FileInputFields: ReadonlySet<string>
 ): Array<Options.Options<ReadonlyArray<ParsedCliOption>>> => {
   const descriptors: Array<Options.Options<ReadonlyArray<ParsedCliOption>>> = []
   for (const [optionName, field] of fields) {
@@ -121,6 +138,9 @@ const fieldOptions = (
     )
     if (fileInputFields.has(field.fieldName)) {
       descriptors.push(fieldFileOption(optionName, field))
+    }
+    if (base64FileInputFields.has(field.fieldName)) {
+      descriptors.push(fieldBase64FileOption(optionName, field))
     }
   }
   return descriptors
@@ -140,9 +160,11 @@ const flattenOptions = (parsed: ReadonlyArray<ReadonlyArray<ParsedCliOption>>): 
 export const buildCliCommandConfig = (tool: ToolDefinition, spec: CliCommandSpec) => {
   const fields = collectFieldSpecs(tool.inputSchema)
   const fileInputFields = new Set(spec.behavior?.fileInput?.fields ?? [])
-  const options = Options.all([...globalOptions, ...fieldOptions(tool.inputSchema, fields, fileInputFields)]).pipe(
-    Options.map(flattenOptions)
-  )
+  const base64FileInputFields = new Set(spec.behavior?.base64FileInput?.fields ?? [])
+  const options = Options.all([
+    ...globalOptions,
+    ...fieldOptions(tool.inputSchema, fields, fileInputFields, base64FileInputFields)
+  ]).pipe(Options.map(flattenOptions))
 
   return { options, positionals }
 }

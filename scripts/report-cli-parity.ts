@@ -5,15 +5,8 @@ import { CLI_PARITY_BASELINE, CLI_PARITY_TARGET } from "../packages/huly-cli/src
 import { allTools } from "../src/mcp/tools/index.js"
 
 const integrationScriptPath = "scripts/integration_test_cli.sh"
-const deferredToolsPath = "scripts/cli-integration-deferred-tools.txt"
-const coveredToolPattern = /(?:cover_cli_json|capture_cli_json) "([a-z0-9_]+)"/g
+const coveredToolPattern = /(?:cover_cli_json|capture_cli_json|cover_cli_failure) "([a-z0-9_]+)"/g
 const JSON_INDENT_SPACES = 2
-
-const nonCommentLines = (path: string): ReadonlyArray<string> =>
-  readFileSync(path, "utf8")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith("#"))
 
 const coveredTools = new Set(
   Array.from(readFileSync(integrationScriptPath, "utf8").matchAll(coveredToolPattern), (match) => match[1]).filter(
@@ -28,7 +21,7 @@ const report = {
     cliRoutes: Object.keys(cliCommandCatalog).length,
     ignoredOperations: ignoredMcpTools.length,
     directLiveCases: coveredTools.size,
-    deferredLiveCases: nonCommentLines(deferredToolsPath).length
+    deferredLiveCases: 0
   },
   target: CLI_PARITY_TARGET
 }
