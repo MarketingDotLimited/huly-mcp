@@ -54,7 +54,7 @@ After adding the server, tell me how to restart or reload my MCP client. Then ve
 
 Huly MCP exposes Huly workspace data and actions as MCP tools for agents that need to plan, inspect, update, and verify work without losing context.
 
-Current tool areas include projects, issues, documents, comments, milestones, contacts, channels, cards, custom fields, attachments, storage, calendar, time tracking, activity, notifications, search, associations, workspace, spaces, labels, tags, tag categories, leads, processes, SDK discovery, task management, test management, and user statuses.
+Current tool areas include projects, issues, comments, milestones, documents, storage, attachments, contacts, channels, calendar, time tracking, search, associations, activity, notifications, workspace, approvals, boards, cards, collaborators, custom fields, Drive, inventory, labels, leads, mail, templates, model administration, Planner, preferences, processes, recruiting, SDK discovery, security administration, sequence administration, spaces, support, tag categories, tags, task management, test management, user statuses, views, virtual office, Workbench, and workflow statuses.
 
 ## Agent Notes
 
