@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.49.1
+
+### Patch Changes
+
+- 77cbc2f: Document the jointly maintained Huly CLI as a terminal-native automation alternative with full Huly operation parity, and update the project website with visible agent setup instructions, reliable clipboard copying, and the complete current MCP tool surface.
+
 ## 0.49.0
 
 ### Minor Changes
