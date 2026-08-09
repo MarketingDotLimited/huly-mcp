@@ -15,9 +15,9 @@
 
 ## Huly CLI Alternative
 
-Looking for a Huly CLI, terminal-native Huly integration, or a scripting and automation alternative to running an MCP server? [`@firfi/huly-cli`](https://www.npmjs.com/package/@firfi/huly-cli) is a feature-complete command-line interface for Huly with full Huly operation parity with Huly MCP. It exposes the same Huly operations as native, schema-aware commands with human-readable or JSON output, file-backed inputs, uploads, and downloads.
+Looking for a Huly CLI, terminal-native Huly integration, or a scripting and automation alternative to running an MCP server? [Huly CLI](https://huly-mcp.dearlordylord.com/cli/) is a feature-complete command-line interface for Huly, published as [`@firfi/huly-cli`](https://www.npmjs.com/package/@firfi/huly-cli), with full Huly operation parity with Huly MCP. It exposes the same Huly operations as native, schema-aware commands with human-readable or JSON output, file-backed inputs, uploads, and downloads.
 
-Huly MCP and Huly CLI are maintained together in this monorepo and derive from the same shared operation registry, keeping operation inputs, outputs, warnings, and typed failures aligned. See the [Huly CLI documentation](packages/huly-cli/README.md) for installation, examples, and the complete generated command reference.
+Huly MCP and Huly CLI are maintained together in this monorepo and derive from the same shared operation registry, keeping operation inputs, outputs, warnings, and typed failures aligned. See the [Huly CLI documentation](packages/huly-cli/README.md) for the complete generated command reference, or browse [CLI examples](https://huly-mcp.dearlordylord.com/cli/examples/), [Huly automation patterns](https://huly-mcp.dearlordylord.com/cli/automation/), and the [Huly MCP vs CLI comparison](https://huly-mcp.dearlordylord.com/cli/huly-mcp-vs-cli/).
 
 ## Installation
 

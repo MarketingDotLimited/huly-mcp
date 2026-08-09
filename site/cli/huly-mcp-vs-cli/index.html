@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Huly MCP vs Huly CLI – Which Integration Should You Use?</title>
+  <meta name="description" content="Compare Huly MCP and Huly CLI. Both expose the same Huly operations; choose MCP for protocol-native agents or CLI for terminals, scripts, and CI.">
+  <meta name="robots" content="index,follow">
+  <meta name="theme-color" content="#05080a">
+  <link rel="canonical" href="https://huly-mcp.dearlordylord.com/cli/huly-mcp-vs-cli/">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/cli/styles.css">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Huly CLI">
+  <meta property="og:title" content="Huly MCP vs Huly CLI">
+  <meta property="og:description" content="The same Huly operations through two interfaces: MCP for protocol-native agents, CLI for terminals and automation.">
+  <meta property="og:url" content="https://huly-mcp.dearlordylord.com/cli/huly-mcp-vs-cli/">
+  <meta property="og:image" content="https://huly-mcp.dearlordylord.com/icon.svg">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Huly MCP vs Huly CLI">
+  <meta name="twitter:description" content="Compare two maintained interfaces to the same Huly operation registry.">
+</head>
+<body>
+  <div class="shell">
+    <header class="site-header">
+      <a class="brand" href="/cli/">Huly <span>CLI</span></a>
+      <nav class="site-nav" aria-label="CLI documentation">
+        <a href="/cli/">Overview</a>
+        <a href="/cli/examples/">Examples</a>
+        <a href="/cli/automation/">Automation</a>
+        <a aria-current="page" href="/cli/huly-mcp-vs-cli/">CLI vs MCP</a>
+        <a href="/">Huly MCP</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">One operation registry · two interfaces</p>
+        <h1>Huly MCP vs Huly CLI</h1>
+        <p class="lead">Huly MCP and Huly CLI are maintained together and provide full parity across shared Huly operations. Choose the interface that fits how your human or agent works.</p>
+      </section>
+
+      <section class="section">
+        <h2>Quick decision</h2>
+        <div class="grid two-column">
+          <article class="card">
+            <h3>Choose Huly CLI</h3>
+            <p>Use terminals, shell scripts, CI jobs, cron tasks, or coding agents that can execute subprocesses.</p>
+            <a class="button" href="/cli/">Explore Huly CLI</a>
+          </article>
+          <article class="card">
+            <h3>Choose Huly MCP</h3>
+            <p>Let MCP-compatible agents discover Huly tools, inspect schemas, and invoke operations inside a conversation.</p>
+            <a class="button" href="/">Set up Huly MCP</a>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Feature comparison</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th scope="col">Capability</th><th scope="col">Huly CLI</th><th scope="col">Huly MCP</th></tr></thead>
+            <tbody>
+              <tr><td>Shared Huly operations</td><td>Full parity</td><td>Full parity</td></tr>
+              <tr><td>Primary interface</td><td>Native terminal commands</td><td>Model Context Protocol tools</td></tr>
+              <tr><td>Human-readable output</td><td>Yes</td><td>Agent-oriented tool results</td></tr>
+              <tr><td>Structured automation</td><td><code>--json</code>, exit codes, files</td><td>Typed MCP inputs and results</td></tr>
+              <tr><td>Tool discovery</td><td><code>--help</code> command tree</td><td>MCP discovery and proxy tools</td></tr>
+              <tr><td>Typical runtime</td><td>One command or script</td><td>Long-running stdio or HTTP server</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>What parity means</h2>
+        <p class="section-copy">Both packages derive their Huly-facing commands and tools from the same schema-owned operation registry. Operation inputs, results, warnings, and typed failures stay aligned as the project evolves.</p>
+        <p class="note">Protocol mechanics are intentionally different. MCP resources, discovery, transports, and session behavior belong to Huly MCP; terminal help, output formatting, process exit codes, and file routing belong to Huly CLI.</p>
+      </section>
+
+      <section class="section">
+        <h2>You can use both</h2>
+        <p class="section-copy">Use Huly MCP for conversational agent work and keep Huly CLI available for repeatable scripts, local diagnosis, or direct terminal use. Both packages use the same Huly connection settings.</p>
+        <div class="actions">
+          <a class="button primary" href="https://www.npmjs.com/package/@firfi/huly-cli">Install Huly CLI</a>
+          <a class="button" href="https://www.npmjs.com/package/@firfi/huly-mcp">Install Huly MCP</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      Huly CLI and Huly MCP are MIT licensed and maintained in the
+      <a href="https://github.com/dearlordylord/huly-mcp">huly-mcp monorepo</a>.
+    </footer>
+  </div>
+</body>
+</html>

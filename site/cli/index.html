@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Huly CLI – Feature-Complete Command-Line Interface for Huly</title>
+  <meta name="description" content="Manage Huly projects, issues, documents, chat, calendar, files, and workspace administration from the terminal with 500+ native Huly CLI commands.">
+  <meta name="robots" content="index,follow">
+  <meta name="theme-color" content="#05080a">
+  <link rel="canonical" href="https://huly-mcp.dearlordylord.com/cli/">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/cli/styles.css">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Huly CLI">
+  <meta property="og:title" content="Huly CLI – Command-Line Interface for Huly">
+  <meta property="og:description" content="Feature-complete Huly command-line automation with full operation parity with Huly MCP.">
+  <meta property="og:url" content="https://huly-mcp.dearlordylord.com/cli/">
+  <meta property="og:image" content="https://huly-mcp.dearlordylord.com/icon.svg">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Huly CLI – Command-Line Interface for Huly">
+  <meta name="twitter:description" content="Feature-complete Huly command-line automation with full operation parity with Huly MCP.">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "Huly CLI",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Cross-platform",
+      "description": "Feature-complete command-line interface for Huly with 500+ native commands and full Huly operation parity with Huly MCP.",
+      "url": "https://huly-mcp.dearlordylord.com/cli/",
+      "codeRepository": "https://github.com/dearlordylord/huly-mcp/tree/master/packages/huly-cli",
+      "downloadUrl": "https://www.npmjs.com/package/@firfi/huly-cli",
+      "license": "https://github.com/dearlordylord/huly-mcp/blob/master/LICENSE",
+      "programmingLanguage": "TypeScript",
+      "isAccessibleForFree": true,
+      "offers": {
+        "@type": "Offer",
+        "price": 0,
+        "priceCurrency": "USD"
+      },
+      "keywords": "Huly CLI, Huly command line, Huly automation, Huly scripting, project management CLI, issue tracker CLI, coding agents"
+    }
+  </script>
+</head>
+<body>
+  <div class="shell">
+    <header class="site-header">
+      <a class="brand" href="/cli/">Huly <span>CLI</span></a>
+      <nav class="site-nav" aria-label="CLI documentation">
+        <a aria-current="page" href="/cli/">Overview</a>
+        <a href="/cli/examples/">Examples</a>
+        <a href="/cli/automation/">Automation</a>
+        <a href="/cli/huly-mcp-vs-cli/">CLI vs MCP</a>
+        <a href="/">Huly MCP</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">500+ native commands · full Huly operation parity</p>
+        <h1>Run Huly from your terminal.</h1>
+        <p class="lead">
+          Huly CLI is a feature-complete command-line interface for Huly projects, issues,
+          documents, chat, calendar, files, business workflows, and workspace administration.
+          Use readable terminal output interactively or structured JSON in scripts and coding agents.
+        </p>
+        <div class="actions">
+          <a class="button primary" href="#install">Install Huly CLI</a>
+          <a class="button" href="https://www.npmjs.com/package/@firfi/huly-cli">View on npm</a>
+          <a class="button" href="https://github.com/dearlordylord/huly-mcp/tree/master/packages/huly-cli">Source and reference</a>
+        </div>
+      </section>
+
+      <section class="section" id="install">
+        <h2>Install or run instantly</h2>
+        <p class="section-copy">
+          Huly CLI requires Node.js 20 or later. Run the latest release without installing it:
+        </p>
+        <pre class="code-block"><code>pnpm dlx @firfi/huly-cli@latest projects list</code></pre>
+        <p class="section-copy">Or install the <code>huly</code> command globally:</p>
+        <pre class="code-block"><code>pnpm add --global @firfi/huly-cli
+huly --help</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>Connect to Huly</h2>
+        <p class="section-copy">
+          Configure a reachable self-hosted or replacement hosted Huly deployment. Use an API token,
+          or provide email and password credentials instead.
+        </p>
+        <pre class="code-block"><code>export HULY_URL=https://your-huly-instance.example.com
+export HULY_WORKSPACE=your-workspace
+export HULY_TOKEN=your-api-token
+
+huly projects list</code></pre>
+        <p class="note">
+          Hosted Huly at <code>https://huly.app</code> is being discontinued. New installations
+          should target a reachable self-hosted or replacement hosted deployment.
+        </p>
+      </section>
+
+      <section class="section">
+        <h2>Useful from the first command</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>Human-readable terminal output</h3>
+            <p>Inspect projects, issues, documents, activity, and workspace state without parsing raw SDK records.</p>
+          </article>
+          <article class="card">
+            <h3>Structured JSON automation</h3>
+            <p>Add <code>--json</code>, combine results with <code>jq</code>, or provide complete inputs from JSON files.</p>
+          </article>
+          <article class="card">
+            <h3>Guarded consequential actions</h3>
+            <p>Deletion, access changes, and other consequential operations require explicit <code>--yes</code> confirmation.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Huly CLI examples</h2>
+        <pre class="code-block"><code># List projects as a table
+huly projects list
+
+# Read issue PROJ-123 as JSON
+huly issues get PROJ 123 --json
+
+# Create an issue from flags and a Markdown file
+huly issues create \
+  --project PROJ \
+  --title "Fix login flow" \
+  --description-file ./body.md
+
+# Search the workspace
+huly search "customer import" --limit 20 --json
+
+# Download attachment bytes
+huly attachments download 0123456789abcdef --output ./attachment.bin</code></pre>
+        <div class="actions">
+          <a class="button" href="/cli/examples/">More CLI examples</a>
+          <a class="button" href="/cli/automation/">Automation guide</a>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Complete Huly operation coverage</h2>
+        <p class="section-copy">
+          Every shared Huly operation has exactly one native CLI route. The CLI and MCP server are
+          maintained together in the same monorepo and derive from the same schema-owned operation registry.
+        </p>
+        <ul class="inline-list">
+          <li>projects</li><li>issues</li><li>documents</li><li>chat</li><li>calendar</li>
+          <li>Drive</li><li>boards</li><li>cards</li><li>time tracking</li><li>recruiting</li>
+          <li>support</li><li>test management</li><li>workspace administration</li><li>and more</li>
+        </ul>
+      </section>
+
+      <section class="section">
+        <h2>Huly CLI or Huly MCP?</h2>
+        <p class="section-copy">
+          Choose the CLI for terminals, scripts, CI jobs, and direct subprocess execution. Choose Huly MCP
+          when an MCP-compatible coding agent should discover and invoke Huly tools during a conversation.
+        </p>
+        <a class="button" href="/cli/huly-mcp-vs-cli/">Compare Huly CLI and Huly MCP</a>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      Huly CLI and Huly MCP are MIT licensed and maintained together in the
+      <a href="https://github.com/dearlordylord/huly-mcp">huly-mcp monorepo</a>.
+    </footer>
+  </div>
+</body>
+</html>

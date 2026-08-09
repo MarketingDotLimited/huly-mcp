@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Automate Huly with the CLI – JSON, Scripts, and CI</title>
+  <meta name="description" content="Automate Huly from shell scripts, CI jobs, and coding agents with Huly CLI JSON input, structured output, exit codes, and guarded actions.">
+  <meta name="robots" content="index,follow">
+  <meta name="theme-color" content="#05080a">
+  <link rel="canonical" href="https://huly-mcp.dearlordylord.com/cli/automation/">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/cli/styles.css">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Huly CLI">
+  <meta property="og:title" content="Automate Huly with the CLI">
+  <meta property="og:description" content="Use JSON, scripts, CI jobs, and coding agents to automate Huly safely from the command line.">
+  <meta property="og:url" content="https://huly-mcp.dearlordylord.com/cli/automation/">
+  <meta property="og:image" content="https://huly-mcp.dearlordylord.com/icon.svg">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Automate Huly with the CLI">
+  <meta name="twitter:description" content="JSON-first Huly automation for shell scripts, CI jobs, and coding agents.">
+</head>
+<body>
+  <div class="shell">
+    <header class="site-header">
+      <a class="brand" href="/cli/">Huly <span>CLI</span></a>
+      <nav class="site-nav" aria-label="CLI documentation">
+        <a href="/cli/">Overview</a>
+        <a href="/cli/examples/">Examples</a>
+        <a aria-current="page" href="/cli/automation/">Automation</a>
+        <a href="/cli/huly-mcp-vs-cli/">CLI vs MCP</a>
+        <a href="/">Huly MCP</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">Shell scripts · CI jobs · coding agents</p>
+        <h1>Automate Huly from the command line</h1>
+        <p class="lead">Huly CLI exposes the complete shared Huly operation surface through predictable commands, structured JSON, file-backed inputs, and process-friendly failures.</p>
+      </section>
+
+      <section class="section">
+        <h2>Make JSON the script boundary</h2>
+        <p class="section-copy">Add <code>--json</code> for machine-readable stdout. When an operation also emits warnings, the CLI preserves them alongside the result.</p>
+        <pre class="code-block"><code># Select fields from a project listing
+huly projects list --json | jq '.projects[] | {identifier, name}'
+
+# Keep a complete result for the next automation step
+huly issues get PROJ 123 --json &gt; ./issue.json</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>Keep complex inputs in files</h2>
+        <p class="section-copy"><code>--input-file</code> accepts a complete JSON operation input. This avoids brittle shell quoting for arrays and nested values.</p>
+        <pre class="code-block"><code>huly issues create \
+  --input-file ./new-issue.json \
+  --json</code></pre>
+        <p class="note">Inputs merge in command-line order. Named positionals and explicit flags override JSON values, and file-backed field flags have the final precedence.</p>
+      </section>
+
+      <section class="section">
+        <h2>Use process semantics</h2>
+        <div class="grid">
+          <article class="card">
+            <h3>stdout for results</h3>
+            <p>Structured results stay on stdout so they can be piped, redirected, or parsed.</p>
+          </article>
+          <article class="card">
+            <h3>stderr for failures</h3>
+            <p>Typed operation and input failures are rendered on stderr with a non-zero exit code.</p>
+          </article>
+          <article class="card">
+            <h3><code>--yes</code> for intent</h3>
+            <p>Pass explicit confirmation for deletion, access changes, and other consequential operations.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Run without a global install</h2>
+        <p class="section-copy">Use <code>@latest</code> for ad hoc jobs. For reproducible automation, replace it with the exact published version your workflow has tested.</p>
+        <pre class="code-block"><code>pnpm dlx @firfi/huly-cli@latest projects list --json</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>Choose the right agent integration</h2>
+        <p class="section-copy">The CLI works well when an agent can run subprocesses. Huly MCP is purpose-built for agents that discover and invoke tools through Model Context Protocol.</p>
+        <div class="actions">
+          <a class="button primary" href="/cli/huly-mcp-vs-cli/">Compare CLI and MCP</a>
+          <a class="button" href="/cli/examples/">Browse examples</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      Install <a href="https://www.npmjs.com/package/@firfi/huly-cli">@firfi/huly-cli from npm</a> or inspect the
+      <a href="https://github.com/dearlordylord/huly-mcp/tree/master/packages/huly-cli">source and complete reference</a>.
+    </footer>
+  </div>
+</body>
+</html>

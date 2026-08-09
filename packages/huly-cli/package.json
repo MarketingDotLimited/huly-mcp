@@ -21,7 +21,7 @@
   "bugs": {
     "url": "https://github.com/dearlordylord/huly-mcp/issues"
   },
-  "homepage": "https://github.com/dearlordylord/huly-mcp/tree/master/packages/huly-cli#readme",
+  "homepage": "https://huly-mcp.dearlordylord.com/cli/",
   "scripts": {
     "build": "PKG_VERSION=$(node -p \"require('./package.json').version\") && esbuild src/index.ts --bundle --platform=node --format=cjs --log-level=warning --outfile=dist/index.cjs --external:ws \"--define:PKG_VERSION=\\\"$PKG_VERSION\\\"\"",
     "verify-version": "node -e \"const v=require('./package.json').version; const d=require('fs').readFileSync('dist/index.cjs','utf8'); if(!d.includes('\\\"'+v+'\\\"'))throw new Error('dist version mismatch: expected '+v)\"",
@@ -58,11 +58,18 @@
   },
   "keywords": [
     "huly",
+    "huly-cli",
     "cli",
     "command-line",
+    "command-line-interface",
+    "terminal",
+    "scripting",
+    "automation",
     "project-management",
     "issue-tracker",
-    "automation"
+    "task-management",
+    "developer-tools",
+    "coding-agents"
   ],
   "engines": {
     "node": ">=20"

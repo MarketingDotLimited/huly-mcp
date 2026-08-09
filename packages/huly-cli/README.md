@@ -11,6 +11,8 @@
 
 Use readable terminal output interactively or `--json` in scripts and coding-agent workflows. The CLI invokes the shared operation registry directly: it does not start an MCP server or translate commands through JSON-RPC.
 
+Visit the [Huly CLI website](https://huly-mcp.dearlordylord.com/cli/) for focused [examples](https://huly-mcp.dearlordylord.com/cli/examples/), [automation patterns](https://huly-mcp.dearlordylord.com/cli/automation/), and a [Huly MCP vs CLI comparison](https://huly-mcp.dearlordylord.com/cli/huly-mcp-vs-cli/).
+
 > [!IMPORTANT]
 > **Hosted Huly is being discontinued.** If you use `https://huly.app`, [export and migrate your data](https://github.com/hcengineering/platform/blob/develop/README.md). See Huly's [backup and restore guide](https://github.com/hcengineering/platform/blob/develop/docs/guides/backup-restore.en.md) and [self-hosting repository](https://github.com/hcengineering/huly-selfhost). Self-hosted deployments are not affected.
 
@@ -188,6 +190,7 @@ pnpm add --global @firfi/huly-cli@latest
 
 ## Project
 
+- [Huly CLI website](https://huly-mcp.dearlordylord.com/cli/)
 - [Source code](https://github.com/dearlordylord/huly-mcp/tree/master/packages/huly-cli)
 - [Issue tracker](https://github.com/dearlordylord/huly-mcp/issues)
 - [Changelog](https://github.com/dearlordylord/huly-mcp/blob/master/packages/huly-cli/CHANGELOG.md)

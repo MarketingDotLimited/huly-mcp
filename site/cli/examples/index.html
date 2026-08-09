@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Huly CLI Examples – Projects, Issues, Search, and Files</title>
+  <meta name="description" content="Copy practical Huly CLI examples for projects, issues, comments, workspace search, attachments, JSON input, and structured output.">
+  <meta name="robots" content="index,follow">
+  <meta name="theme-color" content="#05080a">
+  <link rel="canonical" href="https://huly-mcp.dearlordylord.com/cli/examples/">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/cli/styles.css">
+  <meta property="og:type" content="article">
+  <meta property="og:site_name" content="Huly CLI">
+  <meta property="og:title" content="Huly CLI Examples">
+  <meta property="og:description" content="Practical terminal commands for managing Huly projects, issues, comments, search, and files.">
+  <meta property="og:url" content="https://huly-mcp.dearlordylord.com/cli/examples/">
+  <meta property="og:image" content="https://huly-mcp.dearlordylord.com/icon.svg">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Huly CLI Examples">
+  <meta name="twitter:description" content="Practical terminal commands for Huly projects, issues, search, and files.">
+</head>
+<body>
+  <div class="shell">
+    <header class="site-header">
+      <a class="brand" href="/cli/">Huly <span>CLI</span></a>
+      <nav class="site-nav" aria-label="CLI documentation">
+        <a href="/cli/">Overview</a>
+        <a aria-current="page" href="/cli/examples/">Examples</a>
+        <a href="/cli/automation/">Automation</a>
+        <a href="/cli/huly-mcp-vs-cli/">CLI vs MCP</a>
+        <a href="/">Huly MCP</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">Copy, adapt, run</p>
+        <h1>Huly CLI examples</h1>
+        <p class="lead">Start with common Huly project-management tasks, then use generated command help to explore 500+ native commands.</p>
+      </section>
+
+      <section class="section">
+        <h2>Projects and issues</h2>
+        <pre class="code-block"><code># List every accessible project
+huly projects list
+
+# Get PROJ-123 as structured JSON
+huly issues get PROJ 123 --json
+
+# Create an issue with a Markdown description
+huly issues create \
+  --project PROJ \
+  --title "Fix login flow" \
+  --description-file ./body.md
+
+# Inspect the available issue commands and inputs
+huly issues --help
+huly issues create --help</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>Workspace search</h2>
+        <p class="section-copy">Search across the connected Huly workspace and request JSON when another command will consume the result.</p>
+        <pre class="code-block"><code>huly search "customer import" --limit 20
+huly search "customer import" --limit 20 --json</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>Comments and guarded deletion</h2>
+        <p class="section-copy">Consequential commands require <code>--yes</code>, making destructive intent explicit in both interactive and automated use.</p>
+        <pre class="code-block"><code>huly comments delete \
+  --project PROJ \
+  --issue-identifier 123 \
+  --comment-id 0123456789abcdef \
+  --yes</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>Attachments and file output</h2>
+        <pre class="code-block"><code>huly attachments download 0123456789abcdef \
+  --output ./attachment.bin</code></pre>
+        <p class="note">Binary-producing commands require <code>--output</code>, so binary data never corrupts terminal or JSON output.</p>
+      </section>
+
+      <section class="section">
+        <h2>JSON input</h2>
+        <p class="section-copy">Use JSON for nested objects, arrays, unions, or repeatable operations. Explicit flags override values supplied through JSON.</p>
+        <pre class="code-block"><code># Supply the complete operation input from a file
+huly issues create --input-file ./new-issue.json --json
+
+# Start with JSON and override one field
+huly issues create \
+  --input-json '{"project":"PROJ","title":"Draft title"}' \
+  --title "Final title" \
+  --json</code></pre>
+      </section>
+
+      <section class="section">
+        <h2>Next: automate Huly</h2>
+        <p class="section-copy">Learn how JSON output, exit codes, warnings, and non-interactive confirmation behave in shell scripts and CI jobs.</p>
+        <a class="button primary" href="/cli/automation/">Read the automation guide</a>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      Huly CLI is available on <a href="https://www.npmjs.com/package/@firfi/huly-cli">npm</a> and maintained with
+      <a href="/">Huly MCP</a> in one open-source monorepo.
+    </footer>
+  </div>
+</body>
+</html>
