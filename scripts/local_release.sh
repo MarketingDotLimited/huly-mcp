@@ -143,6 +143,10 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 1
 fi
 
+# Release builds bundle dependencies from the project checkout. A clean clone may
+# not have node_modules yet, so make the one-command release path self-contained.
+CI=true pnpm install --frozen-lockfile --prod=false
+
 npm whoami >/dev/null
 show_dist_tags "$MCP_PACKAGE_NAME" false
 show_dist_tags "$CLI_PACKAGE_NAME" true
