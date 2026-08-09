@@ -88,9 +88,9 @@ const generated = [
   "<!-- Generated from cliCommandCatalog and shared operation schemas. Run `pnpm update-cli-readme`. -->",
   "## Complete command reference",
   "",
-  "All commands also accept `--json`, `--input-json <object>`, and `--input-file <path>`. Explicit field flags override JSON sources. Structured fields accept JSON. Named positionals are required and are not duplicated as flags.",
+  "All commands also accept `--json`, `--input-json <object>`, and `--input-file <path>`. Explicit field flags override JSON sources. Structured fields accept JSON. Named positionals are required and are not duplicated as flags. Required non-positional inputs may instead be supplied through either JSON source.",
   "",
-  "| Command | Purpose and behavior | Required positionals | Required flags | Optional flags and alternatives |",
+  "| Command | Purpose and behavior | Required positionals | Required inputs (flag or JSON) | Optional flags and alternatives |",
   "| --- | --- | --- | --- | --- |",
   commandRows(),
   endMarker

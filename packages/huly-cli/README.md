@@ -56,13 +56,27 @@ huly search "customer import"
 
 Run `huly --help` for the generated command tree.
 
+## Parity boundary
+
+This release exposes exactly one native CLI command for each of the 522 shared Huly operations. The CLI calls the shared operation registry directly, so operation inputs, outputs, warnings, and typed failures stay aligned with the MCP server.
+
+MCP protocol mechanics are outside that operation count. The CLI uses native equivalents:
+
+- generated root and command help instead of MCP tool discovery;
+- flags, named positionals, `--input-json`, and `--input-file` instead of JSON-RPC arguments;
+- human-readable terminal output or `--json` instead of MCP content envelopes;
+- `--output` for supported attachment and image bytes, with safe image metadata in terminal/JSON output; and
+- terminal warning sections (or JSON `warnings`) for agent-visible diagnostics.
+
+MCP resource templates, proxy discovery, toolset filtering, and transport negotiation remain server-only protocol features; they are not missing Huly operations. Consequential commands require `--yes` before a Huly client is created.
+
 <!-- CLI_COMMAND_REFERENCE_START -->
 <!-- Generated from cliCommandCatalog and shared operation schemas. Run `pnpm update-cli-readme`. -->
 ## Complete command reference
 
-All commands also accept `--json`, `--input-json <object>`, and `--input-file <path>`. Explicit field flags override JSON sources. Structured fields accept JSON. Named positionals are required and are not duplicated as flags.
+All commands also accept `--json`, `--input-json <object>`, and `--input-file <path>`. Explicit field flags override JSON sources. Structured fields accept JSON. Named positionals are required and are not duplicated as flags. Required non-positional inputs may instead be supplied through either JSON source.
 
-| Command | Purpose and behavior | Required positionals | Required flags | Optional flags and alternatives |
+| Command | Purpose and behavior | Required positionals | Required inputs (flag or JSON) | Optional flags and alternatives |
 | --- | --- | --- | --- | --- |
 | `huly activity filters list` | List Activity Filters | — | — | `--limit <value>` — Maximum number of activity filters to return (default: 50) Type: integer. |
 | `huly activity list` | List Activity | — | — | `--project <value>` — Project identifier for issue activity, e.g. 'HULY'. Type: string. Choose one input alternative: { project, issueIdentifier } \| { teamspace, document } \| { channel } \| { objectId, objectClass }.<br>`--issue-identifier <value>` — Issue identifier for issue activity, e.g. 'HULY-123' or '123'. Type: string. Choose one input alternative: { project, issueIdentifier } \| { teamspace, document } \| { channel } \| { objectId, objectClass }.<br>`--limit <value>` — Maximum number of activity messages to return (default: 50) Type: integer.<br>`--teamspace <value>` — Teamspace name or ID for document activity. Type: string. Choose one input alternative: { project, issueIdentifier } \| { teamspace, document } \| { channel } \| { objectId, objectClass }.<br>`--document <value>` — Document title or ID for document activity. Type: string. Choose one input alternative: { project, issueIdentifier } \| { teamspace, document } \| { channel } \| { objectId, objectClass }.<br>`--channel <value>` — Channel name or ID for channel activity. Type: string. Choose one input alternative: { project, issueIdentifier } \| { teamspace, document } \| { channel } \| { objectId, objectClass }.<br>`--object-id <value>` — Internal Huly object ID to get activity for. Type: string. Choose one input alternative: { project, issueIdentifier } \| { teamspace, document } \| { channel } \| { objectId, objectClass }.<br>`--object-class <value>` — Internal Huly object class for objectId, such as 'tracker:class:Issue'. Type: string. Choose one input alternative: { project, issueIdentifier } \| { teamspace, document } \| { channel } \| { objectId, objectClass }. |

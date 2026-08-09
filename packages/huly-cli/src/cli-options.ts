@@ -92,24 +92,32 @@ const booleanOption = (name: "json" | "yes"): Options.Options<ReadonlyArray<Pars
     Options.map((value) => [{ _tag: "GlobalBooleanOption", name, value }])
   )
 
+const fieldHelp = (spec: CliCommandSpec, rootSchema: object, field: FieldSpec, required: boolean): string => {
+  const description = cliFieldOptionDescription(spec, rootSchema, field)
+  const requirement = required ? "Required unless supplied through --input-json or --input-file." : undefined
+  return [description, requirement].filter((part) => part !== undefined && part.length > 0).join(" ")
+}
+
 const fieldTextOption = (
   rootSchema: object,
   spec: CliCommandSpec,
   optionName: string,
-  field: FieldSpec
+  field: FieldSpec,
+  required: boolean
 ): Options.Options<ReadonlyArray<ParsedCliOption>> =>
   optionalTextOption(optionName, (value) => ({
     _tag: "FieldOption",
     fieldName: field.fieldName,
     optionName,
     value
-  })).pipe(Options.withDescription(cliFieldOptionDescription(spec, rootSchema, field)))
+  })).pipe(Options.withDescription(fieldHelp(spec, rootSchema, field, required)))
 
 const fieldBooleanOption = (
   rootSchema: object,
   spec: CliCommandSpec,
   optionName: string,
-  field: FieldSpec
+  field: FieldSpec,
+  required: boolean
 ): Options.Options<ReadonlyArray<ParsedCliOption>> =>
   Options.boolean(optionName, { negationNames: [`no-${optionName}`] }).pipe(
     Options.map(
@@ -117,7 +125,7 @@ const fieldBooleanOption = (
         { _tag: "BooleanFieldOption", fieldName: field.fieldName, optionName, value }
       ]
     ),
-    Options.withDescription(cliFieldOptionDescription(spec, rootSchema, field))
+    Options.withDescription(fieldHelp(spec, rootSchema, field, required))
   )
 
 const fieldFileOption = (optionName: string, field: FieldSpec): Options.Options<ReadonlyArray<ParsedCliOption>> =>
@@ -147,6 +155,7 @@ const fieldOptions = (
   rootSchema: object,
   spec: CliCommandSpec,
   fields: ReadonlyMap<string, FieldSpec>,
+  requiredFields: ReadonlySet<string>,
   fileInputFields: ReadonlySet<string>,
   base64FileInputFields: ReadonlySet<string>
 ): Array<Options.Options<ReadonlyArray<ParsedCliOption>>> => {
@@ -154,8 +163,8 @@ const fieldOptions = (
   for (const [optionName, field] of fields) {
     descriptors.push(
       fieldUsesBooleanOption(rootSchema, field)
-        ? fieldBooleanOption(rootSchema, spec, optionName, field)
-        : fieldTextOption(rootSchema, spec, optionName, field)
+        ? fieldBooleanOption(rootSchema, spec, optionName, field, requiredFields.has(field.fieldName))
+        : fieldTextOption(rootSchema, spec, optionName, field, requiredFields.has(field.fieldName))
     )
     if (fileInputFields.has(field.fieldName)) {
       descriptors.push(fieldFileOption(optionName, field))
@@ -228,6 +237,7 @@ export const buildCliCommandConfig = (tool: ToolDefinition, spec: CliCommandSpec
       tool.inputSchema,
       spec,
       new Map([...fields].filter(([, field]) => !spec.positional.includes(field.fieldName))),
+      collectRequiredFieldNames(tool.inputSchema),
       behaviorFields.text,
       behaviorFields.base64
     )

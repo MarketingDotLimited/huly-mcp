@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import type { CliCommandSpec } from "../../packages/huly-cli/src/catalog-types.js"
 import { cliCommandCatalog, ignoredMcpTools, isCliToolName } from "../../packages/huly-cli/src/catalog.js"
+import { buildCliCommandConfig } from "../../packages/huly-cli/src/cli-options.js"
 import { allTools, resolveAnnotations } from "../../src/mcp/tools/index.js"
 import {
   CLI_BEHAVIOR_CLASSES,
@@ -145,6 +146,21 @@ describe("CLI catalog", () => {
     expect(errors).toEqual([])
   })
 
+  it("rejects file behavior metadata that names a missing schema field", () => {
+    const listProjects = allTools.find((tool) => tool.name === "list_projects")
+    if (listProjects === undefined) throw new Error("Missing list_projects fixture.")
+    const invalidSpec: CliCommandSpec = {
+      path: ["invalid"],
+      positional: [],
+      description: "Invalid behavior fixture",
+      behavior: { fileInput: { fields: ["missing"] } }
+    }
+
+    expect(() => buildCliCommandConfig(listProjects, invalidSpec)).toThrow(
+      "CLI behavior references unknown schema fields: missing."
+    )
+  })
+
   it("keeps notable generated paths aligned with the public command vocabulary", () => {
     expect(cliCommandCatalog.list_tags.path).toEqual(["tags", "list"])
     expect(cliCommandCatalog.create_tag.path).toEqual(["tags", "create"])
@@ -172,6 +188,32 @@ describe("CLI catalog", () => {
 
     expect(fieldOptionDescription(createIssue.inputSchema, priority)).toContain('Allowed values: "urgent"')
     expect(fieldOptionDescription(setConversationClosed.inputSchema, channel)).toContain("{ channel } | { dm }")
+  })
+
+  it("describes nested schema constraints without assuming every variant is an object", () => {
+    const rootSchema = {
+      allOf: [
+        null,
+        {
+          oneOf: [
+            { required: ["choice"], properties: { choice: { type: "string" } } },
+            { required: ["other"], properties: { other: { type: "string" } } }
+          ]
+        }
+      ]
+    }
+    const description = fieldOptionDescription(rootSchema, {
+      fieldName: "choice",
+      schema: { type: ["string", "null", 1], enum: [undefined, "x"], pattern: "^x$", default: "x" }
+    })
+    const constDescription = fieldOptionDescription({}, { fieldName: "fixed", schema: { const: "only" } })
+
+    expect(description).toContain('Allowed values: "x"')
+    expect(description).toContain("Pattern: ^x$")
+    expect(description).toContain('Default: "x"')
+    expect(description).toContain("{ choice } | { other }")
+    expect(constDescription).toContain('Allowed values: "only"')
+    expect(collectRequiredFieldNames({ anyOf: [] })).toEqual(new Set())
   })
 
   it("narrows CLI tool names at runtime", () => {

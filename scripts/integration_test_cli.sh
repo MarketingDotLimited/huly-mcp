@@ -213,11 +213,6 @@ cli_live_case_begin "scalar-structured-read"
 cover_cli_json "list_projects" "projects list" projects list
 cli_live_case_end "scalar-structured-read"
 capture_cli_json "get_project" "projects get" PROJECT_JSON projects get "$PROJECT"
-PROJECT_ID="$(json_value "$PROJECT_JSON" '.id // empty')"
-if [[ -z "$PROJECT_ID" ]]; then
-  echo "Project $PROJECT did not expose an ID for generic CLI lifecycle tests." >&2
-  exit 1
-fi
 cover_cli_json "list_statuses" "projects statuses" projects statuses "$PROJECT"
 cover_cli_json "list_project_types" "project-types list" project-types list
 cover_cli_json "get_project_type" "project-types get" project-types get
@@ -258,6 +253,9 @@ if [[ -z "$CARD_ID" ]]; then
   echo "No Default-space card found for CLI version-history read." >&2
   exit 1
 fi
+GENERIC_OBJECT_ID="$CARD_ID"
+GENERIC_OBJECT_CLASS="card:class:Card"
+GENERIC_SPACE_ID="card:space:Default"
 cover_cli_json "list_card_versions" "cards versions list" cards versions list Default "$CARD_ID" --limit 1
 cover_cli_json "list_drives" "drive list" drive list
 cover_cli_json "list_inventory_categories" "inventory categories list" inventory categories list
@@ -305,7 +303,7 @@ cli_live_case_end "consequential-refusals"
 cli_live_case_begin "structured-calendar-lifecycle"
 EVENT_AT=1893456000000
 capture_cli_json "create_event" "calendar structured event create" EVENT_JSON \
-  calendar events create "CLI Integration Event $RUN_ID" "$EVENT_AT" --participants '["missing@example.com"]'
+  calendar events create "CLI Integration Event $RUN_ID" "$EVENT_AT" --reminders '[1893455940000]'
 EVENT_ID="$(json_value "$EVENT_JSON" '.eventId // .id // empty')"
 if [[ -z "$EVENT_ID" ]]; then
   echo "create_event did not return an event ID." >&2
@@ -334,7 +332,7 @@ ISSUE_OBJECT_ID="$(json_value "$ISSUE_JSON" '.issueId')"
 printf 'raw attachment from cli integration %s\n' "$RUN_ID" >"$TEST_TMPDIR/raw-attachment.bin"
 cli_live_case_begin "raw-upload"
 capture_cli_json "add_attachment" "generic attachment base64-file upload" RAW_ATTACHMENT_JSON \
-  attachments add "$ISSUE_OBJECT_ID" "tracker:class:Issue" "$PROJECT_ID" "raw-$RUN_ID.bin" \
+  attachments add "$GENERIC_OBJECT_ID" "$GENERIC_OBJECT_CLASS" "$GENERIC_SPACE_ID" "raw-$RUN_ID.bin" \
     application/octet-stream --data-base64-file "$TEST_TMPDIR/raw-attachment.bin"
 ATTACHMENT_ID="$(json_value "$RAW_ATTACHMENT_JSON" '.attachmentId')"
 assert_json "add_attachment returns attachment id" "$RAW_ATTACHMENT_JSON" \
@@ -346,7 +344,7 @@ ATTACHMENT_ID=""
 printf '{"nodes":[{"id":"%s"}]}\n' "$RUN_ID" >"$TEST_TMPDIR/drawing.json"
 cli_live_case_begin "nullable-drawing-lifecycle"
 capture_cli_json "create_drawing" "drawing content-file create" DRAWING_JSON \
-  drawings create "$ISSUE_OBJECT_ID" "tracker:class:Issue" "$PROJECT_ID" --content-file "$TEST_TMPDIR/drawing.json"
+  drawings create "$GENERIC_OBJECT_ID" "$GENERIC_OBJECT_CLASS" "$GENERIC_SPACE_ID" --content-file "$TEST_TMPDIR/drawing.json"
 DRAWING_ID="$(json_value "$DRAWING_JSON" '.drawingId // .id // empty')"
 if [[ -z "$DRAWING_ID" ]]; then
   echo "create_drawing did not return a drawing ID." >&2
@@ -404,7 +402,8 @@ ATTACHMENT_ID="$(json_value "$IMAGE_ATTACHMENT_JSON" '.attachmentId')"
 cli_live_case_begin "image-output"
 capture_cli_json "read_attachment_content" "image attachment output" IMAGE_JSON \
   attachments read-image "$ATTACHMENT_ID" --output "$TEST_TMPDIR/pixel-output.png"
-assert_json "read_attachment_content returns image metadata" "$IMAGE_JSON" '.type == "image/png"'
+assert_json "read_attachment_content returns image metadata" "$IMAGE_JSON" \
+  '.result.type == "image/png" and .image.mimeType == "image/png" and .image.encoding == "base64"'
 cmp "$TEST_TMPDIR/pixel.png" "$TEST_TMPDIR/pixel-output.png"
 echo "PASS: image bytes written"
 cli_live_case_end "image-output"
