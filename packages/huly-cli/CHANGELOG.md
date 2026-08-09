@@ -1,5 +1,11 @@
 # @firfi/huly-cli
 
+## 0.47.3
+
+### Patch Changes
+
+- c13e9f1: Make CLI help progressive and terminal-safe, and improve package discovery metadata for self-hosted Huly automation and AI-agent workflows.
+
 ## 0.47.2
 
 ### Patch Changes

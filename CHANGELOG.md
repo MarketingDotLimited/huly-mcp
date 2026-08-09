@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.49.3
+
+### Patch Changes
+
+- 9936197: Document a verified Pi installation using the Pi MCP Adapter, Huly's four-tool proxy surface, and optional native tool pins.
+
 ## 0.49.2
 
 ### Patch Changes
