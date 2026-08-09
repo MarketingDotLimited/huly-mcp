@@ -9,12 +9,31 @@ import {
   isCliToolName
 } from "../../packages/huly-cli/src/catalog.js"
 import { allTools } from "../../src/mcp/tools/index.js"
+import {
+  CLI_BEHAVIOR_CLASSES,
+  CLI_DEDICATED_LIVE_RISK_CLASSES,
+  CLI_PARITY_BASELINE,
+  CLI_PARITY_TARGET
+} from "../../packages/huly-cli/src/parity-contract.js"
 
 const catalogEntries = () => Object.entries(cliCommandCatalog)
 
 const pathKey = (path: ReadonlyArray<string>): string => path.join(" ")
 
 describe("CLI catalog", () => {
+  it("records the auditable parity baseline and target", () => {
+    expect(CLI_PARITY_BASELINE).toEqual({
+      registryOperations: 522,
+      cliRoutes: 451,
+      ignoredOperations: 71,
+      directLiveCases: 68,
+      deferredLiveCases: 383
+    })
+    expect(CLI_PARITY_TARGET).toEqual({ ignoredOperations: 0, routesPerRegistryOperation: 1 })
+    expect(CLI_BEHAVIOR_CLASSES).toContain("structured-json-input")
+    expect(CLI_BEHAVIOR_CLASSES).toContain("workspace-administration")
+    expect(CLI_DEDICATED_LIVE_RISK_CLASSES).toEqual(["transport", "safety", "privacy", "workspace-client", "lifecycle"])
+  })
   it("keeps implemented and ignored MCP tool decisions disjoint at runtime", () => {
     const implemented = new Set(Object.keys(cliCommandCatalog))
     const ignored = new Set(ignoredMcpTools)

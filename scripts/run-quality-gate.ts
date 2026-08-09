@@ -36,6 +36,7 @@ const gates: ReadonlyArray<QualityGate> = [
   { args: ["verify-cli-integration-coverage"], name: "CLI integration coverage", timeout: TWO_MINUTES },
   { args: ["verify-sdk-parity"], name: "SDK parity", timeout: MINUTE },
   { args: ["verify-readme"], name: "README synchronization", timeout: MINUTE },
+  { args: ["verify-cli-readme"], name: "CLI README synchronization", timeout: TWO_MINUTES },
   { args: ["lint"], name: "lint and duplication", timeout: TWO_MINUTES },
   { args: ["test:coverage"], name: "tests and coverage", timeout: FIVE_MINUTES }
 ]
