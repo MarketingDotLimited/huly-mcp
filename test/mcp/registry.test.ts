@@ -5,6 +5,11 @@ import { Cause, Effect, Schema } from "effect"
 import { expect } from "vitest"
 
 import { CanonicalBase64ImageData, SupportedAttachmentImageTypeSchema } from "../../src/domain/schemas/attachments.js"
+import {
+  MessageTemplateCategoryIdentifier,
+  MessageTemplateIdentifier,
+  TemplateFieldCategoryIdentifier
+} from "../../src/domain/schemas/message-templates.js"
 import { Count } from "../../src/domain/schemas/shared.js"
 import type { HulyClientOperations } from "../../src/huly/client.js"
 import { HulyClient } from "../../src/huly/client.js"
@@ -16,8 +21,11 @@ import {
   HulyConnectionError,
   HulyError,
   InventoryConflictError,
+  MessageTemplateCategoryNotFoundError,
+  MessageTemplateNotFoundError,
   NoUpdateFieldsError,
   ProjectNotFoundError,
+  TemplateFieldCategoryNotFoundError,
   TodoIdentifierAmbiguousError
 } from "../../src/huly/errors.js"
 import { testMarkupUrlConfig } from "../../src/huly/operations/markup.js"
@@ -200,6 +208,23 @@ describe("describeOperationFailure", () => {
       },
       { error: new InventoryConflictError({ message: "conflict" }), kind: "conflict", retryable: false },
       { error: new ProjectNotFoundError({ identifier: "HULY" }), kind: "lookup", retryable: false },
+      {
+        error: new MessageTemplateCategoryNotFoundError({
+          identifier: MessageTemplateCategoryIdentifier.make("missing")
+        }),
+        kind: "lookup",
+        retryable: false
+      },
+      {
+        error: new MessageTemplateNotFoundError({ identifier: MessageTemplateIdentifier.make("missing") }),
+        kind: "lookup",
+        retryable: false
+      },
+      {
+        error: new TemplateFieldCategoryNotFoundError({ identifier: TemplateFieldCategoryIdentifier.make("missing") }),
+        kind: "lookup",
+        retryable: false
+      },
       { error: new NoUpdateFieldsError({ operation: "update", fields: ["title"] }), kind: "input", retryable: false },
       { error: new HulyConnectionError({ message: "offline" }), kind: "integration", retryable: true },
       { error: new HulyError({ message: "integration failed" }), kind: "integration", retryable: false }

@@ -16,7 +16,11 @@ import { cliCommandCatalog, type CliToolName } from "./catalog.js"
 import type { CliGlobalOptions, ParsedCliCommandLine } from "./cli-options.js"
 import { buildCliInvocation, type CliInputError, type CliInvocation } from "./input.js"
 import { LocalCliService } from "./local-commands.js"
-import { type ResolvedCliConfiguration, resolveCliConfiguration } from "./profile-store.js"
+import {
+  type CliConnectionAuthMethod,
+  type ResolvedCliConfiguration,
+  resolveCliConfiguration
+} from "./profile-store.js"
 import { CliRuntimeError, renderOperationSuccess } from "./render.js"
 import { explicitCliConfirmationMessage } from "./safety-policies.js"
 import { collectFieldSpecs } from "./schema-fields.js"
@@ -64,8 +68,10 @@ const resolvedConfigProvider = (configuration: ResolvedCliConfiguration): Config
   if (configuration.auth.method === "token") {
     entries.set("HULY_TOKEN", Redacted.value(configuration.auth.token))
   } else if (configuration.auth.method === "password") {
-    if (configuration.auth.email !== undefined) entries.set("HULY_EMAIL", configuration.auth.email)
-    if (configuration.auth.password !== undefined) {
+    if (configuration.auth.credentialState !== "password-only") {
+      entries.set("HULY_EMAIL", configuration.auth.email)
+    }
+    if (configuration.auth.credentialState !== "email-only") {
       entries.set("HULY_PASSWORD", Redacted.value(configuration.auth.password))
     }
   }
@@ -230,8 +236,8 @@ export const runCliToolWithPorts = (
   ports: CliRunnerPorts,
   toolName: CliToolName,
   parsed: ParsedCliCommandLine,
-  defaultProject?: string,
-  authMethod: "token" | "password" = "password"
+  defaultProject: string | undefined,
+  authMethod: CliConnectionAuthMethod
 ): Effect.Effect<void, CliInputError | CliRuntimeError, TelemetryService> =>
   Effect.gen(function* () {
     const spec: CliCommandSpec = cliCommandCatalog[toolName]

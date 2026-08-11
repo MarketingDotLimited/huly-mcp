@@ -7,23 +7,31 @@ import {
   type CliProfileStore,
   CliProfileStoreError,
   type ProfileName,
+  ProfileNameSchema,
   type ResolvedCliConfiguration,
   resolveCliConfiguration
 } from "./profile-store.js"
 
-export const CliAuthStatusSchema = Schema.Struct({
-  authenticated: Schema.Boolean,
-  authMethod: Schema.Literal("token", "password", "none"),
-  profile: Schema.optionalWith(Schema.String, { exact: true }),
-  url: Schema.optionalWith(Schema.String, { exact: true }),
-  workspace: Schema.optionalWith(Schema.String, { exact: true }),
-  defaultProject: Schema.optionalWith(Schema.String, { exact: true }),
+const CliAuthStatusFields = {
+  profile: Schema.optionalWith(ProfileNameSchema, { exact: true }),
+  url: Schema.optionalWith(CliProfileSchema.fields.url, { exact: true }),
+  workspace: Schema.optionalWith(CliProfileSchema.fields.workspace, { exact: true }),
+  defaultProject: Schema.optionalWith(Schema.NonEmptyTrimmedString, { exact: true }),
   sources: Schema.Struct({
     url: Schema.Literal("environment", "profile", "missing"),
     workspace: Schema.Literal("environment", "profile", "missing"),
     authentication: Schema.Literal("environment", "profile", "missing")
   })
-})
+}
+
+export const CliAuthStatusSchema = Schema.Union(
+  Schema.Struct({ ...CliAuthStatusFields, authenticated: Schema.Literal(false), authMethod: Schema.Literal("none") }),
+  Schema.Struct({
+    ...CliAuthStatusFields,
+    authenticated: Schema.Literal(true),
+    authMethod: Schema.Literal("token", "password")
+  })
+)
 export type CliAuthStatus = Schema.Schema.Type<typeof CliAuthStatusSchema>
 
 export const CliProfilePatchSchema = Schema.Struct({
@@ -130,7 +138,7 @@ const source = (
 const authMethod = (resolved: ResolvedCliConfiguration): CliAuthStatus["authMethod"] => {
   if (resolved.auth.method === "token") return "token"
   if (resolved.auth.method === "none") return "none"
-  return resolved.auth.email !== undefined && resolved.auth.password !== undefined ? "password" : "none"
+  return resolved.auth.credentialState === "complete" ? "password" : "none"
 }
 
 const optionalStatusFields = (resolved: ResolvedCliConfiguration) => {

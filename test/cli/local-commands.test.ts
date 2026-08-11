@@ -3,11 +3,12 @@ import * as path from "node:path"
 
 import { Command } from "@effect/cli"
 import { NodeContext } from "@effect/platform-node"
-import { Effect, Layer, Redacted } from "effect"
+import { Effect, Layer, Redacted, Schema } from "effect"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { buildRootCommand } from "../../packages/huly-cli/src/command-tree.js"
 import { LocalCliService, type LocalCliPorts } from "../../packages/huly-cli/src/local-commands.js"
+import { CliAuthStatusSchema } from "../../packages/huly-cli/src/profile-operations.js"
 import { cliProfilePaths, makeCliProfileStore } from "../../packages/huly-cli/src/profile-store.js"
 import { TelemetryService } from "../../src/telemetry/telemetry.js"
 
@@ -239,5 +240,17 @@ describe("Effect CLI local commands", () => {
     const status = JSON.parse((await run(ports, ["auth", "status", "--json"])).join("\n"))
 
     expect(status).toMatchObject({ authenticated: false, authMethod: "none" })
+  })
+
+  it("rejects contradictory authentication status payloads", async () => {
+    const exit = await Effect.runPromiseExit(
+      Schema.decodeUnknown(CliAuthStatusSchema)({
+        authenticated: false,
+        authMethod: "token",
+        sources: { url: "missing", workspace: "missing", authentication: "missing" }
+      })
+    )
+
+    expect(exit.toString()).toContain("authMethod")
   })
 })

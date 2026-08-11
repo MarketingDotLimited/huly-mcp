@@ -7,7 +7,7 @@ const CONFIG_DIRECTORY_MODE = 0o700
 const CONFIG_FILE_MODE = 0o600
 const JSON_INDENT_SPACES = 2
 
-const ProfileNameSchema = Schema.NonEmptyTrimmedString.pipe(
+export const ProfileNameSchema = Schema.NonEmptyTrimmedString.pipe(
   Schema.pattern(/^[A-Za-z0-9][A-Za-z0-9._-]*$/),
   Schema.brand("CliProfileName")
 )
@@ -188,13 +188,27 @@ export const makeCliProfileStore = (paths: CliProfilePaths): CliProfileStore => 
   writeProfiles: (profiles) => writeFile(paths, paths.profiles, CliProfilesFileSchema, profiles)
 })
 
+export const CliConnectionAuthMethodSchema = Schema.Literal("token", "password")
+export type CliConnectionAuthMethod = Schema.Schema.Type<typeof CliConnectionAuthMethodSchema>
+
 const ResolvedCliAuthSchema = Schema.Union(
   Schema.Struct({ method: Schema.Literal("none") }),
   Schema.Struct({ method: Schema.Literal("token"), token: Schema.Redacted(Schema.NonEmptyTrimmedString) }),
   Schema.Struct({
     method: Schema.Literal("password"),
-    email: Schema.optionalWith(Schema.NonEmptyTrimmedString, { exact: true }),
-    password: Schema.optionalWith(Schema.Redacted(Schema.NonEmptyString), { exact: true })
+    credentialState: Schema.Literal("email-only"),
+    email: Schema.NonEmptyTrimmedString
+  }),
+  Schema.Struct({
+    method: Schema.Literal("password"),
+    credentialState: Schema.Literal("password-only"),
+    password: Schema.Redacted(Schema.NonEmptyString)
+  }),
+  Schema.Struct({
+    method: Schema.Literal("password"),
+    credentialState: Schema.Literal("complete"),
+    email: Schema.NonEmptyTrimmedString,
+    password: Schema.Redacted(Schema.NonEmptyString)
   })
 )
 export type ResolvedCliAuth = Schema.Schema.Type<typeof ResolvedCliAuthSchema>
@@ -222,12 +236,12 @@ const resolvedAuth = (
   if (environmentToken !== undefined) return { method: "token", token: Redacted.make(environmentToken) }
   const email = environmentValue(environment, "HULY_EMAIL")
   const password = environmentValue(environment, "HULY_PASSWORD")
-  if (email !== undefined || password !== undefined) {
-    return {
-      method: "password",
-      ...(email === undefined ? {} : { email }),
-      ...(password === undefined ? {} : { password: Redacted.make(password) })
-    }
+  if (email !== undefined && password !== undefined) {
+    return { method: "password", credentialState: "complete", email, password: Redacted.make(password) }
+  }
+  if (email !== undefined) return { method: "password", credentialState: "email-only", email }
+  if (password !== undefined) {
+    return { method: "password", credentialState: "password-only", password: Redacted.make(password) }
   }
   return token === undefined ? { method: "none" } : { method: "token", token }
 }

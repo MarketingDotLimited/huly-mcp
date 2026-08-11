@@ -123,15 +123,25 @@ Huly workspace. With `directTools: true`, `TOOLSETS=projects`, `TOOLS=list_docum
 operations with the `huly_` prefix. Pi then completed the intended `search_tools` →
 `get_tool_schema` → `invoke_tool` flow against local Huly for an operation outside the pinned set.
 
-Repeating the same test with `PROXY_OUTPUT_STRICT=true` produced an allow-list of nine Huly
-operations: the eight operations in the `projects` toolset plus `list_documents`. A search for “list
-issues” returned only allowed project/document candidates, while schema lookup and invocation of
-`list_issues` both returned `Unknown tool`.
+With `PROXY_OUTPUT_STRICT=false`, the cached server surface contained 15 tools. Pi exposed all 15
+with the `huly_` prefix plus two cached project-resource readers, for 17 first-class registrations:
+the two diagnostics, the four proxy tools, the eight `projects` operations (`list_projects`,
+`get_project`, `list_statuses`, `create_project`, `update_project`, `delete_project`,
+`list_project_target_preferences`, and `upsert_project_target_preference`), `list_documents`, and the
+observed `huly_read_game` and `huly_read_huly` project-resource readers. Resource-reader names vary
+with workspace project identifiers. The adapter refresh message was
+`MCP: direct tools refreshed (+17, ~0, -0)`.
 
-Pi's `/mcp` display separately reported `8/8` adapter-managed direct registrations in that strict
-session. That adapter registration count is not the Huly allow-list size and includes the adapter's
-own proxy-facing surface, so it must not be used to count pinned Huly operations. After changing
-strict mode back to `false`, `/reload` reported `MCP: direct tools refreshed (+17, ~0, -0)`; this is a
-registration delta, not a total tool count. These observations confirm that `/reload` is the reliable
-recovery step when configuration changes alter Pi's direct-tool surface; reconnect remains
-appropriate for reconnecting a server without changing its configuration.
+Repeating the same test with `PROXY_OUTPUT_STRICT=true` produced a nine-operation proxy allow-list:
+the eight `projects` operations plus `list_documents`. Strict mode intentionally omitted those nine
+native operations from the MCP-advertised direct surface. Pi therefore registered exactly eight
+first-class tools: `huly_get_version`, `huly_get_huly_context`, `huly_list_tool_categories`,
+`huly_search_tools`, `huly_get_tool_schema`, `huly_invoke_tool`, and the two cached project-resource
+readers (`huly_read_game` and `huly_read_huly` in the observed workspace). A search for “list issues”
+returned only allowed project/document candidates, while schema
+lookup and invocation of `list_issues` both returned `Unknown tool`.
+
+These observations confirm that strict mode keeps the configured operations callable through the
+proxy rather than promoting them as native tools, and that `/reload` is the reliable recovery step
+when configuration changes alter Pi's direct-tool surface. Reconnect remains appropriate for
+reconnecting a server without changing its configuration.

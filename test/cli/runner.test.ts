@@ -70,7 +70,7 @@ const run = (
   Effect.runPromise(
     Effect.gen(function* () {
       const parsed = yield* parse(toolName, raw)
-      yield* runCliToolWithPorts(ports, toolName, parsed)
+      yield* runCliToolWithPorts(ports, toolName, parsed, undefined, "password")
     }).pipe(
       Effect.provide(
         Layer.mergeAll(
@@ -116,7 +116,7 @@ describe("CLI runner", () => {
       {
         event: "session_start",
         props: {
-          authMethod: process.env["HULY_TOKEN"] === undefined ? "password" : "token",
+          authMethod: "password",
           toolCount: Object.keys(cliCommandCatalog).length,
           toolsets: null,
           transport: "cli"
@@ -264,7 +264,7 @@ describe("CLI runner", () => {
     const parsed = await Effect.runPromise(parse("list_issues", []).pipe(Effect.provide(NodeContext.layer)))
 
     await Effect.runPromise(
-      runCliToolWithPorts(ports, "list_issues", parsed, "HULY").pipe(
+      runCliToolWithPorts(ports, "list_issues", parsed, "HULY", "password").pipe(
         Effect.provide(Layer.merge(TelemetryService.testLayer(), localCliTestLayer))
       )
     )

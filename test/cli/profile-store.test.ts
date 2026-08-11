@@ -9,6 +9,7 @@ import {
   CliProfileSchema,
   makeCliProfileStore,
   parseProfileName,
+  ResolvedCliConfigurationSchema,
   resolveCliConfiguration,
   storedToken
 } from "../../packages/huly-cli/src/profile-store.js"
@@ -46,6 +47,14 @@ describe("CLI profile store", () => {
     expect(await Effect.runPromise(store.readProfiles())).toEqual({ version: 1, profiles: {} })
     expect(await Effect.runPromise(store.readCredentials())).toEqual({ version: 1, tokens: {} })
     expect(await Effect.runPromise(resolveCliConfiguration(store, {}))).toMatchObject({ auth: { method: "none" } })
+  })
+
+  it("rejects a password auth state that contains no credential", async () => {
+    const exit = await Effect.runPromiseExit(
+      Schema.decodeUnknown(ResolvedCliConfigurationSchema)({ auth: { method: "password" } })
+    )
+
+    expect(exit.toString()).toContain("credentialState")
   })
 
   it("resolves active profile values while giving each environment variable priority", async () => {
@@ -159,11 +168,9 @@ describe("CLI profile store", () => {
     expect(resolved.connectionTimeout).toBe("5000")
     expect(resolved.workspace).toBe("workspace")
     expect(resolved.auth.method).toBe("password")
-    if (resolved.auth.method === "password") {
+    if (resolved.auth.method === "password" && resolved.auth.credentialState === "complete") {
       expect(resolved.auth.email).toBe("agent@example.com")
-      expect(resolved.auth.password === undefined ? undefined : Redacted.value(resolved.auth.password)).toBe(
-        "ephemeral"
-      )
+      expect(Redacted.value(resolved.auth.password)).toBe("ephemeral")
     }
     expect(await Effect.runPromise(store.readCredentials())).toEqual({ version: 1, tokens: {} })
   })
@@ -185,10 +192,8 @@ describe("CLI profile store", () => {
     )
 
     expect(resolved.auth.method).toBe("password")
-    if (resolved.auth.method === "password") {
-      expect(resolved.auth.password === undefined ? undefined : Redacted.value(resolved.auth.password)).toBe(
-        "environment"
-      )
+    if (resolved.auth.method === "password" && resolved.auth.credentialState === "complete") {
+      expect(Redacted.value(resolved.auth.password)).toBe("environment")
     }
   })
 
@@ -198,12 +203,14 @@ describe("CLI profile store", () => {
     const emailOnly = await Effect.runPromise(resolveCliConfiguration(store, { HULY_EMAIL: "agent@example.com" }))
     const passwordOnly = await Effect.runPromise(resolveCliConfiguration(store, { HULY_PASSWORD: "password" }))
 
-    expect(emailOnly.auth).toMatchObject({ method: "password", email: "agent@example.com" })
-    expect(passwordOnly.auth.method).toBe("password")
-    if (passwordOnly.auth.method === "password") {
-      expect(passwordOnly.auth.password === undefined ? undefined : Redacted.value(passwordOnly.auth.password)).toBe(
-        "password"
-      )
+    expect(emailOnly.auth).toMatchObject({
+      method: "password",
+      credentialState: "email-only",
+      email: "agent@example.com"
+    })
+    expect(passwordOnly.auth).toMatchObject({ method: "password", credentialState: "password-only" })
+    if (passwordOnly.auth.method === "password" && passwordOnly.auth.credentialState === "password-only") {
+      expect(Redacted.value(passwordOnly.auth.password)).toBe("password")
     }
   })
 

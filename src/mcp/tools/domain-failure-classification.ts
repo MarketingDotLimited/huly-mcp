@@ -1,5 +1,6 @@
 import type { HulyDomainError } from "../../huly/errors.js"
 import { isInvalidParamsDomainError } from "../error-mapping.js"
+import type { INVALID_PARAMS_DOMAIN_ERROR_TAGS } from "../error-mapping.js"
 
 export type DomainFailureKind =
   | "ambiguity"
@@ -12,16 +13,17 @@ export type DomainFailureKind =
 
 const tags = (values: ReadonlyArray<HulyDomainError["_tag"]>): ReadonlySet<HulyDomainError["_tag"]> => new Set(values)
 
-const AUTHORIZATION_TAGS = tags([
+const AUTHORIZATION_TAG_VALUES = [
   "ApprovalRequestApproverNotRequestedError",
   "ApprovalRequestCancelUnauthorizedError",
   "HulyAttributeProtectedError",
   "PermissionProtectedError",
   "ProcessParallelExecutionForbiddenError",
   "SpaceRolePermissionScopeError"
-])
+] as const satisfies ReadonlyArray<HulyDomainError["_tag"]>
+const AUTHORIZATION_TAGS = tags(AUTHORIZATION_TAG_VALUES)
 
-const AMBIGUITY_TAGS = tags([
+const AMBIGUITY_TAG_VALUES = [
   "AssociationIdentifierAmbiguousError",
   "BoardCardIdentifierAmbiguousError",
   "BoardIdentifierAmbiguousError",
@@ -74,9 +76,10 @@ const AMBIGUITY_TAGS = tags([
   "WorkflowAttributeIdentifierAmbiguousError",
   "WorkflowStatusCategoryIdentifierAmbiguousError",
   "WorkflowStatusIdentifierAmbiguousError"
-])
+] as const satisfies ReadonlyArray<HulyDomainError["_tag"]>
+const AMBIGUITY_TAGS = tags(AMBIGUITY_TAG_VALUES)
 
-const CONFLICT_TAGS = tags([
+const CONFLICT_TAG_VALUES = [
   "AssociationConflictError",
   "AssociationInUseError",
   "ContactChannelConflictError",
@@ -102,9 +105,10 @@ const CONFLICT_TAGS = tags([
   "WorkflowStatusClassMismatchError",
   "WorkflowStatusInUseError",
   "WorkflowStatusNameConflictError"
-])
+] as const satisfies ReadonlyArray<HulyDomainError["_tag"]>
+const CONFLICT_TAGS = tags(CONFLICT_TAG_VALUES)
 
-const LOOKUP_TAGS = tags([
+const LOOKUP_TAG_VALUES = [
   "ActivityMessageNotFoundError",
   "ApprovalRequestNotFoundError",
   "ApprovalRequestTargetNotFoundError",
@@ -159,6 +163,8 @@ const LOOKUP_TAGS = tags([
   "MasterTagNotFoundError",
   "MeetingMinutesNotFoundError",
   "MessageNotFoundError",
+  "MessageTemplateCategoryNotFoundError",
+  "MessageTemplateNotFoundError",
   "MilestoneNotFoundError",
   "ModelClassNotFoundError",
   "NotificationContextNotFoundError",
@@ -199,6 +205,7 @@ const LOOKUP_TAGS = tags([
   "TagNotFoundError",
   "TeamspaceNotFoundError",
   "TemplateChildNotFoundError",
+  "TemplateFieldCategoryNotFoundError",
   "TestCaseNotFoundError",
   "TestPlanItemNotFoundError",
   "TestPlanNotFoundError",
@@ -213,7 +220,42 @@ const LOOKUP_TAGS = tags([
   "WorkflowAttributeNotFoundError",
   "WorkflowStatusCategoryNotFoundError",
   "WorkflowStatusNotFoundError"
-])
+] as const satisfies ReadonlyArray<HulyDomainError["_tag"]>
+const LOOKUP_TAGS = tags(LOOKUP_TAG_VALUES)
+
+const INTEGRATION_TAG_VALUES = [
+  "ActivityRecordInvalidError",
+  "BoardModelSequenceMissingError",
+  "BoardMutationUnsupportedError",
+  "FileFetchError",
+  "FileUploadError",
+  "HulyConnectionError",
+  "HulyError",
+  "HulyModelMetadataError",
+  "HulyStorageConfigError",
+  "HulyUnavailableError",
+  "NotificationProviderNotConfigurableError",
+  "PermissionKindUnsupportedError",
+  "PlannerSchedulingPrerequisiteError",
+  "ProcessExecutionNotCancellableError",
+  "SpaceRoleAssignmentsMalformedError",
+  "SpaceRoleWriteUnsupportedError",
+  "WorkflowAttributeUnsupportedError",
+  "WorkflowRelationshipInvalidError"
+] as const satisfies ReadonlyArray<HulyDomainError["_tag"]>
+
+type ClassifiedDomainTag =
+  | (typeof AMBIGUITY_TAG_VALUES)[number]
+  | (typeof AUTHORIZATION_TAG_VALUES)[number]
+  | (typeof CONFLICT_TAG_VALUES)[number]
+  | (typeof INVALID_PARAMS_DOMAIN_ERROR_TAGS)[number]
+  | (typeof INTEGRATION_TAG_VALUES)[number]
+  | (typeof LOOKUP_TAG_VALUES)[number]
+  | "HulyAuthError"
+
+type UnclassifiedDomainTag = Exclude<HulyDomainError["_tag"], ClassifiedDomainTag>
+
+export const unclassifiedDomainFailureTags: Record<UnclassifiedDomainTag, never> = {}
 
 export const classifyDomainFailure = (error: HulyDomainError): DomainFailureKind => {
   if (error._tag === "HulyAuthError") return "authentication"
