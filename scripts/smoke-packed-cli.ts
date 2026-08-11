@@ -2,6 +2,8 @@ import { spawnSync } from "node:child_process"
 
 import { Schema } from "effect"
 
+import { cliRootCommandSummaries } from "../packages/huly-cli/src/help.js"
+import { CliCommandCount, CliHelpCommandLabel } from "../packages/huly-cli/src/help-schema.js"
 import { CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS } from "../packages/huly-cli/src/live-coverage.js"
 
 const PackedCliArgumentsSchema = Schema.Tuple(
@@ -21,16 +23,38 @@ const rootHelp = runCli(["--help"])
 if (rootHelp.status !== 0) throw new Error(`Packed CLI root help failed: ${rootHelp.stderr}`)
 const commandSection = rootHelp.stdout.split("Commands:\n")[1]
 if (commandSection === undefined) throw new Error("Packed CLI root help has no command section.")
-const commands = commandSection
-  .split("\n")
-  .filter((line) => line.startsWith("  "))
-  .map((line) => line.trim().split(/\s{2,}/)[0])
-  .filter((command): command is string => command !== undefined)
-const commandSet = new Set(commands)
+const RootHelpCommandRowSchema = Schema.Struct({
+  command: CliHelpCommandLabel,
+  count: Schema.NumberFromString.pipe(Schema.compose(CliCommandCount))
+})
+const commandRows = commandSection.split("\n").flatMap((line) => {
+  const match = /^  (huly \S+)\s+(\d+) commands?$/.exec(line)
+  const command = match?.[1]
+  const count = match?.[2]
+  return command === undefined || count === undefined
+    ? []
+    : [Schema.decodeUnknownSync(RootHelpCommandRowSchema)({ command, count })]
+})
+const actualCommandCounts = new Map(commandRows.map((row) => [row.command, row.count]))
+const expectedCommands = cliRootCommandSummaries()
+const missingCommands = expectedCommands.filter((summary) => !actualCommandCounts.has(summary.command))
+const unexpectedCommands = commandRows.filter(
+  (row) => !expectedCommands.some((summary) => summary.command === row.command)
+)
+const countMismatches = expectedCommands.filter((summary) => actualCommandCounts.get(summary.command) !== summary.count)
 
-if (commandSet.size !== CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS) {
+if (missingCommands.length > 0 || unexpectedCommands.length > 0 || countMismatches.length > 0) {
   throw new Error(
-    `Packed CLI exposes ${String(commandSet.size)} commands; expected ${String(CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS)}.`
+    `Packed CLI root command mismatch: missing=${missingCommands.map((summary) => summary.command).join(",") || "none"}; unexpected=${unexpectedCommands.map((row) => row.command).join(",") || "none"}; wrong-count=${countMismatches.map((summary) => summary.command).join(",") || "none"}.`
+  )
+}
+
+const packedRegistryRoutes = expectedCommands
+  .filter((summary) => summary.source === "catalog")
+  .reduce((total, summary) => total + (actualCommandCounts.get(summary.command) ?? 0), 0)
+if (packedRegistryRoutes !== CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS) {
+  throw new Error(
+    `Packed CLI exposes ${String(packedRegistryRoutes)} catalog routes; expected ${String(CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS)}.`
   )
 }
 
@@ -82,11 +106,6 @@ const categoryRepresentativeCommands = [
   "workflow-statuses list",
   "workspace members list"
 ]
-const missingRepresentatives = categoryRepresentativeCommands.filter((command) => !commandSet.has(command))
-if (missingRepresentatives.length > 0) {
-  throw new Error(`Packed CLI is missing category representatives: ${missingRepresentatives.join(", ")}.`)
-}
-
 const behaviorSpecificLeafHelpCommands = [
   ["attachments", "add"],
   ["attachments", "download"],
@@ -105,7 +124,8 @@ const leafHelpCommands = [
 )
 for (const command of leafHelpCommands) {
   const help = runCli([...command, "--help"])
-  if (help.status !== 0 || !help.stdout.includes("USAGE")) {
+  const expectedUsage = `Usage:\n  huly ${command.join(" ")}`
+  if (help.status !== 0 || !help.stdout.includes(expectedUsage)) {
     throw new Error(`Packed CLI leaf help failed for '${command.join(" ")}': ${help.stderr}`)
   }
 }
@@ -121,5 +141,5 @@ if (structuredFailure.status === 0 || !structuredFailure.stderr.includes("has in
 }
 
 console.log(
-  `Packed CLI smoke passed: ${String(commandSet.size)} routes, all category representatives, adapter help, confirmation, and structured-input preflight.`
+  `Packed CLI smoke passed: ${String(actualCommandCounts.size)} root commands, ${String(packedRegistryRoutes)} catalog routes, all category representatives, adapter help, confirmation, and structured-input preflight.`
 )
