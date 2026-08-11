@@ -24,7 +24,6 @@ import {
 import { HulySdkClassifierKindSchema } from "../../domain/schemas/sdk-discovery.js"
 import {
   AccountUuid,
-  Count,
   NonEmptyString,
   ObjectClassName,
   RoleId,
@@ -44,7 +43,7 @@ import type {
 import { SpaceCreationConflictError, SpaceTypeCreationUnsupportedError } from "../errors.js"
 import { core } from "../huly-plugins.js"
 import { RoleAssignmentEditor } from "../security-metadata-constants.js"
-import { hulyQuery } from "./query-helpers.js"
+import { clampLimit, hulyQuery } from "./query-helpers.js"
 import { toClassRef, toMixinRef, toRef } from "./sdk-boundary.js"
 import { findSpaceType } from "./spaces-read.js"
 import { mergeUniqueSortedAccountUuids, resolveMembers, type GenericSpace, spaceClass } from "./spaces-shared.js"
@@ -67,7 +66,6 @@ const SpaceCreationMetadataSchema = Schema.Struct({
   descriptor: NonEmptyString,
   baseClass: ObjectClassName,
   targetClass: ObjectClassName,
-  rolesCount: Count,
   system: Schema.optionalWith(Schema.Boolean, { exact: true })
 })
 type SpaceCreationMetadata = Schema.Schema.Type<typeof SpaceCreationMetadataSchema>
@@ -117,11 +115,6 @@ const targetShapeProblem = (
       `target mixin attribute '${wrongTypeAttribute.name}' is not a canonical Huly role-assignment field`
     )
   }
-  if (roles.length !== metadata.rolesCount) {
-    return NonEmptyString.make(
-      `space type declares ${metadata.rolesCount} roles but SDK metadata returned ${roles.length}`
-    )
-  }
   const attributeNames = new Set(attributes.map((attribute) => attribute.name))
   if (attributeNames.size !== attributes.length) {
     return NonEmptyString.make(`target mixin '${metadata.targetClass}' declares duplicate role attributes`)
@@ -144,7 +137,6 @@ const parseCreationMetadata = (
     descriptor: descriptor._id,
     baseClass: descriptor.baseClass,
     targetClass: spaceType.targetClass,
-    rolesCount: spaceType.roles,
     ...(descriptor.system === undefined ? {} : { system: descriptor.system })
   }).pipe(
     Effect.mapError(() =>
@@ -189,7 +181,7 @@ const requireSafeTargetShape = (
         hulyQuery<AnyAttribute>({ attributeOf: toClassRef<Doc>(metadata.targetClass) })
       ),
       client.findAll<Role>(core.class.Role, hulyQuery<Role>({ attachedTo: toRef<SpaceType>(metadata.spaceType) }), {
-        limit: Math.max(metadata.rolesCount, 1)
+        limit: clampLimit(undefined)
       })
     ])
     const attributeMetadata = yield* Schema.decodeUnknown(TargetAttributeMetadataSchema)(

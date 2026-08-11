@@ -49,6 +49,16 @@ const classRef = core.class.Class as Ref<Class<MetadataClassDoc>>
 const includesQuery = (text: string, query: Option.Option<string>): boolean =>
   Option.isNone(query) || text.includes(query.value.toLowerCase())
 
+const classSearchRank = (summary: ReturnType<typeof toClassSummary>, query: Option.Option<string>): number => {
+  if (Option.isNone(query)) return 0
+  const search = query.value.toLowerCase()
+  return [summary.classId, summary.label, summary.shortLabel, summary.pluralLabel].some(
+    (value) => value?.toLowerCase() === search
+  )
+    ? 0
+    : 1
+}
+
 const batchResolveClassLabels = (
   client: HulyClient["Type"],
   classIds: ReadonlyArray<ObjectClassName>
@@ -226,6 +236,7 @@ export const listHulyClasses = (
       .map((cls) => toClassSummary(cls))
       .filter((summary) => params.kind === undefined || summary.kind === params.kind)
       .filter((summary) => includesQuery(classSearchText(summary), query))
+      .sort((left, right) => classSearchRank(left, query) - classSearchRank(right, query))
       .slice(0, limit)
 
     // Count attributes only for the classes that survive filtering and the limit, rather than

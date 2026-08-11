@@ -811,6 +811,34 @@ describe("spaces operations", () => {
     })
   )
 
+  it.effect("createSpace trusts consistent role documents when the SpaceType role counter is stale", () =>
+    Effect.gen(function* () {
+      const captureCreate: MockConfig["captureCreate"] = {}
+      const secondRole = makeRole({ _id: toRef<Role>("role-reviewer"), name: "Reviewers" })
+      const secondAttribute = makeTargetAttribute({
+        _id: toRef<AnyAttribute>("training:attribute:role-reviewer"),
+        name: "role-reviewer",
+        label: intlString("Reviewers")
+      })
+      const layer = createTestLayer({
+        attributes: [makeTargetAttribute(), secondAttribute],
+        classifiers: [makeTargetClassifier()],
+        spaceTypes: [makeSpaceType({ roles: 1, targetClass: toRef("training:mixin:TrainingsTypeData") })],
+        descriptors: [makeDescriptor({ baseClass: core.class.TypedSpace })],
+        roles: [makeRole(), secondRole],
+        captureCreate
+      })
+
+      const result = yield* createSpace({
+        spaceType: spaceTypeIdentifier("space-type-1"),
+        name: NonEmptyString.make("Training with stale role counter")
+      }).pipe(Effect.provide(layer))
+
+      expect(result.name).toBe("Training with stale role counter")
+      expect(captureCreate.class).toBe(core.class.TypedSpace)
+    })
+  )
+
   it.effect("createSpace rejects system and specialized space types with typed errors", () =>
     Effect.gen(function* () {
       const system = yield* Effect.flip(
@@ -928,19 +956,6 @@ describe("spaces operations", () => {
           )
         )
       )
-      const roleCountMismatch = yield* Effect.flip(
-        createSpace({ spaceType: spaceTypeIdentifier("space-type-1"), name: NonEmptyString.make("Unsafe") }).pipe(
-          Effect.provide(
-            createTestLayer({
-              attributes: [makeTargetAttribute()],
-              classifiers: [makeTargetClassifier()],
-              descriptors: [makeDescriptor({ baseClass: core.class.TypedSpace })],
-              roles: [makeRole()],
-              spaceTypes: [makeSpaceType({ roles: 2, targetClass: toRef("training:mixin:TrainingsTypeData") })]
-            })
-          )
-        )
-      )
       const malformedRole = yield* Effect.flip(
         createSpace({ spaceType: spaceTypeIdentifier("space-type-1"), name: NonEmptyString.make("Unsafe") }).pipe(
           Effect.provide(
@@ -993,10 +1008,6 @@ describe("spaces operations", () => {
       expect(missingRoleAttribute).toMatchObject({
         _tag: "SpaceTypeCreationUnsupportedError",
         reason: expect.stringContaining("has no declared attribute for configured role 'role-admin'")
-      })
-      expect(roleCountMismatch).toMatchObject({
-        _tag: "SpaceTypeCreationUnsupportedError",
-        reason: "space type declares 2 roles but SDK metadata returned 1"
       })
       expect(malformedRole).toMatchObject({
         _tag: "SpaceTypeCreationUnsupportedError",

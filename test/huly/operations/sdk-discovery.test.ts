@@ -180,6 +180,27 @@ describe("sdk discovery operations", () => {
     })
   )
 
+  it.effect("ranks an exact class match ahead of ancestor-only matches before applying the limit", () =>
+    Effect.gen(function* () {
+      const inheritedMatches = Array.from({ length: 10 }, (_, index) =>
+        makeClassDoc({
+          _id: `generated:mixin:Issue${index}`,
+          label: `generated:mixin:Issue${index}`,
+          kind: ClassifierKind.MIXIN,
+          extends: tracker.class.Issue
+        })
+      )
+      const classes = [...inheritedMatches, makeClassDoc({ _id: tracker.class.Issue, label: "tracker:class:Issue" })]
+
+      const result = yield* listHulyClasses({ query: HulyModelSearch.make("issue"), limit: 10 }).pipe(
+        Effect.provide(createTestLayer({ classes }))
+      )
+
+      expect(result.classes.map((summary) => summary.classId)).toContain(tracker.class.Issue)
+      expect(result.classes.at(0)?.classId).toBe(tracker.class.Issue)
+    })
+  )
+
   it.effect("filters classes by unknown classifier kind after SDK query hydration", () =>
     Effect.gen(function* () {
       const classes = [
