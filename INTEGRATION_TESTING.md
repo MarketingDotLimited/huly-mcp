@@ -201,6 +201,57 @@ Expected: JSON with `"projects": [...]`
 
 **Note**: `MCP_AUTO_EXIT=true` makes the server exit when stdin closes (testing only).
 
+## API-token certification preparation
+
+The opt-in certification harness exercises the built MCP server with an operator-supplied token through both
+stdio environment configuration and request-scoped HTTP `x-huly-*` headers. The token must be supplied only
+through `HULY_TOKEN`; do not put it in command arguments or redirect raw process output to an artifact.
+
+Build and run the active phase against the currently supported legacy-token flow:
+
+```bash
+pnpm build
+set -a && source .env.local && set +a
+HULY_URL="${HULY_URL/localhost/host.docker.internal}" \
+  pnpm certify:api-token --phase active
+```
+
+Set `HULY_CERT_PROJECT` when the disposable issue should use a project other than `HULY`. The active phase
+performs representative core read/create/update, account-service read, attachment upload/download, and
+collaborative document create/edit operations. It removes every resource whose identifier was confirmed. Each
+confirmed cleanup is attempted once. The summary records one lifecycle for each disposable issue, attachment, and
+document: `NotCreated`, `WriteUncertain`, or `Confirmed` with a cleanup outcome of `cleaned`, `uncertain`, or
+`failed`. The harness does not guess an identifier or retry a destructive call.
+
+After an operator independently revokes a credential, run the revoked phase with existing, non-secret fixture
+identifiers. These fixtures must remain readable before revocation and must not be disposable artifacts from the
+active phase, because that phase cleans up its own writes:
+
+```bash
+set -a && source .env.local && set +a
+export HULY_URL="${HULY_URL/localhost/host.docker.internal}"
+export HULY_CERT_ATTACHMENT_ID="<existing attachment id>"
+export HULY_CERT_TEAMSPACE="<existing teamspace id or exact name>"
+export HULY_CERT_DOCUMENT="<existing document id or exact title>"
+pnpm certify:api-token --phase revoked
+```
+
+The structured report keeps `core-rest`, `account`, `storage-file`, and `collaborator-markup` outcomes separate.
+Revoked-phase statuses are deliberately neutral: `call-succeeded`, `call-failed`, or `uncertain`. A call failure is
+not labeled as proof of revocation because validation, fixture, authorization, and service failures may look alike
+at this boundary. Captured process output and successful or failed MCP responses are scanned in memory for the
+supplied token, retained diagnostics are immediately sanitized, and the summary reports the number of captured
+artifacts checked plus whether the secret was detected. A detected secret or uncertain result fails the command
+without printing the credential.
+
+**Last verified**: 2026-08-10 — the active legacy-token phase passed all four service surfaces over stdio and
+request-scoped HTTP, each transport reported `Confirmed` with `cleanup=cleaned` for its issue, attachment, and
+document, and all 77 captured artifacts were checked with `secretDetected=false`.
+
+This harness certifies only that the preparation works with the legacy-token flow. Personal API-token
+compatibility remains **uncertified** until #205–#208 are completed against a published Huly Platform release
+containing PR #10624. The harness does not mint, decode, revoke, print, or persist tokens.
+
 ## Resource Read Smoke Tests
 
 MCP Resources are read-only JSON context. `resources/list` is intentionally empty in v1; discover templates with `resources/templates/list`.

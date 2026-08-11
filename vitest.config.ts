@@ -26,6 +26,10 @@ export default defineConfig({
         // Cross-platform process-tree control is an imperative quality-harness adapter. Dedicated tests cover
         // empty/mixed/forwarded output, spawn/nonzero/signal failures, and resistant-descendant cleanup.
         'scripts/run-bounded-command.ts',
+        // Certification process wiring is an imperative shell over the tested workflow and secret ledger;
+        // live local-Huly runs provide transport evidence for the built stdio and HTTP adapters.
+        'scripts/api-token-certification-adapter.ts',
+        'scripts/api-token-certification.ts',
         // @effect/cli command composition is an adapter over catalog metadata; command behavior is covered
         // through CLI smoke/unit tests while the catalog and input/runner logic remain in coverage.
         'packages/huly-cli/src/command-tree.ts',
