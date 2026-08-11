@@ -25,12 +25,6 @@ interface HelpRow {
   readonly description: CliHelpDescription
 }
 
-interface RootCommandSummary {
-  readonly command: CliHelpCommandLabel
-  readonly count: CliCommandCount
-  readonly source: "catalog" | "local"
-}
-
 const LAST_ITEM_OFFSET = -1
 const MINIMUM_INLINE_DESCRIPTION_WIDTH = 20
 const DESCRIPTION_INDENT_WIDTH = 4
@@ -78,7 +72,7 @@ const renderRows = (rows: ReadonlyArray<HelpRow>, width: CliHelpWidth): CliHelpF
   )
 }
 
-export const cliRootCommandSummaries = (): ReadonlyArray<RootCommandSummary> => {
+const progressiveRootRows = (): ReadonlyArray<HelpRow> => {
   const counts = new Map<CliCommandSegment, CliCommandCount>()
   for (const spec of Object.values(cliCommandCatalog)) {
     const group = CliCommandSegment.make(spec.path[0])
@@ -86,29 +80,19 @@ export const cliRootCommandSummaries = (): ReadonlyArray<RootCommandSummary> => 
   }
   const generatedRows = [...counts.entries()].map(([group, count]) => ({
     command: CliHelpCommandLabel.make(`huly ${group}`),
-    count,
-    source: "catalog" as const
+    description: CliHelpDescription.make(`${count} ${count === 1 ? "command" : "commands"}`)
   }))
-  const localCommandSummary = <Name extends string, R, E, A>(
-    command: Command.Command<Name, R, E, A>
-  ): RootCommandSummary => {
+  const localCommandRow = <Name extends string, R, E, A>(command: Command.Command<Name, R, E, A>): HelpRow => {
     const [name] = [...Command.getNames(command)]
     const count = HashMap.size(Command.getSubcommands(command))
     return {
       command: CliHelpCommandLabel.make(`huly ${name ?? "unknown"}`),
-      count: CliCommandCount.make(count),
-      source: "local"
+      description: CliHelpDescription.make(`${count} ${count === 1 ? "command" : "commands"}`)
     }
   }
-  const localRows = [localCommandSummary(authCommand), localCommandSummary(profileCommand)]
+  const localRows = [localCommandRow(authCommand), localCommandRow(profileCommand)]
   return [...localRows, ...generatedRows].sort((left, right) => left.command.localeCompare(right.command))
 }
-
-const progressiveRootRows = (): ReadonlyArray<HelpRow> =>
-  cliRootCommandSummaries().map(({ command, count }) => ({
-    command,
-    description: CliHelpDescription.make(`${count} ${count === 1 ? "command" : "commands"}`)
-  }))
 
 const renderProgressiveRootHelp = (version: CliPackageVersion, width: CliHelpWidth): RenderedCliHelp => {
   const rows = progressiveRootRows()

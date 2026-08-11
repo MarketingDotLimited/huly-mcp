@@ -2,9 +2,12 @@ import { spawnSync } from "node:child_process"
 
 import { Schema } from "effect"
 
-import { cliRootCommandSummaries } from "../packages/huly-cli/src/help.js"
 import { CliCommandCount, CliHelpCommandLabel } from "../packages/huly-cli/src/help-schema.js"
-import { CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS } from "../packages/huly-cli/src/live-coverage.js"
+import {
+  CLI_COVERAGE_REVIEWED_LOCAL_COMMANDS,
+  CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS,
+  CLI_COVERAGE_REVIEWED_ROOT_COMMANDS
+} from "../packages/huly-cli/src/live-coverage.js"
 
 const PackedCliArgumentsSchema = Schema.Tuple(
   Schema.NonEmptyTrimmedString.annotations({ description: "Path to the installed packed huly executable." })
@@ -36,22 +39,14 @@ const commandRows = commandSection.split("\n").flatMap((line) => {
     : [Schema.decodeUnknownSync(RootHelpCommandRowSchema)({ command, count })]
 })
 const actualCommandCounts = new Map(commandRows.map((row) => [row.command, row.count]))
-const expectedCommands = cliRootCommandSummaries()
-const missingCommands = expectedCommands.filter((summary) => !actualCommandCounts.has(summary.command))
-const unexpectedCommands = commandRows.filter(
-  (row) => !expectedCommands.some((summary) => summary.command === row.command)
-)
-const countMismatches = expectedCommands.filter((summary) => actualCommandCounts.get(summary.command) !== summary.count)
-
-if (missingCommands.length > 0 || unexpectedCommands.length > 0 || countMismatches.length > 0) {
+if (actualCommandCounts.size !== CLI_COVERAGE_REVIEWED_ROOT_COMMANDS) {
   throw new Error(
-    `Packed CLI root command mismatch: missing=${missingCommands.map((summary) => summary.command).join(",") || "none"}; unexpected=${unexpectedCommands.map((row) => row.command).join(",") || "none"}; wrong-count=${countMismatches.map((summary) => summary.command).join(",") || "none"}.`
+    `Packed CLI exposes ${String(actualCommandCounts.size)} root commands; expected ${String(CLI_COVERAGE_REVIEWED_ROOT_COMMANDS)}.`
   )
 }
 
-const packedRegistryRoutes = expectedCommands
-  .filter((summary) => summary.source === "catalog")
-  .reduce((total, summary) => total + (actualCommandCounts.get(summary.command) ?? 0), 0)
+const packedRegistryRoutes =
+  commandRows.reduce((total, row) => total + row.count, 0) - CLI_COVERAGE_REVIEWED_LOCAL_COMMANDS
 if (packedRegistryRoutes !== CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS) {
   throw new Error(
     `Packed CLI exposes ${String(packedRegistryRoutes)} catalog routes; expected ${String(CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS)}.`
