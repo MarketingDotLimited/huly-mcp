@@ -41,7 +41,7 @@ export {
 
 // --- Domain Error Mapping ---
 
-export const INVALID_PARAMS_DOMAIN_ERROR_TAGS = [
+const INVALID_PARAMS_TAGS: ReadonlySet<HulyDomainError["_tag"]> = new Set<HulyDomainError["_tag"]>([
   "IssueNotFoundError",
   "IssueReferenceError",
   "ApprovalRequestNotFoundError",
@@ -237,11 +237,7 @@ export const INVALID_PARAMS_DOMAIN_ERROR_TAGS = [
   "SequenceKindUnsupportedError",
   "SequenceCurrentValueMismatchError",
   "SequenceInUseError"
-] as const satisfies ReadonlyArray<HulyDomainError["_tag"]>
-
-const INVALID_PARAMS_TAGS: ReadonlySet<HulyDomainError["_tag"]> = new Set(INVALID_PARAMS_DOMAIN_ERROR_TAGS)
-
-export const isInvalidParamsDomainError = (error: HulyDomainError): boolean => INVALID_PARAMS_TAGS.has(error._tag)
+])
 
 const INTERNAL_ERROR_PREFIX: Partial<Record<HulyDomainError["_tag"], string>> = {
   FileUploadError: "File upload error",
