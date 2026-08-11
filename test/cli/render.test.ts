@@ -1,12 +1,25 @@
 import { Effect, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
-import { renderOperationResult, renderOperationSuccess } from "../../packages/huly-cli/src/render.js"
+import { cliCommandCatalog } from "../../packages/huly-cli/src/catalog.js"
+import {
+  CliRuntimeError,
+  renderOperationResult,
+  renderOperationSuccess,
+  renderOptionsForTerminal
+} from "../../packages/huly-cli/src/render.js"
 import { CanonicalBase64ImageData, SupportedAttachmentImageTypeSchema } from "../../src/domain/schemas/attachments.js"
 
 const globals = { json: false, yes: false }
 
 describe("CLI rendering", () => {
+  it("applies typed runtime error defaults", () => {
+    const error = new CliRuntimeError({ message: "failed" })
+
+    expect(error.kind).toBe("integration")
+    expect(error.retryable).toBe(false)
+  })
+
   it("renders arrays as concise tables", () => {
     const output = renderOperationResult(
       {
@@ -27,6 +40,51 @@ describe("CLI rendering", () => {
     expect(output).toContain("title")
     expect(output).toContain("...")
     expect(output).not.toContain("nested")
+  })
+
+  it("uses catalog-owned columns and preserves reusable identifiers in narrow terminals", () => {
+    const identifier = "HULY-123456789012345678901234567890"
+    const output = renderOperationResult(
+      {
+        result: [
+          {
+            issueId: "65f012345678901234567890",
+            identifier,
+            title: "A title that cannot fit beside both identifiers",
+            status: "In Progress",
+            labels: []
+          }
+        ],
+        warnings: []
+      },
+      globals,
+      { human: cliCommandCatalog.list_issues.human, terminalWidth: 42, color: false }
+    )
+
+    expect(output).toContain(identifier)
+    expect(output).toContain("identifier")
+    expect(output).not.toContain("issueId")
+    expect(output).not.toContain("...")
+  })
+
+  it("only styles table headings for compatible color terminals", () => {
+    const success = { result: [{ identifier: "HULY", name: "Huly" }], warnings: [] }
+    const human = cliCommandCatalog.list_projects.human
+
+    expect(renderOperationResult(success, globals, { human, terminalWidth: 80, color: true })).toContain("\u001b[1m")
+    expect(renderOperationResult(success, globals, { human, terminalWidth: 80, color: false })).not.toContain("\u001b[")
+  })
+
+  it("disables styling for redirected output and NO_COLOR", () => {
+    expect(renderOptionsForTerminal({ columns: 80, isTTY: false, noColor: false }).color).toBe(false)
+    expect(renderOptionsForTerminal({ columns: 80, isTTY: true, noColor: true }).color).toBe(false)
+    expect(renderOptionsForTerminal({ columns: 80, isTTY: true, noColor: false }).color).toBe(true)
+    expect(
+      renderOptionsForTerminal(
+        { columns: 80, isTTY: true, noColor: false },
+        { columns: [{ field: "id", priority: 1, reusable: true }] }
+      ).human
+    ).toBeDefined()
   })
 
   it("renders object array properties with totals", () => {

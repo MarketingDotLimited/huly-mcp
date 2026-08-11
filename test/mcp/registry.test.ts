@@ -8,7 +8,15 @@ import { CanonicalBase64ImageData, SupportedAttachmentImageTypeSchema } from "..
 import type { HulyClientOperations } from "../../src/huly/client.js"
 import { HulyClient } from "../../src/huly/client.js"
 import { Diagnostics } from "../../src/huly/diagnostics.js"
-import { HulyError } from "../../src/huly/errors.js"
+import {
+  ApprovalRequestApproverNotRequestedError,
+  HulyAuthError,
+  HulyConnectionError,
+  HulyError,
+  InventoryConflictError,
+  ProjectNotFoundError,
+  TodoIdentifierAmbiguousError
+} from "../../src/huly/errors.js"
 import { testMarkupUrlConfig } from "../../src/huly/operations/markup.js"
 import type { HulyStorageOperations } from "../../src/huly/storage.js"
 import { HulyStorageClient } from "../../src/huly/storage.js"
@@ -23,9 +31,16 @@ import {
   defineStorageTool,
   defineTool,
   defineWorkspaceTool,
-  formatOperationFailure,
   type RegisteredTool
 } from "../../src/mcp/tools/registry.js"
+import {
+  describeOperationFailure,
+  formatOperationFailure,
+  ToolDomainFailure,
+  ToolOutputFailure,
+  ToolParseFailure,
+  ToolProvisionFailure
+} from "../../src/mcp/tools/operation-failure.js"
 import { assertAt } from "../../src/utils/assertions.js"
 
 const Params = Schema.Struct({ name: Schema.String })
@@ -53,12 +68,6 @@ const toolInputSchema = {
 }
 
 const makeToolHandler = (tool: RegisteredTool) => tool.handler
-
-type OperationFailure = Parameters<typeof formatOperationFailure>[0]
-
-const operationFailure = (failure: unknown): OperationFailure => {
-  return failure as OperationFailure
-}
 
 const noopHulyClient: HulyClientOperations = {
   getAccountUuid: () => "00000000-0000-4000-8000-000000000000" as AccountUuid,
@@ -143,44 +152,77 @@ describe("formatOperationFailure", () => {
       const parseError = yield* Schema.decodeUnknown(Params)({}).pipe(Effect.flip)
 
       expect(
+        formatOperationFailure(new ToolParseFailure({ cause: Cause.fail(parseError), toolName: "test_tool" }))
+      ).toContain("Invalid parameters for test_tool")
+      expect(formatOperationFailure(new ToolParseFailure({ cause: Cause.empty, toolName: "test_tool" }))).toBe(
+        "An unexpected error occurred"
+      )
+      expect(
         formatOperationFailure(
-          operationFailure({ _tag: "ToolParseFailure", cause: Cause.fail(parseError), toolName: "test_tool" })
+          new ToolParseFailure({ cause: Cause.sequential(Cause.empty, Cause.fail(parseError)), toolName: "test_tool" })
         )
       ).toContain("Invalid parameters for test_tool")
       expect(
         formatOperationFailure(
-          operationFailure({ _tag: "ToolParseFailure", cause: Cause.empty, toolName: "test_tool" })
-        )
-      ).toBe("An unexpected error occurred")
-      expect(
-        formatOperationFailure(
-          operationFailure({
-            _tag: "ToolParseFailure",
-            cause: Cause.sequential(Cause.empty, Cause.fail(parseError)),
-            toolName: "test_tool"
-          })
-        )
-      ).toContain("Invalid parameters for test_tool")
-      expect(
-        formatOperationFailure(
-          operationFailure({
-            _tag: "ToolDomainFailure",
-            cause: Cause.fail(new HulyError({ message: "domain failed" })),
-            warnings: []
-          })
+          new ToolDomainFailure({ cause: Cause.fail(new HulyError({ message: "domain failed" })), warnings: [] })
         )
       ).toBe("domain failed")
+      expect(formatOperationFailure(new ToolDomainFailure({ cause: Cause.empty, warnings: [] }))).toBe(
+        "An unexpected error occurred"
+      )
+      expect(formatOperationFailure(new ToolOutputFailure({ toolName: "test_tool", warnings: [] }))).toBe(
+        "Tool test_tool produced invalid output"
+      )
       expect(
-        formatOperationFailure(operationFailure({ _tag: "ToolDomainFailure", cause: Cause.empty, warnings: [] }))
-      ).toBe("An unexpected error occurred")
-      expect(
-        formatOperationFailure(operationFailure({ _tag: "ToolOutputFailure", toolName: "test_tool", warnings: [] }))
-      ).toBe("Tool test_tool produced invalid output")
-      expect(
-        formatOperationFailure(
-          operationFailure({ _tag: "ToolProvisionFailure", error: new HulyError({ message: "provision failed" }) })
-        )
+        formatOperationFailure(new ToolProvisionFailure({ error: new HulyError({ message: "provision failed" }) }))
       ).toBe("provision failed")
+    })
+  )
+})
+
+describe("describeOperationFailure", () => {
+  it("classifies and sanitizes domain failures", () => {
+    const failures = [
+      { error: new HulyAuthError({ message: "secret credential detail" }), kind: "authentication", retryable: false },
+      {
+        error: new ApprovalRequestApproverNotRequestedError({ person: "person", request: "request" }),
+        kind: "authorization",
+        retryable: false
+      },
+      { error: new TodoIdentifierAmbiguousError({ locator: "todo", matches: 2 }), kind: "ambiguity", retryable: false },
+      { error: new InventoryConflictError({ message: "conflict" }), kind: "conflict", retryable: false },
+      { error: new ProjectNotFoundError({ identifier: "HULY" }), kind: "lookup", retryable: false },
+      { error: new HulyConnectionError({ message: "offline" }), kind: "integration", retryable: true },
+      { error: new HulyError({ message: "integration failed" }), kind: "integration", retryable: false }
+    ]
+
+    for (const { error, kind, retryable } of failures) {
+      const description = describeOperationFailure(new ToolDomainFailure({ cause: Cause.fail(error), warnings: [] }))
+      expect(description).toMatchObject({ detailTag: error._tag, kind, retryable })
+    }
+    expect(
+      describeOperationFailure(
+        new ToolDomainFailure({ cause: Cause.fail(new HulyAuthError({ message: "secret" })), warnings: [] })
+      ).message
+    ).not.toContain("secret")
+  })
+
+  it.effect("describes parse, output, provision, and empty domain failures", () =>
+    Effect.gen(function* () {
+      const parseError = yield* Schema.decodeUnknown(Params)({}).pipe(Effect.flip)
+      expect(describeOperationFailure(new ToolDomainFailure({ cause: Cause.empty, warnings: [] })).kind).toBe(
+        "internal"
+      )
+      expect(describeOperationFailure(new ToolOutputFailure({ toolName: "test", warnings: [] }))).toMatchObject({
+        detailTag: "ToolOutputFailure",
+        kind: "internal"
+      })
+      expect(
+        describeOperationFailure(new ToolParseFailure({ cause: Cause.fail(parseError), toolName: "test" }))
+      ).toMatchObject({ detailTag: "ToolParseFailure", kind: "input" })
+      expect(
+        describeOperationFailure(new ToolProvisionFailure({ error: new ProjectNotFoundError({ identifier: "X" }) }))
+      ).toMatchObject({ detailTag: "ProjectNotFoundError", kind: "lookup" })
     })
   )
 })

@@ -6,14 +6,40 @@ import type { CliCommandSpec } from "./catalog-types.js"
 import { CLI_UPLOAD_SOURCE_SEMANTICS } from "./parity-contract.js"
 
 export const cliCommandCatalog = {
-  list_projects: { path: ["projects", "list"], positional: [], description: "List projects" },
+  list_projects: {
+    path: ["projects", "list"],
+    positional: [],
+    description: "List projects",
+    human: {
+      columns: [
+        { field: "identifier", priority: 100, reusable: true },
+        { field: "name", priority: 90 },
+        { field: "archived", priority: 40 },
+        { field: "description", priority: 10 }
+      ]
+    }
+  },
   get_project: { path: ["projects", "get"], positional: ["project"], description: "Get a project" },
   list_statuses: {
     path: ["projects", "statuses"],
     positional: ["project"],
     description: "List project issue statuses"
   },
-  list_issues: { path: ["issues", "list"], positional: [], description: "List issues" },
+  list_issues: {
+    path: ["issues", "list"],
+    positional: [],
+    description: "List issues",
+    human: {
+      columns: [
+        { field: "identifier", priority: 100, reusable: true },
+        { field: "title", priority: 90 },
+        { field: "status", priority: 80 },
+        { field: "priority", priority: 60 },
+        { field: "assignee", priority: 50 },
+        { field: "issueId", priority: 20, reusable: true }
+      ]
+    }
+  },
   get_issue: { path: ["issues", "get"], positional: ["project", "identifier"], description: "Get an issue" },
   create_issue: {
     path: ["issues", "create"],
@@ -106,7 +132,19 @@ export const cliCommandCatalog = {
     description: `Add an attachment to a document. ${CLI_UPLOAD_SOURCE_SEMANTICS}`,
     behavior: { base64FileInput: { fields: ["data"] }, fileInput: { fields: ["description"] } }
   },
-  list_documents: { path: ["documents", "list"], positional: [], description: "List documents" },
+  list_documents: {
+    path: ["documents", "list"],
+    positional: [],
+    description: "List documents",
+    human: {
+      columns: [
+        { field: "id", priority: 100, reusable: true },
+        { field: "title", priority: 90 },
+        { field: "teamspace", priority: 70 },
+        { field: "modifiedOn", priority: 40 }
+      ]
+    }
+  },
   get_document: { path: ["documents", "get"], positional: [], description: "Get a document" },
   create_document: {
     path: ["documents", "create"],

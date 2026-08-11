@@ -6,6 +6,18 @@ export interface CliCommandSpec {
   readonly positional: ReadonlyArray<CliSchemaFieldName>
   readonly description: string
   readonly behavior?: CliCommandBehavior
+  readonly human?: CliHumanRendering
+}
+
+export interface CliHumanRendering {
+  readonly columns: readonly [CliHumanColumn, ...Array<CliHumanColumn>]
+}
+
+interface CliHumanColumn {
+  readonly field: CliSchemaFieldName
+  readonly label?: string
+  readonly priority: number
+  readonly reusable?: boolean
 }
 
 interface CliCommandBehavior {

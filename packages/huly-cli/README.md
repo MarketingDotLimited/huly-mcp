@@ -47,7 +47,17 @@ huly --help
 
 ## Quick start
 
-Configure a reachable Huly deployment and run a command:
+Log in once and run a command:
+
+```bash
+huly auth login
+huly auth status --json
+huly projects list
+```
+
+Login prompts for the Huly URL, workspace, email, and password. Only the returned workspace token is stored; the password is never written to disk.
+
+Environment-only configuration remains available for CI and ephemeral execution:
 
 ```bash
 export HULY_URL=https://your-huly-instance.example.com
@@ -62,7 +72,7 @@ Use `HULY_TOKEN` instead of `HULY_EMAIL` and `HULY_PASSWORD` when your deploymen
 
 ## Configuration
 
-The CLI reads the same Huly connection settings as the MCP server.
+The CLI supports named profiles plus the same Huly connection settings as the MCP server. Each environment variable overrides the corresponding active-profile value, so CI can remain fully environment-driven without modifying user configuration.
 
 | Variable | Required | Description |
 | --- | --- | --- |
@@ -74,6 +84,29 @@ The CLI reads the same Huly connection settings as the MCP server.
 | `HULY_CONNECTION_TIMEOUT` | No | Connection timeout in milliseconds. |
 
 *Auth: provide either `HULY_EMAIL` and `HULY_PASSWORD`, or `HULY_TOKEN`.
+
+### Authentication and profiles
+
+```bash
+# Interactive login, sanitized inspection, and logout.
+huly auth login --profile work
+huly auth status --json
+huly auth logout --profile work
+
+# Named contexts with an optional default project.
+huly profile create work --url https://huly.example.com --workspace main --default-project HULY
+huly profile list --json
+huly profile select work
+huly profile update work --default-project CLI
+```
+
+Configuration precedence is:
+
+1. `HULY_*` environment variables, independently by field;
+2. the selected profile's URL, workspace, stored token, and optional default project; and
+3. no implicit fallback.
+
+Profiles are stored in the operating system's user configuration directory: `$XDG_CONFIG_HOME/huly` (or `~/.config/huly`) on Linux, `~/Library/Application Support/huly` on macOS, and `%APPDATA%\huly` on Windows. Profile metadata and credentials are separate schema-validated JSON files. On systems that support POSIX permissions, directories use mode `0700` and files use `0600`.
 
 ## Usage
 
@@ -107,6 +140,31 @@ huly issues create \
 ```
 
 Inputs are merged from lowest to highest precedence: JSON sources in command-line order, named positionals, explicit field flags, then file-backed field flags.
+
+On failure, stdout remains empty. With `--json`, stderr contains one JSON document:
+
+```json
+{
+  "code": "NOT_FOUND",
+  "message": "Issue HULY-404 was not found.",
+  "retryable": false,
+  "hint": "Optional next action",
+  "details": { "tag": "IssueNotFoundError" }
+}
+```
+
+`hint` and `details` are optional. The stable exit taxonomy is:
+
+| Failure code | Exit status | Meaning |
+| --- | ---: | --- |
+| `INTEGRATION_FAILED` | 1 | Huly or a required integration failed; inspect `retryable`. |
+| `INVALID_INPUT` | 2 | CLI input or confirmation is invalid or missing. |
+| `AUTHENTICATION_FAILED` | 3 | Credentials are absent, invalid, or expired. |
+| `AUTHORIZATION_DENIED` | 4 | The authenticated account lacks permission. |
+| `NOT_FOUND`, `AMBIGUOUS_RESULT`, `CONFLICT` | 5 | A stable domain lookup or state conflict prevented the operation. |
+| `INTERNAL_ERROR` | 70 | An unexpected CLI defect, distinct from expected failures. |
+
+Never blindly retry a consequential write. Retry only when `retryable` is true and the operation is known to be safe to repeat.
 
 ### Files and binary output
 
@@ -152,9 +210,19 @@ MCP resources, prompts, proxy discovery, toolset filtering, and transport negoti
 
 ## Output, warnings, and exit status
 
-Successful commands write their result to stdout and exit with status 0. Without `--json`, the CLI renders readable summaries and tables. With `--json`, it writes one structured JSON value suitable for further processing.
+Successful commands write their result to stdout and exit with status 0. Without `--json`, catalog-owned rendering metadata selects useful table columns. Reusable identifiers are never ellipsized; narrow terminals omit lower-priority presentation fields. ANSI styling is emitted only to a compatible TTY and is disabled by `NO_COLOR`. With `--json`, the CLI writes the same lossless structured value regardless of terminal width or styling.
 
-Operation warnings are part of a successful result. Human-readable output appends a `Warnings:` section to stdout; JSON output includes `warnings` alongside `result`. Errors—including invalid input, missing `--yes` confirmation, authentication failures, connection failures, and failed operations—are written to stderr and produce a non-zero exit status.
+Operation warnings are part of a successful result. Human-readable output appends a visible `Warnings:` section to stdout; empty result sets remain explicit. JSON output includes `warnings` alongside `result`. Errors—including invalid input, missing `--yes` confirmation, authentication failures, connection failures, and failed operations—are written to stderr and produce a documented non-zero exit status.
+
+## Agent Skill
+
+The published package includes an installable `huly-cli` Agent Skill at `skills/huly-cli`. After a global pnpm installation, compatible coding agents can copy it into their skill directory:
+
+```bash
+cp -R "$(pnpm root --global)/@firfi/huly-cli/skills/huly-cli" "${CODEX_HOME:-$HOME/.codex}/skills/huly-cli"
+```
+
+The compact skill teaches authentication, progressive command discovery, structured automation, safe confirmation, and representative workflows. It deliberately does not duplicate all 500+ commands. Repository contributors can run `pnpm verify-cli-skill` to reject drift from the command tree and failure contract, and `pnpm verify-cli-skill-package` to smoke-test the published tarball contents.
 
 ## Telemetry
 

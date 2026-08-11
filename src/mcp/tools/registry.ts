@@ -1,5 +1,5 @@
 import type { ParseResult } from "effect"
-import { Cause, Chunk, Data, Effect, Either, Exit, Schema } from "effect"
+import { Effect, Either, Exit, Schema } from "effect"
 import type { ToolAnnotations } from "@modelcontextprotocol/server"
 import type { ToolWarning } from "../../domain/schemas/tool-warnings.js"
 import { HulyClient } from "../../huly/client.js"
@@ -11,7 +11,6 @@ import {
   createImageSuccessResponse,
   createInvalidParamsError,
   createSuccessResponse,
-  formatParseError,
   mapDomainCauseToMcp,
   mapDomainErrorToMcp,
   mapParseCauseToMcp,
@@ -19,6 +18,15 @@ import {
   type McpToolResponse
 } from "../error-mapping.js"
 import { createToolOutputSchema, type McpOutputSchema } from "../tool-output-schema.js"
+import {
+  ToolDomainFailure,
+  ToolOutputFailure,
+  type ToolOperationFailure,
+  ToolParseFailure,
+  ToolProvisionFailure
+} from "./operation-failure.js"
+export type { OperationFailureDescription, OperationFailureKind, ToolOperationFailure } from "./operation-failure.js"
+export { describeOperationFailure, formatOperationFailure } from "./operation-failure.js"
 export { resolveAnnotations } from "./tool-annotations.js"
 
 export const ToolName = Schema.NonEmptyTrimmedString.pipe(Schema.brand("ToolName")).annotations({
@@ -96,25 +104,6 @@ interface ToolOperationSuccessBase {
 }
 export type ToolOperationSuccess = ToolOperationSuccessBase &
   ({ readonly image?: never } | { readonly image: McpImageContent })
-
-class ToolParseFailure extends Data.TaggedError("ToolParseFailure")<{
-  readonly cause: Cause.Cause<ParseResult.ParseError>
-  readonly toolName: string
-}> {}
-
-class ToolDomainFailure extends Data.TaggedError("ToolDomainFailure")<{
-  readonly cause: Cause.Cause<HulyDomainError>
-  readonly warnings: ReadonlyArray<ToolWarning>
-}> {}
-
-class ToolProvisionFailure extends Data.TaggedError("ToolProvisionFailure")<{ readonly error: HulyDomainError }> {}
-
-class ToolOutputFailure extends Data.TaggedError("ToolOutputFailure")<{
-  readonly toolName: string
-  readonly warnings: ReadonlyArray<ToolWarning>
-}> {}
-
-type ToolOperationFailure = ToolDomainFailure | ToolOutputFailure | ToolParseFailure | ToolProvisionFailure
 
 interface RegisteredOperation<Name extends string = string> extends ToolDefinition<Name> {
   readonly execute: (
@@ -328,32 +317,6 @@ const operationSuccessToMcp = (success: ToolOperationSuccess): McpToolResponse =
   success.image === undefined
     ? createSuccessResponse(success.result, success.warnings)
     : createImageSuccessResponse(success.result, success.image, success.warnings)
-
-const firstFailureMessage = <E extends { readonly message: string }>(cause: Cause.Cause<E>): string | undefined => {
-  if (Cause.isFailType(cause)) return cause.error.message
-  const firstFailure = Chunk.toArray(Cause.failures(cause))[0]
-  return firstFailure?.message
-}
-
-export const formatOperationFailure = (failure: ToolOperationFailure): string => {
-  switch (failure._tag) {
-    case "ToolDomainFailure":
-      return firstFailureMessage(failure.cause) ?? "An unexpected error occurred"
-    case "ToolOutputFailure":
-      return `Tool ${failure.toolName} produced invalid output`
-    case "ToolParseFailure": {
-      if (Cause.isFailType(failure.cause)) {
-        return `Invalid parameters for ${failure.toolName}: ${formatParseError(failure.cause.error)}`
-      }
-      const firstFailure = Chunk.toArray(Cause.failures(failure.cause))[0]
-      return firstFailure === undefined
-        ? "An unexpected error occurred"
-        : `Invalid parameters for ${failure.toolName}: ${formatParseError(firstFailure)}`
-    }
-    case "ToolProvisionFailure":
-      return failure.error.message
-  }
-}
 
 const createHandler =
   (operation: RegisteredOperation): RegisteredTool["handler"] =>

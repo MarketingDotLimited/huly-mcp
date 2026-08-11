@@ -5,9 +5,11 @@ import { Console, Effect, Layer, Logger, LogLevel, Option } from "effect"
 
 import { TelemetryService } from "../../../src/telemetry/telemetry.js"
 import { buildRootCommand } from "./command-tree.js"
+import { presentCliFailure } from "./failures.js"
 import { renderCliHelp } from "./help.js"
 import { parseCliHelpRequest } from "./help-schema.js"
 import { CliInputError } from "./input.js"
+import { LocalCliService } from "./local-commands.js"
 import { CliRuntimeError } from "./render.js"
 
 declare const PKG_VERSION: unknown
@@ -35,18 +37,23 @@ const main = Effect.suspend(() => {
   })
 }).pipe(
   Logger.withMinimumLogLevel(LogLevel.Warning),
-  Effect.provide(Layer.mergeAll(NodeContext.layer, TelemetryService.cliLayer, cliLoggerLayer)),
-  Effect.catchAll((error) =>
-    isKnownCliError(error)
-      ? Console.error(error.message).pipe(
-          Effect.zipRight(
-            Effect.sync(() => {
-              process.exitCode = 1
-            })
-          )
-        )
-      : Effect.fail(error)
-  )
+  Effect.provide(
+    Layer.mergeAll(NodeContext.layer, TelemetryService.cliLayer, LocalCliService.defaultLayer, cliLoggerLayer)
+  ),
+  Effect.catchAll((error) => {
+    const presentation = presentCliFailure(
+      error,
+      process.argv.slice(NODE_ARGUMENT_OFFSET).includes("--json"),
+      isKnownCliError
+    )
+    return Console.error(presentation.stderr).pipe(
+      Effect.zipRight(
+        Effect.sync(() => {
+          process.exitCode = presentation.exitStatus
+        })
+      )
+    )
+  })
 )
 
 const isMainModule = (() => {

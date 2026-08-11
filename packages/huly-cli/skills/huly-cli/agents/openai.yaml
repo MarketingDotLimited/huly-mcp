@@ -1,0 +1,4 @@
+interface:
+  display_name: "Huly CLI"
+  short_description: "Operate Huly safely from coding agents"
+  default_prompt: "Use $huly-cli to inspect or update my Huly workspace safely."

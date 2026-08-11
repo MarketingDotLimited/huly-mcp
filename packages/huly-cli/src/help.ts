@@ -1,6 +1,6 @@
-import { CliConfig, CommandDescriptor, HelpDoc, Usage } from "@effect/cli"
+import { CliConfig, Command, CommandDescriptor, HelpDoc, Usage } from "@effect/cli"
 import { stripVTControlCharacters } from "node:util"
-import { Option } from "effect"
+import { HashMap, Option } from "effect"
 
 import { buildCommandDescriptorAtPath } from "./command-tree.js"
 import type { CliCommandSpec } from "./catalog-types.js"
@@ -18,6 +18,7 @@ import {
   type CliHelpWidth,
   type CliPackageVersion
 } from "./help-schema.js"
+import { localCliCommands } from "./local-commands.js"
 
 interface HelpRow {
   readonly command: CliHelpCommandLabel
@@ -77,12 +78,20 @@ const progressiveRootRows = (): ReadonlyArray<HelpRow> => {
     const group = CliCommandSegment.make(spec.path[0])
     counts.set(group, CliCommandCount.make((counts.get(group) ?? 0) + 1))
   }
-  return [...counts.entries()]
-    .map(([group, count]) => ({
-      command: CliHelpCommandLabel.make(`huly ${group}`),
+  const generatedRows = [...counts.entries()].map(([group, count]) => ({
+    command: CliHelpCommandLabel.make(`huly ${group}`),
+    description: CliHelpDescription.make(`${count} ${count === 1 ? "command" : "commands"}`)
+  }))
+  const localCommandRow = <Name extends string, R, E, A>(command: Command.Command<Name, R, E, A>): HelpRow => {
+    const [name] = [...Command.getNames(command)]
+    const count = HashMap.size(Command.getSubcommands(command))
+    return {
+      command: CliHelpCommandLabel.make(`huly ${name ?? "unknown"}`),
       description: CliHelpDescription.make(`${count} ${count === 1 ? "command" : "commands"}`)
-    }))
-    .sort((left, right) => left.command.localeCompare(right.command))
+    }
+  }
+  const localRows = [localCommandRow(localCliCommands[0]), localCommandRow(localCliCommands[1])]
+  return [...localRows, ...generatedRows].sort((left, right) => left.command.localeCompare(right.command))
 }
 
 const renderProgressiveRootHelp = (version: CliPackageVersion, width: CliHelpWidth): RenderedCliHelp => {

@@ -11,6 +11,7 @@ import type { CliCommandPath } from "./command-schema.js"
 import type { CliInputError } from "./input.js"
 import { CliRuntimeError } from "./render.js"
 import { runCliTool } from "./runner.js"
+import { localCliCommands, type LocalCliService } from "./local-commands.js"
 
 interface MutableCommandNode {
   children: Map<string, MutableCommandNode>
@@ -22,7 +23,7 @@ interface MutableCommandNode {
 type HulyCommand = Command.Command<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated subcommands have heterogeneous parsed config.
   any,
-  NodeContext.NodeContext | TelemetryService,
+  NodeContext.NodeContext | TelemetryService | LocalCliService,
   CliInputError | CliRuntimeError,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated subcommands have heterogeneous parsed config.
   any
@@ -126,7 +127,10 @@ export const buildCommandDescriptorAtPath = (path: CliCommandPath): Option.Optio
 export const buildRootCommand = (argv: ReadonlyArray<string>): HulyCommand => {
   const tree = buildCatalogTree()
   const rootCommand = Command.make(tree.name, buildGlobalOptionsConfig()).pipe(Command.withDescription("Huly CLI"))
-  const subcommands = [...tree.children.values()].map((child) => makeCommand(child, argv))
+  const subcommands: Array<HulyCommand> = [
+    ...localCliCommands,
+    ...[...tree.children.values()].map((child) => makeCommand(child, argv))
+  ]
   const first = subcommands[0]
   if (first === undefined) return rootCommand
   return rootCommand.pipe(Command.withSubcommands([first, ...subcommands.slice(1)]))

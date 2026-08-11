@@ -5,6 +5,7 @@ import { Effect, Layer, Option, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { buildCommandDescriptorAtPath, buildRootCommand } from "../../packages/huly-cli/src/command-tree.js"
+import { LocalCliService } from "../../packages/huly-cli/src/local-commands.js"
 import { renderCliHelp } from "../../packages/huly-cli/src/help.js"
 import { CliCommandPath } from "../../packages/huly-cli/src/command-schema.js"
 import { parseCliHelpRequest, type RenderedCliHelp } from "../../packages/huly-cli/src/help-schema.js"
@@ -13,7 +14,7 @@ import { TelemetryService } from "../../src/telemetry/telemetry.js"
 const runCommand = (argv: ReadonlyArray<string>): Promise<void> =>
   Effect.runPromise(
     Command.run(buildRootCommand(argv), { name: "Huly CLI", version: "test" })(["node", "huly", ...argv]).pipe(
-      Effect.provide(Layer.mergeAll(NodeContext.layer, TelemetryService.testLayer()))
+      Effect.provide(Layer.mergeAll(NodeContext.layer, TelemetryService.testLayer(), LocalCliService.defaultLayer))
     )
   )
 
@@ -41,6 +42,8 @@ describe("CLI command tree", () => {
 
     expect(help).toBeDefined()
     expect(help).toContain("huly issues")
+    expect(help).toContain("huly auth")
+    expect(help).toContain("huly profile")
     expect(help).toContain("1 command")
     expect(help).not.toContain("issues labels add")
     expect(help.split("\n").every((line) => line.length <= 40)).toBe(true)

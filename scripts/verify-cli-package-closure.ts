@@ -22,11 +22,14 @@ const requiredModules = new Set(
 const builtins = new Set([...builtinModules, ...builtinModules.map((name) => `node:${name}`)])
 const externalModules = [...requiredModules].filter((name) => !name.startsWith("node:") && !builtins.has(name)).sort()
 const undeclared = externalModules.filter((name) => cliPackageJson.dependencies[name] === undefined)
+const EXPECTED_PACKAGE_FILE_COUNT = 2
 
 const errors = [
-  cliPackageJson.files.length === 1 && cliPackageJson.files[0] === "dist/index.cjs"
+  cliPackageJson.files.length === EXPECTED_PACKAGE_FILE_COUNT &&
+  cliPackageJson.files[0] === "dist/index.cjs" &&
+  cliPackageJson.files[1] === "skills"
     ? undefined
-    : "CLI package files must contain only dist/index.cjs.",
+    : "CLI package files must contain dist/index.cjs and the Agent Skill directory.",
   undeclared.length === 0 ? undefined : `CLI bundle has undeclared runtime dependencies: ${undeclared.join(", ")}.`
 ].filter((message) => message !== undefined)
 

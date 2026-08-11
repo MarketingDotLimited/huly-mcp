@@ -47,6 +47,9 @@
     "report-cli-parity": "node scripts/run-bundled.mjs scripts/report-cli-parity.ts",
     "update-cli-readme": "node scripts/run-bundled.mjs scripts/update-cli-readme.ts",
     "verify-cli-readme": "node scripts/run-bundled.mjs scripts/update-cli-readme.ts --check",
+    "update-cli-skill": "node scripts/run-bundled.mjs scripts/update-cli-skill.ts",
+    "verify-cli-skill": "node scripts/run-bundled.mjs scripts/update-cli-skill.ts --check",
+    "verify-cli-skill-package": "node scripts/run-bundled.mjs scripts/verify-cli-skill-package.ts",
     "verify-cli-package-closure": "node scripts/run-bundled.mjs scripts/verify-cli-package-closure.ts",
     "verify-registry-metadata": "node scripts/sync-registry-metadata.mjs --check",
     "verify-registry-schema": "node scripts/verify-registry-schema.mjs",
@@ -57,7 +60,7 @@
     "integration:tool-scope": "bash scripts/integration_test_tool_scope.sh",
     "sync-registry-metadata": "node scripts/sync-registry-metadata.mjs",
     "prepack": "pnpm build:mcp && pnpm verify-version",
-    "prepublishOnly": "pnpm check-all && pnpm verify-version && pnpm --filter @firfi/huly-cli verify-version && pnpm verify-cli-integration-coverage && pnpm verify-cli-package-closure",
+    "prepublishOnly": "pnpm check-all && pnpm verify-version && pnpm --filter @firfi/huly-cli verify-version && pnpm verify-cli-integration-coverage && pnpm verify-cli-package-closure && pnpm verify-cli-skill && pnpm verify-cli-skill-package",
     "update-readme": "tsx scripts/update-readme-tools.mjs",
     "verify-readme": "tsx scripts/update-readme-tools.mjs --check"
   },

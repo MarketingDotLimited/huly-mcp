@@ -5,6 +5,7 @@ import type { ClientBundle } from "../../src/mcp/server.js"
 
 import { cliCommandCatalog, type CliToolName } from "../../packages/huly-cli/src/catalog.js"
 import { parseCliCommandLine } from "../../packages/huly-cli/src/cli-options.js"
+import { LocalCliService } from "../../packages/huly-cli/src/local-commands.js"
 import { type CliRunnerPorts, runCliTool, runCliToolWithPorts } from "../../packages/huly-cli/src/runner.js"
 import { McpImageContentSchema } from "../../src/domain/schemas/attachments.js"
 import { operationRegistry } from "../../src/mcp/tools/index.js"
@@ -13,6 +14,19 @@ import { TelemetryService } from "../../src/telemetry/telemetry.js"
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- port fixture is never dereferenced by the fake operation executor.
 const emptyBundle = {} as ClientBundle
+
+const localCliTestLayer = Layer.succeed(LocalCliService, {
+  authenticate: () => Effect.die("authenticate is not used by runner tests"),
+  environment: {},
+  prompt: () => Effect.die("prompt is not used by runner tests"),
+  store: {
+    paths: { credentials: "credentials.json", directory: ".", profiles: "profiles.json" },
+    readCredentials: () => Effect.succeed({ version: 1, tokens: {} }),
+    readProfiles: () => Effect.succeed({ version: 1, profiles: {} }),
+    writeCredentials: () => Effect.void,
+    writeProfiles: () => Effect.void
+  }
+})
 
 interface RunnerObservation {
   readonly downloads: Array<{
@@ -238,12 +252,36 @@ describe("CLI runner", () => {
     expect(observation.rendered).toEqual([])
   })
 
+  it("applies a profile default project only when the command accepts project and none was supplied", async () => {
+    const observation = { downloads: [], rendered: [], telemetry: [] }
+    const ports: CliRunnerPorts = {
+      ...makePorts({ result: {}, warnings: [] }, observation),
+      getOperation: (toolName) => {
+        const operation = operationRegistry.getOperation(toolName)
+        return { ...operation, execute: (input) => Effect.succeed({ result: input, warnings: [] }) }
+      }
+    }
+    const parsed = await Effect.runPromise(parse("list_issues", []).pipe(Effect.provide(NodeContext.layer)))
+
+    await Effect.runPromise(
+      runCliToolWithPorts(ports, "list_issues", parsed, "HULY").pipe(
+        Effect.provide(Layer.merge(TelemetryService.testLayer(), localCliTestLayer))
+      )
+    )
+
+    expect(observation.rendered).toEqual([{ result: { project: "HULY" }, warnings: [] }])
+  })
+
   it("keeps default runner preflight errors before client construction", async () => {
     const parsed = await Effect.runPromise(
       parse("list_issues", ["--output", "issues.json"]).pipe(Effect.provide(NodeContext.layer))
     )
     const error = await rejected(
-      Effect.runPromise(runCliTool("list_issues", parsed).pipe(Effect.provide(TelemetryService.testLayer())))
+      Effect.runPromise(
+        runCliTool("list_issues", parsed).pipe(
+          Effect.provide(Layer.merge(TelemetryService.testLayer(), localCliTestLayer))
+        )
+      )
     )
 
     expect(errorMessage(error)).toContain("issues list does not support --output")

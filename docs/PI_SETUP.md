@@ -114,3 +114,18 @@ in the main [Huly MCP README](../README.md#proxy-meta-tools).
 
 Use `/mcp` to inspect adapter status. After changing MCP configuration, run `/reload` or start a new
 Pi session so its registered tool surface is refreshed.
+
+## Verified adapter behavior
+
+This setup was exercised end to end with Pi 0.84.1, Pi MCP Adapter 2.21.2, Node.js 24, and a local
+Huly workspace. With `directTools: true`, `TOOLSETS=projects`, `TOOLS=list_documents`, and
+`PROXY_OUTPUT_STRICT=false`, Pi registered the proxy tools plus the pinned project and document
+operations with the `huly_` prefix. Pi then completed the intended `search_tools` →
+`get_tool_schema` → `invoke_tool` flow against local Huly for an operation outside the pinned set.
+
+Repeating the same test with `PROXY_OUTPUT_STRICT=true` registered eight direct adapter tools. A
+search for “list issues” returned only allowed project/document candidates, while schema lookup and
+invocation of `list_issues` both returned `Unknown tool`. After changing strict mode back to `false`,
+`/reload` reported `MCP: direct tools refreshed (+17, ~0, -0)`. This confirms that `/reload` is the
+reliable recovery step when configuration changes alter Pi's direct-tool surface; reconnect remains
+appropriate for reconnecting a server without changing its configuration.

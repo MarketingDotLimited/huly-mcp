@@ -37,6 +37,8 @@ const gates: ReadonlyArray<QualityGate> = [
   { args: ["verify-sdk-parity"], name: "SDK parity", timeout: MINUTE },
   { args: ["verify-readme"], name: "README synchronization", timeout: MINUTE },
   { args: ["verify-cli-readme"], name: "CLI README synchronization", timeout: TWO_MINUTES },
+  { args: ["verify-cli-skill"], name: "CLI Agent Skill synchronization", timeout: MINUTE },
+  { args: ["verify-cli-skill-package"], name: "CLI Agent Skill package smoke", timeout: TWO_MINUTES },
   { args: ["verify-cli-package-closure"], name: "CLI package dependency closure", timeout: MINUTE },
   { args: ["lint"], name: "lint and duplication", timeout: TWO_MINUTES },
   { args: ["test:coverage"], name: "tests and coverage", timeout: FIVE_MINUTES }

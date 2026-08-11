@@ -24,7 +24,7 @@ import {
 
 export class CliInputError extends Schema.TaggedError<CliInputError>()("CliInputError", { message: Schema.String }) {}
 
-interface CliInvocation {
+export interface CliInvocation {
   readonly globals: CliGlobalOptions
   readonly input: Readonly<Record<string, unknown>>
 }
