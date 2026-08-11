@@ -1,5 +1,12 @@
 # @firfi/huly-mcp
 
+## 0.49.4
+
+### Patch Changes
+
+- 6803751: Add a secret-safe, opt-in legacy-token harness that prepares active and revoked API-token certification across built stdio and request-scoped HTTP transports.
+- 16d9cb2: Rank exact Huly class discovery matches before applying result limits, and allow generic typed-space creation when Huly's role collection counter is stale but the role and assignment metadata are consistent.
+
 ## 0.49.3
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @firfi/huly-cli
 
+## 0.48.1
+
+### Patch Changes
+
+- 16d9cb2: Rank exact Huly class discovery matches before applying result limits, and allow generic typed-space creation when Huly's role collection counter is stale but the role and assignment metadata are consistent.
+
 ## 0.48.0
 
 ### Minor Changes
