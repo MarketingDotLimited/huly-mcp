@@ -123,6 +123,13 @@ Huly workspace. With `directTools: true`, `TOOLSETS=projects`, `TOOLS=list_docum
 operations with the `huly_` prefix. Pi then completed the intended `search_tools` →
 `get_tool_schema` → `invoke_tool` flow against local Huly for an operation outside the pinned set.
 
+The adapter's MCP initialization identified itself as `clientInfo.name=pi-mcp-huly` with
+`clientInfo.version=1.0.0`. The corresponding `get_huly_context` result reported
+`configuredMode=auto`, `resolvedMode=proxy`, `clientKind=unknown`, and the four proxy tool names
+`list_tool_categories`, `search_tools`, `get_tool_schema`, and `invoke_tool`. The unknown client
+classification is expected: auto mode deliberately defaults unrecognized MCP bridges to the small
+proxy surface.
+
 With `PROXY_OUTPUT_STRICT=false`, the cached server surface contained 15 tools. Pi exposed all 15
 with the `huly_` prefix plus two cached project-resource readers, for 17 first-class registrations:
 the two diagnostics, the four proxy tools, the eight `projects` operations (`list_projects`,
