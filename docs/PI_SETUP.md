@@ -123,9 +123,15 @@ Huly workspace. With `directTools: true`, `TOOLSETS=projects`, `TOOLS=list_docum
 operations with the `huly_` prefix. Pi then completed the intended `search_tools` →
 `get_tool_schema` → `invoke_tool` flow against local Huly for an operation outside the pinned set.
 
-Repeating the same test with `PROXY_OUTPUT_STRICT=true` registered eight direct adapter tools. A
-search for “list issues” returned only allowed project/document candidates, while schema lookup and
-invocation of `list_issues` both returned `Unknown tool`. After changing strict mode back to `false`,
-`/reload` reported `MCP: direct tools refreshed (+17, ~0, -0)`. This confirms that `/reload` is the
-reliable recovery step when configuration changes alter Pi's direct-tool surface; reconnect remains
+Repeating the same test with `PROXY_OUTPUT_STRICT=true` produced an allow-list of nine Huly
+operations: the eight operations in the `projects` toolset plus `list_documents`. A search for “list
+issues” returned only allowed project/document candidates, while schema lookup and invocation of
+`list_issues` both returned `Unknown tool`.
+
+Pi's `/mcp` display separately reported `8/8` adapter-managed direct registrations in that strict
+session. That adapter registration count is not the Huly allow-list size and includes the adapter's
+own proxy-facing surface, so it must not be used to count pinned Huly operations. After changing
+strict mode back to `false`, `/reload` reported `MCP: direct tools refreshed (+17, ~0, -0)`; this is a
+registration delta, not a total tool count. These observations confirm that `/reload` is the reliable
+recovery step when configuration changes alter Pi's direct-tool surface; reconnect remains
 appropriate for reconnecting a server without changing its configuration.

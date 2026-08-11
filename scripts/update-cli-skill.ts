@@ -1,11 +1,11 @@
 import { readFileSync, writeFileSync } from "node:fs"
 
-import { Command } from "@effect/cli"
+import { CliConfig, Command, CommandDescriptor, HelpDoc } from "@effect/cli"
 import { HashMap, HashSet, Schema } from "effect"
 
 import { cliCommandCatalog } from "../packages/huly-cli/src/catalog.js"
 import { CLI_FAILURE_CONTRACT } from "../packages/huly-cli/src/failures.js"
-import { localCliCommands } from "../packages/huly-cli/src/local-commands.js"
+import { authCommand, profileCommand } from "../packages/huly-cli/src/local-commands.js"
 
 const skillPath = "packages/huly-cli/skills/huly-cli/SKILL.md"
 const automationPath = "packages/huly-cli/skills/huly-cli/references/automation.md"
@@ -26,8 +26,16 @@ const requireSubcommand = <Name extends string, R, E, A>(
   if (missing.length > 0) throw new Error(`Local CLI group '${expectedGroup}' is missing: ${missing.join(", ")}.`)
 }
 
-requireSubcommand(localCliCommands[0], "auth", ["login", "status", "logout"])
-requireSubcommand(localCliCommands[1], "profile", ["create", "list", "select", "update"])
+requireSubcommand(authCommand, "auth", ["login", "status", "logout"])
+requireSubcommand(profileCommand, "profile", ["create", "list", "select", "update"])
+
+const commandHelp = <Name extends string, R, E, A>(group: Command.Command<Name, R, E, A>, name: string): string => {
+  const command = [...HashMap.values(Command.getSubcommands(group))].find((candidate) =>
+    HashSet.has(CommandDescriptor.getNames(candidate), name)
+  )
+  if (command === undefined) throw new Error(`Missing command help for '${name}'.`)
+  return HelpDoc.toAnsiText(CommandDescriptor.getHelp(command, CliConfig.defaultConfig))
+}
 
 const skill = `---
 name: huly-cli
@@ -48,6 +56,13 @@ huly auth status --json
 \`\`\`
 
 Use \`huly profile create|list|select|update\` for named URL, workspace, and default-project contexts. Environment variables take priority over the active profile. Never print, copy into chat, or persist a password; login stores only the returned token in the operating system's user config directory.
+
+Key local command surfaces:
+
+\`huly auth login [--profile <name>] [--json]\`
+\`huly auth logout [--profile <name>] [--json]\`
+\`huly profile create <name> --url <url> --workspace <workspace> [--default-project <project>] [--json]\`
+\`huly profile update <name> [--url <url>] [--workspace <workspace>] [--default-project <project> | --clear-default-project] [--json]\`
 
 ## Discover before acting
 
@@ -77,6 +92,58 @@ ${commandPath("fulltext_search")} "release blocker" --json
 
 For scripts, read [references/automation.md](references/automation.md) before handling failures or retries.
 `
+
+const requiredLocalSurface = [
+  {
+    help: commandHelp(authCommand, "login"),
+    command: "login",
+    description: "store only the resulting token",
+    flags: ["profile", "json"]
+  },
+  {
+    help: commandHelp(authCommand, "status"),
+    command: "status",
+    description: "sanitized authentication",
+    flags: ["json"]
+  },
+  {
+    help: commandHelp(authCommand, "logout"),
+    command: "logout",
+    description: "Remove the stored token",
+    flags: ["profile", "json"]
+  },
+  {
+    help: commandHelp(profileCommand, "create"),
+    command: "create",
+    description: "Create a named URL and workspace profile",
+    flags: ["url", "workspace", "default-project", "json"]
+  },
+  { help: commandHelp(profileCommand, "list"), command: "list", description: "List named profiles", flags: ["json"] },
+  {
+    help: commandHelp(profileCommand, "select"),
+    command: "select",
+    description: "Select the active profile",
+    flags: ["json"]
+  },
+  {
+    help: commandHelp(profileCommand, "update"),
+    command: "update",
+    description: "Update a named profile",
+    flags: ["url", "workspace", "default-project", "clear-default-project", "json"]
+  }
+] as const
+
+for (const surface of requiredLocalSurface) {
+  if (!surface.help.includes(surface.description)) {
+    throw new Error(`Local CLI description drifted for '${surface.command}'.`)
+  }
+  for (const flag of surface.flags) {
+    if (!surface.help.includes(`--${flag}`)) {
+      throw new Error(`Local CLI flag '--${flag}' is missing from ${surface.command}.`)
+    }
+    if (!skill.includes(`--${flag}`)) throw new Error(`Generated skill does not document local flag '--${flag}'.`)
+  }
+}
 
 const failureRows = Object.entries(CLI_FAILURE_CONTRACT)
   .map(([kind, entry]) => `| \`${entry.code}\` | ${kind} | ${entry.exitStatus} |`)

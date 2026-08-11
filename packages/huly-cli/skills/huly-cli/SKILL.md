@@ -18,6 +18,13 @@ huly auth status --json
 
 Use `huly profile create|list|select|update` for named URL, workspace, and default-project contexts. Environment variables take priority over the active profile. Never print, copy into chat, or persist a password; login stores only the returned token in the operating system's user config directory.
 
+Key local command surfaces:
+
+`huly auth login [--profile <name>] [--json]`
+`huly auth logout [--profile <name>] [--json]`
+`huly profile create <name> --url <url> --workspace <workspace> [--default-project <project>] [--json]`
+`huly profile update <name> [--url <url>] [--workspace <workspace>] [--default-project <project> | --clear-default-project] [--json]`
+
 ## Discover before acting
 
 1. Run `huly --help` to discover groups.

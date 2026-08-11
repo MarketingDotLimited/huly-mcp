@@ -3,7 +3,8 @@ import { Cause, Chunk, Data } from "effect"
 
 import type { ToolWarning } from "../../domain/schemas/tool-warnings.js"
 import type { HulyDomainError } from "../../huly/errors.js"
-import { formatParseError, mapDomainErrorToMcp } from "../error-mapping.js"
+import { domainErrorMessage, formatParseError } from "../error-mapping.js"
+import { classifyDomainFailure } from "./domain-failure-classification.js"
 
 export class ToolParseFailure extends Data.TaggedError("ToolParseFailure")<{
   readonly cause: Cause.Cause<ParseResult.ParseError>
@@ -68,23 +69,13 @@ export const formatOperationFailure = (failure: ToolOperationFailure): string =>
   }
 }
 
-const domainFailureKind = (error: HulyDomainError): OperationFailureKind => {
-  const tag = error._tag
-  if (tag === "HulyAuthError") return "authentication"
-  if (/Unauthorized|Forbidden|Protected|PermissionScope|ApproverNotRequested/.test(tag)) return "authorization"
-  if (/Ambiguous/.test(tag)) return "ambiguity"
-  if (/Conflict|Already|InUse|Concurrent|Mismatch/.test(tag)) return "conflict"
-  if (/NotFound/.test(tag)) return "lookup"
-  return "integration"
-}
-
 const domainFailureDescription = (error: HulyDomainError): OperationFailureDescription => {
-  const kind = domainFailureKind(error)
+  const kind = classifyDomainFailure(error)
   const message =
     kind === "authentication"
       ? "Authentication failed. Check the configured Huly credentials and workspace."
       : kind === "integration"
-        ? mapDomainErrorToMcp(error).content[0].text
+        ? domainErrorMessage(error)
         : error.message
   return {
     detailTag: error._tag,

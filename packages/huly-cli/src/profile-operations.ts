@@ -1,7 +1,8 @@
-import { Effect, Redacted, Schema } from "effect"
+import { Effect, type Redacted, Schema } from "effect"
 
 import {
   type CliProfile,
+  CliProfileSchema,
   type CliProfilesFile,
   type CliProfileStore,
   CliProfileStoreError,
@@ -25,11 +26,12 @@ export const CliAuthStatusSchema = Schema.Struct({
 })
 export type CliAuthStatus = Schema.Schema.Type<typeof CliAuthStatusSchema>
 
-export interface CliProfilePatch {
-  readonly defaultProject?: string | null
-  readonly url?: string
-  readonly workspace?: string
-}
+export const CliProfilePatchSchema = Schema.Struct({
+  defaultProject: Schema.optionalWith(Schema.Union(Schema.NonEmptyTrimmedString, Schema.Null), { exact: true }),
+  url: Schema.optionalWith(CliProfileSchema.fields.url, { exact: true }),
+  workspace: Schema.optionalWith(CliProfileSchema.fields.workspace, { exact: true })
+})
+export type CliProfilePatch = Schema.Schema.Type<typeof CliProfilePatchSchema>
 
 const missingProfile = (name: ProfileName): CliProfileStoreError =>
   new CliProfileStoreError({ kind: "input", message: `Huly CLI profile '${name}' does not exist.` })
@@ -75,10 +77,12 @@ export const updateProfile = (
     const profiles = yield* store.readProfiles()
     const current = profiles.profiles[name]
     if (current === undefined) return yield* missingProfile(name)
-    yield* store.writeProfiles({
-      ...profiles,
-      profiles: { ...profiles.profiles, [name]: applyProfilePatch(current, patch) }
-    })
+    const updated = yield* Schema.decodeUnknown(CliProfileSchema)(applyProfilePatch(current, patch)).pipe(
+      Effect.mapError(
+        () => new CliProfileStoreError({ kind: "input", message: `Huly CLI profile '${name}' is invalid.` })
+      )
+    )
+    yield* store.writeProfiles({ ...profiles, profiles: { ...profiles.profiles, [name]: updated } })
   })
 
 export const selectProfile = (store: CliProfileStore, name: ProfileName): Effect.Effect<void, CliProfileStoreError> =>
@@ -98,7 +102,7 @@ export const saveLogin = (
     const profiles = yield* store.readProfiles()
     const credentials = yield* store.readCredentials()
     yield* store.writeProfiles({ ...withActiveProfile(profiles, name, profile), activeProfile: name })
-    yield* store.writeCredentials({ ...credentials, tokens: { ...credentials.tokens, [name]: Redacted.value(token) } })
+    yield* store.writeCredentials({ ...credentials, tokens: { ...credentials.tokens, [name]: token } })
   })
 
 export const logoutProfile = (
@@ -117,25 +121,23 @@ export const logoutProfile = (
     return name
   })
 
-const source = (environmentValue: string | undefined, profileValue: string | undefined) =>
-  environmentValue !== undefined
-    ? ("environment" as const)
-    : profileValue !== undefined
-      ? ("profile" as const)
-      : ("missing" as const)
+const source = (
+  environmentValue: string | undefined,
+  profileValue: string | undefined
+): CliAuthStatus["sources"]["url"] =>
+  environmentValue !== undefined ? "environment" : profileValue !== undefined ? "profile" : "missing"
 
-const authMethod = (environment: ReadonlyMap<string, string>): CliAuthStatus["authMethod"] => {
-  if (environment.has("HULY_TOKEN")) return "token"
-  return environment.has("HULY_EMAIL") && environment.has("HULY_PASSWORD") ? "password" : "none"
+const authMethod = (resolved: ResolvedCliConfiguration): CliAuthStatus["authMethod"] => {
+  if (resolved.auth.method === "token") return "token"
+  if (resolved.auth.method === "none") return "none"
+  return resolved.auth.email !== undefined && resolved.auth.password !== undefined ? "password" : "none"
 }
 
 const optionalStatusFields = (resolved: ResolvedCliConfiguration) => {
-  const url = resolved.environment.get("HULY_URL")
-  const workspace = resolved.environment.get("HULY_WORKSPACE")
   return {
     ...(resolved.profile === undefined ? {} : { profile: resolved.profile }),
-    ...(url === undefined ? {} : { url }),
-    ...(workspace === undefined ? {} : { workspace }),
+    ...(resolved.url === undefined ? {} : { url: resolved.url }),
+    ...(resolved.workspace === undefined ? {} : { workspace: resolved.workspace }),
     ...(resolved.defaultProject === undefined ? {} : { defaultProject: resolved.defaultProject })
   }
 }
@@ -146,7 +148,7 @@ const makeAuthStatus = (
   environment: NodeJS.ProcessEnv
 ): CliAuthStatus => {
   const profile = profiles.activeProfile === undefined ? undefined : profiles.profiles[profiles.activeProfile]
-  const method = authMethod(resolved.environment)
+  const method = authMethod(resolved)
   return Schema.decodeUnknownSync(CliAuthStatusSchema)({
     authenticated: method !== "none",
     authMethod: method,
@@ -155,8 +157,8 @@ const makeAuthStatus = (
       url: source(environment["HULY_URL"], profile?.url),
       workspace: source(environment["HULY_WORKSPACE"], profile?.workspace),
       authentication: source(
-        environment["HULY_TOKEN"] ?? environment["HULY_EMAIL"],
-        resolved.environment.get("HULY_TOKEN")
+        environment["HULY_TOKEN"] ?? environment["HULY_EMAIL"] ?? environment["HULY_PASSWORD"],
+        profiles.activeProfile === undefined || resolved.auth.method !== "token" ? undefined : profiles.activeProfile
       )
     }
   })

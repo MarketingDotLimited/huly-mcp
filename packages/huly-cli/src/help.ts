@@ -18,7 +18,7 @@ import {
   type CliHelpWidth,
   type CliPackageVersion
 } from "./help-schema.js"
-import { localCliCommands } from "./local-commands.js"
+import { authCommand, profileCommand } from "./local-commands.js"
 
 interface HelpRow {
   readonly command: CliHelpCommandLabel
@@ -90,7 +90,7 @@ const progressiveRootRows = (): ReadonlyArray<HelpRow> => {
       description: CliHelpDescription.make(`${count} ${count === 1 ? "command" : "commands"}`)
     }
   }
-  const localRows = [localCommandRow(localCliCommands[0]), localCommandRow(localCliCommands[1])]
+  const localRows = [localCommandRow(authCommand), localCommandRow(profileCommand)]
   return [...localRows, ...generatedRows].sort((left, right) => left.command.localeCompare(right.command))
 }
 

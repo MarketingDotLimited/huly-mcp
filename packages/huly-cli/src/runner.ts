@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises"
 import * as path from "node:path"
 
-import { Clock, ConfigProvider, Effect, Ref } from "effect"
+import { Clock, ConfigProvider, Effect, Redacted, Ref } from "effect"
 
 import { AttachmentId } from "../../../src/domain/schemas/shared.js"
 import { attachment } from "../../../src/huly/huly-plugins.js"
@@ -16,7 +16,7 @@ import { cliCommandCatalog, type CliToolName } from "./catalog.js"
 import type { CliGlobalOptions, ParsedCliCommandLine } from "./cli-options.js"
 import { buildCliInvocation, type CliInputError, type CliInvocation } from "./input.js"
 import { LocalCliService } from "./local-commands.js"
-import { resolveCliConfiguration } from "./profile-store.js"
+import { type ResolvedCliConfiguration, resolveCliConfiguration } from "./profile-store.js"
 import { CliRuntimeError, renderOperationSuccess } from "./render.js"
 import { explicitCliConfirmationMessage } from "./safety-policies.js"
 import { collectFieldSpecs } from "./schema-fields.js"
@@ -52,10 +52,25 @@ const jsonBytes = (value: unknown): number | undefined => {
   }
 }
 
-const cliAuthMethodFromEnv = (): "token" | "password" =>
-  process.env["HULY_TOKEN"] === undefined ? "password" : "token"
-
 const cliTelemetryErrorTag = (error: CliInputError | CliRuntimeError): string => error._tag
+
+const resolvedConfigProvider = (configuration: ResolvedCliConfiguration): ConfigProvider.ConfigProvider => {
+  const entries = new Map<string, string>()
+  if (configuration.url !== undefined) entries.set("HULY_URL", configuration.url)
+  if (configuration.workspace !== undefined) entries.set("HULY_WORKSPACE", configuration.workspace)
+  if (configuration.connectionTimeout !== undefined) {
+    entries.set("HULY_CONNECTION_TIMEOUT", configuration.connectionTimeout)
+  }
+  if (configuration.auth.method === "token") {
+    entries.set("HULY_TOKEN", Redacted.value(configuration.auth.token))
+  } else if (configuration.auth.method === "password") {
+    if (configuration.auth.email !== undefined) entries.set("HULY_EMAIL", configuration.auth.email)
+    if (configuration.auth.password !== undefined) {
+      entries.set("HULY_PASSWORD", Redacted.value(configuration.auth.password))
+    }
+  }
+  return ConfigProvider.fromMap(entries)
+}
 
 /* c8 ignore start -- production Huly storage adapter is covered by integration tests; unit tests exercise it through CliRunnerPorts. */
 const resultField = (success: ToolOperationSuccess, fieldName: string): unknown =>
@@ -215,7 +230,8 @@ export const runCliToolWithPorts = (
   ports: CliRunnerPorts,
   toolName: CliToolName,
   parsed: ParsedCliCommandLine,
-  defaultProject?: string
+  defaultProject?: string,
+  authMethod: "token" | "password" = "password"
 ): Effect.Effect<void, CliInputError | CliRuntimeError, TelemetryService> =>
   Effect.gen(function* () {
     const spec: CliCommandSpec = cliCommandCatalog[toolName]
@@ -225,7 +241,7 @@ export const runCliToolWithPorts = (
     const measurements = yield* Ref.make<{ readonly inputBytes?: number; readonly outputBytes?: number }>({})
 
     telemetry.sessionStart({
-      authMethod: cliAuthMethodFromEnv(),
+      authMethod,
       toolCount: Object.keys(cliCommandCatalog).length,
       toolsets: null,
       transport: "cli"
@@ -273,8 +289,14 @@ export const runCliTool = (
     const resolved = yield* resolveCliConfiguration(local.store, local.environment).pipe(
       Effect.mapError((error) => new CliRuntimeError({ kind: error.kind, message: error.message, retryable: false }))
     )
-    const provider = ConfigProvider.fromMap(new Map(resolved.environment))
+    const provider = resolvedConfigProvider(resolved)
     yield* Effect.withConfigProvider(provider)(
-      runCliToolWithPorts(defaultRunnerPorts, toolName, parsed, resolved.defaultProject)
+      runCliToolWithPorts(
+        defaultRunnerPorts,
+        toolName,
+        parsed,
+        resolved.defaultProject,
+        resolved.auth.method === "token" ? "token" : "password"
+      )
     )
   })

@@ -239,6 +239,8 @@ const INVALID_PARAMS_TAGS: ReadonlySet<HulyDomainError["_tag"]> = new Set<HulyDo
   "SequenceInUseError"
 ])
 
+export const isInvalidParamsDomainError = (error: HulyDomainError): boolean => INVALID_PARAMS_TAGS.has(error._tag)
+
 const INTERNAL_ERROR_PREFIX: Partial<Record<HulyDomainError["_tag"], string>> = {
   FileUploadError: "File upload error",
   HulyStorageConfigError: "Storage configuration error",
@@ -281,6 +283,8 @@ export const mapDomainErrorToMcp = (
   const message = prefix !== undefined ? `${prefix}: ${error.message}` : error.message
   return createErrorResponse(message, McpErrorCode.InternalError, error._tag, warnings)
 }
+
+export const domainErrorMessage = (error: HulyDomainError): string => mapDomainErrorToMcp(error).content[0].text
 
 const isClientResolutionError = (
   value: unknown

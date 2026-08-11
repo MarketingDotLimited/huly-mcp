@@ -7,6 +7,7 @@ import { Console, Context, Effect, Layer, Option, Redacted, Schema } from "effec
 
 import { HulySdk } from "../../../src/huly/sdk-deps.js"
 import {
+  CliProfilePatchSchema,
   createProfile,
   getAuthStatus,
   logoutProfile,
@@ -176,13 +177,18 @@ const profilePatch = (
   workspace: Option.Option<string>,
   defaultProject: Option.Option<string>,
   clearDefaultProject: boolean
-): CliProfilePatch => ({
-  ...Option.match(url, { onNone: () => ({}), onSome: (value) => ({ url: value }) }),
-  ...Option.match(workspace, { onNone: () => ({}), onSome: (value) => ({ workspace: value }) }),
-  ...(clearDefaultProject
-    ? { defaultProject: null }
-    : Option.match(defaultProject, { onNone: () => ({}), onSome: (value) => ({ defaultProject: value }) }))
-})
+): Effect.Effect<CliProfilePatch, CliRuntimeError> =>
+  Schema.decodeUnknown(CliProfilePatchSchema)({
+    ...Option.match(url, { onNone: () => ({}), onSome: (value) => ({ url: value }) }),
+    ...Option.match(workspace, { onNone: () => ({}), onSome: (value) => ({ workspace: value }) }),
+    ...(clearDefaultProject
+      ? { defaultProject: null }
+      : Option.match(defaultProject, { onNone: () => ({}), onSome: (value) => ({ defaultProject: value }) }))
+  }).pipe(
+    Effect.mapError(
+      () => new CliRuntimeError({ kind: "input", message: "Invalid profile update values.", retryable: false })
+    )
+  )
 
 const authLogin = Command.make("login", { profile: optionalText("profile"), json: jsonOption }, ({ json, profile }) =>
   Effect.gen(function* () {
@@ -218,7 +224,7 @@ const authLogout = Command.make("logout", { profile: optionalText("profile"), js
   })
 ).pipe(Command.withDescription("Remove the stored token for a profile."))
 
-const authCommand = Command.make("auth").pipe(
+export const authCommand = Command.make("auth").pipe(
   Command.withDescription("Authentication commands"),
   Command.withSubcommands([authLogin, authStatus, authLogout])
 )
@@ -298,15 +304,15 @@ const profileUpdate = Command.make(
           retryable: false
         })
       }
-      const patch = profilePatch(url, workspace, defaultProject, clearDefaultProject)
+      const patch = yield* profilePatch(url, workspace, defaultProject, clearDefaultProject)
       yield* updateProfile(ports.store, parsedName, patch).pipe(Effect.mapError(storeError))
       yield* print(`Updated Huly profile '${parsedName}'.`, json)
     })
 ).pipe(Command.withDescription("Update a named profile."))
 
-const profileCommand = Command.make("profile").pipe(
+export const profileCommand = Command.make("profile").pipe(
   Command.withDescription("Named Huly context profiles"),
   Command.withSubcommands([profileCreate, profileList, profileSelect, profileUpdate])
 )
 
-export const localCliCommands = [authCommand, profileCommand] as const
+export const localCliCommands = [authCommand, profileCommand]

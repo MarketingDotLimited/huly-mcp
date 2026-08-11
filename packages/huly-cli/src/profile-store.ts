@@ -43,7 +43,7 @@ export type CliProfilesFile = Schema.Schema.Type<typeof CliProfilesFileSchema>
 
 export const CliCredentialsFileSchema = Schema.Struct({
   version: Schema.Literal(1),
-  tokens: Schema.Record({ key: ProfileNameSchema, value: Schema.NonEmptyTrimmedString })
+  tokens: Schema.Record({ key: ProfileNameSchema, value: Schema.Redacted(Schema.NonEmptyTrimmedString) })
 })
 export type CliCredentialsFile = Schema.Schema.Type<typeof CliCredentialsFileSchema>
 
@@ -137,18 +137,39 @@ const writeFile = <A, I>(
   schema: Schema.Schema<A, I>,
   value: A
 ): Effect.Effect<void, CliProfileStoreError> =>
-  Effect.tryPromise({
-    try: async () => {
-      await fs.mkdir(paths.directory, { recursive: true, mode: CONFIG_DIRECTORY_MODE })
-      await fs.chmod(paths.directory, CONFIG_DIRECTORY_MODE)
-      const encoded = Schema.encodeSync(schema)(value)
-      await fs.writeFile(filePath, `${JSON.stringify(encoded, null, JSON_INDENT_SPACES)}\n`, {
-        encoding: "utf8",
-        mode: CONFIG_FILE_MODE
-      })
-      await fs.chmod(filePath, CONFIG_FILE_MODE)
-    },
-    catch: () => new CliProfileStoreError({ kind: "integration", message: `Cannot write ${filePath}.` })
+  Effect.gen(function* () {
+    const writeError = () => new CliProfileStoreError({ kind: "integration", message: `Cannot write ${filePath}.` })
+    const encoded = yield* Schema.encode(schema)(value).pipe(Effect.mapError(writeError))
+    yield* Effect.tryPromise({
+      try: async () => {
+        await fs.mkdir(paths.directory, { recursive: true, mode: CONFIG_DIRECTORY_MODE })
+        await fs.chmod(paths.directory, CONFIG_DIRECTORY_MODE)
+      },
+      catch: writeError
+    })
+    yield* Effect.acquireUseRelease(
+      Effect.tryPromise({ try: () => fs.mkdtemp(path.join(paths.directory, ".huly-write-")), catch: writeError }),
+      (temporaryDirectory) =>
+        Effect.tryPromise({
+          try: async () => {
+            const temporaryFile = path.join(temporaryDirectory, path.basename(filePath))
+            await fs.writeFile(temporaryFile, `${JSON.stringify(encoded, null, JSON_INDENT_SPACES)}\n`, {
+              encoding: "utf8",
+              flag: "wx",
+              mode: CONFIG_FILE_MODE
+            })
+            await fs.rename(temporaryFile, filePath)
+          },
+          catch: writeError
+        }),
+      (temporaryDirectory) =>
+        Effect.ignore(
+          Effect.tryPromise({
+            try: () => fs.rm(temporaryDirectory, { recursive: true, force: true }),
+            catch: writeError
+          })
+        )
+    )
   })
 
 export interface CliProfileStore {
@@ -167,47 +188,87 @@ export const makeCliProfileStore = (paths: CliProfilePaths): CliProfileStore => 
   writeProfiles: (profiles) => writeFile(paths, paths.profiles, CliProfilesFileSchema, profiles)
 })
 
-export interface ResolvedCliConfiguration {
-  readonly defaultProject?: string
-  readonly environment: ReadonlyMap<string, string>
-  readonly profile?: ProfileName
-}
+const ResolvedCliAuthSchema = Schema.Union(
+  Schema.Struct({ method: Schema.Literal("none") }),
+  Schema.Struct({ method: Schema.Literal("token"), token: Schema.Redacted(Schema.NonEmptyTrimmedString) }),
+  Schema.Struct({
+    method: Schema.Literal("password"),
+    email: Schema.optionalWith(Schema.NonEmptyTrimmedString, { exact: true }),
+    password: Schema.optionalWith(Schema.Redacted(Schema.NonEmptyString), { exact: true })
+  })
+)
+export type ResolvedCliAuth = Schema.Schema.Type<typeof ResolvedCliAuthSchema>
+
+export const ResolvedCliConfigurationSchema = Schema.Struct({
+  auth: ResolvedCliAuthSchema,
+  url: Schema.optionalWith(ProfileUrlSchema, { exact: true }),
+  workspace: Schema.optionalWith(Schema.NonEmptyTrimmedString, { exact: true }),
+  connectionTimeout: Schema.optionalWith(Schema.NonEmptyTrimmedString, { exact: true }),
+  defaultProject: Schema.optionalWith(Schema.NonEmptyTrimmedString, { exact: true }),
+  profile: Schema.optionalWith(ProfileNameSchema, { exact: true })
+})
+export type ResolvedCliConfiguration = Schema.Schema.Type<typeof ResolvedCliConfigurationSchema>
 
 const environmentValue = (environment: NodeJS.ProcessEnv, name: string): string | undefined => {
   const value = environment[name]
   return value === undefined || value.length === 0 ? undefined : value
 }
 
-const resolvedEnvironment = (
+const resolvedAuth = (
   environment: NodeJS.ProcessEnv,
-  profile: CliProfile | undefined,
-  token: string | undefined
-): ReadonlyMap<string, string> => {
-  const entries: ReadonlyArray<readonly [string, string | undefined]> = [
-    ["HULY_URL", environmentValue(environment, "HULY_URL") ?? profile?.url],
-    ["HULY_WORKSPACE", environmentValue(environment, "HULY_WORKSPACE") ?? profile?.workspace],
-    ["HULY_TOKEN", environmentValue(environment, "HULY_TOKEN") ?? token],
-    ["HULY_EMAIL", environmentValue(environment, "HULY_EMAIL")],
-    ["HULY_PASSWORD", environmentValue(environment, "HULY_PASSWORD")],
-    ["HULY_CONNECTION_TIMEOUT", environmentValue(environment, "HULY_CONNECTION_TIMEOUT")]
-  ]
-  const resolved = new Map<string, string>()
-  for (const [name, value] of entries) {
-    if (value !== undefined) resolved.set(name, value)
+  token: Redacted.Redacted<string> | undefined
+): ResolvedCliAuth => {
+  const environmentToken = environmentValue(environment, "HULY_TOKEN")
+  if (environmentToken !== undefined) return { method: "token", token: Redacted.make(environmentToken) }
+  const email = environmentValue(environment, "HULY_EMAIL")
+  const password = environmentValue(environment, "HULY_PASSWORD")
+  if (email !== undefined || password !== undefined) {
+    return {
+      method: "password",
+      ...(email === undefined ? {} : { email }),
+      ...(password === undefined ? {} : { password: Redacted.make(password) })
+    }
   }
-  return resolved
+  return token === undefined ? { method: "none" } : { method: "token", token }
 }
+
+const resolvedEndpointFields = (environment: NodeJS.ProcessEnv, profile: CliProfile | undefined) => {
+  const url = environmentValue(environment, "HULY_URL") ?? profile?.url
+  const workspace = environmentValue(environment, "HULY_WORKSPACE") ?? profile?.workspace
+  const connectionTimeout = environmentValue(environment, "HULY_CONNECTION_TIMEOUT")
+  return {
+    ...(url === undefined ? {} : { url }),
+    ...(workspace === undefined ? {} : { workspace }),
+    ...(connectionTimeout === undefined ? {} : { connectionTimeout })
+  }
+}
+
+const resolvedProfileFields = (name: ProfileName | undefined, profile: CliProfile | undefined) => ({
+  ...(profile?.defaultProject === undefined ? {} : { defaultProject: profile.defaultProject }),
+  ...(name === undefined ? {} : { profile: name })
+})
+
+const tokenForProfile = (
+  name: ProfileName | undefined,
+  credentials: CliCredentialsFile
+): Redacted.Redacted<string> | undefined => (name === undefined ? undefined : credentials.tokens[name])
 
 const resolvedConfiguration = (
   name: ProfileName | undefined,
   profile: CliProfile | undefined,
   credentials: CliCredentialsFile,
   environment: NodeJS.ProcessEnv
-): ResolvedCliConfiguration => ({
-  ...(profile?.defaultProject === undefined ? {} : { defaultProject: profile.defaultProject }),
-  environment: resolvedEnvironment(environment, profile, name === undefined ? undefined : credentials.tokens[name]),
-  ...(name === undefined ? {} : { profile: name })
-})
+): Effect.Effect<ResolvedCliConfiguration, CliProfileStoreError> => {
+  return Schema.validate(ResolvedCliConfigurationSchema)({
+    auth: resolvedAuth(environment, tokenForProfile(name, credentials)),
+    ...resolvedEndpointFields(environment, profile),
+    ...resolvedProfileFields(name, profile)
+  }).pipe(
+    Effect.mapError(
+      () => new CliProfileStoreError({ kind: "input", message: "Invalid resolved Huly CLI configuration." })
+    )
+  )
+}
 
 export const resolveCliConfiguration = (
   store: CliProfileStore,
@@ -218,7 +279,7 @@ export const resolveCliConfiguration = (
     const credentials = yield* store.readCredentials()
     const activeName = profiles.activeProfile
     const active = activeName === undefined ? undefined : profiles.profiles[activeName]
-    return resolvedConfiguration(activeName, active, credentials, environment)
+    return yield* resolvedConfiguration(activeName, active, credentials, environment)
   })
 
 export const storedToken = (value: string): Redacted.Redacted<string> => Redacted.make(value)

@@ -45,7 +45,7 @@ describe("CLI profile store", () => {
 
     expect(await Effect.runPromise(store.readProfiles())).toEqual({ version: 1, profiles: {} })
     expect(await Effect.runPromise(store.readCredentials())).toEqual({ version: 1, tokens: {} })
-    expect(Object.fromEntries((await Effect.runPromise(resolveCliConfiguration(store, {}))).environment)).toEqual({})
+    expect(await Effect.runPromise(resolveCliConfiguration(store, {}))).toMatchObject({ auth: { method: "none" } })
   })
 
   it("resolves active profile values while giving each environment variable priority", async () => {
@@ -58,17 +58,16 @@ describe("CLI profile store", () => {
         profiles: { [work]: { url: "https://profile.example", workspace: "profile-space", defaultProject: "CLI" } }
       })
     )
-    await Effect.runPromise(store.writeCredentials({ version: 1, tokens: { [work]: "stored-token" } }))
+    await Effect.runPromise(store.writeCredentials({ version: 1, tokens: { [work]: storedToken("stored-token") } }))
 
     const resolved = await Effect.runPromise(
       resolveCliConfiguration(store, { HULY_URL: "https://environment.example", HULY_TOKEN: "environment-token" })
     )
 
-    expect(Object.fromEntries(resolved.environment)).toEqual({
-      HULY_URL: "https://environment.example",
-      HULY_WORKSPACE: "profile-space",
-      HULY_TOKEN: "environment-token"
-    })
+    expect(resolved.url).toBe("https://environment.example")
+    expect(resolved.workspace).toBe("profile-space")
+    expect(resolved.auth.method).toBe("token")
+    if (resolved.auth.method === "token") expect(Redacted.value(resolved.auth.token)).toBe("environment-token")
     expect(resolved.defaultProject).toBe("CLI")
     expect(resolved.profile).toBe("work")
   })
@@ -83,7 +82,7 @@ describe("CLI profile store", () => {
         profiles: { [personal]: { url: "http://localhost:8087", workspace: "ws" } }
       })
     )
-    await Effect.runPromise(store.writeCredentials({ version: 1, tokens: { [personal]: "saved-token" } }))
+    await Effect.runPromise(store.writeCredentials({ version: 1, tokens: { [personal]: storedToken("saved-token") } }))
 
     const profileMode = (await fs.stat(store.paths.profiles)).mode & 0o777
     const credentialMode = (await fs.stat(store.paths.credentials)).mode & 0o777
@@ -157,13 +156,78 @@ describe("CLI profile store", () => {
       })
     )
 
-    expect(Object.fromEntries(resolved.environment)).toEqual({
-      HULY_CONNECTION_TIMEOUT: "5000",
-      HULY_EMAIL: "agent@example.com",
-      HULY_PASSWORD: "ephemeral",
-      HULY_WORKSPACE: "workspace"
-    })
+    expect(resolved.connectionTimeout).toBe("5000")
+    expect(resolved.workspace).toBe("workspace")
+    expect(resolved.auth.method).toBe("password")
+    if (resolved.auth.method === "password") {
+      expect(resolved.auth.email).toBe("agent@example.com")
+      expect(resolved.auth.password === undefined ? undefined : Redacted.value(resolved.auth.password)).toBe(
+        "ephemeral"
+      )
+    }
     expect(await Effect.runPromise(store.readCredentials())).toEqual({ version: 1, tokens: {} })
+  })
+
+  it("lets environment password authentication override a stored profile token", async () => {
+    const store = await temporaryStore()
+    const work = await profileName("work")
+    await Effect.runPromise(
+      store.writeProfiles({
+        version: 1,
+        activeProfile: work,
+        profiles: { [work]: { url: "https://profile.example", workspace: "workspace" } }
+      })
+    )
+    await Effect.runPromise(store.writeCredentials({ version: 1, tokens: { [work]: storedToken("stored") } }))
+
+    const resolved = await Effect.runPromise(
+      resolveCliConfiguration(store, { HULY_EMAIL: "agent@example.com", HULY_PASSWORD: "environment" })
+    )
+
+    expect(resolved.auth.method).toBe("password")
+    if (resolved.auth.method === "password") {
+      expect(resolved.auth.password === undefined ? undefined : Redacted.value(resolved.auth.password)).toBe(
+        "environment"
+      )
+    }
+  })
+
+  it("preserves partial password authentication for downstream config diagnostics", async () => {
+    const store = await temporaryStore()
+
+    const emailOnly = await Effect.runPromise(resolveCliConfiguration(store, { HULY_EMAIL: "agent@example.com" }))
+    const passwordOnly = await Effect.runPromise(resolveCliConfiguration(store, { HULY_PASSWORD: "password" }))
+
+    expect(emailOnly.auth).toMatchObject({ method: "password", email: "agent@example.com" })
+    expect(passwordOnly.auth.method).toBe("password")
+    if (passwordOnly.auth.method === "password") {
+      expect(passwordOnly.auth.password === undefined ? undefined : Redacted.value(passwordOnly.auth.password)).toBe(
+        "password"
+      )
+    }
+  })
+
+  it("rejects an invalid environment URL at the resolved configuration boundary", async () => {
+    const store = await temporaryStore()
+
+    const exit = await Effect.runPromiseExit(resolveCliConfiguration(store, { HULY_URL: "not-a-url" }))
+
+    expect(exit.toString()).toContain("Invalid resolved Huly CLI configuration")
+  })
+
+  it("atomically replaces a credentials symlink without writing through it", async () => {
+    const store = await temporaryStore()
+    const personal = await profileName("personal")
+    await fs.mkdir(store.paths.directory, { recursive: true })
+    const unrelated = path.join(store.paths.directory, "unrelated.json")
+    await fs.writeFile(unrelated, "unchanged", { mode: 0o644 })
+    await fs.symlink(unrelated, store.paths.credentials)
+
+    await Effect.runPromise(store.writeCredentials({ version: 1, tokens: { [personal]: storedToken("saved-token") } }))
+
+    expect(await fs.readFile(unrelated, "utf8")).toBe("unchanged")
+    expect((await fs.lstat(store.paths.credentials)).isSymbolicLink()).toBe(false)
+    expect((await fs.stat(store.paths.credentials)).mode & 0o777).toBe(0o600)
   })
 
   it("switches profiles by changing only the active profile name", async () => {
@@ -184,6 +248,6 @@ describe("CLI profile store", () => {
     const resolved = await Effect.runPromise(resolveCliConfiguration(store, {}))
 
     expect(resolved.profile).toBe("second")
-    expect(resolved.environment.get("HULY_URL")).toBe("https://second.example")
+    expect(resolved.url).toBe("https://second.example")
   })
 })

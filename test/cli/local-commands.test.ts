@@ -190,6 +190,12 @@ describe("Effect CLI local commands", () => {
     ).rejects.toThrow("Invalid profile values")
     await run(ports, ["profile", "create", "duplicate", "--url", "https://valid.example", "--workspace", "ws"])
     await run(ports, ["profile", "update", "duplicate", "--url", "https://updated.example"])
+    await expect(run(ports, ["profile", "update", "duplicate", "--url", "ftp://invalid.example"])).rejects.toThrow(
+      "Invalid profile update values"
+    )
+    await expect(run(ports, ["profile", "update", "duplicate", "--workspace", ""])).rejects.toThrow(
+      "Invalid profile update values"
+    )
     await expect(
       run(ports, ["profile", "create", "duplicate", "--url", "https://valid.example", "--workspace", "ws"])
     ).rejects.toThrow("already exists")
@@ -225,5 +231,13 @@ describe("Effect CLI local commands", () => {
 
     expect(status).toContain('"authMethod": "password"')
     expect(status).not.toContain("secret")
+  })
+
+  it("does not report incomplete password authentication as authenticated", async () => {
+    const base = await makePorts()
+    const ports: LocalCliPorts = { ...base, environment: { HULY_EMAIL: "agent@example.com" } }
+    const status = JSON.parse((await run(ports, ["auth", "status", "--json"])).join("\n"))
+
+    expect(status).toMatchObject({ authenticated: false, authMethod: "none" })
   })
 })

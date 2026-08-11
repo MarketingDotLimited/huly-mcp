@@ -5,15 +5,18 @@ import { Cause, Effect, Schema } from "effect"
 import { expect } from "vitest"
 
 import { CanonicalBase64ImageData, SupportedAttachmentImageTypeSchema } from "../../src/domain/schemas/attachments.js"
+import { Count } from "../../src/domain/schemas/shared.js"
 import type { HulyClientOperations } from "../../src/huly/client.js"
 import { HulyClient } from "../../src/huly/client.js"
 import { Diagnostics } from "../../src/huly/diagnostics.js"
 import {
   ApprovalRequestApproverNotRequestedError,
+  DocumentTextMultipleMatchesError,
   HulyAuthError,
   HulyConnectionError,
   HulyError,
   InventoryConflictError,
+  NoUpdateFieldsError,
   ProjectNotFoundError,
   TodoIdentifierAmbiguousError
 } from "../../src/huly/errors.js"
@@ -190,8 +193,14 @@ describe("describeOperationFailure", () => {
         retryable: false
       },
       { error: new TodoIdentifierAmbiguousError({ locator: "todo", matches: 2 }), kind: "ambiguity", retryable: false },
+      {
+        error: new DocumentTextMultipleMatchesError({ searchText: "same", matchCount: Count.make(2) }),
+        kind: "ambiguity",
+        retryable: false
+      },
       { error: new InventoryConflictError({ message: "conflict" }), kind: "conflict", retryable: false },
       { error: new ProjectNotFoundError({ identifier: "HULY" }), kind: "lookup", retryable: false },
+      { error: new NoUpdateFieldsError({ operation: "update", fields: ["title"] }), kind: "input", retryable: false },
       { error: new HulyConnectionError({ message: "offline" }), kind: "integration", retryable: true },
       { error: new HulyError({ message: "integration failed" }), kind: "integration", retryable: false }
     ]
