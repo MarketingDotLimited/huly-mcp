@@ -1,5 +1,12 @@
 # @firfi/huly-cli
 
+## 0.48.0
+
+### Minor Changes
+
+- d10dffd: Add Effect CLI authentication and profile commands, stable structured failures, terminal-aware
+  catalog rendering, and a generated installable agent skill.
+
 ## 0.47.3
 
 ### Patch Changes
