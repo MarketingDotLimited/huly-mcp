@@ -139,8 +139,8 @@ describe("listWorkbenchApplications", () => {
 
   it("rejects simultaneous exact and substring aliases", () => {
     expect(
-      Schema.decodeUnknownEither(ListWorkbenchApplicationsParamsSchema)({ alias: "tracker", aliasSearch: "track" })._tag
-    ).toBe("Left")
+      Schema.decodeUnknownResult(ListWorkbenchApplicationsParamsSchema)({ alias: "tracker", aliasSearch: "track" })._tag
+    ).toBe("Failure")
   })
 
   it.effect("returns typed application navigation and caller-only hidden preference", () =>
@@ -173,7 +173,7 @@ describe("listWorkbenchApplications", () => {
         space: core.space.Workspace,
         createdBy: caller
       })
-      expect(Schema.decodeUnknownEither(ListWorkbenchApplicationsResultSchema)(result)._tag).toBe("Right")
+      expect(Schema.decodeUnknownResult(ListWorkbenchApplicationsResultSchema)(result)._tag).toBe("Success")
     })
   )
 

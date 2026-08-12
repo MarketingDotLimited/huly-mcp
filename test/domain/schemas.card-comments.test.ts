@@ -1,9 +1,10 @@
 import { describe, it } from "@effect/vitest"
-import { Effect, Either, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 import { expect } from "vitest"
 
 import {
   DeleteCardCommentResultSchema,
+  addCardCommentParamsJsonSchema,
   parseAddCardCommentParams,
   parseDeleteCardCommentParams,
   parseListCardCommentsParams,
@@ -26,13 +27,13 @@ describe("card comment schemas", () => {
   it.effect("requires non-empty markdown bodies for add and update", () =>
     Effect.gen(function* () {
       expect(
-        Either.isLeft(
-          yield* Effect.either(parseAddCardCommentParams({ cardSpace: "space-1", card: "card-1", body: "" }))
+        Result.isFailure(
+          yield* Effect.result(parseAddCardCommentParams({ cardSpace: "space-1", card: "card-1", body: "" }))
         )
       ).toBe(true)
       expect(
-        Either.isLeft(
-          yield* Effect.either(
+        Result.isFailure(
+          yield* Effect.result(
             parseUpdateCardCommentParams({ cardSpace: "space-1", card: "card-1", commentId: "comment-1", body: "" })
           )
         )
@@ -64,9 +65,14 @@ describe("card comment schemas", () => {
   )
 
   it("accepts only true for a successful delete result", () => {
-    const decode = Schema.decodeUnknownEither(DeleteCardCommentResultSchema)
+    const decode = Schema.decodeUnknownResult(DeleteCardCommentResultSchema)
 
-    expect(Either.isRight(decode({ cardId: "card-1", commentId: "comment-1", deleted: true }))).toBe(true)
-    expect(Either.isLeft(decode({ cardId: "card-1", commentId: "comment-1", deleted: false }))).toBe(true)
+    expect(Result.isSuccess(decode({ cardId: "card-1", commentId: "comment-1", deleted: true }))).toBe(true)
+    expect(Result.isFailure(decode({ cardId: "card-1", commentId: "comment-1", deleted: false }))).toBe(true)
+  })
+
+  it("preserves public field descriptions", () => {
+    expect(JSON.stringify(addCardCommentParamsJsonSchema)).toContain("Comment body in markdown")
+    expect(JSON.stringify(addCardCommentParamsJsonSchema)).toContain("Card space name or ID")
   })
 })

@@ -19,7 +19,7 @@ import {
   TaskTypeId
 } from "./shared.js"
 
-const OutputInteger = Schema.Number.pipe(Schema.int(), Schema.nonNegative())
+const OutputInteger = Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))
 
 export const BoardSummarySchema = Schema.Struct({
   id: BoardId,

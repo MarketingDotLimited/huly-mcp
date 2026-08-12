@@ -1,6 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
-import { withJsonSchemaPropertyDescriptions } from "./json-schema.js"
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 import {
   Count,
   DEFAULT_LIMIT,
@@ -11,7 +11,7 @@ import {
   NonEmptyString
 } from "./shared.js"
 
-const SdkOpenPayload = Schema.Unknown.annotations({
+const SdkOpenPayload = Schema.Unknown.annotate({
   description: "Raw SDK-owned payload passed through without inventing a closed MCP-side schema."
 })
 
@@ -33,7 +33,7 @@ export type BoardViewletPreferenceId = Schema.Schema.Type<typeof BoardViewletPre
 export const BoardCommonPreferenceId = DocId.pipe(Schema.brand("BoardCommonPreferenceId"))
 export type BoardCommonPreferenceId = Schema.Schema.Type<typeof BoardCommonPreferenceId>
 
-export const BoardMenuPageIdentifier = NonEmptyString.pipe(Schema.brand("BoardMenuPageIdentifier")).annotations({
+export const BoardMenuPageIdentifier = NonEmptyString.pipe(Schema.brand("BoardMenuPageIdentifier")).annotate({
   identifier: "BoardMenuPageIdentifier",
   title: "BoardMenuPageIdentifier",
   description:
@@ -41,21 +41,21 @@ export const BoardMenuPageIdentifier = NonEmptyString.pipe(Schema.brand("BoardMe
 })
 export type BoardMenuPageIdentifier = Schema.Schema.Type<typeof BoardMenuPageIdentifier>
 
-export const BoardSavedViewIdentifier = NonEmptyString.pipe(Schema.brand("BoardSavedViewIdentifier")).annotations({
+export const BoardSavedViewIdentifier = NonEmptyString.pipe(Schema.brand("BoardSavedViewIdentifier")).annotate({
   identifier: "BoardSavedViewIdentifier",
   title: "BoardSavedViewIdentifier",
   description: "Board saved view locator: FilteredView _id or exact saved view name."
 })
 export type BoardSavedViewIdentifier = Schema.Schema.Type<typeof BoardSavedViewIdentifier>
 
-export const BoardViewletIdentifier = NonEmptyString.pipe(Schema.brand("BoardViewletIdentifier")).annotations({
+export const BoardViewletIdentifier = NonEmptyString.pipe(Schema.brand("BoardViewletIdentifier")).annotate({
   identifier: "BoardViewletIdentifier",
   title: "BoardViewletIdentifier",
   description: "Board viewlet locator: Viewlet _id, exact title, variant, or descriptor _id."
 })
 export type BoardViewletIdentifier = Schema.Schema.Type<typeof BoardViewletIdentifier>
 
-export const BoardSavedViewVisibilitySchema = Schema.Literal("own", "shared", "all").annotations({
+export const BoardSavedViewVisibilitySchema = Schema.Literals(["own", "shared", "all"]).annotate({
   title: "BoardSavedViewVisibility",
   description: "Filter board saved views by whether the current account is in the saved view users list."
 })
@@ -63,14 +63,14 @@ export type BoardSavedViewVisibility = Schema.Schema.Type<typeof BoardSavedViewV
 
 export const ListBoardMenuPagesParamsSchema = Schema.Struct({
   page: Schema.optional(
-    BoardMenuPageIdentifier.annotations({
+    BoardMenuPageIdentifier.annotate({
       description: "Optional MenuPage _id, pageId, or exact label. Omit to list all board menu pages."
     })
   ),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of board menu pages to return (default: ${DEFAULT_LIMIT}).` })
+    LimitParam.annotateKey({ description: `Maximum number of board menu pages to return (default: ${DEFAULT_LIMIT}).` })
   )
-}).annotations({
+}).annotate({
   title: "ListBoardMenuPagesParams",
   description: "Read-only discovery for @hcengineering/board MenuPage model documents."
 })
@@ -78,13 +78,13 @@ export type ListBoardMenuPagesParams = Schema.Schema.Type<typeof ListBoardMenuPa
 
 export const ListBoardSavedViewsParamsSchema = Schema.Struct({
   visibility: Schema.optional(BoardSavedViewVisibilitySchema),
-  nameSearch: Schema.optional(Schema.String.annotations({ description: "Optional saved view name substring search." })),
+  nameSearch: Schema.optional(Schema.String.annotateKey({ description: "Optional saved view name substring search." })),
   limit: Schema.optional(
-    LimitParam.annotations({
+    LimitParam.annotateKey({
       description: `Maximum number of board saved views to return (default: ${DEFAULT_LIMIT}).`
     })
   )
-}).annotations({
+}).annotate({
   title: "ListBoardSavedViewsParams",
   description:
     "List read-only saved filtered views for the board app. Queries view.class.FilteredView with attachedTo = board.app.Board."
@@ -92,10 +92,10 @@ export const ListBoardSavedViewsParamsSchema = Schema.Struct({
 export type ListBoardSavedViewsParams = Schema.Schema.Type<typeof ListBoardSavedViewsParamsSchema>
 
 export const GetBoardSavedViewParamsSchema = Schema.Struct({
-  savedView: BoardSavedViewIdentifier.annotations({
+  savedView: BoardSavedViewIdentifier.annotate({
     description: "FilteredView _id or exact saved view name scoped to attachedTo = board.app.Board."
   })
-}).annotations({
+}).annotate({
   title: "GetBoardSavedViewParams",
   description: "Read one board saved filtered view by _id or exact name."
 })
@@ -103,14 +103,14 @@ export type GetBoardSavedViewParams = Schema.Schema.Type<typeof GetBoardSavedVie
 
 export const ListBoardViewletsParamsSchema = Schema.Struct({
   viewlet: Schema.optional(
-    BoardViewletIdentifier.annotations({
+    BoardViewletIdentifier.annotate({
       description: "Optional Viewlet _id, exact title, variant, or descriptor _id. Omit to list board card viewlets."
     })
   ),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of board viewlets to return (default: ${DEFAULT_LIMIT}).` })
+    LimitParam.annotateKey({ description: `Maximum number of board viewlets to return (default: ${DEFAULT_LIMIT}).` })
   )
-}).annotations({
+}).annotate({
   title: "ListBoardViewletsParams",
   description:
     "Read-only discovery for board card viewlets. Queries view.class.Viewlet with attachTo = board.class.Card and includes matching ViewletPreference config rows."
@@ -154,7 +154,7 @@ export type BoardViewletPreferenceConfig = Schema.Schema.Type<typeof ViewletPref
 export const BoardSavedViewSummarySchema = Schema.Struct({
   id: BoardSavedViewId,
   name: NonEmptyString,
-  visibility: Schema.Literal("own", "shared"),
+  visibility: Schema.Literals(["own", "shared"]),
   sharable: Schema.optional(Schema.Boolean),
   users: Count,
   viewletId: Schema.optional(BoardViewletId)
@@ -164,7 +164,7 @@ export type BoardSavedViewSummary = Schema.Schema.Type<typeof BoardSavedViewSumm
 export const BoardSavedViewDetailSchema = Schema.Struct({
   id: BoardSavedViewId,
   name: NonEmptyString,
-  visibility: Schema.Literal("own", "shared"),
+  visibility: Schema.Literals(["own", "shared"]),
   attachedTo: NonEmptyString,
   location: SdkOpenPayload,
   filters: SdkOpenPayload,
@@ -219,25 +219,35 @@ const PresentBoardCommonPreferenceResultSchema = Schema.Struct({
   raw: SdkOpenPayload
 })
 
-export const BoardCommonPreferenceResultSchema = Schema.Union(
+export const BoardCommonPreferenceResultSchema = Schema.Union([
   AbsentBoardCommonPreferenceResultSchema,
   PresentBoardCommonPreferenceResultSchema
-)
+])
 export type BoardCommonPreferenceResult = Schema.Schema.Type<typeof BoardCommonPreferenceResultSchema>
 
-export const listBoardMenuPagesParamsJsonSchema = JSONSchema.make(ListBoardMenuPagesParamsSchema)
-export const listBoardSavedViewsParamsJsonSchema = JSONSchema.make(ListBoardSavedViewsParamsSchema)
+const BOARD_VIEW_PARAM_DESCRIPTIONS = {
+  page: "Board menu page ID, exact name, or label.",
+  savedView: "Saved board view ID or exact name.",
+  viewlet: "Board viewlet ID, exact title, variant, or descriptor ID.",
+  visibility: "Saved-view visibility filter.",
+  nameSearch: "Case-insensitive saved-view name search.",
+  limit: `Maximum number of rows to return (default: ${DEFAULT_LIMIT}).`
+} as const
+const boardViewParamsJsonSchema = (schema: Schema.Constraint): object =>
+  withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(schema), BOARD_VIEW_PARAM_DESCRIPTIONS)
+export const listBoardMenuPagesParamsJsonSchema = boardViewParamsJsonSchema(ListBoardMenuPagesParamsSchema)
+export const listBoardSavedViewsParamsJsonSchema = boardViewParamsJsonSchema(ListBoardSavedViewsParamsSchema)
 export const getBoardSavedViewParamsJsonSchema = {
-  ...withJsonSchemaPropertyDescriptions(JSONSchema.make(GetBoardSavedViewParamsSchema), {
+  ...withJsonSchemaPropertyDescriptions(boardViewParamsJsonSchema(GetBoardSavedViewParamsSchema), {
     savedView: "FilteredView _id or exact saved view name scoped to attachedTo = board.app.Board."
   }),
   description: "Read one board saved filtered view by _id or exact name scoped to attachedTo = board.app.Board."
 }
-export const listBoardViewletsParamsJsonSchema = JSONSchema.make(ListBoardViewletsParamsSchema)
+export const listBoardViewletsParamsJsonSchema = boardViewParamsJsonSchema(ListBoardViewletsParamsSchema)
 export const getBoardCommonPreferenceParamsJsonSchema = emptyParamsJsonSchema
 
-export const parseListBoardMenuPagesParams = Schema.decodeUnknown(ListBoardMenuPagesParamsSchema)
-export const parseListBoardSavedViewsParams = Schema.decodeUnknown(ListBoardSavedViewsParamsSchema)
-export const parseGetBoardSavedViewParams = Schema.decodeUnknown(GetBoardSavedViewParamsSchema)
-export const parseListBoardViewletsParams = Schema.decodeUnknown(ListBoardViewletsParamsSchema)
-export const parseGetBoardCommonPreferenceParams = Schema.decodeUnknown(EmptyParamsSchema)
+export const parseListBoardMenuPagesParams = Schema.decodeUnknownEffect(ListBoardMenuPagesParamsSchema)
+export const parseListBoardSavedViewsParams = Schema.decodeUnknownEffect(ListBoardSavedViewsParamsSchema)
+export const parseGetBoardSavedViewParams = Schema.decodeUnknownEffect(GetBoardSavedViewParamsSchema)
+export const parseListBoardViewletsParams = Schema.decodeUnknownEffect(ListBoardViewletsParamsSchema)
+export const parseGetBoardCommonPreferenceParams = Schema.decodeUnknownEffect(EmptyParamsSchema)

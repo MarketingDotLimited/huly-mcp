@@ -1,5 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
+import { toDraft07JsonSchema } from "./json-schema.js"
 import { DocId, EmptyParamsSchema, NonEmptyString, Timestamp } from "./shared.js"
 
 const MINIMUM_AMBIGUOUS_SUPPORT_SYSTEMS = 2
@@ -15,7 +16,7 @@ export type SupportProviderConversationId = Schema.Schema.Type<typeof SupportPro
 export const SupportUnsupportedReason = NonEmptyString.pipe(Schema.brand("SupportUnsupportedReason"))
 export type SupportUnsupportedReason = Schema.Schema.Type<typeof SupportUnsupportedReason>
 
-export const GetSupportStatusParamsSchema = EmptyParamsSchema.annotations({
+export const GetSupportStatusParamsSchema = EmptyParamsSchema.annotate({
   title: "GetSupportStatusParams",
   description: "No selectors are accepted because support status is private to the authenticated Huly account."
 })
@@ -31,30 +32,30 @@ const ConfiguredSupportSetupSchema = Schema.Struct({
 })
 const AmbiguousSupportSetupSchema = Schema.Struct({
   status: Schema.Literal("ambiguous"),
-  systems: Schema.Array(SupportSystemSummarySchema).pipe(Schema.minItems(MINIMUM_AMBIGUOUS_SUPPORT_SYSTEMS))
+  systems: Schema.Array(SupportSystemSummarySchema).check(Schema.isMinLength(MINIMUM_AMBIGUOUS_SUPPORT_SYSTEMS))
 })
 
-export const SupportSetupSchema = Schema.Union(
+export const SupportSetupSchema = Schema.Union([
   MissingSupportSetupSchema,
   ConfiguredSupportSetupSchema,
   AmbiguousSupportSetupSchema
-)
+])
 export type SupportSetup = Schema.Schema.Type<typeof SupportSetupSchema>
 
 export const SupportStatusRecordSchema = Schema.Struct({
   recordId: SupportStatusRecordId,
-  providerConversationId: SupportProviderConversationId.annotations({
+  providerConversationId: SupportProviderConversationId.annotate({
     description:
       "Opaque support-widget/provider identifier; it is not a Huly channel, human-readable support number, or participant identity."
   }),
-  storedHasUnreadMessages: Schema.Boolean.annotations({
+  storedHasUnreadMessages: Schema.Boolean.annotate({
     description: "Stored Huly fallback value; it is not a live provider unread count and has no freshness guarantee."
   }),
   modifiedOn: Timestamp
 })
 export type SupportStatusRecord = Schema.Schema.Type<typeof SupportStatusRecordSchema>
 
-const SupportStatusRecordsSchema = Schema.Array(SupportStatusRecordSchema).annotations({
+const SupportStatusRecordsSchema = Schema.Array(SupportStatusRecordSchema).annotate({
   description:
     "Authenticated caller's private stored widget-status rows. Orphaned rows may remain when setup is missing. No message body, participant, attachment, or transcript is available."
 })
@@ -71,15 +72,15 @@ const SupportModelAvailableSchema = Schema.Struct({
   statusRecords: SupportStatusRecordsSchema
 })
 
-export const GetSupportStatusResultSchema = Schema.Union(
+export const GetSupportStatusResultSchema = Schema.Union([
   SupportModelUnavailableSchema,
   SupportModelAvailableSchema
-).annotations({
+]).annotate({
   title: "GetSupportStatusResult",
   description:
     "Workspace support-model/system discovery plus caller-private stored widget status, or an explicit model-unavailable result; this does not prove a live provider connection."
 })
 export type GetSupportStatusResult = Schema.Schema.Type<typeof GetSupportStatusResultSchema>
 
-export const getSupportStatusParamsJsonSchema = JSONSchema.make(GetSupportStatusParamsSchema)
-export const parseGetSupportStatusParams = Schema.decodeUnknown(GetSupportStatusParamsSchema)
+export const getSupportStatusParamsJsonSchema = toDraft07JsonSchema(GetSupportStatusParamsSchema)
+export const parseGetSupportStatusParams = Schema.decodeUnknownEffect(GetSupportStatusParamsSchema)

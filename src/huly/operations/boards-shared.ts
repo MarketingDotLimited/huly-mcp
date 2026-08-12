@@ -71,7 +71,7 @@ export type BoardCardWriteError =
   | BoardArchivedCardDeleteError
 
 interface ResolvedBoard {
-  readonly client: HulyClient["Type"]
+  readonly client: HulyClient["Service"]
   readonly board: HulyBoard
 }
 
@@ -91,7 +91,7 @@ const isBoardProjectType = (projectType: ProjectType): boolean =>
   projectType.descriptor === board.descriptors.BoardType && projectType.targetClass === board.class.Board
 
 const resolveBoard = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: BoardRef,
   options: { readonly includeArchived?: boolean } = {}
 ): Effect.Effect<HulyBoard, BoardResolverError> =>
@@ -126,7 +126,7 @@ export const resolveBoardFromContext = (
   })
 
 export const resolveBoardProjectType = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   projectTypeRef: string | undefined
 ): Effect.Effect<
   ProjectType,
@@ -150,7 +150,7 @@ export const resolveBoardProjectType = (
   })
 
 export const getBoardProjectType = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   resolvedBoard: HulyBoard
 ): Effect.Effect<ProjectType, HulyClientError | BoardProjectTypeNotFoundError> =>
   Effect.gen(function* () {
@@ -167,7 +167,7 @@ const mergeTaskTypes = (first: ReadonlyArray<TaskType>, second: ReadonlyArray<Ta
 ]
 
 export const getBoardTaskTypes = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   projectType: ProjectType
 ): Effect.Effect<ReadonlyArray<TaskType>, HulyClientError> =>
   Effect.gen(function* () {
@@ -191,7 +191,7 @@ const isBoardCardTaskType = (taskType: TaskType): boolean =>
   taskType.targetClass === board.class.Card
 
 export const resolveBoardTaskType = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   resolvedBoard: HulyBoard,
   projectType: ProjectType,
   taskTypeRef: string | undefined
@@ -226,7 +226,7 @@ const orderedStatusIdsForTaskType = (projectType: ProjectType, taskType: TaskTyp
 // Workflow metadata transport failures remain typed connection failures; callers must not
 // reinterpret them as an invalid board status identifier.
 const getBoardWorkflowStatuses = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   projectType: ProjectType,
   taskType: TaskType
 ): Effect.Effect<ReadonlyArray<BoardWorkflowStatus>, HulyClientError, Diagnostics> =>
@@ -242,7 +242,7 @@ const getBoardWorkflowStatuses = (
   })
 
 export const resolveBoardStatus = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   resolvedBoard: HulyBoard,
   projectType: ProjectType,
   taskType: TaskType,
@@ -277,7 +277,7 @@ const extractSequence = (txResult: unknown): number | undefined => {
 }
 
 export const incrementBoardCardSequence = (
-  client: HulyClient["Type"]
+  client: HulyClient["Service"]
 ): Effect.Effect<number, HulyClientError | BoardModelSequenceMissingError> =>
   Effect.gen(function* () {
     const sequence = yield* client.findOne<Sequence>(
@@ -297,7 +297,7 @@ export const incrementBoardCardSequence = (
   })
 
 export const resolveEmployeeRef = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: NonEmptyString
 ): Effect.Effect<Ref<Employee>, BoardEmployeeError> =>
   Effect.gen(function* () {
@@ -320,13 +320,13 @@ export const resolveEmployeeRef = (
   })
 
 export const resolveEmployeeRefs = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifiers: ReadonlyArray<NonEmptyString>
 ): Effect.Effect<ReadonlyArray<Ref<Employee>>, BoardEmployeeError> =>
   Effect.map(Effect.all(identifiers.map((identifier) => resolveEmployeeRef(client, identifier))), uniqueRefs)
 
 export const employeeNamesById = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   employees: ReadonlyArray<Ref<Employee>>
 ): Effect.Effect<Map<Ref<Employee>, string>, HulyClientError> =>
   Effect.gen(function* () {
@@ -337,8 +337,8 @@ export const employeeNamesById = (
   })
 
 export const requireRemoveCollection = (
-  client: HulyClient["Type"]
-): Exclude<HulyClient["Type"]["removeCollection"], undefined> | BoardRemoveCollectionError =>
+  client: HulyClient["Service"]
+): Exclude<HulyClient["Service"]["removeCollection"], undefined> | BoardRemoveCollectionError =>
   client.removeCollection === undefined
     ? new BoardMutationUnsupportedError({ message: "Huly client does not support removeCollection" })
     : client.removeCollection

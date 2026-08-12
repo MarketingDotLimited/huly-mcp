@@ -9,8 +9,8 @@ import { toRef } from "../src/huly/operations/sdk-boundary.js"
 import { connectIntegrationHuly } from "./integration-huly-client.js"
 
 const NODE_ARGV_OFFSET = 2
-const ArgsSchema = Schema.Struct({ action: Schema.Literal("increment", "delete-owned"), sequence: HulySequenceId })
-const ResultSchema = Schema.Struct({ action: Schema.Literal("increment", "delete-owned"), sequence: HulySequenceId })
+const ArgsSchema = Schema.Struct({ action: Schema.Literals(["increment", "delete-owned"]), sequence: HulySequenceId })
+const ResultSchema = Schema.Struct({ action: Schema.Literals(["increment", "delete-owned"]), sequence: HulySequenceId })
 type Args = Schema.Schema.Type<typeof ArgsSchema>
 
 const parseCliArgs = (): Args =>

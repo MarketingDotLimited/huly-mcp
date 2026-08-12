@@ -5,13 +5,14 @@ import { expect } from "vitest"
 import {
   CardVersionMetadataSchema,
   ListCardVersionsResultSchema,
+  listCardVersionsParamsJsonSchema,
   parseListCardVersionsParams
-} from "../../src/domain/schemas.js"
+} from "../../src/domain/schemas/card-versions.js"
 
 describe("card version schemas", () => {
   it.effect("parses branded version values and friendly history locators", () =>
     Effect.gen(function* () {
-      const metadata = yield* Schema.decodeUnknown(CardVersionMetadataSchema)({
+      const metadata = yield* Schema.decodeUnknownEffect(CardVersionMetadataSchema)({
         number: 2,
         chainId: "card-chain-1",
         isLatest: true
@@ -30,11 +31,11 @@ describe("card version schemas", () => {
 
   it.effect("rejects non-positive version numbers and impossible page totals", () =>
     Effect.gen(function* () {
-      const zero = yield* Effect.either(
-        Schema.decodeUnknown(CardVersionMetadataSchema)({ number: 0, chainId: "chain-1" })
+      const zero = yield* Effect.result(
+        Schema.decodeUnknownEffect(CardVersionMetadataSchema)({ number: 0, chainId: "chain-1" })
       )
-      const impossiblePage = yield* Effect.either(
-        Schema.decodeUnknown(ListCardVersionsResultSchema)({
+      const impossiblePage = yield* Effect.result(
+        Schema.decodeUnknownEffect(ListCardVersionsResultSchema)({
           versions: [
             { id: "card-1", title: "One" },
             { id: "card-2", title: "Two" }
@@ -44,36 +45,41 @@ describe("card version schemas", () => {
         })
       )
 
-      expect(zero._tag).toBe("Left")
-      expect(impossiblePage._tag).toBe("Left")
+      expect(zero._tag).toBe("Failure")
+      expect(impossiblePage._tag).toBe("Failure")
     })
   )
 
   it.effect("enforces truthful hasMore values and accepts coherent pages", () =>
     Effect.gen(function* () {
-      const missingHasMore = yield* Effect.either(
-        Schema.decodeUnknown(ListCardVersionsResultSchema)({
+      const missingHasMore = yield* Effect.result(
+        Schema.decodeUnknownEffect(ListCardVersionsResultSchema)({
           versions: [{ id: "card-1", title: "One" }],
           total: 2,
           hasMore: false
         })
       )
-      const unexpectedHasMore = yield* Effect.either(
-        Schema.decodeUnknown(ListCardVersionsResultSchema)({
+      const unexpectedHasMore = yield* Effect.result(
+        Schema.decodeUnknownEffect(ListCardVersionsResultSchema)({
           versions: [{ id: "card-1", title: "One" }],
           total: 1,
           hasMore: true
         })
       )
-      const coherentPage = yield* Schema.decodeUnknown(ListCardVersionsResultSchema)({
+      const coherentPage = yield* Schema.decodeUnknownEffect(ListCardVersionsResultSchema)({
         versions: [{ id: "card-1", title: "One" }],
         total: 2,
         hasMore: true
       })
 
-      expect(missingHasMore._tag).toBe("Left")
-      expect(unexpectedHasMore._tag).toBe("Left")
+      expect(missingHasMore._tag).toBe("Failure")
+      expect(unexpectedHasMore._tag).toBe("Failure")
       expect(coherentPage.hasMore).toBe(true)
     })
   )
+
+  it("preserves public field descriptions", () => {
+    expect(JSON.stringify(listCardVersionsParamsJsonSchema)).toContain("Exact card-space name or ID")
+    expect(JSON.stringify(listCardVersionsParamsJsonSchema)).toContain("Maximum versions in this page")
+  })
 })

@@ -76,7 +76,7 @@ const permissionTransactionClass = (transaction: PermissionTransaction): NonNull
 }
 
 export const loadPermissions = (
-  client: HulyClient["Type"]
+  client: HulyClient["Service"]
 ): Effect.Effect<ReadonlyArray<Permission>, HulyClientError> =>
   client.findAll<Permission>(core.class.Permission, hulyQuery<Permission>({}))
 
@@ -133,7 +133,7 @@ const assertPermissionMutable = (permission: Permission): Effect.Effect<void, Pe
     : Effect.void
 
 const permissionReferences = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   permission: Permission
 ): Effect.Effect<ReadonlyArray<NonEmptyString>, HulyClientError> =>
   Effect.gen(function* () {
@@ -151,7 +151,7 @@ const permissionReferences = (
   })
 
 const assertPermissionUnreferenced = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   permission: Permission
 ): Effect.Effect<void, HulyClientError | PermissionInUseError> =>
   Effect.gen(function* () {
@@ -177,7 +177,7 @@ const samePermissionDefinition = (
   ].every(Boolean)
 
 const resolvePermissionObjectClass = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: CreateHulyPermissionParams["objectClass"] | null | undefined
 ): Effect.Effect<Permission["objectClass"], HulyClientError | ModelClassAmbiguousError | ModelClassNotFoundError> =>
   identifier === undefined || identifier === null

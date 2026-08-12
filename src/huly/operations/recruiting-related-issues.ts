@@ -29,7 +29,7 @@ import { toRef } from "./sdk-boundary.js"
 type RelatedIssueParams = AddRecruitingRelatedIssueParams
 
 type ResolvedRelatedIssue = {
-  readonly client: HulyClient["Type"]
+  readonly client: HulyClient["Service"]
   readonly issue: HulyIssue
   readonly project: HulyProject
 }

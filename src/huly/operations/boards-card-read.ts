@@ -39,7 +39,7 @@ const boardCardNumber = (identifier: string): number | undefined => {
 }
 
 export const resolveBoardCard = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   resolvedBoard: HulyBoard,
   identifier: BoardCardRef
 ): Effect.Effect<HulyBoardCard, BoardCardResolverError> =>
@@ -89,7 +89,7 @@ const allStatusIds = (projectType: ProjectType, taskTypes: ReadonlyArray<TaskTyp
   ])
 
 export const loadBoardCardMetadata = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   resolvedBoard: HulyBoard,
   cards: ReadonlyArray<HulyBoardCard>
 ): Effect.Effect<BoardCardMetadata, HulyClientError | BoardModelError, Diagnostics> =>
@@ -123,7 +123,7 @@ export const cardSummaryWithMetadata = (resolvedBoard: HulyBoard, metadata: Boar
   )
 
 export const cardDetailWithMetadata = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   resolvedBoard: HulyBoard,
   metadata: BoardCardMetadata,
   card: HulyBoardCard

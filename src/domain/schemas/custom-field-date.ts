@@ -1,17 +1,18 @@
-import { ParseResult, Schema } from "effect"
+import { Effect, Schema, SchemaGetter, SchemaIssue } from "effect"
 
 export const CUSTOM_FIELD_DATE_MAX_TIMESTAMP = 8_640_000_000_000_000
 
-export const CustomFieldDateTimestamp = Schema.Number.pipe(
-  Schema.finite(),
-  Schema.int(),
-  Schema.between(0, CUSTOM_FIELD_DATE_MAX_TIMESTAMP),
-  Schema.brand("CustomFieldDateTimestamp")
-).annotations({
-  identifier: "CustomFieldDateTimestamp",
-  title: "CustomFieldDateTimestamp",
-  description: "Finite Unix timestamp in milliseconds within the ECMAScript Date range."
-})
+export const CustomFieldDateTimestamp = Schema.Number.check(
+  Schema.isFinite(),
+  Schema.isInt(),
+  Schema.isBetween({ minimum: 0, maximum: CUSTOM_FIELD_DATE_MAX_TIMESTAMP })
+)
+  .pipe(Schema.brand("CustomFieldDateTimestamp"))
+  .annotate({
+    identifier: "CustomFieldDateTimestamp",
+    title: "CustomFieldDateTimestamp",
+    description: "Finite Unix timestamp in milliseconds within the ECMAScript Date range."
+  })
 
 export type CustomFieldDateTimestamp = Schema.Schema.Type<typeof CustomFieldDateTimestamp>
 
@@ -31,18 +32,23 @@ const parseDocumentedDateInput = (input: string): number | undefined => {
   return parseStrictIsoCalendarDate(input)
 }
 
-export const CustomFieldDateValueSchema = Schema.transformOrFail(Schema.String, CustomFieldDateTimestamp, {
-  strict: true,
-  decode: (input, _options, ast) => {
-    const timestamp = parseDocumentedDateInput(input)
-    return timestamp === undefined
-      ? ParseResult.fail(
-          new ParseResult.Type(ast, input, "Expected YYYY-MM-DD or a canonical non-negative epoch-millisecond string")
-        )
-      : ParseResult.succeed(timestamp)
-  },
-  encode: (timestamp) => ParseResult.succeed(String(timestamp))
-}).annotations({
+export const CustomFieldDateValueSchema = Schema.String.pipe(
+  Schema.decodeTo(CustomFieldDateTimestamp, {
+    decode: SchemaGetter.transformOrFail((input, options) => {
+      const timestamp = parseDocumentedDateInput(input)
+      return timestamp === undefined
+        ? Effect.fail(
+            new SchemaIssue.InvalidValue(
+              { message: "Expected YYYY-MM-DD or a canonical non-negative epoch-millisecond string" },
+              input,
+              options
+            )
+          )
+        : Effect.succeed(timestamp)
+    }),
+    encode: SchemaGetter.transform(String)
+  })
+).annotate({
   identifier: "CustomFieldDateValue",
   title: "CustomFieldDateValue",
   description:

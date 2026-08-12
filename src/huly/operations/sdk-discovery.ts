@@ -1,6 +1,6 @@
 import type { AnyAttribute, Class, Enum as HulyEnum, Obj, Ref } from "@hcengineering/core"
 import { SortingOrder } from "@hcengineering/core"
-import { Array as Arr, Effect, Either, Option } from "effect"
+import { Array as Arr, Effect, Result, Option } from "effect"
 
 import type {
   GetHulyClassParams,
@@ -60,7 +60,7 @@ const classSearchRank = (summary: ReturnType<typeof toClassSummary>, query: Opti
 }
 
 const batchResolveClassLabels = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   classIds: ReadonlyArray<ObjectClassName>
 ): Effect.Effect<Map<ObjectClassName, NonEmptyString>, HulyClientError> =>
   Effect.gen(function* () {
@@ -74,7 +74,7 @@ const batchResolveClassLabels = (
 
     const modelEntries = classes.map((cls) => {
       const classId = ObjectClassName.make(String(cls._id))
-      const label = Either.getOrElse(decodeHulyModelLabelTail(cls.label), () => NonEmptyString.make(String(cls._id)))
+      const label = Result.getOrElse(decodeHulyModelLabelTail(cls.label), () => NonEmptyString.make(String(cls._id)))
       return [classId, label] as const
     })
     const modelLabels = new Map<ObjectClassName, NonEmptyString>(modelEntries)
@@ -108,7 +108,7 @@ const countAttributesByClass = (attributes: ReadonlyArray<AnyAttribute>): Map<Ob
 }
 
 const fetchClasses = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: ListHulyClassesParams
 ): Effect.Effect<ReadonlyArray<MetadataClassDoc>, HulyClientError> => {
   const kind = params.kind === undefined ? Option.none() : encodeClassifierKindFilter(params.kind)
@@ -121,7 +121,7 @@ const fetchClasses = (
 }
 
 const fetchAttributes = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: ListHulyAttributesParams
 ): Effect.Effect<ReadonlyArray<AnyAttribute>, HulyClientError> => {
   const query: StrictDocumentQuery<AnyAttribute> = {
@@ -135,7 +135,7 @@ const fetchAttributes = (
 }
 
 const resolveClass = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   classId: ObjectClassName
 ): Effect.Effect<MetadataClassDoc, SdkDiscoveryError> =>
   Effect.gen(function* () {
@@ -150,7 +150,7 @@ const resolveClass = (
   })
 
 const loadAncestorDocs = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   frontier: ReadonlyArray<string>,
   resolved: ReadonlyMap<string, MetadataClassDoc>,
   depth: number
@@ -172,7 +172,7 @@ const loadAncestorDocs = (
   })
 
 const resolveAncestors = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   cls: MetadataClassDoc
 ): Effect.Effect<ReadonlyArray<MetadataClassDoc>, SdkDiscoveryError> =>
   Effect.gen(function* () {
@@ -212,7 +212,7 @@ const resolveAncestors = (
   })
 
 const attributesForClasses = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   classIds: ReadonlyArray<ObjectClassName>
 ): Effect.Effect<ReadonlyArray<AnyAttribute>, HulyClientError> =>
   classIds.length === 0
@@ -229,7 +229,7 @@ export const listHulyClasses = (
   Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit ?? SDK_DISCOVERY_DEFAULT_LIMIT)
-    const query = Option.fromNullable(params.query)
+    const query = Option.fromNullishOr(params.query)
     const classes = yield* fetchClasses(client, params)
 
     const matched = classes
@@ -291,7 +291,7 @@ export const listHulyAttributes = (
   Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit ?? SDK_DISCOVERY_DEFAULT_LIMIT)
-    const query = Option.fromNullable(params.query)
+    const query = Option.fromNullishOr(params.query)
     const rawAttributes = yield* fetchAttributes(client, params)
     const ownerClassIds = [...new Set(rawAttributes.map((attr) => ObjectClassName.make(String(attr.attributeOf))))]
     const labels = yield* batchResolveClassLabels(client, ownerClassIds)
@@ -313,7 +313,7 @@ export const listHulyEnums = (
   Effect.gen(function* () {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit ?? SDK_DISCOVERY_DEFAULT_LIMIT)
-    const queryText = Option.fromNullable(params.query)
+    const queryText = Option.fromNullishOr(params.query)
     const query: StrictDocumentQuery<HulyEnum> = {
       ...(params.enum === undefined ? {} : { _id: toRef<HulyEnum>(params.enum) })
     }

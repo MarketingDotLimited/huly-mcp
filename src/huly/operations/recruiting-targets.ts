@@ -56,7 +56,7 @@ type RecruitingResolvedTargetError =
   | RecruitingVacancyNotFoundError
 
 export interface RecruitingTargetCoordinates {
-  readonly client: HulyClient["Type"]
+  readonly client: HulyClient["Service"]
   readonly target: RecruitingResolvedTarget
   readonly objectId: Ref<Doc>
   readonly objectClass: Ref<Class<Doc>>
@@ -68,7 +68,7 @@ const targetDisplay = (kind: RecruitingResolvedTarget["kind"], value: string): N
   NonEmptyString.make(`Recruiting ${kind} '${value}'`)
 
 const coordinates = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   target: RecruitingResolvedTarget,
   objectId: Ref<Doc>,
   objectClass: Ref<Class<Doc>>,
@@ -76,7 +76,7 @@ const coordinates = (
   display: NonEmptyString
 ): RecruitingTargetCoordinates => ({ client, target, objectId, objectClass, space, display })
 
-const vacancyTarget = (client: HulyClient["Type"], vacancy: Vacancy): RecruitingTargetCoordinates => {
+const vacancyTarget = (client: HulyClient["Service"], vacancy: Vacancy): RecruitingTargetCoordinates => {
   const ref = toVacancyRef(vacancy)
   return coordinates(
     client,
@@ -96,7 +96,7 @@ const vacancyTarget = (client: HulyClient["Type"], vacancy: Vacancy): Recruiting
 }
 
 const candidateTarget = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   candidate: Candidate,
   email: string | undefined
 ): RecruitingTargetCoordinates => {
@@ -119,7 +119,7 @@ const candidateTarget = (
 }
 
 const applicantTarget = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   applicant: Applicant
 ): Effect.Effect<RecruitingTargetCoordinates, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
   Effect.gen(function* () {
@@ -142,7 +142,7 @@ const applicantTarget = (
   })
 
 const reviewTarget = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   review: Review
 ): Effect.Effect<RecruitingTargetCoordinates, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
   Effect.gen(function* () {
@@ -165,7 +165,7 @@ const reviewTarget = (
   })
 
 const opinionTarget = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   opinion: Opinion,
   review: Review
 ): Effect.Effect<RecruitingTargetCoordinates, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
@@ -195,7 +195,7 @@ type RecruitingTargetInput =
   | RecruitingRelatedIssueTarget
 
 const resolveApplicantActivityTarget = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: Extract<RecruitingTargetInput, { readonly kind: "applicant" }>
 ): Effect.Effect<RecruitingTargetCoordinates, RecruitingResolvedTargetError, Diagnostics> =>
   Effect.gen(function* () {
@@ -206,7 +206,7 @@ const resolveApplicantActivityTarget = (
   })
 
 const resolveOpinionActivityTarget = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: Extract<RecruitingTargetInput, { readonly kind: "opinion" }>
 ): Effect.Effect<RecruitingTargetCoordinates, RecruitingResolvedTargetError, Diagnostics> =>
   Effect.gen(function* () {
@@ -217,7 +217,7 @@ const resolveOpinionActivityTarget = (
   })
 
 export const resolveRecruitingTarget = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: RecruitingTargetInput
 ): Effect.Effect<RecruitingTargetCoordinates, RecruitingResolvedTargetError, Diagnostics> =>
   Effect.gen(function* () {

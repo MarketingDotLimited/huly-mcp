@@ -11,7 +11,7 @@ import { toRef } from "../src/huly/operations/sdk-boundary.js"
 import { connectIntegrationHuly } from "./integration-huly-client.js"
 
 const CommonCliFields = { issueId: DocId }
-const CliArgsSchema = Schema.Union(
+const CliArgsSchema = Schema.Union([
   Schema.Struct({ ...CommonCliFields, mode: Schema.Literal("setup") }),
   Schema.Struct({ ...CommonCliFields, mode: Schema.Literal("read"), fieldName: Schema.String }),
   Schema.Struct({
@@ -20,11 +20,11 @@ const CliArgsSchema = Schema.Union(
     fieldId: CustomFieldId,
     fieldName: Schema.String
   })
-)
+])
 const SetupResultSchema = Schema.Struct({ fieldId: CustomFieldId, fieldName: Schema.String })
 const ReadResultSchema = Schema.Struct({ value: Schema.NullOr(CustomFieldDateTimestamp) })
 const CleanupResultSchema = Schema.Struct({ cleaned: Schema.Literal(true) })
-const DynamicDocumentSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
+const DynamicDocumentSchema = Schema.Record(Schema.String, Schema.Unknown)
 
 type CliArgs = Schema.Schema.Type<typeof CliArgsSchema>
 

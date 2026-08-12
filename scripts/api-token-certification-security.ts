@@ -8,13 +8,13 @@ export const CertificationSecretSafetySchema = Schema.Struct({
 })
 export type CertificationSecretSafety = Schema.Schema.Type<typeof CertificationSecretSafetySchema>
 
-export const CertificationCaptureSourceSchema = Schema.Literal(
+export const CertificationCaptureSourceSchema = Schema.Literals([
   "tool-error",
   "transport-error",
   "stdio-stderr",
   "http-stderr",
   "http-stdout"
-)
+])
 export type CertificationCaptureSource = Schema.Schema.Type<typeof CertificationCaptureSourceSchema>
 
 export const redactCertificationSecret = (text: string, token: Redacted.Redacted<string>): string =>

@@ -1,5 +1,5 @@
 import type { AnyAttribute, Class, Doc, Enum as HulyEnum, Interface, Obj, Ref } from "@hcengineering/core"
-import { Either, Option, Schema } from "effect"
+import { Result, Option, Schema } from "effect"
 
 import type {
   HulyAttributeSummary,
@@ -37,17 +37,17 @@ const decodeSdkRecord = (value: unknown): JsonMap => {
 }
 
 const labelOrDefault = (value: unknown, fallback: NonEmptyString): NonEmptyString =>
-  Either.getOrElse(decodeHulyModelLabelTail(value), () => fallback)
+  Result.getOrElse(decodeHulyModelLabelTail(value), () => fallback)
 
 const nonEmptyLabelOption = (value: unknown): Option.Option<NonEmptyString> =>
-  Either.getRight(decodeHulyModelLabelTail(value))
+  Result.getSuccess(decodeHulyModelLabelTail(value))
 
 // Attribute names and enum values are verbatim identifiers/user data, NOT namespaced IntlString
 // model labels, so they must not be run through the ":"-splitting label-tail decoder.
-const decodeVerbatim = Schema.decodeUnknownEither(NonEmptyString)
+const decodeVerbatim = Schema.decodeUnknownResult(NonEmptyString)
 
 const verbatimOrDefault = (value: unknown, fallback: NonEmptyString): NonEmptyString =>
-  Either.getOrElse(decodeVerbatim(value), () => fallback)
+  Result.getOrElse(decodeVerbatim(value), () => fallback)
 
 const nonEmptyTrimmed = (value: unknown): Option.Option<string> => {
   if (typeof value !== "string") return Option.none()
@@ -62,7 +62,7 @@ const enumIdOption = (value: unknown): Option.Option<HulyEnumId> =>
   Option.map(nonEmptyTrimmed(value), (value) => HulyEnumId.make(value))
 
 const decodeSdkClassifierKind = (kind: unknown): HulyClassifierKind =>
-  Either.getOrElse(Schema.decodeUnknownEither(HulySdkClassifierKindSchema)(kind), () => "unknown")
+  Result.getOrElse(Schema.decodeUnknownResult(HulySdkClassifierKindSchema)(kind), () => "unknown")
 
 export const encodeClassifierKindFilter = (kind: HulyClassifierKind): Option.Option<number> =>
   kind === "unknown" ? Option.none() : Option.some(Schema.encodeSync(HulySdkClassifierKindSchema)(kind))
@@ -76,9 +76,9 @@ export const classSearchText = (summary: HulyClassSummary): string =>
     summary.label,
     summary.kind,
     ...summary.directAncestors,
-    ...stringOptionValues(Option.fromNullable(summary.domain)),
-    ...stringOptionValues(Option.fromNullable(summary.shortLabel)),
-    ...stringOptionValues(Option.fromNullable(summary.pluralLabel))
+    ...stringOptionValues(Option.fromNullishOr(summary.domain)),
+    ...stringOptionValues(Option.fromNullishOr(summary.shortLabel)),
+    ...stringOptionValues(Option.fromNullishOr(summary.pluralLabel))
   ]
     .join(" ")
     .toLowerCase()
@@ -210,7 +210,7 @@ export const attributeSearchText = (attr: HulyAttributeSummary): string =>
     attr.ownerClassId,
     attr.ownerClassLabel,
     attr.type.kind,
-    ...stringOptionValues(Option.fromNullable(attr.type.classId)),
+    ...stringOptionValues(Option.fromNullishOr(attr.type.classId)),
     ...("refTo" in attr.type ? [attr.type.refTo] : []),
     ...("enumId" in attr.type ? [attr.type.enumId] : []),
     ...("collectionOf" in attr.type ? [attr.type.collectionOf] : [])
@@ -247,7 +247,7 @@ export const toEnumSummary = (doc: HulyEnum): HulyEnumSummary => ({
   name: verbatimOrDefault(doc.name, NonEmptyString.make(String(doc._id))),
   values: doc.enumValues.flatMap((value) => {
     const decoded = decodeVerbatim(value)
-    return Either.isRight(decoded) ? [decoded.right] : []
+    return Result.isSuccess(decoded) ? [decoded.success] : []
   })
 })
 

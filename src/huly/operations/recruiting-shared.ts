@@ -119,7 +119,7 @@ const statusSummariesFromRefs = (
   resolveByStatusRef(statusRefs, statusDocs, workflowStatusFromDoc, workflowStatusSummaryFromRef)
 
 export const getVacancyStatuses = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   vacancy: Vacancy
 ): Effect.Effect<ReadonlyArray<RecruitingStatusSummary>, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
   Effect.gen(function* () {
@@ -168,7 +168,7 @@ export const statusNameForApplicant = (
 }
 
 export const getVacancyTypeById = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   typeId: Ref<ProjectType>
 ): Effect.Effect<ProjectType, HulyClientError | RecruitingModelMissingError> =>
   Effect.gen(function* () {
@@ -185,7 +185,7 @@ export const getVacancyTypeById = (
   })
 
 export const resolveVacancyType = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: string | undefined
 ): Effect.Effect<ProjectType, HulyClientError | RecruitingVacancyTypeNotFoundError> =>
   Effect.gen(function* () {
@@ -223,7 +223,7 @@ export const toVacancyTypeSummary = (projectType: ProjectType): VacancyTypeSumma
 })
 
 export const resolveVacancy = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: VacancyIdentifier
 ): Effect.Effect<
   Vacancy,
@@ -269,7 +269,7 @@ const applicantContextFilters = (
 })
 
 export const findApplicant = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   applicantIdentifier: ApplicantIdentifier,
   vacancy?: Vacancy,
   candidate?: Person
@@ -302,7 +302,7 @@ export const findApplicant = (
   })
 
 export const applicantRefFromDoc = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   applicant: Applicant
 ): Effect.Effect<ApplicantRef, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
   Effect.gen(function* () {
@@ -327,7 +327,7 @@ const extractUpdatedSequence = (txResult: unknown): number | undefined => {
 }
 
 export const incrementSequence = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   attachedTo: Ref<Class<Doc>>,
   label: string
 ): Effect.Effect<number, HulyClientError | RecruitingModelMissingError> =>

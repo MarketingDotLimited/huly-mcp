@@ -3,7 +3,7 @@ import { Schema } from "effect"
 import { HulyAttributeId, HulyEnumId, NonEmptyString, ObjectClassName } from "../domain/schemas/shared.js"
 
 const MINIMUM_AMBIGUOUS_MATCHES = 2
-const IdentifierMatchesSchema = Schema.Array(NonEmptyString).pipe(Schema.minItems(MINIMUM_AMBIGUOUS_MATCHES))
+const IdentifierMatchesSchema = Schema.Array(NonEmptyString).check(Schema.isMinLength(MINIMUM_AMBIGUOUS_MATCHES))
 
 export class ModelClassNotFoundError extends Schema.TaggedError<ModelClassNotFoundError>()("ModelClassNotFoundError", {
   identifier: NonEmptyString
@@ -50,7 +50,7 @@ export class HulyEnumNameConflictError extends Schema.TaggedError<HulyEnumNameCo
 
 export class HulyEnumOptionsInUseError extends Schema.TaggedError<HulyEnumOptionsInUseError>()(
   "HulyEnumOptionsInUseError",
-  { enumId: HulyEnumId, attributeIds: Schema.Array(HulyAttributeId).pipe(Schema.minItems(1)) }
+  { enumId: HulyEnumId, attributeIds: Schema.Array(HulyAttributeId).check(Schema.isNonEmpty()) }
 ) {
   override get message(): string {
     return `Huly enum '${this.enumId}' is referenced by attributes ${this.attributeIds.join(", ")}; options may be added, but existing options cannot be removed while referenced`
@@ -59,7 +59,7 @@ export class HulyEnumOptionsInUseError extends Schema.TaggedError<HulyEnumOption
 
 export class HulyEnumInUseError extends Schema.TaggedError<HulyEnumInUseError>()("HulyEnumInUseError", {
   enumId: HulyEnumId,
-  attributeIds: Schema.Array(HulyAttributeId).pipe(Schema.minItems(1))
+  attributeIds: Schema.Array(HulyAttributeId).check(Schema.isNonEmpty())
 }) {
   override get message(): string {
     return `Huly enum '${this.enumId}' cannot be deleted because attributes reference it: ${this.attributeIds.join(", ")}`
@@ -79,7 +79,7 @@ export class HulyAttributeAmbiguousError extends Schema.TaggedError<HulyAttribut
   "HulyAttributeAmbiguousError",
   {
     identifier: NonEmptyString,
-    matches: Schema.Array(HulyAttributeId).pipe(Schema.minItems(MINIMUM_AMBIGUOUS_MATCHES))
+    matches: Schema.Array(HulyAttributeId).check(Schema.isMinLength(MINIMUM_AMBIGUOUS_MATCHES))
   }
 ) {
   override get message(): string {
@@ -115,7 +115,7 @@ export class HulyAttributeInUseError extends Schema.TaggedError<HulyAttributeInU
   }
 }
 
-export const ModelAdministrationDomainError = Schema.Union(
+export const ModelAdministrationDomainError = Schema.Union([
   ModelClassNotFoundError,
   ModelClassAmbiguousError,
   HulyEnumNotFoundError,
@@ -128,4 +128,4 @@ export const ModelAdministrationDomainError = Schema.Union(
   HulyAttributeNameConflictError,
   HulyAttributeProtectedError,
   HulyAttributeInUseError
-)
+])

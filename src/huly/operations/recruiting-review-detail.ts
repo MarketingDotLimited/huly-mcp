@@ -69,7 +69,7 @@ interface ReviewRefProjection {
 }
 
 export const reviewRefProjectionFromDoc = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   review: Review
 ): Effect.Effect<ReviewRefProjection, HulyClientError | RecruitingModelMissingError> =>
   Effect.gen(function* () {
@@ -96,7 +96,7 @@ export const reviewRefProjectionFromDoc = (
   })
 
 export const reviewRefFromDoc = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   review: Review
 ): Effect.Effect<ReviewRef, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
   Effect.gen(function* () {
@@ -105,7 +105,7 @@ export const reviewRefFromDoc = (
     return projection.ref
   })
 
-const companySummary = (client: HulyClient["Type"], company: Review["company"]) =>
+const companySummary = (client: HulyClient["Service"], company: Review["company"]) =>
   company === undefined
     ? Effect.succeed(undefined)
     : Effect.map(
@@ -142,7 +142,7 @@ const reviewMetadataFields = (review: Review): Pick<ReviewDetail, "createdOn" | 
 const parseParticipantName = Schema.decodeUnknownOption(PersonName)
 
 const reviewParticipants = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   participantRefs: Review["participants"]
 ): Effect.Effect<
   { readonly participants: ReviewDetail["participants"]; readonly synthesizedNames: number },
@@ -167,7 +167,7 @@ const reviewParticipants = (
   })
 
 export const reviewDetail = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   review: Review
 ): Effect.Effect<ReviewDetail, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
   Effect.gen(function* () {

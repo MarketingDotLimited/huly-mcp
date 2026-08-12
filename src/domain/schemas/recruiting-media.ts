@@ -1,9 +1,9 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
 import { UPDATE_ATTACHMENT_FIELDS } from "./attachments.js"
 import { HULY_NATIVE_REFERENCE_MARKDOWN_INPUT } from "./document-native-references.js"
 import { AttachmentDescription, AttachmentFileName, Base64FileData, LocalFilePath } from "./domain-values.js"
-import { withExactlyOneRequired, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
+import { toDraft07JsonSchema, withExactlyOneRequired, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 import {
   ApplicantIdentifier,
   CandidateIdentifier,
@@ -37,88 +37,88 @@ export * from "./recruiting-media-results.js"
 
 const VacancyTargetLocatorSchema = Schema.Struct({
   kind: Schema.Literal("vacancy"),
-  vacancy: VacancyIdentifier.annotations({
+  vacancy: VacancyIdentifier.annotate({
     description: "Vacancy locator: raw _id, VCN-<number>, bare number, or exact vacancy name."
   })
 })
 const CandidateTargetLocatorSchema = Schema.Struct({
   kind: Schema.Literal("candidate"),
-  candidate: CandidateIdentifier.annotations({
+  candidate: CandidateIdentifier.annotate({
     description: "Candidate locator: person _id, email, or exact person display name."
   })
 })
 const ApplicantTargetLocatorSchema = Schema.Struct({
   kind: Schema.Literal("applicant"),
-  applicant: ApplicantIdentifier.annotations({
+  applicant: ApplicantIdentifier.annotateKey({
     description: "Applicant locator: raw _id, APP-<number>, or bare number."
   }),
   vacancy: Schema.optional(
-    VacancyIdentifier.annotations({ description: "Optional vacancy locator to disambiguate applicant numbers." })
+    VacancyIdentifier.annotateKey({ description: "Optional vacancy locator to disambiguate applicant numbers." })
   ),
   candidate: Schema.optional(
-    CandidateIdentifier.annotations({ description: "Optional candidate locator to disambiguate applicant numbers." })
+    CandidateIdentifier.annotateKey({ description: "Optional candidate locator to disambiguate applicant numbers." })
   )
 })
 const ReviewTargetLocatorSchema = Schema.Struct({
   kind: Schema.Literal("review"),
-  review: ReviewIdentifier.annotations({
+  review: ReviewIdentifier.annotate({
     description: "Review locator: raw _id, RVE-<number>, bare number, or exact title."
   }),
   candidate: Schema.optional(
-    CandidateIdentifier.annotations({ description: "Optional candidate locator to disambiguate reviews." })
+    CandidateIdentifier.annotateKey({ description: "Optional candidate locator to disambiguate reviews." })
   ),
   application: Schema.optional(
-    ApplicantIdentifier.annotations({ description: "Optional application/applicant locator to disambiguate reviews." })
+    ApplicantIdentifier.annotateKey({ description: "Optional application/applicant locator to disambiguate reviews." })
   )
 })
 const OpinionTargetLocatorSchema = Schema.Struct({
   kind: Schema.Literal("opinion"),
-  opinion: OpinionIdentifier.annotations({ description: "Opinion locator: raw _id, OPE-<number>, or bare number." }),
+  opinion: OpinionIdentifier.annotateKey({ description: "Opinion locator: raw _id, OPE-<number>, or bare number." }),
   review: Schema.optional(
-    ReviewIdentifier.annotations({ description: "Optional review locator to disambiguate opinions." })
+    ReviewIdentifier.annotateKey({ description: "Optional review locator to disambiguate opinions." })
   )
 })
 
-const RecruitingCommentTargetSchema = Schema.Union(
+const RecruitingCommentTargetSchema = Schema.Union([
   VacancyTargetLocatorSchema,
   CandidateTargetLocatorSchema,
   ApplicantTargetLocatorSchema,
   ReviewTargetLocatorSchema,
   OpinionTargetLocatorSchema
-)
+])
 export type RecruitingCommentTarget = Schema.Schema.Type<typeof RecruitingCommentTargetSchema>
 
-const RecruitingAttachmentTargetSchema = Schema.Union(
+const RecruitingAttachmentTargetSchema = Schema.Union([
   VacancyTargetLocatorSchema,
   CandidateTargetLocatorSchema,
   ApplicantTargetLocatorSchema,
   OpinionTargetLocatorSchema
-)
+])
 export type RecruitingAttachmentTarget = Schema.Schema.Type<typeof RecruitingAttachmentTargetSchema>
 
-const RecruitingActivityTargetSchema = Schema.Union(
+const RecruitingActivityTargetSchema = Schema.Union([
   VacancyTargetLocatorSchema,
   CandidateTargetLocatorSchema,
   ApplicantTargetLocatorSchema,
   ReviewTargetLocatorSchema
-)
+])
 export type RecruitingActivityTarget = Schema.Schema.Type<typeof RecruitingActivityTargetSchema>
 
-const RecruitingRelatedIssueTargetSchema = Schema.Union(
+const RecruitingRelatedIssueTargetSchema = Schema.Union([
   VacancyTargetLocatorSchema,
   CandidateTargetLocatorSchema,
   ApplicantTargetLocatorSchema
-)
+])
 export type RecruitingRelatedIssueTarget = Schema.Schema.Type<typeof RecruitingRelatedIssueTargetSchema>
 
 const RecruitingAttachmentFileFields = {
-  filename: AttachmentFileName.annotations({ description: "Name of the file to attach to the Recruiting object." }),
-  contentType: MimeType.annotations({ description: "MIME type of the file, such as image/png or application/pdf." }),
-  filePath: Schema.optional(LocalFilePath.annotations({ description: UPLOAD_FILE_PATH_DESCRIPTION })),
-  fileUrl: Schema.optional(UrlString.annotations({ description: UPLOAD_FILE_URL_DESCRIPTION })),
-  data: Schema.optional(Base64FileData.annotations({ description: UPLOAD_BASE64_DATA_DESCRIPTION })),
-  description: Schema.optional(AttachmentDescription.annotations({ description: "Optional attachment description." })),
-  pinned: Schema.optional(Schema.Boolean.annotations({ description: "Whether the attachment should be pinned." }))
+  filename: AttachmentFileName.annotateKey({ description: "Name of the file to attach to the Recruiting object." }),
+  contentType: MimeType.annotateKey({ description: "MIME type of the file, such as image/png or application/pdf." }),
+  filePath: Schema.optional(LocalFilePath.annotateKey({ description: UPLOAD_FILE_PATH_DESCRIPTION })),
+  fileUrl: Schema.optional(UrlString.annotateKey({ description: UPLOAD_FILE_URL_DESCRIPTION })),
+  data: Schema.optional(Base64FileData.annotateKey({ description: UPLOAD_BASE64_DATA_DESCRIPTION })),
+  description: Schema.optional(AttachmentDescription.annotateKey({ description: "Optional attachment description." })),
+  pinned: Schema.optional(Schema.Boolean.annotateKey({ description: "Whether the attachment should be pinned." }))
 } as const
 
 const RECRUITING_ATTACHMENT_FILE_SOURCE_FIELDS = ["filePath", "fileUrl", "data"] as const
@@ -136,23 +136,23 @@ const requireExactlyOneAttachmentFileSource = (params: {
 const ListRecruitingCommentsParamsSchema = Schema.Struct({
   target: RecruitingCommentTargetSchema,
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of comments to return (default: ${DEFAULT_LIMIT}).` })
+    LimitParam.annotateKey({ description: `Maximum number of comments to return (default: ${DEFAULT_LIMIT}).` })
   )
 })
 export type ListRecruitingCommentsParams = Schema.Schema.Type<typeof ListRecruitingCommentsParamsSchema>
 
 const AddRecruitingCommentParamsSchema = Schema.Struct({
   target: RecruitingCommentTargetSchema,
-  body: NonEmptyString.annotations({ description: `Comment body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}` })
+  body: NonEmptyString.annotateKey({ description: `Comment body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}` })
 })
 export type AddRecruitingCommentParams = Schema.Schema.Type<typeof AddRecruitingCommentParamsSchema>
 
 const UpdateRecruitingCommentParamsSchema = Schema.Struct({
   target: RecruitingCommentTargetSchema,
-  commentId: CommentId.annotations({
+  commentId: CommentId.annotateKey({
     description: "Comment ID. Must belong directly to the resolved Recruiting target."
   }),
-  body: NonEmptyString.annotations({
+  body: NonEmptyString.annotate({
     description: `New comment body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
   })
 })
@@ -160,7 +160,7 @@ export type UpdateRecruitingCommentParams = Schema.Schema.Type<typeof UpdateRecr
 
 const DeleteRecruitingCommentParamsSchema = Schema.Struct({
   target: RecruitingCommentTargetSchema,
-  commentId: CommentId.annotations({
+  commentId: CommentId.annotateKey({
     description: "Comment ID. Must belong directly to the resolved Recruiting target."
   })
 })
@@ -169,14 +169,14 @@ export type DeleteRecruitingCommentParams = Schema.Schema.Type<typeof DeleteRecr
 const ListRecruitingAttachmentsParamsSchema = Schema.Struct({
   target: RecruitingAttachmentTargetSchema,
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of attachments to return (default: ${DEFAULT_LIMIT}).` })
+    LimitParam.annotateKey({ description: `Maximum number of attachments to return (default: ${DEFAULT_LIMIT}).` })
   )
 })
 export type ListRecruitingAttachmentsParams = Schema.Schema.Type<typeof ListRecruitingAttachmentsParamsSchema>
 
 const GetRecruitingAttachmentParamsSchema = Schema.Struct({
   target: RecruitingAttachmentTargetSchema,
-  attachmentId: AttachmentId.annotations({
+  attachmentId: AttachmentId.annotate({
     description: "Attachment ID. Must belong directly to the resolved Recruiting target."
   })
 })
@@ -185,24 +185,26 @@ export type GetRecruitingAttachmentParams = Schema.Schema.Type<typeof GetRecruit
 const AddRecruitingAttachmentParamsSchema = Schema.Struct({
   target: RecruitingAttachmentTargetSchema,
   ...RecruitingAttachmentFileFields
-}).pipe(Schema.filter(requireExactlyOneAttachmentFileSource))
+}).pipe(Schema.check(Schema.makeFilter(requireExactlyOneAttachmentFileSource)))
 export type AddRecruitingAttachmentParams = Schema.Schema.Type<typeof AddRecruitingAttachmentParamsSchema>
 
 const UPDATE_RECRUITING_ATTACHMENT_FIELDS = UPDATE_ATTACHMENT_FIELDS
 const UpdateRecruitingAttachmentParamsSchema = Schema.Struct({
   target: RecruitingAttachmentTargetSchema,
-  attachmentId: AttachmentId.annotations({
+  attachmentId: AttachmentId.annotate({
     description: "Attachment ID. Must belong directly to the resolved Recruiting target."
   }),
   description: Schema.optional(
-    Schema.NullOr(AttachmentDescription).annotations({ description: "New description; use null to clear it." })
+    Schema.NullOr(AttachmentDescription).annotateKey({ description: "New description; use null to clear it." })
   ),
-  pinned: Schema.optional(Schema.Boolean.annotations({ description: "Pin or unpin the attachment." }))
+  pinned: Schema.optional(Schema.Boolean.annotateKey({ description: "Pin or unpin the attachment." }))
 }).pipe(
-  Schema.filter((params) =>
-    hasAtLeastOneDefined(params, UPDATE_RECRUITING_ATTACHMENT_FIELDS)
-      ? undefined
-      : atLeastOneUpdateFieldMessage(UPDATE_RECRUITING_ATTACHMENT_FIELDS)
+  Schema.check(
+    Schema.makeFilter((params) =>
+      hasAtLeastOneDefined(params, UPDATE_RECRUITING_ATTACHMENT_FIELDS)
+        ? undefined
+        : atLeastOneUpdateFieldMessage(UPDATE_RECRUITING_ATTACHMENT_FIELDS)
+    )
   )
 )
 export type UpdateRecruitingAttachmentParams = Schema.Schema.Type<typeof UpdateRecruitingAttachmentParamsSchema>
@@ -214,7 +216,7 @@ export type DeleteRecruitingAttachmentParams = GetRecruitingAttachmentParams
 const ListRecruitingActivityParamsSchema = Schema.Struct({
   target: RecruitingActivityTargetSchema,
   limit: Schema.optional(
-    LimitParam.annotations({
+    LimitParam.annotateKey({
       description: `Maximum number of activity messages to return (default: ${DEFAULT_LIMIT}).`
     })
   )
@@ -226,18 +228,18 @@ const RecruitingRelatedIssueFields = { target: RecruitingRelatedIssueTargetSchem
 const ListRecruitingRelatedIssuesParamsSchema = Schema.Struct({
   ...RecruitingRelatedIssueFields,
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of related issues to return (default: ${DEFAULT_LIMIT}).` })
+    LimitParam.annotateKey({ description: `Maximum number of related issues to return (default: ${DEFAULT_LIMIT}).` })
   )
 })
 export type ListRecruitingRelatedIssuesParams = Schema.Schema.Type<typeof ListRecruitingRelatedIssuesParamsSchema>
 
 const AddRecruitingRelatedIssueParamsSchema = Schema.Struct({
   ...RecruitingRelatedIssueFields,
-  issue: IssueIdentifier.annotations({
+  issue: IssueIdentifier.annotate({
     description: "Issue identifier, such as HULY-123, or a numeric issue number when project is also provided."
   }),
   project: Schema.optional(
-    ProjectIdentifier.annotations({
+    ProjectIdentifier.annotate({
       description: "Project identifier. Optional when issue already includes a project prefix like HULY-123."
     })
   )
@@ -263,33 +265,53 @@ const RECRUITING_MEDIA_FIELD_DESCRIPTIONS: Readonly<Partial<Record<string, strin
   project: "Project identifier. Optional when issue already includes a project prefix like HULY-123."
 }
 
-const recruitingMediaJsonSchema = <A, I, R>(schema: Schema.Schema<A, I, R>): object =>
-  withJsonSchemaPropertyDescriptions(JSONSchema.make(schema), RECRUITING_MEDIA_FIELD_DESCRIPTIONS)
+const recruitingMediaJsonSchema = (
+  schema: Schema.Constraint,
+  descriptions: Readonly<Partial<Record<string, string>>> = {}
+): object =>
+  withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(schema), {
+    ...RECRUITING_MEDIA_FIELD_DESCRIPTIONS,
+    ...descriptions
+  })
 
 const withExactlyOneRecruitingAttachmentFileSource = (schema: object): object =>
   withExactlyOneRequired(schema, RECRUITING_ATTACHMENT_FILE_SOURCE_FIELDS)
 
-export const listRecruitingCommentsParamsJsonSchema = recruitingMediaJsonSchema(ListRecruitingCommentsParamsSchema)
+export const listRecruitingCommentsParamsJsonSchema = recruitingMediaJsonSchema(ListRecruitingCommentsParamsSchema, {
+  limit: `Maximum number of comments to return (default: ${DEFAULT_LIMIT}).`
+})
 export const addRecruitingCommentParamsJsonSchema = recruitingMediaJsonSchema(AddRecruitingCommentParamsSchema)
-export const updateRecruitingCommentParamsJsonSchema = recruitingMediaJsonSchema(UpdateRecruitingCommentParamsSchema)
+export const updateRecruitingCommentParamsJsonSchema = recruitingMediaJsonSchema(UpdateRecruitingCommentParamsSchema, {
+  body: `New comment body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
+})
 export const deleteRecruitingCommentParamsJsonSchema = recruitingMediaJsonSchema(DeleteRecruitingCommentParamsSchema)
 export const listRecruitingAttachmentsParamsJsonSchema = recruitingMediaJsonSchema(
-  ListRecruitingAttachmentsParamsSchema
+  ListRecruitingAttachmentsParamsSchema,
+  { limit: `Maximum number of attachments to return (default: ${DEFAULT_LIMIT}).` }
 )
 export const getRecruitingAttachmentParamsJsonSchema = recruitingMediaJsonSchema(GetRecruitingAttachmentParamsSchema)
 export const addRecruitingAttachmentParamsJsonSchema = withExactlyOneRecruitingAttachmentFileSource(
-  recruitingMediaJsonSchema(AddRecruitingAttachmentParamsSchema)
+  recruitingMediaJsonSchema(AddRecruitingAttachmentParamsSchema, {
+    description: "Optional attachment description.",
+    pinned: "Whether the attachment should be pinned."
+  })
 )
 export const updateRecruitingAttachmentParamsJsonSchema = withAtLeastOneRequired(
-  recruitingMediaJsonSchema(UpdateRecruitingAttachmentParamsSchema),
+  recruitingMediaJsonSchema(UpdateRecruitingAttachmentParamsSchema, {
+    description: "New attachment description; null clears it.",
+    pinned: "Pin or unpin the attachment."
+  }),
   UPDATE_RECRUITING_ATTACHMENT_FIELDS
 )
 export const deleteRecruitingAttachmentParamsJsonSchema = recruitingMediaJsonSchema(
   DeleteRecruitingAttachmentParamsSchema
 )
-export const listRecruitingActivityParamsJsonSchema = recruitingMediaJsonSchema(ListRecruitingActivityParamsSchema)
+export const listRecruitingActivityParamsJsonSchema = recruitingMediaJsonSchema(ListRecruitingActivityParamsSchema, {
+  limit: `Maximum number of activity messages to return (default: ${DEFAULT_LIMIT}).`
+})
 export const listRecruitingRelatedIssuesParamsJsonSchema = recruitingMediaJsonSchema(
-  ListRecruitingRelatedIssuesParamsSchema
+  ListRecruitingRelatedIssuesParamsSchema,
+  { limit: `Maximum number of related issues to return (default: ${DEFAULT_LIMIT}).` }
 )
 export const addRecruitingRelatedIssueParamsJsonSchema = recruitingMediaJsonSchema(
   AddRecruitingRelatedIssueParamsSchema
@@ -298,16 +320,20 @@ export const removeRecruitingRelatedIssueParamsJsonSchema = recruitingMediaJsonS
   RemoveRecruitingRelatedIssueParamsSchema
 )
 
-export const parseListRecruitingCommentsParams = Schema.decodeUnknown(ListRecruitingCommentsParamsSchema)
-export const parseAddRecruitingCommentParams = Schema.decodeUnknown(AddRecruitingCommentParamsSchema)
-export const parseUpdateRecruitingCommentParams = Schema.decodeUnknown(UpdateRecruitingCommentParamsSchema)
-export const parseDeleteRecruitingCommentParams = Schema.decodeUnknown(DeleteRecruitingCommentParamsSchema)
-export const parseListRecruitingAttachmentsParams = Schema.decodeUnknown(ListRecruitingAttachmentsParamsSchema)
-export const parseGetRecruitingAttachmentParams = Schema.decodeUnknown(GetRecruitingAttachmentParamsSchema)
-export const parseAddRecruitingAttachmentParams = Schema.decodeUnknown(AddRecruitingAttachmentParamsSchema)
-export const parseUpdateRecruitingAttachmentParams = Schema.decodeUnknown(UpdateRecruitingAttachmentParamsSchema)
-export const parseDeleteRecruitingAttachmentParams = Schema.decodeUnknown(DeleteRecruitingAttachmentParamsSchema)
-export const parseListRecruitingActivityParams = Schema.decodeUnknown(ListRecruitingActivityParamsSchema)
-export const parseListRecruitingRelatedIssuesParams = Schema.decodeUnknown(ListRecruitingRelatedIssuesParamsSchema)
-export const parseAddRecruitingRelatedIssueParams = Schema.decodeUnknown(AddRecruitingRelatedIssueParamsSchema)
-export const parseRemoveRecruitingRelatedIssueParams = Schema.decodeUnknown(RemoveRecruitingRelatedIssueParamsSchema)
+export const parseListRecruitingCommentsParams = Schema.decodeUnknownEffect(ListRecruitingCommentsParamsSchema)
+export const parseAddRecruitingCommentParams = Schema.decodeUnknownEffect(AddRecruitingCommentParamsSchema)
+export const parseUpdateRecruitingCommentParams = Schema.decodeUnknownEffect(UpdateRecruitingCommentParamsSchema)
+export const parseDeleteRecruitingCommentParams = Schema.decodeUnknownEffect(DeleteRecruitingCommentParamsSchema)
+export const parseListRecruitingAttachmentsParams = Schema.decodeUnknownEffect(ListRecruitingAttachmentsParamsSchema)
+export const parseGetRecruitingAttachmentParams = Schema.decodeUnknownEffect(GetRecruitingAttachmentParamsSchema)
+export const parseAddRecruitingAttachmentParams = Schema.decodeUnknownEffect(AddRecruitingAttachmentParamsSchema)
+export const parseUpdateRecruitingAttachmentParams = Schema.decodeUnknownEffect(UpdateRecruitingAttachmentParamsSchema)
+export const parseDeleteRecruitingAttachmentParams = Schema.decodeUnknownEffect(DeleteRecruitingAttachmentParamsSchema)
+export const parseListRecruitingActivityParams = Schema.decodeUnknownEffect(ListRecruitingActivityParamsSchema)
+export const parseListRecruitingRelatedIssuesParams = Schema.decodeUnknownEffect(
+  ListRecruitingRelatedIssuesParamsSchema
+)
+export const parseAddRecruitingRelatedIssueParams = Schema.decodeUnknownEffect(AddRecruitingRelatedIssueParamsSchema)
+export const parseRemoveRecruitingRelatedIssueParams = Schema.decodeUnknownEffect(
+  RemoveRecruitingRelatedIssueParamsSchema
+)

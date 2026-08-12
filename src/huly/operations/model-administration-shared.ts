@@ -1,5 +1,5 @@
 import type { AnyAttribute, Class, Enum as HulyEnum, Obj, Ref } from "@hcengineering/core"
-import { Effect, Either, Option, Schema } from "effect"
+import { Effect, Result, Option, Schema } from "effect"
 
 import type { ModelIdentifier } from "../../domain/schemas/model-administration.js"
 import {
@@ -28,7 +28,7 @@ const classRef = toRef<Class<MetadataClassDoc>>(core.class.Class)
 
 export const normalizeModelIdentifier = (value: string): string => value.toLocaleLowerCase()
 const labelTail = (value: unknown, fallback: string): string =>
-  Either.getOrElse(decodeHulyModelLabelTail(value), () => fallback)
+  Result.getOrElse(decodeHulyModelLabelTail(value), () => fallback)
 
 const resolveUnique = <A, E1, E2>(
   matches: ReadonlyArray<A>,
@@ -45,7 +45,7 @@ const resolveUnique = <A, E1, E2>(
 }
 
 export const loadClasses = (
-  client: HulyClient["Type"]
+  client: HulyClient["Service"]
 ): Effect.Effect<ReadonlyArray<MetadataClassDoc>, HulyClientError> =>
   client.findAllInModel<MetadataClassDoc>(classRef, hulyQuery<MetadataClassDoc>({}))
 
@@ -75,7 +75,7 @@ export const resolveModelClass = (classes: ReadonlyArray<MetadataClassDoc>, iden
   )
 }
 
-export const loadEnums = (client: HulyClient["Type"]): Effect.Effect<ReadonlyArray<HulyEnum>, HulyClientError> =>
+export const loadEnums = (client: HulyClient["Service"]): Effect.Effect<ReadonlyArray<HulyEnum>, HulyClientError> =>
   client.findAll<HulyEnum>(core.class.Enum, hulyQuery<HulyEnum>({}))
 
 export const resolveEnum = (enums: ReadonlyArray<HulyEnum>, identifier: ModelIdentifier) => {
@@ -107,7 +107,7 @@ export const enumReferences = (
   })
 
 export const loadAttributes = (
-  client: HulyClient["Type"]
+  client: HulyClient["Service"]
 ): Effect.Effect<ReadonlyArray<AnyAttribute>, HulyClientError> =>
   client.findAll<AnyAttribute>(core.class.Attribute, hulyQuery<AnyAttribute>({}))
 

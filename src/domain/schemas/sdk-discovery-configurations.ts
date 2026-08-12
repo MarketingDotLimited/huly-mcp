@@ -1,4 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 
 import {
   AccountUuid,
@@ -28,7 +30,7 @@ export type HulySequencePrefix = Schema.Schema.Type<typeof HulySequencePrefix>
 export const HulyDomainName = NonEmptyString.pipe(Schema.brand("HulyDomainName"))
 export type HulyDomainName = Schema.Schema.Type<typeof HulyDomainName>
 
-export const HulyParityStatusSchema = Schema.Literal(...ParityStatusValues)
+export const HulyParityStatusSchema = Schema.Literals(ParityStatusValues)
 export type HulyParityStatus = Schema.Schema.Type<typeof HulyParityStatusSchema>
 
 export const HulyBacklogIssueNumber = PositiveInteger.pipe(Schema.brand("HulyBacklogIssueNumber"))
@@ -40,7 +42,7 @@ export type HulyMcpToolName = Schema.Schema.Type<typeof HulyMcpToolName>
 export const HulyConfigurationMetadataKey = NonEmptyString.pipe(Schema.brand("HulyConfigurationMetadataKey"))
 export type HulyConfigurationMetadataKey = Schema.Schema.Type<typeof HulyConfigurationMetadataKey>
 
-const RoutingRationaleSchema = NonEmptyString.annotations({
+const RoutingRationaleSchema = NonEmptyString.annotate({
   description: "Concise reason copied from the audited SDK parity ledger classification."
 })
 
@@ -57,15 +59,15 @@ const HulyGapClassRoutingHintSchema = Schema.Struct({
 })
 
 const HulyNonMcpFacingClassRoutingHintSchema = Schema.Struct({
-  status: Schema.Literal("not-mcp-facing", "ignored"),
+  status: Schema.Literals(["not-mcp-facing", "ignored"]),
   rationale: RoutingRationaleSchema
 })
 
-export const HulyClassRoutingHintSchema = Schema.Union(
+export const HulyClassRoutingHintSchema = Schema.Union([
   HulyCoveredClassRoutingHintSchema,
   HulyGapClassRoutingHintSchema,
   HulyNonMcpFacingClassRoutingHintSchema
-)
+])
 export type HulyClassRoutingHint = Schema.Schema.Type<typeof HulyClassRoutingHintSchema>
 
 export const HulyPluginConfigurationSummarySchema = Schema.Struct({
@@ -83,17 +85,15 @@ export const ListHulyPluginConfigurationsResultSchema = Schema.Struct({
 })
 export type ListHulyPluginConfigurationsResult = Schema.Schema.Type<typeof ListHulyPluginConfigurationsResultSchema>
 
-const HulySdkOpenDomainIndexMetadata = Schema.Unknown.annotations({
+const HulySdkOpenDomainIndexMetadata = Schema.Unknown.annotate({
   description:
     "Open Huly SDK domain-index metadata payload. Shape is backend/model-version dependent; inspect keys before relying on it."
 })
 
-const HulyDomainIndexMetadataEntrySchema = Schema.Union(
+const HulyDomainIndexMetadataEntrySchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("field"), key: HulyConfigurationMetadataKey }),
   Schema.Struct({ kind: Schema.Literal("sdk-open-metadata"), metadata: HulySdkOpenDomainIndexMetadata })
-).annotations({
-  description: `Domain index entry summary. kind is one of ${DomainIndexMetadataKindValues.join(", ")}.`
-})
+]).annotate({ description: `Domain index entry summary. kind is one of ${DomainIndexMetadataKindValues.join(", ")}.` })
 export type HulyDomainIndexMetadataEntry = Schema.Schema.Type<typeof HulyDomainIndexMetadataEntrySchema>
 
 export const HulyDomainIndexConfigurationSummarySchema = Schema.Struct({
@@ -131,7 +131,7 @@ export const ListHulySequencesResultSchema = Schema.Struct({
 export type ListHulySequencesResult = Schema.Schema.Type<typeof ListHulySequencesResultSchema>
 
 export const DescribeHulySpaceTypeCapabilitiesParamsSchema = Schema.Struct({
-  spaceType: SpaceTypeIdentifier.annotations({
+  spaceType: SpaceTypeIdentifier.annotate({
     description: "SpaceType _id or exact name. Resolution tries _id first, then exact name."
   })
 })
@@ -164,16 +164,17 @@ export const HulySpaceTypeCapabilitiesSchema = Schema.Struct({
 })
 export type HulySpaceTypeCapabilities = Schema.Schema.Type<typeof HulySpaceTypeCapabilitiesSchema>
 
-export const listHulyPluginConfigurationsParamsJsonSchema = JSONSchema.make(EmptyParamsSchema)
-export const listHulyDomainIndexConfigurationsParamsJsonSchema = JSONSchema.make(EmptyParamsSchema)
-export const listHulySequencesParamsJsonSchema = JSONSchema.make(EmptyParamsSchema)
-export const describeHulySpaceTypeCapabilitiesParamsJsonSchema = JSONSchema.make(
-  DescribeHulySpaceTypeCapabilitiesParamsSchema
+export const listHulyPluginConfigurationsParamsJsonSchema = toDraft07JsonSchema(EmptyParamsSchema)
+export const listHulyDomainIndexConfigurationsParamsJsonSchema = toDraft07JsonSchema(EmptyParamsSchema)
+export const listHulySequencesParamsJsonSchema = toDraft07JsonSchema(EmptyParamsSchema)
+export const describeHulySpaceTypeCapabilitiesParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(DescribeHulySpaceTypeCapabilitiesParamsSchema),
+  { spaceType: "SpaceType ID or exact SpaceType name whose capabilities should be described." }
 )
 
-export const parseListHulyPluginConfigurationsParams = Schema.decodeUnknown(EmptyParamsSchema)
-export const parseListHulyDomainIndexConfigurationsParams = Schema.decodeUnknown(EmptyParamsSchema)
-export const parseListHulySequencesParams = Schema.decodeUnknown(EmptyParamsSchema)
-export const parseDescribeHulySpaceTypeCapabilitiesParams = Schema.decodeUnknown(
+export const parseListHulyPluginConfigurationsParams = Schema.decodeUnknownEffect(EmptyParamsSchema)
+export const parseListHulyDomainIndexConfigurationsParams = Schema.decodeUnknownEffect(EmptyParamsSchema)
+export const parseListHulySequencesParams = Schema.decodeUnknownEffect(EmptyParamsSchema)
+export const parseDescribeHulySpaceTypeCapabilitiesParams = Schema.decodeUnknownEffect(
   DescribeHulySpaceTypeCapabilitiesParamsSchema
 )

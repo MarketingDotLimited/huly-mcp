@@ -9,13 +9,20 @@ import {
   parseUpdateRecruitingReviewParams
 } from "../../src/domain/schemas/recruiting-extended.js"
 import {
+  addRecruitingAttachmentParamsJsonSchema,
+  listRecruitingActivityParamsJsonSchema,
+  listRecruitingAttachmentsParamsJsonSchema,
+  listRecruitingCommentsParamsJsonSchema,
   parseAddRecruitingAttachmentParams,
   parseListRecruitingActivityParams,
   parseListRecruitingAttachmentsParams,
   parseListRecruitingCommentsParams,
   parseListRecruitingRelatedIssuesParams,
-  parseUpdateRecruitingAttachmentParams
+  parseUpdateRecruitingAttachmentParams,
+  updateRecruitingAttachmentParamsJsonSchema,
+  updateRecruitingCommentParamsJsonSchema
 } from "../../src/domain/schemas/recruiting-media.js"
+import { parseJsonSchemaRecord } from "../../src/domain/schemas/json-schema.js"
 import {
   parseCreateRecruitingVacancyParams,
   parseGetRecruitingApplicantParams,
@@ -28,10 +35,15 @@ import {
 } from "../../src/domain/schemas/recruiting.js"
 
 describe("Recruiting Schemas", () => {
+  const propertyDescription = (schema: object, field: string): unknown => {
+    const properties = parseJsonSchemaRecord(parseJsonSchemaRecord(schema)?.properties)
+    return parseJsonSchemaRecord(properties?.[field])?.description
+  }
+
   it.effect("rejects empty vacancy locators", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(parseGetRecruitingVacancyParams({ vacancy: "" }))
-      expect(error._tag).toBe("ParseError")
+      expect(error._tag).toBe("SchemaError")
     })
   )
 
@@ -88,10 +100,10 @@ describe("Recruiting Schemas", () => {
         parseListRecruitingRelatedIssuesParams({ target: { kind: "review", review: "RVE-1" } })
       )
 
-      expect(emptyTarget._tag).toBe("ParseError")
-      expect(reviewAttachments._tag).toBe("ParseError")
-      expect(opinionActivity._tag).toBe("ParseError")
-      expect(reviewRelatedIssues._tag).toBe("ParseError")
+      expect(emptyTarget._tag).toBe("SchemaError")
+      expect(reviewAttachments._tag).toBe("SchemaError")
+      expect(opinionActivity._tag).toBe("SchemaError")
+      expect(reviewRelatedIssues._tag).toBe("SchemaError")
     })
   )
 
@@ -138,8 +150,8 @@ describe("Recruiting Schemas", () => {
         data: "cmVzdW1l"
       })
 
-      expect(missing._tag).toBe("ParseError")
-      expect(multiple._tag).toBe("ParseError")
+      expect(missing._tag).toBe("SchemaError")
+      expect(multiple._tag).toBe("SchemaError")
       expect(parsed.data).toBe("cmVzdW1l")
     })
   )
@@ -152,7 +164,7 @@ describe("Recruiting Schemas", () => {
           attachmentId: "attachment-1"
         })
       )
-      expect(error._tag).toBe("ParseError")
+      expect(error._tag).toBe("SchemaError")
     })
   )
 
@@ -167,10 +179,23 @@ describe("Recruiting Schemas", () => {
     })
   )
 
+  it("preserves operation-specific recruiting media descriptions", () => {
+    expect(propertyDescription(updateRecruitingCommentParamsJsonSchema, "body")).toContain("New comment body")
+    expect(propertyDescription(listRecruitingCommentsParamsJsonSchema, "limit")).toContain("comments")
+    expect(propertyDescription(listRecruitingAttachmentsParamsJsonSchema, "limit")).toContain("attachments")
+    expect(propertyDescription(listRecruitingActivityParamsJsonSchema, "limit")).toContain("activity messages")
+    expect(propertyDescription(addRecruitingAttachmentParamsJsonSchema, "description")).toBe(
+      "Optional attachment description."
+    )
+    expect(propertyDescription(updateRecruitingAttachmentParamsJsonSchema, "description")).toBe(
+      "New attachment description; null clears it."
+    )
+  })
+
   it.effect("rejects vacancy updates with no mutable fields", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(parseUpdateRecruitingVacancyParams({ vacancy: "VCN-1" }))
-      expect(error._tag).toBe("ParseError")
+      expect(error._tag).toBe("SchemaError")
     })
   )
 
@@ -198,15 +223,15 @@ describe("Recruiting Schemas", () => {
       )
       const updateError = yield* Effect.flip(parseUpdateRecruitingVacancyParams({ vacancy: "VCN-1", location: "" }))
 
-      expect(createError._tag).toBe("ParseError")
-      expect(updateError._tag).toBe("ParseError")
+      expect(createError._tag).toBe("SchemaError")
+      expect(updateError._tag).toBe("SchemaError")
     })
   )
 
   it.effect("rejects candidate profile writes with no profile fields", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(parseSetRecruitingCandidateProfileParams({ candidate: "Ada Lovelace" }))
-      expect(error._tag).toBe("ParseError")
+      expect(error._tag).toBe("SchemaError")
     })
   )
 
@@ -222,8 +247,8 @@ describe("Recruiting Schemas", () => {
       const candidateError = yield* Effect.flip(parseListRecruitingCandidatesParams({ query: "" }))
       const skillError = yield* Effect.flip(parseListRecruitingSkillsParams({ titleSearch: "   " }))
 
-      expect(candidateError._tag).toBe("ParseError")
-      expect(skillError._tag).toBe("ParseError")
+      expect(candidateError._tag).toBe("SchemaError")
+      expect(skillError._tag).toBe("SchemaError")
     })
   )
 
@@ -233,14 +258,14 @@ describe("Recruiting Schemas", () => {
         parseSetRecruitingCandidateProfileParams({ candidate: "Ada Lovelace", title: "" })
       )
 
-      expect(error._tag).toBe("ParseError")
+      expect(error._tag).toBe("SchemaError")
     })
   )
 
   it.effect("rejects applicant updates with no mutable fields", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(parseUpdateRecruitingApplicantParams({ applicant: "APP-1" }))
-      expect(error._tag).toBe("ParseError")
+      expect(error._tag).toBe("SchemaError")
     })
   )
 
@@ -249,8 +274,8 @@ describe("Recruiting Schemas", () => {
       const review = yield* Effect.flip(parseUpdateRecruitingReviewParams({ review: "RVE-1" }))
       const opinion = yield* Effect.flip(parseUpdateRecruitingOpinionParams({ opinion: "OPE-1" }))
 
-      expect(review._tag).toBe("ParseError")
-      expect(opinion._tag).toBe("ParseError")
+      expect(review._tag).toBe("SchemaError")
+      expect(opinion._tag).toBe("SchemaError")
     })
   )
 

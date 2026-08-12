@@ -3,7 +3,7 @@ import { Effect, Schema } from "effect"
 import { type CustomFieldDateTimestamp, CustomFieldDateValueSchema } from "../../domain/schemas/custom-field-date.js"
 import { InvalidCustomFieldDateValueError } from "../errors-custom-fields.js"
 
-const decodeCustomFieldDateValue = Schema.decodeUnknown(CustomFieldDateValueSchema)
+const decodeCustomFieldDateValue = Schema.decodeUnknownEffect(CustomFieldDateValueSchema)
 
 export const parseCustomFieldDateValue = (
   input: string

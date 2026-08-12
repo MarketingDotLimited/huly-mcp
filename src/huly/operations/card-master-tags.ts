@@ -1,6 +1,6 @@
 import type { CardSpace as HulyCardSpace, MasterTag as HulyMasterTag } from "@hcengineering/card"
 import { type Class, ClassifierKind, type Ref, SortingOrder } from "@hcengineering/core"
-import { Effect, Either } from "effect"
+import { Effect, Result } from "effect"
 
 import {
   MasterTagIdentifier,
@@ -30,7 +30,7 @@ const masterTagLookupCandidate = (
 ): MasterTagIdentifierValue => MasterTagIdentifier.make(String(value))
 
 export const masterTagDisplayName = (tag: CardMasterTagDoc): string =>
-  Either.getOrElse(decodeHulyModelLabelTail(tag.label), () => String(tag.label))
+  Result.getOrElse(decodeHulyModelLabelTail(tag.label), () => String(tag.label))
 
 const matchesMasterTagIdentifier = (tag: CardMasterTagDoc, identifier: MasterTagIdentifierValue): boolean =>
   masterTagLookupCandidate(tag._id) === identifier ||
@@ -87,7 +87,7 @@ const collectDescendants = (
 }
 
 export const fetchMasterTagsForSpace = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   cardSpace: HulyCardSpace
 ): Effect.Effect<ReadonlyArray<CardMasterTagDoc>, HulyClientError> =>
   Effect.gen(function* () {
@@ -111,7 +111,7 @@ export const fetchMasterTagsForSpace = (
   })
 
 export const findMasterTag = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   cardSpace: HulyCardSpace,
   identifier: MasterTagIdentifierValue
 ): Effect.Effect<CardMasterTagDoc, MasterTagNotFoundError | HulyClientError> =>

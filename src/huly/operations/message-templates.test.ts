@@ -12,6 +12,7 @@ import type {
 import { Effect, Exit } from "effect"
 import { expect } from "vitest"
 import { assertAt } from "../../utils/assertions.js"
+import { classifyCause } from "../../runtime/cause-exit.js"
 
 import {
   MessageTemplateCategoryIdentifier,
@@ -244,12 +245,16 @@ const testStore = (): Store => {
 
 const failureTag = (exit: Exit.Exit<unknown, unknown>): string | undefined => {
   if (!Exit.isFailure(exit)) return undefined
-  return exit.cause._tag === "Fail" &&
-    typeof exit.cause.error === "object" &&
-    exit.cause.error !== null &&
-    "_tag" in exit.cause.error
-    ? String(exit.cause.error._tag)
-    : undefined
+  const classification = classifyCause(exit.cause)
+  if (classification._tag !== "Failure") return undefined
+  const failure = classification.firstFailure
+  return typeof failure === "object" && failure !== null && "_tag" in failure ? String(failure._tag) : undefined
+}
+
+const hasFailure = <E>(exit: Exit.Exit<unknown, unknown>, refinement: (failure: unknown) => failure is E): boolean => {
+  if (!Exit.isFailure(exit)) return false
+  const classification = classifyCause(exit.cause)
+  return classification._tag === "Failure" && refinement(classification.firstFailure)
 }
 
 describe("message template operations", () => {
@@ -371,17 +376,11 @@ describe("message template operations", () => {
         })
       )
 
-      expect(missing).toSatisfy(
-        (exit: Exit.Exit<unknown, unknown>) =>
-          Exit.isFailure(exit) &&
-          exit.cause._tag === "Fail" &&
-          exit.cause.error instanceof MessageTemplateCategoryNotFoundError
+      expect(missing).toSatisfy((exit: Exit.Exit<unknown, unknown>) =>
+        hasFailure(exit, (error) => error instanceof MessageTemplateCategoryNotFoundError)
       )
-      expect(ambiguous).toSatisfy(
-        (exit: Exit.Exit<unknown, unknown>) =>
-          Exit.isFailure(exit) &&
-          exit.cause._tag === "Fail" &&
-          exit.cause.error instanceof MessageTemplateCategoryIdentifierAmbiguousError
+      expect(ambiguous).toSatisfy((exit: Exit.Exit<unknown, unknown>) =>
+        hasFailure(exit, (error) => error instanceof MessageTemplateCategoryIdentifierAmbiguousError)
       )
     })
   )
@@ -471,11 +470,8 @@ describe("message template operations", () => {
       )
 
       expect(failureTag(ambiguous)).toBe("MessageTemplateIdentifierAmbiguousError")
-      expect(ambiguous).toSatisfy(
-        (exit: Exit.Exit<unknown, unknown>) =>
-          Exit.isFailure(exit) &&
-          exit.cause._tag === "Fail" &&
-          exit.cause.error instanceof MessageTemplateIdentifierAmbiguousError
+      expect(ambiguous).toSatisfy((exit: Exit.Exit<unknown, unknown>) =>
+        hasFailure(exit, (error) => error instanceof MessageTemplateIdentifierAmbiguousError)
       )
       expect(resolved.id).toBe("tmpl-support-welcome")
     })
@@ -492,9 +488,8 @@ describe("message template operations", () => {
 
       expect(failureTag(missing)).toBe("MessageTemplateNotFoundError")
       expect(failureTag(missingInCategory)).toBe("MessageTemplateNotFoundError")
-      expect(missing).toSatisfy(
-        (exit: Exit.Exit<unknown, unknown>) =>
-          Exit.isFailure(exit) && exit.cause._tag === "Fail" && exit.cause.error instanceof MessageTemplateNotFoundError
+      expect(missing).toSatisfy((exit: Exit.Exit<unknown, unknown>) =>
+        hasFailure(exit, (error) => error instanceof MessageTemplateNotFoundError)
       )
     })
   )
@@ -579,17 +574,11 @@ describe("message template operations", () => {
         })
       )
 
-      expect(missing).toSatisfy(
-        (exit: Exit.Exit<unknown, unknown>) =>
-          Exit.isFailure(exit) &&
-          exit.cause._tag === "Fail" &&
-          exit.cause.error instanceof TemplateFieldCategoryNotFoundError
+      expect(missing).toSatisfy((exit: Exit.Exit<unknown, unknown>) =>
+        hasFailure(exit, (error) => error instanceof TemplateFieldCategoryNotFoundError)
       )
-      expect(ambiguous).toSatisfy(
-        (exit: Exit.Exit<unknown, unknown>) =>
-          Exit.isFailure(exit) &&
-          exit.cause._tag === "Fail" &&
-          exit.cause.error instanceof TemplateFieldCategoryIdentifierAmbiguousError
+      expect(ambiguous).toSatisfy((exit: Exit.Exit<unknown, unknown>) =>
+        hasFailure(exit, (error) => error instanceof TemplateFieldCategoryIdentifierAmbiguousError)
       )
     })
   )

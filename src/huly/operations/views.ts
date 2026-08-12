@@ -166,7 +166,7 @@ const missingDescriptorIds = (
   )
 
 const warnMissingDescriptorMetadata = (
-  diagnostics: Diagnostics["Type"],
+  diagnostics: Diagnostics["Service"],
   ids: ReadonlyArray<ViewletDescriptor["_id"]>
 ): Effect.Effect<void> =>
   ids.length === 0

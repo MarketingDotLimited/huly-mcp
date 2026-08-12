@@ -153,7 +153,7 @@ describe("sdk discovery operations", () => {
       const result = yield* listHulyClasses({ query: HulyModelSearch.make("issue"), limit: 10 }).pipe(
         Effect.provide(createTestLayer({ classes, attributes }))
       )
-      const encoded = yield* Schema.encodeUnknown(ListHulyClassesResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(ListHulyClassesResultSchema)(result)
 
       expect(encoded).toEqual({
         classes: [
@@ -211,7 +211,7 @@ describe("sdk discovery operations", () => {
       const result = yield* listHulyClasses({ kind: "unknown", limit: 10 }).pipe(
         Effect.provide(createTestLayer({ classes }))
       )
-      const encoded = yield* Schema.encodeUnknown(ListHulyClassesResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(ListHulyClassesResultSchema)(result)
 
       expect(encoded).toEqual({
         classes: [
@@ -239,7 +239,7 @@ describe("sdk discovery operations", () => {
       )
 
       const result = yield* listHulyClasses({}).pipe(Effect.provide(createTestLayer({ classes })))
-      const encoded = yield* Schema.encodeUnknown(ListHulyClassesResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(ListHulyClassesResultSchema)(result)
 
       expect(encoded.classes).toHaveLength(SDK_DISCOVERY_DEFAULT_LIMIT)
       expect(encoded.total).toBe(SDK_DISCOVERY_DEFAULT_LIMIT)
@@ -271,7 +271,7 @@ describe("sdk discovery operations", () => {
       const result = yield* getHulyClass({ class: ObjectClassName.make(tracker.class.Issue) }).pipe(
         Effect.provide(createTestLayer({ classes, attributes }))
       )
-      const encoded = yield* Schema.encodeUnknown(GetHulyClassResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(GetHulyClassResultSchema)(result)
 
       expect(encoded.ancestors.map((ancestor) => ancestor.classId)).toEqual([core.class.Doc])
       expect(encoded.class.directAncestors).toEqual([core.class.Doc])
@@ -310,7 +310,7 @@ describe("sdk discovery operations", () => {
       const result = yield* getHulyClass({ class: ObjectClassName.make(tracker.class.Issue) }).pipe(
         Effect.provide(createTestLayer({ classes, attributes }))
       )
-      const encoded = yield* Schema.encodeUnknown(GetHulyClassResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(GetHulyClassResultSchema)(result)
 
       expect(encoded.attributes).toEqual(
         expect.arrayContaining([
@@ -356,7 +356,7 @@ describe("sdk discovery operations", () => {
       const result = yield* getHulyClass({ class: ObjectClassName.make(tracker.class.Issue) }).pipe(
         Effect.provide(createTestLayer({ classes, attributes }))
       )
-      const encoded = yield* Schema.encodeUnknown(GetHulyClassResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(GetHulyClassResultSchema)(result)
 
       expect(encoded.ancestors.map((ancestor) => ancestor.classId)).toEqual([auditableInterface, timestampInterface])
       expect(encoded.class.directAncestors).toEqual([auditableInterface])
@@ -386,7 +386,7 @@ describe("sdk discovery operations", () => {
         class: ObjectClassName.make(tracker.class.Issue),
         includeInheritedAttributes: false
       }).pipe(Effect.provide(createTestLayer({ classes, attributes })))
-      const encoded = yield* Schema.encodeUnknown(GetHulyClassResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(GetHulyClassResultSchema)(result)
 
       expect(encoded.ancestors.map((ancestor) => ancestor.classId)).toEqual([core.class.Doc])
       expect(encoded.class.attributesCount).toBe(1)
@@ -440,7 +440,7 @@ describe("sdk discovery operations", () => {
         customOnly: true,
         query: HulyModelSearch.make("story")
       }).pipe(Effect.provide(createTestLayer({ classes, attributes })))
-      const encoded = yield* Schema.encodeUnknown(ListHulyAttributesResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(ListHulyAttributesResultSchema)(result)
 
       expect(encoded.attributes.map((attr) => attr.name)).toEqual(["storyPoints"])
       expect(encoded.total).toBe(1)
@@ -462,7 +462,7 @@ describe("sdk discovery operations", () => {
       const result = yield* listHulyAttributes({ class: ObjectClassName.make(tracker.class.Issue) }).pipe(
         Effect.provide(createTestLayer({ classes, attributes }))
       )
-      const encoded = yield* Schema.encodeUnknown(ListHulyAttributesResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(ListHulyAttributesResultSchema)(result)
 
       expect(encoded.attributes).toEqual([
         expect.objectContaining({
@@ -481,7 +481,7 @@ describe("sdk discovery operations", () => {
       const result = yield* listHulyEnums({ query: HulyModelSearch.make("high") }).pipe(
         Effect.provide(createTestLayer({ enums: [makeEnum({})] }))
       )
-      const encoded = yield* Schema.encodeUnknown(ListHulyEnumsResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(ListHulyEnumsResultSchema)(result)
 
       expect(encoded).toEqual({
         enums: [{ enumId: "enum:priority", name: "Priority", values: ["Low", "High"] }],
@@ -500,7 +500,7 @@ describe("sdk discovery operations", () => {
       const result = yield* listHulyClasses({ kind: "class", domain: HulyDomainName.make("tracker"), limit: 10 }).pipe(
         Effect.provide(createTestLayer({ classes }))
       )
-      const encoded = yield* Schema.encodeUnknown(ListHulyClassesResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(ListHulyClassesResultSchema)(result)
 
       expect(encoded.classes.map((cls) => cls.classId)).toEqual([tracker.class.Issue])
       expect(encoded.total).toBe(1)
@@ -514,7 +514,7 @@ describe("sdk discovery operations", () => {
       const result = yield* listHulyClasses({ query: HulyModelSearch.make("nonexistent") }).pipe(
         Effect.provide(createTestLayer({ classes }))
       )
-      const encoded = yield* Schema.encodeUnknown(ListHulyClassesResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(ListHulyClassesResultSchema)(result)
 
       expect(encoded).toEqual({ classes: [], total: 0 })
     })
@@ -525,7 +525,7 @@ describe("sdk discovery operations", () => {
       const attributes = [makeAttribute({ _id: "attr:orphan", name: "orphan", attributeOf: "ghost:class:Gone" })]
 
       const result = yield* listHulyAttributes({}).pipe(Effect.provide(createTestLayer({ attributes })))
-      const encoded = yield* Schema.encodeUnknown(ListHulyAttributesResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(ListHulyAttributesResultSchema)(result)
 
       expect(encoded.attributes).toEqual([
         expect.objectContaining({
@@ -545,7 +545,7 @@ describe("sdk discovery operations", () => {
       const result = yield* listHulyAttributes({ class: ObjectClassName.make(tracker.class.Issue) }).pipe(
         Effect.provide(createTestLayer({ classes, attributes }))
       )
-      const encoded = yield* Schema.encodeUnknown(ListHulyAttributesResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(ListHulyAttributesResultSchema)(result)
 
       expect(encoded.attributes[0]?.ownerClassLabel).toBe(tracker.class.Issue)
     })
@@ -558,7 +558,7 @@ describe("sdk discovery operations", () => {
       const result = yield* listHulyAttributes({ class: ObjectClassName.make(tracker.class.Issue) }).pipe(
         Effect.provide(createTestLayer({ classes, attributes: [] }))
       )
-      const encoded = yield* Schema.encodeUnknown(ListHulyAttributesResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(ListHulyAttributesResultSchema)(result)
 
       expect(encoded).toEqual({ attributes: [], total: 0 })
     })
@@ -580,7 +580,7 @@ describe("sdk discovery operations", () => {
       const result = yield* getHulyClass({ class: ObjectClassName.make(d) }).pipe(
         Effect.provide(createTestLayer({ classes }))
       )
-      const encoded = yield* Schema.encodeUnknown(GetHulyClassResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(GetHulyClassResultSchema)(result)
 
       expect(encoded.ancestors.map((ancestor) => ancestor.classId)).toEqual([b, a, c])
       expect(encoded.class.attributesCount).toBe(0)
@@ -601,7 +601,7 @@ describe("sdk discovery operations", () => {
       const result = yield* getHulyClass({ class: ObjectClassName.make("test:class:Chain0") }).pipe(
         Effect.provide(createTestLayer({ classes }))
       )
-      const encoded = yield* Schema.encodeUnknown(GetHulyClassResultSchema)(result)
+      const encoded = yield* Schema.encodeEffect(GetHulyClassResultSchema)(result)
 
       // MAX_ANCESTOR_DEPTH caps the resolved ancestry well below the 39-deep chain.
       expect(encoded.ancestors).toHaveLength(32)

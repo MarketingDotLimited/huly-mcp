@@ -1,6 +1,6 @@
 import { describe, it } from "@effect/vitest"
 import { ClassifierKind } from "@hcengineering/core"
-import { Effect, Either, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 import { expect } from "vitest"
 import { assertAt } from "../../src/utils/assertions.js"
 
@@ -38,20 +38,20 @@ describe("sdk discovery schemas", () => {
       expect(ClassifierKind.INTERFACE).toBe(1)
       expect(ClassifierKind.MIXIN).toBe(2)
 
-      expect(yield* Schema.decodeUnknown(HulySdkClassifierKindSchema)(ClassifierKind.CLASS)).toBe("class")
-      expect(yield* Schema.decodeUnknown(HulySdkClassifierKindSchema)(ClassifierKind.INTERFACE)).toBe("interface")
-      expect(yield* Schema.decodeUnknown(HulySdkClassifierKindSchema)(ClassifierKind.MIXIN)).toBe("mixin")
+      expect(yield* Schema.decodeUnknownEffect(HulySdkClassifierKindSchema)(ClassifierKind.CLASS)).toBe("class")
+      expect(yield* Schema.decodeUnknownEffect(HulySdkClassifierKindSchema)(ClassifierKind.INTERFACE)).toBe("interface")
+      expect(yield* Schema.decodeUnknownEffect(HulySdkClassifierKindSchema)(ClassifierKind.MIXIN)).toBe("mixin")
 
-      expect(yield* Schema.encode(HulySdkClassifierKindSchema)("class")).toBe(ClassifierKind.CLASS)
-      expect(yield* Schema.encode(HulySdkClassifierKindSchema)("interface")).toBe(ClassifierKind.INTERFACE)
-      expect(yield* Schema.encode(HulySdkClassifierKindSchema)("mixin")).toBe(ClassifierKind.MIXIN)
-      expect(Either.isLeft(Schema.decodeUnknownEither(HulySdkClassifierKindSchema)(999))).toBe(true)
+      expect(yield* Schema.encodeEffect(HulySdkClassifierKindSchema)("class")).toBe(ClassifierKind.CLASS)
+      expect(yield* Schema.encodeEffect(HulySdkClassifierKindSchema)("interface")).toBe(ClassifierKind.INTERFACE)
+      expect(yield* Schema.encodeEffect(HulySdkClassifierKindSchema)("mixin")).toBe(ClassifierKind.MIXIN)
+      expect(Result.isFailure(Schema.decodeUnknownResult(HulySdkClassifierKindSchema)(999))).toBe(true)
     })
   )
 
   it.effect("validates class discovery params", () =>
     Effect.gen(function* () {
-      const params = yield* Schema.decodeUnknown(ListHulyClassesParamsSchema)({
+      const params = yield* Schema.decodeUnknownEffect(ListHulyClassesParamsSchema)({
         query: "issue",
         kind: "class",
         domain: "tracker",
@@ -75,7 +75,7 @@ describe("sdk discovery schemas", () => {
 
   it.effect("validates get class, attribute, and enum params", () =>
     Effect.gen(function* () {
-      expect(yield* Schema.decodeUnknown(GetHulyClassParamsSchema)({ class: "tracker:class:Issue" })).toEqual({
+      expect(yield* Schema.decodeUnknownEffect(GetHulyClassParamsSchema)({ class: "tracker:class:Issue" })).toEqual({
         class: "tracker:class:Issue"
       })
       expect(() => Schema.decodeUnknownSync(GetHulyClassParamsSchema)({ class: "" })).toThrow()
@@ -86,7 +86,7 @@ describe("sdk discovery schemas", () => {
 
   it.effect("encodes discovery result schemas", () =>
     Effect.gen(function* () {
-      const classResult = yield* Schema.decodeUnknown(ListHulyClassesResultSchema)({
+      const classResult = yield* Schema.decodeUnknownEffect(ListHulyClassesResultSchema)({
         classes: [
           {
             classId: "tracker:class:Issue",
@@ -101,7 +101,7 @@ describe("sdk discovery schemas", () => {
         ],
         total: 1
       })
-      expect(yield* Schema.encodeUnknown(ListHulyClassesResultSchema)(classResult)).toEqual({
+      expect(yield* Schema.encodeEffect(ListHulyClassesResultSchema)(classResult)).toEqual({
         classes: [
           {
             classId: "tracker:class:Issue",
@@ -117,7 +117,7 @@ describe("sdk discovery schemas", () => {
         total: 1
       })
 
-      const attributeResult = yield* Schema.decodeUnknown(ListHulyAttributesResultSchema)({
+      const attributeResult = yield* Schema.decodeUnknownEffect(ListHulyAttributesResultSchema)({
         attributes: [
           {
             attributeId: "attr:issue.assignee",
@@ -136,7 +136,7 @@ describe("sdk discovery schemas", () => {
         ],
         total: 1
       })
-      expect((yield* Schema.encodeUnknown(ListHulyAttributesResultSchema)(attributeResult)).total).toBe(1)
+      expect((yield* Schema.encodeEffect(ListHulyAttributesResultSchema)(attributeResult)).total).toBe(1)
       expect(() =>
         Schema.decodeUnknownSync(ListHulyAttributesResultSchema)({
           attributes: [
@@ -154,20 +154,20 @@ describe("sdk discovery schemas", () => {
         })
       ).toThrow()
 
-      const getClassResult = yield* Schema.decodeUnknown(GetHulyClassResultSchema)({
+      const getClassResult = yield* Schema.decodeUnknownEffect(GetHulyClassResultSchema)({
         class: assertAt(classResult.classes, 0),
         ancestors: [],
         attributes: attributeResult.attributes
       })
-      expect((yield* Schema.encodeUnknown(GetHulyClassResultSchema)(getClassResult)).class.classId).toBe(
+      expect((yield* Schema.encodeEffect(GetHulyClassResultSchema)(getClassResult)).class.classId).toBe(
         "tracker:class:Issue"
       )
 
-      const enumResult = yield* Schema.decodeUnknown(ListHulyEnumsResultSchema)({
+      const enumResult = yield* Schema.decodeUnknownEffect(ListHulyEnumsResultSchema)({
         enums: [{ enumId: "enum:priority", name: "Priority", values: ["Low", "High"] }],
         total: 1
       })
-      expect(yield* Schema.encodeUnknown(ListHulyEnumsResultSchema)(enumResult)).toEqual({
+      expect(yield* Schema.encodeEffect(ListHulyEnumsResultSchema)(enumResult)).toEqual({
         enums: [{ enumId: "enum:priority", name: "Priority", values: ["Low", "High"] }],
         total: 1
       })
@@ -199,7 +199,7 @@ describe("sdk discovery schemas", () => {
   it.effect("validates new read-only SDK discovery outputs", () =>
     Effect.gen(function* () {
       expect(
-        yield* Schema.decodeUnknown(ListHulyPluginConfigurationsResultSchema)({
+        yield* Schema.decodeUnknownEffect(ListHulyPluginConfigurationsResultSchema)({
           pluginConfigurations: [
             { pluginId: "tracker", label: "Tracker", enabled: true, beta: false, transactionCount: 3 }
           ],
@@ -208,7 +208,7 @@ describe("sdk discovery schemas", () => {
       ).toMatchObject({ total: 1 })
 
       expect(
-        yield* Schema.decodeUnknown(ListHulyDomainIndexConfigurationsResultSchema)({
+        yield* Schema.decodeUnknownEffect(ListHulyDomainIndexConfigurationsResultSchema)({
           domainIndexConfigurations: [
             {
               domain: "tracker",
@@ -222,7 +222,7 @@ describe("sdk discovery schemas", () => {
       ).toMatchObject({ total: 1 })
 
       expect(
-        yield* Schema.decodeUnknown(ListHulySequencesResultSchema)({
+        yield* Schema.decodeUnknownEffect(ListHulySequencesResultSchema)({
           sequences: [
             { sequenceId: "sequence-issue", attachedClass: "tracker:class:Issue", currentValue: 0, prefix: "ISSUE" }
           ],
@@ -242,14 +242,14 @@ describe("sdk discovery schemas", () => {
   it.effect("validates parity routing and space capability params", () =>
     Effect.gen(function* () {
       expect(
-        yield* Schema.decodeUnknown(HulyClassRoutingHintSchema)({
+        yield* Schema.decodeUnknownEffect(HulyClassRoutingHintSchema)({
           status: "covered",
           safestMcpTools: ["list_issues"],
           rationale: "Issues are covered by first-class issue tools."
         })
       ).toMatchObject({ status: "covered" })
       expect(
-        yield* Schema.decodeUnknown(HulyClassRoutingHintSchema)({
+        yield* Schema.decodeUnknownEffect(HulyClassRoutingHintSchema)({
           status: "gap",
           backlogIssue: 92,
           rationale: "Tracked by issue 92."
@@ -263,7 +263,7 @@ describe("sdk discovery schemas", () => {
         })
       ).toThrow()
       expect(
-        yield* Schema.decodeUnknown(DescribeHulySpaceTypeCapabilitiesParamsSchema)({ spaceType: "space-type-1" })
+        yield* Schema.decodeUnknownEffect(DescribeHulySpaceTypeCapabilitiesParamsSchema)({ spaceType: "space-type-1" })
       ).toEqual({ spaceType: "space-type-1" })
     })
   )

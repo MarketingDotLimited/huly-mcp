@@ -17,6 +17,8 @@ import type { TagWeightSdkParity } from "../../src/domain/schemas/tags.js"
 const tagWeightSdkParity: TagWeightSdkParity = true
 
 interface JsonSchemaProperty {
+  readonly allOf?: ReadonlyArray<JsonSchemaProperty>
+  readonly anyOf?: ReadonlyArray<JsonSchemaProperty>
   readonly enum?: ReadonlyArray<unknown>
   readonly maximum?: unknown
 }
@@ -39,11 +41,26 @@ const schemaProperty = (schema: unknown, name: string): JsonSchemaProperty => {
   return property
 }
 
+const findJsonSchemaKeyword = <K extends "enum" | "maximum">(
+  property: JsonSchemaProperty,
+  keyword: K
+): JsonSchemaProperty[K] | undefined => {
+  const value = property[keyword]
+  if (value !== undefined) return value
+  for (const nested of [...(property.anyOf ?? []), ...(property.allOf ?? [])]) {
+    const nestedValue = findJsonSchemaKeyword(nested, keyword)
+    if (nestedValue !== undefined) return nestedValue
+  }
+  return undefined
+}
+
 describe("tag schemas", () => {
   it.effect("exposes the SDK tag weight values in JSON schema", () =>
     Effect.sync(() => {
       expect(tagWeightSdkParity).toBe(true)
-      expect(schemaProperty(attachTagParamsJsonSchema, "weight").enum).toEqual([...TAG_WEIGHT_VALUES])
+      expect(findJsonSchemaKeyword(schemaProperty(attachTagParamsJsonSchema, "weight"), "enum")).toEqual([
+        ...TAG_WEIGHT_VALUES
+      ])
     })
   )
 
@@ -63,7 +80,7 @@ describe("tag schemas", () => {
         })
       )
 
-      expect(error._tag).toBe("ParseError")
+      expect(error._tag).toBe("SchemaError")
     })
   )
 
@@ -76,7 +93,7 @@ describe("tag schemas", () => {
       })
 
       expect(parsed.color).toBe(MAX_COLOR_INDEX)
-      expect(schemaProperty(createTagParamsJsonSchema, "color").maximum).toBe(MAX_COLOR_INDEX)
+      expect(findJsonSchemaKeyword(schemaProperty(createTagParamsJsonSchema, "color"), "maximum")).toBe(MAX_COLOR_INDEX)
     })
   )
 
@@ -90,7 +107,7 @@ describe("tag schemas", () => {
         })
       )
 
-      expect(error._tag).toBe("ParseError")
+      expect(error._tag).toBe("SchemaError")
     })
   )
 
@@ -100,7 +117,7 @@ describe("tag schemas", () => {
         parseCreateTagParams({ color: -1, targetClass: "tracker:class:Issue", title: "negative-color" })
       )
 
-      expect(error._tag).toBe("ParseError")
+      expect(error._tag).toBe("SchemaError")
     })
   )
 

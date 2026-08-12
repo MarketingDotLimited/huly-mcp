@@ -93,7 +93,7 @@ export const createInventoryProduct = (
   })
 
 const updateProductCollection = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   product: HulyInventoryProduct,
   newCategory: HulyInventoryCategory | undefined,
   update: DocumentUpdate<HulyInventoryProduct>

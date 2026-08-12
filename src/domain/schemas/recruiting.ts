@@ -1,6 +1,7 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
 import { HULY_NATIVE_REFERENCE_MARKDOWN_INPUT } from "./document-native-references.js"
+import { toDraft07JsonSchema as toDraft07JsonSchemaBase, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 import { ApplicantIdentifier, CandidateIdentifier, VacancyIdentifier } from "./recruiting-common.js"
 import {
   assertUpdateFields,
@@ -20,38 +21,71 @@ import {
 } from "./shared.js"
 import { TagWeight } from "./tags.js"
 
+const RECRUITING_FIELD_DESCRIPTIONS = {
+  includeArchived: "Include archived records.",
+  limit: "Maximum number of records to return.",
+  query: "Case-insensitive search text.",
+  vacancy: "Vacancy locator.",
+  candidate: "Candidate locator.",
+  applicant: "Applicant locator.",
+  status: "Exact Recruiting status name.",
+  assignee: "Employee assignee locator.",
+  name: "Vacancy name.",
+  shortDescription: "Short vacancy description.",
+  fullDescription: `Full vacancy description in Markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`,
+  type: "Vacancy type locator.",
+  company: "Company organization locator.",
+  location: "Vacancy location.",
+  dueTo: "Vacancy due timestamp.",
+  private: "Whether the vacancy is private.",
+  title: "Recruiting title or search text.",
+  titleSearch: "Case-insensitive skill title search text.",
+  source: "Candidate source text.",
+  onsite: "Whether the candidate accepts onsite work.",
+  remote: "Whether the candidate accepts remote work.",
+  skill: "Skill locator.",
+  category: "Skill category.",
+  color: "Skill color.",
+  weight: "Skill weight.",
+  startDate: "Applicant start timestamp.",
+  dueDate: "Applicant due timestamp."
+}
+
+const toDraft07JsonSchema = (schema: Schema.Constraint): object =>
+  withJsonSchemaPropertyDescriptions(toDraft07JsonSchemaBase(schema), RECRUITING_FIELD_DESCRIPTIONS)
+
 export * from "./recruiting-common.js"
 
-const RecruitingSearchText = NonEmptyString.annotations({ description: "Non-empty case-insensitive search text." })
+const RecruitingSearchText = NonEmptyString.annotateKey({ description: "Non-empty case-insensitive search text." })
 
-const RecruitingOptionalTextInput = NonEmptyString.annotations({ description: "Non-empty free-form Recruiting text." })
+const RecruitingOptionalTextInput = NonEmptyString.annotateKey({ description: "Non-empty free-form Recruiting text." })
 
-const RecruitingClearableTextInput = Schema.NullOr(RecruitingOptionalTextInput).annotations({
+const RecruitingClearableTextInput = Schema.NullOr(RecruitingOptionalTextInput).annotate({
   description: "Non-empty replacement text, or null to clear this field."
 })
 
-const RecruitingPrivateInput = Schema.Boolean.annotations({
+const RecruitingPrivateInput = Schema.Boolean.annotate({
   description: "Whether the created or updated Recruiting object should be private."
 })
 
-const RecruitingWorkModeInput = Schema.Boolean.annotations({
+const RecruitingWorkModeInput = Schema.Boolean.annotate({
   description: "Whether the candidate is available for this work mode."
 })
 
 export const ListRecruitingVacancyTypesParamsSchema = Schema.Struct({
   includeArchived: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: `Include archived vacancy types when Huly marks them archived (default: ${DEFAULT_INCLUDE_ARCHIVED}).`
     })
   ),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of vacancy types to return (default: ${DEFAULT_LIMIT}).` })
+    LimitParam.annotateKey({ description: `Maximum number of vacancy types to return (default: ${DEFAULT_LIMIT}).` })
   )
 })
 export type ListRecruitingVacancyTypesParams = Schema.Schema.Type<typeof ListRecruitingVacancyTypesParamsSchema>
 
 export const ListRecruitingVacancyStatusesParamsSchema = Schema.Struct({
-  vacancy: VacancyIdentifier.annotations({
+  vacancy: VacancyIdentifier.annotate({
     description: "Vacancy locator: raw _id, VCN-<number>, bare number, or exact vacancy name."
   })
 })
@@ -59,42 +93,42 @@ export type ListRecruitingVacancyStatusesParams = Schema.Schema.Type<typeof List
 
 export const ListRecruitingVacanciesParamsSchema = Schema.Struct({
   includeArchived: Schema.optional(
-    Schema.Boolean.annotations({ description: `Include archived vacancies (default: ${DEFAULT_INCLUDE_ARCHIVED}).` })
+    Schema.Boolean.annotateKey({ description: `Include archived vacancies (default: ${DEFAULT_INCLUDE_ARCHIVED}).` })
   ),
-  query: Schema.optional(RecruitingSearchText.annotations({ description: "Case-insensitive vacancy name search." })),
-  type: Schema.optional(NonEmptyString.annotations({ description: "Vacancy type ID or exact type name." })),
-  company: Schema.optional(NonEmptyString.annotations({ description: "Company organization ID or exact name." })),
+  query: Schema.optional(RecruitingSearchText.annotateKey({ description: "Case-insensitive vacancy name search." })),
+  type: Schema.optional(NonEmptyString.annotateKey({ description: "Vacancy type ID or exact type name." })),
+  company: Schema.optional(NonEmptyString.annotateKey({ description: "Company organization ID or exact name." })),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of vacancies to return (default: ${DEFAULT_LIMIT}).` })
+    LimitParam.annotateKey({ description: `Maximum number of vacancies to return (default: ${DEFAULT_LIMIT}).` })
   )
 })
 export type ListRecruitingVacanciesParams = Schema.Schema.Type<typeof ListRecruitingVacanciesParamsSchema>
 
 export const GetRecruitingVacancyParamsSchema = Schema.Struct({
-  vacancy: VacancyIdentifier.annotations({
+  vacancy: VacancyIdentifier.annotate({
     description: "Vacancy locator: raw _id, VCN-<number>, bare number, or exact vacancy name."
   })
 })
 export type GetRecruitingVacancyParams = Schema.Schema.Type<typeof GetRecruitingVacancyParamsSchema>
 
 export const CreateRecruitingVacancyParamsSchema = Schema.Struct({
-  name: NonEmptyString.annotations({ description: "Non-empty vacancy name." }),
+  name: NonEmptyString.annotateKey({ description: "Non-empty vacancy name." }),
   shortDescription: Schema.optional(
-    RecruitingOptionalTextInput.annotations({ description: "Non-empty short vacancy summary." })
+    RecruitingOptionalTextInput.annotateKey({ description: "Non-empty short vacancy summary." })
   ),
   fullDescription: Schema.optional(
-    RecruitingOptionalTextInput.annotations({
+    RecruitingOptionalTextInput.annotate({
       description: `Non-empty full vacancy description uploaded as collaborative markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
     })
   ),
   type: Schema.optional(
-    NonEmptyString.annotations({
+    NonEmptyString.annotate({
       description: "Vacancy type ID or exact type name. Defaults to Huly's Default vacancy type."
     })
   ),
-  company: Schema.optional(NonEmptyString.annotations({ description: "Company organization ID or exact name." })),
+  company: Schema.optional(NonEmptyString.annotateKey({ description: "Company organization ID or exact name." })),
   location: Schema.optional(
-    RecruitingOptionalTextInput.annotations({ description: "Non-empty vacancy location text." })
+    RecruitingOptionalTextInput.annotateKey({ description: "Non-empty vacancy location text." })
   ),
   dueTo: Schema.optional(Timestamp),
   private: Schema.optional(RecruitingPrivateInput)
@@ -114,33 +148,35 @@ export const UPDATE_RECRUITING_VACANCY_FIELDS = [
 
 export const UpdateRecruitingVacancyParamsSchema = Schema.Struct({
   vacancy: VacancyIdentifier,
-  name: Schema.optional(NonEmptyString.annotations({ description: "Non-empty replacement vacancy name." })),
+  name: Schema.optional(NonEmptyString.annotateKey({ description: "Non-empty replacement vacancy name." })),
   shortDescription: Schema.optional(
-    RecruitingOptionalTextInput.annotations({ description: "Non-empty replacement short vacancy summary." })
+    RecruitingOptionalTextInput.annotateKey({ description: "Non-empty replacement short vacancy summary." })
   ),
   fullDescription: Schema.optional(
-    RecruitingClearableTextInput.annotations({
+    RecruitingClearableTextInput.annotate({
       description: `Non-empty replacement full vacancy description in markdown, or null to clear. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
     })
   ),
-  type: Schema.optional(NonEmptyString.annotations({ description: "Replacement vacancy type ID or exact type name." })),
+  type: Schema.optional(NonEmptyString.annotateKey({ description: "Replacement vacancy type ID or exact type name." })),
   company: Schema.optional(
-    Schema.NullOr(NonEmptyString).annotations({
+    Schema.NullOr(NonEmptyString).annotate({
       description: "Replacement company organization ID or exact name, or null to clear."
     })
   ),
   location: Schema.optional(
-    RecruitingClearableTextInput.annotations({
+    RecruitingClearableTextInput.annotateKey({
       description: "Non-empty replacement vacancy location, or null to clear."
     })
   ),
   dueTo: Schema.optional(Schema.NullOr(Timestamp)),
   private: Schema.optional(RecruitingPrivateInput)
 }).pipe(
-  Schema.filter((params) =>
-    hasAtLeastOneDefined(params, UPDATE_RECRUITING_VACANCY_FIELDS)
-      ? undefined
-      : atLeastOneUpdateFieldMessage(UPDATE_RECRUITING_VACANCY_FIELDS)
+  Schema.check(
+    Schema.makeFilter((params) =>
+      hasAtLeastOneDefined(params, UPDATE_RECRUITING_VACANCY_FIELDS)
+        ? undefined
+        : atLeastOneUpdateFieldMessage(UPDATE_RECRUITING_VACANCY_FIELDS)
+    )
   )
 )
 export type UpdateRecruitingVacancyParams = Schema.Schema.Type<typeof UpdateRecruitingVacancyParamsSchema>
@@ -153,16 +189,16 @@ export type UnarchiveRecruitingVacancyParams = GetRecruitingVacancyParams
 
 export const ListRecruitingCandidatesParamsSchema = Schema.Struct({
   query: Schema.optional(
-    RecruitingSearchText.annotations({ description: "Case-insensitive candidate name, title, or source search." })
+    RecruitingSearchText.annotateKey({ description: "Case-insensitive candidate name, title, or source search." })
   ),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of candidates to return (default: ${DEFAULT_LIMIT}).` })
+    LimitParam.annotateKey({ description: `Maximum number of candidates to return (default: ${DEFAULT_LIMIT}).` })
   )
 })
 export type ListRecruitingCandidatesParams = Schema.Schema.Type<typeof ListRecruitingCandidatesParamsSchema>
 
 export const GetRecruitingCandidateParamsSchema = Schema.Struct({
-  candidate: CandidateIdentifier.annotations({
+  candidate: CandidateIdentifier.annotate({
     description: "Candidate locator: person _id, email, or exact person display name."
   })
 })
@@ -172,16 +208,18 @@ export const SET_RECRUITING_CANDIDATE_PROFILE_FIELDS = ["title", "source", "onsi
 export const SetRecruitingCandidateProfileParamsSchema = Schema.Struct({
   candidate: CandidateIdentifier,
   title: Schema.optional(
-    RecruitingOptionalTextInput.annotations({ description: "Non-empty candidate profile title." })
+    RecruitingOptionalTextInput.annotateKey({ description: "Non-empty candidate profile title." })
   ),
-  source: Schema.optional(RecruitingOptionalTextInput.annotations({ description: "Non-empty candidate source text." })),
+  source: Schema.optional(RecruitingOptionalTextInput.annotateKey({ description: "Non-empty candidate source text." })),
   onsite: Schema.optional(RecruitingWorkModeInput),
   remote: Schema.optional(RecruitingWorkModeInput)
 }).pipe(
-  Schema.filter((params) =>
-    hasAtLeastOneDefined(params, SET_RECRUITING_CANDIDATE_PROFILE_FIELDS)
-      ? undefined
-      : atLeastOneUpdateFieldMessage(SET_RECRUITING_CANDIDATE_PROFILE_FIELDS)
+  Schema.check(
+    Schema.makeFilter((params) =>
+      hasAtLeastOneDefined(params, SET_RECRUITING_CANDIDATE_PROFILE_FIELDS)
+        ? undefined
+        : atLeastOneUpdateFieldMessage(SET_RECRUITING_CANDIDATE_PROFILE_FIELDS)
+    )
   )
 )
 export type SetRecruitingCandidateProfileParams = Schema.Schema.Type<typeof SetRecruitingCandidateProfileParamsSchema>
@@ -189,11 +227,11 @@ assertUpdateFields<SetRecruitingCandidateProfileParams>()(["candidate"], SET_REC
 
 export const ListRecruitingSkillsParamsSchema = Schema.Struct({
   titleSearch: Schema.optional(
-    RecruitingSearchText.annotations({ description: "Case-insensitive skill title search." })
+    RecruitingSearchText.annotateKey({ description: "Case-insensitive skill title search." })
   ),
   category: Schema.optional(TagCategoryIdentifier),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of skills to return (default: ${DEFAULT_LIMIT}).` })
+    LimitParam.annotateKey({ description: `Maximum number of skills to return (default: ${DEFAULT_LIMIT}).` })
   )
 })
 export type ListRecruitingSkillsParams = Schema.Schema.Type<typeof ListRecruitingSkillsParamsSchema>
@@ -203,7 +241,7 @@ export type ListRecruitingCandidateSkillsParams = GetRecruitingCandidateParams
 
 export const AddRecruitingCandidateSkillParamsSchema = Schema.Struct({
   candidate: CandidateIdentifier,
-  skill: TagIdentifier.annotations({
+  skill: TagIdentifier.annotate({
     description: "Skill tag title or tag ID. Missing titles are created automatically."
   }),
   category: Schema.optional(TagCategoryIdentifier),
@@ -223,7 +261,7 @@ export const ListRecruitingApplicantsParamsSchema = Schema.Struct({
   candidate: Schema.optional(CandidateIdentifier),
   status: Schema.optional(StatusName),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of applicants to return (default: ${DEFAULT_LIMIT}).` })
+    LimitParam.annotateKey({ description: `Maximum number of applicants to return (default: ${DEFAULT_LIMIT}).` })
   )
 })
 export type ListRecruitingApplicantsParams = Schema.Schema.Type<typeof ListRecruitingApplicantsParamsSchema>
@@ -258,10 +296,12 @@ export const UpdateRecruitingApplicantParamsSchema = Schema.Struct({
   startDate: Schema.optional(Schema.NullOr(Timestamp)),
   dueDate: Schema.optional(Schema.NullOr(Timestamp))
 }).pipe(
-  Schema.filter((params) =>
-    hasAtLeastOneDefined(params, UPDATE_RECRUITING_APPLICANT_FIELDS)
-      ? undefined
-      : atLeastOneUpdateFieldMessage(UPDATE_RECRUITING_APPLICANT_FIELDS)
+  Schema.check(
+    Schema.makeFilter((params) =>
+      hasAtLeastOneDefined(params, UPDATE_RECRUITING_APPLICANT_FIELDS)
+        ? undefined
+        : atLeastOneUpdateFieldMessage(UPDATE_RECRUITING_APPLICANT_FIELDS)
+    )
   )
 )
 export type UpdateRecruitingApplicantParams = Schema.Schema.Type<typeof UpdateRecruitingApplicantParamsSchema>
@@ -273,57 +313,69 @@ assertUpdateFields<UpdateRecruitingApplicantParams>()(
 export const DeleteRecruitingApplicantParamsSchema = ApplicantLocatorSchema
 export type DeleteRecruitingApplicantParams = ApplicantLocator
 
-export const listRecruitingVacancyTypesParamsJsonSchema = JSONSchema.make(ListRecruitingVacancyTypesParamsSchema)
-export const listRecruitingVacancyStatusesParamsJsonSchema = JSONSchema.make(ListRecruitingVacancyStatusesParamsSchema)
-export const listRecruitingVacanciesParamsJsonSchema = JSONSchema.make(ListRecruitingVacanciesParamsSchema)
-export const getRecruitingVacancyParamsJsonSchema = JSONSchema.make(GetRecruitingVacancyParamsSchema)
-export const createRecruitingVacancyParamsJsonSchema = JSONSchema.make(CreateRecruitingVacancyParamsSchema)
+export const listRecruitingVacancyTypesParamsJsonSchema = toDraft07JsonSchema(ListRecruitingVacancyTypesParamsSchema)
+export const listRecruitingVacancyStatusesParamsJsonSchema = toDraft07JsonSchema(
+  ListRecruitingVacancyStatusesParamsSchema
+)
+export const listRecruitingVacanciesParamsJsonSchema = toDraft07JsonSchema(ListRecruitingVacanciesParamsSchema)
+export const getRecruitingVacancyParamsJsonSchema = toDraft07JsonSchema(GetRecruitingVacancyParamsSchema)
+export const createRecruitingVacancyParamsJsonSchema = toDraft07JsonSchema(CreateRecruitingVacancyParamsSchema)
 export const updateRecruitingVacancyParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(UpdateRecruitingVacancyParamsSchema),
+  toDraft07JsonSchema(UpdateRecruitingVacancyParamsSchema),
   UPDATE_RECRUITING_VACANCY_FIELDS
 )
-export const archiveRecruitingVacancyParamsJsonSchema = JSONSchema.make(ArchiveRecruitingVacancyParamsSchema)
-export const unarchiveRecruitingVacancyParamsJsonSchema = JSONSchema.make(UnarchiveRecruitingVacancyParamsSchema)
-export const listRecruitingCandidatesParamsJsonSchema = JSONSchema.make(ListRecruitingCandidatesParamsSchema)
-export const getRecruitingCandidateParamsJsonSchema = JSONSchema.make(GetRecruitingCandidateParamsSchema)
+export const archiveRecruitingVacancyParamsJsonSchema = toDraft07JsonSchema(ArchiveRecruitingVacancyParamsSchema)
+export const unarchiveRecruitingVacancyParamsJsonSchema = toDraft07JsonSchema(UnarchiveRecruitingVacancyParamsSchema)
+export const listRecruitingCandidatesParamsJsonSchema = toDraft07JsonSchema(ListRecruitingCandidatesParamsSchema)
+export const getRecruitingCandidateParamsJsonSchema = toDraft07JsonSchema(GetRecruitingCandidateParamsSchema)
 export const setRecruitingCandidateProfileParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(SetRecruitingCandidateProfileParamsSchema),
+  toDraft07JsonSchema(SetRecruitingCandidateProfileParamsSchema),
   SET_RECRUITING_CANDIDATE_PROFILE_FIELDS
 )
-export const listRecruitingSkillsParamsJsonSchema = JSONSchema.make(ListRecruitingSkillsParamsSchema)
-export const listRecruitingCandidateSkillsParamsJsonSchema = JSONSchema.make(ListRecruitingCandidateSkillsParamsSchema)
-export const addRecruitingCandidateSkillParamsJsonSchema = JSONSchema.make(AddRecruitingCandidateSkillParamsSchema)
-export const removeRecruitingCandidateSkillParamsJsonSchema = JSONSchema.make(
+export const listRecruitingSkillsParamsJsonSchema = toDraft07JsonSchema(ListRecruitingSkillsParamsSchema)
+export const listRecruitingCandidateSkillsParamsJsonSchema = toDraft07JsonSchema(
+  ListRecruitingCandidateSkillsParamsSchema
+)
+export const addRecruitingCandidateSkillParamsJsonSchema = toDraft07JsonSchema(AddRecruitingCandidateSkillParamsSchema)
+export const removeRecruitingCandidateSkillParamsJsonSchema = toDraft07JsonSchema(
   RemoveRecruitingCandidateSkillParamsSchema
 )
-export const listRecruitingApplicantsParamsJsonSchema = JSONSchema.make(ListRecruitingApplicantsParamsSchema)
-export const getRecruitingApplicantParamsJsonSchema = JSONSchema.make(GetRecruitingApplicantParamsSchema)
-export const createRecruitingApplicantParamsJsonSchema = JSONSchema.make(CreateRecruitingApplicantParamsSchema)
+export const listRecruitingApplicantsParamsJsonSchema = toDraft07JsonSchema(ListRecruitingApplicantsParamsSchema)
+export const getRecruitingApplicantParamsJsonSchema = toDraft07JsonSchema(GetRecruitingApplicantParamsSchema)
+export const createRecruitingApplicantParamsJsonSchema = toDraft07JsonSchema(CreateRecruitingApplicantParamsSchema)
 export const updateRecruitingApplicantParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(UpdateRecruitingApplicantParamsSchema),
+  toDraft07JsonSchema(UpdateRecruitingApplicantParamsSchema),
   UPDATE_RECRUITING_APPLICANT_FIELDS
 )
-export const deleteRecruitingApplicantParamsJsonSchema = JSONSchema.make(DeleteRecruitingApplicantParamsSchema)
+export const deleteRecruitingApplicantParamsJsonSchema = toDraft07JsonSchema(DeleteRecruitingApplicantParamsSchema)
 
-export const parseListRecruitingVacancyTypesParams = Schema.decodeUnknown(ListRecruitingVacancyTypesParamsSchema)
-export const parseListRecruitingVacancyStatusesParams = Schema.decodeUnknown(ListRecruitingVacancyStatusesParamsSchema)
-export const parseListRecruitingVacanciesParams = Schema.decodeUnknown(ListRecruitingVacanciesParamsSchema)
-export const parseGetRecruitingVacancyParams = Schema.decodeUnknown(GetRecruitingVacancyParamsSchema)
-export const parseCreateRecruitingVacancyParams = Schema.decodeUnknown(CreateRecruitingVacancyParamsSchema)
-export const parseUpdateRecruitingVacancyParams = Schema.decodeUnknown(UpdateRecruitingVacancyParamsSchema)
-export const parseArchiveRecruitingVacancyParams = Schema.decodeUnknown(ArchiveRecruitingVacancyParamsSchema)
-export const parseUnarchiveRecruitingVacancyParams = Schema.decodeUnknown(UnarchiveRecruitingVacancyParamsSchema)
-export const parseListRecruitingCandidatesParams = Schema.decodeUnknown(ListRecruitingCandidatesParamsSchema)
-export const parseGetRecruitingCandidateParams = Schema.decodeUnknown(GetRecruitingCandidateParamsSchema)
-export const parseSetRecruitingCandidateProfileParams = Schema.decodeUnknown(SetRecruitingCandidateProfileParamsSchema)
-export const parseListRecruitingSkillsParams = Schema.decodeUnknown(ListRecruitingSkillsParamsSchema)
-export const parseListRecruitingCandidateSkillsParams = Schema.decodeUnknown(ListRecruitingCandidateSkillsParamsSchema)
-export const parseAddRecruitingCandidateSkillParams = Schema.decodeUnknown(AddRecruitingCandidateSkillParamsSchema)
-export const parseRemoveRecruitingCandidateSkillParams = Schema.decodeUnknown(
+export const parseListRecruitingVacancyTypesParams = Schema.decodeUnknownEffect(ListRecruitingVacancyTypesParamsSchema)
+export const parseListRecruitingVacancyStatusesParams = Schema.decodeUnknownEffect(
+  ListRecruitingVacancyStatusesParamsSchema
+)
+export const parseListRecruitingVacanciesParams = Schema.decodeUnknownEffect(ListRecruitingVacanciesParamsSchema)
+export const parseGetRecruitingVacancyParams = Schema.decodeUnknownEffect(GetRecruitingVacancyParamsSchema)
+export const parseCreateRecruitingVacancyParams = Schema.decodeUnknownEffect(CreateRecruitingVacancyParamsSchema)
+export const parseUpdateRecruitingVacancyParams = Schema.decodeUnknownEffect(UpdateRecruitingVacancyParamsSchema)
+export const parseArchiveRecruitingVacancyParams = Schema.decodeUnknownEffect(ArchiveRecruitingVacancyParamsSchema)
+export const parseUnarchiveRecruitingVacancyParams = Schema.decodeUnknownEffect(UnarchiveRecruitingVacancyParamsSchema)
+export const parseListRecruitingCandidatesParams = Schema.decodeUnknownEffect(ListRecruitingCandidatesParamsSchema)
+export const parseGetRecruitingCandidateParams = Schema.decodeUnknownEffect(GetRecruitingCandidateParamsSchema)
+export const parseSetRecruitingCandidateProfileParams = Schema.decodeUnknownEffect(
+  SetRecruitingCandidateProfileParamsSchema
+)
+export const parseListRecruitingSkillsParams = Schema.decodeUnknownEffect(ListRecruitingSkillsParamsSchema)
+export const parseListRecruitingCandidateSkillsParams = Schema.decodeUnknownEffect(
+  ListRecruitingCandidateSkillsParamsSchema
+)
+export const parseAddRecruitingCandidateSkillParams = Schema.decodeUnknownEffect(
+  AddRecruitingCandidateSkillParamsSchema
+)
+export const parseRemoveRecruitingCandidateSkillParams = Schema.decodeUnknownEffect(
   RemoveRecruitingCandidateSkillParamsSchema
 )
-export const parseListRecruitingApplicantsParams = Schema.decodeUnknown(ListRecruitingApplicantsParamsSchema)
-export const parseGetRecruitingApplicantParams = Schema.decodeUnknown(GetRecruitingApplicantParamsSchema)
-export const parseCreateRecruitingApplicantParams = Schema.decodeUnknown(CreateRecruitingApplicantParamsSchema)
-export const parseUpdateRecruitingApplicantParams = Schema.decodeUnknown(UpdateRecruitingApplicantParamsSchema)
-export const parseDeleteRecruitingApplicantParams = Schema.decodeUnknown(DeleteRecruitingApplicantParamsSchema)
+export const parseListRecruitingApplicantsParams = Schema.decodeUnknownEffect(ListRecruitingApplicantsParamsSchema)
+export const parseGetRecruitingApplicantParams = Schema.decodeUnknownEffect(GetRecruitingApplicantParamsSchema)
+export const parseCreateRecruitingApplicantParams = Schema.decodeUnknownEffect(CreateRecruitingApplicantParamsSchema)
+export const parseUpdateRecruitingApplicantParams = Schema.decodeUnknownEffect(UpdateRecruitingApplicantParamsSchema)
+export const parseDeleteRecruitingApplicantParams = Schema.decodeUnknownEffect(DeleteRecruitingApplicantParamsSchema)

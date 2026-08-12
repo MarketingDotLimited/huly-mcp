@@ -207,12 +207,12 @@ interface CardVersionEntry {
 const CardHistoryProjectionSchema = Schema.Struct({
   _id: CardIdSchema,
   title: Schema.String,
-  version: Schema.optionalWith(Schema.Unknown, { exact: true }),
-  baseId: Schema.optionalWith(Schema.Unknown, { exact: true }),
-  isLatest: Schema.optionalWith(Schema.Unknown, { exact: true }),
-  readonly: Schema.optionalWith(Schema.Unknown, { exact: true }),
-  modifiedOn: Schema.optionalWith(Schema.Unknown, { exact: true }),
-  createdOn: Schema.optionalWith(Schema.Unknown, { exact: true })
+  version: Schema.optionalKey(Schema.Unknown),
+  baseId: Schema.optionalKey(Schema.Unknown),
+  isLatest: Schema.optionalKey(Schema.Unknown),
+  readonly: Schema.optionalKey(Schema.Unknown),
+  modifiedOn: Schema.optionalKey(Schema.Unknown),
+  createdOn: Schema.optionalKey(Schema.Unknown)
 })
 
 type CardHistoryProjection = Schema.Schema.Type<typeof CardHistoryProjectionSchema>
@@ -240,7 +240,7 @@ const entryFromProjection = (card: CardHistoryProjection): CardVersionEntry => {
 }
 
 const toEntry = (card: unknown): Effect.Effect<CardVersionEntry, HulyConnectionError> =>
-  Schema.decodeUnknown(CardHistoryProjectionSchema)(card).pipe(
+  Schema.decodeUnknownEffect(CardHistoryProjectionSchema)(card).pipe(
     Effect.map(entryFromProjection),
     Effect.mapError(
       (parseError) =>

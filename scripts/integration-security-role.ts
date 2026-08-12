@@ -10,7 +10,7 @@ import { connectIntegrationHuly } from "./integration-huly-client.js"
 
 const NODE_ARGV_OFFSET = 2
 const ArgsSchema = Schema.Struct({
-  action: Schema.Literal("verify", "verify-absent", "delete"),
+  action: Schema.Literals(["verify", "verify-absent", "delete"]),
   spaceType: SpaceTypeId,
   role: RoleId
 })

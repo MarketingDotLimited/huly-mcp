@@ -91,13 +91,13 @@ interface LeadWorkflow {
   readonly status: Ref<Status>
 }
 
-const LeadSequenceNumber = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.brand("LeadSequenceNumber"))
+const LeadSequenceNumber = Schema.Int.check(Schema.isGreaterThan(0)).pipe(Schema.brand("LeadSequenceNumber"))
 type LeadSequenceNumber = Schema.Schema.Type<typeof LeadSequenceNumber>
 
 const SequenceIncrementResultSchema = Schema.Struct({ object: Schema.Struct({ sequence: LeadSequenceNumber }) })
 
 const strictFunnelLookup = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: FunnelReference
 ): Effect.Effect<HulyFunnel, HulyClientError | FunnelNotFoundError | HulyError> =>
   Effect.gen(function* () {
@@ -125,7 +125,7 @@ const strictFunnelLookup = (
   })
 
 const resolveCustomer = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   locator: LeadCustomerLocator
 ): Effect.Effect<
   HulyCustomer,
@@ -247,7 +247,7 @@ const chooseStatus = (
 }
 
 const resolveWorkflow = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   funnel: HulyFunnel,
   params: CreateLeadParams
 ): Effect.Effect<LeadWorkflow, HulyClientError | HulyConnectionError | HulyError, Diagnostics> =>
@@ -275,7 +275,7 @@ const resolveWorkflow = (
   })
 
 const resolveAssignee = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: CreateLeadParams["assignee"]
 ): Effect.Effect<
   Ref<HulyPerson> | null,
@@ -299,7 +299,7 @@ const resolveAssignee = (
       })
 
 const applyCustomerMixin = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   customer: HulyCustomer
 ): Effect.Effect<void, HulyClientError> =>
   Object.hasOwn(customer, String(leadClassIds.mixin.Customer))
@@ -315,7 +315,7 @@ const applyCustomerMixin = (
         .pipe(Effect.asVoid)
 
 const resolveLeadSequence = (
-  client: HulyClient["Type"]
+  client: HulyClient["Service"]
 ): Effect.Effect<Sequence, HulyClientError | HulyConnectionError> =>
   Effect.gen(function* () {
     const sequence = yield* client.findOne<Sequence>(
@@ -329,13 +329,13 @@ const resolveLeadSequence = (
   })
 
 const incrementLeadSequence = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   sequence: Sequence
 ): Effect.Effect<LeadSequenceNumber, HulyClientError | HulyConnectionError> =>
   Effect.gen(function* () {
     const update: DocumentUpdate<Sequence> = { $inc: { sequence: 1 } }
     const result = yield* client.updateDoc(core.class.Sequence, sequence.space, sequence._id, update, true)
-    return yield* Schema.decodeUnknown(SequenceIncrementResultSchema)(result).pipe(
+    return yield* Schema.decodeUnknownEffect(SequenceIncrementResultSchema)(result).pipe(
       Effect.map((decoded) => decoded.object.sequence),
       Effect.mapError(
         (cause) =>
@@ -378,7 +378,7 @@ export const createLead = (
     const workflow = yield* resolveWorkflow(client, funnel, params)
     const assignee = yield* resolveAssignee(client, params.assignee)
     const sequence = yield* resolveLeadSequence(client)
-    const renderedDescriptionCandidate = Option.fromNullable(params.description).pipe(
+    const renderedDescriptionCandidate = Option.fromNullishOr(params.description).pipe(
       Option.filter((description) => description.trim() !== ""),
       Option.map((description) =>
         renderMarkdownWithNativeReferencesForWrite(description, client.markupUrlConfig, "description")

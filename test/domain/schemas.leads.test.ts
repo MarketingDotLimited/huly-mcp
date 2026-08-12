@@ -27,7 +27,7 @@ describe("Lead Schemas", () => {
   describe("FunnelSummarySchema", () => {
     it.effect("accepts valid funnel summary", () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(FunnelSummarySchema)({
+        const result = yield* Schema.decodeUnknownEffect(FunnelSummarySchema)({
           identifier: "funnel-1",
           name: "Sales Pipeline",
           description: "Main sales funnel",
@@ -41,7 +41,7 @@ describe("Lead Schemas", () => {
 
     it.effect("accepts funnel without description", () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(FunnelSummarySchema)({
+        const result = yield* Schema.decodeUnknownEffect(FunnelSummarySchema)({
           identifier: "funnel-2",
           name: "Lead Funnel",
           archived: true
@@ -55,7 +55,7 @@ describe("Lead Schemas", () => {
   describe("LeadSummarySchema", () => {
     it.effect("accepts valid lead summary", () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(LeadSummarySchema)({
+        const result = yield* Schema.decodeUnknownEffect(LeadSummarySchema)({
           identifier: "lead-1",
           title: "Big Deal",
           status: "Negotiation",
@@ -71,7 +71,7 @@ describe("Lead Schemas", () => {
 
     it.effect("accepts minimal lead summary", () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(LeadSummarySchema)({
+        const result = yield* Schema.decodeUnknownEffect(LeadSummarySchema)({
           identifier: "LEAD-2",
           title: "Quick Lead",
           status: "Incoming"
@@ -85,7 +85,7 @@ describe("Lead Schemas", () => {
   describe("LeadDetailSchema", () => {
     it.effect("accepts full lead detail", () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(LeadDetailSchema)({
+        const result = yield* Schema.decodeUnknownEffect(LeadDetailSchema)({
           identifier: "LEAD-1",
           title: "Enterprise Deal",
           description: "# Big opportunity\n\nLots of potential.",
@@ -136,7 +136,7 @@ describe("Lead Schemas", () => {
     it.effect("requires funnel", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListLeadsParams({}))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -179,21 +179,21 @@ describe("Lead Schemas", () => {
     it.effect("rejects malformed identifier", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseGetLeadParams({ funnel: "funnel-1", identifier: "banana" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects missing funnel", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseGetLeadParams({ identifier: "LEAD-1" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects missing identifier", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseGetLeadParams({ funnel: "funnel-1" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -253,14 +253,14 @@ describe("Lead Schemas", () => {
           })
         )
 
-        expect(emptyTitle._tag).toBe("ParseError")
-        expect(inlineCustomer._tag).toBe("ParseError")
+        expect(emptyTitle._tag).toBe("SchemaError")
+        expect(inlineCustomer._tag).toBe("SchemaError")
       })
     )
 
     it.effect("accepts the schema-owned create result", () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(CreateLeadResultSchema)({
+        const result = yield* Schema.decodeUnknownEffect(CreateLeadResultSchema)({
           leadId: "lead-document-1",
           identifier: "LEAD-42"
         })

@@ -41,7 +41,7 @@ import { toRef } from "./sdk-boundary.js"
 import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
 const toCategoryDetail = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   category: HulyInventoryCategory
 ): Effect.Effect<InventoryCategoryDetail, InventoryError> =>
   Effect.gen(function* () {
@@ -103,9 +103,9 @@ export const createInventoryCategory = (
   })
 
 const ensureValidCategoryParent = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   category: HulyInventoryCategory,
-  newParent: Effect.Effect.Success<ReturnType<typeof resolveCategoryParent>> | undefined
+  newParent: Effect.Success<ReturnType<typeof resolveCategoryParent>> | undefined
 ): Effect.Effect<void, InventoryError> =>
   Effect.gen(function* () {
     if (newParent === undefined) return
@@ -117,9 +117,9 @@ const ensureValidCategoryParent = (
   })
 
 const updateCategoryCollection = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   category: HulyInventoryCategory,
-  newParent: Effect.Effect.Success<ReturnType<typeof resolveCategoryParent>> | undefined,
+  newParent: Effect.Success<ReturnType<typeof resolveCategoryParent>> | undefined,
   update: DocumentUpdate<HulyInventoryCategory>
 ): Effect.Effect<void, InventoryError> =>
   Effect.gen(function* () {

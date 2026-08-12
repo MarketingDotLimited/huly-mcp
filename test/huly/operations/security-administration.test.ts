@@ -145,7 +145,7 @@ interface CapturedWrite {
 const permissionLayer = (
   config: PermissionHarnessConfig,
   writes: Array<CapturedWrite>,
-  diagnostics: Diagnostics["Type"] = { warnAgent: () => Effect.void, trail: () => Effect.void }
+  diagnostics: Diagnostics["Service"] = { warnAgent: () => Effect.void, trail: () => Effect.void }
 ) => {
   // The SDK port methods are generic, while this heterogeneous fixture dispatches by the exact runtime class token;
   // each adapter cast is safe because every branch returns documents for that token and no generic fixture API exists.

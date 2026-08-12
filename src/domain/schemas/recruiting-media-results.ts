@@ -26,7 +26,7 @@ import {
 
 const RecruitingTargetBaseSchema = { objectClass: ObjectClassName, space: SpaceId, display: NonEmptyString } as const
 
-export const RecruitingResolvedTargetSchema = Schema.Union(
+export const RecruitingResolvedTargetSchema = Schema.Union([
   Schema.Struct({
     kind: Schema.Literal("vacancy"),
     id: VacancyRefSchema.fields.id,
@@ -57,7 +57,7 @@ export const RecruitingResolvedTargetSchema = Schema.Union(
     ...RecruitingTargetBaseSchema,
     ref: OpinionRefSchema
   })
-).annotations({
+]).annotate({
   title: "RecruitingResolvedTarget",
   description: "Resolved Recruiting object target with raw object details and a stable domain ref."
 })

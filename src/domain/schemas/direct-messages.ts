@@ -3,7 +3,9 @@
  * separate to honour the per-file size limit and group all DM-specific
  * params, JSON schemas, parsers, and result types in one place.
  */
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 
 import { MessageSummarySchema } from "./channels.js"
 import { HULY_NATIVE_REFERENCE_MARKDOWN_INPUT } from "./document-native-references.js"
@@ -21,14 +23,14 @@ import {
 // --- List DM Messages Params ---
 
 export const ListDmMessagesParamsSchema = Schema.Struct({
-  dm: DirectMessageIdentifier.annotations({
+  dm: DirectMessageIdentifier.annotate({
     description:
       "Direct-message conversation: either the DM `_id` or a participant display name (e.g. `Kerr,Shannon`). A participant name resolves only to a one-to-one DM with the authenticated account."
   }),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of messages to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of messages to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({
+}).annotate({
   title: "ListDmMessagesParams",
   description: "Parameters for listing messages in a direct-message conversation"
 })
@@ -38,12 +40,12 @@ export type ListDmMessagesParams = Schema.Schema.Type<typeof ListDmMessagesParam
 // --- Send DM Message Params ---
 
 export const SendDmMessageParamsSchema = Schema.Struct({
-  dm: DirectMessageIdentifier.annotations({
+  dm: DirectMessageIdentifier.annotate({
     description:
       "Direct-message conversation: either the DM `_id` or a participant display name (e.g. `Kerr,Shannon`). A participant name resolves only to a one-to-one DM with the authenticated account."
   }),
-  body: NonEmptyString.annotations({ description: `Message body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}` })
-}).annotations({
+  body: NonEmptyString.annotate({ description: `Message body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}` })
+}).annotate({
   title: "SendDmMessageParams",
   description: "Parameters for sending a message to a direct-message conversation"
 })
@@ -53,38 +55,38 @@ export type SendDmMessageParams = Schema.Schema.Type<typeof SendDmMessageParamsS
 // --- Update DM Message Params ---
 
 export const UpdateDmMessageParamsSchema = Schema.Struct({
-  dm: DirectMessageIdentifier.annotations({
+  dm: DirectMessageIdentifier.annotate({
     description:
       "Direct-message conversation: either the DM `_id` or a participant display name. A participant name resolves only to a one-to-one DM with the authenticated account."
   }),
-  messageId: MessageId.annotations({ description: "Message ID to update" }),
-  body: NonEmptyString.annotations({
+  messageId: MessageId.annotate({ description: "Message ID to update" }),
+  body: NonEmptyString.annotate({
     description: `New message body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
   })
-}).annotations({ title: "UpdateDmMessageParams", description: "Parameters for updating a direct-message message" })
+}).annotate({ title: "UpdateDmMessageParams", description: "Parameters for updating a direct-message message" })
 
 export type UpdateDmMessageParams = Schema.Schema.Type<typeof UpdateDmMessageParamsSchema>
 
 // --- Delete DM Message Params ---
 
 export const DeleteDmMessageParamsSchema = Schema.Struct({
-  dm: DirectMessageIdentifier.annotations({
+  dm: DirectMessageIdentifier.annotate({
     description:
       "Direct-message conversation: either the DM `_id` or a participant display name. A participant name resolves only to a one-to-one DM with the authenticated account."
   }),
-  messageId: MessageId.annotations({ description: "Message ID to delete" })
-}).annotations({ title: "DeleteDmMessageParams", description: "Parameters for deleting a direct-message message" })
+  messageId: MessageId.annotate({ description: "Message ID to delete" })
+}).annotate({ title: "DeleteDmMessageParams", description: "Parameters for deleting a direct-message message" })
 
 export type DeleteDmMessageParams = Schema.Schema.Type<typeof DeleteDmMessageParamsSchema>
 
 // --- Create DM Params ---
 
 export const CreateDirectMessageParamsSchema = Schema.Struct({
-  person: PersonRefInput.annotations({
+  person: PersonRefInput.annotate({
     description:
       "Participant to open a one-to-one DM with: email address or exact display name (e.g. `Smith,Bill`). Resolved via the Employee mixin to a Huly account."
   })
-}).annotations({
+}).annotate({
   title: "CreateDirectMessageParams",
   description:
     "Parameters for opening a one-to-one direct-message conversation with another workspace member. If a one-to-one DM with that participant already exists, it is returned unchanged."
@@ -94,19 +96,41 @@ export type CreateDirectMessageParams = Schema.Schema.Type<typeof CreateDirectMe
 
 // --- JSON Schemas for MCP ---
 
-export const listDmMessagesParamsJsonSchema = JSONSchema.make(ListDmMessagesParamsSchema)
-export const sendDmMessageParamsJsonSchema = JSONSchema.make(SendDmMessageParamsSchema)
-export const updateDmMessageParamsJsonSchema = JSONSchema.make(UpdateDmMessageParamsSchema)
-export const deleteDmMessageParamsJsonSchema = JSONSchema.make(DeleteDmMessageParamsSchema)
-export const createDirectMessageParamsJsonSchema = JSONSchema.make(CreateDirectMessageParamsSchema)
+const dmDescription =
+  "Direct-message conversation ID or participant display name. A name resolves only to a one-to-one DM with the authenticated account."
+
+export const listDmMessagesParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(ListDmMessagesParamsSchema),
+  { dm: dmDescription, limit: `Maximum number of messages to return (default: ${DEFAULT_LIMIT}).` }
+)
+export const sendDmMessageParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(SendDmMessageParamsSchema),
+  { dm: dmDescription, body: `Message body in Markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}` }
+)
+export const updateDmMessageParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(UpdateDmMessageParamsSchema),
+  {
+    dm: dmDescription,
+    messageId: "Message ID to update.",
+    body: `New message body in Markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
+  }
+)
+export const deleteDmMessageParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(DeleteDmMessageParamsSchema),
+  { dm: dmDescription, messageId: "Message ID to delete." }
+)
+export const createDirectMessageParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(CreateDirectMessageParamsSchema),
+  { person: "Participant email address or exact display name used to open a one-to-one direct message." }
+)
 
 // --- Parsers ---
 
-export const parseListDmMessagesParams = Schema.decodeUnknown(ListDmMessagesParamsSchema)
-export const parseSendDmMessageParams = Schema.decodeUnknown(SendDmMessageParamsSchema)
-export const parseUpdateDmMessageParams = Schema.decodeUnknown(UpdateDmMessageParamsSchema)
-export const parseDeleteDmMessageParams = Schema.decodeUnknown(DeleteDmMessageParamsSchema)
-export const parseCreateDirectMessageParams = Schema.decodeUnknown(CreateDirectMessageParamsSchema)
+export const parseListDmMessagesParams = Schema.decodeUnknownEffect(ListDmMessagesParamsSchema)
+export const parseSendDmMessageParams = Schema.decodeUnknownEffect(SendDmMessageParamsSchema)
+export const parseUpdateDmMessageParams = Schema.decodeUnknownEffect(UpdateDmMessageParamsSchema)
+export const parseDeleteDmMessageParams = Schema.decodeUnknownEffect(DeleteDmMessageParamsSchema)
+export const parseCreateDirectMessageParams = Schema.decodeUnknownEffect(CreateDirectMessageParamsSchema)
 export const ListDmMessagesResultSchema = Schema.Struct({
   messages: Schema.Array(MessageSummarySchema),
   total: ListTotal

@@ -1,6 +1,6 @@
 import type { Space } from "@hcengineering/core"
 import type { SupportConversation, SupportSystem } from "@hcengineering/support"
-import { Effect, Either, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 
 import type {
   GetSupportStatusParams,
@@ -47,13 +47,13 @@ const SupportConversationProjectionSchema = Schema.Struct({
 type SupportConversationProjection = Schema.Schema.Type<typeof SupportConversationProjectionSchema>
 
 const parseSystem = (input: unknown): Effect.Effect<SupportSystemProjection, HulyError> =>
-  Schema.decodeUnknown(SupportSystemProjectionSchema)(input).pipe(
+  Schema.decodeUnknownEffect(SupportSystemProjectionSchema)(input).pipe(
     Effect.mapError((cause) => new HulyError({ message: "Huly returned malformed support-system metadata.", cause }))
   )
 
-const parseConversation = Schema.decodeUnknownEither(SupportConversationProjectionSchema)
+const parseConversation = Schema.decodeUnknownResult(SupportConversationProjectionSchema)
 
-const hasSupportModel = (client: HulyClient["Type"]): Effect.Effect<boolean, HulyClientError> =>
+const hasSupportModel = (client: HulyClient["Service"]): Effect.Effect<boolean, HulyClientError> =>
   Effect.map(
     client.findAllInModel<MetadataClassDoc>(
       modelClassRef,
@@ -65,15 +65,15 @@ const hasSupportModel = (client: HulyClient["Type"]): Effect.Effect<boolean, Hul
     }
   )
 
-const warnModelUnavailable = (diagnostics: Diagnostics["Type"]): Effect.Effect<void> =>
+const warnModelUnavailable = (diagnostics: Diagnostics["Service"]): Effect.Effect<void> =>
   diagnostics.warnAgent({ code: SupportRuntimeUnsupportedWarningCode, message: SUPPORT_MODEL_UNAVAILABLE_REASON })
 
 const parseStatusRecords = (
-  diagnostics: Diagnostics["Type"],
+  diagnostics: Diagnostics["Service"],
   records: ReadonlyArray<SupportConversation>
 ): Effect.Effect<Array<SupportStatusRecord>> => {
   const decoded = records.map((record) => parseConversation(record))
-  const valid = decoded.flatMap((result) => (Either.isRight(result) ? [summarizeConversation(result.right)] : []))
+  const valid = decoded.flatMap((result) => (Result.isSuccess(result) ? [summarizeConversation(result.success)] : []))
   const malformedCount = decoded.length - valid.length
   return malformedCount === 0
     ? Effect.succeed(valid)

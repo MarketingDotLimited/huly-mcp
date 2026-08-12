@@ -107,7 +107,7 @@ describe("approval request schemas", () => {
 
   it.effect("validates detail output while preserving opaque SDK tx payloads", () =>
     Effect.gen(function* () {
-      const decoded = yield* Schema.decodeUnknown(ApprovalRequestDetailSchema)({
+      const decoded = yield* Schema.decodeUnknownEffect(ApprovalRequestDetailSchema)({
         id: "request-1",
         class: "request:class:Request",
         status: "Completed",
@@ -132,14 +132,14 @@ describe("approval request schemas", () => {
 
   it.effect("validates mutation output variants and rejects impossible action fields", () =>
     Effect.gen(function* () {
-      const decoded = yield* Schema.decodeUnknown(ApprovalRequestMutationResultSchema)({
+      const decoded = yield* Schema.decodeUnknownEffect(ApprovalRequestMutationResultSchema)({
         request: "request-1",
         action: "rejected",
         changed: true,
         status: "Rejected",
         comment: "comment-1"
       })
-      const impossible = yield* Schema.decodeUnknown(ApprovalRequestMutationResultSchema)({
+      const impossible = yield* Schema.decodeUnknownEffect(ApprovalRequestMutationResultSchema)({
         request: "request-1",
         action: "rejected",
         changed: true,

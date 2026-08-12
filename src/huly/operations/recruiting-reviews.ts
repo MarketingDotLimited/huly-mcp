@@ -91,12 +91,12 @@ const prefixedReviewNumber = (identifier: string): number | undefined => {
 }
 
 const optionalApplication = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: ApplicantIdentifier | undefined,
   candidate?: Person
 ) => (identifier === undefined ? Effect.succeed(undefined) : findApplicant(client, identifier, undefined, candidate))
 
-const optionalCandidate = (client: HulyClient["Type"], identifier: CandidateIdentifier | undefined) =>
+const optionalCandidate = (client: HulyClient["Service"], identifier: CandidateIdentifier | undefined) =>
   identifier === undefined ? Effect.succeed(undefined) : resolveCandidatePerson(client, identifier)
 
 const matchesReviewText = (review: Review, query: string | undefined): boolean => {
@@ -118,7 +118,7 @@ const reviewMatchesFilters = (
 export { reviewRefFromDoc } from "./recruiting-review-detail.js"
 
 export const findReview = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: ReviewIdentifier,
   candidate?: Person,
   application?: Applicant
@@ -147,7 +147,7 @@ export const findReview = (
     return assertAt(reviews, 0)
   })
 
-export const resolveReviewLocator = (client: HulyClient["Type"], params: GetRecruitingReviewParams) =>
+export const resolveReviewLocator = (client: HulyClient["Service"], params: GetRecruitingReviewParams) =>
   Effect.gen(function* () {
     const candidate = yield* optionalCandidate(client, params.candidate)
     const application = yield* optionalApplication(client, params.application, candidate)
@@ -189,7 +189,7 @@ export const getRecruitingReview = (
   })
 
 const resolveParticipants = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: CreateRecruitingReviewParams | UpdateRecruitingReviewParams
 ) =>
   params.participants === undefined
@@ -241,11 +241,11 @@ export const createRecruitingReview = (
     }
   })
 
-type ResolvedReviewApplication = Effect.Effect.Success<ReturnType<typeof optionalApplication>>
-type ResolvedReviewCompany = Effect.Effect.Success<ReturnType<typeof resolveOrganizationByIdentifier>>["_id"]
+type ResolvedReviewApplication = Effect.Success<ReturnType<typeof optionalApplication>>
+type ResolvedReviewCompany = Effect.Success<ReturnType<typeof resolveOrganizationByIdentifier>>["_id"]
 
 const resolveReviewApplicationUpdate = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: UpdateRecruitingReviewParams
 ): Effect.Effect<ResolvedReviewApplication | null | undefined, ReviewWriteError> =>
   params.application === undefined
@@ -255,7 +255,7 @@ const resolveReviewApplicationUpdate = (
       : optionalApplication(client, params.application)
 
 const resolveReviewCompanyUpdate = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: UpdateRecruitingReviewParams
 ): Effect.Effect<ResolvedReviewCompany | null | undefined, ReviewWriteError> =>
   params.company === undefined
@@ -265,7 +265,7 @@ const resolveReviewCompanyUpdate = (
       : Effect.map(resolveOrganizationByIdentifier(client, params.company), (company) => company._id)
 
 const reviewTextUpdate = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: UpdateRecruitingReviewParams
 ): DocumentUpdate<Review> => ({
   ...(params.title === undefined ? {} : { title: params.title }),
@@ -285,12 +285,12 @@ const reviewDateUpdate = (params: UpdateRecruitingReviewParams): DocumentUpdate<
 })
 
 const reviewBasicUpdate = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: UpdateRecruitingReviewParams
 ): DocumentUpdate<Review> => ({ ...reviewTextUpdate(client, params), ...reviewDateUpdate(params) })
 
 const reviewContextUpdate = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: UpdateRecruitingReviewParams,
   application: ResolvedReviewApplication | null | undefined,
   company: ResolvedReviewCompany | null | undefined

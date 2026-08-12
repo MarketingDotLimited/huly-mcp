@@ -38,7 +38,7 @@ export const makeDiagnosticsScope: Effect.Effect<DiagnosticsScope> = Effect.gen(
     service: {
       warnAgent: (warning) =>
         Ref.update(warningsRef, (warnings) => [...warnings, warning]).pipe(
-          Effect.zipRight(Effect.logWarning(warningLogText(warning)))
+          Effect.andThen(Effect.logWarning(warningLogText(warning)))
         ),
       trail: (message) => Effect.logInfo(`Diagnostic trail: ${message}`)
     },

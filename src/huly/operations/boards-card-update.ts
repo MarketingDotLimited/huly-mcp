@@ -37,12 +37,12 @@ type CardUpdateEntry<K extends Field> = Effect.Effect<
 type CardUpdateEntries = { readonly [K in Field]: CardUpdateEntry<K> }
 
 interface CardStatusContext {
-  readonly projectType: Effect.Effect.Success<ReturnType<typeof getBoardProjectType>> | undefined
-  readonly kind: Effect.Effect.Success<ReturnType<typeof resolveBoardTaskType>> | undefined
+  readonly projectType: Effect.Success<ReturnType<typeof getBoardProjectType>> | undefined
+  readonly kind: Effect.Success<ReturnType<typeof resolveBoardTaskType>> | undefined
 }
 
 const resolveCardStatusContext = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   resolvedBoard: HulyBoard,
   card: HulyBoardCard,
   params: UpdateBoardCardParams
@@ -57,7 +57,7 @@ const resolveCardStatusContext = (
   })
 
 const cardStatusEntry = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   resolvedBoard: HulyBoard,
   params: UpdateBoardCardParams,
   context: CardStatusContext
@@ -69,7 +69,10 @@ const cardStatusEntry = (
         (status) => ({ status: status.id })
       )
 
-const cardAssigneeEntry = (client: HulyClient["Type"], params: UpdateBoardCardParams): CardUpdateEntry<"assignee"> =>
+const cardAssigneeEntry = (
+  client: HulyClient["Service"],
+  params: UpdateBoardCardParams
+): CardUpdateEntry<"assignee"> =>
   params.assignee === undefined
     ? Effect.succeed({})
     : params.assignee === null
@@ -77,7 +80,7 @@ const cardAssigneeEntry = (client: HulyClient["Type"], params: UpdateBoardCardPa
       : Effect.map(resolveEmployeeRef(client, params.assignee), (assignee) => ({ assignee: toRef<Person>(assignee) }))
 
 const cardMembersEntry = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   card: HulyBoardCard,
   params: UpdateBoardCardParams
 ): CardUpdateEntry<"members"> =>
@@ -92,7 +95,7 @@ const cardMembersEntry = (
   })
 
 const cardPresentationEntries = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: UpdateBoardCardParams
 ): Pick<CardUpdateEntries, "cover" | "description" | "location" | "title"> => ({
   title: Effect.succeed(params.title === undefined ? {} : { title: params.title }),
@@ -111,7 +114,7 @@ const cardDateEntries = (params: UpdateBoardCardParams): Pick<CardUpdateEntries,
 })
 
 const cardUpdateEntries = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   resolvedBoard: HulyBoard,
   card: HulyBoardCard,
   params: UpdateBoardCardParams,
@@ -125,7 +128,7 @@ const cardUpdateEntries = (
 })
 
 export const buildCardUpdate = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   resolvedBoard: HulyBoard,
   card: HulyBoardCard,
   params: UpdateBoardCardParams

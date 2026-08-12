@@ -14,7 +14,7 @@ import {
 } from "../domain/schemas/shared.js"
 import { type HulyModelField, HulyModelMetadataError, type HulyModelName } from "./errors-base.js"
 
-const AssociationCardinalitySchema = Schema.Literal("1:1", "1:N", "N:N")
+const AssociationCardinalitySchema = Schema.Literals(["1:1", "1:N", "N:N"])
 
 const HulyAssociationMetadataSchema = Schema.Struct({
   id: AssociationId,
@@ -23,7 +23,7 @@ const HulyAssociationMetadataSchema = Schema.Struct({
   sourceRole: AssociationRoleName,
   targetRole: AssociationRoleName,
   cardinality: AssociationCardinalitySchema,
-  automationOnly: Schema.optionalWith(Schema.Boolean, { exact: true })
+  automationOnly: Schema.optionalKey(Schema.Boolean)
 })
 export type HulyAssociationMetadata = Schema.Schema.Type<typeof HulyAssociationMetadataSchema>
 
@@ -64,12 +64,12 @@ const HulyObjectMetadataSchema = Schema.Struct({ id: DocId, class: ObjectClassNa
 type HulyObjectMetadata = Schema.Schema.Type<typeof HulyObjectMetadataSchema>
 
 const parseField = <A, I>(
-  schema: Schema.Schema<A, I>,
+  schema: Schema.Codec<A, I>,
   value: unknown,
   model: HulyModelName,
   field: HulyModelField
 ): Effect.Effect<A, HulyModelMetadataError> =>
-  Schema.decodeUnknown(schema)(value).pipe(Effect.mapError(() => new HulyModelMetadataError({ model, field })))
+  Schema.decodeUnknownEffect(schema)(value).pipe(Effect.mapError(() => new HulyModelMetadataError({ model, field })))
 
 interface AssociationMetadataInput {
   readonly _id: unknown

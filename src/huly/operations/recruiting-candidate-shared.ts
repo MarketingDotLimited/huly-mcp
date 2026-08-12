@@ -27,7 +27,7 @@ export const toCandidateRef = (candidate: Pick<Person, "_id" | "name">, email?: 
 })
 
 export const resolveCandidatePerson = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: CandidateIdentifier
 ): Effect.Effect<Person, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
   Effect.gen(function* () {
@@ -43,7 +43,7 @@ export const resolveCandidatePerson = (
   })
 
 export const resolveCandidate = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: CandidateIdentifier
 ): Effect.Effect<
   Candidate,
@@ -62,7 +62,7 @@ export const resolveCandidate = (
   })
 
 export const ensureCandidateMixin = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   person: Person,
   attributes: CandidateMixinAttributes
 ): Effect.Effect<{ readonly candidate: Candidate; readonly created: boolean }, HulyClientError> =>
@@ -83,7 +83,7 @@ export const ensureCandidateMixin = (
   })
 
 export const candidateEmail = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   candidateId: Ref<Person>
 ): Effect.Effect<string | undefined, HulyClientError> =>
   Effect.gen(function* () {
@@ -92,7 +92,7 @@ export const candidateEmail = (
   })
 
 export const findPersonByApplicantAssignee = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   assignee: Ref<Person> | null
 ): Effect.Effect<CandidateRef | undefined, HulyClientError> =>
   Effect.gen(function* () {

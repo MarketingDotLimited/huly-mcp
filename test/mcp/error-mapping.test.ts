@@ -680,9 +680,7 @@ describe("Error Mapping to MCP", () => {
       Effect.gen(function* () {
         const TestSchema = Schema.Struct({ name: Schema.String, age: Schema.Number })
 
-        const error = yield* Effect.flip(
-          Schema.decodeUnknownEffect(TestSchema)({ name: 123 }, { reportInput: true })
-        )
+        const error = yield* Effect.flip(Schema.decodeUnknownEffect(TestSchema)({ name: 123 }, { reportInput: true }))
 
         const response = mapParseErrorToMcp(error, "create_issue")
 
@@ -701,9 +699,7 @@ describe("Error Mapping to MCP", () => {
           Schema.decodeUnknownEffect(TestSchema)({ name: 123, age: "old" }, { errors: "all", reportInput: true })
         )
 
-        expect(formatParseError(error)).toBe(
-          'name: Expected string, actual 123; age: Expected number, actual "old"'
-        )
+        expect(formatParseError(error)).toBe('name: Expected string, actual 123; age: Expected number, actual "old"')
       })
     )
 

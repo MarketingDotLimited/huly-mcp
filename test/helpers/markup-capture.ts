@@ -2,13 +2,13 @@ import { Schema } from "effect"
 
 const CapturedMarkupMarkSchema = Schema.Struct({
   type: Schema.optional(Schema.String),
-  attrs: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+  attrs: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
 })
 
 const CapturedMarkupChildNodeSchema = Schema.Struct({
   type: Schema.optional(Schema.String),
   text: Schema.optional(Schema.String),
-  attrs: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+  attrs: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
   marks: Schema.optional(Schema.Array(CapturedMarkupMarkSchema))
 })
 

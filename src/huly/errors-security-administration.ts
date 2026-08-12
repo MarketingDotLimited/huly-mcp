@@ -21,7 +21,7 @@ export class PermissionIdentifierAmbiguousError extends Schema.TaggedError<Permi
   "PermissionIdentifierAmbiguousError",
   {
     identifier: PermissionIdentifier,
-    matches: Schema.Array(PermissionId).pipe(Schema.minItems(MINIMUM_AMBIGUOUS_MATCHES))
+    matches: Schema.Array(PermissionId).check(Schema.isMinLength(MINIMUM_AMBIGUOUS_MATCHES))
   }
 ) {
   override get message(): string {
@@ -58,7 +58,7 @@ export class PermissionKindUnsupportedError extends Schema.TaggedError<Permissio
 
 export class PermissionInUseError extends Schema.TaggedError<PermissionInUseError>()("PermissionInUseError", {
   permissionId: PermissionId,
-  references: Schema.Array(NonEmptyString).pipe(Schema.minItems(1))
+  references: Schema.Array(NonEmptyString).check(Schema.isNonEmpty())
 }) {
   override get message(): string {
     return `Permission '${this.permissionId}' is referenced by ${this.references.join(", ")}; structural updates and deletion are refused`
@@ -96,7 +96,7 @@ export class CollaboratorMetadataAmbiguousError extends Schema.TaggedError<Colla
   "CollaboratorMetadataAmbiguousError",
   {
     classId: ObjectClassName,
-    metadataIds: Schema.Array(ClassCollaboratorMetadataId).pipe(Schema.minItems(MINIMUM_AMBIGUOUS_MATCHES))
+    metadataIds: Schema.Array(ClassCollaboratorMetadataId).check(Schema.isMinLength(MINIMUM_AMBIGUOUS_MATCHES))
   }
 ) {
   override get message(): string {
@@ -106,7 +106,7 @@ export class CollaboratorMetadataAmbiguousError extends Schema.TaggedError<Colla
 
 export class CollaboratorFieldNotFoundError extends Schema.TaggedError<CollaboratorFieldNotFoundError>()(
   "CollaboratorFieldNotFoundError",
-  { classId: ObjectClassName, fields: Schema.Array(CollaboratorFieldName).pipe(Schema.minItems(1)) }
+  { classId: ObjectClassName, fields: Schema.Array(CollaboratorFieldName).check(Schema.isNonEmpty()) }
 ) {
   override get message(): string {
     return `Class '${this.classId}' does not expose collaborator fields: ${this.fields.join(", ")}; use list_huly_attributes for exact property names`
@@ -122,7 +122,7 @@ export class ClassCollaboratorMetadataNotFoundError extends Schema.TaggedError<C
   }
 }
 
-export const SecurityAdministrationDomainError = Schema.Union(
+export const SecurityAdministrationDomainError = Schema.Union([
   PermissionNotFoundError,
   PermissionIdentifierAmbiguousError,
   PermissionLabelConflictError,
@@ -135,4 +135,4 @@ export const SecurityAdministrationDomainError = Schema.Union(
   CollaboratorMetadataAmbiguousError,
   CollaboratorFieldNotFoundError,
   ClassCollaboratorMetadataNotFoundError
-)
+])

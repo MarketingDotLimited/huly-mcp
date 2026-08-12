@@ -35,7 +35,7 @@ const preferenceResult = (
 })
 
 const warnMissingAttachedSpaces = (
-  diagnostics: Diagnostics["Type"],
+  diagnostics: Diagnostics["Service"],
   items: ReadonlyArray<SpacePreferenceProjection>,
   spacesById: ReadonlyMap<SpaceId, GenericSpace>
 ): Effect.Effect<void> => {

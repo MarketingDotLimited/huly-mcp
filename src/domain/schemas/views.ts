@@ -1,9 +1,9 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
-import { withJsonSchemaPropertyDescriptions } from "./json-schema.js"
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 import { Count, DEFAULT_LIMIT, DocId, LimitParam, NonEmptyString, ObjectClassName, PersonId } from "./shared.js"
 
-const SdkOpenPayload = Schema.Unknown.annotations({
+const SdkOpenPayload = Schema.Unknown.annotate({
   description: "Raw SDK-owned payload passed through without inventing a closed MCP-side schema."
 })
 
@@ -19,14 +19,14 @@ export type ViewletDescriptorId = Schema.Schema.Type<typeof ViewletDescriptorId>
 export const ViewletPreferenceId = DocId.pipe(Schema.brand("ViewletPreferenceId"))
 export type ViewletPreferenceId = Schema.Schema.Type<typeof ViewletPreferenceId>
 
-export const FilteredViewIdentifier = NonEmptyString.pipe(Schema.brand("FilteredViewIdentifier")).annotations({
+export const FilteredViewIdentifier = NonEmptyString.pipe(Schema.brand("FilteredViewIdentifier")).annotate({
   identifier: "FilteredViewIdentifier",
   title: "FilteredViewIdentifier",
   description: "Saved filtered view locator: FilteredView _id or exact saved view name."
 })
 export type FilteredViewIdentifier = Schema.Schema.Type<typeof FilteredViewIdentifier>
 
-export const ViewletIdentifier = NonEmptyString.pipe(Schema.brand("ViewletIdentifier")).annotations({
+export const ViewletIdentifier = NonEmptyString.pipe(Schema.brand("ViewletIdentifier")).annotate({
   identifier: "ViewletIdentifier",
   title: "ViewletIdentifier",
   description:
@@ -34,7 +34,7 @@ export const ViewletIdentifier = NonEmptyString.pipe(Schema.brand("ViewletIdenti
 })
 export type ViewletIdentifier = Schema.Schema.Type<typeof ViewletIdentifier>
 
-export const FilteredViewVisibilitySchema = Schema.Literal("own", "shared", "all").annotations({
+export const FilteredViewVisibilitySchema = Schema.Literals(["own", "shared", "all"]).annotate({
   title: "FilteredViewVisibility",
   description: "Filter saved filtered views by whether the current account is in the saved view users list."
 })
@@ -42,19 +42,19 @@ export type FilteredViewVisibility = Schema.Schema.Type<typeof FilteredViewVisib
 
 export const ListFilteredViewsParamsSchema = Schema.Struct({
   attachedTo: Schema.optional(
-    NonEmptyString.annotations({
+    NonEmptyString.annotate({
       description:
         "Optional raw Huly app/resource string to scope saved filtered views, for example board:app:Board. Omit to list saved views across modules."
     })
   ),
   visibility: Schema.optional(FilteredViewVisibilitySchema),
-  nameSearch: Schema.optional(Schema.String.annotations({ description: "Optional saved view name substring search." })),
+  nameSearch: Schema.optional(Schema.String.annotate({ description: "Optional saved view name substring search." })),
   limit: Schema.optional(
-    LimitParam.annotations({
+    LimitParam.annotate({
       description: `Maximum number of saved filtered views to return (default: ${DEFAULT_LIMIT}).`
     })
   )
-}).annotations({
+}).annotate({
   title: "ListFilteredViewsParams",
   description:
     "Read-only discovery for @hcengineering/view FilteredView documents. Use attachedTo when you know the owning app/resource string, for example board:app:Board, and want scoped results."
@@ -62,33 +62,33 @@ export const ListFilteredViewsParamsSchema = Schema.Struct({
 export type ListFilteredViewsParams = Schema.Schema.Type<typeof ListFilteredViewsParamsSchema>
 
 export const GetFilteredViewParamsSchema = Schema.Struct({
-  filteredView: FilteredViewIdentifier.annotations({ description: "FilteredView _id or exact saved view name." }),
+  filteredView: FilteredViewIdentifier.annotate({ description: "FilteredView _id or exact saved view name." }),
   attachedTo: Schema.optional(
-    NonEmptyString.annotations({
+    NonEmptyString.annotate({
       description:
         "Optional raw Huly app/resource string to disambiguate exact-name matches, for example board:app:Board."
     })
   )
-}).annotations({ title: "GetFilteredViewParams", description: "Read one saved filtered view by _id or exact name." })
+}).annotate({ title: "GetFilteredViewParams", description: "Read one saved filtered view by _id or exact name." })
 export type GetFilteredViewParams = Schema.Schema.Type<typeof GetFilteredViewParamsSchema>
 
 export const ListViewletsParamsSchema = Schema.Struct({
   attachTo: Schema.optional(
-    ObjectClassName.annotations({
+    ObjectClassName.annotate({
       description:
         "Optional Huly class id that the viewlet renders, for example board:class:Card. Use list_huly_classes when you need class ids."
     })
   ),
   viewlet: Schema.optional(
-    ViewletIdentifier.annotations({
+    ViewletIdentifier.annotate({
       description:
         "Optional Viewlet _id, exact title, exact variant, or descriptor _id. Descriptor _id matches may return multiple viewlets; omit to list all matching viewlets."
     })
   ),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of viewlets to return (default: ${DEFAULT_LIMIT}).` })
+    LimitParam.annotate({ description: `Maximum number of viewlets to return (default: ${DEFAULT_LIMIT}).` })
   )
-}).annotations({
+}).annotate({
   title: "ListViewletsParams",
   description:
     "Read-only discovery for @hcengineering/view Viewlet model documents. Includes descriptor metadata and matching ViewletPreference config rows."
@@ -99,7 +99,7 @@ export const FilteredViewSummarySchema = Schema.Struct({
   id: FilteredViewId,
   name: NonEmptyString,
   attachedTo: NonEmptyString,
-  visibility: Schema.Literal("own", "shared"),
+  visibility: Schema.Literals(["own", "shared"]),
   sharable: Schema.optional(Schema.Boolean),
   users: Count,
   viewletId: Schema.optional(ViewletId)
@@ -109,7 +109,7 @@ export type FilteredViewSummary = Schema.Schema.Type<typeof FilteredViewSummaryS
 export const FilteredViewDetailSchema = Schema.Struct({
   id: FilteredViewId,
   name: NonEmptyString,
-  visibility: Schema.Literal("own", "shared"),
+  visibility: Schema.Literals(["own", "shared"]),
   attachedTo: NonEmptyString,
   location: SdkOpenPayload,
   filters: SdkOpenPayload,
@@ -167,16 +167,31 @@ export type ViewletSummary = Schema.Schema.Type<typeof ViewletSummarySchema>
 export const ListViewletsResultSchema = Schema.Struct({ viewlets: Schema.Array(ViewletSummarySchema), total: Count })
 export type ListViewletsResult = Schema.Schema.Type<typeof ListViewletsResultSchema>
 
-export const listFilteredViewsParamsJsonSchema = JSONSchema.make(ListFilteredViewsParamsSchema)
+export const listFilteredViewsParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(ListFilteredViewsParamsSchema),
+  {
+    attachedTo: "Raw Huly app or resource string used to scope saved filtered views.",
+    visibility: "Filter by whether the current account owns or shares the saved view.",
+    nameSearch: "Optional saved-view name substring search.",
+    limit: `Maximum number of saved filtered views to return (default: ${DEFAULT_LIMIT}).`
+  }
+)
 export const getFilteredViewParamsJsonSchema = {
-  ...withJsonSchemaPropertyDescriptions(JSONSchema.make(GetFilteredViewParamsSchema), {
+  ...withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(GetFilteredViewParamsSchema), {
     filteredView: "FilteredView _id or exact saved view name.",
     attachedTo: "Optional raw Huly app/resource string such as board:app:Board to disambiguate exact-name matches."
   }),
   description: "Read one saved filtered view by _id or exact name."
 }
-export const listViewletsParamsJsonSchema = JSONSchema.make(ListViewletsParamsSchema)
+export const listViewletsParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(ListViewletsParamsSchema),
+  {
+    attachTo: "Huly class ID rendered by the viewlet.",
+    viewlet: "Viewlet ID, exact title, exact variant, or descriptor ID.",
+    limit: `Maximum number of viewlets to return (default: ${DEFAULT_LIMIT}).`
+  }
+)
 
-export const parseListFilteredViewsParams = Schema.decodeUnknown(ListFilteredViewsParamsSchema)
-export const parseGetFilteredViewParams = Schema.decodeUnknown(GetFilteredViewParamsSchema)
-export const parseListViewletsParams = Schema.decodeUnknown(ListViewletsParamsSchema)
+export const parseListFilteredViewsParams = Schema.decodeUnknownEffect(ListFilteredViewsParamsSchema)
+export const parseGetFilteredViewParams = Schema.decodeUnknownEffect(GetFilteredViewParamsSchema)
+export const parseListViewletsParams = Schema.decodeUnknownEffect(ListViewletsParamsSchema)

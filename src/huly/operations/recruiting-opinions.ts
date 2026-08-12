@@ -84,7 +84,7 @@ interface OpinionRefProjection {
 }
 
 const opinionRefProjectionFromDoc = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   opinion: Opinion,
   review: Review
 ): Effect.Effect<OpinionRefProjection, HulyClientError | RecruitingModelMissingError> =>
@@ -102,7 +102,7 @@ const opinionRefProjectionFromDoc = (
   })
 
 export const opinionRefFromDoc = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   opinion: Opinion,
   review: Review
 ): Effect.Effect<OpinionRef, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
@@ -113,7 +113,7 @@ export const opinionRefFromDoc = (
   })
 
 const opinionDetail = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   opinion: Opinion,
   review: Review
 ): Effect.Effect<OpinionDetail, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
@@ -132,7 +132,7 @@ const opinionDetail = (
   })
 
 export const findOpinion = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: OpinionIdentifier,
   review?: Review
 ): Effect.Effect<
@@ -162,10 +162,10 @@ export const findOpinion = (
     return assertAt(opinions, 0)
   })
 
-const resolveReview = (client: HulyClient["Type"], review: OpinionReadParams["review"]) =>
+const resolveReview = (client: HulyClient["Service"], review: OpinionReadParams["review"]) =>
   review === undefined ? Effect.succeed(undefined) : findReview(client, review)
 
-export const parentReviewFromOpinion = (client: HulyClient["Type"], opinion: Opinion) =>
+export const parentReviewFromOpinion = (client: HulyClient["Service"], opinion: Opinion) =>
   findReview(client, ReviewIdentifierSchema.make(String(opinion.attachedTo)))
 
 export const listRecruitingOpinions = (

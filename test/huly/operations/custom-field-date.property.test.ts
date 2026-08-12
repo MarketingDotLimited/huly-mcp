@@ -1,5 +1,5 @@
 import { describe, it } from "@effect/vitest"
-import { Effect, Either } from "effect"
+import { Effect, Result } from "effect"
 import fc from "fast-check"
 import { expect } from "vitest"
 
@@ -10,20 +10,20 @@ describe("custom field date parsing properties", () => {
   it("returns a finite in-contract timestamp or a typed failure for every string", () => {
     fc.assert(
       fc.property(fc.string(), (input) => {
-        const result = Effect.runSync(Effect.either(parseCustomFieldDateValue(input)))
+        const result = Effect.runSync(Effect.result(parseCustomFieldDateValue(input)))
 
-        if (Either.isRight(result)) {
-          expect(typeof result.right).toBe("number")
-          expect(result.right).not.toBe(input)
-          expect(Number.isFinite(result.right)).toBe(true)
-          expect(Number.isInteger(result.right)).toBe(true)
-          expect(result.right).toBeGreaterThanOrEqual(0)
-          expect(result.right).toBeLessThanOrEqual(CUSTOM_FIELD_DATE_MAX_TIMESTAMP)
+        if (Result.isSuccess(result)) {
+          expect(typeof result.success).toBe("number")
+          expect(result.success).not.toBe(input)
+          expect(Number.isFinite(result.success)).toBe(true)
+          expect(Number.isInteger(result.success)).toBe(true)
+          expect(result.success).toBeGreaterThanOrEqual(0)
+          expect(result.success).toBeLessThanOrEqual(CUSTOM_FIELD_DATE_MAX_TIMESTAMP)
           if (input.length === 0) {
-            expect(result.right).not.toBe(0)
+            expect(result.success).not.toBe(0)
           }
         } else {
-          expect(result.left._tag).toBe("InvalidCustomFieldDateValueError")
+          expect(result.failure._tag).toBe("InvalidCustomFieldDateValueError")
         }
       }),
       { numRuns: 500 }

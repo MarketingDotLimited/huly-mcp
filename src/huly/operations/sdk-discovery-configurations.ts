@@ -5,7 +5,7 @@ import type {
   Sequence as HulySequence
 } from "@hcengineering/core"
 import { SortingOrder } from "@hcengineering/core"
-import { Effect, Either, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 
 import type {
   DescribeHulySpaceTypeCapabilitiesParams,
@@ -38,14 +38,14 @@ type DescribeHulySpaceTypeCapabilitiesError =
   | SpaceTypeNotFoundError
   | SpaceTypeIdentifierAmbiguousError
 
-const decodeNonEmptyString = Schema.decodeUnknownEither(NonEmptyString)
+const decodeNonEmptyString = Schema.decodeUnknownResult(NonEmptyString)
 
 const labelOrDefault = (value: unknown, fallback: NonEmptyString): NonEmptyString =>
-  Either.getOrElse(decodeHulyModelLabelTail(value), () => Either.getOrElse(decodeNonEmptyString(value), () => fallback))
+  Result.getOrElse(decodeHulyModelLabelTail(value), () => Result.getOrElse(decodeNonEmptyString(value), () => fallback))
 
 const optionalMetadataKey = (value: unknown): HulyConfigurationMetadataKey | undefined => {
   const decoded = decodeNonEmptyString(value)
-  return Either.isRight(decoded) ? HulyConfigurationMetadataKey.make(decoded.right) : undefined
+  return Result.isSuccess(decoded) ? HulyConfigurationMetadataKey.make(decoded.success) : undefined
 }
 
 const metadataEntry = (value: unknown): HulyDomainIndexMetadataEntry => {

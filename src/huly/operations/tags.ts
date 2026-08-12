@@ -72,7 +72,7 @@ const toTagSummary = (tag: HulyTagElement): TagSummary => {
 }
 
 const buildUpdateTagOperations = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: UpdateTagParams
 ): Effect.Effect<DocumentUpdate<HulyTagElement>, HulyClientError | TagCategoryNotFoundError> =>
   Effect.gen(function* () {

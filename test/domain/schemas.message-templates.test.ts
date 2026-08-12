@@ -1,5 +1,5 @@
 import { describe, it } from "@effect/vitest"
-import { Effect, Either } from "effect"
+import { Effect, Result } from "effect"
 import { expect } from "vitest"
 
 import { parseJsonSchemaRecord } from "../../src/domain/schemas/json-schema.js"
@@ -47,19 +47,19 @@ describe("message template schemas", () => {
 
   it.effect("rejects empty template, category, and field-category locators", () =>
     Effect.gen(function* () {
-      const emptyTemplate = yield* Effect.either(parseGetMessageTemplateParams({ template: "  " }))
-      const emptyRenderTemplate = yield* Effect.either(parseRenderMessageTemplateParams({ template: "  " }))
-      const emptyTemplateCategory = yield* Effect.either(parseListMessageTemplatesParams({ category: "  " }))
-      const emptyFieldCategory = yield* Effect.either(parseListMessageTemplateFieldsParams({ category: "  " }))
-      const emptyRenderField = yield* Effect.either(
+      const emptyTemplate = yield* Effect.result(parseGetMessageTemplateParams({ template: "  " }))
+      const emptyRenderTemplate = yield* Effect.result(parseRenderMessageTemplateParams({ template: "  " }))
+      const emptyTemplateCategory = yield* Effect.result(parseListMessageTemplatesParams({ category: "  " }))
+      const emptyFieldCategory = yield* Effect.result(parseListMessageTemplateFieldsParams({ category: "  " }))
+      const emptyRenderField = yield* Effect.result(
         parseRenderMessageTemplateParams({ template: "Welcome", values: [{ field: "  ", value: "Ada" }] })
       )
 
-      expect(Either.isLeft(emptyTemplate)).toBe(true)
-      expect(Either.isLeft(emptyRenderTemplate)).toBe(true)
-      expect(Either.isLeft(emptyTemplateCategory)).toBe(true)
-      expect(Either.isLeft(emptyFieldCategory)).toBe(true)
-      expect(Either.isLeft(emptyRenderField)).toBe(true)
+      expect(Result.isFailure(emptyTemplate)).toBe(true)
+      expect(Result.isFailure(emptyRenderTemplate)).toBe(true)
+      expect(Result.isFailure(emptyTemplateCategory)).toBe(true)
+      expect(Result.isFailure(emptyFieldCategory)).toBe(true)
+      expect(Result.isFailure(emptyRenderField)).toBe(true)
     })
   )
 

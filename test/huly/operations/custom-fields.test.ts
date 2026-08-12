@@ -139,7 +139,7 @@ describe("custom-fields operations", () => {
       const result = yield* listCustomFields({}).pipe(
         Effect.provide(createTestLayer({ attributes: [attr], classDocs: [ownerClass] }))
       )
-      const encoded = yield* Schema.encodeUnknown(ListCustomFieldsResultSchema)(result)
+      const encoded = yield* Schema.encodeUnknownEffect(ListCustomFieldsResultSchema)(result)
 
       expect(encoded).toEqual([
         {
@@ -179,7 +179,7 @@ describe("custom-fields operations", () => {
       ]
 
       const result = yield* listCustomFields({}).pipe(Effect.provide(createTestLayer({ attributes: attrs })))
-      const encoded = yield* Schema.encodeUnknown(ListCustomFieldsResultSchema)(result)
+      const encoded = yield* Schema.encodeUnknownEffect(ListCustomFieldsResultSchema)(result)
 
       expect(encoded).toEqual([
         {

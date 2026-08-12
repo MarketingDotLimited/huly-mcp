@@ -1,6 +1,6 @@
 import { describe } from "@effect/vitest"
 import { ClassifierKind } from "@hcengineering/core"
-import { Schema } from "effect"
+import { Result, Schema } from "effect"
 import * as fc from "fast-check"
 import { expect, it } from "vitest"
 
@@ -79,22 +79,22 @@ const customFieldBaseArbitrary = fc.record({
 
 const primitiveCustomFieldTypeArbitrary = fc.constantFrom("string", "number", "boolean", "date", "markup")
 
-const decodeSucceeds = (schema: Schema.Schema.AnyNoContext, input: unknown): boolean =>
-  Schema.decodeUnknownEither(schema)(input)._tag === "Right"
+const decodeSucceeds = (schema: Schema.ConstraintDecoder<unknown>, input: unknown): boolean =>
+  Result.isSuccess(Schema.decodeUnknownResult(schema)(input))
 
 describe("Huly model schema properties", () => {
   it("HulyAttributeTypeSchema recursively decodes and encodes generated attribute types", () => {
     fc.assert(
       fc.property(attributeTypeArbitrary(3), (attributeType) => {
-        const decoded = Schema.decodeUnknownEither(HulyAttributeTypeSchema)(attributeType)
+        const decoded = Schema.decodeUnknownResult(HulyAttributeTypeSchema)(attributeType)
 
-        expect(decoded._tag).toBe("Right")
-        if (decoded._tag === "Right") {
-          const encoded = Schema.encodeEither(HulyAttributeTypeSchema)(decoded.right)
+        expect(Result.isSuccess(decoded)).toBe(true)
+        if (Result.isSuccess(decoded)) {
+          const encoded = Schema.encodeResult(HulyAttributeTypeSchema)(decoded.success)
 
-          expect(encoded._tag).toBe("Right")
-          if (encoded._tag === "Right") {
-            expect(encoded.right).toEqual(attributeType)
+          expect(Result.isSuccess(encoded)).toBe(true)
+          if (Result.isSuccess(encoded)) {
+            expect(encoded.success).toEqual(attributeType)
           }
         }
       }),
@@ -122,16 +122,16 @@ describe("Huly model schema properties", () => {
     ] as const
 
     for (const [sdkKind, wireKind] of pairs) {
-      const decoded = Schema.decodeUnknownEither(HulySdkClassifierKindSchema)(sdkKind)
-      const encoded = Schema.encodeEither(HulySdkClassifierKindSchema)(wireKind)
+      const decoded = Schema.decodeUnknownResult(HulySdkClassifierKindSchema)(sdkKind)
+      const encoded = Schema.encodeResult(HulySdkClassifierKindSchema)(wireKind)
 
-      expect(decoded._tag).toBe("Right")
-      if (decoded._tag === "Right") {
-        expect(decoded.right).toBe(wireKind)
+      expect(Result.isSuccess(decoded)).toBe(true)
+      if (Result.isSuccess(decoded)) {
+        expect(decoded.success).toBe(wireKind)
       }
-      expect(encoded._tag).toBe("Right")
-      if (encoded._tag === "Right") {
-        expect(encoded.right).toBe(sdkKind)
+      expect(Result.isSuccess(encoded)).toBe(true)
+      if (Result.isSuccess(encoded)) {
+        expect(encoded.success).toBe(sdkKind)
       }
     }
   })

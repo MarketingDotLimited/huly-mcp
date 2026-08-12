@@ -1,6 +1,8 @@
-import coreSdkDefault, { type ClassifierKind } from "@hcengineering/core"
+import coreSdkDefault from "@hcengineering/core"
 import * as coreSdkNamespace from "@hcengineering/core"
-import { JSONSchema, Schema } from "effect"
+import { Schema, SchemaGetter } from "effect"
+
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 
 import { HulyClassRoutingHintSchema, HulyDomainName } from "./sdk-discovery-configurations.js"
 import {
@@ -29,28 +31,49 @@ const NormalizedAttributeTypeKindValues = [
   "collection"
 ] as const
 
-type HulyKnownClassifierKindLiteral = (typeof KnownClassifierKindValues)[number]
-
 // Native ESM exposes this CommonJS enum under default; Vitest exposes the named export.
 const RuntimeClassifierKind = coreSdkNamespace.ClassifierKind ?? coreSdkDefault.ClassifierKind
 
-const HulySdkClassifierKindPairs = [
-  [RuntimeClassifierKind.CLASS, "class"],
-  [RuntimeClassifierKind.INTERFACE, "interface"],
-  [RuntimeClassifierKind.MIXIN, "mixin"]
-] as const satisfies ReadonlyArray<readonly [ClassifierKind, HulyKnownClassifierKindLiteral]>
-
-export const HulyClassifierKindSchema = Schema.Literal(...ClassifierKindValues).annotations({
+export const HulyClassifierKindSchema = Schema.Literals(ClassifierKindValues).annotate({
   description: `Huly classifier kind: ${enumValuesDescription(ClassifierKindValues)}`
 })
 export type HulyClassifierKind = Schema.Schema.Type<typeof HulyClassifierKindSchema>
 
-export const HulySdkClassifierKindSchema = Schema.transformLiterals(...HulySdkClassifierKindPairs).annotations({
+const HulySdkClassifierKindLiteral = Schema.Literals([
+  RuntimeClassifierKind.CLASS,
+  RuntimeClassifierKind.INTERFACE,
+  RuntimeClassifierKind.MIXIN
+])
+
+export const HulySdkClassifierKindSchema = HulySdkClassifierKindLiteral.pipe(
+  Schema.decodeTo(Schema.Literals(KnownClassifierKindValues), {
+    decode: SchemaGetter.transform((kind) => {
+      switch (kind) {
+        case RuntimeClassifierKind.CLASS:
+          return "class"
+        case RuntimeClassifierKind.INTERFACE:
+          return "interface"
+        case RuntimeClassifierKind.MIXIN:
+          return "mixin"
+      }
+    }),
+    encode: SchemaGetter.transform((kind) => {
+      switch (kind) {
+        case "class":
+          return RuntimeClassifierKind.CLASS
+        case "interface":
+          return RuntimeClassifierKind.INTERFACE
+        case "mixin":
+          return RuntimeClassifierKind.MIXIN
+      }
+    })
+  })
+).annotate({
   description: "Isomorphic codec between @hcengineering/core ClassifierKind values and MCP classifier kind strings"
 })
 export type HulySdkClassifierKind = Schema.Schema.Type<typeof HulySdkClassifierKindSchema>
 
-export const HulyAttributeTypeKindSchema = Schema.Literal(...NormalizedAttributeTypeKindValues).annotations({
+export const HulyAttributeTypeKindSchema = Schema.Literals(NormalizedAttributeTypeKindValues).annotate({
   description: `Normalized MCP attribute type family derived from Huly type descriptor classes, not Huly SDK enum values: ${enumValuesDescription(
     NormalizedAttributeTypeKindValues
   )}`
@@ -60,16 +83,16 @@ export type HulyAttributeTypeKind = Schema.Schema.Type<typeof HulyAttributeTypeK
 export const HulyModelSearch = NonEmptyString.pipe(Schema.brand("HulyModelSearch"))
 export type HulyModelSearch = Schema.Schema.Type<typeof HulyModelSearch>
 
-const TypeDetailsSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
+const TypeDetailsSchema = Schema.Record(Schema.String, Schema.Unknown)
 
 const HulyAttributeTypeBaseFields = {
   classId: Schema.optional(
-    ObjectClassName.annotations({
+    ObjectClassName.annotate({
       description: "Raw Huly type class ID, such as core:class:RefTo or core:class:TypeString"
     })
   ),
   raw: Schema.optional(
-    TypeDetailsSchema.annotations({
+    TypeDetailsSchema.annotate({
       description:
         "Decoded raw Huly type descriptor, present only when the type family could not be determined (kind: unknown)"
     })
@@ -77,26 +100,26 @@ const HulyAttributeTypeBaseFields = {
 } as const
 
 const HulyScalarAttributeTypeSchema = Schema.Struct({
-  kind: Schema.Literal(...NormalizedScalarAttributeTypeKindValues),
+  kind: Schema.Literals(NormalizedScalarAttributeTypeKindValues),
   ...HulyAttributeTypeBaseFields
 })
 
 const HulyRefAttributeTypeSchema = Schema.Struct({
   kind: Schema.Literal("ref"),
   ...HulyAttributeTypeBaseFields,
-  refTo: ObjectClassName.annotations({ description: "Target class when kind is ref" })
+  refTo: ObjectClassName.annotate({ description: "Target class when kind is ref" })
 })
 
 const HulyEnumAttributeTypeSchema = Schema.Struct({
   kind: Schema.Literal("enum"),
   ...HulyAttributeTypeBaseFields,
-  enumId: HulyEnumId.annotations({ description: "Enum document ID when kind is enum" })
+  enumId: HulyEnumId.annotate({ description: "Enum document ID when kind is enum" })
 })
 
 const HulyCollectionAttributeTypeSchema = Schema.Struct({
   kind: Schema.Literal("collection"),
   ...HulyAttributeTypeBaseFields,
-  collectionOf: ObjectClassName.annotations({ description: "Attached document class when kind is collection" })
+  collectionOf: ObjectClassName.annotate({ description: "Attached document class when kind is collection" })
 })
 
 // An array element is itself a decoded attribute type, so the schema is recursive: an element may be a
@@ -125,30 +148,30 @@ export type HulyAttributeType =
   | HulyArrayAttributeType
 
 type HulyAttributeTypeEncoded =
-  | Schema.Schema.Encoded<typeof HulyScalarAttributeTypeSchema>
-  | Schema.Schema.Encoded<typeof HulyRefAttributeTypeSchema>
-  | Schema.Schema.Encoded<typeof HulyEnumAttributeTypeSchema>
-  | Schema.Schema.Encoded<typeof HulyCollectionAttributeTypeSchema>
+  | Schema.Codec.Encoded<typeof HulyScalarAttributeTypeSchema>
+  | Schema.Codec.Encoded<typeof HulyRefAttributeTypeSchema>
+  | Schema.Codec.Encoded<typeof HulyEnumAttributeTypeSchema>
+  | Schema.Codec.Encoded<typeof HulyCollectionAttributeTypeSchema>
   | HulyArrayAttributeTypeEncoded
 
 const HulyArrayAttributeTypeSchema = Schema.Struct({
   kind: Schema.Literal("array"),
   ...HulyAttributeTypeBaseFields,
   arrayOf: Schema.suspend(
-    (): Schema.Schema<HulyAttributeType, HulyAttributeTypeEncoded> => HulyAttributeTypeSchema
-  ).annotations({
+    (): Schema.Codec<HulyAttributeType, HulyAttributeTypeEncoded> => HulyAttributeTypeSchema
+  ).annotate({
     identifier: "HulyAttributeType",
     description: "Decoded element type when kind is array, recursively shaped like any attribute type"
   })
 })
 
-export const HulyAttributeTypeSchema: Schema.Schema<HulyAttributeType, HulyAttributeTypeEncoded> = Schema.Union(
+export const HulyAttributeTypeSchema: Schema.Codec<HulyAttributeType, HulyAttributeTypeEncoded> = Schema.Union([
   HulyScalarAttributeTypeSchema,
   HulyRefAttributeTypeSchema,
   HulyEnumAttributeTypeSchema,
   HulyCollectionAttributeTypeSchema,
   HulyArrayAttributeTypeSchema
-).annotations({ identifier: "HulyAttributeType", description: "Decoded Huly model attribute type descriptor." })
+]).annotate({ identifier: "HulyAttributeType", description: "Decoded Huly model attribute type descriptor." })
 
 export const HulyClassToolHintSchema = Schema.Struct({
   category: NonEmptyString,
@@ -156,7 +179,7 @@ export const HulyClassToolHintSchema = Schema.Struct({
 })
 export type HulyClassToolHint = Schema.Schema.Type<typeof HulyClassToolHintSchema>
 
-export const HulyDiscoveryCount = Count.pipe(Schema.brand("HulyDiscoveryCount")).annotations({
+export const HulyDiscoveryCount = Count.pipe(Schema.brand("HulyDiscoveryCount")).annotate({
   description: "Non-negative integer count"
 })
 export type HulyDiscoveryCount = Schema.Schema.Type<typeof HulyDiscoveryCount>
@@ -165,7 +188,7 @@ export const HulyClassSummarySchema = Schema.Struct({
   classId: ObjectClassName,
   label: NonEmptyString,
   kind: HulyClassifierKindSchema,
-  directAncestors: Schema.Array(ObjectClassName).annotations({
+  directAncestors: Schema.Array(ObjectClassName).annotate({
     description: "Direct class/interface parents from Huly extends and implements metadata"
   }),
   domain: Schema.optional(HulyDomainName),
@@ -174,11 +197,11 @@ export const HulyClassSummarySchema = Schema.Struct({
   hidden: Schema.optional(Schema.Boolean),
   readonly: Schema.optional(Schema.Boolean),
   attributesCount: Schema.optional(HulyDiscoveryCount),
-  firstClassToolHints: Schema.Array(HulyClassToolHintSchema).annotations({
+  firstClassToolHints: Schema.Array(HulyClassToolHintSchema).annotate({
     description:
       "Representative MCP categories and example tool names for purpose-built operations on this class. This is a routing hint, not an exhaustive registry."
   }),
-  routingHints: Schema.Array(HulyClassRoutingHintSchema).annotations({
+  routingHints: Schema.Array(HulyClassRoutingHintSchema).annotate({
     description:
       "Audited SDK parity routing hints. Covered classes name the safest MCP tools; gaps include the backlog issue; not-mcp-facing/ignored classes include only rationale."
   })
@@ -213,20 +236,20 @@ const sdkDiscoveryLimitDescription = (entity: string): string =>
 
 export const ListHulyClassesParamsSchema = Schema.Struct({
   query: Schema.optional(
-    HulyModelSearch.annotations({ description: "Case-insensitive substring match against class ID or label" })
+    HulyModelSearch.annotate({ description: "Case-insensitive substring match against class ID or label" })
   ),
   kind: Schema.optional(
-    HulyClassifierKindSchema.annotations({
+    HulyClassifierKindSchema.annotate({
       description: "Filter by class, interface, or mixin. unknown is only returned for unexpected model values."
     })
   ),
   domain: Schema.optional(
-    HulyDomainName.annotations({
+    HulyDomainName.annotate({
       description: "Filter by Huly storage domain, such as tracker, document, card, contact, or model"
     })
   ),
-  limit: Schema.optional(LimitParam.annotations({ description: sdkDiscoveryLimitDescription("classes") }))
-}).annotations({
+  limit: Schema.optional(LimitParam.annotate({ description: sdkDiscoveryLimitDescription("classes") }))
+}).annotate({
   title: "ListHulyClassesParams",
   description: "Parameters for discovering Huly class, interface, and mixin IDs from the workspace model"
 })
@@ -239,15 +262,15 @@ export const ListHulyClassesResultSchema = Schema.Struct({
 export type ListHulyClassesResult = Schema.Schema.Type<typeof ListHulyClassesResultSchema>
 
 export const GetHulyClassParamsSchema = Schema.Struct({
-  class: ObjectClassName.annotations({
+  class: ObjectClassName.annotate({
     description: "Exact Huly class, interface, or mixin ID returned by list_huly_classes"
   }),
   includeInheritedAttributes: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: `Include attributes declared on parent classes. Defaults to ${DEFAULT_INCLUDE_INHERITED_ATTRIBUTES}.`
     })
   )
-}).annotations({
+}).annotate({
   title: "GetHulyClassParams",
   description: "Parameters for reading one Huly class and its model attributes"
 })
@@ -262,22 +285,22 @@ export type GetHulyClassResult = Schema.Schema.Type<typeof GetHulyClassResultSch
 
 export const ListHulyAttributesParamsSchema = Schema.Struct({
   class: Schema.optional(
-    ObjectClassName.annotations({
+    ObjectClassName.annotate({
       description: "Only return attributes declared directly on this class, interface, or mixin ID"
     })
   ),
   query: Schema.optional(
-    HulyModelSearch.annotations({
+    HulyModelSearch.annotate({
       description: "Case-insensitive substring match against attribute ID, name, label, owner class ID, or type target"
     })
   ),
   customOnly: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: `Only return attributes marked as custom fields. Defaults to ${DEFAULT_CUSTOM_FIELDS_ONLY}.`
     })
   ),
-  limit: Schema.optional(LimitParam.annotations({ description: sdkDiscoveryLimitDescription("attributes") }))
-}).annotations({ title: "ListHulyAttributesParams", description: "Parameters for discovering Huly model attributes" })
+  limit: Schema.optional(LimitParam.annotate({ description: sdkDiscoveryLimitDescription("attributes") }))
+}).annotate({ title: "ListHulyAttributesParams", description: "Parameters for discovering Huly model attributes" })
 export type ListHulyAttributesParams = Schema.Schema.Type<typeof ListHulyAttributesParamsSchema>
 
 export const ListHulyAttributesResultSchema = Schema.Struct({
@@ -287,14 +310,14 @@ export const ListHulyAttributesResultSchema = Schema.Struct({
 export type ListHulyAttributesResult = Schema.Schema.Type<typeof ListHulyAttributesResultSchema>
 
 export const ListHulyEnumsParamsSchema = Schema.Struct({
-  enum: Schema.optional(HulyEnumId.annotations({ description: "Exact enum document ID" })),
+  enum: Schema.optional(HulyEnumId.annotate({ description: "Exact enum document ID" })),
   query: Schema.optional(
-    HulyModelSearch.annotations({
+    HulyModelSearch.annotate({
       description: "Case-insensitive substring match against enum ID, enum name, or enum values"
     })
   ),
-  limit: Schema.optional(LimitParam.annotations({ description: sdkDiscoveryLimitDescription("enums") }))
-}).annotations({ title: "ListHulyEnumsParams", description: "Parameters for discovering Huly model enum definitions" })
+  limit: Schema.optional(LimitParam.annotate({ description: sdkDiscoveryLimitDescription("enums") }))
+}).annotate({ title: "ListHulyEnumsParams", description: "Parameters for discovering Huly model enum definitions" })
 export type ListHulyEnumsParams = Schema.Schema.Type<typeof ListHulyEnumsParamsSchema>
 
 export const ListHulyEnumsResultSchema = Schema.Struct({
@@ -305,14 +328,46 @@ export type ListHulyEnumsResult = Schema.Schema.Type<typeof ListHulyEnumsResultS
 
 export { HulyDomainName } from "./sdk-discovery-configurations.js"
 
-export const listHulyClassesParamsJsonSchema = JSONSchema.make(ListHulyClassesParamsSchema)
-export const getHulyClassParamsJsonSchema = JSONSchema.make(GetHulyClassParamsSchema)
-export const listHulyAttributesParamsJsonSchema = JSONSchema.make(ListHulyAttributesParamsSchema)
-export const listHulyEnumsParamsJsonSchema = JSONSchema.make(ListHulyEnumsParamsSchema)
+export const listHulyClassesParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(ListHulyClassesParamsSchema),
+  {
+    query: "Case-insensitive substring match against class ID or label.",
+    kind: "Filter by class, interface, or mixin.",
+    domain: "Filter by Huly storage domain, such as tracker, document, card, contact, or model.",
+    limit: sdkDiscoveryLimitDescription("classes")
+  }
+)
+export const getHulyClassParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(GetHulyClassParamsSchema),
+  {
+    class: "Exact Huly class, interface, or mixin ID returned by list_huly_classes.",
+    includeInheritedAttributes: `Include attributes declared on parent classes. Defaults to ${DEFAULT_INCLUDE_INHERITED_ATTRIBUTES}.`
+  }
+)
+export const listHulyAttributesParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(ListHulyAttributesParamsSchema),
+  {
+    class: "Only return attributes declared directly on this class, interface, or mixin ID.",
+    query: "Case-insensitive substring match against attribute ID, name, label, owner class ID, or type target.",
+    customOnly: `Only return attributes marked as custom fields. Defaults to ${DEFAULT_CUSTOM_FIELDS_ONLY}.`,
+    limit: sdkDiscoveryLimitDescription("attributes")
+  }
+)
+export const listHulyEnumsParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(ListHulyEnumsParamsSchema),
+  {
+    enum: "Exact enum document ID.",
+    query: "Case-insensitive substring match against enum ID, name, or option values.",
+    limit: sdkDiscoveryLimitDescription("enums")
+  }
+)
 
 const strictParseOptions = { onExcessProperty: "error" } as const
 
-export const parseListHulyClassesParams = Schema.decodeUnknown(ListHulyClassesParamsSchema, strictParseOptions)
-export const parseGetHulyClassParams = Schema.decodeUnknown(GetHulyClassParamsSchema, strictParseOptions)
-export const parseListHulyAttributesParams = Schema.decodeUnknown(ListHulyAttributesParamsSchema, strictParseOptions)
-export const parseListHulyEnumsParams = Schema.decodeUnknown(ListHulyEnumsParamsSchema, strictParseOptions)
+export const parseListHulyClassesParams = Schema.decodeUnknownEffect(ListHulyClassesParamsSchema, strictParseOptions)
+export const parseGetHulyClassParams = Schema.decodeUnknownEffect(GetHulyClassParamsSchema, strictParseOptions)
+export const parseListHulyAttributesParams = Schema.decodeUnknownEffect(
+  ListHulyAttributesParamsSchema,
+  strictParseOptions
+)
+export const parseListHulyEnumsParams = Schema.decodeUnknownEffect(ListHulyEnumsParamsSchema, strictParseOptions)

@@ -134,7 +134,7 @@ const placeholderFieldIds = (markdown: string): Array<TemplateFieldId> => {
   return ids.map((id) => TemplateFieldId.make(id))
 }
 
-const markdownForTemplate = (template: HulyMessageTemplate, client: HulyClient["Type"]): MessageTemplateMarkdown =>
+const markdownForTemplate = (template: HulyMessageTemplate, client: HulyClient["Service"]): MessageTemplateMarkdown =>
   MessageTemplateMarkdown.make(markupToMarkdownString(template.message, client.markupUrlConfig))
 
 export const searchLike = (search: string | undefined): { readonly $like: string } | undefined => {
@@ -143,7 +143,7 @@ export const searchLike = (search: string | undefined): { readonly $like: string
 }
 
 export const warnMetadataFallbacks = (
-  diagnostics: Diagnostics["Type"],
+  diagnostics: Diagnostics["Service"],
   count: Count,
   resourceLabel: MetadataFallbackResource,
   fallbackLabel: MetadataFallbackValue
@@ -158,7 +158,7 @@ export const warnMetadataFallbacks = (
       })
 
 const refMetadataMapFor = <T extends Doc, V>(
-  diagnostics: Diagnostics["Type"],
+  diagnostics: Diagnostics["Service"],
   ids: ReadonlyArray<Ref<T>>,
   docs: ReadonlyArray<T>,
   isBlank: (doc: T) => boolean,
@@ -176,7 +176,7 @@ const refMetadataMapFor = <T extends Doc, V>(
   })
 
 const findCategoryMatches = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: MessageTemplateCategoryIdentifier
 ): Effect.Effect<Array<HulyTemplateCategory>, HulyClientError> =>
   Effect.map(
@@ -189,7 +189,7 @@ const findCategoryMatches = (
   )
 
 export const resolveCategory = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: MessageTemplateCategoryIdentifier
 ): Effect.Effect<HulyTemplateCategory, ResolveCategoryError> =>
   Effect.gen(function* () {
@@ -214,7 +214,7 @@ export const resolveCategory = (
   })
 
 export const categoryMapFor = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   categoryIds: ReadonlyArray<Ref<HulyTemplateCategory>>
 ): Effect.Effect<ReadonlyMap<Ref<HulyTemplateCategory>, MessageTemplateCategoryRef>, HulyClientError, Diagnostics> =>
   Effect.gen(function* () {
@@ -247,7 +247,7 @@ const categoryRefFromMap = (
 
 export const templateSummaryFor = (
   template: HulyMessageTemplate,
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   categories: ReadonlyMap<Ref<HulyTemplateCategory>, MessageTemplateCategoryRef>
 ): MessageTemplateSummary => {
   const message = markdownForTemplate(template, client)
@@ -263,7 +263,7 @@ export const templateSummaryFor = (
 
 export const templateDetailFor = (
   template: HulyMessageTemplate,
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   categories: ReadonlyMap<Ref<HulyTemplateCategory>, MessageTemplateCategoryRef>
 ): MessageTemplate => {
   const message = markdownForTemplate(template, client)
@@ -272,7 +272,7 @@ export const templateDetailFor = (
 }
 
 export const resolveTemplate = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: GetMessageTemplateParams
 ): Effect.Effect<HulyMessageTemplate, ResolveTemplateError> =>
   Effect.gen(function* () {
@@ -308,7 +308,7 @@ export const resolveTemplate = (
   })
 
 export const resolveFieldCategory = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: TemplateFieldCategoryIdentifier
 ): Effect.Effect<HulyTemplateFieldCategory, ResolveFieldCategoryError> =>
   Effect.gen(function* () {
@@ -340,7 +340,7 @@ export const resolveFieldCategory = (
   })
 
 export const fieldCategoryMapFor = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   categoryIds: ReadonlyArray<Ref<HulyTemplateFieldCategory>>
 ): Effect.Effect<ReadonlyMap<Ref<HulyTemplateFieldCategory>, TemplateFieldCategoryRef>, HulyClientError, Diagnostics> =>
   Effect.gen(function* () {

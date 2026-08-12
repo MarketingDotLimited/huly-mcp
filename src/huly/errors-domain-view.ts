@@ -8,10 +8,10 @@ import {
 } from "./errors-views.js"
 import { WorkbenchApplicationAliasAmbiguousError } from "./errors-workbench.js"
 
-export const HulyViewDomainError = Schema.Union(
+export const HulyViewDomainError = Schema.Union([
   FilteredViewNotFoundError,
   FilteredViewIdentifierAmbiguousError,
   ViewletNotFoundError,
   ViewletIdentifierAmbiguousError,
   WorkbenchApplicationAliasAmbiguousError
-)
+])

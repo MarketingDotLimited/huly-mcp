@@ -83,7 +83,7 @@ type VacancyUpdateError =
   | RecruitingVacancyNotFoundError
   | RecruitingVacancyTypeNotFoundError
 
-const companySummary = (client: HulyClient["Type"], company: Ref<Organization> | undefined) =>
+const companySummary = (client: HulyClient["Service"], company: Ref<Organization> | undefined) =>
   company === undefined
     ? Effect.succeed(undefined)
     : Effect.map(client.findOne<Organization>(contact.class.Organization, { _id: company }), (org) =>
@@ -91,7 +91,7 @@ const companySummary = (client: HulyClient["Type"], company: Ref<Organization> |
       )
 
 const uploadFullDescription = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   vacancyId: Ref<Vacancy>,
   fullDescription: string | undefined
 ) =>
@@ -109,7 +109,7 @@ const uploadFullDescription = (
         return markupRefAsBlobRef(ref)
       })
 
-const fetchFullDescription = (client: HulyClient["Type"], vacancy: Vacancy) =>
+const fetchFullDescription = (client: HulyClient["Service"], vacancy: Vacancy) =>
   vacancy.fullDescription === null
     ? Effect.succeed(undefined)
     : client.fetchMarkup(
@@ -146,7 +146,7 @@ const vacancyCountFields = (vacancy: Vacancy): Pick<VacancyDetail, "applicants" 
 }
 
 const toVacancyDetail = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   vacancy: Vacancy
 ): Effect.Effect<VacancyDetail, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
   Effect.gen(function* () {
@@ -280,7 +280,7 @@ const vacancyBasicUpdate = (params: UpdateRecruitingVacancyParams): DocumentUpda
 })
 
 const vacancyDescriptionUpdate = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   vacancy: Vacancy,
   fullDescription: UpdateRecruitingVacancyParams["fullDescription"]
 ): Effect.Effect<DocumentUpdate<Vacancy>, HulyClientError> =>
@@ -291,7 +291,7 @@ const vacancyDescriptionUpdate = (
   })
 
 const vacancyRelationUpdate = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: UpdateRecruitingVacancyParams
 ): Effect.Effect<
   DocumentUpdate<Vacancy>,
@@ -315,7 +315,7 @@ const vacancyClearFields = (params: UpdateRecruitingVacancyParams) => ({
 })
 
 const buildVacancyUpdate = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: UpdateRecruitingVacancyParams,
   vacancy: Vacancy
 ): Effect.Effect<

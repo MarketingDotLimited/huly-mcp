@@ -1,4 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 
 import {
   CustomFieldId,
@@ -14,27 +16,25 @@ export const CUSTOM_FIELDS_DEFAULT_LIMIT = MAX_LIMIT
 
 export const ListCustomFieldsParamsSchema = Schema.Struct({
   targetClass: Schema.optional(
-    NonEmptyString.annotations({
+    NonEmptyString.annotate({
       description:
         "Filter by owner class/mixin ID (e.g. 'tracker:mixin:IssueTypeData' or a dynamic class ID). Returns fields defined on that class only."
     })
   ),
   limit: Schema.optional(
-    LimitParam.annotations({
-      description: `Maximum number of fields to return (default: ${CUSTOM_FIELDS_DEFAULT_LIMIT})`
-    })
+    LimitParam.annotate({ description: `Maximum number of fields to return (default: ${CUSTOM_FIELDS_DEFAULT_LIMIT})` })
   )
-}).annotations({ title: "ListCustomFieldsParams", description: "Parameters for listing custom field definitions" })
+}).annotate({ title: "ListCustomFieldsParams", description: "Parameters for listing custom field definitions" })
 
 export type ListCustomFieldsParams = Schema.Schema.Type<typeof ListCustomFieldsParamsSchema>
 
 export const GetCustomFieldValuesParamsSchema = Schema.Struct({
-  objectId: DocId.annotations({ description: "Document ID to read custom field values from" }),
-  objectClass: ObjectClassName.annotations({
+  objectId: DocId.annotate({ description: "Document ID to read custom field values from" }),
+  objectClass: ObjectClassName.annotate({
     description:
       "Class of the document (e.g. 'tracker:class:Issue', 'card:class:Card', or a dynamic master tag class ID)"
   })
-}).annotations({
+}).annotate({
   title: "GetCustomFieldValuesParams",
   description: "Parameters for reading custom field values from a document"
 })
@@ -42,20 +42,17 @@ export const GetCustomFieldValuesParamsSchema = Schema.Struct({
 export type GetCustomFieldValuesParams = Schema.Schema.Type<typeof GetCustomFieldValuesParamsSchema>
 
 export const SetCustomFieldParamsSchema = Schema.Struct({
-  objectId: DocId.annotations({ description: "Document ID to set the custom field value on" }),
-  objectClass: ObjectClassName.annotations({
+  objectId: DocId.annotate({ description: "Document ID to set the custom field value on" }),
+  objectClass: ObjectClassName.annotate({
     description:
       "Class of the document (e.g. 'tracker:class:Issue', 'card:class:Card', or a dynamic master tag class ID)"
   }),
-  fieldId: CustomFieldId.annotations({ description: "Custom field attribute ID (the _id from list_custom_fields)" }),
-  value: Schema.String.annotations({
+  fieldId: CustomFieldId.annotate({ description: "Custom field attribute ID (the _id from list_custom_fields)" }),
+  value: Schema.String.annotate({
     description:
       "Value to set. Strings are passed as-is. For numbers, pass a numeric string (e.g. '42'). For dates, pass a real ISO calendar date in YYYY-MM-DD form (stored as UTC midnight) or a canonical non-negative epoch-millisecond string from 0 through 8640000000000000. Date-times, time-zone suffixes, signs, whitespace, decimals, and exponents are rejected. For booleans, pass 'true' or 'false'. For enums, pass the enum value string."
   })
-}).annotations({
-  title: "SetCustomFieldParams",
-  description: "Parameters for setting a custom field value on a document"
-})
+}).annotate({ title: "SetCustomFieldParams", description: "Parameters for setting a custom field value on a document" })
 
 export type SetCustomFieldParams = Schema.Schema.Type<typeof SetCustomFieldParamsSchema>
 
@@ -64,7 +61,7 @@ export type PrimitiveCustomFieldTypeName = (typeof CUSTOM_FIELD_PRIMITIVE_TYPE_N
 
 const CUSTOM_FIELD_TYPE_NAMES = [...CUSTOM_FIELD_PRIMITIVE_TYPE_NAMES, "enum", "array", "ref", "unknown"] as const
 
-export const CustomFieldTypeNameSchema = Schema.Literal(...CUSTOM_FIELD_TYPE_NAMES).annotations({
+export const CustomFieldTypeNameSchema = Schema.Literals(CUSTOM_FIELD_TYPE_NAMES).annotate({
   description: `Custom field type: ${enumValuesDescription(CUSTOM_FIELD_TYPE_NAMES)}`
 })
 
@@ -85,25 +82,25 @@ export const SetCustomFieldResultSchema = Schema.Struct({
 })
 export type SetCustomFieldResult = Schema.Schema.Type<typeof SetCustomFieldResultSchema>
 
-export const EmptyCustomFieldTypeDetailsSchema = Schema.Record({ key: Schema.String, value: Schema.Never })
+export const EmptyCustomFieldTypeDetailsSchema = Schema.Record(Schema.String, Schema.Never)
 export type EmptyCustomFieldTypeDetails = Schema.Schema.Type<typeof EmptyCustomFieldTypeDetailsSchema>
 
-const CustomFieldTypeDetailsRecordSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
+const CustomFieldTypeDetailsRecordSchema = Schema.Record(Schema.String, Schema.Unknown)
 
-export const EnumCustomFieldTypeDetailsSchema = CustomFieldTypeDetailsRecordSchema.pipe(
-  Schema.filter((details) =>
+export const EnumCustomFieldTypeDetailsSchema = CustomFieldTypeDetailsRecordSchema.check(
+  Schema.makeFilter((details) =>
     Object.hasOwn(details, "enumRef") ? undefined : "enum custom field typeDetails must include enumRef"
   )
 )
 export type EnumCustomFieldTypeDetails = Schema.Schema.Type<typeof EnumCustomFieldTypeDetailsSchema>
-export const ArrayCustomFieldTypeDetailsSchema = CustomFieldTypeDetailsRecordSchema.pipe(
-  Schema.filter((details) =>
+export const ArrayCustomFieldTypeDetailsSchema = CustomFieldTypeDetailsRecordSchema.check(
+  Schema.makeFilter((details) =>
     Object.hasOwn(details, "of") ? undefined : "array custom field typeDetails must include of"
   )
 )
 export type ArrayCustomFieldTypeDetails = Schema.Schema.Type<typeof ArrayCustomFieldTypeDetailsSchema>
-export const RefCustomFieldTypeDetailsSchema = CustomFieldTypeDetailsRecordSchema.pipe(
-  Schema.filter((details) =>
+export const RefCustomFieldTypeDetailsSchema = CustomFieldTypeDetailsRecordSchema.check(
+  Schema.makeFilter((details) =>
     Object.hasOwn(details, "to") ? undefined : "ref custom field typeDetails must include to"
   )
 )
@@ -119,10 +116,10 @@ const CustomFieldInfoBaseWireFields = {
   ownerLabel: Schema.String
 } as const
 
-export const CustomFieldInfoWireSchema = Schema.Union(
+export const CustomFieldInfoWireSchema = Schema.Union([
   Schema.Struct({
     ...CustomFieldInfoBaseWireFields,
-    type: Schema.Literal(...CUSTOM_FIELD_PRIMITIVE_TYPE_NAMES),
+    type: Schema.Literals(CUSTOM_FIELD_PRIMITIVE_TYPE_NAMES),
     typeDetails: EmptyCustomFieldTypeDetailsSchema
   }),
   Schema.Struct({
@@ -145,7 +142,7 @@ export const CustomFieldInfoWireSchema = Schema.Union(
     type: Schema.Literal("unknown"),
     typeDetails: UnknownCustomFieldTypeDetailsSchema
   })
-)
+])
 export type CustomFieldInfo = Schema.Schema.Type<typeof CustomFieldInfoWireSchema>
 
 export const CustomFieldValueWireSchema = Schema.Struct({
@@ -166,10 +163,31 @@ export const SetCustomFieldResultWireSchema = Schema.Struct({
 export const ListCustomFieldsResultSchema = Schema.Array(CustomFieldInfoWireSchema)
 export const GetCustomFieldValuesResultSchema = Schema.Array(CustomFieldValueWireSchema)
 
-export const listCustomFieldsParamsJsonSchema = JSONSchema.make(ListCustomFieldsParamsSchema)
-export const getCustomFieldValuesParamsJsonSchema = JSONSchema.make(GetCustomFieldValuesParamsSchema)
-export const setCustomFieldParamsJsonSchema = JSONSchema.make(SetCustomFieldParamsSchema)
+export const listCustomFieldsParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(ListCustomFieldsParamsSchema),
+  {
+    targetClass: "Filter by owner class or mixin ID. Returns fields defined directly on that class or mixin only.",
+    limit: `Maximum number of fields to return (default: ${CUSTOM_FIELDS_DEFAULT_LIMIT}).`
+  }
+)
+export const getCustomFieldValuesParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(GetCustomFieldValuesParamsSchema),
+  {
+    objectId: "Document ID to read custom field values from.",
+    objectClass: "Document class ID, such as tracker:class:Issue or card:class:Card."
+  }
+)
+export const setCustomFieldParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(SetCustomFieldParamsSchema),
+  {
+    objectId: "Document ID to set the custom field value on.",
+    objectClass: "Document class ID, such as tracker:class:Issue or card:class:Card.",
+    fieldId: "Custom field attribute ID returned by list_custom_fields.",
+    value:
+      "Value to set using the field's documented wire format. Dates accept YYYY-MM-DD or canonical non-negative epoch milliseconds."
+  }
+)
 
-export const parseListCustomFieldsParams = Schema.decodeUnknown(ListCustomFieldsParamsSchema)
-export const parseGetCustomFieldValuesParams = Schema.decodeUnknown(GetCustomFieldValuesParamsSchema)
-export const parseSetCustomFieldParams = Schema.decodeUnknown(SetCustomFieldParamsSchema)
+export const parseListCustomFieldsParams = Schema.decodeUnknownEffect(ListCustomFieldsParamsSchema)
+export const parseGetCustomFieldValuesParams = Schema.decodeUnknownEffect(GetCustomFieldValuesParamsSchema)
+export const parseSetCustomFieldParams = Schema.decodeUnknownEffect(SetCustomFieldParamsSchema)

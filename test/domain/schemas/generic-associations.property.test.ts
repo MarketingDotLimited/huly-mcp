@@ -1,5 +1,5 @@
 import { describe } from "@effect/vitest"
-import { Schema } from "effect"
+import { Result, Schema } from "effect"
 import * as fc from "fast-check"
 import { expect, it } from "vitest"
 
@@ -46,8 +46,8 @@ const locatorArbitrary = fc.oneof(
   cardLocatorArbitrary
 )
 
-const decodeSucceeds = (schema: Schema.Schema.AnyNoContext, input: unknown): boolean =>
-  Schema.decodeUnknownEither(schema, strictParseOptions)(input)._tag === "Right"
+const decodeSucceeds = (schema: Schema.ConstraintDecoder<unknown>, input: unknown): boolean =>
+  Result.isSuccess(Schema.decodeUnknownResult(schema, strictParseOptions)(input))
 
 describe("generic association locator properties", () => {
   it("GenericObjectLocatorSchema accepts each explicit locator kind under strict decoding", () => {

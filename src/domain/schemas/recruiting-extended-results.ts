@@ -11,7 +11,7 @@ import {
 } from "./recruiting-common.js"
 import { Count, DocId, Timestamp } from "./shared.js"
 
-const RecruitingExtendedDeletedFlag = Schema.Boolean.annotations({
+const RecruitingExtendedDeletedFlag = Schema.Boolean.annotate({
   description: "Whether the Recruiting object was deleted by this call."
 })
 

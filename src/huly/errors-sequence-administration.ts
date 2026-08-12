@@ -5,7 +5,7 @@ import { SequenceIdentifier } from "../domain/schemas/sequence-administration.js
 import { HulyAttributeId, ObjectClassName } from "../domain/schemas/shared.js"
 
 const MINIMUM_AMBIGUOUS_MATCHES = 2
-const SequenceWriteOperation = Schema.Literal("create", "update custom prefix", "delete")
+const SequenceWriteOperation = Schema.Literals(["create", "update custom prefix", "delete"])
 
 export class SequenceDefinitionConflictError extends Schema.TaggedError<SequenceDefinitionConflictError>()(
   "SequenceDefinitionConflictError",
@@ -37,7 +37,7 @@ export class SequenceIdentifierAmbiguousError extends Schema.TaggedError<Sequenc
   "SequenceIdentifierAmbiguousError",
   {
     identifier: SequenceIdentifier,
-    matches: Schema.Array(HulySequenceId).pipe(Schema.minItems(MINIMUM_AMBIGUOUS_MATCHES))
+    matches: Schema.Array(HulySequenceId).check(Schema.isMinLength(MINIMUM_AMBIGUOUS_MATCHES))
   }
 ) {
   override get message(): string {
@@ -65,14 +65,14 @@ export class SequenceCurrentValueMismatchError extends Schema.TaggedError<Sequen
 
 export class SequenceInUseError extends Schema.TaggedError<SequenceInUseError>()("SequenceInUseError", {
   sequenceId: HulySequenceId,
-  attributeIds: Schema.Array(HulyAttributeId).pipe(Schema.minItems(1))
+  attributeIds: Schema.Array(HulyAttributeId).check(Schema.isNonEmpty())
 }) {
   override get message(): string {
     return `Custom sequence '${this.sequenceId}' cannot be deleted because identifier attributes reference it: ${this.attributeIds.join(", ")}`
   }
 }
 
-export const SequenceAdministrationDomainError = Schema.Union(
+export const SequenceAdministrationDomainError = Schema.Union([
   SequenceDefinitionConflictError,
   SequenceConcurrentWriteError,
   SequenceNotFoundError,
@@ -80,4 +80,4 @@ export const SequenceAdministrationDomainError = Schema.Union(
   SequenceKindUnsupportedError,
   SequenceCurrentValueMismatchError,
   SequenceInUseError
-)
+])

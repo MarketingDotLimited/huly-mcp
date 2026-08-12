@@ -90,21 +90,21 @@ const SORT_AFTER = 1
 type SortComparison = typeof SORT_BEFORE | typeof SORT_EQUAL | typeof SORT_AFTER
 
 const parseApplication = (input: unknown): Effect.Effect<ApplicationProjection, HulyError> =>
-  Schema.decodeUnknown(ApplicationProjectionSchema)(input).pipe(
+  Schema.decodeUnknownEffect(ApplicationProjectionSchema)(input).pipe(
     Effect.mapError(
       (cause) => new HulyError({ message: "Huly returned malformed Workbench application metadata.", cause })
     )
   )
 
 const parseNavigationExtension = (input: unknown): Effect.Effect<NavigationExtensionProjection, HulyError> =>
-  Schema.decodeUnknown(NavigationExtensionProjectionSchema)(input).pipe(
+  Schema.decodeUnknownEffect(NavigationExtensionProjectionSchema)(input).pipe(
     Effect.mapError(
       (cause) => new HulyError({ message: "Huly returned malformed Workbench navigation metadata.", cause })
     )
   )
 
 const parseHiddenApplication = (input: unknown): Effect.Effect<HiddenApplicationProjection, HulyError> =>
-  Schema.decodeUnknown(HiddenApplicationProjectionSchema)(input).pipe(
+  Schema.decodeUnknownEffect(HiddenApplicationProjectionSchema)(input).pipe(
     Effect.mapError(
       (cause) => new HulyError({ message: "Huly returned malformed caller Workbench preference metadata.", cause })
     )

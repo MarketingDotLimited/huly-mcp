@@ -1,8 +1,7 @@
 import type { Schema } from "effect"
-import { JSONSchema } from "effect"
 
 import { HULY_NATIVE_REFERENCE_MARKDOWN_INPUT } from "./document-native-references.js"
-import { withExactlyOneRequired, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
+import { toDraft07JsonSchema, withExactlyOneRequired, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 import { DEFAULT_LIMIT } from "./shared.js"
 import { UPLOAD_SOURCE_FIELD_DESCRIPTIONS } from "./upload-source.js"
 
@@ -27,8 +26,8 @@ const INVENTORY_MEDIA_FIELD_DESCRIPTIONS: Readonly<Partial<Record<string, string
   body: `Comment body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
 }
 
-export const inventoryMediaJsonSchema = <A, I, R>(schema: Schema.Schema<A, I, R>): object =>
-  withJsonSchemaPropertyDescriptions(JSONSchema.make(schema), INVENTORY_MEDIA_FIELD_DESCRIPTIONS)
+export const inventoryMediaJsonSchema = (schema: Schema.Constraint): object =>
+  withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(schema), INVENTORY_MEDIA_FIELD_DESCRIPTIONS)
 
 export const withExactlyOneInventoryMediaFileSource = (schema: object): object =>
   withExactlyOneRequired(schema, INVENTORY_MEDIA_FILE_SOURCE_FIELDS)

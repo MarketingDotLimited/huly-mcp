@@ -218,7 +218,7 @@ import {
 } from "./errors-tracker.js"
 import { WorkflowStatusDomainError } from "./errors-workflow-statuses.js"
 
-export const HulyDomainError = Schema.Union(
+export const HulyDomainError = Schema.Union([
   HulyDomainBaseError,
   HulyViewDomainError,
   ApprovalRequestErrors.ApprovalRequestNotFoundError,
@@ -409,6 +409,6 @@ export const HulyDomainError = Schema.Union(
   TemplateFieldCategoryNotFoundError,
   TemplateFieldCategoryIdentifierAmbiguousError,
   WorkflowStatusDomainError
-)
+])
 
 export type HulyDomainError = Schema.Schema.Type<typeof HulyDomainError>

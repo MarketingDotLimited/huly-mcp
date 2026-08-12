@@ -91,16 +91,18 @@ type ApplicantCreateError =
 type ApplicantUpdateError = ApplicantReadError | PersonNotAnEmployeeError
 type ApplicantDeleteError = ApplicantReadError | RecruitingMutationUnsupportedError
 
-const resolveOptionalVacancy = (client: HulyClient["Type"], identifier: ListRecruitingApplicantsParams["vacancy"]) =>
-  identifier === undefined ? Effect.succeed(undefined) : resolveVacancy(client, identifier)
+const resolveOptionalVacancy = (
+  client: HulyClient["Service"],
+  identifier: ListRecruitingApplicantsParams["vacancy"]
+) => (identifier === undefined ? Effect.succeed(undefined) : resolveVacancy(client, identifier))
 
 const resolveOptionalCandidate = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: ListRecruitingApplicantsParams["candidate"]
 ) => (identifier === undefined ? Effect.succeed(undefined) : resolveCandidatePerson(client, identifier))
 
 const resolveAssignee = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   assignee: NonNullable<CreateRecruitingApplicantParams["assignee"]>
 ): Effect.Effect<
   Ref<Employee>,
@@ -129,7 +131,7 @@ const resolveAssignee = (
   })
 
 const applicantStatusFilter = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   vacancy: Vacancy | undefined,
   status: ListRecruitingApplicantsParams["status"]
 ) =>
@@ -148,7 +150,7 @@ const applicantMatchesStatusName = (
   (statusName !== undefined && normalizeForComparison(statusName) === normalizeForComparison(requested))
 
 const applicantDetail = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   applicant: Applicant
 ): Effect.Effect<ApplicantDetail, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
   Effect.gen(function* () {
@@ -165,7 +167,7 @@ const applicantDetail = (
   })
 
 const resolveApplicantLocator = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: GetRecruitingApplicantParams
 ): Effect.Effect<
   Applicant,
@@ -284,7 +286,7 @@ export const createRecruitingApplicant = (
   })
 
 const buildApplicantUpdate = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   applicant: Applicant,
   params: UpdateRecruitingApplicantParams
 ): Effect.Effect<

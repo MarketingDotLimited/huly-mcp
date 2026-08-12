@@ -1,10 +1,12 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 
 import { Count, enumValuesDescription, ListTotal, ProjectIdentifier } from "./shared.js"
 
 const EntityTypeValues = ["issue", "project", "component", "milestone"] as const
 
-const EntityTypeSchema = Schema.Literal(...EntityTypeValues).annotations({
+const EntityTypeSchema = Schema.Literals(EntityTypeValues).annotate({
   title: "EntityType",
   description: `Type of entity to preview deletion for: ${enumValuesDescription(EntityTypeValues)}`
 })
@@ -12,26 +14,24 @@ const EntityTypeSchema = Schema.Literal(...EntityTypeValues).annotations({
 export type EntityType = Schema.Schema.Type<typeof EntityTypeSchema>
 
 export const PreviewDeletionParamsSchema = Schema.Struct({
-  entityType: EntityTypeSchema.annotations({
-    description: `Type of entity: ${enumValuesDescription(EntityTypeValues)}`
-  }),
-  project: ProjectIdentifier.annotations({
+  entityType: EntityTypeSchema.annotate({ description: `Type of entity: ${enumValuesDescription(EntityTypeValues)}` }),
+  project: ProjectIdentifier.annotate({
     description: "Project identifier (e.g., 'HULY'). For entityType='project', this IS the target project."
   }),
-  identifier: Schema.optional(Schema.String).annotations({
+  identifier: Schema.optional(Schema.String).annotate({
     description:
       "Entity identifier within the project. Required for issue (e.g., 'PROJ-123' or number), component (label or ID), milestone (label or ID). Ignored for entityType='project'."
   })
 })
-  .pipe(
-    Schema.filter((params) => {
+  .check(
+    Schema.makeFilter((params) => {
       if (params.entityType !== "project" && (params.identifier === undefined || params.identifier.trim() === "")) {
-        return { path: ["identifier"], message: `identifier is required when entityType is '${params.entityType}'` }
+        return { path: ["identifier"], issue: `identifier is required when entityType is '${params.entityType}'` }
       }
       return undefined
     })
   )
-  .annotations({ title: "PreviewDeletionParams", description: "Parameters for previewing deletion impact" })
+  .annotate({ title: "PreviewDeletionParams", description: "Parameters for previewing deletion impact" })
 
 export type PreviewDeletionParams = Schema.Schema.Type<typeof PreviewDeletionParamsSchema>
 export const DeletionImpactSchema = Schema.Struct({
@@ -53,7 +53,15 @@ export const DeletionImpactSchema = Schema.Struct({
 })
 export type DeletionImpact = Schema.Schema.Type<typeof DeletionImpactSchema>
 
-export const previewDeletionParamsJsonSchema = JSONSchema.make(PreviewDeletionParamsSchema)
-export const parsePreviewDeletionParams = Schema.decodeUnknown(PreviewDeletionParamsSchema)
+export const previewDeletionParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(PreviewDeletionParamsSchema),
+  {
+    entityType: `Type of entity: ${enumValuesDescription(EntityTypeValues)}.`,
+    project: "Project identifier. For entityType=project, this is the target project.",
+    identifier:
+      "Entity identifier within the project. Required for issues, components, and milestones; ignored for projects."
+  }
+)
+export const parsePreviewDeletionParams = Schema.decodeUnknownEffect(PreviewDeletionParamsSchema)
 
 export const PreviewDeletionResultSchema = DeletionImpactSchema

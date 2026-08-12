@@ -1308,7 +1308,7 @@ describe("association mutations", () => {
         )
       )
 
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 

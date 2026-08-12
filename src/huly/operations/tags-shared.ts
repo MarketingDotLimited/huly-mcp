@@ -122,7 +122,7 @@ export const toAttachedTagSummary = (
 }
 
 export const findTagElementByIdOrTitle = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   targetClass: TagTargetClass,
   idOrTitle: TagIdentifier
 ): Effect.Effect<HulyTagElement | undefined, HulyClientError | TagIdentifierAmbiguousError> =>
@@ -149,7 +149,7 @@ export const findTagElementByIdOrTitle = (
   })
 
 export const findTagElementOrFail = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   targetClass: TagTargetClass,
   idOrTitle: TagIdentifier
 ): Effect.Effect<HulyTagElement, TagIdentifierAmbiguousError | TagNotFoundError | HulyClientError> =>
@@ -162,7 +162,7 @@ export const findTagElementOrFail = (
   })
 
 const findDefaultCategory = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   targetClass: string
 ): Effect.Effect<HulyTagCategory | undefined, HulyClientError> =>
   client.findOne<HulyTagCategory>(
@@ -171,7 +171,7 @@ const findDefaultCategory = (
   )
 
 const findTagCategoryByIdOrLabelForTarget = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   targetClass: string,
   idOrLabel: string
 ): Effect.Effect<HulyTagCategory | undefined, HulyClientError> =>
@@ -191,7 +191,7 @@ const findTagCategoryByIdOrLabelForTarget = (
   })
 
 export const resolveTagCategoryRef = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   targetClass: string,
   category: string | undefined,
   fallbackCategory?: Ref<HulyTagCategory>
@@ -237,7 +237,7 @@ export const ensureTagElement = (
   })
 
 export const listTagReferencesForObject = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: RawTagObjectLocator
 ): Effect.Effect<Array<TagReference>, HulyClientError> =>
   Effect.gen(function* () {

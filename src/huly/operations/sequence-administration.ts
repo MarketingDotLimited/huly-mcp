@@ -48,7 +48,7 @@ type SequenceWriteError =
   | SequenceKindUnsupportedError
   | SequenceNotFoundError
 
-const loadSequences = (client: HulyClient["Type"]): Effect.Effect<ReadonlyArray<Sequence>, HulyClientError> =>
+const loadSequences = (client: HulyClient["Service"]): Effect.Effect<ReadonlyArray<Sequence>, HulyClientError> =>
   Effect.gen(function* () {
     const [sequences, customSequences] = yield* Effect.all([
       client.findAll<Sequence>(core.class.Sequence, hulyQuery<Sequence>({})),
@@ -66,7 +66,7 @@ const IdentifierTypeReferenceSchema = Schema.Struct({
 })
 
 const customSequenceReferences = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   sequenceId: HulySequenceId
 ): Effect.Effect<ReadonlyArray<HulyAttributeId>, HulyClientError> =>
   Effect.gen(function* () {
@@ -80,7 +80,7 @@ const customSequenceReferences = (
   })
 
 const resolveSequence = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: SequenceIdentifier
 ): Effect.Effect<Sequence, SequenceWriteError> =>
   Effect.gen(function* () {
@@ -108,7 +108,7 @@ const isMatchingDefinition = (sequence: Sequence, params: CreateHulySequencePara
 }
 
 const createSequenceDocument = <T extends Sequence>(
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   sequenceClass: Ref<Class<T>>,
   attributes: Data<T>,
   sequenceId: Ref<T>,
@@ -136,7 +136,7 @@ const createSequenceDocument = <T extends Sequence>(
   })
 
 const createStandardSequence = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   attachedTo: Ref<Class<Doc>>,
   classId: ObjectClassName
 ): Effect.Effect<CreateHulySequenceResult, HulyClientError | SequenceConcurrentWriteError> =>
@@ -158,7 +158,7 @@ const createStandardSequence = (
   })
 
 const createCustomSequence = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   attachedTo: Ref<Class<Doc>>,
   classId: ObjectClassName,
   prefix: HulySequencePrefix

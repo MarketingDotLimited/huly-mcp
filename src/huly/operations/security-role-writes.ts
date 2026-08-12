@@ -104,7 +104,7 @@ const roleAttributeData = (spaceType: SpaceType, roleId: Role["_id"], roleName: 
 }
 
 const createRoleRecords = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   spaceType: SpaceType,
   name: NonEmptyString,
   permissions: ReadonlyArray<Permission>
@@ -128,7 +128,7 @@ const createRoleRecords = (
     yield* client
       .createDoc(core.class.Attribute, core.space.Model, roleAttributeData(spaceType, roleId, name), generateId())
       .pipe(
-        Effect.catchAll((createError) =>
+        Effect.catch((createError) =>
           removeCollection(core.class.Role, core.space.Model, roleId, spaceType._id, spaceType._class, "roles").pipe(
             Effect.flatMap(() => Effect.fail(createError))
           )

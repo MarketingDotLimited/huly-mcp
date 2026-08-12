@@ -88,7 +88,7 @@ export class AssociationSystemClassUnsupportedError extends Schema.TaggedError<A
   "AssociationSystemClassUnsupportedError",
   {
     className: ObjectClassName,
-    operation: Schema.Literal("create_association", "delete_association", "create_relation", "delete_relation")
+    operation: Schema.Literals(["create_association", "delete_association", "create_relation", "delete_relation"])
   }
 ) {
   override get message(): string {

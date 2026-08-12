@@ -13,7 +13,9 @@ import {
 import { Count } from "../domain/schemas/shared.js"
 
 const MIN_AMBIGUOUS_TEMPLATE_MATCHES = 2
-const AmbiguousTemplateMatchCount = Count.pipe(Schema.greaterThanOrEqualTo(MIN_AMBIGUOUS_TEMPLATE_MATCHES))
+const AmbiguousTemplateMatchCount = Count.pipe(
+  Schema.check(Schema.isGreaterThanOrEqualTo(MIN_AMBIGUOUS_TEMPLATE_MATCHES))
+)
 
 export class MessageTemplateCategoryNotFoundError extends Schema.TaggedError<MessageTemplateCategoryNotFoundError>()(
   "MessageTemplateCategoryNotFoundError",

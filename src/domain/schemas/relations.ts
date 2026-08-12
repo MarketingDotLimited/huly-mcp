@@ -1,4 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 
 import {
   DocumentId,
@@ -23,7 +25,7 @@ const relationTypeDescription = enumValuesDescription(
   RelationTypeValues.map((value) => `'${value}' (${RelationTypeDescriptions[value]})`)
 )
 
-export const RelationTypeSchema = Schema.Literal(...RelationTypeValues).annotations({
+export const RelationTypeSchema = Schema.Literals(RelationTypeValues).annotate({
   title: "RelationType",
   description: `Type of issue relation: ${relationTypeDescription}`,
   jsonSchema: { type: "string", enum: [...RelationTypeValues] }
@@ -32,22 +34,22 @@ export const RelationTypeSchema = Schema.Literal(...RelationTypeValues).annotati
 export type RelationType = Schema.Schema.Type<typeof RelationTypeSchema>
 
 const issueRelationFields = {
-  project: ProjectIdentifier.annotations({ description: "Project identifier of the source issue (e.g., 'HULY')" }),
-  issueIdentifier: IssueIdentifier.annotations({ description: "Source issue identifier (e.g., 'HULY-123')" }),
-  targetIssue: IssueIdentifier.annotations({
+  project: ProjectIdentifier.annotate({ description: "Project identifier of the source issue (e.g., 'HULY')" }),
+  issueIdentifier: IssueIdentifier.annotate({ description: "Source issue identifier (e.g., 'HULY-123')" }),
+  targetIssue: IssueIdentifier.annotate({
     description: "Target issue identifier — same project: '42' or 'PROJ-42'; cross-project: 'OTHER-42'"
   }),
   relationType: RelationTypeSchema
 }
 
-export const AddIssueRelationParamsSchema = Schema.Struct(issueRelationFields).annotations({
+export const AddIssueRelationParamsSchema = Schema.Struct(issueRelationFields).annotate({
   title: "AddIssueRelationParams",
   description: "Parameters for adding a relation between two issues"
 })
 
 export type AddIssueRelationParams = Schema.Schema.Type<typeof AddIssueRelationParamsSchema>
 
-export const RemoveIssueRelationParamsSchema = Schema.Struct(issueRelationFields).annotations({
+export const RemoveIssueRelationParamsSchema = Schema.Struct(issueRelationFields).annotate({
   title: "RemoveIssueRelationParams",
   description: "Parameters for removing a relation between two issues"
 })
@@ -55,19 +57,35 @@ export const RemoveIssueRelationParamsSchema = Schema.Struct(issueRelationFields
 export type RemoveIssueRelationParams = Schema.Schema.Type<typeof RemoveIssueRelationParamsSchema>
 
 export const ListIssueRelationsParamsSchema = Schema.Struct({
-  project: ProjectIdentifier.annotations({ description: "Project identifier (e.g., 'HULY')" }),
-  issueIdentifier: IssueIdentifier.annotations({ description: "Issue identifier (e.g., 'HULY-123')" })
-}).annotations({ title: "ListIssueRelationsParams", description: "Parameters for listing all relations of an issue" })
+  project: ProjectIdentifier.annotate({ description: "Project identifier (e.g., 'HULY')" }),
+  issueIdentifier: IssueIdentifier.annotate({ description: "Issue identifier (e.g., 'HULY-123')" })
+}).annotate({ title: "ListIssueRelationsParams", description: "Parameters for listing all relations of an issue" })
 
 export type ListIssueRelationsParams = Schema.Schema.Type<typeof ListIssueRelationsParamsSchema>
 
-export const addIssueRelationParamsJsonSchema = JSONSchema.make(AddIssueRelationParamsSchema)
-export const removeIssueRelationParamsJsonSchema = JSONSchema.make(RemoveIssueRelationParamsSchema)
-export const listIssueRelationsParamsJsonSchema = JSONSchema.make(ListIssueRelationsParamsSchema)
+const issueRelationDescriptions = {
+  project: "Project identifier of the source issue.",
+  issueIdentifier: "Source issue identifier.",
+  targetIssue: "Target issue identifier; cross-project identifiers are accepted.",
+  relationType: `Relation type: ${relationTypeDescription}.`
+} as const
 
-export const parseAddIssueRelationParams = Schema.decodeUnknown(AddIssueRelationParamsSchema)
-export const parseRemoveIssueRelationParams = Schema.decodeUnknown(RemoveIssueRelationParamsSchema)
-export const parseListIssueRelationsParams = Schema.decodeUnknown(ListIssueRelationsParamsSchema)
+export const addIssueRelationParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(AddIssueRelationParamsSchema),
+  issueRelationDescriptions
+)
+export const removeIssueRelationParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(RemoveIssueRelationParamsSchema),
+  issueRelationDescriptions
+)
+export const listIssueRelationsParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(ListIssueRelationsParamsSchema),
+  { project: issueRelationDescriptions.project, issueIdentifier: issueRelationDescriptions.issueIdentifier }
+)
+
+export const parseAddIssueRelationParams = Schema.decodeUnknownEffect(AddIssueRelationParamsSchema)
+export const parseRemoveIssueRelationParams = Schema.decodeUnknownEffect(RemoveIssueRelationParamsSchema)
+export const parseListIssueRelationsParams = Schema.decodeUnknownEffect(ListIssueRelationsParamsSchema)
 export const RelationEntrySchema = Schema.Struct({ identifier: IssueIdentifier, _id: IssueId, _class: ObjectClassName })
 export type RelationEntry = Schema.Schema.Type<typeof RelationEntrySchema>
 export const DocumentRelationEntrySchema = Schema.Struct({

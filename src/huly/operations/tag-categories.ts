@@ -35,7 +35,7 @@ type DeleteTagCategoryError = HulyClientError | TagCategoryNotFoundError
 const defaultTargetClassRef = toRef<Class<Doc>>(DEFAULT_TAG_CATEGORY_TARGET_CLASS)
 
 const findCategoryByIdOrLabel = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   idOrLabel: string
 ): Effect.Effect<HulyTagCategory | undefined, HulyClientError> =>
   Effect.gen(function* () {
@@ -47,7 +47,7 @@ const findCategoryByIdOrLabel = (
   })
 
 const findCategoryOrFail = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   idOrLabel: string
 ): Effect.Effect<HulyTagCategory, TagCategoryNotFoundError | HulyClientError> =>
   Effect.gen(function* () {

@@ -35,7 +35,7 @@ type ProjectTargetPreferenceProjection = Pick<HulyProjectTargetPreference, "_id"
 }
 
 const projectMapById = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   ids: ReadonlyArray<Ref<HulyProject>>
 ): Effect.Effect<ReadonlyMap<Ref<HulyProject>, HulyProject>, HulyClientError> =>
   Effect.gen(function* () {

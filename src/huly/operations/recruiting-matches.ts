@@ -48,7 +48,7 @@ const matchesText = (match: ApplicantMatch, query: string | undefined): boolean 
 }
 
 const toMatchRef = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   match: ApplicantMatch
 ): Effect.Effect<ApplicantMatchRef, HulyClientError | RecruitingModelMissingError> =>
   Effect.gen(function* () {
@@ -71,7 +71,7 @@ const toMatchRef = (
   })
 
 const toMatchDetail = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   match: ApplicantMatch
 ): Effect.Effect<ApplicantMatchDetail, HulyClientError | RecruitingModelMissingError> =>
   Effect.gen(function* () {

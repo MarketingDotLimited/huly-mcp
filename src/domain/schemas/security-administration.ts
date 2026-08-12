@@ -1,4 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 
 import {
   assertUpdateFields,
@@ -17,7 +19,7 @@ import {
   SpaceRoleSummarySchema
 } from "./spaces.js"
 
-export const PermissionIdentifier = NonEmptyString.pipe(Schema.brand("PermissionIdentifier")).annotations({
+export const PermissionIdentifier = NonEmptyString.pipe(Schema.brand("PermissionIdentifier")).annotate({
   description: "Exact permission _id, exact label, or exact final label segment from list_space_permissions."
 })
 export type PermissionIdentifier = Schema.Schema.Type<typeof PermissionIdentifier>
@@ -25,12 +27,12 @@ export type PermissionIdentifier = Schema.Schema.Type<typeof PermissionIdentifie
 export const ClassCollaboratorMetadataId = NonEmptyString.pipe(Schema.brand("ClassCollaboratorMetadataId"))
 export type ClassCollaboratorMetadataId = Schema.Schema.Type<typeof ClassCollaboratorMetadataId>
 
-export const CollaboratorFieldName = NonEmptyString.pipe(Schema.brand("CollaboratorFieldName")).annotations({
+export const CollaboratorFieldName = NonEmptyString.pipe(Schema.brand("CollaboratorFieldName")).annotate({
   description: "Exact property name from list_huly_attributes for the selected class."
 })
 export type CollaboratorFieldName = Schema.Schema.Type<typeof CollaboratorFieldName>
 
-const ConfirmSecurityWrite = Schema.Literal(true).annotations({
+const ConfirmSecurityWrite = Schema.Literal(true).annotate({
   description: "Must be true to acknowledge that this operation changes workspace access-control metadata."
 })
 
@@ -38,31 +40,29 @@ const caseInsensitiveUnique = <A extends string>(values: ReadonlyArray<A>): bool
   new Set(values.map((value) => value.toLocaleLowerCase())).size === values.length
 
 const PermissionIdentifiers = Schema.Array(PermissionIdentifier)
-  .pipe(Schema.filter((values) => (caseInsensitiveUnique(values) ? undefined : "Permissions must be unique")))
-  .annotations({ description: "Permission IDs or exact labels; duplicates are rejected case-insensitively." })
+  .check(Schema.makeFilter((values) => (caseInsensitiveUnique(values) ? undefined : "Permissions must be unique")))
+  .annotate({ description: "Permission IDs or exact labels; duplicates are rejected case-insensitively." })
 
-export const PermissionTransactionSchema = Schema.Literal("create", "update", "remove", "mixin")
+export const PermissionTransactionSchema = Schema.Literals(["create", "update", "remove", "mixin"])
 export type PermissionTransaction = Schema.Schema.Type<typeof PermissionTransactionSchema>
 
 export const CreateHulyPermissionParamsSchema = Schema.Struct({
-  label: NonEmptyString.annotations({ description: "Clear human-readable permission label." }),
+  label: NonEmptyString.annotate({ description: "Clear human-readable permission label." }),
   scope: SpacePermissionScopeSchema,
-  objectClass: Schema.optionalWith(
-    ModelIdentifier.annotations({
+  objectClass: Schema.optionalKey(
+    ModelIdentifier.annotate({
       description: "Optional object class ID, tail name, or label constrained by this permission."
-    }),
-    { exact: true }
+    })
   ),
-  transaction: Schema.optionalWith(
-    PermissionTransactionSchema.annotations({
+  transaction: Schema.optionalKey(
+    PermissionTransactionSchema.annotate({
       description: "Optional transaction kind constrained by this permission: create, update, remove, or mixin."
-    }),
-    { exact: true }
+    })
   ),
-  forbid: Schema.optionalWith(Schema.Boolean, { exact: true }),
-  description: Schema.optionalWith(NonEmptyString, { exact: true }),
+  forbid: Schema.optionalKey(Schema.Boolean),
+  description: Schema.optionalKey(NonEmptyString),
   confirm: ConfirmSecurityWrite
-}).annotations({ title: "CreateHulyPermissionParams" })
+}).annotate({ title: "CreateHulyPermissionParams" })
 export type CreateHulyPermissionParams = Schema.Schema.Type<typeof CreateHulyPermissionParamsSchema>
 
 export const UPDATE_HULY_PERMISSION_FIELDS = [
@@ -75,85 +75,83 @@ export const UPDATE_HULY_PERMISSION_FIELDS = [
 ] as const
 export const UpdateHulyPermissionParamsSchema = Schema.Struct({
   permission: PermissionIdentifier,
-  label: Schema.optionalWith(NonEmptyString, { exact: true }),
-  scope: Schema.optionalWith(SpacePermissionScopeSchema, { exact: true }),
-  objectClass: Schema.optionalWith(Schema.NullOr(ModelIdentifier), { exact: true }),
-  transaction: Schema.optionalWith(Schema.NullOr(PermissionTransactionSchema), { exact: true }),
-  forbid: Schema.optionalWith(Schema.Boolean, { exact: true }),
-  description: Schema.optionalWith(Schema.NullOr(NonEmptyString), { exact: true }),
+  label: Schema.optionalKey(NonEmptyString),
+  scope: Schema.optionalKey(SpacePermissionScopeSchema),
+  objectClass: Schema.optionalKey(Schema.NullOr(ModelIdentifier)),
+  transaction: Schema.optionalKey(Schema.NullOr(PermissionTransactionSchema)),
+  forbid: Schema.optionalKey(Schema.Boolean),
+  description: Schema.optionalKey(Schema.NullOr(NonEmptyString)),
   confirm: ConfirmSecurityWrite
 })
-  .pipe(
-    Schema.filter((params) =>
+  .check(
+    Schema.makeFilter((params) =>
       UPDATE_HULY_PERMISSION_FIELDS.some((field) => params[field] !== undefined)
         ? undefined
         : atLeastOneUpdateFieldMessage(UPDATE_HULY_PERMISSION_FIELDS)
     )
   )
-  .annotations({ title: "UpdateHulyPermissionParams" })
+  .annotate({ title: "UpdateHulyPermissionParams" })
 export type UpdateHulyPermissionParams = Schema.Schema.Type<typeof UpdateHulyPermissionParamsSchema>
 assertUpdateFields<UpdateHulyPermissionParams>()(["permission", "confirm"], UPDATE_HULY_PERMISSION_FIELDS)
 
 export const DeleteHulyPermissionParamsSchema = Schema.Struct({
   permission: PermissionIdentifier,
   confirm: ConfirmSecurityWrite
-}).annotations({ title: "DeleteHulyPermissionParams" })
+}).annotate({ title: "DeleteHulyPermissionParams" })
 export type DeleteHulyPermissionParams = Schema.Schema.Type<typeof DeleteHulyPermissionParamsSchema>
 
 export const CreateSpaceRoleParamsSchema = Schema.Struct({
-  spaceType: SpaceTypeIdentifier.annotations({ description: "SpaceType _id or exact SpaceType name." }),
+  spaceType: SpaceTypeIdentifier.annotate({ description: "SpaceType _id or exact SpaceType name." }),
   name: NonEmptyString,
   permissions: PermissionIdentifiers,
   confirm: ConfirmSecurityWrite
-}).annotations({ title: "CreateSpaceRoleParams" })
+}).annotate({ title: "CreateSpaceRoleParams" })
 export type CreateSpaceRoleParams = Schema.Schema.Type<typeof CreateSpaceRoleParamsSchema>
 
 export const SetSpaceRolePermissionsParamsSchema = Schema.Struct({
-  spaceType: SpaceTypeIdentifier.annotations({ description: "SpaceType _id or exact SpaceType name." }),
-  role: SpaceRoleIdentifier.annotations({ description: "Role _id or exact role name within the selected SpaceType." }),
+  spaceType: SpaceTypeIdentifier.annotate({ description: "SpaceType _id or exact SpaceType name." }),
+  role: SpaceRoleIdentifier.annotate({ description: "Role _id or exact role name within the selected SpaceType." }),
   permissions: PermissionIdentifiers,
   confirm: ConfirmSecurityWrite
-}).annotations({ title: "SetSpaceRolePermissionsParams" })
+}).annotate({ title: "SetSpaceRolePermissionsParams" })
 export type SetSpaceRolePermissionsParams = Schema.Schema.Type<typeof SetSpaceRolePermissionsParamsSchema>
 
 export const GetClassCollaboratorMetadataParamsSchema = Schema.Struct({
-  class: ModelIdentifier.annotations({ description: "Class ID, tail name, or label." })
-}).annotations({ title: "GetClassCollaboratorMetadataParams" })
+  class: ModelIdentifier.annotate({ description: "Class ID, tail name, or label." })
+}).annotate({ title: "GetClassCollaboratorMetadataParams" })
 export type GetClassCollaboratorMetadataParams = Schema.Schema.Type<typeof GetClassCollaboratorMetadataParamsSchema>
 
-const CollaboratorFields = Schema.Array(CollaboratorFieldName).pipe(
-  Schema.minItems(1),
-  Schema.filter((fields) => (caseInsensitiveUnique(fields) ? undefined : "Collaborator fields must be unique"))
+const CollaboratorFields = Schema.Array(CollaboratorFieldName).check(
+  Schema.isNonEmpty(),
+  Schema.makeFilter((fields) => (caseInsensitiveUnique(fields) ? undefined : "Collaborator fields must be unique"))
 )
 
-export const CollaboratorFieldSelectionSchema = Schema.Union(
+export const CollaboratorFieldSelectionSchema = Schema.Union([
   Schema.Struct({ mode: Schema.Literal("all") }),
   Schema.Struct({ mode: Schema.Literal("none") }),
   Schema.Struct({ mode: Schema.Literal("fields"), fields: CollaboratorFields })
-)
+])
 export type CollaboratorFieldSelection = Schema.Schema.Type<typeof CollaboratorFieldSelectionSchema>
 
 export const SetClassCollaboratorMetadataParamsSchema = Schema.Struct({
-  class: ModelIdentifier.annotations({ description: "Class ID, tail name, or label." }),
+  class: ModelIdentifier.annotate({ description: "Class ID, tail name, or label." }),
   fieldSelection: CollaboratorFieldSelectionSchema,
-  provideSecurity: Schema.optionalWith(
-    Schema.Boolean.annotations({ description: "Propagate security through collaborator fields; defaults to false." }),
-    { exact: true }
+  provideSecurity: Schema.optionalKey(
+    Schema.Boolean.annotate({ description: "Propagate security through collaborator fields; defaults to false." })
   ),
-  provideAttachedSecurity: Schema.optionalWith(
-    Schema.Boolean.annotations({
+  provideAttachedSecurity: Schema.optionalKey(
+    Schema.Boolean.annotate({
       description: "Propagate security through attached collaborator documents; defaults to false."
-    }),
-    { exact: true }
+    })
   ),
   confirm: ConfirmSecurityWrite
-}).annotations({ title: "SetClassCollaboratorMetadataParams" })
+}).annotate({ title: "SetClassCollaboratorMetadataParams" })
 export type SetClassCollaboratorMetadataParams = Schema.Schema.Type<typeof SetClassCollaboratorMetadataParamsSchema>
 
 export const DeleteClassCollaboratorMetadataParamsSchema = Schema.Struct({
-  class: ModelIdentifier.annotations({ description: "Class ID, tail name, or label." }),
+  class: ModelIdentifier.annotate({ description: "Class ID, tail name, or label." }),
   confirm: ConfirmSecurityWrite
-}).annotations({ title: "DeleteClassCollaboratorMetadataParams" })
+}).annotate({ title: "DeleteClassCollaboratorMetadataParams" })
 export type DeleteClassCollaboratorMetadataParams = Schema.Schema.Type<
   typeof DeleteClassCollaboratorMetadataParamsSchema
 >
@@ -169,10 +167,10 @@ export const ClassCollaboratorMetadataSchema = Schema.Struct({
 })
 export type ClassCollaboratorMetadata = Schema.Schema.Type<typeof ClassCollaboratorMetadataSchema>
 
-export const GetClassCollaboratorMetadataResultSchema = Schema.Union(
-  ClassIdentitySchema.pipe(Schema.extend(Schema.Struct({ configured: Schema.Literal(false) }))),
-  ClassCollaboratorMetadataSchema.pipe(Schema.extend(Schema.Struct({ configured: Schema.Literal(true) })))
-)
+export const GetClassCollaboratorMetadataResultSchema = Schema.Union([
+  ClassIdentitySchema.pipe(Schema.fieldsAssign({ configured: Schema.Literal(false) })),
+  ClassCollaboratorMetadataSchema.pipe(Schema.fieldsAssign({ configured: Schema.Literal(true) }))
+])
 export type GetClassCollaboratorMetadataResult = Schema.Schema.Type<typeof GetClassCollaboratorMetadataResultSchema>
 
 export const CreateHulyPermissionResultSchema = Schema.Struct({
@@ -209,47 +207,105 @@ export type DeleteClassCollaboratorMetadataResult = Schema.Schema.Type<
   typeof DeleteClassCollaboratorMetadataResultSchema
 >
 
-export const createHulyPermissionParamsJsonSchema = JSONSchema.make(CreateHulyPermissionParamsSchema)
+const securityWriteConfirmationDescription =
+  "Must be true to acknowledge that this operation changes workspace access-control metadata."
+
+export const createHulyPermissionParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(CreateHulyPermissionParamsSchema),
+  {
+    label: "Clear human-readable permission label.",
+    scope: "Permission scope: space or workspace.",
+    objectClass: "Optional object class ID, tail name, or label constrained by this permission.",
+    transaction: "Optional constrained transaction kind: create, update, remove, or mixin.",
+    forbid: "Whether the permission forbids rather than grants the selected action.",
+    description: "Optional human-readable permission description.",
+    confirm: securityWriteConfirmationDescription
+  }
+)
 export const updateHulyPermissionParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(UpdateHulyPermissionParamsSchema),
+  withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(UpdateHulyPermissionParamsSchema), {
+    permission: "Permission ID, exact label, or exact final label segment.",
+    label: "New human-readable permission label.",
+    scope: "New permission scope: space or workspace.",
+    objectClass: "New constrained object class; null clears the constraint.",
+    transaction: "New constrained transaction kind; null clears the constraint.",
+    forbid: "New forbid flag.",
+    description: "New permission description; null clears it.",
+    confirm: securityWriteConfirmationDescription
+  }),
   UPDATE_HULY_PERMISSION_FIELDS
 )
-export const deleteHulyPermissionParamsJsonSchema = JSONSchema.make(DeleteHulyPermissionParamsSchema)
-export const createSpaceRoleParamsJsonSchema = JSONSchema.make(CreateSpaceRoleParamsSchema)
-export const setSpaceRolePermissionsParamsJsonSchema = JSONSchema.make(SetSpaceRolePermissionsParamsSchema)
-export const getClassCollaboratorMetadataParamsJsonSchema = JSONSchema.make(GetClassCollaboratorMetadataParamsSchema)
-export const setClassCollaboratorMetadataParamsJsonSchema = JSONSchema.make(SetClassCollaboratorMetadataParamsSchema)
-export const deleteClassCollaboratorMetadataParamsJsonSchema = JSONSchema.make(
-  DeleteClassCollaboratorMetadataParamsSchema
+export const deleteHulyPermissionParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(DeleteHulyPermissionParamsSchema),
+  {
+    permission: "Permission ID, exact label, or exact final label segment.",
+    confirm: securityWriteConfirmationDescription
+  }
+)
+export const createSpaceRoleParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(CreateSpaceRoleParamsSchema),
+  {
+    spaceType: "SpaceType ID or exact SpaceType name.",
+    name: "Unique role name within the selected SpaceType.",
+    permissions: "Permission IDs or exact labels; duplicates are rejected case-insensitively.",
+    confirm: securityWriteConfirmationDescription
+  }
+)
+export const setSpaceRolePermissionsParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(SetSpaceRolePermissionsParamsSchema),
+  {
+    spaceType: "SpaceType ID or exact SpaceType name.",
+    role: "Role ID or exact role name within the selected SpaceType.",
+    permissions: "Replacement permission IDs or exact labels; duplicates are rejected case-insensitively.",
+    confirm: securityWriteConfirmationDescription
+  }
+)
+export const getClassCollaboratorMetadataParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(GetClassCollaboratorMetadataParamsSchema),
+  { class: "Class ID, tail name, or label." }
+)
+export const setClassCollaboratorMetadataParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(SetClassCollaboratorMetadataParamsSchema),
+  {
+    class: "Class ID, tail name, or label.",
+    fieldSelection: "Collaborator field selection: all, none, or an explicit non-empty fields list.",
+    provideSecurity: "Propagate security through collaborator fields; defaults to false.",
+    provideAttachedSecurity: "Propagate security through attached collaborator documents; defaults to false.",
+    confirm: securityWriteConfirmationDescription
+  }
+)
+export const deleteClassCollaboratorMetadataParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(DeleteClassCollaboratorMetadataParamsSchema),
+  { class: "Class ID, tail name, or label.", confirm: securityWriteConfirmationDescription }
 )
 
 const strictParseOptions = { onExcessProperty: "error" } as const
-export const parseCreateHulyPermissionParams = Schema.decodeUnknown(
+export const parseCreateHulyPermissionParams = Schema.decodeUnknownEffect(
   CreateHulyPermissionParamsSchema,
   strictParseOptions
 )
-export const parseUpdateHulyPermissionParams = Schema.decodeUnknown(
+export const parseUpdateHulyPermissionParams = Schema.decodeUnknownEffect(
   UpdateHulyPermissionParamsSchema,
   strictParseOptions
 )
-export const parseDeleteHulyPermissionParams = Schema.decodeUnknown(
+export const parseDeleteHulyPermissionParams = Schema.decodeUnknownEffect(
   DeleteHulyPermissionParamsSchema,
   strictParseOptions
 )
-export const parseCreateSpaceRoleParams = Schema.decodeUnknown(CreateSpaceRoleParamsSchema, strictParseOptions)
-export const parseSetSpaceRolePermissionsParams = Schema.decodeUnknown(
+export const parseCreateSpaceRoleParams = Schema.decodeUnknownEffect(CreateSpaceRoleParamsSchema, strictParseOptions)
+export const parseSetSpaceRolePermissionsParams = Schema.decodeUnknownEffect(
   SetSpaceRolePermissionsParamsSchema,
   strictParseOptions
 )
-export const parseGetClassCollaboratorMetadataParams = Schema.decodeUnknown(
+export const parseGetClassCollaboratorMetadataParams = Schema.decodeUnknownEffect(
   GetClassCollaboratorMetadataParamsSchema,
   strictParseOptions
 )
-export const parseSetClassCollaboratorMetadataParams = Schema.decodeUnknown(
+export const parseSetClassCollaboratorMetadataParams = Schema.decodeUnknownEffect(
   SetClassCollaboratorMetadataParamsSchema,
   strictParseOptions
 )
-export const parseDeleteClassCollaboratorMetadataParams = Schema.decodeUnknown(
+export const parseDeleteClassCollaboratorMetadataParams = Schema.decodeUnknownEffect(
   DeleteClassCollaboratorMetadataParamsSchema,
   strictParseOptions
 )

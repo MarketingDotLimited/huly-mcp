@@ -78,7 +78,7 @@ export const listTotal = (value: number): ListTotal => Count.make(value)
 const count = (value: number | undefined): Count => Count.make(value ?? 0)
 
 export const findAllCategories = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   query: StrictDocumentQuery<HulyInventoryCategory>,
   limit?: number
 ): Effect.Effect<ReadonlyArray<HulyInventoryCategory>, HulyClientError> =>
@@ -89,7 +89,7 @@ export const findAllCategories = (
   )
 
 export const findAllProducts = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   query: StrictDocumentQuery<HulyInventoryProduct>,
   limit?: number
 ): Effect.Effect<ReadonlyArray<HulyInventoryProduct>, HulyClientError> =>
@@ -100,7 +100,7 @@ export const findAllProducts = (
   )
 
 export const findAllVariants = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   query: StrictDocumentQuery<HulyInventoryVariant>,
   limit?: number
 ): Effect.Effect<ReadonlyArray<HulyInventoryVariant>, HulyClientError> =>
@@ -111,7 +111,7 @@ export const findAllVariants = (
   )
 
 export const categoryCounts = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   category: HulyInventoryCategory
 ): Effect.Effect<Pick<InventoryCategorySummary, "childCategories" | "products">, HulyClientError> =>
   Effect.gen(function* () {
@@ -126,7 +126,7 @@ const categoryParentId = (category: HulyInventoryCategory): InventoryCategoryId 
     : InventoryCategoryId.make(category.attachedTo)
 
 export const toCategorySummary = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   category: HulyInventoryCategory
 ): Effect.Effect<InventoryCategorySummary, HulyClientError> =>
   Effect.gen(function* () {
@@ -165,7 +165,7 @@ export const toVariantDetail = (variant: HulyInventoryVariant): InventoryVariant
 })
 
 export const resolveCategoryParent = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: InventoryCategoryIdentifier | undefined
 ): Effect.Effect<ResolvedCategoryParent, InventoryError> =>
   Effect.gen(function* () {
@@ -177,7 +177,7 @@ export const resolveCategoryParent = (
   })
 
 export const resolveCategory = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: InventoryCategoryIdentifier,
   parentIdentifier: InventoryCategoryIdentifier | undefined
 ): Effect.Effect<HulyInventoryCategory, InventoryError> =>
@@ -210,7 +210,7 @@ export const resolveCategory = (
   })
 
 export const resolveProduct = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: InventoryProductIdentifier,
   categoryIdentifier: InventoryCategoryIdentifier | undefined
 ): Effect.Effect<HulyInventoryProduct, InventoryError> =>
@@ -237,7 +237,7 @@ export const resolveProduct = (
   })
 
 export const resolveVariant = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: InventoryVariantIdentifier,
   productIdentifier: InventoryProductIdentifier | undefined,
   categoryIdentifier: InventoryCategoryIdentifier | undefined
@@ -267,7 +267,7 @@ export const resolveVariant = (
   })
 
 export const ensureCategoryNameAvailable = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   parent: Ref<HulyInventoryCategory>,
   name: string,
   except?: Ref<HulyInventoryCategory>
@@ -282,7 +282,7 @@ export const ensureCategoryNameAvailable = (
   })
 
 export const ensureProductNameAvailable = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   category: Ref<HulyInventoryCategory>,
   name: string,
   except?: Ref<HulyInventoryProduct>
@@ -297,7 +297,7 @@ export const ensureProductNameAvailable = (
   })
 
 export const ensureVariantAvailable = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   product: Ref<HulyInventoryProduct>,
   name: string,
   sku: string,
@@ -318,8 +318,8 @@ export const ensureVariantAvailable = (
   })
 
 export const requireRemoveCollection = (
-  client: HulyClient["Type"]
-): Exclude<HulyClient["Type"]["removeCollection"], undefined> | InventoryMutationUnsupportedError => {
+  client: HulyClient["Service"]
+): Exclude<HulyClient["Service"]["removeCollection"], undefined> | InventoryMutationUnsupportedError => {
   if (client.removeCollection === undefined) {
     return new InventoryMutationUnsupportedError({ message: "Huly client does not support removeCollection" })
   }
@@ -327,8 +327,8 @@ export const requireRemoveCollection = (
 }
 
 export const requireUpdateCollection = (
-  client: HulyClient["Type"]
-): Exclude<HulyClient["Type"]["updateCollection"], undefined> | InventoryMutationUnsupportedError => {
+  client: HulyClient["Service"]
+): Exclude<HulyClient["Service"]["updateCollection"], undefined> | InventoryMutationUnsupportedError => {
   if (client.updateCollection === undefined) {
     return new InventoryMutationUnsupportedError({ message: "Huly client does not support updateCollection" })
   }
@@ -336,7 +336,7 @@ export const requireUpdateCollection = (
 }
 
 export const isDescendantCategory = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   category: HulyInventoryCategory,
   possibleDescendant: Ref<HulyInventoryCategory>
 ): Effect.Effect<boolean, HulyClientError> =>

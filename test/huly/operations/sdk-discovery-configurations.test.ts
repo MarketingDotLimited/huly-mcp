@@ -243,7 +243,7 @@ describe("sdk discovery configuration operations", () => {
       const listed = yield* listHulyPluginConfigurations().pipe(
         Effect.provide(createTestLayer({ pluginConfigs: [makePluginConfig({})] }))
       )
-      const encoded = yield* Schema.encodeUnknown(ListHulyPluginConfigurationsResultSchema)(listed)
+      const encoded = yield* Schema.encodeUnknownEffect(ListHulyPluginConfigurationsResultSchema)(listed)
 
       expect(encoded).toEqual({
         pluginConfigurations: [
@@ -259,7 +259,7 @@ describe("sdk discovery configuration operations", () => {
       const listed = yield* listHulyDomainIndexConfigurations().pipe(
         Effect.provide(createTestLayer({ domainConfigs: [makeDomainConfig({ disableCollection: true })] }))
       )
-      const encoded = yield* Schema.encodeUnknown(ListHulyDomainIndexConfigurationsResultSchema)(listed)
+      const encoded = yield* Schema.encodeUnknownEffect(ListHulyDomainIndexConfigurationsResultSchema)(listed)
 
       expect(encoded).toEqual({
         domainIndexConfigurations: [
@@ -300,8 +300,10 @@ describe("sdk discovery configuration operations", () => {
           })
         )
       )
-      const encodedPlugin = yield* Schema.encodeUnknown(ListHulyPluginConfigurationsResultSchema)(pluginResult)
-      const encodedDomain = yield* Schema.encodeUnknown(ListHulyDomainIndexConfigurationsResultSchema)(domainResult)
+      const encodedPlugin = yield* Schema.encodeUnknownEffect(ListHulyPluginConfigurationsResultSchema)(pluginResult)
+      const encodedDomain = yield* Schema.encodeUnknownEffect(ListHulyDomainIndexConfigurationsResultSchema)(
+        domainResult
+      )
 
       expect(assertAt(encodedPlugin.pluginConfigurations, 0)).toMatchObject({
         pluginId: "bare-plugin",
@@ -317,7 +319,7 @@ describe("sdk discovery configuration operations", () => {
       const omittedSkipResult = yield* listHulyDomainIndexConfigurations().pipe(
         Effect.provide(createTestLayer({ domainConfigs: [makeDomainConfig({ skip: undefined })] }))
       )
-      const encodedOmittedSkip = yield* Schema.encodeUnknown(ListHulyDomainIndexConfigurationsResultSchema)(
+      const encodedOmittedSkip = yield* Schema.encodeUnknownEffect(ListHulyDomainIndexConfigurationsResultSchema)(
         omittedSkipResult
       )
       expect(encodedOmittedSkip.domainIndexConfigurations[0]?.skip).toEqual([])
@@ -334,7 +336,7 @@ describe("sdk discovery configuration operations", () => {
           })
         )
       )
-      const encoded = yield* Schema.encodeUnknown(ListHulySequencesResultSchema)(listed)
+      const encoded = yield* Schema.encodeUnknownEffect(ListHulySequencesResultSchema)(listed)
 
       expect(encoded).toEqual({
         sequences: [
@@ -360,7 +362,7 @@ describe("sdk discovery configuration operations", () => {
           })
         )
       )
-      const encoded = yield* Schema.encodeUnknown(HulySpaceTypeCapabilitiesSchema)(detail)
+      const encoded = yield* Schema.encodeUnknownEffect(HulySpaceTypeCapabilitiesSchema)(detail)
 
       expect(encoded).toMatchObject({
         id: "space-type-1",

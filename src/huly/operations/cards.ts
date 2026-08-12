@@ -69,19 +69,19 @@ type DeleteCardError = HulyClientError | HulyError | CardSpaceNotFoundError | Ca
 // --- Helpers ---
 
 const parseResolvedCardSpaceIdentifier = (cardSpace: HulyCardSpace): Effect.Effect<CardSpaceIdentifier, HulyError> =>
-  Schema.decodeUnknown(CardSpaceIdentifier)(cardSpace.name).pipe(
+  Schema.decodeUnknownEffect(CardSpaceIdentifier)(cardSpace.name).pipe(
     Effect.mapError((cause) => new HulyError({ message: "Resolved card space has an invalid name", cause }))
   )
 
 const parseResolvedCardIdentifier = (card: HulyCard): Effect.Effect<CardIdentifier, HulyError> =>
-  Schema.decodeUnknown(CardIdentifier)(card.title).pipe(
+  Schema.decodeUnknownEffect(CardIdentifier)(card.title).pipe(
     Effect.mapError((cause) => new HulyError({ message: "Resolved card has an invalid title", cause }))
   )
 
 const findCardSpace = (
   identifier: CardSpaceIdentifier
 ): Effect.Effect<
-  { cardSpace: HulyCardSpace; client: HulyClient["Type"] },
+  { cardSpace: HulyCardSpace; client: HulyClient["Service"] },
   CardSpaceNotFoundError | HulyClientError,
   HulyClient
 > =>
@@ -110,7 +110,7 @@ export const findCardSpaceAndCard = (
     cardIdentifier: CardIdentifier
     cardSpace: HulyCardSpace
     cardSpaceIdentifier: CardSpaceIdentifier
-    client: HulyClient["Type"]
+    client: HulyClient["Service"]
   },
   CardSpaceNotFoundError | CardNotFoundError | HulyClientError | HulyError,
   HulyClient

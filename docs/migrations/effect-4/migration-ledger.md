@@ -392,6 +392,35 @@ is assigned to #225 after every domain family is migrated. Tickets #219–#222
 therefore remain open; this checkpoint records coherent owned migrations and
 their declared integration edges rather than claiming full vertical closure.
 
+## Tickets #223–#224 specialist and administration checkpoint
+
+Boards/cards/inventory, recruiting/leads/support, and the administration and
+extension families now use exact rc.108 schemas, Result decoders, service
+shapes, and Draft-07 conversion. Explicit per-schema description maps preserve
+LLM-facing create/update distinctions; a runtime audit covers 70 administration
+exports with 233 properties and 64 board/card/inventory exports with 220
+properties, with no missing top-level property descriptions. Authored one-of,
+mutual-exclusion, at-least-one, exact-optional, and filter path/message contracts
+remain covered. Shared approval-request and model-metadata leaves discovered by
+barrel traversal were added to #224 rather than orphaned.
+
+Focused runnable evidence includes 24 board/card/inventory schema tests, 43
+lead/recruiting schema tests, 55 card operation tests, 61 administration schema
+tests, 33 SDK-discovery/model-administration tests, 7 approval-request schema
+tests, and 132 association/custom-field/SDK-configuration/message-template
+tests. The final combined reviewer matrix passed 379 tests with no assertion
+failures. Owned manifests pass focused type-aware lint, formatting,
+obsolete-API scans, and filtered TypeScript diagnostics.
+
+After the shared model-metadata decoder and test-codec helpers were migrated,
+the dependency cascades in the earlier inventory disappeared: the complete
+strict TypeScript 7 check and strict Effect diagnostics now pass with zero
+diagnostics. This closes the deliberately red compiler interval opened by #211.
+Remaining work is runtime/public-contract contraction in the explicitly
+deferred registry/protocol, CLI, HTTP/lifecycle, and shared domain/barrel seams.
+Tickets #223–#224 remain open until #225/#228 prove complete MCP/CLI exposure
+and the final focused operation suites execute.
+
 ## Ledger maintenance rule
 
 Every migration batch must rerun the focused surface it owns and update this

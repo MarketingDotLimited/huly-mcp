@@ -1,4 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 
 import {
   Count,
@@ -26,10 +28,10 @@ export const WorkbenchNavigationPosition = NonEmptyString.pipe(Schema.brand("Wor
 export type WorkbenchNavigationPosition = Schema.Schema.Type<typeof WorkbenchNavigationPosition>
 export const WorkbenchApplicationType = Schema.String.pipe(Schema.brand("WorkbenchApplicationType"))
 export type WorkbenchApplicationType = Schema.Schema.Type<typeof WorkbenchApplicationType>
-export const WorkbenchApplicationOrder = Schema.Number.pipe(Schema.int(), Schema.brand("WorkbenchApplicationOrder"))
+export const WorkbenchApplicationOrder = Schema.Int.pipe(Schema.brand("WorkbenchApplicationOrder"))
 export type WorkbenchApplicationOrder = Schema.Schema.Type<typeof WorkbenchApplicationOrder>
 
-export const WorkbenchAccountRoleSchema = Schema.Literal(
+export const WorkbenchAccountRoleSchema = Schema.Literals([
   "READONLYGUEST",
   "DocGuest",
   "GUEST",
@@ -37,10 +39,10 @@ export const WorkbenchAccountRoleSchema = Schema.Literal(
   "MAINTAINER",
   "OWNER",
   "ADMIN"
-)
+])
 export type WorkbenchAccountRole = Schema.Schema.Type<typeof WorkbenchAccountRoleSchema>
 
-export const WorkbenchApplicationPositionSchema = Schema.Literal("top", "mid", "bottom")
+export const WorkbenchApplicationPositionSchema = Schema.Literals(["top", "mid", "bottom"])
 export type WorkbenchApplicationPosition = Schema.Schema.Type<typeof WorkbenchApplicationPositionSchema>
 
 const aliasFiltersAreExclusive = (params: { readonly alias?: unknown; readonly aliasSearch?: unknown }) =>
@@ -49,21 +51,21 @@ const aliasFiltersAreExclusive = (params: { readonly alias?: unknown; readonly a
 
 export const ListWorkbenchApplicationsParamsSchema = Schema.Struct({
   alias: Schema.optional(
-    WorkbenchApplicationAlias.annotations({
+    WorkbenchApplicationAlias.annotate({
       description: "Exact application URL alias. Duplicate exact aliases are rejected as ambiguous."
     })
   ),
   aliasSearch: Schema.optional(
-    WorkbenchApplicationAliasSearch.annotations({
+    WorkbenchApplicationAliasSearch.annotate({
       description: "Case-insensitive application alias substring. Mutually exclusive with alias."
     })
   ),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum applications to return (default: ${DEFAULT_LIMIT}).` })
+    LimitParam.annotate({ description: `Maximum applications to return (default: ${DEFAULT_LIMIT}).` })
   )
 })
-  .pipe(Schema.filter(aliasFiltersAreExclusive))
-  .annotations({
+  .check(Schema.makeFilter(aliasFiltersAreExclusive))
+  .annotate({
     title: "ListWorkbenchApplicationsParams",
     description: "Optional alias filters for read-only Workbench application model discovery."
   })
@@ -71,7 +73,7 @@ export type ListWorkbenchApplicationsParams = Schema.Schema.Type<typeof ListWork
 
 export const WorkbenchSpaceNavigationSchema = Schema.Struct({
   id: WorkbenchNavigationItemId,
-  labelId: Schema.optionalWith(WorkbenchLabelId, { exact: true }),
+  labelId: Schema.optionalKey(WorkbenchLabelId),
   spaceClass: ObjectClassName
 })
 export type WorkbenchSpaceNavigation = Schema.Schema.Type<typeof WorkbenchSpaceNavigationSchema>
@@ -79,15 +81,15 @@ export type WorkbenchSpaceNavigation = Schema.Schema.Type<typeof WorkbenchSpaceN
 export const WorkbenchSpecialNavigationSchema = Schema.Struct({
   id: WorkbenchNavigationItemId,
   labelId: WorkbenchLabelId,
-  position: Schema.optionalWith(WorkbenchNavigationPosition, { exact: true }),
-  accessLevel: Schema.optionalWith(WorkbenchAccountRoleSchema, { exact: true }),
-  spaceClass: Schema.optionalWith(ObjectClassName, { exact: true })
+  position: Schema.optionalKey(WorkbenchNavigationPosition),
+  accessLevel: Schema.optionalKey(WorkbenchAccountRoleSchema),
+  spaceClass: Schema.optionalKey(ObjectClassName)
 })
 export type WorkbenchSpecialNavigation = Schema.Schema.Type<typeof WorkbenchSpecialNavigationSchema>
 
 export const WorkbenchGroupNavigationSchema = Schema.Struct({
   id: WorkbenchNavigationItemId,
-  labelId: Schema.optionalWith(WorkbenchLabelId, { exact: true }),
+  labelId: Schema.optionalKey(WorkbenchLabelId),
   groupByClass: ObjectClassName
 })
 export type WorkbenchGroupNavigation = Schema.Schema.Type<typeof WorkbenchGroupNavigationSchema>
@@ -102,17 +104,17 @@ export type WorkbenchNavigationSummary = Schema.Schema.Type<typeof WorkbenchNavi
 export const WorkbenchApplicationSummarySchema = Schema.Struct({
   id: WorkbenchApplicationId,
   alias: WorkbenchApplicationAlias,
-  labelId: WorkbenchLabelId.annotations({
+  labelId: WorkbenchLabelId.annotate({
     description: "Untranslated Huly IntlString resource ID; this is not fabricated display text."
   }),
-  hidden: Schema.Boolean.annotations({ description: "Static model declaration flag." }),
-  hiddenByPreference: Schema.Boolean.annotations({
+  hidden: Schema.Boolean.annotate({ description: "Static model declaration flag." }),
+  hiddenByPreference: Schema.Boolean.annotate({
     description: "Whether the authenticated account has a caller-owned HiddenApplication preference."
   }),
-  accessLevel: Schema.optionalWith(WorkbenchAccountRoleSchema, { exact: true }),
-  position: Schema.optionalWith(WorkbenchApplicationPositionSchema, { exact: true }),
-  order: Schema.optionalWith(WorkbenchApplicationOrder, { exact: true }),
-  type: Schema.optionalWith(WorkbenchApplicationType, { exact: true }),
+  accessLevel: Schema.optionalKey(WorkbenchAccountRoleSchema),
+  position: Schema.optionalKey(WorkbenchApplicationPositionSchema),
+  order: Schema.optionalKey(WorkbenchApplicationOrder),
+  type: Schema.optionalKey(WorkbenchApplicationType),
   navigation: WorkbenchNavigationSummarySchema
 })
 export type WorkbenchApplicationSummary = Schema.Schema.Type<typeof WorkbenchApplicationSummarySchema>
@@ -120,7 +122,7 @@ export type WorkbenchApplicationSummary = Schema.Schema.Type<typeof WorkbenchApp
 export const ListWorkbenchApplicationsResultSchema = Schema.Struct({
   applications: Schema.Array(WorkbenchApplicationSummarySchema),
   total: Count
-}).annotations({
+}).annotate({
   title: "ListWorkbenchApplicationsResult",
   description:
     "Workbench application and navigation model declarations. Presence does not prove plugin, provider, worker, API, role, or effective browser visibility."
@@ -128,7 +130,11 @@ export const ListWorkbenchApplicationsResultSchema = Schema.Struct({
 export type ListWorkbenchApplicationsResult = Schema.Schema.Type<typeof ListWorkbenchApplicationsResultSchema>
 
 export const listWorkbenchApplicationsParamsJsonSchema = withMutuallyExclusiveFields(
-  JSONSchema.make(ListWorkbenchApplicationsParamsSchema),
+  withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(ListWorkbenchApplicationsParamsSchema), {
+    alias: "Exact application URL alias. Duplicate exact aliases are rejected as ambiguous.",
+    aliasSearch: "Case-insensitive application alias substring. Mutually exclusive with alias.",
+    limit: `Maximum applications to return (default: ${DEFAULT_LIMIT}).`
+  }),
   ["alias", "aliasSearch"]
 )
-export const parseListWorkbenchApplicationsParams = Schema.decodeUnknown(ListWorkbenchApplicationsParamsSchema)
+export const parseListWorkbenchApplicationsParams = Schema.decodeUnknownEffect(ListWorkbenchApplicationsParamsSchema)

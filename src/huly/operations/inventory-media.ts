@@ -94,7 +94,7 @@ type InventoryProductMediaDeleteError = InventoryProductMediaReadError | Invento
 type InventoryProductCommentError = InventoryError | HulyClientError | InventoryProductCommentNotFoundError
 
 interface ResolvedProductTarget {
-  readonly client: HulyClient["Type"]
+  readonly client: HulyClient["Service"]
   readonly product: HulyInventoryProduct
   readonly reference: InventoryProductReference
 }

@@ -35,7 +35,7 @@ describe("generic association schemas", () => {
   it.effect("requires a filter for list_relations", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(parseListRelationsParams({}))
-      expect(error._tag).toBe("ParseError")
+      expect(error._tag).toBe("SchemaError")
     })
   )
 
@@ -124,7 +124,7 @@ describe("generic association schemas", () => {
       const error = yield* Effect.flip(
         parseListRelationsParams({ association: "links", source: { kind: "raw", id: "doc-1", issue: "HULY-1" } })
       )
-      expect(error._tag).toBe("ParseError")
+      expect(error._tag).toBe("SchemaError")
     })
   )
 
@@ -136,7 +136,7 @@ describe("generic association schemas", () => {
           source: { kind: "raw", id: "doc-1", class: "document:class:Document" }
         })
       )
-      expect(error._tag).toBe("ParseError")
+      expect(error._tag).toBe("SchemaError")
     })
   )
 
@@ -150,7 +150,7 @@ describe("generic association schemas", () => {
           target: { kind: "raw", id: "doc-2", class: "document:class:Document" }
         })
       )
-      expect(error._tag).toBe("ParseError")
+      expect(error._tag).toBe("SchemaError")
     })
   )
 

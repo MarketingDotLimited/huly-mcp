@@ -101,7 +101,7 @@ const existingBoardLabel = (label: HulyTagElement): ResolvedBoardLabel => ({
 })
 
 const findBoardLabelMatches = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: BoardLabelLookup,
   options: { readonly lookupById: boolean }
 ): Effect.Effect<ReadonlyArray<HulyTagElement>, HulyClientError> =>
@@ -121,7 +121,7 @@ const findBoardLabelMatches = (
   })
 
 const resolveBoardLabel = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: BoardLabelLookup
 ): Effect.Effect<HulyTagElement, BoardLabelReadError> =>
   Effect.gen(function* () {
@@ -135,7 +135,7 @@ const resolveBoardLabel = (
   })
 
 const ensureBoardLabel = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: {
     readonly label: BoardLabelLookup
     readonly color?: number | undefined
@@ -169,7 +169,7 @@ const ensureBoardLabel = (
   })
 
 const ensureBoardLabelTitleAvailable = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   label: HulyTagElement,
   title: NonEmptyString | undefined
 ): Effect.Effect<void, HulyClientError | BoardLabelIdentifierAmbiguousError> =>
@@ -184,7 +184,7 @@ const ensureBoardLabelTitleAvailable = (
   })
 
 const listCardTagReferences = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   card: HulyBoardCard
 ): Effect.Effect<ReadonlyArray<TagReference>, HulyClientError> =>
   client.findAll<TagReference>(

@@ -1,6 +1,6 @@
 import type { AnyAttribute, Class, Doc, Ref } from "@hcengineering/core"
 import { ClassifierKind, SortingOrder } from "@hcengineering/core"
-import { Data, Effect, Either } from "effect"
+import { Data, Effect, Result } from "effect"
 
 import type { CustomFieldDateTimestamp } from "../../domain/schemas/custom-field-date.js"
 import type {
@@ -84,7 +84,7 @@ const decodeSdkRecord = (value: unknown): JsonMap => {
 }
 
 const modelLabelOrDefault = (value: unknown, fallback: string): string =>
-  Either.getOrElse(decodeHulyModelLabelTail(value), () => fallback)
+  Result.getOrElse(decodeHulyModelLabelTail(value), () => fallback)
 
 type SimpleCustomFieldType = "boolean" | "date" | "markup" | "number" | "string"
 
@@ -143,7 +143,7 @@ const decodeCustomFieldDocument = (doc: Doc): DecodedCustomFieldDocument => ({
 })
 
 const resolveClassInfo = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   classId: ObjectClassName
 ): Effect.Effect<DecodedClassInfo, HulyClientError> =>
   Effect.gen(function* () {
@@ -152,7 +152,7 @@ const resolveClassInfo = (
   })
 
 const batchResolveClassLabels = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   classIds: ReadonlyArray<ObjectClassName>
 ): Effect.Effect<Map<ObjectClassName, string>, HulyClientError> =>
   Effect.gen(function* () {

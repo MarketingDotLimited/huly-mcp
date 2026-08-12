@@ -113,7 +113,7 @@ const compareFunnelsByRecency = (left: HulyFunnel, right: HulyFunnel): number =>
 }
 
 const findFunnel = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   funnelIdentifier: FunnelReference
 ): Effect.Effect<HulyFunnel, FunnelNotFoundError | HulyClientError> =>
   Effect.gen(function* () {
@@ -140,7 +140,7 @@ const findFunnel = (
   })
 
 const getFunnelStatuses = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   funnel: HulyFunnel
 ): Effect.Effect<ReadonlyArray<StatusInfo>, HulyClientError | HulyConnectionError, Diagnostics> =>
   Effect.gen(function* () {
@@ -200,7 +200,7 @@ const resolveStatusByName = (
 }
 
 const findCustomer = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   customerId: Ref<Contact>
 ): Effect.Effect<HulyCustomer | undefined, HulyClientError> =>
   Effect.gen(function* () {
@@ -303,7 +303,7 @@ export const listLeads = (
       })
     )
 
-    const validated = yield* Schema.decodeUnknown(Schema.Array(LeadSummarySchema))(rawSummaries).pipe(
+    const validated = yield* Schema.decodeUnknownEffect(Schema.Array(LeadSummarySchema))(rawSummaries).pipe(
       Effect.mapError(
         (parseError) =>
           new HulyConnectionError({
@@ -323,9 +323,9 @@ export const getLead = (params: GetLeadParams): Effect.Effect<LeadDetail, GetLea
     const client = yield* HulyClient
     const funnel = yield* findFunnel(client, params.funnel)
     const statuses = yield* getFunnelStatuses(client, funnel)
-    const leadIdentifier = yield* Schema.decodeUnknown(LeadIdentifier)(normalizeLeadIdentifier(params.identifier)).pipe(
-      Effect.orDie
-    )
+    const leadIdentifier = yield* Schema.decodeUnknownEffect(LeadIdentifier)(
+      normalizeLeadIdentifier(params.identifier)
+    ).pipe(Effect.orDie)
 
     const lead = yield* client.findOne<HulyLead>(leadClassIds.class.Lead, {
       space: funnelAsSpace(funnel),

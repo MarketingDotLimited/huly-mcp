@@ -1,13 +1,15 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 
 import { Count, DEFAULT_LIMIT, DocId, LimitParam, NonEmptyString, ObjectClassName, UNKNOWN_TOTAL } from "./shared.js"
 
 export const FulltextSearchParamsSchema = Schema.Struct({
-  query: NonEmptyString.annotations({ description: "Search query string for fulltext search" }),
+  query: NonEmptyString.annotate({ description: "Search query string for fulltext search" }),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of results to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of results to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({ title: "FulltextSearchParams", description: "Parameters for fulltext search" })
+}).annotate({ title: "FulltextSearchParams", description: "Parameters for fulltext search" })
 
 export type FulltextSearchParams = Schema.Schema.Type<typeof FulltextSearchParamsSchema>
 
@@ -34,7 +36,7 @@ const SearchResultSchema = Schema.Struct({
   total: Schema.optional(Schema.Number)
 })
 
-export const parseSearchResult = Schema.decodeUnknown(SearchResultSchema)
+export const parseSearchResult = Schema.decodeUnknownEffect(SearchResultSchema)
 export const SearchResultItemSchema = Schema.Struct({
   id: DocId,
   class: ObjectClassName,
@@ -48,11 +50,17 @@ export type SearchResultItem = Schema.Schema.Type<typeof SearchResultItemSchema>
 export const UNKNOWN_SEARCH_TOTAL = UNKNOWN_TOTAL
 export const FulltextSearchResultSchema = Schema.Struct({
   items: Schema.Array(SearchResultItemSchema),
-  total: Schema.Union(Count, Schema.Literal(UNKNOWN_SEARCH_TOTAL)),
+  total: Schema.Union([Count, Schema.Literal(UNKNOWN_SEARCH_TOTAL)]),
   query: Schema.String
 })
 export type FulltextSearchResult = Schema.Schema.Type<typeof FulltextSearchResultSchema>
 
-export const fulltextSearchParamsJsonSchema = JSONSchema.make(FulltextSearchParamsSchema)
+export const fulltextSearchParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(FulltextSearchParamsSchema),
+  {
+    query: "Non-empty full-text search query.",
+    limit: `Maximum number of results to return (default: ${DEFAULT_LIMIT}).`
+  }
+)
 
-export const parseFulltextSearchParams = Schema.decodeUnknown(FulltextSearchParamsSchema)
+export const parseFulltextSearchParams = Schema.decodeUnknownEffect(FulltextSearchParamsSchema)

@@ -72,7 +72,7 @@ export const boardCardDetail = (
   taskTypeName: string,
   assigneeName: string | undefined,
   memberNames: ReadonlyArray<string>,
-  urls: HulyClient["Type"]["markupUrlConfig"]
+  urls: HulyClient["Service"]["markupUrlConfig"]
 ): BoardCardDetail => ({
   ...boardCardSummary(resolvedBoard, card, statusName, taskTypeName, assigneeName),
   description: optionalMarkupToMarkdown(card.description, urls, undefined),
@@ -85,5 +85,5 @@ export const boardCardDetail = (
 
 export const descriptionFromMarkdown = (
   markdown: string | undefined,
-  urls: HulyClient["Type"]["markupUrlConfig"]
+  urls: HulyClient["Service"]["markupUrlConfig"]
 ): HulyBoardCard["description"] => markdownToMarkupString(markdown ?? "", urls)

@@ -1,5 +1,5 @@
 import { describe, it } from "@effect/vitest"
-import { Effect, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 import { expect } from "vitest"
 
 import {
@@ -10,7 +10,7 @@ import {
   parseGetFilteredViewParams,
   parseListFilteredViewsParams,
   parseListViewletsParams
-} from "../../src/domain/schemas.js"
+} from "../../src/domain/schemas/views.js"
 
 describe("view schemas", () => {
   it.effect("accepts generic filtered view and viewlet discovery params", () =>
@@ -34,23 +34,23 @@ describe("view schemas", () => {
 
   it.effect("rejects empty locators and unsupported visibility", () =>
     Effect.gen(function* () {
-      const emptyFilteredView = yield* Effect.either(parseGetFilteredViewParams({ filteredView: "" }))
-      const emptyAttachedTo = yield* Effect.either(parseListFilteredViewsParams({ attachedTo: "" }))
-      const invalidVisibility = yield* Effect.either(parseListFilteredViewsParams({ visibility: "private" }))
-      const emptyAttachTo = yield* Effect.either(parseListViewletsParams({ attachTo: "" }))
-      const emptyViewlet = yield* Effect.either(parseListViewletsParams({ viewlet: "" }))
+      const emptyFilteredView = yield* Effect.result(parseGetFilteredViewParams({ filteredView: "" }))
+      const emptyAttachedTo = yield* Effect.result(parseListFilteredViewsParams({ attachedTo: "" }))
+      const invalidVisibility = yield* Effect.result(parseListFilteredViewsParams({ visibility: "private" }))
+      const emptyAttachTo = yield* Effect.result(parseListViewletsParams({ attachTo: "" }))
+      const emptyViewlet = yield* Effect.result(parseListViewletsParams({ viewlet: "" }))
 
-      expect(emptyFilteredView._tag).toBe("Left")
-      expect(emptyAttachedTo._tag).toBe("Left")
-      expect(invalidVisibility._tag).toBe("Left")
-      expect(emptyAttachTo._tag).toBe("Left")
-      expect(emptyViewlet._tag).toBe("Left")
+      expect(Result.isFailure(emptyFilteredView)).toBe(true)
+      expect(Result.isFailure(emptyAttachedTo)).toBe(true)
+      expect(Result.isFailure(invalidVisibility)).toBe(true)
+      expect(Result.isFailure(emptyAttachTo)).toBe(true)
+      expect(Result.isFailure(emptyViewlet)).toBe(true)
     })
   )
 
   it.effect("validates filtered-view output while preserving SDK-open payloads", () =>
     Effect.gen(function* () {
-      const decoded = yield* Schema.decodeUnknown(FilteredViewDetailSchema)({
+      const decoded = yield* Schema.decodeUnknownEffect(FilteredViewDetailSchema)({
         id: "filtered-view-1",
         name: "Mine",
         visibility: "own",
@@ -71,7 +71,7 @@ describe("view schemas", () => {
 
   it.effect("validates viewlet output with descriptor and preference configs", () =>
     Effect.gen(function* () {
-      const decoded = yield* Schema.decodeUnknown(ListViewletsResultSchema)({
+      const decoded = yield* Schema.decodeUnknownEffect(ListViewletsResultSchema)({
         viewlets: [
           {
             id: "viewlet-1",

@@ -1,7 +1,7 @@
 import type { AnyAttribute, Data, DocumentUpdate, Enum as HulyEnum } from "@hcengineering/core"
 import { generateId, IndexKind } from "@hcengineering/core"
 import { getEmbeddedLabel } from "@hcengineering/platform"
-import { Effect, Either } from "effect"
+import { Effect, Result } from "effect"
 
 import type {
   CreateHulyAttributeParams,
@@ -122,7 +122,7 @@ const attributeType = (
   })
 
 const classLabel = (cls: MetadataClassDoc): NonEmptyString =>
-  Either.getOrElse(decodeHulyModelLabelTail(cls.label), () => NonEmptyString.make(String(cls._id)))
+  Result.getOrElse(decodeHulyModelLabelTail(cls.label), () => NonEmptyString.make(String(cls._id)))
 
 const assertCustom = (attribute: AnyAttribute): Effect.Effect<void, HulyAttributeProtectedError> =>
   attribute.isCustom === true

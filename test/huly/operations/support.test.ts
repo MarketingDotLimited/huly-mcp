@@ -120,7 +120,7 @@ describe("getSupportStatus", () => {
         }
       ])
       expect(state.queries).toEqual([{ space: caller, createdBy: caller }])
-      expect(Schema.decodeUnknownEither(GetSupportStatusResultSchema)(result)._tag).toBe("Right")
+      expect(Schema.decodeUnknownResult(GetSupportStatusResultSchema)(result)._tag).toBe("Success")
     })
   )
 

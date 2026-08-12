@@ -5,7 +5,7 @@ import { expect } from "vitest"
 import {
   parseSubscribeToObjectNotificationsParams,
   parseUpdateNotificationTypeSettingParams
-} from "../../../src/domain/schemas.js"
+} from "../../../src/domain/schemas/notification-preferences.js"
 
 describe("notification preference schemas", () => {
   it.effect("parses notification type settings and object subscriptions", () =>
