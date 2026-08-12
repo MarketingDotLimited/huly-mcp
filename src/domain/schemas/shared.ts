@@ -1,4 +1,9 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+import { toDraft07EmptyObjectJsonSchema } from "./json-schema.js"
+import { NonEmptyString } from "./shared-base.js"
+
+export { NonEmptyString } from "./shared-base.js"
+export * from "./shared-refs.js"
 
 export const MAX_LIMIT = 200
 export const DEFAULT_LIMIT = 50
@@ -7,28 +12,27 @@ export const MAX_COLOR_INDEX = 23
 export const DEFAULT_INCLUDE_ARCHIVED = false
 export const DEFAULT_PRIVATE = false
 
-export const NonNegativeInteger = Schema.NonNegativeInt.annotations({
+export const NonNegativeInteger = Schema.Natural.annotate({
   identifier: "NonNegativeInteger",
   title: "NonNegativeInteger",
   description: "Integer greater than or equal to zero."
 })
 export type NonNegativeInteger = Schema.Schema.Type<typeof NonNegativeInteger>
 
-export const PositiveInteger = Schema.Number.pipe(
-  Schema.int(),
-  Schema.positive(),
+export const PositiveInteger = Schema.Int.pipe(
+  Schema.check(Schema.isGreaterThan(0)),
   Schema.brand("PositiveInteger")
-).annotations({ identifier: "PositiveInteger", title: "PositiveInteger", description: "Integer greater than zero." })
+).annotate({ identifier: "PositiveInteger", title: "PositiveInteger", description: "Integer greater than zero." })
 export type PositiveInteger = Schema.Schema.Type<typeof PositiveInteger>
 
-export const Integer = Schema.Number.pipe(Schema.int(), Schema.brand("Integer")).annotations({
+export const Integer = Schema.Int.pipe(Schema.brand("Integer")).annotate({
   identifier: "Integer",
   title: "Integer",
   description: "Whole number."
 })
 export type Integer = Schema.Schema.Type<typeof Integer>
 
-export const Count = NonNegativeInteger.pipe(Schema.brand("Count")).annotations({
+export const Count = NonNegativeInteger.pipe(Schema.brand("Count")).annotate({
   identifier: "Count",
   title: "Count",
   description: "Non-negative integer count."
@@ -37,37 +41,32 @@ export type Count = Schema.Schema.Type<typeof Count>
 
 export const UNKNOWN_TOTAL = -1
 
-export const ListTotal = Schema.Union(Count, Schema.Literal(UNKNOWN_TOTAL)).annotations({
+export const ListTotal = Schema.Union([Count, Schema.Literal(UNKNOWN_TOTAL)]).annotate({
   identifier: "ListTotal",
   title: "ListTotal",
   description: "Count of matching list results, or -1 when the Huly backend reports an unknown total."
 })
 export type ListTotal = Schema.Schema.Type<typeof ListTotal>
 
-export const NonEmptyString = Schema.Trim.pipe(Schema.nonEmptyString())
-export type NonEmptyString = Schema.Schema.Type<typeof NonEmptyString>
-
 export const HulyTransactionScope = NonEmptyString.pipe(Schema.brand("HulyTransactionScope"))
 export type HulyTransactionScope = Schema.Schema.Type<typeof HulyTransactionScope>
 
-export const HulyConditionalWriteResult = Schema.Literal("applied", "condition-not-met")
+export const HulyConditionalWriteResult = Schema.Literals(["applied", "condition-not-met"])
 export type HulyConditionalWriteResult = Schema.Schema.Type<typeof HulyConditionalWriteResult>
 
-export const Timestamp = NonNegativeInteger.pipe(Schema.brand("Timestamp")).annotations({
+export const Timestamp = NonNegativeInteger.pipe(Schema.brand("Timestamp")).annotate({
   identifier: "Timestamp",
   title: "Timestamp",
   description: "Unix timestamp in milliseconds (non-negative integer)"
 })
 export type Timestamp = Schema.Schema.Type<typeof Timestamp>
 
-export const LimitParam = Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.lessThanOrEqualTo(MAX_LIMIT))
+export const LimitParam = Schema.Int.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(MAX_LIMIT))
 export type LimitParam = Schema.Schema.Type<typeof LimitParam>
 
-export const EmptyParamsSchema = Schema.Struct({}).annotations({
-  jsonSchema: { type: "object", properties: {}, additionalProperties: false }
-})
+export const EmptyParamsSchema = Schema.Struct({})
 
-export const emptyParamsJsonSchema = JSONSchema.make(EmptyParamsSchema)
+export const emptyParamsJsonSchema = toDraft07EmptyObjectJsonSchema(EmptyParamsSchema)
 
 export const enumValuesDescription = (values: ReadonlyArray<string>): string => values.join(", ")
 
@@ -120,211 +119,6 @@ export const assertUpdateFields =
   ): Fields =>
     fields
 
-// === Tier 1: Huly Internal Refs (opaque IDs from _id) ===
-
-export const DocId = NonEmptyString.pipe(Schema.brand("DocId"))
-export type DocId = Schema.Schema.Type<typeof DocId>
-
-const HulyRef = <T extends string>(tag: T) => DocId.pipe(Schema.brand(tag))
-
-export const PersonId = HulyRef("PersonId")
-export type PersonId = Schema.Schema.Type<typeof PersonId>
-
-export const OrganizationId = HulyRef("OrganizationId")
-export type OrganizationId = Schema.Schema.Type<typeof OrganizationId>
-
-export const IssueId = HulyRef("IssueId")
-export type IssueId = Schema.Schema.Type<typeof IssueId>
-
-export const AssociationId = HulyRef("AssociationId")
-export type AssociationId = Schema.Schema.Type<typeof AssociationId>
-
-export const RelationId = HulyRef("RelationId")
-export type RelationId = Schema.Schema.Type<typeof RelationId>
-
-export const ComponentId = HulyRef("ComponentId")
-export type ComponentId = Schema.Schema.Type<typeof ComponentId>
-
-export const MilestoneId = HulyRef("MilestoneId")
-export type MilestoneId = Schema.Schema.Type<typeof MilestoneId>
-
-export const IssueTemplateId = HulyRef("IssueTemplateId")
-export type IssueTemplateId = Schema.Schema.Type<typeof IssueTemplateId>
-
-export const IssueTemplateChildId = HulyRef("IssueTemplateChildId")
-export type IssueTemplateChildId = Schema.Schema.Type<typeof IssueTemplateChildId>
-
-export const ProjectTypeId = HulyRef("ProjectTypeId")
-export type ProjectTypeId = Schema.Schema.Type<typeof ProjectTypeId>
-
-export const TaskTypeId = HulyRef("TaskTypeId")
-export type TaskTypeId = Schema.Schema.Type<typeof TaskTypeId>
-
-export const IssueStatusId = HulyRef("IssueStatusId")
-export type IssueStatusId = Schema.Schema.Type<typeof IssueStatusId>
-
-export const WorkflowStatusId = HulyRef("WorkflowStatusId")
-export type WorkflowStatusId = Schema.Schema.Type<typeof WorkflowStatusId>
-
-export const StatusCategoryId = HulyRef("StatusCategoryId")
-export type StatusCategoryId = Schema.Schema.Type<typeof StatusCategoryId>
-
-export const ChannelId = HulyRef("ChannelId")
-export type ChannelId = Schema.Schema.Type<typeof ChannelId>
-
-export const MessageId = HulyRef("MessageId")
-export type MessageId = Schema.Schema.Type<typeof MessageId>
-
-export const ThreadReplyId = HulyRef("ThreadReplyId")
-export type ThreadReplyId = Schema.Schema.Type<typeof ThreadReplyId>
-
-export const ActivityMessageId = HulyRef("ActivityMessageId")
-export type ActivityMessageId = Schema.Schema.Type<typeof ActivityMessageId>
-
-export const ReactionId = HulyRef("ReactionId")
-export type ReactionId = Schema.Schema.Type<typeof ReactionId>
-
-export const SavedMessageId = HulyRef("SavedMessageId")
-export type SavedMessageId = Schema.Schema.Type<typeof SavedMessageId>
-
-export const MentionId = HulyRef("MentionId")
-export type MentionId = Schema.Schema.Type<typeof MentionId>
-
-export const ActivityReferenceId = HulyRef("ActivityReferenceId")
-export type ActivityReferenceId = Schema.Schema.Type<typeof ActivityReferenceId>
-
-export const ActivityFilterId = HulyRef("ActivityFilterId")
-export type ActivityFilterId = Schema.Schema.Type<typeof ActivityFilterId>
-
-export const AttachmentId = HulyRef("AttachmentId")
-export type AttachmentId = Schema.Schema.Type<typeof AttachmentId>
-
-export const SavedAttachmentId = HulyRef("SavedAttachmentId")
-export type SavedAttachmentId = Schema.Schema.Type<typeof SavedAttachmentId>
-
-export const DrawingId = HulyRef("DrawingId")
-export type DrawingId = Schema.Schema.Type<typeof DrawingId>
-
-export const BlobId = HulyRef("BlobId")
-export type BlobId = Schema.Schema.Type<typeof BlobId>
-
-export const CardId = HulyRef("CardId")
-export type CardId = Schema.Schema.Type<typeof CardId>
-
-export const CardSpaceId = HulyRef("CardSpaceId")
-export type CardSpaceId = Schema.Schema.Type<typeof CardSpaceId>
-
-export const DocumentId = HulyRef("DocumentId")
-export type DocumentId = Schema.Schema.Type<typeof DocumentId>
-
-export const MasterTagId = HulyRef("MasterTagId")
-export type MasterTagId = Schema.Schema.Type<typeof MasterTagId>
-
-export const TeamspaceId = HulyRef("TeamspaceId")
-export type TeamspaceId = Schema.Schema.Type<typeof TeamspaceId>
-
-export const NotificationId = HulyRef("NotificationId")
-export type NotificationId = Schema.Schema.Type<typeof NotificationId>
-
-export const NotificationContextId = HulyRef("NotificationContextId")
-export type NotificationContextId = Schema.Schema.Type<typeof NotificationContextId>
-
-export const EventId = HulyRef("EventId")
-export type EventId = Schema.Schema.Type<typeof EventId>
-
-export const CalendarId = HulyRef("CalendarId")
-export type CalendarId = Schema.Schema.Type<typeof CalendarId>
-
-export const ScheduleId = HulyRef("ScheduleId")
-export type ScheduleId = Schema.Schema.Type<typeof ScheduleId>
-
-export const FloorId = HulyRef("FloorId")
-export type FloorId = Schema.Schema.Type<typeof FloorId>
-
-export const RoomId = HulyRef("RoomId")
-export type RoomId = Schema.Schema.Type<typeof RoomId>
-
-export const MeetingMinutesId = HulyRef("MeetingMinutesId")
-export type MeetingMinutesId = Schema.Schema.Type<typeof MeetingMinutesId>
-
-export const DevicePreferenceId = HulyRef("DevicePreferenceId")
-export type DevicePreferenceId = Schema.Schema.Type<typeof DevicePreferenceId>
-
-export const TodoId = HulyRef("TodoId")
-export type TodoId = Schema.Schema.Type<typeof TodoId>
-
-export const SpaceId = HulyRef("SpaceId")
-export type SpaceId = Schema.Schema.Type<typeof SpaceId>
-
-export const SpaceTypeId = HulyRef("SpaceTypeId")
-export type SpaceTypeId = Schema.Schema.Type<typeof SpaceTypeId>
-
-export const RoleId = HulyRef("RoleId")
-export type RoleId = Schema.Schema.Type<typeof RoleId>
-
-export const PermissionId = HulyRef("PermissionId")
-export type PermissionId = Schema.Schema.Type<typeof PermissionId>
-
-export const CommentId = HulyRef("CommentId")
-export type CommentId = Schema.Schema.Type<typeof CommentId>
-
-export const TimeSpendReportId = HulyRef("TimeSpendReportId")
-export type TimeSpendReportId = Schema.Schema.Type<typeof TimeSpendReportId>
-
-export const ParticipantInfoId = HulyRef("ParticipantInfoId")
-export type ParticipantInfoId = Schema.Schema.Type<typeof ParticipantInfoId>
-
-export const TagElementId = HulyRef("TagElementId")
-export type TagElementId = Schema.Schema.Type<typeof TagElementId>
-
-export const TagReferenceId = HulyRef("TagReferenceId")
-export type TagReferenceId = Schema.Schema.Type<typeof TagReferenceId>
-
-export const TagCategoryId = HulyRef("TagCategoryId")
-export type TagCategoryId = Schema.Schema.Type<typeof TagCategoryId>
-
-export const WorkSlotId = HulyRef("WorkSlotId")
-export type WorkSlotId = Schema.Schema.Type<typeof WorkSlotId>
-
-export const CustomFieldId = HulyRef("CustomFieldId")
-export type CustomFieldId = Schema.Schema.Type<typeof CustomFieldId>
-
-export const HulyAttributeId = HulyRef("HulyAttributeId")
-export type HulyAttributeId = Schema.Schema.Type<typeof HulyAttributeId>
-
-export const HulyEnumId = HulyRef("HulyEnumId")
-export type HulyEnumId = Schema.Schema.Type<typeof HulyEnumId>
-
-export const TestProjectId = HulyRef("TestProjectId")
-export type TestProjectId = Schema.Schema.Type<typeof TestProjectId>
-
-export const TestSuiteId = HulyRef("TestSuiteId")
-export type TestSuiteId = Schema.Schema.Type<typeof TestSuiteId>
-
-export const TestCaseId = HulyRef("TestCaseId")
-export type TestCaseId = Schema.Schema.Type<typeof TestCaseId>
-
-export const TestPlanId = HulyRef("TestPlanId")
-export type TestPlanId = Schema.Schema.Type<typeof TestPlanId>
-
-export const TestPlanItemId = HulyRef("TestPlanItemId")
-export type TestPlanItemId = Schema.Schema.Type<typeof TestPlanItemId>
-
-export const TestRunId = HulyRef("TestRunId")
-export type TestRunId = Schema.Schema.Type<typeof TestRunId>
-
-export const TestResultId = HulyRef("TestResultId")
-export type TestResultId = Schema.Schema.Type<typeof TestResultId>
-
-export const InventoryCategoryId = HulyRef("InventoryCategoryId")
-export type InventoryCategoryId = Schema.Schema.Type<typeof InventoryCategoryId>
-
-export const InventoryProductId = HulyRef("InventoryProductId")
-export type InventoryProductId = Schema.Schema.Type<typeof InventoryProductId>
-
-export const InventoryVariantId = HulyRef("InventoryVariantId")
-export type InventoryVariantId = Schema.Schema.Type<typeof InventoryVariantId>
-
 // === Tier 2: Human-Readable Identifiers ===
 
 export const ProjectIdentifier = NonEmptyString.pipe(Schema.brand("ProjectIdentifier"))
@@ -345,12 +139,12 @@ export type SpaceTypeIdentifier = Schema.Schema.Type<typeof SpaceTypeIdentifier>
 // === Tier 3: Constrained String Domains ===
 
 export const Email = Schema.NonEmptyString.pipe(
-  Schema.pattern(/^[^@]+@[^@]+$/, { message: () => "must contain exactly one @" }),
+  Schema.check(Schema.isPattern(/^[^@]+@[^@]+$/, { message: "must contain exactly one @" })),
   Schema.brand("Email")
 )
 export type Email = Schema.Schema.Type<typeof Email>
 
-export const StatusName = NonEmptyString.annotations({
+export const StatusName = NonEmptyString.annotate({
   description:
     "Exact workflow status display name. Status names are workspace data, not a fixed enum; use the relevant workflow-status listing tool to discover valid values."
 }).pipe(Schema.brand("StatusName"))
@@ -366,7 +160,7 @@ export type PersonName = Schema.Schema.Type<typeof PersonName>
  * `*Input` to distinguish from the existing PersonRef output struct in
  * domain/schemas/issues.ts.
  */
-export const PersonRefInput = Schema.Union(Email, PersonName)
+export const PersonRefInput = Schema.Union([Email, PersonName])
 export type PersonRefInput = Schema.Schema.Type<typeof PersonRefInput>
 
 export const ComponentLabel = NonEmptyString.pipe(Schema.brand("ComponentLabel"))
@@ -378,7 +172,7 @@ export type MilestoneLabel = Schema.Schema.Type<typeof MilestoneLabel>
 export const ChannelName = NonEmptyString.pipe(Schema.brand("ChannelName"))
 export type ChannelName = Schema.Schema.Type<typeof ChannelName>
 
-export const RoomName = NonEmptyString.pipe(Schema.brand("RoomName")).annotations({
+export const RoomName = NonEmptyString.pipe(Schema.brand("RoomName")).annotate({
   identifier: "RoomName",
   title: "RoomName",
   description: "Non-empty virtual-office room name."
@@ -402,12 +196,6 @@ export type NotificationProviderId = Schema.Schema.Type<typeof NotificationProvi
 
 export const NotificationTypeId = NonEmptyString.pipe(Schema.brand("NotificationTypeId"))
 export type NotificationTypeId = Schema.Schema.Type<typeof NotificationTypeId>
-
-export const NotificationTypeSettingId = HulyRef("NotificationTypeSettingId")
-export type NotificationTypeSettingId = Schema.Schema.Type<typeof NotificationTypeSettingId>
-
-export const CollaboratorId = HulyRef("CollaboratorId")
-export type CollaboratorId = Schema.Schema.Type<typeof CollaboratorId>
 
 export const WorkspaceName = NonEmptyString.pipe(Schema.brand("WorkspaceName"))
 export type WorkspaceName = Schema.Schema.Type<typeof WorkspaceName>
@@ -435,7 +223,7 @@ export type PersonUuid = Schema.Schema.Type<typeof PersonUuid>
 export const AccountId = NonEmptyString.pipe(Schema.brand("AccountId"))
 export type AccountId = Schema.Schema.Type<typeof AccountId>
 
-export const AccountUuid = Schema.UUID.pipe(Schema.brand("AccountUuid"))
+export const AccountUuid = Schema.String.check(Schema.isUUID()).pipe(Schema.brand("AccountUuid"))
 export type AccountUuid = Schema.Schema.Type<typeof AccountUuid>
 
 export const SessionId = NonEmptyString.pipe(Schema.brand("SessionId"))
@@ -446,48 +234,50 @@ export type RegionId = Schema.Schema.Type<typeof RegionId>
 
 // === Tier 5: Numeric Brands ===
 
-export const NonNegativeNumber = Schema.Number.pipe(Schema.nonNegative(), Schema.brand("NonNegativeNumber"))
+export const NonNegativeNumber = Schema.Number.check(Schema.isGreaterThanOrEqualTo(0)).pipe(
+  Schema.brand("NonNegativeNumber")
+)
 export type NonNegativeNumber = Schema.Schema.Type<typeof NonNegativeNumber>
 
-export const PositiveNumber = NonNegativeNumber.pipe(Schema.positive(), Schema.brand("PositiveNumber"))
+export const PositiveNumber = NonNegativeNumber.check(Schema.isGreaterThan(0)).pipe(Schema.brand("PositiveNumber"))
 export type PositiveNumber = Schema.Schema.Type<typeof PositiveNumber>
 
-export const VirtualOfficeCoordinate = Schema.Number.pipe(Schema.brand("VirtualOfficeCoordinate")).annotations({
+export const VirtualOfficeCoordinate = Schema.Number.pipe(Schema.brand("VirtualOfficeCoordinate")).annotate({
   identifier: "VirtualOfficeCoordinate",
   title: "VirtualOfficeCoordinate",
   description: "Coordinate in Huly virtual-office layout space."
 })
 export type VirtualOfficeCoordinate = Schema.Schema.Type<typeof VirtualOfficeCoordinate>
 
-export const VirtualOfficeDimension = NonNegativeNumber.pipe(Schema.brand("VirtualOfficeDimension")).annotations({
+export const VirtualOfficeDimension = NonNegativeNumber.pipe(Schema.brand("VirtualOfficeDimension")).annotate({
   identifier: "VirtualOfficeDimension",
   title: "VirtualOfficeDimension",
   description: "Non-negative dimension in Huly virtual-office layout space."
 })
 export type VirtualOfficeDimension = Schema.Schema.Type<typeof VirtualOfficeDimension>
 
-export const BlurRadius = NonNegativeNumber.pipe(Schema.brand("BlurRadius")).annotations({
+export const BlurRadius = NonNegativeNumber.pipe(Schema.brand("BlurRadius")).annotate({
   identifier: "BlurRadius",
   title: "BlurRadius",
   description: "Non-negative virtual-office video blur radius."
 })
 export type BlurRadius = Schema.Schema.Type<typeof BlurRadius>
 
-export const TimeZoneId = NonEmptyString.pipe(Schema.brand("TimeZoneId")).annotations({
+export const TimeZoneId = NonEmptyString.pipe(Schema.brand("TimeZoneId")).annotate({
   identifier: "TimeZoneId",
   title: "TimeZoneId",
   description: "IANA time zone identifier."
 })
 export type TimeZoneId = Schema.Schema.Type<typeof TimeZoneId>
 
-export const DurationMinutes = NonNegativeInteger.pipe(Schema.brand("DurationMinutes")).annotations({
+export const DurationMinutes = NonNegativeInteger.pipe(Schema.brand("DurationMinutes")).annotate({
   identifier: "DurationMinutes",
   title: "DurationMinutes",
   description: "Duration expressed in whole minutes."
 })
 export type DurationMinutes = Schema.Schema.Type<typeof DurationMinutes>
 
-export const PositiveDurationMinutes = PositiveInteger.pipe(Schema.brand("PositiveDurationMinutes")).annotations({
+export const PositiveDurationMinutes = PositiveInteger.pipe(Schema.brand("PositiveDurationMinutes")).annotate({
   identifier: "PositiveDurationMinutes",
   title: "PositiveDurationMinutes",
   description: "Positive duration expressed in whole minutes."
@@ -499,24 +289,19 @@ const MINUTES_PER_HOUR = 60
 const MINUTES_PER_DAY = HOURS_PER_DAY * MINUTES_PER_HOUR
 
 export const MinuteOfDay = NonNegativeInteger.pipe(
-  Schema.lessThanOrEqualTo(MINUTES_PER_DAY),
+  Schema.check(Schema.isLessThanOrEqualTo(MINUTES_PER_DAY)),
   Schema.brand("MinuteOfDay")
-).annotations({
+).annotate({
   identifier: "MinuteOfDay",
   title: "MinuteOfDay",
   description: "Minute offset within a day, from 0 through 1440."
 })
 export type MinuteOfDay = Schema.Schema.Type<typeof MinuteOfDay>
 
-export const ColorCode = Schema.Number.pipe(
-  Schema.int(),
-  Schema.greaterThanOrEqualTo(0),
-  Schema.lessThanOrEqualTo(MAX_COLOR_INDEX),
+export const ColorCode = Schema.Int.pipe(
+  Schema.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(MAX_COLOR_INDEX)),
   Schema.brand("ColorCode")
-).annotations({
-  title: "ColorCode",
-  description: `Huly platform color palette index, from 0 through ${MAX_COLOR_INDEX}.`
-})
+).annotate({ title: "ColorCode", description: `Huly platform color palette index, from 0 through ${MAX_COLOR_INDEX}.` })
 export type ColorCode = Schema.Schema.Type<typeof ColorCode>
 
 // === Tier 6: Dual-Semantic Lookup Types ===

@@ -13,7 +13,7 @@ export interface McpInputSchema {
 type ObjectSchemaField = "properties" | "$defs"
 
 const ROOT_COMPOSITION_KEYS = new Set(["anyOf", "oneOf", "allOf"])
-const UnknownRecordSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
+const UnknownRecordSchema = Schema.Record(Schema.String, Schema.Unknown)
 const UnknownArraySchema = Schema.Array(Schema.Unknown)
 type UnknownRecord = Schema.Schema.Type<typeof UnknownRecordSchema>
 

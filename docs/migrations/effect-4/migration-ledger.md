@@ -162,6 +162,36 @@ no diagnostics in either new file. The global build, compiler, Effect diagnostic
 and test-suite categories above remain unchanged; #212 deliberately does not
 bulk-convert the 250 migration-blocked test suites.
 
+## Ticket #213 schema-foundation delta
+
+The central Draft-07 adapter and shared Schema foundation pass independently:
+
+```bash
+mise exec node@22.22.2 -- pnpm exec vitest run \
+  src/domain/schemas/json-schema.test.ts \
+  test/domain/schemas/shared-identifiers.test.ts \
+  test/domain/schemas.shared-foundation.test.ts \
+  test/effect4/optionality-tracer.test.ts \
+  test/mcp/input-schema-compat.test.ts \
+  test/mcp/input-schema-compat.property.test.ts \
+  test/mcp/json-schema-refs.test.ts
+```
+
+Result: 7 files and 31 tests pass, including external AJV Draft-07 validation,
+input and output schemas, definitions and nested refs, tuples, authored `oneOf`,
+authored boolean constraints, closed public objects, preserved v3 empty-params
+runtime behavior, exact and ordinary optionality, and runtime/encoding edge cases.
+Strict per-file Effect diagnostics report zero findings across the owned source
+and test files. `shared.ts` was split behind its stable barrel to keep every
+production file below the 420-line architecture limit.
+
+The compiler inventory falls from 10,022 diagnostics in 538 files to 9,325 in
+504 files: 5,898 in `src` (310 files), 2,858 in `test` (150 files), 368 in
+`scripts` (31 files), and 201 in `packages` (13 files). The remaining global
+build, domain Schema, CLI, service, Cause/Exit, and test collection categories
+remain assigned to later tickets. Complete registry JSON Schema parity remains
+deferred until every domain-owned generator has moved through the sole adapter.
+
 ## Ledger maintenance rule
 
 Every migration batch must rerun the focused surface it owns and update this

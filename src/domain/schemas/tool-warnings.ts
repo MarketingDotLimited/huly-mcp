@@ -1,11 +1,12 @@
 import { Schema } from "effect"
+import { nonEmptyTrimmedString } from "./shared-base.js"
 
 export const ExternalChannelRuntimeUnsupportedWarningCode = "external_channel_runtime_unsupported" as const
 export const SupportRuntimeUnsupportedWarningCode = "support_runtime_unsupported" as const
 export const SupportStatusMetadataDegradedWarningCode = "support_status_metadata_degraded" as const
 export const WorkbenchNavigationMetadataDegradedWarningCode = "workbench_navigation_metadata_degraded" as const
 
-export const ToolWarningCodeSchema = Schema.Literal(
+export const ToolWarningCodeSchema = Schema.Literals([
   "status_metadata_unresolved",
   "space_role_assignments_degraded",
   "message_template_metadata_degraded",
@@ -26,11 +27,13 @@ export const ToolWarningCodeSchema = Schema.Literal(
   SupportRuntimeUnsupportedWarningCode,
   SupportStatusMetadataDegradedWarningCode,
   WorkbenchNavigationMetadataDegradedWarningCode
-).annotations({
-  identifier: "ToolWarningCode",
-  title: "ToolWarningCode",
-  description: "Machine-readable code for an agent-visible MCP tool warning."
-})
+]).pipe(
+  Schema.annotate({
+    identifier: "ToolWarningCode",
+    title: "ToolWarningCode",
+    description: "Machine-readable code for an agent-visible MCP tool warning."
+  })
+)
 export type ToolWarningCode = Schema.Schema.Type<typeof ToolWarningCodeSchema>
 export const StatusMetadataUnresolvedWarningCode = ToolWarningCodeSchema.literals[0]
 export const SpaceRoleAssignmentsDegradedWarningCode = ToolWarningCodeSchema.literals[1]
@@ -51,13 +54,16 @@ export const ClassCollaboratorMetadataDegradedWarningCode = ToolWarningCodeSchem
 
 export const ToolWarningSchema = Schema.Struct({
   code: ToolWarningCodeSchema,
-  message: Schema.Trim.pipe(Schema.nonEmptyString()).annotations({
+  message: nonEmptyTrimmedString({
     description:
       "LLM-facing explanation of degraded result fidelity or an important operational condition requiring user action."
   })
-}).annotations({
-  identifier: "ToolWarning",
-  title: "ToolWarning",
-  description: "Warning surfaced to an agent alongside a tool result without changing whether that tool call succeeded."
-})
+}).pipe(
+  Schema.annotate({
+    identifier: "ToolWarning",
+    title: "ToolWarning",
+    description:
+      "Warning surfaced to an agent alongside a tool result without changing whether that tool call succeeded."
+  })
+)
 export type ToolWarning = Schema.Schema.Type<typeof ToolWarningSchema>
