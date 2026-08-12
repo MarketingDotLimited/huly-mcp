@@ -143,6 +143,25 @@ rg '^TypeError:|^Error: Cannot find package' /tmp/hulymcp-effect4-test.log | sor
 tail -n 12 /tmp/hulymcp-effect4-test.log
 ```
 
+## Ticket #212 testing-primitives delta
+
+The first v4-native testing slice now passes independently:
+
+```bash
+mise exec node@22.22.2 -- pnpm exec vitest run \
+  test/effect4/testing-primitives.test.ts \
+  test/effect4/layer-isolation.test.ts
+```
+
+Result: 2 files and 5 tests pass. These tests establish automatic `it.effect`
+scopes, virtual-clock advancement, explicit readiness, deferred versus eager
+fiber startup, deterministic scoped interruption, shared layer memoization, and
+the `Layer.fresh` isolation choice; the guidance also records when whole-subtree
+`local: true` isolation is appropriate. Direct compiler output has
+no diagnostics in either new file. The global build, compiler, Effect diagnostic,
+and test-suite categories above remain unchanged; #212 deliberately does not
+bulk-convert the 250 migration-blocked test suites.
+
 ## Ledger maintenance rule
 
 Every migration batch must rerun the focused surface it owns and update this
