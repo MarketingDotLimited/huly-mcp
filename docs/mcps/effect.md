@@ -13,14 +13,27 @@ tracked document records the refs that every migration worktree must use.
 | Official agent workflows | `.reference/effect-skills/` | `Effect-TS/skills` `main`, pinned for this migration | `28822c9e19998876a6b0e0d97877442012ed4391` |
 
 The Effect 3 monorepo tag does not represent the exact release combination of
-every independently versioned package in the current lockfile. For those packages,
-the installed sources in `node_modules` are authoritative:
+every independently versioned package in the pre-cutover lockfile. The migration
+baseline used:
 
 - `effect@3.22.1`
 - `@effect/cli@0.73.2`
 - `@effect/platform@0.94.5`
 - `@effect/platform-node@0.104.1`
 - `@effect/vitest@0.30.0`
+
+That list is migration provenance, not the current installation. The installed
+target cohort is:
+
+- `effect@4.0.0-rc.108`
+- `@effect/platform-node@4.0.0-rc.108`
+- `@effect/vitest@4.0.0-rc.108`
+- `@effect/tsgo@0.36.4`
+
+`@effect/cli` and `@effect/platform` are intentionally absent as direct target
+dependencies. Their APIs moved into the core package, including
+`effect/unstable/cli` and `effect/unstable/http`; use the exact import map for
+symbol-level replacements. `@effect/platform-node` remains a separate package.
 
 There is intentionally no ambiguous `.reference/effect` alias. Choose the source
 generation explicitly in every search.
@@ -31,15 +44,28 @@ During the v3-to-v4 migration, use evidence in this order:
 
 1. The exact package declarations installed by the lockfile for current behavior.
 2. The pinned v4 migration map, topic guides, and source for replacements.
-3. `node_modules/effect/AGENTS.md` after the exact v4 cohort is installed.
+3. The consumer guidance shipped as `node_modules/effect/AGENTS.md` in the exact
+   installed v4 package.
 4. The pinned official `effect-v3-to-v4` workflow under `effect-skills` for lookup
    discipline.
-5. The pinned v3 source and installed v3 satellite packages for old semantics.
+5. The pinned v3 source and recorded pre-cutover satellite versions for old
+   semantics.
 6. The release announcement and project research note for rationale only.
 
 Exact pinned package and source declarations override generic or globally installed
-skills. This matters for `4.0.0-rc.108`: it still exports `Schema.TaggedError`, even
-though newer guidance may describe a different name.
+skills. The installed `AGENTS.md` is generated consumer guidance; the pinned
+source's `.agents/AGENTS.md` contains instructions for contributors to Effect
+itself and does not replace this project's instructions. This matters for
+`4.0.0-rc.108`: the installed guide and declarations use `Schema.TaggedError`,
+even though newer generic guidance may describe a different name.
+
+The installed rc.108 declarations also confirm the migration surfaces used by
+this project: class-style `Context.Service<Self, Shape>()`,
+`Schema.toJsonSchemaDocument` with `JsonSchema.toDocumentDraft07`,
+`Effect.runPromiseExit`, the flat `Cause.reasons` representation, and the
+`effect/unstable/cli` and `effect/unstable/process` package exports. Search the
+installed declarations before applying any of these patterns; this list is a
+provenance checkpoint, not a substitute for exact signatures.
 
 Before editing Effect code, read the relevant project instructions and search the
 smallest applicable upstream source region. Read the v4 `MIGRATION.md` once, then
@@ -88,6 +114,10 @@ Secondary worktrees receive all three repositories through
 `bash scripts/bootstrap-worktree.sh`, which links the complete `.reference`
 directory from the canonical checkout.
 
-Keep the v3 snapshot through final parity certification. After the migration is
-released, removing it is a separate cleanup decision. Keep or replace the v4
-snapshot only alongside an explicit Effect version change.
+Keep the v3 snapshot through final parity certification. Ticket #232 owns removal
+of temporary migration guidance after the full gate and parity evidence pass. At
+that point, remove the pre-cutover cohort and v3 lookup steps from this page,
+remove version-specific migration instructions from `CLAUDE.md` and the Ralph
+workflow, and decide whether to retain the v3 snapshot. Preserve the reviewed
+commits in the final migration evidence. Keep or replace the v4 snapshot only
+alongside an explicit Effect version change.

@@ -18,10 +18,8 @@ jobs:
       fail-fast: false
       matrix:
         node-version:
-          - 20.x
-          - 22.x
-          - 24.x
-          - 26.x
+          - 22.22.2
+          - 24.15.0
 
     steps:
       - name: Checkout
@@ -41,6 +39,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Verify Effect dependency cohort
+        run: pnpm verify:effect-cohort
 
       - name: Build package
         run: pnpm build

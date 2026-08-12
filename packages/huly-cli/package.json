@@ -79,7 +79,7 @@
     "coding-agents"
   ],
   "engines": {
-    "node": ">=20"
+    "node": "^22.22.2 || ^24.15.0"
   },
   "author": "dearlordylord",
   "license": "MIT"
