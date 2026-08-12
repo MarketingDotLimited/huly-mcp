@@ -332,7 +332,7 @@ export interface HulyClientOperations extends HulyClientContext {
   readonly searchFulltext: (query: SearchQuery, options: SearchOptions) => Effect.Effect<SearchResult, HulyClientError>
 }
 
-export class HulyClient extends Context.Tag("@hulymcp/HulyClient")<HulyClient, HulyClientOperations>() {
+export class HulyClient extends Context.Service<HulyClient, HulyClientOperations>()("@hulymcp/HulyClient") {
   static readonly layerWithDependencies: Layer.Layer<HulyClient, HulyClientError, HulyConfigService | HulySdk> =
     Layer.effect(
       HulyClient,

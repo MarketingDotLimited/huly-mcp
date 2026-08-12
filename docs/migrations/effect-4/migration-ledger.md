@@ -224,6 +224,37 @@ compatibility formatter add no owned-scope compiler failures. Remaining service
 declaration diagnostics belong to #215; remaining test diagnostics include
 Exit-consumer updates assigned to their domain and lifecycle tickets.
 
+## Ticket #215 service-declaration delta
+
+All nine application services now use the exact rc.108 class declaration form,
+`Context.Service<Self, Shape>()("identifier")`. Their identifiers, explicit
+operation interfaces, layer requirements, static constructors, and test-layer
+substitution seams are unchanged. `DiagnosticsOperations` and
+`McpServerOperations` are exported as the stable shapes owned by their service
+modules. No `Type` compatibility alias was added: the remaining old
+`Service["Type"]` projections are assigned to the MCP registry and domain
+vertical tickets. The CLI-local service remains assigned to #228.
+
+```bash
+mise exec node@22.22.2 -- pnpm exec vitest run \
+  test/effect4/service-declarations.test.ts
+```
+
+Result: 1 file and 4 tests pass. The focused contract proves exact identifiers,
+direct service provision, default and replacement layers, explicit operation
+shapes, and reachable operations for the independently collectible service
+modules. Runtime imports for the other declarations remain collection-blocked
+by already-assigned Schema and transport modules; the declaration changes add
+no compiler diagnostic of their own.
+
+The compiler inventory falls from 9,257 diagnostics in 501 files to 7,363 in
+462 files: 4,685 in `src` (290 files), 2,147 in `test` (130 files), 368 in
+`scripts` (31 files), and 163 in `packages` (11 files). This large reduction is
+expected: restoring service class shapes removes downstream contextual type
+cascades without migrating the domain-owned `Service["Type"]` projections.
+The remaining `Layer.scoped` failures stay assigned to #217; config, Schema,
+MCP lifecycle/HTTP, domain, and CLI failures retain their existing owners.
+
 ## Ledger maintenance rule
 
 Every migration batch must rerun the focused surface it owns and update this

@@ -35,7 +35,7 @@ export interface HulySdkDependencies {
   readonly markupToMarkdown: typeof markupToMarkdown
 }
 
-export class HulySdk extends Context.Tag("@hulymcp/HulySdk")<HulySdk, HulySdkDependencies>() {
+export class HulySdk extends Context.Service<HulySdk, HulySdkDependencies>()("@hulymcp/HulySdk") {
   static readonly defaultLayer: Layer.Layer<HulySdk> = Layer.succeed(HulySdk, {
     createRestClient,
     createRestTxOperations,

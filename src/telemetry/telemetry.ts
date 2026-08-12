@@ -51,7 +51,7 @@ const telemetryEnabled = (surface: TelemetrySurface) =>
 const telemetryDebug = (surface: TelemetrySurface) =>
   Config.map(Config.string(telemetryEnvNames[surface].debug).pipe(Config.withDefault("0")), (v) => v === "1")
 
-export class TelemetryService extends Context.Tag("@hulymcp/Telemetry")<TelemetryService, TelemetryOperations>() {
+export class TelemetryService extends Context.Service<TelemetryService, TelemetryOperations>()("@hulymcp/Telemetry") {
   // Config reads have defaults so ConfigError cannot occur; orDie absorbs the impossible error
   static readonly layerForContext = (context: TelemetryRuntimeContext): Layer.Layer<TelemetryService> =>
     Layer.effect(

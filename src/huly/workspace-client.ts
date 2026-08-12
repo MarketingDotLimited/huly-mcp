@@ -85,10 +85,9 @@ export interface WorkspaceClientOperations {
   readonly getRegionInfo: () => Effect.Effect<Array<RegionInfo>, WorkspaceClientError>
 }
 
-export class WorkspaceClient extends Context.Tag("@hulymcp/WorkspaceClient")<
-  WorkspaceClient,
-  WorkspaceClientOperations
->() {
+export class WorkspaceClient extends Context.Service<WorkspaceClient, WorkspaceClientOperations>()(
+  "@hulymcp/WorkspaceClient"
+) {
   static readonly layerWithDependencies: Layer.Layer<
     WorkspaceClient,
     WorkspaceClientError,

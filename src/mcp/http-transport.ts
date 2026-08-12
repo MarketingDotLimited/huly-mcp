@@ -96,10 +96,9 @@ const defaultHttpServerFactory: HttpServerFactory = {
   writeError: writeStderr
 }
 
-export class HttpServerFactoryService extends Context.Tag("@hulymcp/HttpServerFactory")<
-  HttpServerFactoryService,
-  HttpServerFactory
->() {
+export class HttpServerFactoryService extends Context.Service<HttpServerFactoryService, HttpServerFactory>()(
+  "@hulymcp/HttpServerFactory"
+) {
   static readonly defaultLayer: Layer.Layer<HttpServerFactoryService> = Layer.succeed(
     HttpServerFactoryService,
     defaultHttpServerFactory

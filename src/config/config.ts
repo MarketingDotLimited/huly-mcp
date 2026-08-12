@@ -265,7 +265,7 @@ const extractFieldFromConfigError = (error: ConfigError.ConfigError): string | u
   return match?.[1]
 }
 
-export class HulyConfigService extends Context.Tag("@hulymcp/HulyConfig")<HulyConfigService, HulyConfig>() {
+export class HulyConfigService extends Context.Service<HulyConfigService, HulyConfig>()("@hulymcp/HulyConfig") {
   static readonly DEFAULT_TIMEOUT = DEFAULT_HULY_CONNECTION_TIMEOUT
 
   static readonly layer: Layer.Layer<HulyConfigService, ConfigValidationError> = Layer.effect(

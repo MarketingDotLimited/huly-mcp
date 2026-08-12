@@ -16,12 +16,12 @@ import { Context, Effect, Ref } from "effect"
 
 import type { ToolWarning } from "../domain/schemas/tool-warnings.js"
 
-interface DiagnosticsOperations {
+export interface DiagnosticsOperations {
   readonly warnAgent: (warning: ToolWarning) => Effect.Effect<void>
   readonly trail: (message: string) => Effect.Effect<void>
 }
 
-export class Diagnostics extends Context.Tag("@hulymcp/Diagnostics")<Diagnostics, DiagnosticsOperations>() {}
+export class Diagnostics extends Context.Service<Diagnostics, DiagnosticsOperations>()("@hulymcp/Diagnostics") {}
 
 interface DiagnosticsScope {
   readonly service: DiagnosticsOperations

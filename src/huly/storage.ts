@@ -176,10 +176,9 @@ export interface HulyStorageOperations {
   readonly getFileUrl: (blobId: string) => string
 }
 
-export class HulyStorageClient extends Context.Tag("@hulymcp/HulyStorageClient")<
-  HulyStorageClient,
-  HulyStorageOperations
->() {
+export class HulyStorageClient extends Context.Service<HulyStorageClient, HulyStorageOperations>()(
+  "@hulymcp/HulyStorageClient"
+) {
   static readonly layerWithDependencies: Layer.Layer<
     HulyStorageClient,
     StorageClientError,

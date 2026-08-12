@@ -76,7 +76,7 @@ const parseToolExposureConfigEffect = (
   return Effect.fail(new McpServerError({ message: parsed.message }))
 }
 
-interface McpServerOperations {
+export interface McpServerOperations {
   readonly run: () => Effect.Effect<void, McpServerError, HttpServerFactoryService>
   readonly stop: () => Effect.Effect<void, McpServerError>
 }
@@ -86,7 +86,7 @@ interface McpServerRunControl {
   readonly done: Deferred.Deferred<void>
 }
 
-export class McpServerService extends Context.Tag("@hulymcp/McpServer")<McpServerService, McpServerOperations>() {
+export class McpServerService extends Context.Service<McpServerService, McpServerOperations>()("@hulymcp/McpServer") {
   static layer(config: McpServerConfig): Layer.Layer<McpServerService, McpServerError, TelemetryService> {
     return Layer.effect(
       McpServerService,
