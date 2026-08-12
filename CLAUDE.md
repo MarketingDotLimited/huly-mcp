@@ -121,17 +121,20 @@ Code review agents must consult `.claude/review-rules.md` for project-specific q
 <!-- effect-solutions:start -->
 ## Effect Best Practices
 
-**IMPORTANT:** Always consult effect-solutions before writing Effect code.
+**IMPORTANT:** Always consult the project-pinned Effect references before writing Effect code.
 
 1. Run `effect-solutions list` to see available guides
 2. Run `effect-solutions show <topic>...` for relevant patterns (supports multiple topics)
-3. Search `.reference/effect/` for real implementations (run `effect-solutions setup` first)
+3. Read `docs/mcps/effect.md` for the authoritative lookup order
+4. Search `.reference/effect-v4.0.0-rc.108/` for target implementations and migration guides
+5. Search `.reference/effect-v3.22.1/` or the locked v3 packages only when old semantics matter
+6. Consult `.reference/effect-skills/skills/effect-v3-to-v4/SKILL.md` for the official migration workflow
 
-In secondary worktrees, `.reference/effect/` may exist only in the master checkout at `/workspace/typescript/hulymcp/.reference/effect/`. After creating a worktree, run `bash scripts/bootstrap-worktree.sh` to link ignored local resources (`node_modules`, `.reference`, `.env.local`, `CLAUDE.local.md`) from the master checkout when available. If `effect-solutions` is not on PATH, do not report that the Effect reference is missing until you have checked `/workspace/typescript/hulymcp/.reference/effect/`; search it directly with `rg` and read relevant files from there.
+In secondary worktrees, `.reference` may exist only in the master checkout at `/workspace/typescript/hulymcp/.reference`. After creating a worktree, run `bash scripts/bootstrap-worktree.sh` to link ignored local resources (`node_modules`, `.reference`, `.env.local`, `CLAUDE.local.md`) from the master checkout when available. If `effect-solutions` is not on PATH, use the pinned references directly. Exact installed package declarations and pinned source override generic or globally installed skill guidance.
 
 Topics: quick-start, project-setup, tsconfig, basics, services-and-layers, data-modeling, error-handling, config, testing, cli.
 
-Never guess at Effect patterns - check the guide first.
+Never read `migration/v3-to-v4.md` whole. Search it by symbol or module, then inspect the relevant topic guide and exact source. Never guess at Effect patterns.
 <!-- effect-solutions:end -->
 
 ## Huly API Reference

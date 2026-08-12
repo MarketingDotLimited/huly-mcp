@@ -97,7 +97,9 @@ const publicIpv4UrlArbitrary = fc
 
 const publicHostnameUrlArbitrary = fc
   .tuple(
-    fc.stringMatching(/^[a-z][a-z0-9-]{0,20}$/).filter((label) => label !== "localhost"),
+    fc
+      .stringMatching(/^[a-z](?:[a-z0-9-]{0,19}[a-z0-9])?$/)
+      .filter((label) => label !== "localhost" && !label.startsWith("xn--")),
     fc.constantFrom("example.com", "huly.app", "cdn.test")
   )
   .map(([label, domain]) => `https://${label}.${domain}/file.png`)

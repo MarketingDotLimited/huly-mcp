@@ -630,7 +630,7 @@ await server.connect(transport)
 - Effect Solutions: `effect-solutions show services-and-layers error-handling testing`
 - Huly API Examples: `.reference/huly-examples/platform-api/examples/`
 - MCP Specification: https://modelcontextprotocol.io/
-- Effect documentation: `.reference/effect/`
+- Effect sources and migration guidance: `docs/mcps/effect.md`
 
 ### Key Example Files
 - Connection: `.reference/huly-examples/platform-api/examples/issue-list.ts:1-20`

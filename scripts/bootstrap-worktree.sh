@@ -1,5 +1,6 @@
 #!/bin/bash
-# Link ignored local resources from the canonical checkout into a secondary worktree.
+# Link ignored local resources, including all pinned Effect references, from the
+# canonical checkout into a secondary worktree.
 # Usage: bash scripts/bootstrap-worktree.sh [/path/to/master-checkout]
 set -euo pipefail
 

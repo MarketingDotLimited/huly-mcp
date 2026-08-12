@@ -20,7 +20,7 @@ You are the implementer for Ralph lane `{{LANE_ID}}`.
   full `pnpm check-all`.
 - Commit your implementation if it is ready for review.
 - Follow `AGENTS.md`.
-- For Effect code, consult `effect-solutions` or local `.reference/effect/` first.
+- For Effect code, follow `docs/mcps/effect.md`; use the explicit pinned v4 and v3 source trees and official migration skill rather than an ambiguous Effect checkout.
 
 # PLAN FILE
 

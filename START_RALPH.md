@@ -232,7 +232,7 @@ From RALPH.md: "the loop is not the technique. state hygiene is the technique."
 ## Project-Specific: Effect + Testability
 
 ### Guardrails (Already Set)
-- ALWAYS consult effect-solutions before writing Effect code
+- ALWAYS follow `docs/mcps/effect.md` and consult the pinned Effect sources and official migration workflow before writing Effect code
 - No `any` types in src/
 - Use @effect/schema for validation
 - Tagged errors throughout (Schema.TaggedError)
