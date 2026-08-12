@@ -11,7 +11,7 @@ const EXIT_AUTHORIZATION = 4
 const EXIT_DOMAIN = 5
 const EXIT_INTERNAL = 70
 
-export const CliFailureCodeSchema = Schema.Literal(
+export const CliFailureCodeSchema = Schema.Literals([
   "INVALID_INPUT",
   "AUTHENTICATION_FAILED",
   "AUTHORIZATION_DENIED",
@@ -20,7 +20,7 @@ export const CliFailureCodeSchema = Schema.Literal(
   "CONFLICT",
   "INTEGRATION_FAILED",
   "INTERNAL_ERROR"
-)
+])
 export type CliFailureCode = Schema.Schema.Type<typeof CliFailureCodeSchema>
 
 export const CliFailureDetailsSchema = Schema.Struct({ tag: Schema.String })
@@ -28,19 +28,19 @@ export const CliFailureSchema = Schema.Struct({
   code: CliFailureCodeSchema,
   message: Schema.String,
   retryable: Schema.Boolean,
-  hint: Schema.optionalWith(Schema.String, { exact: true }),
-  details: Schema.optionalWith(CliFailureDetailsSchema, { exact: true })
+  hint: Schema.optionalKey(Schema.String),
+  details: Schema.optionalKey(CliFailureDetailsSchema)
 })
 export type CliFailure = Schema.Schema.Type<typeof CliFailureSchema>
 
-export const CliExitStatusSchema = Schema.Literal(
+export const CliExitStatusSchema = Schema.Literals([
   EXIT_INTEGRATION,
   EXIT_INPUT,
   EXIT_AUTHENTICATION,
   EXIT_AUTHORIZATION,
   EXIT_DOMAIN,
   EXIT_INTERNAL
-)
+])
 export type CliExitStatus = Schema.Schema.Type<typeof CliExitStatusSchema>
 
 export interface CliFailurePresentation {
@@ -93,10 +93,13 @@ export const failureFromOperation = (description: OperationFailureDescription): 
 }
 
 const failureFromKnownError = (error: CliInputError | CliRuntimeError): CliFailure => {
-  const kind: OperationFailureKind = error._tag === "CliInputError" ? "input" : error.kind
-  const retryable = error._tag === "CliInputError" ? false : error.retryable
+  const kind: OperationFailureKind = isCliInputError(error) ? "input" : error.kind
+  const retryable = isCliInputError(error) ? false : error.retryable
   return failureFromOperation({ kind, message: error.message, retryable })
 }
+
+const isCliInputError = (error: CliInputError | CliRuntimeError): error is CliInputError =>
+  error._tag === "CliInputError"
 
 const internalFailure = (): CliFailure =>
   Schema.decodeUnknownSync(CliFailureSchema)({
@@ -112,7 +115,7 @@ export const presentCliFailure = (
 ): CliFailurePresentation => {
   const known = isKnown(error)
   const failure = known ? failureFromKnownError(error) : internalFailure()
-  const kind: OperationFailureKind = known ? (error._tag === "CliInputError" ? "input" : error.kind) : "internal"
+  const kind: OperationFailureKind = known ? (isCliInputError(error) ? "input" : error.kind) : "internal"
   return {
     exitStatus: CLI_FAILURE_CONTRACT[kind].exitStatus,
     stderr: json ? JSON.stringify(Schema.encodeSync(CliFailureSchema)(failure)) : failure.message

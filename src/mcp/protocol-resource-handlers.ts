@@ -1,28 +1,22 @@
 import { ProtocolError, ProtocolErrorCode } from "@modelcontextprotocol/server"
 import type { ListResourcesResult, ReadResourceRequestParams, ReadResourceResult } from "@modelcontextprotocol/server"
-import { Cause, Chunk, Effect, Exit, Runtime } from "effect"
+import { type Cause, Effect, Exit } from "effect"
 
 import { ConfigValidationError } from "../config/config.js"
 import type { ToolWarning } from "../domain/schemas/tool-warnings.js"
 import { HulyClient } from "../huly/client.js"
 import { Diagnostics, makeDiagnosticsScope } from "../huly/diagnostics.js"
-import type { HulyStorageClient } from "../huly/storage.js"
-import type { WorkspaceClientOperations } from "../huly/workspace-client.js"
-import { clientResolutionErrorMessage } from "./error-mapping.js"
+import type { ClientResolver, HulyClientBundleError } from "../runtime/client-resolver.js"
+import { classifyCause, findRecoverableCauseFailure } from "../runtime/cause-exit.js"
+import { clientResolutionCauseMessage, clientResolutionErrorMessage } from "./error-mapping.js"
 import { listResources, readHulyResource } from "./resources.js"
-
-interface ClientBundle {
-  readonly hulyClient: HulyClient["Type"]
-  readonly storageClient: HulyStorageClient["Type"]
-  readonly workspaceClient?: WorkspaceClientOperations
-}
 
 interface ResourceReadRequest {
   readonly params: ReadResourceRequestParams
 }
 
 interface ResourceHandlerInput {
-  readonly resolveClients: () => Promise<ClientBundle>
+  readonly resolveClients: ClientResolver
   readonly enter: () => void
   readonly leave: () => void
 }
@@ -30,51 +24,51 @@ interface ResourceHandlerInput {
 const withResourceWarnings = (result: ReadResourceResult, warnings: ReadonlyArray<ToolWarning>): ReadResourceResult =>
   warnings.length === 0 ? result : { ...result, _meta: { ...result._meta, warnings } }
 
-const createResourceClientResolutionError = (uri: string, error: unknown): ProtocolError =>
+const createResourceClientResolutionError = (uri: string, cause: Cause.Cause<HulyClientBundleError>): ProtocolError =>
   new ProtocolError(
     ProtocolErrorCode.InternalError,
-    `${clientResolutionErrorMessage(error)} Unable to read resource "${uri}".`
+    `${clientResolutionCauseMessage(cause)} Unable to read resource "${uri}".`
   )
 
-const createResourceListClientResolutionError = (error: unknown): ProtocolError =>
+const createResourceListClientResolutionError = (cause: Cause.Cause<HulyClientBundleError>): ProtocolError =>
   new ProtocolError(
     ProtocolErrorCode.InternalError,
-    `${clientResolutionErrorMessage(error)} Unable to list Huly resources.`
+    `${clientResolutionCauseMessage(cause)} Unable to list Huly resources.`
   )
 
-const isConfigValidationFailure = (error: unknown): boolean => {
-  if (error instanceof ConfigValidationError) return true
-  if (!Runtime.isFiberFailure(error)) return false
+const createUnknownResourceClientResolutionError = (context: string, error: unknown): ProtocolError =>
+  new ProtocolError(ProtocolErrorCode.InternalError, `${clientResolutionErrorMessage(error)} ${context}`)
 
-  return Chunk.toArray(Cause.failures(error[Runtime.FiberFailureCauseId])).some(
-    (failure) => failure instanceof ConfigValidationError
-  )
-}
-
-const resolveResourceClientsOrThrow = async (
-  resolveClients: () => Promise<ClientBundle>,
-  mapError: (error: unknown) => ProtocolError
-): Promise<ClientBundle> => {
-  try {
-    return await resolveClients()
-  } catch (e) {
-    throw mapError(e)
-  }
-}
+const isConfigValidationFailure = (cause: Cause.Cause<HulyClientBundleError>): boolean =>
+  findRecoverableCauseFailure(
+    cause,
+    (failure): failure is ConfigValidationError => failure instanceof ConfigValidationError
+  ) !== undefined
 
 const throwResourceReadError = (uri: string, cause: Cause.Cause<ProtocolError>): never => {
-  const failures = Chunk.toArray(Cause.failures(cause))
-  const failure = failures[0]
-  if (failure instanceof ProtocolError) throw failure
+  const classification = classifyCause(cause)
+  if (classification._tag === "Failure" && classification.firstFailure instanceof ProtocolError) {
+    throw classification.firstFailure
+  }
   throw new ProtocolError(ProtocolErrorCode.InternalError, `Failed to read Huly resource "${uri}"`)
 }
 
 const throwResourceListError = (cause: Cause.Cause<ProtocolError>): never => {
-  const failures = Chunk.toArray(Cause.failures(cause))
-  const failure = failures[0]
-  if (failure instanceof ProtocolError) throw failure
+  const classification = classifyCause(cause)
+  if (classification._tag === "Failure" && classification.firstFailure instanceof ProtocolError) {
+    throw classification.firstFailure
+  }
   throw new ProtocolError(ProtocolErrorCode.InternalError, "Failed to list Huly resources")
 }
+
+const resolveResourceClients = async (
+  resolveClients: ClientResolver,
+  errorContext: string
+): ReturnType<ClientResolver> =>
+  resolveClients().catch((error: unknown) => {
+    if (error instanceof ConfigValidationError) return Exit.fail(error)
+    throw createUnknownResourceClientResolutionError(errorContext, error)
+  })
 
 export const createResourceProtocolHandlers = (
   input: ResourceHandlerInput
@@ -85,13 +79,12 @@ export const createResourceProtocolHandlers = (
   const listResourcesHandler = async (): Promise<ListResourcesResult> => {
     input.enter()
     try {
-      let clients: ClientBundle
-      try {
-        clients = await input.resolveClients()
-      } catch (e) {
-        if (isConfigValidationFailure(e)) return { resources: [] }
-        throw createResourceListClientResolutionError(e)
+      const clientExit = await resolveResourceClients(input.resolveClients, "Unable to list Huly resources.")
+      if (Exit.isFailure(clientExit)) {
+        if (isConfigValidationFailure(clientExit.cause)) return { resources: [] }
+        throw createResourceListClientResolutionError(clientExit.cause)
       }
+      const clients = clientExit.value
 
       const resourceList = await Effect.runPromiseExit(
         listResources().pipe(Effect.provideService(HulyClient, clients.hulyClient))
@@ -107,9 +100,9 @@ export const createResourceProtocolHandlers = (
     input.enter()
     try {
       const { uri } = request.params
-      const clients = await resolveResourceClientsOrThrow(input.resolveClients, (error) =>
-        createResourceClientResolutionError(uri, error)
-      )
+      const clientExit = await resolveResourceClients(input.resolveClients, `Unable to read resource "${uri}".`)
+      if (Exit.isFailure(clientExit)) throw createResourceClientResolutionError(uri, clientExit.cause)
+      const clients = clientExit.value
       const diagnosticsScope = await Effect.runPromise(makeDiagnosticsScope)
       const resourceRead = await Effect.runPromiseExit(
         readHulyResource(uri).pipe(

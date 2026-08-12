@@ -9,7 +9,7 @@ import "./polyfills.js"
 
 import { NodeRuntime } from "@effect/platform-node"
 import type { ConfigError } from "effect"
-import { Config, Effect, Layer, Option, Redacted, Schema } from "effect"
+import { Config, ConfigProvider, Effect, Exit, Layer, Option, Redacted, Schema } from "effect"
 
 import {
   type ConfigValidationError,
@@ -27,7 +27,7 @@ import {
   HttpServerFactoryService
 } from "./mcp/http-transport.js"
 import type { RequestClientLease } from "./mcp/request-client-lifecycle.js"
-import { type ClientBundle, type McpServerError, McpServerService, type McpTransportType } from "./mcp/server.js"
+import { type McpServerError, McpServerService, type McpTransportType } from "./mcp/server.js"
 import { type ConsoleRedirectHandle, redirectConsoleToStderr } from "./mcp/stdio-output.js"
 import {
   buildClientBundle,
@@ -36,6 +36,7 @@ import {
   type CombinedClientLayer,
   createClientResolver
 } from "./runtime/huly-clients.js"
+import type { ClientBundle, ClientResolver, HulyClientBundleError } from "./runtime/client-resolver.js"
 import { TelemetryService } from "./telemetry/telemetry.js"
 
 type AppError = ConfigValidationError | HulyClientError | StorageClientError | McpServerError | ConfigError.ConfigError
@@ -92,22 +93,29 @@ const webHeadersRecord = (headers: Headers): Record<string, string> => Object.fr
 const createHttpClientLeaseResolver =
   (
     combinedClientLayer: CombinedClientLayer,
-    resolveEnvClients: () => Promise<ClientBundle>
-  ): ((req: Request) => Promise<RequestClientLease>) =>
-  (req) => {
+    resolveEnvClients: () => Promise<Exit.Exit<ClientBundle, HulyClientBundleError>>
+  ): ((req: Request) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>) =>
+  async (req) => {
     const headers = webHeadersRecord(req.headers)
-    return Effect.runPromise(hulyConfigProviderFromHeaders(headers)).then((configProvider) => {
-      if (configProvider === undefined) {
-        return resolveEnvClients().then((bundle) => ({ bundle, close: () => {} }))
-      }
+    const providerExit = await Effect.runPromiseExit(hulyConfigProviderFromHeaders(headers))
+    if (Exit.isFailure(providerExit)) {
+      const bundle: Exit.Exit<ClientBundle, HulyClientBundleError> = Exit.failCause(providerExit.cause)
+      return { bundle, close: () => {} }
+    }
+    const configProvider = providerExit.value
+    if (configProvider === undefined) {
+      return resolveEnvClients().then((bundle) => ({ bundle, close: () => {} }))
+    }
 
-      return Effect.runPromise(
-        buildScopedClientBundle(combinedClientLayer).pipe(
-          Effect.withConfigProvider(configProvider),
-          Effect.map(({ bundle, close }) => ({ bundle, close }))
-        )
+    const clientExit = await Effect.runPromiseExit(
+      buildScopedClientBundle(combinedClientLayer).pipe(
+        Effect.provideService(ConfigProvider.ConfigProvider, configProvider),
+        Effect.map(({ bundle, close }) => ({ bundle: Exit.succeed(bundle), close }))
       )
-    })
+    )
+    if (Exit.isSuccess(clientExit)) return clientExit.value
+    const bundle: Exit.Exit<ClientBundle, HulyClientBundleError> = Exit.failCause(clientExit.cause)
+    return { bundle, close: () => {} }
   }
 
 const buildAppLayer = (
@@ -117,8 +125,10 @@ const buildAppLayer = (
   mcpAuthToken: string | undefined,
   autoExit: boolean,
   authMethod: "token" | "password",
-  resolveClients: () => Promise<ClientBundle>,
-  resolveClientLeaseForHttpRequest: (req: Request) => Promise<RequestClientLease>
+  resolveClients: ClientResolver,
+  resolveClientLeaseForHttpRequest: (
+    req: Request
+  ) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>
 ): Layer.Layer<McpServerService | HttpServerFactoryService, McpServerError, never> => {
   const mcpServerConfig = {
     transport,

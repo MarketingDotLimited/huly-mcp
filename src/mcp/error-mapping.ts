@@ -9,7 +9,7 @@
  *
  * @module
  */
-import { Cause, Chunk, ParseResult, Runtime } from "effect"
+import { Cause, type Schema } from "effect"
 
 import type { ToolWarning } from "../domain/schemas/tool-warnings.js"
 import {
@@ -25,7 +25,11 @@ import {
   HOSTED_HULY_SUNSET,
   isDefaultHulyCloudOrigin
 } from "../huly/unavailable-diagnostics.js"
+import { classifyCause, findRecoverableCauseFailure } from "../runtime/cause-exit.js"
+import { formatParseError } from "./schema-error-format.js"
 import { createErrorResponse, McpErrorCode, type McpErrorResponseWithMeta } from "./tool-responses.js"
+
+export { formatParseError } from "./schema-error-format.js"
 
 export {
   appendToolWarnings,
@@ -296,8 +300,8 @@ const clientResolutionFailure = (
   error: unknown
 ): HulyUnavailableError | HulyConnectionError | HulyAuthError | HulyStorageConfigError | undefined => {
   if (isClientResolutionError(error)) return error
-  if (!Runtime.isFiberFailure(error)) return undefined
-  return Chunk.toArray(Cause.failures(error[Runtime.FiberFailureCauseId])).find(isClientResolutionError)
+  if (!Cause.isCause(error)) return undefined
+  return findRecoverableCauseFailure(error, isClientResolutionError)
 }
 
 /** Safely preserve known, schema-owned resolver errors and hide all other rejection details. */
@@ -308,17 +312,18 @@ export const mapClientResolutionErrorToMcp = (error: unknown): McpErrorResponseW
     : mapDomainErrorToMcp(failure)
 }
 
+export const mapClientResolutionCauseToMcp = (cause: Cause.Cause<unknown>): McpErrorResponseWithMeta =>
+  mapClientResolutionErrorToMcp(cause)
+
 export const clientResolutionErrorMessage = (error: unknown): string =>
   mapClientResolutionErrorToMcp(error).content[0].text
 
+export const clientResolutionCauseMessage = (cause: Cause.Cause<unknown>): string =>
+  mapClientResolutionCauseToMcp(cause).content[0].text
+
 // --- Parse Error Mapping ---
 
-export const formatParseError = (error: ParseResult.ParseError): string => {
-  const issues = ParseResult.ArrayFormatter.formatErrorSync(error)
-  return issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")
-}
-
-export const mapParseErrorToMcp = (error: ParseResult.ParseError, toolName?: string): McpErrorResponseWithMeta => {
+export const mapParseErrorToMcp = (error: Schema.SchemaError, toolName?: string): McpErrorResponseWithMeta => {
   const prefix = toolName ? `Invalid parameters for ${toolName}: ` : "Invalid parameters: "
   const message = formatParseError(error)
 
@@ -326,39 +331,25 @@ export const mapParseErrorToMcp = (error: ParseResult.ParseError, toolName?: str
 }
 
 export const mapParseCauseToMcp = (
-  cause: Cause.Cause<ParseResult.ParseError>,
+  cause: Cause.Cause<Schema.SchemaError>,
   toolName?: string
 ): McpErrorResponseWithMeta => {
-  if (Cause.isFailType(cause)) {
-    return mapParseErrorToMcp(cause.error, toolName)
-  }
-
-  const failures = Chunk.toArray(Cause.failures(cause))
-  const firstFailure = failures[0]
-  if (firstFailure !== undefined) {
-    return mapParseErrorToMcp(firstFailure, toolName)
-  }
-
-  return createErrorResponse("An unexpected error occurred", McpErrorCode.InternalError)
+  const classification = classifyCause(cause)
+  return classification._tag === "Failure"
+    ? mapParseErrorToMcp(classification.firstFailure, toolName)
+    : createErrorResponse("An unexpected error occurred", McpErrorCode.InternalError)
 }
 
 export const mapDomainCauseToMcp = (
   cause: Cause.Cause<HulyDomainError>,
   warnings: ReadonlyArray<ToolWarning> = []
 ): McpErrorResponseWithMeta => {
-  if (Cause.isFailType(cause)) {
-    return mapDomainErrorToMcp(cause.error, warnings)
-  }
-
-  if (Cause.isDieType(cause)) {
-    return createErrorResponse("An unexpected error occurred", McpErrorCode.InternalError, "UnexpectedError", warnings)
-  }
-
-  const failures = Chunk.toArray(Cause.failures(cause))
-  const firstFailure = failures[0]
-  if (firstFailure !== undefined) {
-    return mapDomainErrorToMcp(firstFailure, warnings)
-  }
-
-  return createErrorResponse("An unexpected error occurred", McpErrorCode.InternalError, undefined, warnings)
+  const classification = classifyCause(cause)
+  if (classification._tag === "Failure") return mapDomainErrorToMcp(classification.firstFailure, warnings)
+  return createErrorResponse(
+    "An unexpected error occurred",
+    McpErrorCode.InternalError,
+    classification._tag === "Fatal" && classification.reason !== "Interrupt" ? "UnexpectedError" : undefined,
+    warnings
+  )
 }

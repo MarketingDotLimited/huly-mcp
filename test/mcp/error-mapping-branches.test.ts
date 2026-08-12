@@ -1,23 +1,18 @@
 import { describe, it } from "@effect/vitest"
 import { Cause, Effect, Schema } from "effect"
-import type { ParseResult } from "effect"
 import { expect } from "vitest"
 import { createSuccessResponse, mapParseCauseToMcp, McpErrorCode } from "../../src/mcp/error-mapping.js"
 import { assertAt } from "../../src/utils/assertions.js"
 
 describe("Error Mapping Branch Coverage", () => {
-  describe("mapParseCauseToMcp - Sequential cause with ParseError (line 148)", () => {
-    it.effect("extracts first ParseError from sequential cause", () =>
+  describe("mapParseCauseToMcp - combined cause with SchemaError", () => {
+    it.effect("extracts the first SchemaError from a combined cause", () =>
       Effect.gen(function* () {
         const TestSchema = Schema.Struct({ x: Schema.Number })
-        const error1 = yield* Effect.flip(Schema.decodeUnknown(TestSchema)({ x: "bad" }))
-        const error2 = yield* Effect.flip(Schema.decodeUnknown(TestSchema)({ x: "also bad" }))
+        const error1 = yield* Effect.flip(Schema.decodeUnknownEffect(TestSchema)({ x: "bad" }))
+        const error2 = yield* Effect.flip(Schema.decodeUnknownEffect(TestSchema)({ x: "also bad" }))
 
-        const cause = Cause.sequential(Cause.fail(error1), Cause.fail(error2))
-
-        // This is not a simple Fail cause, so isFailType returns false.
-        // It falls through to Cause.failures() which finds errors.
-        // This hits line 148: return mapParseErrorToMcp(assertAt(failures, 0), toolName)
+        const cause = Cause.combine(Cause.fail(error1), Cause.fail(error2))
         const response = mapParseCauseToMcp(cause, "test_tool")
 
         expect(response.isError).toBe(true)
@@ -27,15 +22,15 @@ describe("Error Mapping Branch Coverage", () => {
     )
   })
 
-  describe("mapParseCauseToMcp - Parallel cause with ParseError (line 148)", () => {
-    it.effect("extracts first ParseError from parallel cause", () =>
+  describe("mapParseCauseToMcp - heterogeneous combined cause", () => {
+    it.effect("preserves SchemaError reason order across schemas", () =>
       Effect.gen(function* () {
         const TestSchema1 = Schema.Struct({ a: Schema.String })
         const TestSchema2 = Schema.Struct({ b: Schema.Number })
-        const error1 = yield* Effect.flip(Schema.decodeUnknown(TestSchema1)({ a: 123 }))
-        const error2 = yield* Effect.flip(Schema.decodeUnknown(TestSchema2)({ b: "nope" }))
+        const error1 = yield* Effect.flip(Schema.decodeUnknownEffect(TestSchema1)({ a: 123 }))
+        const error2 = yield* Effect.flip(Schema.decodeUnknownEffect(TestSchema2)({ b: "nope" }))
 
-        const cause = Cause.parallel(Cause.fail(error1), Cause.fail(error2))
+        const cause = Cause.combine(Cause.fail(error1), Cause.fail(error2))
         const response = mapParseCauseToMcp(cause, "parallel_tool")
 
         expect(response.isError).toBe(true)
@@ -45,11 +40,11 @@ describe("Error Mapping Branch Coverage", () => {
     )
   })
 
-  describe("mapParseCauseToMcp - Die cause (no failures, line 151)", () => {
-    it.effect("returns generic error for Die cause (no ParseErrors)", () =>
+  describe("mapParseCauseToMcp - defect cause", () => {
+    it.effect("returns a generic error without defect details", () =>
       Effect.sync(function () {
         const cause = Cause.die(new Error("unexpected"))
-        const response = mapParseCauseToMcp(cause as Cause.Cause<ParseResult.ParseError>)
+        const response = mapParseCauseToMcp(cause)
 
         expect(response.isError).toBe(true)
         expect(response._meta.errorCode).toBe(McpErrorCode.InternalError)

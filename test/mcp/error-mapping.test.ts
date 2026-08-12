@@ -1,5 +1,4 @@
 import { describe, it } from "@effect/vitest"
-import type { ParseResult } from "effect"
 import { Cause, Effect, Schema } from "effect"
 import { expect } from "vitest"
 import { CanonicalBase64ImageData } from "../../src/domain/schemas/attachments.js"
@@ -536,7 +535,7 @@ describe("Error Mapping to MCP", () => {
       )
 
       it.effect("preserves known resolver failures and hides arbitrary resolver rejections", () =>
-        Effect.gen(function* () {
+        Effect.sync(function () {
           const unavailable = mapClientResolutionErrorToMcp(
             new HulyUnavailableError({
               endpointOrigin: normalizeHulyOrigin("https://huly.app"),
@@ -546,20 +545,16 @@ describe("Error Mapping to MCP", () => {
           const unknown = mapClientResolutionErrorToMcp(new Error("token=secret"))
           const auth = mapClientResolutionErrorToMcp(new HulyAuthError({ message: "secret" }))
           const storageConfig = mapClientResolutionErrorToMcp(new HulyStorageConfigError({ field: "FILES_URL" }))
-          const fiberFailure = yield* Effect.promise(() =>
-            Effect.runPromise(
-              Effect.fail(
-                new HulyUnavailableError({
-                  endpointOrigin: normalizeHulyOrigin("https://huly.app"),
-                  failureKind: "timeout"
-                })
-              )
-            ).then(
-              () => Promise.reject(new Error("expected failure")),
-              (error) => Promise.resolve(error)
-            )
+          const resolverCause = Cause.fail(
+            new HulyUnavailableError({
+              endpointOrigin: normalizeHulyOrigin("https://huly.app"),
+              failureKind: "timeout"
+            })
           )
-          const fromFiber = mapClientResolutionErrorToMcp(fiberFailure)
+          const fromCause = mapClientResolutionErrorToMcp(resolverCause)
+          const fromMixedCause = mapClientResolutionErrorToMcp(
+            Cause.combine(Cause.fail(new Error("token=secret")), resolverCause)
+          )
 
           expect(assertAt(unavailable.content, 0).text).toContain("Cannot reach hosted Huly")
           expect(assertAt(unknown.content, 0).text).toBe("Failed to initialize Huly clients")
@@ -567,7 +562,9 @@ describe("Error Mapping to MCP", () => {
           expect(assertAt(storageConfig.content, 0).text).toBe(
             "Storage configuration error: Invalid Huly server config field 'FILES_URL': expected a non-empty string"
           )
-          expect(assertAt(fromFiber.content, 0).text).toContain("Cannot reach hosted Huly")
+          expect(assertAt(fromCause.content, 0).text).toContain("Cannot reach hosted Huly")
+          expect(assertAt(fromMixedCause.content, 0).text).toContain("Cannot reach hosted Huly")
+          expect(assertAt(fromMixedCause.content, 0).text).not.toContain("token=secret")
         })
       )
 
@@ -683,13 +680,30 @@ describe("Error Mapping to MCP", () => {
       Effect.gen(function* () {
         const TestSchema = Schema.Struct({ name: Schema.String, age: Schema.Number })
 
-        const error = yield* Effect.flip(Schema.decodeUnknown(TestSchema)({ name: 123 }))
+        const error = yield* Effect.flip(
+          Schema.decodeUnknownEffect(TestSchema)({ name: 123 }, { reportInput: true })
+        )
 
         const response = mapParseErrorToMcp(error, "create_issue")
 
         expect(response.isError).toBe(true)
         expect(response._meta.errorCode).toBe(McpErrorCode.InvalidParams)
-        expect(assertAt(response.content, 0).text).toContain("Invalid parameters for create_issue")
+        expect(assertAt(response.content, 0).text).toBe(
+          "Invalid parameters for create_issue: name: Expected string, actual 123"
+        )
+      })
+    )
+
+    it.effect("preserves flat path formatting for multiple schema issues", () =>
+      Effect.gen(function* () {
+        const TestSchema = Schema.Struct({ name: Schema.String, age: Schema.Number })
+        const error = yield* Effect.flip(
+          Schema.decodeUnknownEffect(TestSchema)({ name: 123, age: "old" }, { errors: "all", reportInput: true })
+        )
+
+        expect(formatParseError(error)).toBe(
+          'name: Expected string, actual 123; age: Expected number, actual "old"'
+        )
       })
     )
 
@@ -697,7 +711,7 @@ describe("Error Mapping to MCP", () => {
       Effect.gen(function* () {
         const TestSchema = Schema.Struct({ name: Schema.String })
 
-        const error = yield* Effect.flip(Schema.decodeUnknown(TestSchema)({}))
+        const error = yield* Effect.flip(Schema.decodeUnknownEffect(TestSchema)({}))
 
         const response = mapParseErrorToMcp(error)
 
@@ -727,12 +741,23 @@ describe("Error Mapping to MCP", () => {
       it.effect("returns UnexpectedError errorTag for defects", () =>
         Effect.sync(function () {
           const cause = Cause.die(new Error("boom"))
-          const response = mapDomainCauseToMcp(cause as Cause.Cause<HulyError>)
+          const response = mapDomainCauseToMcp(cause)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InternalError)
           expect(response._meta.errorTag).toBe("UnexpectedError")
           expect(assertAt(response.content, 0).text).toBe("An unexpected error occurred")
+        })
+      )
+
+      it.effect("does not expose a typed failure when the same cause contains a defect", () =>
+        Effect.sync(function () {
+          const typed = new IssueNotFoundError({ identifier: "SECRET-1", project: "SECRET" })
+          const response = mapDomainCauseToMcp(Cause.combine(Cause.fail(typed), Cause.die("token=secret")))
+
+          expect(assertAt(response.content, 0).text).toBe("An unexpected error occurred")
+          expect(JSON.stringify(response)).not.toContain("SECRET-1")
+          expect(JSON.stringify(response)).not.toContain("token=secret")
         })
       )
     })
@@ -741,7 +766,7 @@ describe("Error Mapping to MCP", () => {
       it.effect("returns generic error for empty cause", () =>
         Effect.sync(function () {
           const cause = Cause.empty
-          const response = mapDomainCauseToMcp(cause as Cause.Cause<HulyError>)
+          const response = mapDomainCauseToMcp(cause)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InternalError)
@@ -755,7 +780,7 @@ describe("Error Mapping to MCP", () => {
         Effect.sync(function () {
           const error1 = new ProjectNotFoundError({ identifier: "PROJ" })
           const error2 = new IssueNotFoundError({ identifier: "X", project: "Y" })
-          const cause = Cause.sequential(Cause.fail(error1), Cause.fail(error2))
+          const cause = Cause.combine(Cause.fail(error1), Cause.fail(error2))
           const response = mapDomainCauseToMcp(cause)
 
           expect(response.isError).toBe(true)
@@ -770,7 +795,7 @@ describe("Error Mapping to MCP", () => {
         Effect.sync(function () {
           const error1 = new InvalidStatusError({ status: "bad", project: "P" })
           const error2 = new HulyConnectionError({ message: "timeout" })
-          const cause = Cause.parallel(Cause.fail(error1), Cause.fail(error2))
+          const cause = Cause.combine(Cause.fail(error1), Cause.fail(error2))
           const response = mapDomainCauseToMcp(cause)
 
           expect(response.isError).toBe(true)
@@ -786,7 +811,7 @@ describe("Error Mapping to MCP", () => {
       it.effect("handles ParseError in Fail cause", () =>
         Effect.gen(function* () {
           const TestSchema = Schema.Struct({ x: Schema.Number })
-          const error = yield* Effect.flip(Schema.decodeUnknown(TestSchema)({ x: "not a number" }))
+          const error = yield* Effect.flip(Schema.decodeUnknownEffect(TestSchema)({ x: "not a number" }))
 
           const cause = Cause.fail(error)
           const response = mapParseCauseToMcp(cause, "test_tool")
@@ -802,7 +827,7 @@ describe("Error Mapping to MCP", () => {
       it.effect("returns generic error for empty cause", () =>
         Effect.sync(function () {
           const cause = Cause.empty
-          const response = mapParseCauseToMcp(cause as Cause.Cause<ParseResult.ParseError>)
+          const response = mapParseCauseToMcp(cause)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InternalError)

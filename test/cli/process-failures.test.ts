@@ -3,7 +3,11 @@ import { spawn } from "node:child_process"
 import { Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
+import { CliFailureSchema } from "../../packages/huly-cli/src/failures.js"
+import type { FailureBoundaryScenario } from "./fixtures/failure-boundary-scenarios.js"
+
 const ProcessResultSchema = Schema.Struct({ exitCode: Schema.Int, stderr: Schema.String, stdout: Schema.String })
+const parseCliFailure = Schema.decodeUnknownSync(Schema.fromJsonString(CliFailureSchema))
 
 const runCli = (args: ReadonlyArray<string>): Promise<Schema.Schema.Type<typeof ProcessResultSchema>> =>
   new Promise((resolve, reject) => {
@@ -27,12 +31,15 @@ const runCli = (args: ReadonlyArray<string>): Promise<Schema.Schema.Type<typeof 
     )
   })
 
-const runDefectBoundary = (): Promise<Schema.Schema.Type<typeof ProcessResultSchema>> =>
+const runFailureBoundary = (
+  scenario: FailureBoundaryScenario
+): Promise<Schema.Schema.Type<typeof ProcessResultSchema>> =>
   new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ["--import", "tsx", "test/cli/fixtures/defect-process.ts"], {
-      cwd: process.cwd(),
-      env: {}
-    })
+    const child = spawn(
+      process.execPath,
+      ["--import", "tsx", "test/cli/fixtures/failure-boundary-process.ts", scenario],
+      { cwd: process.cwd(), env: {} }
+    )
     const stdout: Array<Buffer> = []
     const stderr: Array<Buffer> = []
     child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk))
@@ -56,7 +63,7 @@ describe("CLI failure process boundary", () => {
     expect(result.exitCode).toBe(2)
     expect(result.stdout).toBe("")
     expect(result.stderr.trim().split("\n")).toHaveLength(1)
-    expect(JSON.parse(result.stderr)).toMatchObject({ code: "INVALID_INPUT", retryable: false })
+    expect(parseCliFailure(result.stderr)).toMatchObject({ code: "INVALID_INPUT", retryable: false })
   })
 
   it("keeps human failure output actionable and off stdout", async () => {
@@ -74,7 +81,7 @@ describe("CLI failure process boundary", () => {
     expect(result.exitCode).toBe(2)
     expect(result.stdout).toBe("")
     expect(result.stderr.trim().split("\n")).toHaveLength(1)
-    expect(JSON.parse(result.stderr)).toMatchObject({ code: "INVALID_INPUT", retryable: false })
+    expect(parseCliFailure(result.stderr)).toMatchObject({ code: "INVALID_INPUT", retryable: false })
   })
 
   it("translates a missing required option into one JSON input failure", async () => {
@@ -83,17 +90,57 @@ describe("CLI failure process boundary", () => {
     expect(result.exitCode).toBe(2)
     expect(result.stdout).toBe("")
     expect(result.stderr.trim().split("\n")).toHaveLength(1)
-    expect(JSON.parse(result.stderr)).toMatchObject({ code: "INVALID_INPUT", retryable: false })
+    expect(parseCliFailure(result.stderr)).toMatchObject({ code: "INVALID_INPUT", retryable: false })
   })
 
   it("sanitizes an Effect defect at the process boundary", async () => {
-    const result = await runDefectBoundary()
+    const result = await runFailureBoundary("defect")
 
     expect(result.exitCode).toBe(70)
     expect(result.stdout).toBe("")
     expect(result.stderr.trim().split("\n")).toHaveLength(1)
-    expect(JSON.parse(result.stderr)).toMatchObject({ code: "INTERNAL_ERROR", retryable: false })
+    expect(parseCliFailure(result.stderr)).toMatchObject({ code: "INTERNAL_ERROR", retryable: false })
     expect(result.stderr).not.toContain("secret defect detail")
+    expect(result.stderr).not.toContain("FiberFailure")
+  })
+
+  it("renders a known typed failure at the process boundary", async () => {
+    const result = await runFailureBoundary("known")
+
+    expect(result.exitCode).toBe(2)
+    expect(result.stdout).toBe("")
+    expect(result.stderr.trim().split("\n")).toHaveLength(1)
+    expect(parseCliFailure(result.stderr)).toMatchObject({
+      code: "INVALID_INPUT",
+      message: "known input failure",
+      retryable: false
+    })
+  })
+
+  it.each(["interrupt", "empty"] satisfies ReadonlyArray<FailureBoundaryScenario>)(
+    "sanitizes an %s cause at the process boundary",
+    async (scenario) => {
+      const result = await runFailureBoundary(scenario)
+
+      expect(result.exitCode).toBe(70)
+      expect(result.stdout).toBe("")
+      expect(result.stderr.trim().split("\n")).toHaveLength(1)
+      expect(parseCliFailure(result.stderr)).toMatchObject({ code: "INTERNAL_ERROR", retryable: false })
+      expect(result.stderr).not.toContain("secret")
+      expect(result.stderr).not.toContain("FiberFailure")
+    }
+  )
+
+  it("treats a mixed cause with fatal reasons as internal", async () => {
+    const result = await runFailureBoundary("mixed")
+
+    expect(result.exitCode).toBe(70)
+    expect(result.stdout).toBe("")
+    expect(result.stderr.trim().split("\n")).toHaveLength(1)
+    expect(parseCliFailure(result.stderr)).toMatchObject({ code: "INTERNAL_ERROR", retryable: false })
+    expect(result.stderr).not.toContain("first known failure")
+    expect(result.stderr).not.toContain("second known failure")
+    expect(result.stderr).not.toContain("secret")
     expect(result.stderr).not.toContain("FiberFailure")
   })
 })

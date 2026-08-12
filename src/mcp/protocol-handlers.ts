@@ -6,13 +6,11 @@ import type {
   ReadResourceRequestParams,
   ReadResourceResult
 } from "@modelcontextprotocol/server"
-import { Clock, Effect, Schema } from "effect"
+import { Clock, Effect, Exit, Schema } from "effect"
 
 import { type GetHulyContextResult, GetHulyContextResultSchema } from "../domain/schemas/index.js"
-import type { HulyClient } from "../huly/client.js"
 import { HulyError } from "../huly/errors-base.js"
-import type { HulyStorageClient } from "../huly/storage.js"
-import type { WorkspaceClientOperations } from "../huly/workspace-client.js"
+import type { ClientBundle, ClientResolver } from "../runtime/client-resolver.js"
 import type { TelemetryOperations } from "../telemetry/telemetry.js"
 import { VERSION } from "../version.js"
 import type { McpToolResponse } from "./error-mapping.js"
@@ -21,6 +19,7 @@ import {
   appendToolWarnings,
   createSuccessResponse,
   createUnknownToolError,
+  mapClientResolutionCauseToMcp,
   mapClientResolutionErrorToMcp,
   mapDomainErrorToMcp,
   toMcpResponse
@@ -61,12 +60,6 @@ import {
   parseToolName,
   requiresArgumentsObject
 } from "./tools/registry.js"
-
-export interface ClientBundle {
-  readonly hulyClient: HulyClient["Type"]
-  readonly storageClient: HulyStorageClient["Type"]
-  readonly workspaceClient?: WorkspaceClientOperations
-}
 
 interface ToolCallRequest {
   readonly params: { readonly name: CallToolRequestParams["name"]; readonly arguments?: unknown }
@@ -169,10 +162,15 @@ type ClientResolution =
   | { readonly _tag: "Success"; readonly clients: ClientBundle }
   | { readonly _tag: "Failure"; readonly response: McpToolResponse }
 
-const resolveClientBundle = async (resolveClients: () => Promise<ClientBundle>): Promise<ClientResolution> => {
+const resolveClientBundle = async (resolveClients: ClientResolver): Promise<ClientResolution> => {
   try {
-    return { _tag: "Success", clients: await resolveClients() }
+    const exit = await resolveClients()
+    return Exit.isSuccess(exit)
+      ? { _tag: "Success", clients: exit.value }
+      : { _tag: "Failure", response: mapClientResolutionCauseToMcp(exit.cause) }
   } catch (error) {
+    // A ClientResolver must resolve with Exit. Keep a defensive framework
+    // boundary for third-party or injected implementations that reject.
     return { _tag: "Failure", response: mapClientResolutionErrorToMcp(error) }
   }
 }
@@ -188,7 +186,7 @@ const proxyEditMode = (toolName: NonNullable<ReturnType<typeof parseToolName>>, 
 
 const resolveProxyClients = (
   toolName: NonNullable<ReturnType<typeof parseToolName>>,
-  resolveClients: () => Promise<ClientBundle>
+  resolveClients: ClientResolver
 ): Promise<ClientResolution | undefined> =>
   toolName === INVOKE_TOOL_TOOL_NAME ? resolveClientBundle(resolveClients) : Promise.resolve(undefined)
 
@@ -218,7 +216,7 @@ const nativeArgumentError = (tool: ToolRegistry["definitions"][number], args: un
 }
 
 export const createMcpProtocolHandlers = (
-  resolveClients: () => Promise<ClientBundle>,
+  resolveClients: ClientResolver,
   telemetry: TelemetryOperations,
   registry: ToolRegistry | ProtocolToolRegistries,
   getHulyContext: HulyContextProvider,

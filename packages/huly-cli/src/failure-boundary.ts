@@ -1,4 +1,6 @@
-import { Console, Effect } from "effect"
+import { Console, Effect, Exit } from "effect"
+
+import { findRecoverableCauseFailure } from "../../../src/runtime/cause-exit.js"
 
 import { presentCliFailure } from "./failures.js"
 import type { CliInputError } from "./input.js"
@@ -13,7 +15,7 @@ const emitFailure = (
 ): Effect.Effect<void> => {
   const presentation = presentCliFailure(error, json, isKnown)
   return Console.error(presentation.stderr).pipe(
-    Effect.zipRight(
+    Effect.andThen(
       Effect.sync(() => {
         process.exitCode = presentation.exitStatus
       })
@@ -26,7 +28,10 @@ export const runCliFailureBoundary = <A, E, R>(
   json: boolean,
   isKnown: (error: unknown) => error is KnownCliError
 ): Effect.Effect<A | void, never, R> =>
-  program.pipe(
-    Effect.catchAll((error) => emitFailure(error, json, isKnown)),
-    Effect.catchAllDefect((defect) => emitFailure(defect, json, isKnown))
+  Effect.exit(program).pipe(
+    Effect.flatMap((exit) => {
+      if (Exit.isSuccess(exit)) return Effect.succeed(exit.value)
+      const knownFailure = findRecoverableCauseFailure(exit.cause, isKnown)
+      return emitFailure(knownFailure, json, isKnown)
+    })
   )

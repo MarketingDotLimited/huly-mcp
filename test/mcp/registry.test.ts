@@ -170,7 +170,7 @@ describe("formatOperationFailure", () => {
       )
       expect(
         formatOperationFailure(
-          new ToolParseFailure({ cause: Cause.sequential(Cause.empty, Cause.fail(parseError)), toolName: "test_tool" })
+          new ToolParseFailure({ cause: Cause.combine(Cause.empty, Cause.fail(parseError)), toolName: "test_tool" })
         )
       ).toContain("Invalid parameters for test_tool")
       expect(

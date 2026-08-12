@@ -5,9 +5,9 @@
  */
 import type { McpRequestContext, Server } from "@modelcontextprotocol/server"
 import { serveStdio, type StdioServerTransport } from "@modelcontextprotocol/server/stdio"
-import { Config, Context, Deferred, Effect, Layer, Ref, Schema } from "effect"
+import { Config, Context, Deferred, Effect, type Exit, Layer, Ref, Schema } from "effect"
 
-import { type ClientBundle, createMcpServer } from "./create-mcp-server.js"
+import { createMcpServer } from "./create-mcp-server.js"
 import type { HttpHost, HttpPort, HttpServerFactoryService, HttpTransportError } from "./http-transport.js"
 import { DEFAULT_HTTP_HOST, DEFAULT_HTTP_PORT, startHttpTransport } from "./http-transport.js"
 import { buildHulyContext, type ToolExposureContext } from "./huly-context-tool.js"
@@ -20,6 +20,7 @@ import {
 
 import { type SanitizedHulyRuntimeConfigContext, sanitizeHulyRuntimeConfigFromEnv } from "../config/config.js"
 import type { GetHulyContextResult } from "../domain/schemas/index.js"
+import type { ClientBundle, ClientResolver, HulyClientBundleError } from "../runtime/client-resolver.js"
 import type { HostedHulyMigrationInstructions } from "../huly/unavailable-diagnostics.js"
 import { TelemetryService } from "../telemetry/telemetry.js"
 import { writeStderrLine } from "../utils/stderr.js"
@@ -45,8 +46,10 @@ interface McpServerConfigData {
 }
 
 interface McpServerConfigCallbacks {
-  readonly resolveClients: () => Promise<ClientBundle>
-  readonly resolveClientLeaseForHttpRequest?: (req: Request) => Promise<RequestClientLease>
+  readonly resolveClients: ClientResolver
+  readonly resolveClientLeaseForHttpRequest?: (
+    req: Request
+  ) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>
   readonly getRuntimeConfigContext?: () => SanitizedHulyRuntimeConfigContext
   readonly getRuntimeConfigContextForHttpRequest?: (req: Request) => SanitizedHulyRuntimeConfigContext
   readonly createServer?: (instructions?: HostedHulyMigrationInstructions) => Server

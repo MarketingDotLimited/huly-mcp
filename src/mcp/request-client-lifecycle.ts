@@ -1,6 +1,6 @@
 import type { Server } from "@modelcontextprotocol/server"
 
-import type { ClientBundle } from "./protocol-handlers.js"
+import type { ClientBundle } from "../runtime/client-resolver.js"
 
 export interface RequestClientLease<A = ClientBundle> {
   readonly bundle: A

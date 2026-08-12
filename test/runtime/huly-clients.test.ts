@@ -1,8 +1,8 @@
-import { Effect, Layer } from "effect"
+import { Cause, Effect, Exit, Layer } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { HulyClient } from "../../src/huly/client.js"
-import { HulyUnavailableError } from "../../src/huly/errors.js"
+import { HulyConnectionError, HulyUnavailableError } from "../../src/huly/errors.js"
 import { HulyStorageClient } from "../../src/huly/storage.js"
 import { normalizeHulyOrigin } from "../../src/huly/unavailable-diagnostics.js"
 import { WorkspaceClient } from "../../src/huly/workspace-client.js"
@@ -41,28 +41,38 @@ describe("shared Huly client runtime", () => {
     const second = await resolve()
 
     expect(second).toBe(first)
+    expect(Exit.isSuccess(first)).toBe(true)
 
     const primedBundle = await Effect.runPromise(buildClientBundle(clientLayer))
     const [resolvePrimed, prime] = createClientResolver(clientLayer)
     prime(primedBundle)
 
-    await expect(resolvePrimed()).resolves.toBe(primedBundle)
+    const primed = await resolvePrimed()
+    expect(Exit.isSuccess(primed) && primed.value).toBe(primedBundle)
   })
 
-  it("evicts an unavailable acquisition so a later call can recover", async () => {
+  it("evicts a mixed acquisition containing unavailability so a later call can recover", async () => {
     let available = false
     const unavailable = new HulyUnavailableError({
       endpointOrigin: normalizeHulyOrigin("https://huly.app"),
       failureKind: "refused"
     })
     const recoverableLayer = Layer.suspend(() =>
-      available ? clientLayer : Layer.merge(Layer.fail(unavailable), clientLayer)
+      available
+        ? clientLayer
+        : clientLayer.pipe(
+            Layer.tap(() =>
+              Effect.failCause(
+                Cause.combine(Cause.fail(new HulyConnectionError({ message: "connection" })), Cause.fail(unavailable))
+              )
+            )
+          )
     )
     const [resolve] = createClientResolver(recoverableLayer)
 
-    await expect(resolve()).rejects.toBeDefined()
+    expect(Exit.isFailure(await resolve())).toBe(true)
     available = true
-    await expect(resolve()).resolves.toBeDefined()
+    expect(Exit.isSuccess(await resolve())).toBe(true)
   })
 
   it("does not evict a newer primed bundle after an unavailable acquisition fails", async () => {
@@ -70,13 +80,52 @@ describe("shared Huly client runtime", () => {
       endpointOrigin: normalizeHulyOrigin("https://huly.app"),
       failureKind: "refused"
     })
-    const failingLayer = Layer.merge(Layer.fail(unavailable), clientLayer)
+    const failingLayer = clientLayer.pipe(Layer.tap(() => Effect.fail(unavailable)))
     const [resolve, prime] = createClientResolver(failingLayer)
     const primedBundle = await Effect.runPromise(buildClientBundle(clientLayer))
     const failedAcquisition = resolve()
     prime(primedBundle)
 
-    await expect(failedAcquisition).rejects.toBeDefined()
-    await expect(resolve()).resolves.toBe(primedBundle)
+    expect(Exit.isFailure(await failedAcquisition)).toBe(true)
+    const primed = await resolve()
+    expect(Exit.isSuccess(primed) && primed.value).toBe(primedBundle)
+  })
+
+  it("keeps non-unavailable failures cached", async () => {
+    let acquisitions = 0
+    const failingLayer = Layer.suspend(() => {
+      acquisitions += 1
+      return clientLayer.pipe(Layer.tap(() => Effect.fail(new HulyConnectionError({ message: "stable failure" }))))
+    })
+    const [resolve] = createClientResolver(failingLayer)
+
+    const first = await resolve()
+    const second = await resolve()
+
+    expect(Exit.isFailure(first)).toBe(true)
+    expect(second).toBe(first)
+    expect(acquisitions).toBe(1)
+  })
+
+  it("does not evict an unavailable failure mixed with a defect", async () => {
+    let acquisitions = 0
+    const unavailable = new HulyUnavailableError({
+      endpointOrigin: normalizeHulyOrigin("https://huly.app"),
+      failureKind: "refused"
+    })
+    const failingLayer = Layer.suspend(() => {
+      acquisitions += 1
+      return clientLayer.pipe(
+        Layer.tap(() => Effect.failCause(Cause.combine(Cause.fail(unavailable), Cause.die("token=secret"))))
+      )
+    })
+    const [resolve] = createClientResolver(failingLayer)
+
+    const first = await resolve()
+    const second = await resolve()
+
+    expect(Exit.isFailure(first)).toBe(true)
+    expect(second).toBe(first)
+    expect(acquisitions).toBe(1)
   })
 })

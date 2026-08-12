@@ -192,6 +192,38 @@ build, domain Schema, CLI, service, Cause/Exit, and test collection categories
 remain assigned to later tickets. Complete registry JSON Schema parity remains
 deferred until every domain-owned generator has moved through the sole adapter.
 
+## Ticket #214 Cause/Exit seam delta
+
+The flattened Cause interpreter and CLI process boundary pass independently:
+
+```bash
+mise exec node@22.22.2 -- pnpm exec vitest run \
+  test/runtime/cause-exit.test.ts \
+  test/runtime/schema-error-format.test.ts \
+  test/cli/process-failures.test.ts
+```
+
+Result: 3 files and 18 tests pass. The matrix covers successful and failed
+`runPromiseExit` boundaries, typed failures, defects, interruption, empty and
+multiple ordered reasons, Effect 3-compatible parse-error wording, and
+process-level sanitization. Client acquisition now resolves with `Exit`;
+production code no longer recognizes or renders a FiberFailure wrapper. The
+neutral client-resolver port and protocol/server callbacks now carry that Exit
+contract. The MCP mapping, resource, registry, and client-runtime suites remain
+collection-blocked before their tests run by already-assigned domain Schema and
+service declaration failures (`Schema.Union`, removed filter combinators, and
+v3 `Context.Tag` shapes).
+The blocked client-runtime suite contains the focused unavailable-eviction,
+non-recoverable caching, and priming-race assertions for when #215 unlocks its
+imports.
+
+The compiler inventory falls from 9,325 diagnostics in 504 files to 9,257 in
+501 files: 5,861 in `src` (312 files), 2,861 in `test` (147 files), 368 in
+`scripts` (31 files), and 167 in `packages` (11 files). The neutral resolver and
+compatibility formatter add no owned-scope compiler failures. Remaining service
+declaration diagnostics belong to #215; remaining test diagnostics include
+Exit-consumer updates assigned to their domain and lifecycle tickets.
+
 ## Ledger maintenance rule
 
 Every migration batch must rerun the focused surface it owns and update this

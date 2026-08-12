@@ -1,13 +1,14 @@
-import { Cause, Chunk, Context, Effect, Exit, Layer, Runtime, Scope } from "effect"
+import { type Cause, Context, Effect, Exit, Layer, Scope } from "effect"
 
-import { type ConfigValidationError, HulyConfigService } from "../config/config.js"
-import { HulyClient, type HulyClientError } from "../huly/client.js"
+import { HulyConfigService } from "../config/config.js"
+import { HulyClient } from "../huly/client.js"
 import { HulyUnavailableError } from "../huly/errors.js"
-import { HulyStorageClient, type StorageClientError } from "../huly/storage.js"
+import { HulyStorageClient } from "../huly/storage.js"
 import { WorkspaceClient } from "../huly/workspace-client.js"
-import type { ClientBundle } from "../mcp/server.js"
+import { findRecoverableCauseFailure } from "./cause-exit.js"
+import type { ClientBundle, ClientResolver, HulyClientBundleError } from "./client-resolver.js"
 
-type HulyClientBundleError = ConfigValidationError | HulyClientError | StorageClientError
+export type { ClientBundle, ClientResolver, HulyClientBundleError } from "./client-resolver.js"
 
 export type CombinedClientLayer = Layer.Layer<
   HulyClient | HulyStorageClient | WorkspaceClient,
@@ -54,6 +55,12 @@ export const buildScopedClientBundle = (
     }
   })
 
+const isUnavailableCause = (cause: Cause.Cause<HulyClientBundleError>): boolean =>
+  findRecoverableCauseFailure(
+    cause,
+    (failure): failure is HulyUnavailableError => failure instanceof HulyUnavailableError
+  ) !== undefined
+
 /**
  * Create a memoized client resolver that builds layers on first call
  * and keeps the scope alive for the process lifetime.
@@ -61,28 +68,24 @@ export const buildScopedClientBundle = (
  */
 export const createClientResolver = (
   combinedClientLayer: CombinedClientLayer
-): readonly [resolve: () => Promise<ClientBundle>, prime: (bundle: ClientBundle) => void] => {
-  let clientsPromise: Promise<ClientBundle> | null = null
+): readonly [resolve: ClientResolver, prime: (bundle: ClientBundle) => void] => {
+  let clientsPromise: Promise<Exit.Exit<ClientBundle, HulyClientBundleError>> | null = null
 
-  const resolve = (): Promise<ClientBundle> => {
+  const resolve = (): Promise<Exit.Exit<ClientBundle, HulyClientBundleError>> => {
     if (clientsPromise === null) {
-      const acquisition = Effect.runPromise(buildClientBundle(combinedClientLayer))
+      const acquisition = Effect.runPromiseExit(buildClientBundle(combinedClientLayer))
       clientsPromise = acquisition
-      void acquisition.catch((error: unknown) => {
-        const unavailable =
-          error instanceof HulyUnavailableError ||
-          (Runtime.isFiberFailure(error) &&
-            Chunk.toArray(Cause.failures(error[Runtime.FiberFailureCauseId])).some(
-              (failure) => failure instanceof HulyUnavailableError
-            ))
-        if (unavailable && clientsPromise === acquisition) clientsPromise = null
+      void acquisition.then((exit) => {
+        if (Exit.isFailure(exit) && isUnavailableCause(exit.cause) && clientsPromise === acquisition) {
+          clientsPromise = null
+        }
       })
     }
     return clientsPromise
   }
 
   const prime = (bundle: ClientBundle): void => {
-    clientsPromise = Promise.resolve(bundle)
+    clientsPromise = Promise.resolve(Exit.succeed(bundle))
   }
 
   return [resolve, prime] as const

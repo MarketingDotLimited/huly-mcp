@@ -1,16 +1,17 @@
 import type { Server } from "@modelcontextprotocol/server"
 import type { GetHulyContextResult } from "../domain/schemas/index.js"
 import type { HostedHulyMigrationInstructions } from "../huly/unavailable-diagnostics.js"
+import type { ClientResolver } from "../runtime/client-resolver.js"
 import type { TelemetryOperations } from "../telemetry/telemetry.js"
 import type { ToolExposureContext } from "./huly-context-tool.js"
-import { type ClientBundle, createMcpProtocolHandlers } from "./protocol-handlers.js"
+import { createMcpProtocolHandlers } from "./protocol-handlers.js"
 import { type ProtocolExposureOptions, type ProtocolToolRegistries } from "./protocol-tool-exposure.js"
 import { createDefaultMcpSdkServer } from "./sdk-server.js"
 import { noToolCallNoticeProvider, type ToolCallNoticeProvider } from "./tool-call-notices.js"
 import { parseMcpClientInfo } from "./tool-mode.js"
 import type { ToolRegistry } from "./tools/index.js"
 
-export type { ClientBundle } from "./protocol-handlers.js"
+export type { ClientBundle } from "../runtime/client-resolver.js"
 
 type McpServerHandle = readonly [server: Server, drainInflight: () => Promise<void>]
 
@@ -22,7 +23,7 @@ const currentClientInfoFromServer = (
 }
 
 export const createMcpServer = (
-  resolveClients: () => Promise<ClientBundle>,
+  resolveClients: ClientResolver,
   telemetry: TelemetryOperations,
   registry: ToolRegistry | ProtocolToolRegistries,
   getHulyContext: (toolExposure: ToolExposureContext) => GetHulyContextResult,

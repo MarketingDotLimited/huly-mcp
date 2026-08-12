@@ -14,11 +14,12 @@ import type { Class, Doc, FindResult, PersonId, Ref, Space, Status, WithLookup }
 import { toFindResult } from "@hcengineering/core"
 import type { ProjectType } from "@hcengineering/task"
 import { type Project as HulyProject, TimeReportDayType } from "@hcengineering/tracker"
-import { ProtocolError } from "@modelcontextprotocol/server"
-import { Context, Effect, Layer, Schema } from "effect"
+import { ProtocolError, ProtocolErrorCode } from "@modelcontextprotocol/server"
+import { Context, Effect, Exit, Layer, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { ConfigValidationError, sanitizeHulyRuntimeConfigFromEnv } from "../../src/config/config.js"
+import type { ClientBundle, ClientResolver } from "../../src/runtime/client-resolver.js"
 import { CanonicalBase64ImageData } from "../../src/domain/schemas/attachments.js"
 import { type GetHulyContextResult, GetHulyContextResultSchema } from "../../src/domain/schemas/index.js"
 import { HulyClient, type HulyClientOperations } from "../../src/huly/client.js"
@@ -36,7 +37,6 @@ import {
   VERSION_TOOL_NAME
 } from "../../src/mcp/huly-context-tool.js"
 import {
-  type ClientBundle,
   createMcpProtocolHandlers,
   deriveEditMode,
   fetchLatestNpmVersion,
@@ -70,7 +70,7 @@ const emptyRegistry = createFilteredRegistry(categorySet())
 
 // Clients/context are never reached on the paths under test; throwing makes accidental
 // use loud instead of silently passing.
-const unusedResolveClients = (): Promise<ClientBundle> =>
+const unusedResolveClients: ClientResolver = () =>
   Promise.reject(new Error("resolveClients must not be called on this path"))
 const unusedGetHulyContext = (): GetHulyContextResult => {
   throw new Error("getHulyContext must not be called on this path")
@@ -342,7 +342,7 @@ describe("createMcpProtocolHandlers", () => {
 // Build a real ClientBundle from the client test layers (no mocks): the layer
 // services are plain objects, so they survive scope closure.
 const buildStubClients =
-  (hulyOps: Partial<HulyClientOperations> = {}): (() => Promise<ClientBundle>) =>
+  (hulyOps: Partial<HulyClientOperations> = {}): ClientResolver =>
   () =>
     Effect.runPromise(
       Effect.gen(function* () {
@@ -351,9 +351,9 @@ const buildStubClients =
         ).pipe(Effect.scoped)
         return { hulyClient: Context.get(ctx, HulyClient), storageClient: Context.get(ctx, HulyStorageClient) }
       })
-    )
+    ).then(Exit.succeed)
 
-const buildStubClientsWithWorkspace = (): (() => Promise<ClientBundle>) => () =>
+const buildStubClientsWithWorkspace = (): ClientResolver => () =>
   Effect.runPromise(
     Effect.gen(function* () {
       const ctx = yield* Layer.build(
@@ -365,7 +365,7 @@ const buildStubClientsWithWorkspace = (): (() => Promise<ClientBundle>) => () =>
         workspaceClient: Context.get(ctx, WorkspaceClient)
       }
     })
-  )
+  ).then(Exit.succeed)
 
 const emptyFindResult = <T extends Doc>(): FindResult<T> => toFindResult([] satisfies Array<T>)
 
@@ -413,7 +413,7 @@ const projectWithTypeLookupFixture = (statusId: Ref<Status>, projectType: Projec
     $lookup: { type: projectType }
   }) as unknown as ProjectWithTypeLookup
 
-const buildResourceWarningClients = (): (() => Promise<ClientBundle>) => {
+const buildResourceWarningClients = (): ClientResolver => {
   const statusId = "plainstatus" as Ref<Status>
   const projectType = projectTypeFixture(statusId)
   const project = projectWithTypeLookupFixture(statusId, projectType)
@@ -430,13 +430,15 @@ const buildResourceWarningClients = (): (() => Promise<ClientBundle>) => {
   return buildStubClients({ findOne, findAll, findAllInModel })
 }
 
-const rejectingResolveClients = (): Promise<ClientBundle> => Promise.reject(new Error("client init boom"))
-const rejectingResolveClientsWithString = (): Promise<ClientBundle> => Promise.reject("client init boom")
+const rejectingResolveClients: ClientResolver = () => Promise.reject(new Error("client init boom"))
+const rejectingSensitiveResolveClients: ClientResolver = () => Promise.reject(new Error("token=secret"))
+const rejectingResolveClientsWithString: ClientResolver = () => Promise.reject("client init boom")
+const failedClientResolution: ClientResolver = () =>
+  Promise.resolve(Exit.fail(new HulyConnectionError({ message: "token=secret" })))
 const configValidationError = (): ConfigValidationError =>
   new ConfigValidationError({ message: "Configuration error: Expected HULY_URL to exist", field: "HULY_URL" })
-const rejectingDirectConfigResolveClients = (): Promise<ClientBundle> => Promise.reject(configValidationError())
-const rejectingFiberConfigResolveClients = (): Promise<ClientBundle> =>
-  Effect.runPromise(Effect.fail(configValidationError()))
+const rejectingDirectConfigResolveClients: ClientResolver = () => Promise.reject(configValidationError())
+const configFailureResolveClients: ClientResolver = () => Effect.runPromiseExit(Effect.fail(configValidationError()))
 
 const makeContextFromEnv = (env: Record<string, string>): GetHulyContextResult =>
   buildHulyContext(
@@ -1031,6 +1033,21 @@ describe("createMcpProtocolHandlers — tool dispatch", () => {
     expect(probe.toolCalled[0]?.status).toBe("error")
   })
 
+  it("maps an Exit-valued client-resolution failure without exposing its detail", async () => {
+    const handlers = createMcpProtocolHandlers(
+      failedClientResolution,
+      createTelemetryProbe().telemetry,
+      toolRegistry,
+      unusedGetHulyContext
+    )
+
+    const response = await handlers.callTool({ params: { name: "list_projects", arguments: {} } })
+
+    expect(response.isError).toBe(true)
+    expect(firstText(response.content)).toContain("Connection error while communicating with Huly")
+    expect(JSON.stringify(response)).not.toContain("token=secret")
+  })
+
   it("maps a non-Error client-resolution rejection to an error", async () => {
     const probe = createTelemetryProbe()
     const handlers = createMcpProtocolHandlers(
@@ -1556,6 +1573,29 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     expect(probe.toolCalled.map((call) => call.status)).toEqual(["error", "error"])
   })
 
+  it("maps an Exit-valued proxy client failure without exposing its detail", async () => {
+    const handlers = createMcpProtocolHandlers(
+      failedClientResolution,
+      createTelemetryProbe().telemetry,
+      protocolRegistries(diagnosticProbeRegistry),
+      makeValidContext,
+      liveNowClock,
+      () => Promise.resolve("0.0.0"),
+      proxyExposureOptions()
+    )
+
+    const response = await handlers.callTool({
+      params: {
+        name: "invoke_tool",
+        arguments: { toolName: "diagnostic_probe", arguments: { subject: "client failure" } }
+      }
+    })
+
+    expect(response.isError).toBe(true)
+    expect(firstText(response.content)).toContain("Connection error while communicating with Huly")
+    expect(JSON.stringify(response)).not.toContain("token=secret")
+  })
+
   it("wraps content-only proxy target output without warnings", async () => {
     const handlers = createMcpProtocolHandlers(
       buildStubClients(),
@@ -1748,7 +1788,7 @@ describe("createMcpProtocolHandlers — resource handlers", () => {
 
   it("returns an empty resource list when no Huly config is present during registry inspection", async () => {
     const handlers = createMcpProtocolHandlers(
-      rejectingFiberConfigResolveClients,
+      configFailureResolveClients,
       createTelemetryProbe().telemetry,
       emptyRegistry,
       makeValidContext
@@ -1768,19 +1808,24 @@ describe("createMcpProtocolHandlers — resource handlers", () => {
     await expect(handlers.listResources()).resolves.toEqual({ resources: [] })
   })
 
-  it("throws an McpError when client resolution fails while listing resources", async () => {
+  it("sanitizes a rejected injected resolver while listing resources", async () => {
     const handlers = createMcpProtocolHandlers(
-      rejectingResolveClients,
+      rejectingSensitiveResolveClients,
       createTelemetryProbe().telemetry,
       emptyRegistry,
       unusedGetHulyContext
     )
-    await expect(handlers.listResources()).rejects.toThrow(ProtocolError)
+    await expect(handlers.listResources()).rejects.toThrow(
+      new ProtocolError(
+        ProtocolErrorCode.InternalError,
+        "Failed to initialize Huly clients Unable to list Huly resources."
+      )
+    )
   })
 
   it("returns an empty resource list when registry inspection provides empty Huly config placeholders", async () => {
     const handlers = createMcpProtocolHandlers(
-      rejectingFiberConfigResolveClients,
+      configFailureResolveClients,
       createTelemetryProbe().telemetry,
       emptyRegistry,
       () => makeContextFromEnv({ HULY_URL: "", HULY_WORKSPACE: "", HULY_TOKEN: "" })
@@ -1791,7 +1836,7 @@ describe("createMcpProtocolHandlers — resource handlers", () => {
 
   it("returns an empty resource list for config validation failures even when runtime context construction fails", async () => {
     const handlers = createMcpProtocolHandlers(
-      rejectingFiberConfigResolveClients,
+      configFailureResolveClients,
       createTelemetryProbe().telemetry,
       emptyRegistry,
       unusedGetHulyContext
@@ -1810,14 +1855,19 @@ describe("createMcpProtocolHandlers — resource handlers", () => {
     await expect(handlers.listResources()).rejects.toThrow(ProtocolError)
   })
 
-  it("throws an McpError when client resolution fails while reading a resource", async () => {
+  it("sanitizes a rejected injected resolver while reading a resource", async () => {
     const handlers = createMcpProtocolHandlers(
-      rejectingResolveClients,
+      rejectingSensitiveResolveClients,
       createTelemetryProbe().telemetry,
       emptyRegistry,
       unusedGetHulyContext
     )
-    await expect(handlers.readResource({ params: { uri: "huly://projects/TEST" } })).rejects.toThrow(ProtocolError)
+    await expect(handlers.readResource({ params: { uri: "huly://projects/TEST" } })).rejects.toThrow(
+      new ProtocolError(
+        ProtocolErrorCode.InternalError,
+        'Failed to initialize Huly clients Unable to read resource "huly://projects/TEST".'
+      )
+    )
   })
 
   it("wraps a non-McpError defect into an McpError while listing resources", async () => {
