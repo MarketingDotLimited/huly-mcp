@@ -34,7 +34,7 @@ import { Context, Effect, Layer } from "effect"
 import { HulyConfigService } from "../config/config.js"
 import type { SpaceId } from "../domain/schemas/shared.js"
 import { authToOptions, type ConnectionConfig, type ConnectionError, connectWithRetry } from "./client.js"
-import { HulyConnectionError } from "./errors.js"
+import { HulyConnectionError } from "./errors-base.js"
 import { HulySdk, type HulySdkDependencies } from "./sdk-deps.js"
 
 export type WorkspaceClientError = ConnectionError
@@ -92,7 +92,7 @@ export class WorkspaceClient extends Context.Service<WorkspaceClient, WorkspaceC
     WorkspaceClient,
     WorkspaceClientError,
     HulyConfigService | HulySdk
-  > = Layer.scoped(
+  > = Layer.effect(
     WorkspaceClient,
     Effect.gen(function* () {
       const config = yield* HulyConfigService

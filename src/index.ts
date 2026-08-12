@@ -8,12 +8,10 @@
 import "./polyfills.js"
 
 import { NodeRuntime } from "@effect/platform-node"
-import type { ConfigError } from "effect"
-import { Config, ConfigProvider, Effect, Exit, Layer, Option, Redacted, Schema } from "effect"
+import { Config, Effect, Exit, Layer, Option, Redacted } from "effect"
 
 import {
   type ConfigValidationError,
-  hulyConfigProviderFromHeaders,
   sanitizeHulyRuntimeConfigFromEnv,
   sanitizeHulyRuntimeConfigFromHeaders
 } from "./config/config.js"
@@ -30,16 +28,15 @@ import type { RequestClientLease } from "./mcp/request-client-lifecycle.js"
 import { type McpServerError, McpServerService, type McpTransportType } from "./mcp/server.js"
 import { type ConsoleRedirectHandle, redirectConsoleToStderr } from "./mcp/stdio-output.js"
 import {
-  buildClientBundle,
   buildCombinedClientLayer,
-  buildScopedClientBundle,
-  type CombinedClientLayer,
-  createClientResolver
+  createClientResolver,
+  isRecoverableClientUnavailableCause
 } from "./runtime/huly-clients.js"
 import type { ClientBundle, ClientResolver, HulyClientBundleError } from "./runtime/client-resolver.js"
+import { createHttpClientLeaseResolver } from "./runtime/http-client-leases.js"
 import { TelemetryService } from "./telemetry/telemetry.js"
 
-type AppError = ConfigValidationError | HulyClientError | StorageClientError | McpServerError | ConfigError.ConfigError
+type AppError = ConfigValidationError | HulyClientError | StorageClientError | McpServerError | Config.ConfigError
 
 const getTransportType = Config.string("MCP_TRANSPORT").pipe(
   Config.withDefault("stdio"),
@@ -51,12 +48,9 @@ const getTransportType = Config.string("MCP_TRANSPORT").pipe(
 
 type HttpPortConfigName = "MCP_HTTP_PORT" | "PORT"
 
-const httpPortConfig = (name: HttpPortConfigName) =>
-  Config.integer(name).pipe(
-    Config.validate({ message: "must be a whole number between 0 and 65535", validation: Schema.is(HttpPort) })
-  )
+const httpPortConfig = (name: HttpPortConfigName) => Config.schema(HttpPort, name)
 
-export const getHttpPort: Effect.Effect<HttpPort, ConfigError.ConfigError> = Config.all({
+export const getHttpPort: Effect.Effect<HttpPort, Config.ConfigError> = Config.all({
   mcpHttpPort: httpPortConfig("MCP_HTTP_PORT").pipe(Config.option),
   cloudRunPort: httpPortConfig("PORT").pipe(Config.option)
 }).pipe(
@@ -65,8 +59,7 @@ export const getHttpPort: Effect.Effect<HttpPort, ConfigError.ConfigError> = Con
   )
 )
 
-const getHttpHost: Effect.Effect<HttpHost, ConfigError.ConfigError> = Config.string("MCP_HTTP_HOST").pipe(
-  Config.validate({ message: "must be a non-empty trimmed host", validation: Schema.is(HttpHost) }),
+const getHttpHost: Effect.Effect<HttpHost, Config.ConfigError> = Config.schema(HttpHost, "MCP_HTTP_HOST").pipe(
   Config.withDefault(DEFAULT_HTTP_HOST)
 )
 
@@ -89,34 +82,6 @@ const restoreConsoleRedirect = (redirect: ConsoleRedirectHandle | undefined): Ef
   })
 
 const webHeadersRecord = (headers: Headers): Record<string, string> => Object.fromEntries(headers.entries())
-
-const createHttpClientLeaseResolver =
-  (
-    combinedClientLayer: CombinedClientLayer,
-    resolveEnvClients: () => Promise<Exit.Exit<ClientBundle, HulyClientBundleError>>
-  ): ((req: Request) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>) =>
-  async (req) => {
-    const headers = webHeadersRecord(req.headers)
-    const providerExit = await Effect.runPromiseExit(hulyConfigProviderFromHeaders(headers))
-    if (Exit.isFailure(providerExit)) {
-      const bundle: Exit.Exit<ClientBundle, HulyClientBundleError> = Exit.failCause(providerExit.cause)
-      return { bundle, close: () => {} }
-    }
-    const configProvider = providerExit.value
-    if (configProvider === undefined) {
-      return resolveEnvClients().then((bundle) => ({ bundle, close: () => {} }))
-    }
-
-    const clientExit = await Effect.runPromiseExit(
-      buildScopedClientBundle(combinedClientLayer).pipe(
-        Effect.provideService(ConfigProvider.ConfigProvider, configProvider),
-        Effect.map(({ bundle, close }) => ({ bundle: Exit.succeed(bundle), close }))
-      )
-    )
-    if (Exit.isSuccess(clientExit)) return clientExit.value
-    const bundle: Exit.Exit<ClientBundle, HulyClientBundleError> = Exit.failCause(clientExit.cause)
-    return { bundle, close: () => {} }
-  }
 
 const buildAppLayer = (
   transport: McpTransportType,
@@ -159,39 +124,40 @@ const runConfiguredServer = (transport: McpTransportType): Effect.Effect<void, A
     const authMethod: "token" | "password" = process.env["HULY_TOKEN"] ? "token" : "password"
 
     const combinedClientLayer = buildCombinedClientLayer()
-    const [resolveClients, primeClients] = createClientResolver(combinedClientLayer)
-    const resolveHttpClientLease = createHttpClientLeaseResolver(combinedClientLayer, resolveClients)
+    yield* Effect.acquireUseRelease(
+      Effect.sync(() => createClientResolver(combinedClientLayer)),
+      ([resolveClients]) => {
+        const resolveHttpClientLease = createHttpClientLeaseResolver(combinedClientLayer, resolveClients)
+        return Effect.gen(function* () {
+          if (!lazyEnvs && transport === "stdio") {
+            // Eager init uses the same process-owned resolver as subsequent tool calls.
+            yield* Effect.gen(function* () {
+              const clientExit = yield* Effect.promise(resolveClients)
+              if (Exit.isSuccess(clientExit) || isRecoverableClientUnavailableCause(clientExit.cause)) return
+              return yield* Effect.failCause(clientExit.cause)
+            })
+          }
 
-    if (!lazyEnvs && transport === "stdio") {
-      // Eager init: build client layers within the Effect pipeline to preserve
-      // typed errors (ConfigValidationError, HulyClientError, etc.).
-      // This also primes the memoized resolver for subsequent tool calls.
-      yield* Effect.gen(function* () {
-        const bundle = yield* buildClientBundle(combinedClientLayer)
-        primeClients(bundle)
-      }).pipe(
-        // A network outage must not prevent the stdio transport from accepting
-        // initialize and returning its typed, actionable tool-call failure.
-        Effect.catchTag("HulyUnavailableError", () => Effect.void)
-      )
-    }
+          // stdout reserved for MCP protocol in stdio mode - no console output here
+          const appLayer = buildAppLayer(
+            transport,
+            httpPort,
+            httpHost,
+            mcpAuthToken,
+            autoExit,
+            authMethod,
+            resolveClients,
+            resolveHttpClientLease
+          )
 
-    // stdout reserved for MCP protocol in stdio mode - no console output here
-    const appLayer = buildAppLayer(
-      transport,
-      httpPort,
-      httpHost,
-      mcpAuthToken,
-      autoExit,
-      authMethod,
-      resolveClients,
-      resolveHttpClientLease
+          yield* Effect.gen(function* () {
+            const server = yield* McpServerService
+            yield* server.run()
+          }).pipe(Effect.provide(appLayer), Effect.scoped)
+        })
+      },
+      ([, , closeClients]) => Effect.promise(closeClients)
     )
-
-    yield* Effect.gen(function* () {
-      const server = yield* McpServerService
-      yield* server.run()
-    }).pipe(Effect.provide(appLayer), Effect.scoped)
   })
 
 export const main: Effect.Effect<void, AppError> = Effect.gen(function* () {

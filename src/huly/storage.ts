@@ -18,19 +18,17 @@ import { AttachmentByteSize } from "../domain/schemas/domain-values.js"
 import { BlobId, NonEmptyString, UrlString } from "../domain/schemas/shared.js"
 import { concatLink } from "../utils/url.js"
 import { authToOptions, connectWithRetry } from "./client.js"
+import { type HulyAuthError, type HulyConnectionError, type HulyUnavailableError } from "./errors-base.js"
 import {
   FileFetchError,
   FileNotFoundError,
   FileTooLargeError,
   FileUploadError,
-  type HulyAuthError,
-  type HulyConnectionError,
   HulyStorageConfigError,
-  type HulyUnavailableError,
   InvalidContentTypeError,
   InvalidFileDataError,
   MAX_FILE_SIZE
-} from "./errors.js"
+} from "./errors-files.js"
 import { toRef } from "./operations/sdk-boundary.js"
 import { HulySdk, type HulySdkDependencies } from "./sdk-deps.js"
 import { fetchFromUrl } from "./url-fetch.js"
@@ -183,7 +181,7 @@ export class HulyStorageClient extends Context.Service<HulyStorageClient, HulySt
     HulyStorageClient,
     StorageClientError,
     HulyConfigService | HulySdk
-  > = Layer.scoped(
+  > = Layer.effect(
     HulyStorageClient,
     Effect.gen(function* () {
       const config = yield* HulyConfigService
@@ -285,14 +283,15 @@ type HulyStorageFilesConfig = Schema.Schema.Type<typeof HulyStorageFilesConfigSc
 type HulyStorageUploadConfig = Schema.Schema.Type<typeof HulyStorageUploadConfigSchema>
 type HulyServerStorageConfig = HulyStorageFilesConfig & HulyStorageUploadConfig
 const parseHulyServerStorageConfig = (input: unknown): Effect.Effect<HulyServerStorageConfig, HulyStorageConfigError> =>
-  Effect.all([
-    Schema.decodeUnknown(HulyStorageFilesConfigSchema)(input).pipe(
+  Effect.gen(function* () {
+    const filesConfig = yield* Schema.decodeUnknownEffect(HulyStorageFilesConfigSchema)(input).pipe(
       Effect.mapError(() => new HulyStorageConfigError({ field: "FILES_URL" }))
-    ),
-    Schema.decodeUnknown(HulyStorageUploadConfigSchema)(input).pipe(
+    )
+    const uploadConfig = yield* Schema.decodeUnknownEffect(HulyStorageUploadConfigSchema)(input).pipe(
       Effect.mapError(() => new HulyStorageConfigError({ field: "UPLOAD_URL" }))
     )
-  ]).pipe(Effect.map(([filesConfig, uploadConfig]) => ({ ...filesConfig, ...uploadConfig })))
+    return { ...filesConfig, ...uploadConfig }
+  })
 
 const STORAGE_URL_PLACEHOLDER = { blobId: ":blobId", filename: ":filename", workspace: ":workspace" } as const
 const STORAGE_FILE_PLACEHOLDERS = [STORAGE_URL_PLACEHOLDER.blobId, STORAGE_URL_PLACEHOLDER.filename] as const

@@ -12,7 +12,7 @@ import type { LookupFunction } from "node:net"
 import { Effect } from "effect"
 
 import { assertAt } from "../utils/assertions.js"
-import { FileFetchError, MAX_FILE_SIZE } from "./errors.js"
+import { FileFetchError, MAX_FILE_SIZE } from "./errors-files.js"
 
 const FETCH_TIMEOUT_MS = 30_000
 const HTTP_PROTOCOLS = new Set(["http:", "https:"])

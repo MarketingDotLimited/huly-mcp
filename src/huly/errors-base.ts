@@ -16,7 +16,7 @@ import {
  */
 export class HulyError extends Schema.TaggedError<HulyError>()("HulyError", {
   message: Schema.String,
-  cause: Schema.optional(Schema.Defect)
+  cause: Schema.optional(Schema.Defect())
 }) {}
 
 /**
@@ -36,14 +36,14 @@ export class NoUpdateFieldsError extends Schema.TaggedError<NoUpdateFieldsError>
  */
 export class HulyConnectionError extends Schema.TaggedError<HulyConnectionError>()("HulyConnectionError", {
   message: Schema.String,
-  cause: Schema.optional(Schema.Defect)
+  cause: Schema.optional(Schema.Defect())
 }) {}
 
 /** A sanitized connection failure that permits safe, actionable MCP guidance. */
 export class HulyUnavailableError extends Schema.TaggedError<HulyUnavailableError>()("HulyUnavailableError", {
   endpointOrigin: HulyEndpointOriginSchema,
   failureKind: HulyUnavailableFailureKindSchema,
-  detailCode: Schema.optionalWith(HulyUnavailableDetailCodeSchema, { exact: true })
+  detailCode: Schema.optionalKey(HulyUnavailableDetailCodeSchema)
 }) {}
 
 /**
@@ -51,7 +51,7 @@ export class HulyUnavailableError extends Schema.TaggedError<HulyUnavailableErro
  */
 export class HulyAuthError extends Schema.TaggedError<HulyAuthError>()("HulyAuthError", { message: Schema.String }) {}
 
-const HulyModelNameSchema = Schema.Literal(
+const HulyModelNameSchema = Schema.Literals([
   "Association",
   "Relation",
   "RelatedDocument",
@@ -59,10 +59,10 @@ const HulyModelNameSchema = Schema.Literal(
   "Document",
   "Teamspace",
   "Object"
-)
+])
 export type HulyModelName = Schema.Schema.Type<typeof HulyModelNameSchema>
 
-const HulyModelFieldSchema = Schema.Literal(
+const HulyModelFieldSchema = Schema.Literals([
   "_id",
   "_class",
   "association",
@@ -77,7 +77,7 @@ const HulyModelFieldSchema = Schema.Literal(
   "identifier",
   "space",
   "name"
-)
+])
 export type HulyModelField = Schema.Schema.Type<typeof HulyModelFieldSchema>
 
 /** Untrusted Huly SDK model metadata did not satisfy the domain boundary contract. */

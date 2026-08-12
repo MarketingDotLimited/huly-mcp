@@ -283,6 +283,42 @@ The compiler inventory falls from 7,363 diagnostics in 462 files to 7,262 in
 domain Schema, MCP lifecycle/transport, script, and CLI diagnostics retain their
 assigned tickets.
 
+## Ticket #217 client and runtime lifecycle delta
+
+Client, storage, and workspace layers now use rc.108 resource APIs. The
+process-level resolver owns the scope of its memoized bundle and exposes an
+idempotent close operation; bootstrap brackets that resolver with
+`Effect.acquireUseRelease`. Eager stdio acquisition uses the same resolver,
+recoverable unavailable failures retain Exit-aware eviction, fatal failures stay
+cached, pending acquisition is interruptible, and primed bundles remain
+externally owned with awaitable ownership transfer. The real transaction client
+registers `client.close()` in its layer scope. Header-auth HTTP requests acquire
+isolated scoped bundles whose close operation is owned by the request lifecycle.
+The old unscoped `buildClientBundle` escape hatch was removed.
+
+```bash
+mise exec node@22.22.2 -- pnpm exec vitest run \
+  test/effect4/layer-isolation.test.ts \
+  test/runtime/scoped-client.test.ts \
+  test/runtime/huly-clients.test.ts \
+  test/runtime/http-client-leases.test.ts \
+  test/mcp/request-client-lifecycle.test.ts
+```
+
+Result: 5 files and 31 tests pass. The matrix covers successful acquisition,
+shared memoization, exact-once/idempotent release, post-close resolution,
+externally owned priming, recoverable retry, fatal caching, mixed fatal causes,
+prime races, pending-acquisition interruption, per-header workspace/credential
+isolation, env-cache separation, request success/failure/abort/shutdown, cleanup
+rejection, the real transaction client's scope-owned close hook, and shared
+versus `Layer.fresh` acquisition counts.
+
+The compiler inventory falls from 7,262 diagnostics in 457 files to 7,168 in
+446 files: 4,567 in `src` (280 files), 2,080 in `test` (125 files), 358 in
+`scripts` (30 files), and 163 in `packages` (11 files). Owned source and test
+files have zero TypeScript diagnostics; remaining domain Schema, MCP
+lifecycle/transport, script, and CLI diagnostics retain their assigned tickets.
+
 ## Ledger maintenance rule
 
 Every migration batch must rerun the focused surface it owns and update this

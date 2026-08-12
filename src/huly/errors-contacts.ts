@@ -8,7 +8,7 @@ import { Schema } from "effect"
 import { Count } from "../domain/schemas/shared.js"
 
 const MIN_AMBIGUOUS_PERSON_MATCHES = 2
-const AmbiguousMatchCount = Count.pipe(Schema.greaterThanOrEqualTo(MIN_AMBIGUOUS_PERSON_MATCHES))
+const AmbiguousMatchCount = Count.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(MIN_AMBIGUOUS_PERSON_MATCHES)))
 
 /**
  * Person (assignee) not found.

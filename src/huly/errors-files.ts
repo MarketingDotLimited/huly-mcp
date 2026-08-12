@@ -21,7 +21,7 @@ const RawDrawingIdentifier = Schema.String
 const RawFilename = Schema.String
 const RawMimeType = Schema.String
 const RawByteCount = Schema.Number
-const HulyStorageConfigField = Schema.Literal("FILES_URL", "UPLOAD_URL")
+const HulyStorageConfigField = Schema.Literals(["FILES_URL", "UPLOAD_URL"])
 
 export class HulyStorageConfigError extends Schema.TaggedError<HulyStorageConfigError>()("HulyStorageConfigError", {
   field: HulyStorageConfigField
@@ -36,7 +36,7 @@ export class HulyStorageConfigError extends Schema.TaggedError<HulyStorageConfig
  */
 export class FileUploadError extends Schema.TaggedError<FileUploadError>()("FileUploadError", {
   message: RawErrorMessage,
-  cause: Schema.optional(Schema.Defect)
+  cause: Schema.optional(Schema.Defect())
 }) {}
 
 /**

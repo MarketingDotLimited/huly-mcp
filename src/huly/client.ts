@@ -48,7 +48,7 @@ import {
   WorkspaceUrlSlug
 } from "../domain/schemas/shared.js"
 import { concatLink } from "../utils/url.js"
-import { HulyAuthError, HulyConnectionError, HulyUnavailableError } from "./errors.js"
+import { HulyAuthError, HulyConnectionError, HulyUnavailableError } from "./errors-base.js"
 import { PlatformError } from "./huly-platform.js"
 import {
   markdownInputUrlConfig,
@@ -58,6 +58,7 @@ import {
   transformMarkupNodeNativeReferenceLinks
 } from "./operations/markup.js"
 import { HulySdk, type HulySdkDependencies } from "./sdk-deps.js"
+import { acquireClosableClient } from "./scoped-client.js"
 import { classifyHulyUnavailableFailure, normalizeHulyOrigin } from "./unavailable-diagnostics.js"
 import { testWorkbenchUrlConfig, type WorkbenchUrlConfig } from "./url-builders.js"
 
@@ -106,10 +107,12 @@ const isAuthError = (error: unknown): boolean =>
   error instanceof PlatformError && AUTH_STATUS_CODES.has(error.status.code)
 
 const MAX_RETRIES = 2
-const connectionRetrySchedule = Schedule.exponential("100 millis").pipe(Schedule.compose(Schedule.recurs(MAX_RETRIES)))
+const connectionRetrySchedule = Schedule.exponential("100 millis")
 
 const withConnectionRetry = <A>(attempt: Effect.Effect<A, ConnectionError>): Effect.Effect<A, ConnectionError> =>
-  attempt.pipe(Effect.retry({ schedule: connectionRetrySchedule, while: (e) => !(e instanceof HulyAuthError) }))
+  attempt.pipe(
+    Effect.retry({ schedule: connectionRetrySchedule, times: MAX_RETRIES, while: (e) => !(e instanceof HulyAuthError) })
+  )
 
 /**
  * Connect with retry: wraps a Promise-returning function in Effect.tryPromise,
@@ -341,7 +344,9 @@ export class HulyClient extends Context.Service<HulyClient, HulyClientOperations
         const sdk = yield* HulySdk
 
         const { accountUuid, client, imageUrl, markupOps, primarySocialId, refUrl, socialIds, workspaceUrlSlug } =
-          yield* connectRestWithRetry({ url: config.url, auth: config.auth, workspace: config.workspace }, sdk)
+          yield* acquireClosableClient(
+            connectRestWithRetry({ url: config.url, auth: config.auth, workspace: config.workspace }, sdk)
+          )
 
         const markupUrlConfig: MarkupUrlConfig = { refUrl: UrlString.make(refUrl), imageUrl: UrlString.make(imageUrl) }
         const workbenchUrlConfig: WorkbenchUrlConfig = { baseUrl: UrlString.make(config.url), workspaceUrlSlug }

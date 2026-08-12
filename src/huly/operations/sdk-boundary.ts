@@ -3,7 +3,7 @@ import type { AccountUuid, Class, Doc, Mixin, PersonId as HulyPersonId, PersonUu
 import { Effect } from "effect"
 
 import type { NonEmptyString } from "../../domain/schemas/shared.js"
-import { InvalidPersonUuidError } from "../errors.js"
+import { InvalidPersonUuidError } from "../errors-contacts.js"
 
 // Huly SDK uses `Ref<T>` (a branded string) for entity references.
 // Our domain uses Effect Schema brands. No type-safe bridge exists; this is the boundary cast.

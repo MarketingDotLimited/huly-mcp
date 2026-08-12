@@ -23,32 +23,34 @@ export const HOSTED_HULY_MIGRATION_WARNING = Schema.decodeUnknownSync(ToolWarnin
 })
 
 export const HulyEndpointOriginSchema = Schema.String.pipe(
-  Schema.filter(
-    (value) => {
-      try {
-        const parsed = new URL(value)
-        return (parsed.protocol === "http:" || parsed.protocol === "https:") && parsed.origin.toLowerCase() === value
-      } catch {
-        return false
-      }
-    },
-    { message: () => "Must be a canonical http or https URL origin" }
+  Schema.check(
+    Schema.makeFilter(
+      (value) => {
+        try {
+          const parsed = new URL(value)
+          return (parsed.protocol === "http:" || parsed.protocol === "https:") && parsed.origin.toLowerCase() === value
+        } catch {
+          return false
+        }
+      },
+      { message: "Must be a canonical http or https URL origin" }
+    )
   ),
   Schema.brand("HulyEndpointOrigin")
 )
 type HulyEndpointOrigin = Schema.Schema.Type<typeof HulyEndpointOriginSchema>
 
-export const HulyUnavailableFailureKindSchema = Schema.Literal(
+export const HulyUnavailableFailureKindSchema = Schema.Literals([
   "refused",
   "timeout",
   "dns",
   "tls",
   "http_unavailable",
   "unknown"
-)
+])
 type HulyUnavailableFailureKind = Schema.Schema.Type<typeof HulyUnavailableFailureKindSchema>
 
-export const HulyUnavailableDetailCodeSchema = Schema.Literal(
+export const HulyUnavailableDetailCodeSchema = Schema.Literals([
   "ECONNREFUSED",
   "ETIMEDOUT",
   "ECONNRESET",
@@ -57,7 +59,7 @@ export const HulyUnavailableDetailCodeSchema = Schema.Literal(
   "CERT_HAS_EXPIRED",
   "DEPTH_ZERO_SELF_SIGNED_CERT",
   "UNABLE_TO_VERIFY_LEAF_SIGNATURE"
-)
+])
 type HulyUnavailableDetailCode = Schema.Schema.Type<typeof HulyUnavailableDetailCodeSchema>
 
 export const normalizeHulyOrigin = (url: string): HulyEndpointOrigin => {
