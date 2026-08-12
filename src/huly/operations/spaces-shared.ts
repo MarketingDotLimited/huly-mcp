@@ -9,7 +9,7 @@ import type {
   TypedSpace
 } from "@hcengineering/core"
 import { SortingOrder } from "@hcengineering/core"
-import { Effect, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 
 import type { SpaceClassFilter, SpaceIdentifier, SpaceTypeId } from "../../domain/schemas/shared.js"
 import {
@@ -91,8 +91,8 @@ export const optionalString = (value: string | undefined): string | undefined =>
 export const optionalObjectClassName = (value: string | undefined): ObjectClassName | undefined =>
   value === undefined || value === "" ? undefined : ObjectClassName.make(value)
 
-const RoleAssignmentStorageSchema = Schema.Record({ key: Schema.String, value: Schema.Array(AccountUuid) })
-const RoleAssignmentStorageObjectSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
+const RoleAssignmentStorageSchema = Schema.Record(Schema.String, Schema.Array(AccountUuid))
+const RoleAssignmentStorageObjectSchema = Schema.Record(Schema.String, Schema.Unknown)
 
 type SpaceRoleAssignmentEntry = readonly [Ref<Role>, ReadonlyArray<HulyAccountUuid>]
 
@@ -107,13 +107,13 @@ interface SpaceRoleAssignmentReadResult {
 }
 
 const parseRoleAssignmentStorageObject = (value: unknown): Readonly<Record<string, unknown>> | undefined => {
-  const decoded = Schema.decodeUnknownEither(RoleAssignmentStorageObjectSchema)(value)
-  return decoded._tag === "Right" ? decoded.right : undefined
+  const decoded = Schema.decodeUnknownResult(RoleAssignmentStorageObjectSchema)(value)
+  return Result.isSuccess(decoded) ? decoded.success : undefined
 }
 
 const validStoredAccountUuid = (value: unknown): HulyAccountUuid | undefined => {
-  const decoded = Schema.decodeUnknownEither(AccountUuid)(value)
-  return decoded._tag === "Right" ? toAccountUuid(NonEmptyString.make(decoded.right)) : undefined
+  const decoded = Schema.decodeUnknownResult(AccountUuid)(value)
+  return Result.isSuccess(decoded) ? toAccountUuid(NonEmptyString.make(decoded.success)) : undefined
 }
 
 const parsedSpaceRoleAssignmentEntry = (
@@ -212,8 +212,8 @@ export const strictSpaceRoleAssignments = (
     const source = spaceRoleAssignmentSource(space, spaceType)
     if (!source.present) return {}
 
-    const decoded = Schema.decodeUnknownEither(RoleAssignmentStorageSchema)(source.value)
-    if (decoded._tag === "Left") {
+    const decoded = Schema.decodeUnknownResult(RoleAssignmentStorageSchema)(source.value)
+    if (Result.isFailure(decoded)) {
       return yield* roleAssignmentsMalformedError(
         space,
         spaceType,
@@ -221,7 +221,7 @@ export const strictSpaceRoleAssignments = (
       )
     }
 
-    const unknownRoleIds = Object.keys(decoded.right).filter((roleId) => !validRoleIds.has(toRef<Role>(roleId)))
+    const unknownRoleIds = Object.keys(decoded.success).filter((roleId) => !validRoleIds.has(toRef<Role>(roleId)))
     if (unknownRoleIds.length > 0) {
       return yield* roleAssignmentsMalformedError(
         space,
@@ -231,7 +231,7 @@ export const strictSpaceRoleAssignments = (
     }
 
     return Object.fromEntries(
-      Object.entries(decoded.right).map(([roleId, members]) => [
+      Object.entries(decoded.success).map(([roleId, members]) => [
         toRef<Role>(roleId),
         members.map((member) => toAccountUuid(NonEmptyString.make(member)))
       ])
@@ -268,7 +268,7 @@ export const applySpaceFilters = (
 }
 
 export const findSpace = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: {
     readonly space: SpaceIdentifier
     readonly includeArchived?: boolean | undefined
@@ -308,7 +308,7 @@ export const findSpace = (
   })
 
 export const spaceMapById = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   ids: ReadonlyArray<Ref<Space>>
 ): Effect.Effect<ReadonlyMap<SpaceId, GenericSpace>, HulyClientError> =>
   Effect.gen(function* () {
@@ -325,7 +325,7 @@ export const spaceMapById = (
   })
 
 export const updateSpaceDoc = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   space: GenericSpace,
   operations: DocumentUpdate<GenericSpace>
 ): Effect.Effect<void, HulyClientError> =>
@@ -339,7 +339,7 @@ export const updateSpaceDoc = (
     .pipe(Effect.asVoid)
 
 export const resolveMembers = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   members: ReadonlyArray<SpaceMemberIdentifier>
 ): Effect.Effect<Array<HulyAccountUuid>, ResolveMembersError> =>
   Effect.forEach(members, (member) =>

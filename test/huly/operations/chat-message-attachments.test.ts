@@ -24,10 +24,11 @@ import type {
   Ref,
   Space
 } from "@hcengineering/core"
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Schema } from "effect"
 import { expect } from "vitest"
 
-import { parseListChannelMessagesParams, parseListThreadRepliesParams } from "../../../src/domain/schemas/channels.js"
+import { ListChannelMessagesParamsSchema, ListThreadRepliesParamsSchema } from "../../../src/domain/schemas/channels.js"
+import { ListDmMessagesParamsSchema } from "../../../src/domain/schemas/direct-messages.js"
 import {
   parseAddChatMessageAttachmentParams,
   parseDeleteChatMessageAttachmentParams,
@@ -35,7 +36,6 @@ import {
   parseListChatMessageAttachmentsParams,
   parseUpdateChatMessageAttachmentParams
 } from "../../../src/domain/schemas/chat-message-attachments.js"
-import { parseListDmMessagesParams } from "../../../src/domain/schemas/direct-messages.js"
 import { AttachmentId } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import { ChatMessageAttachmentNotFoundError } from "../../../src/huly/errors.js"
@@ -218,7 +218,7 @@ const stateFixture = (): State => {
   }
 }
 
-const layerFor = (state: State): Layer.Layer<HulyClient | HulyStorageClient> => {
+const layerFor = (state: State): Layer.Layer<HulyClient | HulyStorageClient, never, never> => {
   const findAll: HulyClientOperations["findAll"] = <T extends Doc>(
     classRef: Ref<Class<T>>,
     query: DocumentQuery<T>,
@@ -425,14 +425,14 @@ describe("chat message attachment operations", () => {
       const layer = layerFor(state)
 
       const channelMessages = yield* listChannelMessages(
-        yield* parseListChannelMessagesParams({ channel: "general" })
-      ).pipe(Effect.provide(layer))
-      const dmMessages = yield* listDirectMessageMessages(yield* parseListDmMessagesParams({ dm: "dm-1" })).pipe(
-        Effect.provide(layer)
-      )
+        Schema.decodeUnknownSync(ListChannelMessagesParamsSchema)({ channel: "general" })
+      ).pipe(Effect.provide(layer), withDiagnostics)
+      const dmMessages = yield* listDirectMessageMessages(
+        Schema.decodeUnknownSync(ListDmMessagesParamsSchema)({ dm: "dm-1" })
+      ).pipe(Effect.provide(layer), withDiagnostics)
       const replies = yield* listThreadReplies(
-        yield* parseListThreadRepliesParams({ channel: "general", messageId: "msg-channel" })
-      ).pipe(Effect.provide(layer))
+        Schema.decodeUnknownSync(ListThreadRepliesParamsSchema)({ channel: "general", messageId: "msg-channel" })
+      ).pipe(Effect.provide(layer), withDiagnostics)
 
       expect(channelMessages.messages[0]?.attachments).toBe(1)
       expect(dmMessages.messages[0]?.attachments).toBe(2)

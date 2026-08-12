@@ -28,7 +28,7 @@ import { CommentId, Count } from "../../domain/schemas/shared.js"
 import { HulyClient } from "../client.js"
 import { drive, type DriveSpace, type File } from "../drive-sdk.js"
 import { DriveFileCommentNotFoundError } from "../errors-drive.js"
-import { type ActivityRecordInvalidError, HulyConnectionError } from "../errors.js"
+import { HulyConnectionError } from "../errors.js"
 import { activity, chunter } from "../huly-plugins.js"
 import type { HulyStorageClient } from "../storage.js"
 import { toActivityMessages } from "./activity-shared.js"
@@ -48,7 +48,7 @@ interface DriveFileLocatorParams {
 type DriveFileLocator = NonNullable<DriveFileLocatorParams["filePath"] | DriveFileLocatorParams["fileId"]>
 
 interface DriveFileTarget {
-  readonly client: HulyClient["Type"]
+  readonly client: HulyClient["Service"]
   readonly driveSpace: DriveSpace
   readonly file: File
   readonly locator: DriveFileLocator
@@ -62,7 +62,7 @@ const resolveDriveFileTarget = (
     const driveSpace = yield* resolveDrive(client, params.drive)
     const locator = params.fileId ?? params.filePath
     if (locator === undefined) {
-      return yield* Effect.dieMessage("Invalid Drive file locator: provide filePath or fileId.")
+      return yield* Effect.die(new Error("Invalid Drive file locator: provide filePath or fileId."))
     }
     const file = yield* resolveFile(client, driveSpace, params.drive, locator)
     return { client, driveSpace, file, locator }
@@ -89,7 +89,7 @@ const findDriveFileComment = (
     return comment
   })
 
-const toComment = (client: HulyClient["Type"], message: ChatMessage) => ({
+const toComment = (client: HulyClient["Service"], message: ChatMessage) => ({
   id: message._id,
   body: optionalMarkupToMarkdown(message.message, client.markupUrlConfig, ""),
   authorId: message.modifiedBy,
@@ -99,7 +99,7 @@ const toComment = (client: HulyClient["Type"], message: ChatMessage) => ({
 })
 
 const decodeComments = (comments: ReadonlyArray<ReturnType<typeof toComment>>) =>
-  Schema.decodeUnknown(Schema.Array(CommentSchema))(comments).pipe(
+  Schema.decodeUnknownEffect(Schema.Array(CommentSchema))(comments).pipe(
     Effect.mapError(
       (parseError) =>
         new HulyConnectionError({
@@ -201,11 +201,7 @@ export const deleteDriveFileComment = (
 
 export const listDriveFileActivity = (
   params: ListDriveFileActivityParams
-): Effect.Effect<
-  ListDriveFileActivityResult,
-  DriveOperationError | ActivityRecordInvalidError,
-  HulyClient | HulyStorageClient
-> =>
+): Effect.Effect<ListDriveFileActivityResult, DriveOperationError, HulyClient | HulyStorageClient> =>
   Effect.gen(function* () {
     const target = yield* resolveDriveFileTarget(params)
     const messages = yield* target.client.findAll<HulyActivityMessage>(

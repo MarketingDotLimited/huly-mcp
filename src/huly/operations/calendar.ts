@@ -242,7 +242,7 @@ type UpdateEventEntry = Effect.Effect<DocumentUpdate<HulyEvent>, UpdateEventErro
 type UpdateEventEntries = Record<UpdateEventField, UpdateEventEntry>
 
 const eventDescriptionEntry = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   event: HulyEvent,
   description: UpdateEventParams["description"]
 ): UpdateEventEntry =>
@@ -265,7 +265,7 @@ const eventDescriptionEntry = (
   })
 
 const eventParticipantUpdateEntries = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   event: HulyEvent,
   params: UpdateEventParams
 ): Pick<UpdateEventEntries, "addParticipants" | "participants" | "removeParticipants"> => ({
@@ -317,7 +317,7 @@ const eventExternalParticipantUpdateEntries = (
 })
 
 const eventCalendarUpdateEntries = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: UpdateEventParams
 ): Pick<UpdateEventEntries, "calendarId" | "calendarName"> => ({
   calendarId: Effect.gen(function* () {
@@ -357,7 +357,7 @@ const eventPresentationUpdateEntries = (
 })
 
 const eventUpdateEntries = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   event: HulyEvent,
   params: UpdateEventParams
 ): UpdateEventEntries => {

@@ -24,7 +24,7 @@ export const findTeamspace = (
   identifier: TeamspaceIdentifier,
   opts?: { includeArchived?: boolean }
 ): Effect.Effect<
-  { client: HulyClient["Type"]; teamspace: HulyTeamspace },
+  { client: HulyClient["Service"]; teamspace: HulyTeamspace },
   TeamspaceNotFoundError | HulyClientError,
   HulyClient
 > =>
@@ -51,7 +51,7 @@ export const findTeamspaceAndDocument = (params: {
   readonly teamspace: TeamspaceIdentifier
   readonly document: DocumentIdentifier
 }): Effect.Effect<
-  { client: HulyClient["Type"]; teamspace: HulyTeamspace; doc: HulyDocument },
+  { client: HulyClient["Service"]; teamspace: HulyTeamspace; doc: HulyDocument },
   TeamspaceNotFoundError | DocumentNotFoundError | HulyClientError,
   HulyClient
 > =>
@@ -79,7 +79,7 @@ const documentContentCorrupted = (
 ): DocumentContentCorruptedError => new DocumentContentCorruptedError({ identifier, causeMessage })
 
 const documentContentBlobExists = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   contentRef: NonNullable<HulyDocument["content"]>
 ): Effect.Effect<boolean, HulyClientError> =>
   client
@@ -87,7 +87,7 @@ const documentContentBlobExists = (
     .pipe(Effect.map((blob) => blob !== undefined))
 
 export const fetchReadableDocumentContent = (params: {
-  readonly client: HulyClient["Type"]
+  readonly client: HulyClient["Service"]
   readonly doc: HulyDocument
   readonly identifier: DocumentIdentifier
   readonly format: MarkupFormat

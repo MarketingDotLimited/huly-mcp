@@ -3,7 +3,7 @@ import type {
   NotificationProvider as HulyNotificationProvider,
   NotificationType as HulyNotificationType
 } from "@hcengineering/notification"
-import { Array as EffectArray, Effect, Either, Order, Schema } from "effect"
+import { Array as EffectArray, Effect, Order, Result, Schema } from "effect"
 
 import { DisplayText, NotificationFieldName, NotificationProviderOrder } from "../../domain/schemas/domain-values.js"
 import type { NotificationProvider, NotificationType } from "../../domain/schemas/notification-preferences.js"
@@ -42,7 +42,7 @@ const ProviderBoundarySchema = Schema.Struct({
   canDisable: Schema.Boolean,
   order: NotificationProviderOrder,
   depends: Schema.optional(NotificationProviderId)
-}).annotations({
+}).annotate({
   title: "NotificationProviderBoundary",
   description: "Huly model-space notification provider fields consumed by MCP notification tools."
 })
@@ -60,7 +60,7 @@ const TypeBoundarySchema = Schema.Struct({
   field: Schema.optional(NotificationFieldName),
   spaceSubscribe: Schema.optional(Schema.Boolean),
   allowedForAuthor: Schema.optional(Schema.Boolean)
-}).annotations({
+}).annotate({
   title: "NotificationTypeBoundary",
   description: "Huly model-space notification type fields consumed by MCP notification tools."
 })
@@ -94,18 +94,21 @@ const typeMetadataDefinition = {
   presentationFields: "label"
 } satisfies TypeMetadataDefinition
 
-const parseRows = <A, I>(schema: Schema.Schema<A, I>, rows: ReadonlyArray<unknown>): ParsedRows<A> => {
-  const decode = Schema.decodeUnknownEither(schema)
+const parseRows = <S extends Schema.ConstraintDecoder<unknown>>(
+  schema: S,
+  rows: ReadonlyArray<unknown>
+): ParsedRows<S["Type"]> => {
+  const decode = Schema.decodeUnknownResult(schema)
   const parsed = rows.map((row) => decode(row))
   return {
-    rows: parsed.flatMap((row) => (Either.isRight(row) ? [row.right] : [])),
-    invalidRows: Count.make(parsed.filter(Either.isLeft).length)
+    rows: parsed.flatMap((row) => (Result.isSuccess(row) ? [row.success] : [])),
+    invalidRows: Count.make(parsed.filter(Result.isFailure).length)
   }
 }
 
 const displayText = (value: unknown): DisplayText | undefined => {
-  const parsed = Schema.decodeUnknownEither(DisplayText)(value)
-  return Either.isRight(parsed) ? parsed.right : undefined
+  const parsed = Schema.decodeUnknownResult(DisplayText)(value)
+  return Result.isSuccess(parsed) ? parsed.success : undefined
 }
 
 interface PresentationProjection<A> {
@@ -244,7 +247,7 @@ export const loadNotificationProviders = (
         })
         return {
           ...result,
-          rows: EffectArray.sortBy(Order.mapInput(Order.number, (provider: NotificationProvider) => provider.order))(
+          rows: EffectArray.sortBy(Order.mapInput(Order.Number, (provider: NotificationProvider) => provider.order))(
             projections.map((projection) => projection.summary)
           ).slice(0, limit)
         }

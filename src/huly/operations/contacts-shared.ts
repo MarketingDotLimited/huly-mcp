@@ -19,13 +19,13 @@ import { toAccountUuid, toRef } from "./sdk-boundary.js"
 const isEmailIdentifier = Schema.is(Email)
 
 export const findPersonById = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   personId: string
 ): Effect.Effect<HulyPerson | undefined, HulyClientError> =>
   client.findOne<HulyPerson>(contact.class.Person, { _id: toRef<HulyPerson>(personId) })
 
 export const findPersonByEmail = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   email: string
 ): Effect.Effect<HulyPerson | undefined, HulyClientError | PersonIdentifierAmbiguousError> =>
   Option.match(Schema.decodeUnknownOption(Email)(email), {
@@ -34,7 +34,7 @@ export const findPersonByEmail = (
   })
 
 export const batchGetEmailsForPersons = <T extends HulyPerson>(
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   personIds: Array<Ref<T>>
 ): Effect.Effect<Map<Ref<T>, Email>, HulyClientError> =>
   Effect.gen(function* () {
@@ -65,7 +65,7 @@ export const batchGetEmailsForPersons = <T extends HulyPerson>(
   })
 
 export const findPersonIdsByEmailSearch = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   emailSearch: string
 ): Effect.Effect<Array<Ref<HulyPerson>>, HulyClientError> =>
   Effect.gen(function* () {
@@ -90,7 +90,7 @@ export const findPersonIdsByEmailSearch = (
   })
 
 const findPersonBySocialIdentityEmail = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   email: string
 ): Effect.Effect<HulyPerson | undefined, HulyClientError> =>
   Effect.gen(function* () {
@@ -103,7 +103,7 @@ const findPersonBySocialIdentityEmail = (
   })
 
 const findPersonByExactEmail = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   email: Email
 ): Effect.Effect<HulyPerson | undefined, HulyClientError | PersonIdentifierAmbiguousError> =>
   Effect.gen(function* () {
@@ -143,7 +143,7 @@ const findPersonByExactEmail = (
   })
 
 const findPersonByExactName = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   name: PersonName
 ): Effect.Effect<HulyPerson | undefined, HulyClientError | PersonIdentifierAmbiguousError> =>
   Effect.gen(function* () {
@@ -161,13 +161,13 @@ const findPersonByExactName = (
   })
 
 export const findPersonByExactEmailOrName = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: PersonRefInput
 ): Effect.Effect<HulyPerson | undefined, HulyClientError | PersonIdentifierAmbiguousError> =>
   isEmailIdentifier(identifier) ? findPersonByExactEmail(client, identifier) : findPersonByExactName(client, identifier)
 
 export const findPersonByIdOrExactEmailOrName = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: PersonRefInput
 ): Effect.Effect<HulyPerson | undefined, HulyClientError | PersonIdentifierAmbiguousError> =>
   Effect.gen(function* () {
@@ -181,7 +181,7 @@ export const findPersonByIdOrExactEmailOrName = (
  * workspace account and cannot be used in member arrays.
  */
 export const resolveEmployeeAccountUuid = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: NonEmptyString | PersonRefInput
 ): Effect.Effect<
   AccountUuid,
@@ -208,7 +208,7 @@ export const resolveEmployeeAccountUuid = (
   })
 
 export const findPersonByEmailOrName = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   emailOrName: string
 ): Effect.Effect<HulyPerson | undefined, HulyClientError> =>
   Effect.gen(function* () {

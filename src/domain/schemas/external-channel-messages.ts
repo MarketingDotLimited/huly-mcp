@@ -1,4 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 
 import {
   ChannelId,
@@ -13,25 +15,25 @@ import {
 
 export const ExternalChannelMessageProviderValues = ["gmail", "telegram"] as const
 
-export const ExternalChannelMessageProviderSchema = Schema.Literal(...ExternalChannelMessageProviderValues)
+export const ExternalChannelMessageProviderSchema = Schema.Literals(ExternalChannelMessageProviderValues)
 
 export const DEFAULT_EXTERNAL_CHANNEL_MESSAGE_LIMIT = DEFAULT_LIMIT
 
 export const ListExternalChannelMessagesParamsSchema = Schema.Struct({
-  provider: ExternalChannelMessageProviderSchema.annotations({
+  provider: ExternalChannelMessageProviderSchema.annotateKey({
     description:
       "External provider to read or assess. Telegram reads persisted messages when its published model and an exact channel are available; Gmail remains an explicit compatibility assessment."
   }),
-  channel: ChannelIdentifier.annotations({
+  channel: ChannelIdentifier.annotateKey({
     description:
       "Provider channel locator. For Gmail, use an exact correspondent email address or Huly contact-channel ID. For Telegram, use the exact stored contact-channel value or, preferably, its stable Huly contact-channel ID."
   }),
   limit: Schema.optional(
-    LimitParam.annotations({
+    LimitParam.annotateKey({
       description: `Requested maximum message count to echo in the result (default: ${DEFAULT_EXTERNAL_CHANNEL_MESSAGE_LIMIT}, max: 200).`
     })
   )
-}).annotations({
+}).annotate({
   title: "ListExternalChannelMessagesParams",
   description:
     "Parameters for reading persisted Telegram messages or assessing why an external channel cannot be read safely."
@@ -46,20 +48,19 @@ export type TelegramExternalChannel = Schema.Schema.Type<typeof TelegramExternal
 
 export const TelegramExternalChannelMessageSchema = Schema.Struct({
   id: MessageId,
-  contentMarkdown: Schema.String.annotations({
+  contentMarkdown: Schema.String.annotateKey({
     description: "Telegram message content converted from Huly's stored markup to Markdown."
   }),
-  direction: Schema.Literal("incoming", "outgoing"),
-  sentOn: Timestamp.annotations({
+  direction: Schema.Literals(["incoming", "outgoing"]),
+  sentOn: Timestamp.annotateKey({
     description:
       "Timestamp stored in the Huly Telegram message's sendOn field; it is not provider delivery or read evidence."
   }),
-  attachmentCount: Schema.optionalWith(
-    Count.annotations({
+  attachmentCount: Schema.optionalKey(
+    Count.annotateKey({
       description:
         "Stored Huly attachment count. Inbound attachment creation is asynchronous, so this count can temporarily lag the message. Attachment bytes are not returned."
-    }),
-    { exact: true }
+    })
   )
 })
 export type TelegramExternalChannelMessage = Schema.Schema.Type<typeof TelegramExternalChannelMessageSchema>
@@ -69,19 +70,19 @@ const ExternalChannelMessagesUnsupportedBaseSchema = Schema.Struct({
   channel: ChannelIdentifier,
   limit: LimitParam,
   unsupportedReason: NonEmptyString,
-  messages: Schema.Tuple()
+  messages: Schema.Tuple([])
 })
 
-export const ListExternalChannelMessagesResultSchema = Schema.Union(
+export const ListExternalChannelMessagesResultSchema = Schema.Union([
   Schema.Struct({
     ...ExternalChannelMessagesUnsupportedBaseSchema.fields,
     provider: Schema.Literal("gmail"),
-    unsupportedReasonCode: Schema.Literal("model-unavailable", "runtime-unverifiable")
+    unsupportedReasonCode: Schema.Literals(["model-unavailable", "runtime-unverifiable"])
   }),
   Schema.Struct({
     ...ExternalChannelMessagesUnsupportedBaseSchema.fields,
     provider: Schema.Literal("telegram"),
-    unsupportedReasonCode: Schema.Literal("model-unavailable", "channel-unavailable")
+    unsupportedReasonCode: Schema.Literals(["model-unavailable", "channel-unavailable"])
   }),
   Schema.Struct({
     supported: Schema.Literal(true),
@@ -90,7 +91,7 @@ export const ListExternalChannelMessagesResultSchema = Schema.Union(
     limit: LimitParam,
     messages: Schema.Array(TelegramExternalChannelMessageSchema)
   })
-).annotations({
+]).annotate({
   title: "ListExternalChannelMessagesResult",
   description:
     "Persisted Telegram messages when safely readable, or an explicit no-fake-data result explaining why the requested provider/channel cannot be read."
@@ -98,6 +99,15 @@ export const ListExternalChannelMessagesResultSchema = Schema.Union(
 
 export type ListExternalChannelMessagesResult = Schema.Schema.Type<typeof ListExternalChannelMessagesResultSchema>
 
-export const listExternalChannelMessagesParamsJsonSchema = JSONSchema.make(ListExternalChannelMessagesParamsSchema)
-export const parseListExternalChannelMessagesParams = Schema.decodeUnknown(ListExternalChannelMessagesParamsSchema)
+export const listExternalChannelMessagesParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(ListExternalChannelMessagesParamsSchema),
+  {
+    provider: "External provider to read or assess.",
+    channel: "Provider channel locator: exact stored value or stable Huly contact-channel ID.",
+    limit: `Requested maximum message count (default: ${DEFAULT_EXTERNAL_CHANNEL_MESSAGE_LIMIT}, max: 200).`
+  }
+)
+export const parseListExternalChannelMessagesParams = Schema.decodeUnknownEffect(
+  ListExternalChannelMessagesParamsSchema
+)
 export const encodeListExternalChannelMessagesResult = Schema.encodeSync(ListExternalChannelMessagesResultSchema)

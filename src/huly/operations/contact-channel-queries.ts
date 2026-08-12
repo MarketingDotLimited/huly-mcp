@@ -11,7 +11,7 @@ import { hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
 export const findChannelsForOwner = <Owner extends ChannelOwner>(
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   owner: ResolvedOwner<Owner>
 ): Effect.Effect<Array<Channel>, HulyClientError> =>
   client.findAll<Channel>(
@@ -20,7 +20,7 @@ export const findChannelsForOwner = <Owner extends ChannelOwner>(
   )
 
 export const findExactChannels = <Owner extends ChannelOwner>(
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   owner: ResolvedOwner<Owner>,
   provider: ContactChannelProvider,
   value: string
@@ -36,7 +36,7 @@ export const findExactChannels = <Owner extends ChannelOwner>(
   )
 
 export const findChannelByIdForOwner = <Owner extends ChannelOwner>(
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   owner: ResolvedOwner<Owner>,
   channelId: ChannelId
 ): Effect.Effect<Option.Option<Channel>, HulyClientError> =>
@@ -45,5 +45,5 @@ export const findChannelByIdForOwner = <Owner extends ChannelOwner>(
       contact.class.Channel,
       hulyQuery<Channel>({ _id: toRef<Channel>(channelId), attachedTo: owner.id, attachedToClass: owner.ownerClass })
     ),
-    Option.fromNullable
+    Option.fromNullishOr
   )

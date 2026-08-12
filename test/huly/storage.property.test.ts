@@ -1,5 +1,5 @@
 import { describe } from "@effect/vitest"
-import { Effect, Either } from "effect"
+import { Effect, Result } from "effect"
 import * as fc from "fast-check"
 import { expect, it } from "vitest"
 
@@ -11,24 +11,24 @@ const base64StringArbitrary = byteArrayArbitrary.map((bytes) => Buffer.from(byte
 const octetArbitrary = fc.integer({ min: 0, max: 255 })
 const hextetArbitrary = fc.integer({ min: 0, max: 0xffff })
 
-const decodeBase64Result = (value: string): Either.Either<Buffer, unknown> =>
-  Effect.runSync(Effect.either(decodeBase64(value)))
+const decodeBase64Result = (value: string): Result.Result<Buffer, unknown> =>
+  Effect.runSync(Effect.result(decodeBase64(value)))
 
 const expectDecodedBytes = (encoded: string, expected: Uint8Array): void => {
   const result = decodeBase64Result(encoded)
 
-  if (Either.isLeft(result)) {
-    throw new Error(`Expected base64 decode to succeed, got: ${String(result.left)}`)
+  if (Result.isFailure(result)) {
+    throw new Error(`Expected base64 decode to succeed, got: ${String(result.failure)}`)
   }
 
-  expect(result.right).toEqual(Buffer.from(expected))
+  expect(result.success).toEqual(Buffer.from(expected))
 }
 
 const expectDecodeFailure = (encoded: string): void => {
   const result = decodeBase64Result(encoded)
 
-  if (Either.isRight(result)) {
-    throw new Error(`Expected base64 decode to fail, got ${result.right.length} decoded bytes`)
+  if (Result.isSuccess(result)) {
+    throw new Error(`Expected base64 decode to fail, got ${result.success.length} decoded bytes`)
   }
 }
 

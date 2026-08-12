@@ -1,6 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
-import { withJsonSchemaPropertyDescriptions } from "./json-schema.js"
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 import {
   BlobId,
   Count,
@@ -39,26 +39,26 @@ export type DriveItemId = Schema.Schema.Type<typeof DriveItemId>
 export const DriveFileVersionId = DocId.pipe(Schema.brand("DriveFileVersionId"))
 export type DriveFileVersionId = Schema.Schema.Type<typeof DriveFileVersionId>
 
-export const DriveIdentifier = NonEmptyString.pipe(Schema.brand("DriveIdentifier")).annotations({
+export const DriveIdentifier = NonEmptyString.pipe(Schema.brand("DriveIdentifier")).annotate({
   description: "Exact Drive id or exact Drive name. Use list_drives first when unsure."
 })
 export type DriveIdentifier = Schema.Schema.Type<typeof DriveIdentifier>
 
-export const DrivePath = NonEmptyString.pipe(Schema.brand("DrivePath")).annotations({
+export const DrivePath = NonEmptyString.pipe(Schema.brand("DrivePath")).annotate({
   description:
     "POSIX-like Drive path. Absolute paths such as '/Specs/API.md' are preferred; relative paths are normalized under '/'."
 })
 export type DrivePath = Schema.Schema.Type<typeof DrivePath>
 
 export const DriveItemTitle = NonEmptyString.pipe(
-  Schema.filter((title) => !title.includes("/") || "Drive item titles cannot contain '/'."),
+  Schema.check(Schema.makeFilter((title) => !title.includes("/") || "Drive item titles cannot contain '/'.")),
   Schema.brand("DriveItemTitle")
-).annotations({
+).annotate({
   description: "New file or folder title. Do not include path separators; use move_drive_item to change folders."
 })
 export type DriveItemTitle = Schema.Schema.Type<typeof DriveItemTitle>
 
-const DriveFileLocator = NonEmptyString.pipe(Schema.brand("DriveFileLocator")).annotations({
+const DriveFileLocator = NonEmptyString.pipe(Schema.brand("DriveFileLocator")).annotate({
   description: "Drive file id or Drive file path."
 })
 
@@ -72,18 +72,24 @@ const isNonRootItemLocator = (params: {
     ? true
     : "The Drive root '/' is not a file or folder item and cannot be moved, renamed, or deleted."
 
-const DriveVersionLocator = NonEmptyString.pipe(Schema.brand("DriveVersionLocator")).annotations({
+const DriveVersionLocator = NonEmptyString.pipe(Schema.brand("DriveVersionLocator")).annotate({
   description: "Drive file version id or numeric version string such as '1'."
 })
 
 const DriveItemLocatorFields = {
   path: Schema.optional(DrivePath),
   itemId: Schema.optional(
-    DriveItemId.annotations({ description: "Exact Drive folder or file id. Mutually exclusive with path." })
+    DriveItemId.annotate({ description: "Exact Drive folder or file id. Mutually exclusive with path." })
   )
 } as const
 
-export const DriveItemKindSchema = Schema.Literal("any", "folder", "file")
+const requireDriveItemLocator = (params: { readonly path?: unknown; readonly itemId?: unknown }) =>
+  hasAtLeastOneDefined(params, ["path", "itemId"]) || "Provide path or itemId."
+
+const requireExclusiveDriveItemLocator = (params: { readonly path?: unknown; readonly itemId?: unknown }) =>
+  !hasMutuallyExclusiveFields(params, ["path", "itemId"]) || mutuallyExclusiveFieldsMessage(["path", "itemId"])
+
+export const DriveItemKindSchema = Schema.Literals(["any", "folder", "file"])
 export type DriveItemKind = Schema.Schema.Type<typeof DriveItemKindSchema>
 
 export const DriveSummarySchema = Schema.Struct({
@@ -102,7 +108,7 @@ export type DriveSummary = Schema.Schema.Type<typeof DriveSummarySchema>
 export const DriveItemSummarySchema = Schema.Struct({
   id: DriveItemId,
   driveId: DriveId,
-  kind: Schema.Literal("folder", "file"),
+  kind: Schema.Literals(["folder", "file"]),
   title: NonEmptyString,
   path: DrivePath,
   parentId: Schema.optional(DriveItemId),
@@ -195,12 +201,12 @@ export type DeleteDriveItemResult = Schema.Schema.Type<typeof DeleteDriveItemRes
 
 export const ListDrivesParamsSchema = Schema.Struct({
   query: Schema.optional(
-    NonEmptyString.annotations({ description: "Case-insensitive substring to filter Drive names after listing." })
+    NonEmptyString.annotate({ description: "Case-insensitive substring to filter Drive names after listing." })
   ),
   includeArchived: Schema.optional(
-    Schema.Boolean.annotations({ description: `Include archived Drives. Defaults to ${DEFAULT_INCLUDE_ARCHIVED}.` })
+    Schema.Boolean.annotate({ description: `Include archived Drives. Defaults to ${DEFAULT_INCLUDE_ARCHIVED}.` })
   ),
-  limit: Schema.optional(LimitParam.annotations({ description: limitDescription("drives") }))
+  limit: Schema.optional(LimitParam.annotate({ description: limitDescription("drives") }))
 })
 export type ListDrivesParams = Schema.Schema.Type<typeof ListDrivesParamsSchema>
 
@@ -209,37 +215,32 @@ export type GetDriveParams = Schema.Schema.Type<typeof GetDriveParamsSchema>
 
 export const ListDriveItemsParamsSchema = Schema.Struct({
   drive: DriveIdentifier,
-  path: Schema.optional(
-    DrivePath.annotations({ description: `Folder path to list. Defaults to ${DEFAULT_DRIVE_PATH}.` })
-  ),
+  path: Schema.optional(DrivePath.annotate({ description: `Folder path to list. Defaults to ${DEFAULT_DRIVE_PATH}.` })),
   kind: Schema.optional(
-    DriveItemKindSchema.annotations({
+    DriveItemKindSchema.annotate({
       description: `Filter returned children by kind. Defaults to ${DEFAULT_DRIVE_ITEM_KIND}.`
     })
   ),
-  limit: Schema.optional(LimitParam.annotations({ description: limitDescription("drive items") }))
+  limit: Schema.optional(LimitParam.annotate({ description: limitDescription("drive items") }))
 })
 export type ListDriveItemsParams = Schema.Schema.Type<typeof ListDriveItemsParamsSchema>
 
 export const GetDriveItemParamsSchema = Schema.Struct({ drive: DriveIdentifier, ...DriveItemLocatorFields }).pipe(
-  Schema.filter((params) => hasAtLeastOneDefined(params, ["path", "itemId"]) || "Provide path or itemId."),
-  Schema.filter(
-    (params) =>
-      !hasMutuallyExclusiveFields(params, ["path", "itemId"]) || mutuallyExclusiveFieldsMessage(["path", "itemId"])
-  )
+  Schema.check(Schema.makeFilter(requireDriveItemLocator)),
+  Schema.check(Schema.makeFilter(requireExclusiveDriveItemLocator))
 )
 export type GetDriveItemParams = Schema.Schema.Type<typeof GetDriveItemParamsSchema>
 
 export const CreateDriveFolderParamsSchema = Schema.Struct({
   drive: DriveIdentifier,
-  path: DrivePath.annotations({ description: "Folder path to create. Missing parents are created, like mkdir -p." })
+  path: DrivePath.annotate({ description: "Folder path to create. Missing parents are created, like mkdir -p." })
 })
 export type CreateDriveFolderParams = Schema.Schema.Type<typeof CreateDriveFolderParamsSchema>
 
 const UploadSourceFields = {
-  filePath: Schema.optional(Schema.String.annotations({ description: UPLOAD_FILE_PATH_DESCRIPTION })),
-  fileUrl: Schema.optional(Schema.String.annotations({ description: UPLOAD_FILE_URL_DESCRIPTION })),
-  data: Schema.optional(Schema.String.annotations({ description: UPLOAD_BASE64_DATA_DESCRIPTION }))
+  filePath: Schema.optional(Schema.String.annotate({ description: UPLOAD_FILE_PATH_DESCRIPTION })),
+  fileUrl: Schema.optional(Schema.String.annotate({ description: UPLOAD_FILE_URL_DESCRIPTION })),
+  data: Schema.optional(Schema.String.annotate({ description: UPLOAD_BASE64_DATA_DESCRIPTION }))
 } as const
 
 const hasExactlyOneUploadSource = (params: {
@@ -253,27 +254,27 @@ const hasExactlyOneUploadSource = (params: {
 
 export const UploadDriveFileParamsSchema = Schema.Struct({
   drive: DriveIdentifier,
-  path: DrivePath.annotations({ description: "Full Drive file path including filename, for example '/Specs/API.md'." }),
-  contentType: MimeType.annotations({
+  path: DrivePath.annotate({ description: "Full Drive file path including filename, for example '/Specs/API.md'." }),
+  contentType: MimeType.annotate({
     description: "MIME type of the file, for example 'text/plain' or 'application/pdf'."
   }),
   createParents: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: `Create missing parent folders automatically. Defaults to ${DEFAULT_DRIVE_CREATE_PARENTS}.`
     })
   ),
   ...UploadSourceFields
-}).pipe(Schema.filter(hasExactlyOneUploadSource))
+}).pipe(Schema.check(Schema.makeFilter(hasExactlyOneUploadSource)))
 export type UploadDriveFileParams = Schema.Schema.Type<typeof UploadDriveFileParamsSchema>
 
 export const UploadDriveFileVersionParamsSchema = Schema.Struct({
   drive: DriveIdentifier,
   file: DriveFileLocator,
-  contentType: MimeType.annotations({
+  contentType: MimeType.annotate({
     description: "MIME type of the new version, for example 'text/plain' or 'application/pdf'."
   }),
   ...UploadSourceFields
-}).pipe(Schema.filter(hasExactlyOneUploadSource))
+}).pipe(Schema.check(Schema.makeFilter(hasExactlyOneUploadSource)))
 export type UploadDriveFileVersionParams = Schema.Schema.Type<typeof UploadDriveFileVersionParamsSchema>
 
 export const ListDriveFileVersionsParamsSchema = Schema.Struct({ drive: DriveIdentifier, file: DriveFileLocator })
@@ -289,16 +290,13 @@ export type RestoreDriveFileVersionParams = Schema.Schema.Type<typeof RestoreDri
 export const MoveDriveItemParamsSchema = Schema.Struct({
   drive: DriveIdentifier,
   ...DriveItemLocatorFields,
-  targetFolderPath: DrivePath.annotations({
+  targetFolderPath: DrivePath.annotate({
     description: "Existing destination folder path in the same Drive. The item keeps its current title."
   })
 }).pipe(
-  Schema.filter((params) => hasAtLeastOneDefined(params, ["path", "itemId"]) || "Provide path or itemId."),
-  Schema.filter(
-    (params) =>
-      !hasMutuallyExclusiveFields(params, ["path", "itemId"]) || mutuallyExclusiveFieldsMessage(["path", "itemId"])
-  ),
-  Schema.filter(isNonRootItemLocator)
+  Schema.check(Schema.makeFilter(requireDriveItemLocator)),
+  Schema.check(Schema.makeFilter(requireExclusiveDriveItemLocator)),
+  Schema.check(Schema.makeFilter(isNonRootItemLocator))
 )
 export type MoveDriveItemParams = Schema.Schema.Type<typeof MoveDriveItemParamsSchema>
 
@@ -307,68 +305,65 @@ export const RenameDriveItemParamsSchema = Schema.Struct({
   ...DriveItemLocatorFields,
   title: DriveItemTitle
 }).pipe(
-  Schema.filter((params) => hasAtLeastOneDefined(params, ["path", "itemId"]) || "Provide path or itemId."),
-  Schema.filter(
-    (params) =>
-      !hasMutuallyExclusiveFields(params, ["path", "itemId"]) || mutuallyExclusiveFieldsMessage(["path", "itemId"])
-  ),
-  Schema.filter(isNonRootItemLocator)
+  Schema.check(Schema.makeFilter(requireDriveItemLocator)),
+  Schema.check(Schema.makeFilter(requireExclusiveDriveItemLocator)),
+  Schema.check(Schema.makeFilter(isNonRootItemLocator))
 )
 export type RenameDriveItemParams = Schema.Schema.Type<typeof RenameDriveItemParamsSchema>
 
 export const DeleteDriveItemParamsSchema = Schema.Struct({ drive: DriveIdentifier, ...DriveItemLocatorFields }).pipe(
-  Schema.filter((params) => hasAtLeastOneDefined(params, ["path", "itemId"]) || "Provide path or itemId."),
-  Schema.filter(
-    (params) =>
-      !hasMutuallyExclusiveFields(params, ["path", "itemId"]) || mutuallyExclusiveFieldsMessage(["path", "itemId"])
-  ),
-  Schema.filter(isNonRootItemLocator)
+  Schema.check(Schema.makeFilter(requireDriveItemLocator)),
+  Schema.check(Schema.makeFilter(requireExclusiveDriveItemLocator)),
+  Schema.check(Schema.makeFilter(isNonRootItemLocator))
 )
 export type DeleteDriveItemParams = Schema.Schema.Type<typeof DeleteDriveItemParamsSchema>
 
-export const listDrivesParamsJsonSchema = JSONSchema.make(ListDrivesParamsSchema)
-export const getDriveParamsJsonSchema = JSONSchema.make(GetDriveParamsSchema)
-export const listDriveItemsParamsJsonSchema = JSONSchema.make(ListDriveItemsParamsSchema)
+export const listDrivesParamsJsonSchema = toDraft07JsonSchema(ListDrivesParamsSchema)
+export const getDriveParamsJsonSchema = toDraft07JsonSchema(GetDriveParamsSchema)
+export const listDriveItemsParamsJsonSchema = toDraft07JsonSchema(ListDriveItemsParamsSchema)
 export const getDriveItemParamsJsonSchema = withAtLeastOneRequired(
-  withMutuallyExclusiveFields(JSONSchema.make(GetDriveItemParamsSchema), ["path", "itemId"]),
+  withMutuallyExclusiveFields(toDraft07JsonSchema(GetDriveItemParamsSchema), ["path", "itemId"]),
   ["path", "itemId"]
 )
-export const createDriveFolderParamsJsonSchema = JSONSchema.make(CreateDriveFolderParamsSchema)
+export const createDriveFolderParamsJsonSchema = toDraft07JsonSchema(CreateDriveFolderParamsSchema)
 export const uploadDriveFileParamsJsonSchema = {
-  ...withJsonSchemaPropertyDescriptions(JSONSchema.make(UploadDriveFileParamsSchema), UPLOAD_SOURCE_FIELD_DESCRIPTIONS),
-  oneOf: [{ required: ["filePath"] }, { required: ["fileUrl"] }, { required: ["data"] }]
-}
-export const uploadDriveFileVersionParamsJsonSchema = {
   ...withJsonSchemaPropertyDescriptions(
-    JSONSchema.make(UploadDriveFileVersionParamsSchema),
+    toDraft07JsonSchema(UploadDriveFileParamsSchema),
     UPLOAD_SOURCE_FIELD_DESCRIPTIONS
   ),
   oneOf: [{ required: ["filePath"] }, { required: ["fileUrl"] }, { required: ["data"] }]
 }
-export const listDriveFileVersionsParamsJsonSchema = JSONSchema.make(ListDriveFileVersionsParamsSchema)
-export const restoreDriveFileVersionParamsJsonSchema = JSONSchema.make(RestoreDriveFileVersionParamsSchema)
+export const uploadDriveFileVersionParamsJsonSchema = {
+  ...withJsonSchemaPropertyDescriptions(
+    toDraft07JsonSchema(UploadDriveFileVersionParamsSchema),
+    UPLOAD_SOURCE_FIELD_DESCRIPTIONS
+  ),
+  oneOf: [{ required: ["filePath"] }, { required: ["fileUrl"] }, { required: ["data"] }]
+}
+export const listDriveFileVersionsParamsJsonSchema = toDraft07JsonSchema(ListDriveFileVersionsParamsSchema)
+export const restoreDriveFileVersionParamsJsonSchema = toDraft07JsonSchema(RestoreDriveFileVersionParamsSchema)
 export const moveDriveItemParamsJsonSchema = withAtLeastOneRequired(
-  withMutuallyExclusiveFields(JSONSchema.make(MoveDriveItemParamsSchema), ["path", "itemId"]),
+  withMutuallyExclusiveFields(toDraft07JsonSchema(MoveDriveItemParamsSchema), ["path", "itemId"]),
   ["path", "itemId"]
 )
 export const renameDriveItemParamsJsonSchema = withAtLeastOneRequired(
-  withMutuallyExclusiveFields(JSONSchema.make(RenameDriveItemParamsSchema), ["path", "itemId"]),
+  withMutuallyExclusiveFields(toDraft07JsonSchema(RenameDriveItemParamsSchema), ["path", "itemId"]),
   ["path", "itemId"]
 )
 export const deleteDriveItemParamsJsonSchema = withAtLeastOneRequired(
-  withMutuallyExclusiveFields(JSONSchema.make(DeleteDriveItemParamsSchema), ["path", "itemId"]),
+  withMutuallyExclusiveFields(toDraft07JsonSchema(DeleteDriveItemParamsSchema), ["path", "itemId"]),
   ["path", "itemId"]
 )
 
-export const parseListDrivesParams = Schema.decodeUnknown(ListDrivesParamsSchema)
-export const parseGetDriveParams = Schema.decodeUnknown(GetDriveParamsSchema)
-export const parseListDriveItemsParams = Schema.decodeUnknown(ListDriveItemsParamsSchema)
-export const parseGetDriveItemParams = Schema.decodeUnknown(GetDriveItemParamsSchema)
-export const parseCreateDriveFolderParams = Schema.decodeUnknown(CreateDriveFolderParamsSchema)
-export const parseUploadDriveFileParams = Schema.decodeUnknown(UploadDriveFileParamsSchema)
-export const parseUploadDriveFileVersionParams = Schema.decodeUnknown(UploadDriveFileVersionParamsSchema)
-export const parseListDriveFileVersionsParams = Schema.decodeUnknown(ListDriveFileVersionsParamsSchema)
-export const parseRestoreDriveFileVersionParams = Schema.decodeUnknown(RestoreDriveFileVersionParamsSchema)
-export const parseMoveDriveItemParams = Schema.decodeUnknown(MoveDriveItemParamsSchema)
-export const parseRenameDriveItemParams = Schema.decodeUnknown(RenameDriveItemParamsSchema)
-export const parseDeleteDriveItemParams = Schema.decodeUnknown(DeleteDriveItemParamsSchema)
+export const parseListDrivesParams = Schema.decodeUnknownEffect(ListDrivesParamsSchema)
+export const parseGetDriveParams = Schema.decodeUnknownEffect(GetDriveParamsSchema)
+export const parseListDriveItemsParams = Schema.decodeUnknownEffect(ListDriveItemsParamsSchema)
+export const parseGetDriveItemParams = Schema.decodeUnknownEffect(GetDriveItemParamsSchema)
+export const parseCreateDriveFolderParams = Schema.decodeUnknownEffect(CreateDriveFolderParamsSchema)
+export const parseUploadDriveFileParams = Schema.decodeUnknownEffect(UploadDriveFileParamsSchema)
+export const parseUploadDriveFileVersionParams = Schema.decodeUnknownEffect(UploadDriveFileVersionParamsSchema)
+export const parseListDriveFileVersionsParams = Schema.decodeUnknownEffect(ListDriveFileVersionsParamsSchema)
+export const parseRestoreDriveFileVersionParams = Schema.decodeUnknownEffect(RestoreDriveFileVersionParamsSchema)
+export const parseMoveDriveItemParams = Schema.decodeUnknownEffect(MoveDriveItemParamsSchema)
+export const parseRenameDriveItemParams = Schema.decodeUnknownEffect(RenameDriveItemParamsSchema)
+export const parseDeleteDriveItemParams = Schema.decodeUnknownEffect(DeleteDriveItemParamsSchema)

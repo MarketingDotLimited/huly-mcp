@@ -55,7 +55,7 @@ type AddObjectCollaboratorError = ResolveTargetError | ResolveMemberError
 type RemoveObjectCollaboratorError = ResolveTargetError | ResolveMemberError | HulyError
 
 interface ResolvedObjectTarget {
-  readonly client: HulyClient["Type"]
+  readonly client: HulyClient["Service"]
   readonly objectId: Ref<Doc>
   readonly objectClass: Ref<Class<Doc>>
   readonly space: Ref<Space>
@@ -90,7 +90,7 @@ const resolveObjectTarget = (
     }
 
     if (params.teamspace === undefined || params.document === undefined) {
-      return yield* Effect.dieMessage("Invalid collaborator target: document target fields are missing")
+      return yield* Effect.die(new Error("Invalid collaborator target: document target fields are missing"))
     }
 
     const { client, doc, teamspace } = yield* findTeamspaceAndDocument({
@@ -101,7 +101,7 @@ const resolveObjectTarget = (
   })
 
 const resolveMember = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   member: CollaboratorMemberInput
 ): Effect.Effect<HulyAccountUuid, ResolveMemberError> =>
   Schema.is(AccountUuid)(member) ? Effect.succeed(toAccountUuid(member)) : resolveEmployeeAccountUuid(client, member)

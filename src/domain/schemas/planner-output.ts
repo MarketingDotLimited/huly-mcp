@@ -17,7 +17,7 @@ import {
   WorkSlotId
 } from "./shared.js"
 
-export const TodoAttachmentSummarySchema = Schema.Union(
+export const TodoAttachmentSummarySchema = Schema.Union([
   Schema.Struct({ type: Schema.Literal("none") }),
   Schema.Struct({
     type: Schema.Literal("issue"),
@@ -27,7 +27,7 @@ export const TodoAttachmentSummarySchema = Schema.Union(
     title: TodoAttachmentTitle
   }),
   Schema.Struct({ type: Schema.Literal("unknown"), id: DocId, class: ObjectClassName })
-)
+])
 export type TodoAttachmentSummary = Schema.Schema.Type<typeof TodoAttachmentSummarySchema>
 export const TodoOwnerSummarySchema = Schema.Struct({
   id: PersonId,
@@ -38,10 +38,10 @@ export type TodoOwnerSummary = Schema.Schema.Type<typeof TodoOwnerSummarySchema>
 export const TodoSummarySchema = Schema.Struct({
   id: TodoId,
   title: TodoTitle,
-  dueDate: Schema.optional(Schema.Union(Timestamp, Schema.Null)),
+  dueDate: Schema.optional(Schema.Union([Timestamp, Schema.Null])),
   priority: TodoPrioritySchema,
   visibility: TodoVisibilitySchema,
-  doneOn: Schema.optional(Schema.Union(Timestamp, Schema.Null)),
+  doneOn: Schema.optional(Schema.Union([Timestamp, Schema.Null])),
   owner: TodoOwnerSummarySchema,
   attachedTo: TodoAttachmentSummarySchema,
   workslots: Count,

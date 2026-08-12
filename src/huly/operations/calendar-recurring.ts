@@ -65,7 +65,7 @@ const eventInstanceTitle = (title: string): CalendarEventTitle =>
   hulyNonEmptyTextOrFallback(CalendarEventTitle, title, UNTITLED_EVENT_INSTANCE)
 
 const hulyRuleToRule = (rule: HulyRecurringRule): Effect.Effect<RecurringRule, HulyConnectionError> =>
-  Schema.decodeUnknown(RecurringRuleSchema)(rule).pipe(
+  Schema.decodeUnknownEffect(RecurringRuleSchema)(rule).pipe(
     Effect.mapError(
       (parseError) =>
         new HulyConnectionError({

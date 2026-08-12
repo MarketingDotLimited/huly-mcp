@@ -20,18 +20,14 @@ const globalAdminRoleId = RoleId.make(core.role.Admin)
 
 export const getGlobalSpaceAdmins = (
   _params: GetGlobalSpaceAdminsParams
-): Effect.Effect<
-  GetGlobalSpaceAdminsResult,
-  Effect.Effect.Error<ReturnType<typeof getSpace>>,
-  HulyClient | Diagnostics
-> =>
+): Effect.Effect<GetGlobalSpaceAdminsResult, Effect.Error<ReturnType<typeof getSpace>>, HulyClient | Diagnostics> =>
   Effect.map(getSpace({ space: globalSpace, includeArchived: true }), (space) => ({
     admins: space.roleAssignments?.find((assignment) => assignment.roleId === globalAdminRoleId)?.members ?? []
   }))
 
 export const setGlobalSpaceAdmins = (
   params: SetGlobalSpaceAdminsParams
-): Effect.Effect<SetGlobalSpaceAdminsResult, Effect.Effect.Error<ReturnType<typeof setSpaceRoleMembers>>, HulyClient> =>
+): Effect.Effect<SetGlobalSpaceAdminsResult, Effect.Error<ReturnType<typeof setSpaceRoleMembers>>, HulyClient> =>
   Effect.map(setSpaceRoleMembers({ space: globalSpace, role: globalAdminRole, members: params.admins }), (result) => ({
     admins: result.members,
     changed: result.changed

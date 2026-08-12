@@ -1,7 +1,8 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
 import { clearableText } from "./clearable.js"
 import { DriveIdentifier, DriveSummarySchema } from "./drive.js"
+import { toDraft07JsonSchema } from "./json-schema.js"
 import {
   AccountUuid,
   assertUpdateFields,
@@ -40,26 +41,26 @@ export const SetDriveOwnersResultSchema = Schema.Struct({
 export type SetDriveOwnersResult = Schema.Schema.Type<typeof SetDriveOwnersResultSchema>
 
 export const CreateDriveParamsSchema = Schema.Struct({
-  name: NonEmptyString.annotations({
+  name: NonEmptyString.annotate({
     description: "Drive name. If an active Drive already has this name, it is returned unchanged."
   }),
-  description: Schema.optional(Schema.String.annotations({ description: "Plain-text Drive description." })),
+  description: Schema.optional(Schema.String.annotate({ description: "Plain-text Drive description." })),
   private: Schema.optional(
-    Schema.Boolean.annotations({ description: `Whether the Drive is private. Defaults to ${DEFAULT_PRIVATE}.` })
+    Schema.Boolean.annotate({ description: `Whether the Drive is private. Defaults to ${DEFAULT_PRIVATE}.` })
   ),
   autoJoin: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: `Whether workspace members should auto-join the Drive. Defaults to ${DEFAULT_DRIVE_AUTO_JOIN}.`
     })
   ),
   members: Schema.optional(
-    Schema.Array(SpaceMemberIdentifier).annotations({
+    Schema.Array(SpaceMemberIdentifier).annotate({
       description:
         "Initial Drive members. Each entry may be an account UUID, exact email address, or exact person name. When omitted, the caller is added."
     })
   ),
   owners: Schema.optional(
-    Schema.Array(SpaceMemberIdentifier).annotations({
+    Schema.Array(SpaceMemberIdentifier).annotate({
       description:
         "Initial Drive owners. Each entry may be an account UUID, exact email address, or exact person name. When omitted, the caller is the owner."
     })
@@ -71,16 +72,18 @@ export const UPDATE_DRIVE_FIELDS = ["name", "description", "private", "archived"
 
 export const UpdateDriveParamsSchema = Schema.Struct({
   drive: DriveIdentifier,
-  name: Schema.optional(NonEmptyString.annotations({ description: "New Drive name." })),
+  name: Schema.optional(NonEmptyString.annotate({ description: "New Drive name." })),
   description: Schema.optional(clearableText("New plain-text Drive description.")),
-  private: Schema.optional(Schema.Boolean.annotations({ description: "Whether the Drive is private." })),
-  archived: Schema.optional(Schema.Boolean.annotations({ description: "Whether the Drive is archived." })),
+  private: Schema.optional(Schema.Boolean.annotate({ description: "Whether the Drive is private." })),
+  archived: Schema.optional(Schema.Boolean.annotate({ description: "Whether the Drive is archived." })),
   autoJoin: Schema.optional(
-    Schema.Boolean.annotations({ description: "Whether workspace members should auto-join the Drive." })
+    Schema.Boolean.annotate({ description: "Whether workspace members should auto-join the Drive." })
   )
 }).pipe(
-  Schema.filter((params) =>
-    hasAtLeastOneDefined(params, UPDATE_DRIVE_FIELDS) ? undefined : atLeastOneUpdateFieldMessage(UPDATE_DRIVE_FIELDS)
+  Schema.check(
+    Schema.makeFilter((params) =>
+      hasAtLeastOneDefined(params, UPDATE_DRIVE_FIELDS) ? undefined : atLeastOneUpdateFieldMessage(UPDATE_DRIVE_FIELDS)
+    )
   )
 )
 export type UpdateDriveParams = Schema.Schema.Type<typeof UpdateDriveParamsSchema>
@@ -92,8 +95,8 @@ export type DeleteDriveParams = Schema.Schema.Type<typeof DeleteDriveParamsSchem
 export const DriveMemberMutationParamsSchema = Schema.Struct({
   drive: DriveIdentifier,
   members: Schema.Array(SpaceMemberIdentifier)
-    .pipe(Schema.minItems(1))
-    .annotations({
+    .check(Schema.isNonEmpty())
+    .annotate({
       description:
         "Members to add or remove. Each entry may be an account UUID, exact email address, or exact person name."
     })
@@ -102,29 +105,29 @@ export type DriveMemberMutationParams = Schema.Schema.Type<typeof DriveMemberMut
 
 export const SetDriveOwnersParamsSchema = Schema.Struct({
   drive: DriveIdentifier,
-  owners: Schema.Array(SpaceMemberIdentifier).annotations({
+  owners: Schema.Array(SpaceMemberIdentifier).annotate({
     description:
       "Replacement Drive owner list. Each entry may be an account UUID, exact email address, or exact person name. Pass [] to clear owners."
   }),
   ensureMembers: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: `Also add each owner to Drive members. Defaults to ${DEFAULT_SPACE_OWNER_ENSURE_MEMBERS}.`
     })
   )
 })
 export type SetDriveOwnersParams = Schema.Schema.Type<typeof SetDriveOwnersParamsSchema>
 
-export const createDriveParamsJsonSchema = JSONSchema.make(CreateDriveParamsSchema)
+export const createDriveParamsJsonSchema = toDraft07JsonSchema(CreateDriveParamsSchema)
 export const updateDriveParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(UpdateDriveParamsSchema),
+  toDraft07JsonSchema(UpdateDriveParamsSchema),
   UPDATE_DRIVE_FIELDS
 )
-export const deleteDriveParamsJsonSchema = JSONSchema.make(DeleteDriveParamsSchema)
-export const driveMemberMutationParamsJsonSchema = JSONSchema.make(DriveMemberMutationParamsSchema)
-export const setDriveOwnersParamsJsonSchema = JSONSchema.make(SetDriveOwnersParamsSchema)
+export const deleteDriveParamsJsonSchema = toDraft07JsonSchema(DeleteDriveParamsSchema)
+export const driveMemberMutationParamsJsonSchema = toDraft07JsonSchema(DriveMemberMutationParamsSchema)
+export const setDriveOwnersParamsJsonSchema = toDraft07JsonSchema(SetDriveOwnersParamsSchema)
 
-export const parseCreateDriveParams = Schema.decodeUnknown(CreateDriveParamsSchema)
-export const parseUpdateDriveParams = Schema.decodeUnknown(UpdateDriveParamsSchema)
-export const parseDeleteDriveParams = Schema.decodeUnknown(DeleteDriveParamsSchema)
-export const parseDriveMemberMutationParams = Schema.decodeUnknown(DriveMemberMutationParamsSchema)
-export const parseSetDriveOwnersParams = Schema.decodeUnknown(SetDriveOwnersParamsSchema)
+export const parseCreateDriveParams = Schema.decodeUnknownEffect(CreateDriveParamsSchema)
+export const parseUpdateDriveParams = Schema.decodeUnknownEffect(UpdateDriveParamsSchema)
+export const parseDeleteDriveParams = Schema.decodeUnknownEffect(DeleteDriveParamsSchema)
+export const parseDriveMemberMutationParams = Schema.decodeUnknownEffect(DriveMemberMutationParamsSchema)
+export const parseSetDriveOwnersParams = Schema.decodeUnknownEffect(SetDriveOwnersParamsSchema)

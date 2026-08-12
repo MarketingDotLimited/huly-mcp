@@ -1,4 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+
+import { toDraft07JsonSchema } from "./json-schema.js"
 
 import { clearableText } from "./clearable.js"
 import { HULY_NATIVE_REFERENCE_MARKDOWN_INPUT } from "./document-native-references.js"
@@ -71,57 +73,59 @@ export type DirectMessageSummary = Schema.Schema.Type<typeof DirectMessageSummar
 
 const ListChannelsParamsBase = Schema.Struct({
   nameSearch: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: "Search channels by name substring (case-insensitive). Mutually exclusive with nameRegex."
     })
   ),
   nameRegex: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         "Filter channels by name using Huly $regex. On the supported Postgres backend this is SQL SIMILAR TO, not JavaScript RegExp; matching is case-sensitive and the pattern must match the whole name: use '%' for any string (e.g., '%dev%' contains, 'dev%' prefix). Mutually exclusive with nameSearch; use nameSearch for simple substring matching."
     })
   ),
   topicSearch: Schema.optional(
-    Schema.String.annotations({ description: "Search channels by topic substring (case-insensitive)" })
+    Schema.String.annotate({ description: "Search channels by topic substring (case-insensitive)" })
   ),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of channels to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of channels to return (default: ${DEFAULT_LIMIT})` })
   ),
   includeArchived: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: `Include archived channels in results (default: ${DEFAULT_INCLUDE_ARCHIVED})`
     })
   )
 })
 
 export const ListChannelsParamsSchema = ListChannelsParamsBase.pipe(
-  Schema.filter((params) => {
-    if (params.nameSearch !== undefined && params.nameRegex !== undefined) {
-      return "Cannot provide both 'nameSearch' and 'nameRegex'. Use one or the other."
-    }
-    return undefined
-  })
-).annotations({ title: "ListChannelsParams", description: "Parameters for listing channels" })
+  Schema.check(
+    Schema.makeFilter((params) => {
+      if (params.nameSearch !== undefined && params.nameRegex !== undefined) {
+        return "Cannot provide both 'nameSearch' and 'nameRegex'. Use one or the other."
+      }
+      return undefined
+    })
+  )
+).annotate({ title: "ListChannelsParams", description: "Parameters for listing channels" })
 
 export type ListChannelsParams = Schema.Schema.Type<typeof ListChannelsParamsSchema>
 
 // --- Get Channel Params ---
 
 export const GetChannelParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID" })
-}).annotations({ title: "GetChannelParams", description: "Parameters for getting a single channel" })
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID" })
+}).annotate({ title: "GetChannelParams", description: "Parameters for getting a single channel" })
 
 export type GetChannelParams = Schema.Schema.Type<typeof GetChannelParamsSchema>
 
 // --- Create Channel Params ---
 
 export const CreateChannelParamsSchema = Schema.Struct({
-  name: NonEmptyString.annotations({ description: "Channel name" }),
-  topic: Schema.optional(Schema.String.annotations({ description: "Channel topic/description" })),
+  name: NonEmptyString.annotate({ description: "Channel name" }),
+  topic: Schema.optional(Schema.String.annotate({ description: "Channel topic/description" })),
   private: Schema.optional(
-    Schema.Boolean.annotations({ description: `Whether channel is private (default: ${DEFAULT_PRIVATE})` })
+    Schema.Boolean.annotate({ description: `Whether channel is private (default: ${DEFAULT_PRIVATE})` })
   )
-}).annotations({ title: "CreateChannelParams", description: "Parameters for creating a channel" })
+}).annotate({ title: "CreateChannelParams", description: "Parameters for creating a channel" })
 
 export type CreateChannelParams = Schema.Schema.Type<typeof CreateChannelParamsSchema>
 
@@ -130,18 +134,20 @@ export type CreateChannelParams = Schema.Schema.Type<typeof CreateChannelParamsS
 export const UPDATE_CHANNEL_FIELDS = ["name", "topic"] as const satisfies ReadonlyArray<"name" | "topic">
 
 export const UpdateChannelParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID" }),
-  name: Schema.optional(NonEmptyString.annotations({ description: "New channel name" })),
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID" }),
+  name: Schema.optional(NonEmptyString.annotate({ description: "New channel name" })),
   topic: Schema.optional(clearableText("New channel topic."))
 })
   .pipe(
-    Schema.filter((params) =>
-      hasAtLeastOneDefined(params, UPDATE_CHANNEL_FIELDS)
-        ? undefined
-        : atLeastOneUpdateFieldMessage(UPDATE_CHANNEL_FIELDS)
+    Schema.check(
+      Schema.makeFilter((params) =>
+        hasAtLeastOneDefined(params, UPDATE_CHANNEL_FIELDS)
+          ? undefined
+          : atLeastOneUpdateFieldMessage(UPDATE_CHANNEL_FIELDS)
+      )
     )
   )
-  .annotations({
+  .annotate({
     title: "UpdateChannelParams",
     description: `Parameters for updating a channel. ${atLeastOneUpdateFieldMessage(UPDATE_CHANNEL_FIELDS)}`
   })
@@ -152,49 +158,49 @@ assertUpdateFields<UpdateChannelParams>()(["channel"], UPDATE_CHANNEL_FIELDS)
 // --- Delete Channel Params ---
 
 export const DeleteChannelParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID" })
-}).annotations({ title: "DeleteChannelParams", description: "Parameters for deleting a channel" })
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID" })
+}).annotate({ title: "DeleteChannelParams", description: "Parameters for deleting a channel" })
 
 export type DeleteChannelParams = Schema.Schema.Type<typeof DeleteChannelParamsSchema>
 
 // --- List Channel Messages Params ---
 
 export const ListChannelMessagesParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID" }),
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID" }),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of messages to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of messages to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({ title: "ListChannelMessagesParams", description: "Parameters for listing messages in a channel" })
+}).annotate({ title: "ListChannelMessagesParams", description: "Parameters for listing messages in a channel" })
 
 export type ListChannelMessagesParams = Schema.Schema.Type<typeof ListChannelMessagesParamsSchema>
 
 // --- Send Channel Message Params ---
 
 export const SendChannelMessageParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID" }),
-  body: NonEmptyString.annotations({ description: `Message body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}` })
-}).annotations({ title: "SendChannelMessageParams", description: "Parameters for sending a message to a channel" })
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID" }),
+  body: NonEmptyString.annotate({ description: `Message body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}` })
+}).annotate({ title: "SendChannelMessageParams", description: "Parameters for sending a message to a channel" })
 
 export type SendChannelMessageParams = Schema.Schema.Type<typeof SendChannelMessageParamsSchema>
 
 // --- Update Channel Message Params ---
 
 export const UpdateChannelMessageParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID" }),
-  messageId: MessageId.annotations({ description: "Message ID to update" }),
-  body: NonEmptyString.annotations({
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID" }),
+  messageId: MessageId.annotate({ description: "Message ID to update" }),
+  body: NonEmptyString.annotate({
     description: `New message body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
   })
-}).annotations({ title: "UpdateChannelMessageParams", description: "Parameters for updating a channel message" })
+}).annotate({ title: "UpdateChannelMessageParams", description: "Parameters for updating a channel message" })
 
 export type UpdateChannelMessageParams = Schema.Schema.Type<typeof UpdateChannelMessageParamsSchema>
 
 // --- Delete Channel Message Params ---
 
 export const DeleteChannelMessageParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID" }),
-  messageId: MessageId.annotations({ description: "Message ID to delete" })
-}).annotations({ title: "DeleteChannelMessageParams", description: "Parameters for deleting a channel message" })
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID" }),
+  messageId: MessageId.annotate({ description: "Message ID to delete" })
+}).annotate({ title: "DeleteChannelMessageParams", description: "Parameters for deleting a channel message" })
 
 export type DeleteChannelMessageParams = Schema.Schema.Type<typeof DeleteChannelMessageParamsSchema>
 
@@ -202,12 +208,9 @@ export type DeleteChannelMessageParams = Schema.Schema.Type<typeof DeleteChannel
 
 export const ListDirectMessagesParamsSchema = Schema.Struct({
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of DM conversations to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of DM conversations to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({
-  title: "ListDirectMessagesParams",
-  description: "Parameters for listing direct message conversations"
-})
+}).annotate({ title: "ListDirectMessagesParams", description: "Parameters for listing direct message conversations" })
 
 export type ListDirectMessagesParams = Schema.Schema.Type<typeof ListDirectMessagesParamsSchema>
 export const ThreadMessageSchema = Schema.Struct({
@@ -225,84 +228,82 @@ export type ThreadMessage = Schema.Schema.Type<typeof ThreadMessageSchema>
 // --- List Thread Replies Params ---
 
 export const ListThreadRepliesParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID" }),
-  messageId: MessageId.annotations({ description: "Parent message ID" }),
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID" }),
+  messageId: MessageId.annotate({ description: "Parent message ID" }),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of replies to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of replies to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({ title: "ListThreadRepliesParams", description: "Parameters for listing thread replies" })
+}).annotate({ title: "ListThreadRepliesParams", description: "Parameters for listing thread replies" })
 
 export type ListThreadRepliesParams = Schema.Schema.Type<typeof ListThreadRepliesParamsSchema>
 
 // --- Add Thread Reply Params ---
 
 export const AddThreadReplyParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID" }),
-  messageId: MessageId.annotations({ description: "Parent message ID to reply to" }),
-  body: NonEmptyString.annotations({ description: `Reply body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}` })
-}).annotations({ title: "AddThreadReplyParams", description: "Parameters for adding a thread reply" })
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID" }),
+  messageId: MessageId.annotate({ description: "Parent message ID to reply to" }),
+  body: NonEmptyString.annotate({ description: `Reply body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}` })
+}).annotate({ title: "AddThreadReplyParams", description: "Parameters for adding a thread reply" })
 
 export type AddThreadReplyParams = Schema.Schema.Type<typeof AddThreadReplyParamsSchema>
 
 // --- Update Thread Reply Params ---
 
 export const UpdateThreadReplyParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID" }),
-  messageId: MessageId.annotations({ description: "Parent message ID" }),
-  replyId: ThreadReplyId.annotations({ description: "Thread reply ID to update" }),
-  body: NonEmptyString.annotations({
-    description: `New reply body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
-  })
-}).annotations({ title: "UpdateThreadReplyParams", description: "Parameters for updating a thread reply" })
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID" }),
+  messageId: MessageId.annotate({ description: "Parent message ID" }),
+  replyId: ThreadReplyId.annotate({ description: "Thread reply ID to update" }),
+  body: NonEmptyString.annotate({ description: `New reply body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}` })
+}).annotate({ title: "UpdateThreadReplyParams", description: "Parameters for updating a thread reply" })
 
 export type UpdateThreadReplyParams = Schema.Schema.Type<typeof UpdateThreadReplyParamsSchema>
 
 // --- Delete Thread Reply Params ---
 
 export const DeleteThreadReplyParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID" }),
-  messageId: MessageId.annotations({ description: "Parent message ID" }),
-  replyId: ThreadReplyId.annotations({ description: "Thread reply ID to delete" })
-}).annotations({ title: "DeleteThreadReplyParams", description: "Parameters for deleting a thread reply" })
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID" }),
+  messageId: MessageId.annotate({ description: "Parent message ID" }),
+  replyId: ThreadReplyId.annotate({ description: "Thread reply ID to delete" })
+}).annotate({ title: "DeleteThreadReplyParams", description: "Parameters for deleting a thread reply" })
 
 export type DeleteThreadReplyParams = Schema.Schema.Type<typeof DeleteThreadReplyParamsSchema>
 
 // --- JSON Schemas for MCP ---
 
-export const listChannelsParamsJsonSchema = JSONSchema.make(ListChannelsParamsSchema)
-export const getChannelParamsJsonSchema = JSONSchema.make(GetChannelParamsSchema)
-export const createChannelParamsJsonSchema = JSONSchema.make(CreateChannelParamsSchema)
+export const listChannelsParamsJsonSchema = toDraft07JsonSchema(ListChannelsParamsSchema)
+export const getChannelParamsJsonSchema = toDraft07JsonSchema(GetChannelParamsSchema)
+export const createChannelParamsJsonSchema = toDraft07JsonSchema(CreateChannelParamsSchema)
 export const updateChannelParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(UpdateChannelParamsSchema),
+  toDraft07JsonSchema(UpdateChannelParamsSchema),
   UPDATE_CHANNEL_FIELDS
 )
-export const deleteChannelParamsJsonSchema = JSONSchema.make(DeleteChannelParamsSchema)
-export const listChannelMessagesParamsJsonSchema = JSONSchema.make(ListChannelMessagesParamsSchema)
-export const sendChannelMessageParamsJsonSchema = JSONSchema.make(SendChannelMessageParamsSchema)
-export const updateChannelMessageParamsJsonSchema = JSONSchema.make(UpdateChannelMessageParamsSchema)
-export const deleteChannelMessageParamsJsonSchema = JSONSchema.make(DeleteChannelMessageParamsSchema)
-export const listDirectMessagesParamsJsonSchema = JSONSchema.make(ListDirectMessagesParamsSchema)
-export const listThreadRepliesParamsJsonSchema = JSONSchema.make(ListThreadRepliesParamsSchema)
-export const addThreadReplyParamsJsonSchema = JSONSchema.make(AddThreadReplyParamsSchema)
-export const updateThreadReplyParamsJsonSchema = JSONSchema.make(UpdateThreadReplyParamsSchema)
-export const deleteThreadReplyParamsJsonSchema = JSONSchema.make(DeleteThreadReplyParamsSchema)
+export const deleteChannelParamsJsonSchema = toDraft07JsonSchema(DeleteChannelParamsSchema)
+export const listChannelMessagesParamsJsonSchema = toDraft07JsonSchema(ListChannelMessagesParamsSchema)
+export const sendChannelMessageParamsJsonSchema = toDraft07JsonSchema(SendChannelMessageParamsSchema)
+export const updateChannelMessageParamsJsonSchema = toDraft07JsonSchema(UpdateChannelMessageParamsSchema)
+export const deleteChannelMessageParamsJsonSchema = toDraft07JsonSchema(DeleteChannelMessageParamsSchema)
+export const listDirectMessagesParamsJsonSchema = toDraft07JsonSchema(ListDirectMessagesParamsSchema)
+export const listThreadRepliesParamsJsonSchema = toDraft07JsonSchema(ListThreadRepliesParamsSchema)
+export const addThreadReplyParamsJsonSchema = toDraft07JsonSchema(AddThreadReplyParamsSchema)
+export const updateThreadReplyParamsJsonSchema = toDraft07JsonSchema(UpdateThreadReplyParamsSchema)
+export const deleteThreadReplyParamsJsonSchema = toDraft07JsonSchema(DeleteThreadReplyParamsSchema)
 
 // --- Parsers ---
 
-export const parseListChannelsParams = Schema.decodeUnknown(ListChannelsParamsSchema)
-export const parseGetChannelParams = Schema.decodeUnknown(GetChannelParamsSchema)
-export const parseCreateChannelParams = Schema.decodeUnknown(CreateChannelParamsSchema)
-export const parseUpdateChannelParams = Schema.decodeUnknown(UpdateChannelParamsSchema)
-export const parseDeleteChannelParams = Schema.decodeUnknown(DeleteChannelParamsSchema)
-export const parseListChannelMessagesParams = Schema.decodeUnknown(ListChannelMessagesParamsSchema)
-export const parseSendChannelMessageParams = Schema.decodeUnknown(SendChannelMessageParamsSchema)
-export const parseUpdateChannelMessageParams = Schema.decodeUnknown(UpdateChannelMessageParamsSchema)
-export const parseDeleteChannelMessageParams = Schema.decodeUnknown(DeleteChannelMessageParamsSchema)
-export const parseListDirectMessagesParams = Schema.decodeUnknown(ListDirectMessagesParamsSchema)
-export const parseListThreadRepliesParams = Schema.decodeUnknown(ListThreadRepliesParamsSchema)
-export const parseAddThreadReplyParams = Schema.decodeUnknown(AddThreadReplyParamsSchema)
-export const parseUpdateThreadReplyParams = Schema.decodeUnknown(UpdateThreadReplyParamsSchema)
-export const parseDeleteThreadReplyParams = Schema.decodeUnknown(DeleteThreadReplyParamsSchema)
+export const parseListChannelsParams = Schema.decodeUnknownEffect(ListChannelsParamsSchema)
+export const parseGetChannelParams = Schema.decodeUnknownEffect(GetChannelParamsSchema)
+export const parseCreateChannelParams = Schema.decodeUnknownEffect(CreateChannelParamsSchema)
+export const parseUpdateChannelParams = Schema.decodeUnknownEffect(UpdateChannelParamsSchema)
+export const parseDeleteChannelParams = Schema.decodeUnknownEffect(DeleteChannelParamsSchema)
+export const parseListChannelMessagesParams = Schema.decodeUnknownEffect(ListChannelMessagesParamsSchema)
+export const parseSendChannelMessageParams = Schema.decodeUnknownEffect(SendChannelMessageParamsSchema)
+export const parseUpdateChannelMessageParams = Schema.decodeUnknownEffect(UpdateChannelMessageParamsSchema)
+export const parseDeleteChannelMessageParams = Schema.decodeUnknownEffect(DeleteChannelMessageParamsSchema)
+export const parseListDirectMessagesParams = Schema.decodeUnknownEffect(ListDirectMessagesParamsSchema)
+export const parseListThreadRepliesParams = Schema.decodeUnknownEffect(ListThreadRepliesParamsSchema)
+export const parseAddThreadReplyParams = Schema.decodeUnknownEffect(AddThreadReplyParamsSchema)
+export const parseUpdateThreadReplyParams = Schema.decodeUnknownEffect(UpdateThreadReplyParamsSchema)
+export const parseDeleteThreadReplyParams = Schema.decodeUnknownEffect(DeleteThreadReplyParamsSchema)
 export const CreateChannelResultSchema = Schema.Struct({ id: ChannelId, name: ChannelName })
 export type CreateChannelResult = Schema.Schema.Type<typeof CreateChannelResultSchema>
 export const UpdateChannelResultSchema = Schema.Struct({ id: ChannelId, updated: Schema.Boolean })

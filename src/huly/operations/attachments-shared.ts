@@ -94,14 +94,14 @@ const attachmentScopeQuery = (
 })
 
 export const listAttachmentsForScope = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   scope: AttachmentCollectionScope,
   limit?: number
 ): Effect.Effect<Array<AttachmentSummary>, HulyClientError> =>
   Effect.map(listAttachmentPageForScope(client, scope, limit), (page) => page.attachments)
 
 export const listAttachmentPageForScope = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   scope: AttachmentCollectionScope,
   limit?: number
 ): Effect.Effect<AttachmentScopeList, HulyClientError> =>
@@ -118,7 +118,7 @@ export const listAttachmentPageForScope = (
   )
 
 export const findAttachmentForScope = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   attachmentId: AttachmentIdType,
   scope: AttachmentLookupScope
 ): Effect.Effect<HulyAttachment, HulyClientError | AttachmentNotFoundError> =>
@@ -130,8 +130,8 @@ export const findAttachmentForScope = (
   )
 
 export const getAttachmentForScope = (
-  client: HulyClient["Type"],
-  storageClient: HulyStorageClient["Type"],
+  client: HulyClient["Service"],
+  storageClient: HulyStorageClient["Service"],
   attachmentId: AttachmentIdType,
   scope: AttachmentLookupScope
 ): Effect.Effect<Attachment, HulyClientError | AttachmentNotFoundError> =>
@@ -148,7 +148,7 @@ const attachmentUpdateOps = (params: AttachmentMetadataUpdate): DocumentUpdate<H
 }
 
 export const updateAttachmentForScope = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   attachmentId: AttachmentIdType,
   params: AttachmentMetadataUpdate,
   scope: AttachmentLookupScope

@@ -79,7 +79,7 @@ const parseName = (name: string): { firstName: string; lastName: string } => {
 }
 
 const findOrganizationsForPerson = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   personId: Ref<HulyPerson>
 ): Effect.Effect<Array<OrganizationMembershipSummary>, HulyClientError> =>
   Effect.gen(function* () {
@@ -107,7 +107,7 @@ const personNameQuery = (params: ListPersonsParams): DocumentQuery<HulyPerson> =
 }
 
 const applyPersonEmailSearch = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   query: DocumentQuery<HulyPerson>,
   emailSearch: string | undefined
 ): Effect.Effect<boolean, HulyClientError> =>

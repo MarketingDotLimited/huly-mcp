@@ -50,7 +50,7 @@ type EditDocumentError =
   | HulyModelMetadataError
 
 const applyFullDocumentContent = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   doc: HulyDocument,
   documentId: DocumentId,
   documentClass: ObjectClassName,
@@ -83,7 +83,7 @@ const applyFullDocumentContent = (
   })
 
 const applyDocumentSearchReplace = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   doc: HulyDocument,
   documentId: DocumentId,
   documentClass: ObjectClassName,
@@ -121,7 +121,7 @@ const applyDocumentSearchReplace = (
   })
 
 const applyDocumentContentEdit = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   doc: HulyDocument,
   documentId: DocumentId,
   documentClass: ObjectClassName,
@@ -144,7 +144,7 @@ const applyDocumentContentEdit = (
       : Effect.void
 
 const persistDocumentFields = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   documentId: DocumentId,
   teamspaceId: TeamspaceId,
   updateOps: DocumentUpdate<HulyDocument>

@@ -23,11 +23,11 @@ export interface ResolvedOwner<Owner extends ChannelOwner> {
 }
 
 const resolvePerson = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: string
 ): Effect.Effect<HulyPerson, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
   Effect.gen(function* () {
-    const byId = Option.fromNullable(yield* findPersonById(client, identifier))
+    const byId = Option.fromNullishOr(yield* findPersonById(client, identifier))
     return yield* Option.match(byId, {
       onNone: () =>
         Effect.flatMap(
@@ -36,7 +36,7 @@ const resolvePerson = (
               client,
               Schema.is(Email)(identifier) ? identifier : PersonName.make(identifier)
             ),
-            Option.fromNullable
+            Option.fromNullishOr
           ),
           (byEmailOrName) =>
             Option.match(byEmailOrName, {
@@ -49,7 +49,7 @@ const resolvePerson = (
   })
 
 export const resolvePersonOwner = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: string
 ): Effect.Effect<ResolvedOwner<HulyPerson>, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
   Effect.map(resolvePerson(client, identifier), (person) => ({
@@ -59,7 +59,7 @@ export const resolvePersonOwner = (
   }))
 
 export const resolveOrganizationOwner = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: string
 ): Effect.Effect<
   ResolvedOwner<HulyOrganization>,

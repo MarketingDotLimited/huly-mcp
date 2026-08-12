@@ -36,7 +36,7 @@ export class SpaceIdentifierAmbiguousError extends Schema.TaggedError<SpaceIdent
   "SpaceIdentifierAmbiguousError",
   {
     identifier: NonEmptyString,
-    matches: Schema.Array(AmbiguousSpaceMatchSchema).pipe(Schema.minItems(MIN_AMBIGUOUS_SPACE_MATCHES))
+    matches: Schema.Array(AmbiguousSpaceMatchSchema).pipe(Schema.check(Schema.isMinLength(MIN_AMBIGUOUS_SPACE_MATCHES)))
   }
 ) {
   override get message(): string {
@@ -59,7 +59,9 @@ export class SpaceTypeIdentifierAmbiguousError extends Schema.TaggedError<SpaceT
   "SpaceTypeIdentifierAmbiguousError",
   {
     identifier: NonEmptyString,
-    matches: Schema.Array(AmbiguousSpaceTypeMatchSchema).pipe(Schema.minItems(MIN_AMBIGUOUS_SPACE_MATCHES))
+    matches: Schema.Array(AmbiguousSpaceTypeMatchSchema).pipe(
+      Schema.check(Schema.isMinLength(MIN_AMBIGUOUS_SPACE_MATCHES))
+    )
   }
 ) {
   override get message(): string {
@@ -109,7 +111,9 @@ export class SpaceRoleIdentifierAmbiguousError extends Schema.TaggedError<SpaceR
   {
     identifier: NonEmptyString,
     spaceType: SpaceTypeId,
-    matches: Schema.Array(AmbiguousSpaceRoleMatchSchema).pipe(Schema.minItems(MIN_AMBIGUOUS_SPACE_MATCHES))
+    matches: Schema.Array(AmbiguousSpaceRoleMatchSchema).pipe(
+      Schema.check(Schema.isMinLength(MIN_AMBIGUOUS_SPACE_MATCHES))
+    )
   }
 ) {
   override get message(): string {

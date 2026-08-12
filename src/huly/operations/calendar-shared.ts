@@ -102,7 +102,7 @@ export const ONE_HOUR_MS = DEFAULT_EVENT_DURATION_MS
 // --- Helpers ---
 
 const findWritablePersonalCalendars = (
-  client: HulyClient["Type"]
+  client: HulyClient["Service"]
 ): Effect.Effect<Array<HulyCalendar>, HulyClientError> =>
   client.findAll<HulyCalendar>(calendar.class.Calendar, {
     user: client.getPrimarySocialId(),
@@ -111,14 +111,16 @@ const findWritablePersonalCalendars = (
   })
 
 export const findWritableCalendars = (
-  client: HulyClient["Type"]
+  client: HulyClient["Service"]
 ): Effect.Effect<Array<HulyCalendar>, HulyClientError> =>
   client.findAll<HulyCalendar>(calendar.class.Calendar, {
     hidden: false,
     access: { $in: [AccessLevel.Owner, AccessLevel.Writer] }
   })
 
-export const getDefaultCalendarRef = (client: HulyClient["Type"]): Effect.Effect<Ref<HulyCalendar>, HulyClientError> =>
+export const getDefaultCalendarRef = (
+  client: HulyClient["Service"]
+): Effect.Effect<Ref<HulyCalendar>, HulyClientError> =>
   Effect.gen(function* () {
     const calendars = yield* findWritablePersonalCalendars(client)
     const preference = yield* client.findOne<HulyPrimaryCalendar>(calendar.class.PrimaryCalendar, {})
@@ -127,7 +129,7 @@ export const getDefaultCalendarRef = (client: HulyClient["Type"]): Effect.Effect
   })
 
 export const resolveCalendarRef = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   calendarId?: CalendarId,
   calendarName?: string
 ): Effect.Effect<Ref<HulyCalendar>, HulyClientError | CalendarNotAccessibleError> =>
@@ -182,7 +184,7 @@ const participantSearchIdentifier = (
 }
 
 const resolveParticipantLocator = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   locator: EventParticipantLocator
 ): Effect.Effect<Ref<Contact>, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
   Effect.gen(function* () {
@@ -209,7 +211,7 @@ const resolveParticipantLocator = (
   })
 
 export const resolveParticipantLocators = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   locators: ReadonlyArray<EventParticipantLocator> | undefined
 ): Effect.Effect<Array<Ref<Contact>>, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
   Effect.gen(function* () {
@@ -219,7 +221,7 @@ export const resolveParticipantLocators = (
   })
 
 export const buildParticipants = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   participantRefs: ReadonlyArray<Ref<Contact>>
 ): Effect.Effect<Array<Participant>, HulyClientError> =>
   Effect.gen(function* () {
@@ -240,7 +242,7 @@ interface ResolvedEventInputs {
 }
 
 export const resolveEventInputs = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: {
     readonly participants?: ReadonlyArray<EventParticipantLocator> | undefined
     readonly description?: string | undefined
@@ -256,7 +258,7 @@ export const resolveEventInputs = (
   Effect.gen(function* () {
     const calendarRef = yield* resolveCalendarRef(client, params.calendarId, params.calendarName)
 
-    const participantRefs = Arr.isNonEmptyReadonlyArray(params.participants ?? [])
+    const participantRefs = Arr.isReadonlyArrayNonEmpty(params.participants ?? [])
       ? yield* resolveParticipantLocators(client, params.participants)
       : []
 

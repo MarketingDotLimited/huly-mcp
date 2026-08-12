@@ -66,7 +66,7 @@ const descriptorDetail = (
 })
 
 export const findSpaceType = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: SpaceTypeIdentifier
 ): Effect.Effect<HulySpaceType, GetSpaceTypeError> =>
   Effect.gen(function* () {
@@ -100,7 +100,7 @@ export const findSpaceType = (
   })
 
 const permissionsByIds = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   permissionIds: ReadonlyArray<Ref<HulyPermission>>
 ): Effect.Effect<Map<Ref<HulyPermission>, HulyPermission>, HulyClientError> =>
   Effect.gen(function* () {

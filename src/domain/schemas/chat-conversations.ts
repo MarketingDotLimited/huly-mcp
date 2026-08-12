@@ -2,7 +2,9 @@
  * Chat conversation schemas for channel membership, channel lifecycle,
  * group direct-message creation, and per-user conversation state.
  */
-import { JSONSchema, Schema } from "effect"
+import { Schema, Tuple } from "effect"
+
+import { toDraft07JsonSchema } from "./json-schema.js"
 
 import {
   AccountUuid,
@@ -16,7 +18,7 @@ import {
 
 export const GroupDirectMessageMinimumOtherPeople = 2
 
-export const ChannelMemberIdentifier = Schema.Union(AccountUuid, PersonRefInput).annotations({
+export const ChannelMemberIdentifier = Schema.Union([AccountUuid, PersonRefInput]).annotate({
   description:
     "Workspace channel member to resolve. Accepts a Huly account UUID directly, an exact email address, or an exact person display name."
 })
@@ -49,7 +51,7 @@ export type CreateGroupDirectMessageResult = Schema.Schema.Type<typeof CreateGro
 
 export type ConversationKind = "channel" | "direct_message"
 export const ConversationStateResultSchema = Schema.Struct({
-  kind: Schema.Literal("channel", "direct_message"),
+  kind: Schema.Literals(["channel", "direct_message"]),
   objectId: ChannelId,
   contextId: NotificationContextId,
   starred: Schema.Boolean,
@@ -59,66 +61,64 @@ export const ConversationStateResultSchema = Schema.Struct({
 export type ConversationStateResult = Schema.Schema.Type<typeof ConversationStateResultSchema>
 
 export const ListChannelMembersParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID whose members should be listed." })
-}).annotations({ title: "ListChannelMembersParams", description: "Parameters for listing channel members." })
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID whose members should be listed." })
+}).annotate({ title: "ListChannelMembersParams", description: "Parameters for listing channel members." })
 export type ListChannelMembersParams = Schema.Schema.Type<typeof ListChannelMembersParamsSchema>
 
 export const ChannelMemberMutationParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID whose members should change." }),
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID whose members should change." }),
   members: Schema.Array(ChannelMemberIdentifier)
-    .pipe(Schema.minItems(1))
-    .annotations({
+    .pipe(Schema.check(Schema.isMinLength(1)))
+    .annotate({
       description:
         "Members to add or remove. Each entry may be an account UUID, exact email address, or exact person display name."
     })
-}).annotations({
-  title: "ChannelMemberMutationParams",
-  description: "Parameters for adding or removing channel members."
-})
+}).annotate({ title: "ChannelMemberMutationParams", description: "Parameters for adding or removing channel members." })
 export type ChannelMemberMutationParams = Schema.Schema.Type<typeof ChannelMemberMutationParamsSchema>
 
 export const ChannelLifecycleParamsSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID whose archive state should change." })
-}).annotations({ title: "ChannelLifecycleParams", description: "Parameters for archiving or unarchiving a channel." })
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID whose archive state should change." })
+}).annotate({ title: "ChannelLifecycleParams", description: "Parameters for archiving or unarchiving a channel." })
 export type ChannelLifecycleParams = Schema.Schema.Type<typeof ChannelLifecycleParamsSchema>
 
 export const CreateGroupDirectMessageParamsSchema = Schema.Struct({
   people: Schema.Array(PersonRefInput)
-    .pipe(Schema.minItems(GroupDirectMessageMinimumOtherPeople))
-    .annotations({
+    .pipe(Schema.check(Schema.isMinLength(GroupDirectMessageMinimumOtherPeople)))
+    .annotate({
       description:
         "At least two other workspace members to include in a group DM. Each entry accepts an exact email address or exact person display name. The authenticated account is included automatically."
     })
-}).annotations({
+}).annotate({
   title: "CreateGroupDirectMessageParams",
   description: "Parameters for creating or resolving a group direct-message conversation by exact participant set."
 })
 export type CreateGroupDirectMessageParams = Schema.Schema.Type<typeof CreateGroupDirectMessageParamsSchema>
 
 const ChannelConversationTargetSchema = Schema.Struct({
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID. Provide exactly one of channel or dm." }),
-  dm: Schema.optionalWith(Schema.Never, { exact: true })
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID. Provide exactly one of channel or dm." }),
+  dm: Schema.optionalKey(Schema.Never)
 })
 const DirectMessageConversationTargetSchema = Schema.Struct({
-  channel: Schema.optionalWith(Schema.Never, { exact: true }),
-  dm: DirectMessageIdentifier.annotations({
+  channel: Schema.optionalKey(Schema.Never),
+  dm: DirectMessageIdentifier.annotate({
     description:
       "Direct-message conversation ID, or a one-to-one participant display name. Provide exactly one of channel or dm."
   })
 })
-export const ConversationTargetSchema = Schema.Union(
+export const ConversationTargetSchema = Schema.Union([
   ChannelConversationTargetSchema,
   DirectMessageConversationTargetSchema
-)
+])
 
-export const SetConversationStarredParamsSchema = Schema.extend(
-  ConversationTargetSchema,
-  Schema.Struct({
-    starred: Schema.Boolean.annotations({
-      description: "True to star/pin this conversation for the authenticated user, false to unstar it."
+export const SetConversationStarredParamsSchema = ConversationTargetSchema.mapMembers(
+  Tuple.map(
+    Schema.fieldsAssign({
+      starred: Schema.Boolean.annotate({
+        description: "True to star/pin this conversation for the authenticated user, false to unstar it."
+      })
     })
-  })
-).annotations({
+  )
+).annotate({
   title: "SetConversationStarredParams",
   description:
     "Parameters for setting the authenticated user's starred state for a channel or direct-message conversation."
@@ -127,34 +127,35 @@ export const SetConversationStarredParamsSchema = Schema.extend(
 export type ConversationTarget = Schema.Schema.Type<typeof ConversationTargetSchema>
 export type SetConversationStarredParams = Schema.Schema.Type<typeof SetConversationStarredParamsSchema>
 
-export const SetConversationClosedParamsSchema = Schema.extend(
-  ConversationTargetSchema,
-  Schema.Struct({
-    closed: Schema.Boolean.annotations({
-      description:
-        "True to close/hide this conversation for the authenticated user, false to reopen it. Does not leave channels or remove members."
+export const SetConversationClosedParamsSchema = ConversationTargetSchema.mapMembers(
+  Tuple.map(
+    Schema.fieldsAssign({
+      closed: Schema.Boolean.annotate({
+        description:
+          "True to close/hide this conversation for the authenticated user, false to reopen it. Does not leave channels or remove members."
+      })
     })
-  })
-).annotations({
+  )
+).annotate({
   title: "SetConversationClosedParams",
   description:
     "Parameters for setting the authenticated user's closed/visible state for a channel or direct-message conversation."
 })
 export type SetConversationClosedParams = Schema.Schema.Type<typeof SetConversationClosedParamsSchema>
 
-export const listChannelMembersParamsJsonSchema = JSONSchema.make(ListChannelMembersParamsSchema)
-export const channelMemberMutationParamsJsonSchema = JSONSchema.make(ChannelMemberMutationParamsSchema)
-export const channelLifecycleParamsJsonSchema = JSONSchema.make(ChannelLifecycleParamsSchema)
-export const createGroupDirectMessageParamsJsonSchema = JSONSchema.make(CreateGroupDirectMessageParamsSchema)
-export const setConversationStarredParamsJsonSchema = JSONSchema.make(SetConversationStarredParamsSchema)
-export const setConversationClosedParamsJsonSchema = JSONSchema.make(SetConversationClosedParamsSchema)
+export const listChannelMembersParamsJsonSchema = toDraft07JsonSchema(ListChannelMembersParamsSchema)
+export const channelMemberMutationParamsJsonSchema = toDraft07JsonSchema(ChannelMemberMutationParamsSchema)
+export const channelLifecycleParamsJsonSchema = toDraft07JsonSchema(ChannelLifecycleParamsSchema)
+export const createGroupDirectMessageParamsJsonSchema = toDraft07JsonSchema(CreateGroupDirectMessageParamsSchema)
+export const setConversationStarredParamsJsonSchema = toDraft07JsonSchema(SetConversationStarredParamsSchema)
+export const setConversationClosedParamsJsonSchema = toDraft07JsonSchema(SetConversationClosedParamsSchema)
 
-export const parseListChannelMembersParams = Schema.decodeUnknown(ListChannelMembersParamsSchema)
-export const parseChannelMemberMutationParams = Schema.decodeUnknown(ChannelMemberMutationParamsSchema)
-export const parseChannelLifecycleParams = Schema.decodeUnknown(ChannelLifecycleParamsSchema)
-export const parseCreateGroupDirectMessageParams = Schema.decodeUnknown(CreateGroupDirectMessageParamsSchema)
-export const parseSetConversationStarredParams = Schema.decodeUnknown(SetConversationStarredParamsSchema)
-export const parseSetConversationClosedParams = Schema.decodeUnknown(SetConversationClosedParamsSchema)
+export const parseListChannelMembersParams = Schema.decodeUnknownEffect(ListChannelMembersParamsSchema)
+export const parseChannelMemberMutationParams = Schema.decodeUnknownEffect(ChannelMemberMutationParamsSchema)
+export const parseChannelLifecycleParams = Schema.decodeUnknownEffect(ChannelLifecycleParamsSchema)
+export const parseCreateGroupDirectMessageParams = Schema.decodeUnknownEffect(CreateGroupDirectMessageParamsSchema)
+export const parseSetConversationStarredParams = Schema.decodeUnknownEffect(SetConversationStarredParamsSchema)
+export const parseSetConversationClosedParams = Schema.decodeUnknownEffect(SetConversationClosedParamsSchema)
 
 export const AddChannelMembersResultSchema = ChannelMemberMutationResultSchema
 export const RemoveChannelMembersResultSchema = ChannelMemberMutationResultSchema

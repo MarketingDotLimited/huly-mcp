@@ -104,7 +104,7 @@ export { findChannel }
  * The PersonId from Doc.modifiedBy is the same string value as SocialIdentity._id.
  */
 export const buildSocialIdToPersonNameMap = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   socialIds: Array<PersonId>
 ): Effect.Effect<ReadonlyMap<PersonId, PersonName>, HulyClientError> =>
   Effect.gen(function* () {
@@ -141,7 +141,7 @@ export const buildSocialIdToPersonNameMap = (
  * Employee has personUuid field that matches AccountUuid.
  */
 const buildAccountUuidToNameMap = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   accountUuids: Array<HulyAccountUuid>
 ): Effect.Effect<ReadonlyMap<HulyAccountUuid, PersonName>, HulyClientError> =>
   Effect.gen(function* () {

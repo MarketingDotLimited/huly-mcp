@@ -20,7 +20,7 @@ import { chunter } from "../huly-plugins.js"
 export const findChannel = (
   identifier: string
 ): Effect.Effect<
-  { client: HulyClient["Type"]; channel: HulyChannel },
+  { client: HulyClient["Service"]; channel: HulyChannel },
   ChannelNotFoundError | HulyClientError,
   HulyClient
 > =>

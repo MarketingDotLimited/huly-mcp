@@ -75,7 +75,7 @@ type TodoableParent = HulyIssue & { readonly todos?: number | undefined }
 type WorkSlottedTodo = HulyToDo & { readonly workslots?: number | undefined }
 
 const descriptionForTodo = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   todo: HulyToDo
 ): Effect.Effect<string | undefined, HulyClientError> =>
   todo.description
@@ -89,7 +89,7 @@ const descriptionForTodo = (
     : Effect.succeed(undefined)
 
 const detailFromTodo = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   todo: HulyTodoWithLookup
 ): Effect.Effect<TodoDetail, HulyClientError> =>
   Effect.gen(function* () {
@@ -105,7 +105,7 @@ const detailFromTodo = (
   })
 
 const uploadTodoDescription = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   objectClass: Ref<Class<HulyToDo>>,
   todoId: Ref<HulyToDo>,
   description: string | undefined
@@ -118,7 +118,7 @@ const uploadTodoDescription = (
   })
 
 const createPersonalTodo = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: CreateTodoParams,
   owner: Ref<Employee>,
   todoId: Ref<HulyToDo>,
@@ -142,7 +142,7 @@ const createPersonalTodo = (
 }
 
 const createIssueTodo = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: CreateTodoParams,
   owner: Ref<Employee>,
   issue: HulyIssue,
@@ -304,7 +304,10 @@ export const deleteTodo = (
     return { todoId: TodoId.make(todo._id), deleted: true }
   })
 
-const decrementIssueTodoCounter = (client: HulyClient["Type"], todo: HulyToDo): Effect.Effect<void, HulyClientError> =>
+const decrementIssueTodoCounter = (
+  client: HulyClient["Service"],
+  todo: HulyToDo
+): Effect.Effect<void, HulyClientError> =>
   client
     .updateDoc(
       toRef<Class<TodoableParent>>(tracker.class.Issue),
@@ -333,7 +336,7 @@ export const scheduleTodo = (
     return { todoId: TodoId.make(todo._id), workSlotId: result.slotId }
   })
 
-const removeWorkSlot = (client: HulyClient["Type"], slot: HulyWorkSlot): Effect.Effect<void, HulyClientError> =>
+const removeWorkSlot = (client: HulyClient["Service"], slot: HulyWorkSlot): Effect.Effect<void, HulyClientError> =>
   Effect.gen(function* () {
     if (client.removeCollection !== undefined) {
       yield* client.removeCollection(
@@ -351,7 +354,7 @@ const removeWorkSlot = (client: HulyClient["Type"], slot: HulyWorkSlot): Effect.
   })
 
 const decrementTodoWorkSlotCounter = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   slot: HulyWorkSlot
 ): Effect.Effect<void, HulyClientError> =>
   client

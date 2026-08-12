@@ -630,12 +630,12 @@ describe("listActivity", () => {
       const testLayer = createTestLayerWithMocks({})
 
       // Schema validation normally guarantees one target mode; calling the
-      // operation directly with none exercises the defensive dieMessage.
+      // operation directly with none exercises the defensive defect.
       const exit = yield* listActivity({}).pipe(Effect.provide(testLayer), Effect.exit)
 
       expect(exit._tag).toBe("Failure")
       if (exit._tag === "Failure") {
-        expect(Cause.isDie(exit.cause)).toBe(true)
+        expect(Cause.hasDies(exit.cause)).toBe(true)
       }
     })
   )

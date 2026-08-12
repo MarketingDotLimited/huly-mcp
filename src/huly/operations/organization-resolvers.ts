@@ -10,7 +10,7 @@ import { hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
 const findOrganizationByIdentifier = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: string
 ): Effect.Effect<Option.Option<HulyOrganization>, HulyClientError | OrganizationIdentifierAmbiguousError> =>
   Effect.gen(function* () {
@@ -34,7 +34,7 @@ const findOrganizationByIdentifier = (
   })
 
 export const resolveOrganizationByIdentifier = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: string
 ): Effect.Effect<
   HulyOrganization,

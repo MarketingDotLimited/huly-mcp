@@ -1,5 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
+import { toDraft07JsonSchema } from "./json-schema.js"
 import { HULY_NATIVE_REFERENCE_MARKDOWN_INPUT } from "./document-native-references.js"
 import {
   assertUpdateFields,
@@ -27,19 +28,19 @@ import {
 
 import { TestRunStatusSchema, TestRunStatusValues } from "./test-management-core.js"
 
-const projectField = TestProjectIdentifier.annotations({ description: "Test project ID or name" })
-const limitField = LimitParam.annotations({ description: `Max items to return (default: ${DEFAULT_LIMIT})` })
-const planField = TestPlanIdentifier.annotations({ description: "Test plan ID or name" })
-const runField = TestRunIdentifier.annotations({ description: "Test run ID or name" })
-const resultField = TestResultIdentifier.annotations({ description: "Test result ID or name" })
-const nameField = NonEmptyString.annotations({ description: "Name" })
-const descField = Schema.String.annotations({
+const projectField = TestProjectIdentifier.annotate({ description: "Test project ID or name" })
+const limitField = LimitParam.annotate({ description: `Max items to return (default: ${DEFAULT_LIMIT})` })
+const planField = TestPlanIdentifier.annotate({ description: "Test plan ID or name" })
+const runField = TestRunIdentifier.annotate({ description: "Test run ID or name" })
+const resultField = TestResultIdentifier.annotate({ description: "Test result ID or name" })
+const nameField = NonEmptyString.annotate({ description: "Name" })
+const descField = Schema.String.annotate({
   description: `Description in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
 })
-const descNullField = Schema.NullOr(Schema.String).annotations({
+const descNullField = Schema.NullOr(Schema.String).annotate({
   description: `Description in markdown, or null to clear. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
 })
-const assigneeField = NonEmptyString.annotations({ description: "Assignee email or name" })
+const assigneeField = NonEmptyString.annotate({ description: "Assignee email or name" })
 export const TestPlanSummarySchema = Schema.Struct({ id: TestPlanId, name: Schema.String })
 export type TestPlanSummary = Schema.Schema.Type<typeof TestPlanSummarySchema>
 export const TestPlanItemSummarySchema = Schema.Struct({
@@ -67,12 +68,12 @@ export type TestResultSummary = Schema.Schema.Type<typeof TestResultSummarySchem
 export const ListTestPlansParamsSchema = Schema.Struct({
   project: projectField,
   limit: Schema.optional(limitField)
-}).annotations({ title: "ListTestPlansParams", description: "List test plans in a project" })
+}).annotate({ title: "ListTestPlansParams", description: "List test plans in a project" })
 export type ListTestPlansParams = Schema.Schema.Type<typeof ListTestPlansParamsSchema>
 export const ListTestPlansResultSchema = Schema.Struct({ plans: Schema.Array(TestPlanSummarySchema), total: ListTotal })
 export type ListTestPlansResult = Schema.Schema.Type<typeof ListTestPlansResultSchema>
 
-export const GetTestPlanParamsSchema = Schema.Struct({ project: projectField, plan: planField }).annotations({
+export const GetTestPlanParamsSchema = Schema.Struct({ project: projectField, plan: planField }).annotate({
   title: "GetTestPlanParams",
   description: "Get test plan details including items"
 })
@@ -89,7 +90,7 @@ export const CreateTestPlanParamsSchema = Schema.Struct({
   project: projectField,
   name: nameField,
   description: Schema.optional(descField)
-}).annotations({ title: "CreateTestPlanParams", description: "Create a test plan" })
+}).annotate({ title: "CreateTestPlanParams", description: "Create a test plan" })
 export type CreateTestPlanParams = Schema.Schema.Type<typeof CreateTestPlanParamsSchema>
 export const CreateTestPlanResultSchema = Schema.Struct({
   id: TestPlanId,
@@ -107,13 +108,15 @@ export const UpdateTestPlanParamsSchema = Schema.Struct({
   description: Schema.optional(descNullField)
 })
   .pipe(
-    Schema.filter((params) =>
-      hasAtLeastOneDefined(params, UPDATE_TEST_PLAN_FIELDS)
-        ? undefined
-        : atLeastOneUpdateFieldMessage(UPDATE_TEST_PLAN_FIELDS)
+    Schema.check(
+      Schema.makeFilter((params) =>
+        hasAtLeastOneDefined(params, UPDATE_TEST_PLAN_FIELDS)
+          ? undefined
+          : atLeastOneUpdateFieldMessage(UPDATE_TEST_PLAN_FIELDS)
+      )
     )
   )
-  .annotations({
+  .annotate({
     title: "UpdateTestPlanParams",
     description: `Update a test plan. ${atLeastOneUpdateFieldMessage(UPDATE_TEST_PLAN_FIELDS)}`
   })
@@ -122,7 +125,7 @@ assertUpdateFields<UpdateTestPlanParams>()(["project", "plan"], UPDATE_TEST_PLAN
 export const UpdateTestPlanResultSchema = Schema.Struct({ id: TestPlanId, updated: Schema.Boolean })
 export type UpdateTestPlanResult = Schema.Schema.Type<typeof UpdateTestPlanResultSchema>
 
-export const DeleteTestPlanParamsSchema = Schema.Struct({ project: projectField, plan: planField }).annotations({
+export const DeleteTestPlanParamsSchema = Schema.Struct({ project: projectField, plan: planField }).annotate({
   title: "DeleteTestPlanParams",
   description: "Delete a test plan"
 })
@@ -133,9 +136,9 @@ export type DeleteTestPlanResult = Schema.Schema.Type<typeof DeleteTestPlanResul
 export const AddTestPlanItemParamsSchema = Schema.Struct({
   project: projectField,
   plan: planField,
-  testCase: TestCaseIdentifier.annotations({ description: "Test case ID or name to add" }),
+  testCase: TestCaseIdentifier.annotate({ description: "Test case ID or name to add" }),
   assignee: Schema.optional(assigneeField)
-}).annotations({ title: "AddTestPlanItemParams", description: "Add a test case to a test plan" })
+}).annotate({ title: "AddTestPlanItemParams", description: "Add a test case to a test plan" })
 export type AddTestPlanItemParams = Schema.Schema.Type<typeof AddTestPlanItemParamsSchema>
 export const AddTestPlanItemResultSchema = Schema.Struct({ id: TestPlanItemId, added: Schema.Boolean })
 export type AddTestPlanItemResult = Schema.Schema.Type<typeof AddTestPlanItemResultSchema>
@@ -143,8 +146,8 @@ export type AddTestPlanItemResult = Schema.Schema.Type<typeof AddTestPlanItemRes
 export const RemoveTestPlanItemParamsSchema = Schema.Struct({
   project: projectField,
   plan: planField,
-  item: TestPlanItemIdSchema.annotations({ description: "Test plan item ID to remove" })
-}).annotations({ title: "RemoveTestPlanItemParams", description: "Remove a test case from a test plan" })
+  item: TestPlanItemIdSchema.annotate({ description: "Test plan item ID to remove" })
+}).annotate({ title: "RemoveTestPlanItemParams", description: "Remove a test case from a test plan" })
 export type RemoveTestPlanItemParams = Schema.Schema.Type<typeof RemoveTestPlanItemParamsSchema>
 export const RemoveTestPlanItemResultSchema = Schema.Struct({ id: TestPlanItemId, removed: Schema.Boolean })
 export type RemoveTestPlanItemResult = Schema.Schema.Type<typeof RemoveTestPlanItemResultSchema>
@@ -152,12 +155,12 @@ export type RemoveTestPlanItemResult = Schema.Schema.Type<typeof RemoveTestPlanI
 export const ListTestRunsParamsSchema = Schema.Struct({
   project: projectField,
   limit: Schema.optional(limitField)
-}).annotations({ title: "ListTestRunsParams", description: "List test runs in a project" })
+}).annotate({ title: "ListTestRunsParams", description: "List test runs in a project" })
 export type ListTestRunsParams = Schema.Schema.Type<typeof ListTestRunsParamsSchema>
 export const ListTestRunsResultSchema = Schema.Struct({ runs: Schema.Array(TestRunSummarySchema), total: ListTotal })
 export type ListTestRunsResult = Schema.Schema.Type<typeof ListTestRunsResultSchema>
 
-export const GetTestRunParamsSchema = Schema.Struct({ project: projectField, run: runField }).annotations({
+export const GetTestRunParamsSchema = Schema.Struct({ project: projectField, run: runField }).annotate({
   title: "GetTestRunParams",
   description: "Get test run details including results"
 })
@@ -171,14 +174,14 @@ export const GetTestRunResultSchema = Schema.Struct({
 })
 export type GetTestRunResult = Schema.Schema.Type<typeof GetTestRunResultSchema>
 
-const dueDateField = Timestamp.annotations({ description: "Due date as Unix timestamp in milliseconds" })
+const dueDateField = Timestamp.annotate({ description: "Due date as Unix timestamp in milliseconds" })
 
 export const CreateTestRunParamsSchema = Schema.Struct({
   project: projectField,
   name: nameField,
   description: Schema.optional(descField),
   dueDate: Schema.optional(dueDateField)
-}).annotations({ title: "CreateTestRunParams", description: "Create a test run" })
+}).annotate({ title: "CreateTestRunParams", description: "Create a test run" })
 export type CreateTestRunParams = Schema.Schema.Type<typeof CreateTestRunParamsSchema>
 export const CreateTestRunResultSchema = Schema.Struct({ id: TestRunId, name: Schema.String, created: Schema.Boolean })
 export type CreateTestRunResult = Schema.Schema.Type<typeof CreateTestRunResultSchema>
@@ -193,17 +196,19 @@ export const UpdateTestRunParamsSchema = Schema.Struct({
   name: Schema.optional(nameField),
   description: Schema.optional(descNullField),
   dueDate: Schema.optional(
-    Schema.NullOr(Timestamp).annotations({ description: "Due date (ms timestamp), or null to clear" })
+    Schema.NullOr(Timestamp).annotate({ description: "Due date (ms timestamp), or null to clear" })
   )
 })
   .pipe(
-    Schema.filter((params) =>
-      hasAtLeastOneDefined(params, UPDATE_TEST_RUN_FIELDS)
-        ? undefined
-        : atLeastOneUpdateFieldMessage(UPDATE_TEST_RUN_FIELDS)
+    Schema.check(
+      Schema.makeFilter((params) =>
+        hasAtLeastOneDefined(params, UPDATE_TEST_RUN_FIELDS)
+          ? undefined
+          : atLeastOneUpdateFieldMessage(UPDATE_TEST_RUN_FIELDS)
+      )
     )
   )
-  .annotations({
+  .annotate({
     title: "UpdateTestRunParams",
     description: `Update a test run. ${atLeastOneUpdateFieldMessage(UPDATE_TEST_RUN_FIELDS)}`
   })
@@ -212,7 +217,7 @@ assertUpdateFields<UpdateTestRunParams>()(["project", "run"], UPDATE_TEST_RUN_FI
 export const UpdateTestRunResultSchema = Schema.Struct({ id: TestRunId, updated: Schema.Boolean })
 export type UpdateTestRunResult = Schema.Schema.Type<typeof UpdateTestRunResultSchema>
 
-export const DeleteTestRunParamsSchema = Schema.Struct({ project: projectField, run: runField }).annotations({
+export const DeleteTestRunParamsSchema = Schema.Struct({ project: projectField, run: runField }).annotate({
   title: "DeleteTestRunParams",
   description: "Delete a test run"
 })
@@ -224,7 +229,7 @@ export const ListTestResultsParamsSchema = Schema.Struct({
   project: projectField,
   run: runField,
   limit: Schema.optional(limitField)
-}).annotations({ title: "ListTestResultsParams", description: "List test results in a run" })
+}).annotate({ title: "ListTestResultsParams", description: "List test results in a run" })
 export type ListTestResultsParams = Schema.Schema.Type<typeof ListTestResultsParamsSchema>
 export const ListTestResultsResultSchema = Schema.Struct({
   results: Schema.Array(TestResultSummarySchema),
@@ -232,7 +237,7 @@ export const ListTestResultsResultSchema = Schema.Struct({
 })
 export type ListTestResultsResult = Schema.Schema.Type<typeof ListTestResultsResultSchema>
 
-export const GetTestResultParamsSchema = Schema.Struct({ project: projectField, result: resultField }).annotations({
+export const GetTestResultParamsSchema = Schema.Struct({ project: projectField, result: resultField }).annotate({
   title: "GetTestResultParams",
   description: "Get test result details"
 })
@@ -248,18 +253,18 @@ export const GetTestResultDetailSchema = Schema.Struct({
 })
 export type GetTestResultDetail = Schema.Schema.Type<typeof GetTestResultDetailSchema>
 
-const statusField = TestRunStatusSchema.annotations({
+const statusField = TestRunStatusSchema.annotate({
   description: `Status: ${enumValuesDescription(TestRunStatusValues)}`
 })
 
 export const CreateTestResultParamsSchema = Schema.Struct({
   project: projectField,
   run: runField,
-  testCase: TestCaseIdentifier.annotations({ description: "Test case ID or name" }),
-  name: Schema.optional(NonEmptyString.annotations({ description: "Result name. Omit to use the test case name." })),
+  testCase: TestCaseIdentifier.annotate({ description: "Test case ID or name" }),
+  name: Schema.optional(NonEmptyString.annotate({ description: "Result name. Omit to use the test case name." })),
   status: Schema.optional(statusField),
   assignee: Schema.optional(assigneeField)
-}).annotations({ title: "CreateTestResultParams", description: "Create a test result in a run" })
+}).annotate({ title: "CreateTestResultParams", description: "Create a test result in a run" })
 export type CreateTestResultParams = Schema.Schema.Type<typeof CreateTestResultParamsSchema>
 export const CreateTestResultResultSchema = Schema.Struct({
   id: TestResultId,
@@ -277,18 +282,20 @@ export const UpdateTestResultParamsSchema = Schema.Struct({
   result: resultField,
   status: Schema.optional(statusField),
   assignee: Schema.optional(
-    Schema.NullOr(NonEmptyString).annotations({ description: "Assignee email or name, or null to unassign" })
+    Schema.NullOr(NonEmptyString).annotate({ description: "Assignee email or name, or null to unassign" })
   ),
   description: Schema.optional(descNullField)
 })
   .pipe(
-    Schema.filter((params) =>
-      hasAtLeastOneDefined(params, UPDATE_TEST_RESULT_FIELDS)
-        ? undefined
-        : atLeastOneUpdateFieldMessage(UPDATE_TEST_RESULT_FIELDS)
+    Schema.check(
+      Schema.makeFilter((params) =>
+        hasAtLeastOneDefined(params, UPDATE_TEST_RESULT_FIELDS)
+          ? undefined
+          : atLeastOneUpdateFieldMessage(UPDATE_TEST_RESULT_FIELDS)
+      )
     )
   )
-  .annotations({
+  .annotate({
     title: "UpdateTestResultParams",
     description: `Update a test result. ${atLeastOneUpdateFieldMessage(UPDATE_TEST_RESULT_FIELDS)}`
   })
@@ -297,7 +304,7 @@ assertUpdateFields<UpdateTestResultParams>()(["project", "result"], UPDATE_TEST_
 export const UpdateTestResultResultSchema = Schema.Struct({ id: TestResultId, updated: Schema.Boolean })
 export type UpdateTestResultResult = Schema.Schema.Type<typeof UpdateTestResultResultSchema>
 
-export const DeleteTestResultParamsSchema = Schema.Struct({ project: projectField, result: resultField }).annotations({
+export const DeleteTestResultParamsSchema = Schema.Struct({ project: projectField, result: resultField }).annotate({
   title: "DeleteTestResultParams",
   description: "Delete a test result"
 })
@@ -308,58 +315,58 @@ export type DeleteTestResultResult = Schema.Schema.Type<typeof DeleteTestResultR
 export const RunTestPlanParamsSchema = Schema.Struct({
   project: projectField,
   plan: planField,
-  runName: Schema.optional(NonEmptyString.annotations({ description: "Name for the created test run" })),
+  runName: Schema.optional(NonEmptyString.annotate({ description: "Name for the created test run" })),
   dueDate: Schema.optional(dueDateField)
-}).annotations({ title: "RunTestPlanParams", description: "Execute a test plan by creating a run with results" })
+}).annotate({ title: "RunTestPlanParams", description: "Execute a test plan by creating a run with results" })
 export type RunTestPlanParams = Schema.Schema.Type<typeof RunTestPlanParamsSchema>
 export const RunTestPlanResultSchema = Schema.Struct({ runId: TestRunId, name: Schema.String, resultsCreated: Count })
 export type RunTestPlanResult = Schema.Schema.Type<typeof RunTestPlanResultSchema>
 
-export const listTestPlansParamsJsonSchema = JSONSchema.make(ListTestPlansParamsSchema)
-export const getTestPlanParamsJsonSchema = JSONSchema.make(GetTestPlanParamsSchema)
-export const createTestPlanParamsJsonSchema = JSONSchema.make(CreateTestPlanParamsSchema)
+export const listTestPlansParamsJsonSchema = toDraft07JsonSchema(ListTestPlansParamsSchema)
+export const getTestPlanParamsJsonSchema = toDraft07JsonSchema(GetTestPlanParamsSchema)
+export const createTestPlanParamsJsonSchema = toDraft07JsonSchema(CreateTestPlanParamsSchema)
 export const updateTestPlanParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(UpdateTestPlanParamsSchema),
+  toDraft07JsonSchema(UpdateTestPlanParamsSchema),
   UPDATE_TEST_PLAN_FIELDS
 )
-export const deleteTestPlanParamsJsonSchema = JSONSchema.make(DeleteTestPlanParamsSchema)
-export const addTestPlanItemParamsJsonSchema = JSONSchema.make(AddTestPlanItemParamsSchema)
-export const removeTestPlanItemParamsJsonSchema = JSONSchema.make(RemoveTestPlanItemParamsSchema)
-export const listTestRunsParamsJsonSchema = JSONSchema.make(ListTestRunsParamsSchema)
-export const getTestRunParamsJsonSchema = JSONSchema.make(GetTestRunParamsSchema)
-export const createTestRunParamsJsonSchema = JSONSchema.make(CreateTestRunParamsSchema)
+export const deleteTestPlanParamsJsonSchema = toDraft07JsonSchema(DeleteTestPlanParamsSchema)
+export const addTestPlanItemParamsJsonSchema = toDraft07JsonSchema(AddTestPlanItemParamsSchema)
+export const removeTestPlanItemParamsJsonSchema = toDraft07JsonSchema(RemoveTestPlanItemParamsSchema)
+export const listTestRunsParamsJsonSchema = toDraft07JsonSchema(ListTestRunsParamsSchema)
+export const getTestRunParamsJsonSchema = toDraft07JsonSchema(GetTestRunParamsSchema)
+export const createTestRunParamsJsonSchema = toDraft07JsonSchema(CreateTestRunParamsSchema)
 export const updateTestRunParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(UpdateTestRunParamsSchema),
+  toDraft07JsonSchema(UpdateTestRunParamsSchema),
   UPDATE_TEST_RUN_FIELDS
 )
-export const deleteTestRunParamsJsonSchema = JSONSchema.make(DeleteTestRunParamsSchema)
-export const listTestResultsParamsJsonSchema = JSONSchema.make(ListTestResultsParamsSchema)
-export const getTestResultParamsJsonSchema = JSONSchema.make(GetTestResultParamsSchema)
-export const createTestResultParamsJsonSchema = JSONSchema.make(CreateTestResultParamsSchema)
+export const deleteTestRunParamsJsonSchema = toDraft07JsonSchema(DeleteTestRunParamsSchema)
+export const listTestResultsParamsJsonSchema = toDraft07JsonSchema(ListTestResultsParamsSchema)
+export const getTestResultParamsJsonSchema = toDraft07JsonSchema(GetTestResultParamsSchema)
+export const createTestResultParamsJsonSchema = toDraft07JsonSchema(CreateTestResultParamsSchema)
 export const updateTestResultParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(UpdateTestResultParamsSchema),
+  toDraft07JsonSchema(UpdateTestResultParamsSchema),
   UPDATE_TEST_RESULT_FIELDS
 )
-export const deleteTestResultParamsJsonSchema = JSONSchema.make(DeleteTestResultParamsSchema)
-export const runTestPlanParamsJsonSchema = JSONSchema.make(RunTestPlanParamsSchema)
+export const deleteTestResultParamsJsonSchema = toDraft07JsonSchema(DeleteTestResultParamsSchema)
+export const runTestPlanParamsJsonSchema = toDraft07JsonSchema(RunTestPlanParamsSchema)
 
-export const parseListTestPlansParams = Schema.decodeUnknown(ListTestPlansParamsSchema)
-export const parseGetTestPlanParams = Schema.decodeUnknown(GetTestPlanParamsSchema)
-export const parseCreateTestPlanParams = Schema.decodeUnknown(CreateTestPlanParamsSchema)
-export const parseUpdateTestPlanParams = Schema.decodeUnknown(UpdateTestPlanParamsSchema)
-export const parseDeleteTestPlanParams = Schema.decodeUnknown(DeleteTestPlanParamsSchema)
-export const parseAddTestPlanItemParams = Schema.decodeUnknown(AddTestPlanItemParamsSchema)
-export const parseRemoveTestPlanItemParams = Schema.decodeUnknown(RemoveTestPlanItemParamsSchema)
-export const parseListTestRunsParams = Schema.decodeUnknown(ListTestRunsParamsSchema)
-export const parseGetTestRunParams = Schema.decodeUnknown(GetTestRunParamsSchema)
-export const parseCreateTestRunParams = Schema.decodeUnknown(CreateTestRunParamsSchema)
-export const parseUpdateTestRunParams = Schema.decodeUnknown(UpdateTestRunParamsSchema)
-export const parseDeleteTestRunParams = Schema.decodeUnknown(DeleteTestRunParamsSchema)
-export const parseListTestResultsParams = Schema.decodeUnknown(ListTestResultsParamsSchema)
-export const parseGetTestResultParams = Schema.decodeUnknown(GetTestResultParamsSchema)
-export const parseCreateTestResultParams = Schema.decodeUnknown(CreateTestResultParamsSchema)
-export const parseUpdateTestResultParams = Schema.decodeUnknown(UpdateTestResultParamsSchema)
-export const parseDeleteTestResultParams = Schema.decodeUnknown(DeleteTestResultParamsSchema)
-export const parseRunTestPlanParams = Schema.decodeUnknown(RunTestPlanParamsSchema)
+export const parseListTestPlansParams = Schema.decodeUnknownEffect(ListTestPlansParamsSchema)
+export const parseGetTestPlanParams = Schema.decodeUnknownEffect(GetTestPlanParamsSchema)
+export const parseCreateTestPlanParams = Schema.decodeUnknownEffect(CreateTestPlanParamsSchema)
+export const parseUpdateTestPlanParams = Schema.decodeUnknownEffect(UpdateTestPlanParamsSchema)
+export const parseDeleteTestPlanParams = Schema.decodeUnknownEffect(DeleteTestPlanParamsSchema)
+export const parseAddTestPlanItemParams = Schema.decodeUnknownEffect(AddTestPlanItemParamsSchema)
+export const parseRemoveTestPlanItemParams = Schema.decodeUnknownEffect(RemoveTestPlanItemParamsSchema)
+export const parseListTestRunsParams = Schema.decodeUnknownEffect(ListTestRunsParamsSchema)
+export const parseGetTestRunParams = Schema.decodeUnknownEffect(GetTestRunParamsSchema)
+export const parseCreateTestRunParams = Schema.decodeUnknownEffect(CreateTestRunParamsSchema)
+export const parseUpdateTestRunParams = Schema.decodeUnknownEffect(UpdateTestRunParamsSchema)
+export const parseDeleteTestRunParams = Schema.decodeUnknownEffect(DeleteTestRunParamsSchema)
+export const parseListTestResultsParams = Schema.decodeUnknownEffect(ListTestResultsParamsSchema)
+export const parseGetTestResultParams = Schema.decodeUnknownEffect(GetTestResultParamsSchema)
+export const parseCreateTestResultParams = Schema.decodeUnknownEffect(CreateTestResultParamsSchema)
+export const parseUpdateTestResultParams = Schema.decodeUnknownEffect(UpdateTestResultParamsSchema)
+export const parseDeleteTestResultParams = Schema.decodeUnknownEffect(DeleteTestResultParamsSchema)
+export const parseRunTestPlanParams = Schema.decodeUnknownEffect(RunTestPlanParamsSchema)
 
 export const GetTestResultResultSchema = GetTestResultDetailSchema

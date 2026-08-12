@@ -60,7 +60,7 @@ const requireTypedSpaceType = (space: GenericSpace): Effect.Effect<SpaceTypeId, 
   })
 
 const findSpaceType = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   spaceType: SpaceTypeId
 ): Effect.Effect<SpaceType, HulyClientError | SpaceRoleNotFoundError> =>
   Effect.gen(function* () {
@@ -76,7 +76,7 @@ const findSpaceType = (
   })
 
 export const resolveSpaceRole = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   spaceType: SpaceTypeId,
   role: SpaceRoleMemberMutationParams["role"]
 ): Effect.Effect<Role, HulyClientError | SpaceRoleIdentifierAmbiguousError | SpaceRoleNotFoundError> =>
@@ -107,7 +107,7 @@ export const resolveSpaceRole = (
   })
 
 const findSpaceTypeRoles = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   spaceType: SpaceType
 ): Effect.Effect<Array<Role>, HulyClientError> =>
   client.findAll<Role>(roleClass, hulyQuery<Role>({ attachedTo: spaceType._id }), {
@@ -115,7 +115,7 @@ const findSpaceTypeRoles = (
   })
 
 const writeSpaceRoleMembers = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   space: GenericSpace,
   spaceType: SpaceType,
   role: Role,

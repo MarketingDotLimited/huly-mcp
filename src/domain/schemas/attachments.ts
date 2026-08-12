@@ -1,4 +1,4 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
 import { BYTES_PER_MB, MAX_FILE_SIZE_MB } from "../../huly/errors-files.js"
 import {
@@ -9,7 +9,7 @@ import {
   Base64FileData,
   LocalFilePath
 } from "./domain-values.js"
-import { withJsonSchemaPropertyDescriptions } from "./json-schema.js"
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 import { optionalOutput } from "./output-helpers.js"
 import {
   assertUpdateFields,
@@ -40,7 +40,7 @@ import {
 
 const DEFAULT_ATTACHMENT_PINNED = false
 
-export const AttachmentKindSchema = Schema.Literal("attachment", "embedding", "photo").annotations({
+export const AttachmentKindSchema = Schema.Literals(["attachment", "embedding", "photo"]).annotate({
   title: "AttachmentKind",
   description: "Attachment class to create: attachment, embedding, or photo. Defaults to attachment."
 })
@@ -50,42 +50,40 @@ export type AttachmentKind = Schema.Schema.Type<typeof AttachmentKindSchema>
 // Attachment metadata is an open SDK-provided record. Keys are branded as open
 // SDK metadata keys; values remain unknown because Huly does not publish a
 // stable typed value space for this bag.
-const AttachmentMetadataSchema = Schema.Record({ key: AttachmentMetadataKey, value: Schema.Unknown })
+const AttachmentMetadataSchema = Schema.Record(AttachmentMetadataKey, Schema.Unknown)
 
 export const ListAttachmentsParamsSchema = Schema.Struct({
-  objectId: DocId.annotations({ description: "ID of the parent object (issue, document, etc.)" }),
-  objectClass: ObjectClassName.annotations({
+  objectId: DocId.annotate({ description: "ID of the parent object (issue, document, etc.)" }),
+  objectClass: ObjectClassName.annotate({
     description: "Class of the parent object (e.g., 'tracker:class:Issue', 'document:class:Document')"
   }),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of attachments to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of attachments to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({ title: "ListAttachmentsParams", description: "Parameters for listing attachments on an object" })
+}).annotate({ title: "ListAttachmentsParams", description: "Parameters for listing attachments on an object" })
 
 export type ListAttachmentsParams = Schema.Schema.Type<typeof ListAttachmentsParamsSchema>
 
 export const GetAttachmentParamsSchema = Schema.Struct({
-  attachmentId: AttachmentId.annotations({ description: "Attachment ID" })
-}).annotations({ title: "GetAttachmentParams", description: "Parameters for getting a single attachment" })
+  attachmentId: AttachmentId.annotate({ description: "Attachment ID" })
+}).annotate({ title: "GetAttachmentParams", description: "Parameters for getting a single attachment" })
 
 export type GetAttachmentParams = Schema.Schema.Type<typeof GetAttachmentParamsSchema>
 
 const FileSourceFields = {
-  filename: AttachmentFileName.annotations({ description: "Name of the file" }),
-  contentType: MimeType.annotations({ description: "MIME type of the file (e.g., 'image/png', 'application/pdf')" }),
-  filePath: Schema.optional(LocalFilePath.annotations({ description: UPLOAD_FILE_PATH_DESCRIPTION })),
-  fileUrl: Schema.optional(UrlString.annotations({ description: UPLOAD_FILE_URL_DESCRIPTION })),
+  filename: AttachmentFileName.annotate({ description: "Name of the file" }),
+  contentType: MimeType.annotate({ description: "MIME type of the file (e.g., 'image/png', 'application/pdf')" }),
+  filePath: Schema.optional(LocalFilePath.annotate({ description: UPLOAD_FILE_PATH_DESCRIPTION })),
+  fileUrl: Schema.optional(UrlString.annotate({ description: UPLOAD_FILE_URL_DESCRIPTION })),
   data: Schema.optional(
-    Base64FileData.annotations({
-      description: `${UPLOAD_BASE64_DATA_DESCRIPTION} Upload limit: ${MAX_FILE_SIZE_MB} MiB.`
-    })
+    Base64FileData.annotate({ description: `${UPLOAD_BASE64_DATA_DESCRIPTION} Upload limit: ${MAX_FILE_SIZE_MB} MiB.` })
   ),
-  description: Schema.optional(AttachmentDescription.annotations({ description: "Attachment description" })),
+  description: Schema.optional(AttachmentDescription.annotate({ description: "Attachment description" })),
   pinned: Schema.optional(
-    Schema.Boolean.annotations({ description: `Whether to pin the attachment (default: ${DEFAULT_ATTACHMENT_PINNED})` })
+    Schema.Boolean.annotate({ description: `Whether to pin the attachment (default: ${DEFAULT_ATTACHMENT_PINNED})` })
   ),
   kind: Schema.optional(
-    AttachmentKindSchema.annotations({
+    AttachmentKindSchema.annotate({
       description: "Attachment subclass to create: attachment, embedding, or photo (default: attachment)."
     })
   )
@@ -106,15 +104,17 @@ const hasFileSource = (params: {
 }
 
 const AddAttachmentParamsBase = Schema.Struct({
-  objectId: DocId.annotations({ description: "ID of the parent object (issue, document, etc.)" }),
-  objectClass: ObjectClassName.annotations({
+  objectId: DocId.annotate({ description: "ID of the parent object (issue, document, etc.)" }),
+  objectClass: ObjectClassName.annotate({
     description: "Class of the parent object (e.g., 'tracker:class:Issue', 'document:class:Document')"
   }),
-  space: SpaceId.annotations({ description: "Space ID where the parent object resides" }),
+  space: SpaceId.annotate({ description: "Space ID where the parent object resides" }),
   ...FileSourceFields
 })
 
-export const AddAttachmentParamsSchema = AddAttachmentParamsBase.pipe(Schema.filter(hasFileSource)).annotations({
+export const AddAttachmentParamsSchema = AddAttachmentParamsBase.pipe(
+  Schema.check(Schema.makeFilter(hasFileSource))
+).annotate({
   title: "AddAttachmentParams",
   description: "Parameters for adding an attachment. Provide ONE of: filePath, fileUrl, or data"
 })
@@ -126,20 +126,22 @@ export const UPDATE_ATTACHMENT_FIELDS = ["description", "pinned"] as const satis
 >
 
 export const UpdateAttachmentParamsSchema = Schema.Struct({
-  attachmentId: AttachmentId.annotations({ description: "Attachment ID" }),
+  attachmentId: AttachmentId.annotate({ description: "Attachment ID" }),
   description: Schema.optional(
-    Schema.NullOr(AttachmentDescription).annotations({ description: "New description (null to clear)" })
+    Schema.NullOr(AttachmentDescription).annotate({ description: "New description (null to clear)" })
   ),
-  pinned: Schema.optional(Schema.Boolean.annotations({ description: "Pin or unpin the attachment" }))
+  pinned: Schema.optional(Schema.Boolean.annotate({ description: "Pin or unpin the attachment" }))
 })
   .pipe(
-    Schema.filter((params) =>
-      hasAtLeastOneDefined(params, UPDATE_ATTACHMENT_FIELDS)
-        ? undefined
-        : atLeastOneUpdateFieldMessage(UPDATE_ATTACHMENT_FIELDS)
+    Schema.check(
+      Schema.makeFilter((params) =>
+        hasAtLeastOneDefined(params, UPDATE_ATTACHMENT_FIELDS)
+          ? undefined
+          : atLeastOneUpdateFieldMessage(UPDATE_ATTACHMENT_FIELDS)
+      )
     )
   )
-  .annotations({
+  .annotate({
     title: "UpdateAttachmentParams",
     description: `Parameters for updating an attachment. ${atLeastOneUpdateFieldMessage(UPDATE_ATTACHMENT_FIELDS)}`
   })
@@ -148,91 +150,88 @@ export type UpdateAttachmentParams = Schema.Schema.Type<typeof UpdateAttachmentP
 assertUpdateFields<UpdateAttachmentParams>()(["attachmentId"], UPDATE_ATTACHMENT_FIELDS)
 
 export const DeleteAttachmentParamsSchema = Schema.Struct({
-  attachmentId: AttachmentId.annotations({ description: "Attachment ID to delete" })
-}).annotations({ title: "DeleteAttachmentParams", description: "Parameters for deleting an attachment" })
+  attachmentId: AttachmentId.annotate({ description: "Attachment ID to delete" })
+}).annotate({ title: "DeleteAttachmentParams", description: "Parameters for deleting an attachment" })
 
 export type DeleteAttachmentParams = Schema.Schema.Type<typeof DeleteAttachmentParamsSchema>
 
 export const PinAttachmentParamsSchema = Schema.Struct({
-  attachmentId: AttachmentId.annotations({ description: "Attachment ID" }),
-  pinned: Schema.Boolean.annotations({ description: "Whether to pin (true) or unpin (false)" })
-}).annotations({ title: "PinAttachmentParams", description: "Parameters for pinning/unpinning an attachment" })
+  attachmentId: AttachmentId.annotate({ description: "Attachment ID" }),
+  pinned: Schema.Boolean.annotate({ description: "Whether to pin (true) or unpin (false)" })
+}).annotate({ title: "PinAttachmentParams", description: "Parameters for pinning/unpinning an attachment" })
 
 export type PinAttachmentParams = Schema.Schema.Type<typeof PinAttachmentParamsSchema>
 
 export const DownloadAttachmentParamsSchema = Schema.Struct({
-  attachmentId: AttachmentId.annotations({ description: "Attachment ID" })
-}).annotations({ title: "DownloadAttachmentParams", description: "Parameters for getting attachment download URL" })
+  attachmentId: AttachmentId.annotate({ description: "Attachment ID" })
+}).annotate({ title: "DownloadAttachmentParams", description: "Parameters for getting attachment download URL" })
 
 export type DownloadAttachmentParams = Schema.Schema.Type<typeof DownloadAttachmentParamsSchema>
 
 const AddIssueAttachmentParamsBase = Schema.Struct({
-  project: ProjectIdentifier.annotations({ description: "Project identifier (e.g., 'HULY')" }),
-  identifier: IssueIdentifier.annotations({ description: "Issue identifier (e.g., 'HULY-123')" }),
+  project: ProjectIdentifier.annotate({ description: "Project identifier (e.g., 'HULY')" }),
+  identifier: IssueIdentifier.annotate({ description: "Issue identifier (e.g., 'HULY-123')" }),
   ...FileSourceFields
 })
 
 export const AddIssueAttachmentParamsSchema = AddIssueAttachmentParamsBase.pipe(
-  Schema.filter(hasFileSource)
-).annotations({ title: "AddIssueAttachmentParams", description: "Parameters for adding an attachment to an issue" })
+  Schema.check(Schema.makeFilter(hasFileSource))
+).annotate({ title: "AddIssueAttachmentParams", description: "Parameters for adding an attachment to an issue" })
 
 export type AddIssueAttachmentParams = Schema.Schema.Type<typeof AddIssueAttachmentParamsSchema>
 
 const AddDocumentAttachmentParamsBase = Schema.Struct({
-  teamspace: TeamspaceIdentifier.annotations({ description: "Teamspace name or ID" }),
-  document: DocumentIdentifier.annotations({ description: "Document title or ID" }),
+  teamspace: TeamspaceIdentifier.annotate({ description: "Teamspace name or ID" }),
+  document: DocumentIdentifier.annotate({ description: "Document title or ID" }),
   ...FileSourceFields
 })
 
 export const AddDocumentAttachmentParamsSchema = AddDocumentAttachmentParamsBase.pipe(
-  Schema.filter(hasFileSource)
-).annotations({
-  title: "AddDocumentAttachmentParams",
-  description: "Parameters for adding an attachment to a document"
-})
+  Schema.check(Schema.makeFilter(hasFileSource))
+).annotate({ title: "AddDocumentAttachmentParams", description: "Parameters for adding an attachment to a document" })
 
 export type AddDocumentAttachmentParams = Schema.Schema.Type<typeof AddDocumentAttachmentParamsSchema>
 
-export const listAttachmentsParamsJsonSchema = JSONSchema.make(ListAttachmentsParamsSchema)
-export const getAttachmentParamsJsonSchema = JSONSchema.make(GetAttachmentParamsSchema)
+export const listAttachmentsParamsJsonSchema = toDraft07JsonSchema(ListAttachmentsParamsSchema)
+export const getAttachmentParamsJsonSchema = toDraft07JsonSchema(GetAttachmentParamsSchema)
 export const addAttachmentParamsJsonSchema = withJsonSchemaPropertyDescriptions(
-  JSONSchema.make(AddAttachmentParamsSchema),
+  toDraft07JsonSchema(AddAttachmentParamsSchema),
   ATTACHMENT_UPLOAD_FIELD_DESCRIPTIONS
 )
 export const updateAttachmentParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(UpdateAttachmentParamsSchema),
+  toDraft07JsonSchema(UpdateAttachmentParamsSchema),
   UPDATE_ATTACHMENT_FIELDS
 )
-export const deleteAttachmentParamsJsonSchema = JSONSchema.make(DeleteAttachmentParamsSchema)
-export const pinAttachmentParamsJsonSchema = JSONSchema.make(PinAttachmentParamsSchema)
-export const downloadAttachmentParamsJsonSchema = JSONSchema.make(DownloadAttachmentParamsSchema)
+export const deleteAttachmentParamsJsonSchema = toDraft07JsonSchema(DeleteAttachmentParamsSchema)
+export const pinAttachmentParamsJsonSchema = toDraft07JsonSchema(PinAttachmentParamsSchema)
+export const downloadAttachmentParamsJsonSchema = toDraft07JsonSchema(DownloadAttachmentParamsSchema)
 export const addIssueAttachmentParamsJsonSchema = withJsonSchemaPropertyDescriptions(
-  JSONSchema.make(AddIssueAttachmentParamsSchema),
+  toDraft07JsonSchema(AddIssueAttachmentParamsSchema),
   ATTACHMENT_UPLOAD_FIELD_DESCRIPTIONS
 )
 export const addDocumentAttachmentParamsJsonSchema = withJsonSchemaPropertyDescriptions(
-  JSONSchema.make(AddDocumentAttachmentParamsSchema),
+  toDraft07JsonSchema(AddDocumentAttachmentParamsSchema),
   ATTACHMENT_UPLOAD_FIELD_DESCRIPTIONS
 )
 
-export const parseListAttachmentsParams = Schema.decodeUnknown(ListAttachmentsParamsSchema)
-export const parseGetAttachmentParams = Schema.decodeUnknown(GetAttachmentParamsSchema)
-export const parseAddAttachmentParams = Schema.decodeUnknown(AddAttachmentParamsSchema)
-export const parseUpdateAttachmentParams = Schema.decodeUnknown(UpdateAttachmentParamsSchema)
-export const parseDeleteAttachmentParams = Schema.decodeUnknown(DeleteAttachmentParamsSchema)
-export const parsePinAttachmentParams = Schema.decodeUnknown(PinAttachmentParamsSchema)
-export const parseDownloadAttachmentParams = Schema.decodeUnknown(DownloadAttachmentParamsSchema)
-export const parseAddIssueAttachmentParams = Schema.decodeUnknown(AddIssueAttachmentParamsSchema)
-export const parseAddDocumentAttachmentParams = Schema.decodeUnknown(AddDocumentAttachmentParamsSchema)
+export const parseListAttachmentsParams = Schema.decodeUnknownEffect(ListAttachmentsParamsSchema)
+export const parseGetAttachmentParams = Schema.decodeUnknownEffect(GetAttachmentParamsSchema)
+export const parseAddAttachmentParams = Schema.decodeUnknownEffect(AddAttachmentParamsSchema)
+export const parseUpdateAttachmentParams = Schema.decodeUnknownEffect(UpdateAttachmentParamsSchema)
+export const parseDeleteAttachmentParams = Schema.decodeUnknownEffect(DeleteAttachmentParamsSchema)
+export const parsePinAttachmentParams = Schema.decodeUnknownEffect(PinAttachmentParamsSchema)
+export const parseDownloadAttachmentParams = Schema.decodeUnknownEffect(DownloadAttachmentParamsSchema)
+export const parseAddIssueAttachmentParams = Schema.decodeUnknownEffect(AddIssueAttachmentParamsSchema)
+export const parseAddDocumentAttachmentParams = Schema.decodeUnknownEffect(AddDocumentAttachmentParamsSchema)
 
 export const READ_ATTACHMENT_CONTENT_MAX_MIB = 4
 export const READ_ATTACHMENT_CONTENT_MAX_BYTES = READ_ATTACHMENT_CONTENT_MAX_MIB * BYTES_PER_MB
-export const SupportedAttachmentImageTypeSchema = Schema.Literal(
+export const SupportedAttachmentImageTypeSchema = Schema.Literals([
   "image/jpeg",
   "image/png",
   "image/gif",
   "image/webp"
-).annotations({
+]).annotate({
   title: "SupportedAttachmentImageType",
   description: "Image MIME type supported for inline MCP image content."
 })
@@ -246,13 +245,15 @@ const canonicalBase64RoundTrips = (value: Base64FileData): boolean | string =>
     : "Image data must use the canonical RFC 4648 representation with zero-valued padding bits."
 
 export const CanonicalBase64ImageData = Base64FileData.pipe(
-  Schema.minLength(MIN_NON_EMPTY_BASE64_LENGTH, { message: () => "Image data must not be empty." }),
-  Schema.pattern(CANONICAL_BASE64_PATTERN, {
-    message: () => "Image data must use the RFC 4648 alphabet and trailing padding where required."
-  }),
-  Schema.filter(canonicalBase64RoundTrips),
+  Schema.check(Schema.isMinLength(MIN_NON_EMPTY_BASE64_LENGTH, { message: "Image data must not be empty." })),
+  Schema.check(
+    Schema.isPattern(CANONICAL_BASE64_PATTERN, {
+      message: "Image data must use the RFC 4648 alphabet and trailing padding where required."
+    })
+  ),
+  Schema.check(Schema.makeFilter(canonicalBase64RoundTrips)),
   Schema.brand("CanonicalBase64ImageData")
-).annotations({
+).annotate({
   identifier: "CanonicalBase64ImageData",
   title: "CanonicalBase64ImageData",
   description:
@@ -264,15 +265,15 @@ export const McpImageContentSchema = Schema.Struct({
   type: Schema.Literal("image"),
   data: CanonicalBase64ImageData,
   mimeType: SupportedAttachmentImageTypeSchema
-}).annotations({
+}).annotate({
   title: "McpImageContent",
   description: "Schema-owned MCP image content block encoded at the protocol boundary."
 })
 export type McpImageContent = Schema.Schema.Type<typeof McpImageContentSchema>
 
 export const ReadAttachmentContentParamsSchema = Schema.Struct({
-  attachmentId: AttachmentId.annotations({ description: "Attachment ID whose image content should be returned." })
-}).annotations({
+  attachmentId: AttachmentId.annotate({ description: "Attachment ID whose image content should be returned." })
+}).annotate({
   title: "ReadAttachmentContentParams",
   description: "Parameters for reading a supported image attachment as MCP image content."
 })
@@ -293,8 +294,8 @@ export const ReadAttachmentContentResultSchema = Schema.Struct({
 })
 export type ReadAttachmentContentResult = Schema.Schema.Type<typeof ReadAttachmentContentResultSchema>
 
-export const readAttachmentContentParamsJsonSchema = JSONSchema.make(ReadAttachmentContentParamsSchema)
-export const parseReadAttachmentContentParams = Schema.decodeUnknown(ReadAttachmentContentParamsSchema)
+export const readAttachmentContentParamsJsonSchema = toDraft07JsonSchema(ReadAttachmentContentParamsSchema)
+export const parseReadAttachmentContentParams = Schema.decodeUnknownEffect(ReadAttachmentContentParamsSchema)
 
 export const AttachmentSummaryWireSchema = Schema.Struct({
   id: AttachmentId,

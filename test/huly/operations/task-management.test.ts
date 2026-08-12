@@ -565,16 +565,16 @@ describe("task management operations", () => {
   it.effect("rejects an existing status with a different category", () =>
     Effect.gen(function* () {
       const captures: Captures = { createDocs: [], updates: [], mixins: [] }
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         createIssueStatus({ name: "Todo", category: "Active" }).pipe(
           Effect.provide(createLayer({ captures })),
           withDiagnostics
         )
       )
 
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left.message).toContain("already exists with category 'ToDo'")
+      expect(result._tag).toBe("Failure")
+      if (result._tag === "Failure") {
+        expect(result.failure.message).toContain("already exists with category 'ToDo'")
       }
       expect(captures.createDocs).toEqual([])
       expect(captures.updates).toEqual([])
@@ -584,7 +584,7 @@ describe("task management operations", () => {
   it.effect("brands a recovered status name while omitting an absent category", () =>
     Effect.gen(function* () {
       const captures: Captures = { createDocs: [], updates: [], mixins: [] }
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         createIssueStatus({ name: "QA", category: "Active" }).pipe(
           Effect.provide(
             createLayer({
@@ -600,9 +600,9 @@ describe("task management operations", () => {
         )
       )
 
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left.message).toContain("already exists with category 'unknown'")
+      expect(result._tag).toBe("Failure")
+      if (result._tag === "Failure") {
+        expect(result.failure.message).toContain("already exists with category 'unknown'")
       }
       expect(captures.createDocs).toEqual([])
       expect(captures.updates).toEqual([])
@@ -612,7 +612,7 @@ describe("task management operations", () => {
   it.effect("fails with a typed error when recovered status metadata is malformed", () =>
     Effect.gen(function* () {
       const captures: Captures = { createDocs: [], updates: [], mixins: [] }
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         createIssueStatus({ name: "QA", category: "Active" }).pipe(
           Effect.provide(
             createLayer({
@@ -628,10 +628,10 @@ describe("task management operations", () => {
         )
       )
 
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(HulyConnectionError)
-        expect(result.left.message).toContain("Recovered workflow status metadata failed schema validation")
+      expect(result._tag).toBe("Failure")
+      if (result._tag === "Failure") {
+        expect(result.failure).toBeInstanceOf(HulyConnectionError)
+        expect(result.failure.message).toContain("Recovered workflow status metadata failed schema validation")
       }
       expect(captures.createDocs).toEqual([])
       expect(captures.updates).toEqual([])
@@ -641,7 +641,7 @@ describe("task management operations", () => {
   it.effect("fails with a typed error when a recovered status name is not a string", () =>
     Effect.gen(function* () {
       const captures: Captures = { createDocs: [], updates: [], mixins: [] }
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         createIssueStatus({ name: "QA", category: "Active" }).pipe(
           Effect.provide(
             createLayer({
@@ -657,10 +657,10 @@ describe("task management operations", () => {
         )
       )
 
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(HulyConnectionError)
-        expect(result.left.message).toContain("Recovered workflow status metadata failed schema validation")
+      expect(result._tag).toBe("Failure")
+      if (result._tag === "Failure") {
+        expect(result.failure).toBeInstanceOf(HulyConnectionError)
+        expect(result.failure.message).toContain("Recovered workflow status metadata failed schema validation")
       }
       expect(captures.createDocs).toEqual([])
       expect(captures.updates).toEqual([])

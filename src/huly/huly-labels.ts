@@ -1,4 +1,4 @@
-import { Either, Schema } from "effect"
+import { Result, Schema } from "effect"
 
 import { NonEmptyString } from "../domain/schemas/shared.js"
 import { assertAt } from "../utils/assertions.js"
@@ -15,6 +15,6 @@ export const hulyModelLabelTail = (value: string): string => {
 }
 
 export const decodeHulyModelLabelTail = (value: unknown) =>
-  Either.flatMap(Schema.decodeUnknownEither(Schema.String)(value), (label) =>
-    Schema.decodeUnknownEither(NonEmptyString)(hulyModelLabelTail(label))
+  Result.flatMap(Schema.decodeUnknownResult(Schema.String)(value), (label) =>
+    Schema.decodeUnknownResult(NonEmptyString)(hulyModelLabelTail(label))
   )

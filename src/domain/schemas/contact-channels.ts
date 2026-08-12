@@ -1,4 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 
 import {
   ChannelId,
@@ -48,7 +50,7 @@ export const ContactChannelProviderSdkKeys = {
   viber: "Viber"
 } as const satisfies Record<ContactChannelProvider, string>
 
-export const ContactChannelProviderSchema = Schema.Literal(...ContactChannelProviderValues)
+export const ContactChannelProviderSchema = Schema.Literals(ContactChannelProviderValues)
 
 export const ContactChannelSummarySchema = Schema.Struct({
   channelId: ChannelId,
@@ -59,7 +61,7 @@ export const ContactChannelSummarySchema = Schema.Struct({
 })
 export type ContactChannelSummary = Schema.Schema.Type<typeof ContactChannelSummarySchema>
 
-export const ListContactChannelProvidersParamsSchema = EmptyParamsSchema.annotations({
+export const ListContactChannelProvidersParamsSchema = EmptyParamsSchema.annotate({
   title: "ListContactChannelProvidersParams",
   description: "Parameters for listing supported contact channel provider labels."
 })
@@ -72,11 +74,11 @@ const validateEmailChannelValue = (provider: ContactChannelProvider, value: stri
   provider === "email" && !Schema.is(Email)(value) ? "email provider values must be valid email addresses." : undefined
 
 const ChannelProviderValueSchema = Schema.Struct({
-  provider: ContactChannelProviderSchema.annotations({ description: providerDescription }),
-  value: NonEmptyString.annotations({
+  provider: ContactChannelProviderSchema.annotateKey({ description: providerDescription }),
+  value: NonEmptyString.annotateKey({
     description: "Channel value. Email providers require a valid email address; all other providers require text."
   })
-}).pipe(Schema.filter((params) => validateEmailChannelValue(params.provider, params.value)))
+}).pipe(Schema.check(Schema.makeFilter((params) => validateEmailChannelValue(params.provider, params.value))))
 
 const hasProviderValueLocator = (params: {
   readonly provider?: ContactChannelProvider | undefined
@@ -117,30 +119,31 @@ const validateUpdateTargetValue = (params: {
 
 const ContactChannelLocatorFieldsSchema = Schema.Struct({
   channelId: Schema.optional(
-    ChannelId.annotations({ description: "Raw channel document ID returned by list/get/add channel tools." })
+    ChannelId.annotateKey({ description: "Raw channel document ID returned by list/get/add channel tools." })
   ),
-  provider: Schema.optional(ContactChannelProviderSchema.annotations({ description: providerDescription })),
+  provider: Schema.optional(ContactChannelProviderSchema.annotateKey({ description: providerDescription })),
   value: Schema.optional(
-    NonEmptyString.annotations({
+    NonEmptyString.annotateKey({
       description: "Existing channel value to pair with provider when channelId is not used."
     })
   )
 }).pipe(
-  Schema.filter((params) =>
-    params.provider !== undefined && params.value !== undefined
-      ? validateEmailChannelValue(params.provider, params.value)
-      : undefined
+  Schema.check(
+    Schema.makeFilter((params) =>
+      params.provider !== undefined && params.value !== undefined
+        ? validateEmailChannelValue(params.provider, params.value)
+        : undefined
+    )
   ),
-  Schema.filter(validateChannelLocator)
+  Schema.check(Schema.makeFilter(validateChannelLocator))
 )
 
 export const AddPersonChannelParamsSchema = ChannelProviderValueSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      person: NonEmptyString.annotations({ description: "Person ID, exact email address, or exact Huly display name." })
-    })
-  )
-).annotations({
+  Schema.fieldsAssign({
+    person: NonEmptyString.annotateKey({ description: "Person ID, exact email address, or exact Huly display name." })
+  }),
+  Schema.check(Schema.makeFilter((params) => validateEmailChannelValue(params.provider, params.value)))
+).annotate({
   title: "AddPersonChannelParams",
   description: "Add a contact channel to a person. Idempotent by exact provider plus value."
 })
@@ -148,23 +151,27 @@ export const AddPersonChannelParamsSchema = ChannelProviderValueSchema.pipe(
 export type AddPersonChannelParams = Schema.Schema.Type<typeof AddPersonChannelParamsSchema>
 
 export const ListPersonChannelsParamsSchema = Schema.Struct({
-  person: NonEmptyString.annotations({ description: "Person ID, exact email address, or exact Huly display name." })
-}).annotations({ title: "ListPersonChannelsParams", description: "List contact channels for a person." })
+  person: NonEmptyString.annotateKey({ description: "Person ID, exact email address, or exact Huly display name." })
+}).annotate({ title: "ListPersonChannelsParams", description: "List contact channels for a person." })
 
 export type ListPersonChannelsParams = Schema.Schema.Type<typeof ListPersonChannelsParamsSchema>
 
 export const UpdatePersonChannelParamsSchema = ContactChannelLocatorFieldsSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      person: NonEmptyString.annotations({
-        description: "Person ID, exact email address, or exact Huly display name."
-      }),
-      newProvider: Schema.optional(ContactChannelProviderSchema.annotations({ description: providerDescription })),
-      newValue: Schema.optional(NonEmptyString.annotations({ description: "Replacement channel value." }))
-    })
+  Schema.fieldsAssign({
+    person: NonEmptyString.annotateKey({ description: "Person ID, exact email address, or exact Huly display name." }),
+    newProvider: Schema.optional(ContactChannelProviderSchema.annotateKey({ description: providerDescription })),
+    newValue: Schema.optional(NonEmptyString.annotateKey({ description: "Replacement channel value." }))
+  }),
+  Schema.check(
+    Schema.makeFilter((params) =>
+      params.provider !== undefined && params.value !== undefined
+        ? validateEmailChannelValue(params.provider, params.value)
+        : undefined
+    )
   ),
-  Schema.filter(validateUpdateTargetValue)
-).annotations({
+  Schema.check(Schema.makeFilter(validateChannelLocator)),
+  Schema.check(Schema.makeFilter(validateUpdateTargetValue))
+).annotate({
   title: "UpdatePersonChannelParams",
   description: `Update one contact channel on a person. ${channelLocatorMessage} ${updateTargetValueMessage}`
 })
@@ -172,12 +179,18 @@ export const UpdatePersonChannelParamsSchema = ContactChannelLocatorFieldsSchema
 export type UpdatePersonChannelParams = Schema.Schema.Type<typeof UpdatePersonChannelParamsSchema>
 
 export const RemovePersonChannelParamsSchema = ContactChannelLocatorFieldsSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      person: NonEmptyString.annotations({ description: "Person ID, exact email address, or exact Huly display name." })
-    })
-  )
-).annotations({
+  Schema.fieldsAssign({
+    person: NonEmptyString.annotateKey({ description: "Person ID, exact email address, or exact Huly display name." })
+  }),
+  Schema.check(
+    Schema.makeFilter((params) =>
+      params.provider !== undefined && params.value !== undefined
+        ? validateEmailChannelValue(params.provider, params.value)
+        : undefined
+    )
+  ),
+  Schema.check(Schema.makeFilter(validateChannelLocator))
+).annotate({
   title: "RemovePersonChannelParams",
   description: `Remove one contact channel from a person. ${channelLocatorMessage}`
 })
@@ -185,18 +198,17 @@ export const RemovePersonChannelParamsSchema = ContactChannelLocatorFieldsSchema
 export type RemovePersonChannelParams = Schema.Schema.Type<typeof RemovePersonChannelParamsSchema>
 
 export const ListOrganizationChannelsParamsSchema = Schema.Struct({
-  organizationId: NonEmptyString.annotations({ description: "Organization ID or exact unique organization name." })
-}).annotations({ title: "ListOrganizationChannelsParams", description: "List contact channels for an organization." })
+  organizationId: NonEmptyString.annotateKey({ description: "Organization ID or exact unique organization name." })
+}).annotate({ title: "ListOrganizationChannelsParams", description: "List contact channels for an organization." })
 
 export type ListOrganizationChannelsParams = Schema.Schema.Type<typeof ListOrganizationChannelsParamsSchema>
 
 export const AddOrganizationChannelParamsSchema = ChannelProviderValueSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      organizationId: NonEmptyString.annotations({ description: "Organization ID or exact unique organization name." })
-    })
-  )
-).annotations({
+  Schema.fieldsAssign({
+    organizationId: NonEmptyString.annotateKey({ description: "Organization ID or exact unique organization name." })
+  }),
+  Schema.check(Schema.makeFilter((params) => validateEmailChannelValue(params.provider, params.value)))
+).annotate({
   title: "AddOrganizationChannelParams",
   description: "Add a contact channel to an organization. Idempotent by exact provider plus value."
 })
@@ -204,15 +216,21 @@ export const AddOrganizationChannelParamsSchema = ChannelProviderValueSchema.pip
 export type AddOrganizationChannelParams = Schema.Schema.Type<typeof AddOrganizationChannelParamsSchema>
 
 export const UpdateOrganizationChannelParamsSchema = ContactChannelLocatorFieldsSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      organizationId: NonEmptyString.annotations({ description: "Organization ID or exact unique organization name." }),
-      newProvider: Schema.optional(ContactChannelProviderSchema.annotations({ description: providerDescription })),
-      newValue: Schema.optional(NonEmptyString.annotations({ description: "Replacement channel value." }))
-    })
+  Schema.fieldsAssign({
+    organizationId: NonEmptyString.annotateKey({ description: "Organization ID or exact unique organization name." }),
+    newProvider: Schema.optional(ContactChannelProviderSchema.annotateKey({ description: providerDescription })),
+    newValue: Schema.optional(NonEmptyString.annotateKey({ description: "Replacement channel value." }))
+  }),
+  Schema.check(
+    Schema.makeFilter((params) =>
+      params.provider !== undefined && params.value !== undefined
+        ? validateEmailChannelValue(params.provider, params.value)
+        : undefined
+    )
   ),
-  Schema.filter(validateUpdateTargetValue)
-).annotations({
+  Schema.check(Schema.makeFilter(validateChannelLocator)),
+  Schema.check(Schema.makeFilter(validateUpdateTargetValue))
+).annotate({
   title: "UpdateOrganizationChannelParams",
   description: `Update one contact channel on an organization. ${channelLocatorMessage} ${updateTargetValueMessage}`
 })
@@ -220,12 +238,18 @@ export const UpdateOrganizationChannelParamsSchema = ContactChannelLocatorFields
 export type UpdateOrganizationChannelParams = Schema.Schema.Type<typeof UpdateOrganizationChannelParamsSchema>
 
 export const RemoveOrganizationChannelParamsSchema = ContactChannelLocatorFieldsSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      organizationId: NonEmptyString.annotations({ description: "Organization ID or exact unique organization name." })
-    })
-  )
-).annotations({
+  Schema.fieldsAssign({
+    organizationId: NonEmptyString.annotateKey({ description: "Organization ID or exact unique organization name." })
+  }),
+  Schema.check(
+    Schema.makeFilter((params) =>
+      params.provider !== undefined && params.value !== undefined
+        ? validateEmailChannelValue(params.provider, params.value)
+        : undefined
+    )
+  ),
+  Schema.check(Schema.makeFilter(validateChannelLocator))
+).annotate({
   title: "RemoveOrganizationChannelParams",
   description: `Remove one contact channel from an organization. ${channelLocatorMessage}`
 })
@@ -278,30 +302,54 @@ export const RemoveOrganizationChannelResultSchema = Schema.Struct({
 })
 export type RemoveOrganizationChannelResult = Schema.Schema.Type<typeof RemoveOrganizationChannelResultSchema>
 
-export const addPersonChannelParamsJsonSchema = JSONSchema.make(AddPersonChannelParamsSchema)
-export const listContactChannelProvidersParamsJsonSchema = JSONSchema.make(ListContactChannelProvidersParamsSchema)
-export const listPersonChannelsParamsJsonSchema = JSONSchema.make(ListPersonChannelsParamsSchema)
-export const updatePersonChannelParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(UpdatePersonChannelParamsSchema),
-  CHANNEL_UPDATE_FIELDS
-)
-export const removePersonChannelParamsJsonSchema = JSONSchema.make(RemovePersonChannelParamsSchema)
-export const addOrganizationChannelParamsJsonSchema = JSONSchema.make(AddOrganizationChannelParamsSchema)
-export const listOrganizationChannelsParamsJsonSchema = JSONSchema.make(ListOrganizationChannelsParamsSchema)
-export const updateOrganizationChannelParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(UpdateOrganizationChannelParamsSchema),
-  CHANNEL_UPDATE_FIELDS
-)
-export const removeOrganizationChannelParamsJsonSchema = JSONSchema.make(RemoveOrganizationChannelParamsSchema)
+const channelDescriptions = {
+  person: "Person ID, exact email address, or exact Huly display name.",
+  organizationId: "Organization ID or exact unique organization name.",
+  channelId: "Raw channel document ID returned by list/get/add channel tools.",
+  provider: providerDescription,
+  value: "Contact channel value.",
+  newProvider: providerDescription,
+  newValue: "Replacement channel value."
+}
+const describeChannelSchema = (schema: object): object =>
+  withJsonSchemaPropertyDescriptions(schema, channelDescriptions)
 
-export const parseAddPersonChannelParams = Schema.decodeUnknown(AddPersonChannelParamsSchema)
-export const parseListContactChannelProvidersParams = Schema.decodeUnknown(ListContactChannelProvidersParamsSchema)
-export const parseListPersonChannelsParams = Schema.decodeUnknown(ListPersonChannelsParamsSchema)
-export const parseUpdatePersonChannelParams = Schema.decodeUnknown(UpdatePersonChannelParamsSchema)
-export const parseRemovePersonChannelParams = Schema.decodeUnknown(RemovePersonChannelParamsSchema)
-export const parseAddOrganizationChannelParams = Schema.decodeUnknown(AddOrganizationChannelParamsSchema)
-export const parseListOrganizationChannelsParams = Schema.decodeUnknown(ListOrganizationChannelsParamsSchema)
-export const parseUpdateOrganizationChannelParams = Schema.decodeUnknown(UpdateOrganizationChannelParamsSchema)
-export const parseRemoveOrganizationChannelParams = Schema.decodeUnknown(RemoveOrganizationChannelParamsSchema)
+export const addPersonChannelParamsJsonSchema = describeChannelSchema(toDraft07JsonSchema(AddPersonChannelParamsSchema))
+export const listContactChannelProvidersParamsJsonSchema = toDraft07JsonSchema(ListContactChannelProvidersParamsSchema)
+export const listPersonChannelsParamsJsonSchema = describeChannelSchema(
+  toDraft07JsonSchema(ListPersonChannelsParamsSchema)
+)
+export const updatePersonChannelParamsJsonSchema = withAtLeastOneRequired(
+  describeChannelSchema(toDraft07JsonSchema(UpdatePersonChannelParamsSchema)),
+  CHANNEL_UPDATE_FIELDS
+)
+export const removePersonChannelParamsJsonSchema = describeChannelSchema(
+  toDraft07JsonSchema(RemovePersonChannelParamsSchema)
+)
+export const addOrganizationChannelParamsJsonSchema = describeChannelSchema(
+  toDraft07JsonSchema(AddOrganizationChannelParamsSchema)
+)
+export const listOrganizationChannelsParamsJsonSchema = describeChannelSchema(
+  toDraft07JsonSchema(ListOrganizationChannelsParamsSchema)
+)
+export const updateOrganizationChannelParamsJsonSchema = withAtLeastOneRequired(
+  describeChannelSchema(toDraft07JsonSchema(UpdateOrganizationChannelParamsSchema)),
+  CHANNEL_UPDATE_FIELDS
+)
+export const removeOrganizationChannelParamsJsonSchema = describeChannelSchema(
+  toDraft07JsonSchema(RemoveOrganizationChannelParamsSchema)
+)
+
+export const parseAddPersonChannelParams = Schema.decodeUnknownEffect(AddPersonChannelParamsSchema)
+export const parseListContactChannelProvidersParams = Schema.decodeUnknownEffect(
+  ListContactChannelProvidersParamsSchema
+)
+export const parseListPersonChannelsParams = Schema.decodeUnknownEffect(ListPersonChannelsParamsSchema)
+export const parseUpdatePersonChannelParams = Schema.decodeUnknownEffect(UpdatePersonChannelParamsSchema)
+export const parseRemovePersonChannelParams = Schema.decodeUnknownEffect(RemovePersonChannelParamsSchema)
+export const parseAddOrganizationChannelParams = Schema.decodeUnknownEffect(AddOrganizationChannelParamsSchema)
+export const parseListOrganizationChannelsParams = Schema.decodeUnknownEffect(ListOrganizationChannelsParamsSchema)
+export const parseUpdateOrganizationChannelParams = Schema.decodeUnknownEffect(UpdateOrganizationChannelParamsSchema)
+export const parseRemoveOrganizationChannelParams = Schema.decodeUnknownEffect(RemoveOrganizationChannelParamsSchema)
 
 export const ListContactChannelProvidersResultSchema = Schema.Array(ContactChannelProviderSchema)

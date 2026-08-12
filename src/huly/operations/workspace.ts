@@ -113,7 +113,7 @@ const formatVersion = (info: WorkspaceInfoWithStatus): string =>
 
 const nullToUndefined = <T>(value: T | null | undefined): T | undefined => value ?? undefined
 
-type CreateAccessLinkOptions = Parameters<WorkspaceClient["Type"]["createAccessLink"]>[1]
+type CreateAccessLinkOptions = Parameters<WorkspaceClient["Service"]["createAccessLink"]>[1]
 
 const toCreateAccessLinkOptions = (params: CreateAccessLinkParams): CreateAccessLinkOptions => {
   return {

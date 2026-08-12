@@ -1,4 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+
+import { toDraft07JsonSchema } from "./json-schema.js"
 
 import { ActivityMarkdown, ActivityMarkup, MentionContent } from "./domain-values.js"
 import {
@@ -23,14 +25,14 @@ import {
   Timestamp
 } from "./shared.js"
 
-export const ActivityCount = Count.pipe(Schema.brand("ActivityCount")).annotations({
+export const ActivityCount = Count.pipe(Schema.brand("ActivityCount")).annotate({
   identifier: "ActivityCount",
   title: "ActivityCount",
   description: "Non-negative integer count for activity replies or reactions"
 })
 export type ActivityCount = Schema.Schema.Type<typeof ActivityCount>
 
-export const ActivityActionSchema = Schema.Literal("create", "update", "remove")
+export const ActivityActionSchema = Schema.Literals(["create", "update", "remove"])
 export const ActivityMessageSchema = Schema.Struct({
   id: ActivityMessageId,
   messageClass: Schema.optional(ObjectClassName),
@@ -41,7 +43,7 @@ export const ActivityMessageSchema = Schema.Struct({
   isPinned: Schema.optional(Schema.Boolean),
   replies: Schema.optional(ActivityCount),
   reactions: Schema.optional(ActivityCount),
-  editedOn: Schema.optional(Schema.Union(Timestamp, Schema.Null)),
+  editedOn: Schema.optional(Schema.Union([Timestamp, Schema.Null])),
   action: Schema.optional(ActivityActionSchema),
   message: Schema.optional(ActivityMarkup),
   body: Schema.optional(ActivityMarkdown),
@@ -49,7 +51,7 @@ export const ActivityMessageSchema = Schema.Struct({
   srcDocClass: Schema.optional(ObjectClassName),
   attachedDocId: Schema.optional(DocId),
   attachedDocClass: Schema.optional(ObjectClassName)
-}).annotations({
+}).annotate({
   title: "ActivityMessage",
   description:
     "Stable activity projection. id, objectId, and objectClass are required; optional actor, message, class, and metadata fields are omitted when Huly leaves them absent or null. editedOn may explicitly be null."
@@ -74,62 +76,64 @@ export type Mention = Schema.Schema.Type<typeof MentionSchema>
 
 export const ListActivityParamsSchema = Schema.Struct({
   objectId: Schema.optional(
-    DocId.annotations({
+    DocId.annotate({
       description:
         "Advanced: internal Huly object ID to get activity for. Use with objectClass. Prefer project+issueIdentifier, teamspace+document, or channel when available."
     })
   ),
   objectClass: Schema.optional(
-    ObjectClassName.annotations({
+    ObjectClassName.annotate({
       description:
         "Advanced: internal Huly object class for objectId, such as 'tracker:class:Issue'. Use with objectId."
     })
   ),
   project: Schema.optional(
-    ProjectIdentifier.annotations({
+    ProjectIdentifier.annotate({
       description: "Project identifier for issue activity, e.g. 'HULY'. Use with issueIdentifier."
     })
   ),
   issueIdentifier: Schema.optional(
-    IssueIdentifier.annotations({
+    IssueIdentifier.annotate({
       description: "Issue identifier for issue activity, e.g. 'HULY-123' or '123'. Use with project."
     })
   ),
   teamspace: Schema.optional(
-    TeamspaceIdentifier.annotations({ description: "Teamspace name or ID for document activity. Use with document." })
+    TeamspaceIdentifier.annotate({ description: "Teamspace name or ID for document activity. Use with document." })
   ),
   document: Schema.optional(
-    DocumentIdentifier.annotations({ description: "Document title or ID for document activity. Use with teamspace." })
+    DocumentIdentifier.annotate({ description: "Document title or ID for document activity. Use with teamspace." })
   ),
-  channel: Schema.optional(ChannelIdentifier.annotations({ description: "Channel name or ID for channel activity." })),
+  channel: Schema.optional(ChannelIdentifier.annotate({ description: "Channel name or ID for channel activity." })),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of activity messages to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of activity messages to return (default: ${DEFAULT_LIMIT})` })
   )
 })
   .pipe(
-    Schema.filter((params) => {
-      const rawObjectMode = hasAllDefined(params.objectId, params.objectClass)
-      const issueMode = hasAllDefined(params.project, params.issueIdentifier)
-      const documentMode = hasAllDefined(params.teamspace, params.document)
-      const channelMode = params.channel !== undefined
-      const modeCount = [rawObjectMode, issueMode, documentMode, channelMode].filter(Boolean).length
+    Schema.check(
+      Schema.makeFilter((params) => {
+        const rawObjectMode = hasAllDefined(params.objectId, params.objectClass)
+        const issueMode = hasAllDefined(params.project, params.issueIdentifier)
+        const documentMode = hasAllDefined(params.teamspace, params.document)
+        const channelMode = params.channel !== undefined
+        const modeCount = [rawObjectMode, issueMode, documentMode, channelMode].filter(Boolean).length
 
-      if ((params.objectId !== undefined) !== (params.objectClass !== undefined)) {
-        return "Provide both objectId and objectClass for raw object activity, or use a friendly target mode."
-      }
-      if ((params.project !== undefined) !== (params.issueIdentifier !== undefined)) {
-        return "Provide both project and issueIdentifier for issue activity."
-      }
-      if ((params.teamspace !== undefined) !== (params.document !== undefined)) {
-        return "Provide both teamspace and document for document activity."
-      }
-      if (modeCount !== 1) {
-        return "Choose exactly one activity target mode: objectId+objectClass, project+issueIdentifier, teamspace+document, or channel."
-      }
-      return undefined
-    })
+        if ((params.objectId !== undefined) !== (params.objectClass !== undefined)) {
+          return "Provide both objectId and objectClass for raw object activity, or use a friendly target mode."
+        }
+        if ((params.project !== undefined) !== (params.issueIdentifier !== undefined)) {
+          return "Provide both project and issueIdentifier for issue activity."
+        }
+        if ((params.teamspace !== undefined) !== (params.document !== undefined)) {
+          return "Provide both teamspace and document for document activity."
+        }
+        if (modeCount !== 1) {
+          return "Choose exactly one activity target mode: objectId+objectClass, project+issueIdentifier, teamspace+document, or channel."
+        }
+        return undefined
+      })
+    )
   )
-  .annotations({
+  .annotate({
     title: "ListActivityParams",
     description:
       "Parameters for listing activity on a Huly object. Prefer friendly identifiers; raw objectId+objectClass is for advanced callers."
@@ -138,53 +142,53 @@ export const ListActivityParamsSchema = Schema.Struct({
 export type ListActivityParams = Schema.Schema.Type<typeof ListActivityParamsSchema>
 
 export const AddReactionParamsSchema = Schema.Struct({
-  messageId: ActivityMessageId.annotations({ description: "ID of the activity message to react to" }),
-  emoji: EmojiCode.annotations({ description: "Emoji to add (e.g., ':thumbsup:', ':heart:', or unicode emoji)" })
-}).annotations({ title: "AddReactionParams", description: "Parameters for adding a reaction to a message" })
+  messageId: ActivityMessageId.annotate({ description: "ID of the activity message to react to" }),
+  emoji: EmojiCode.annotate({ description: "Emoji to add (e.g., ':thumbsup:', ':heart:', or unicode emoji)" })
+}).annotate({ title: "AddReactionParams", description: "Parameters for adding a reaction to a message" })
 
 export type AddReactionParams = Schema.Schema.Type<typeof AddReactionParamsSchema>
 
 export const RemoveReactionParamsSchema = Schema.Struct({
-  messageId: ActivityMessageId.annotations({ description: "ID of the activity message" }),
-  emoji: EmojiCode.annotations({ description: "Emoji to remove" })
-}).annotations({ title: "RemoveReactionParams", description: "Parameters for removing a reaction from a message" })
+  messageId: ActivityMessageId.annotate({ description: "ID of the activity message" }),
+  emoji: EmojiCode.annotate({ description: "Emoji to remove" })
+}).annotate({ title: "RemoveReactionParams", description: "Parameters for removing a reaction from a message" })
 
 export type RemoveReactionParams = Schema.Schema.Type<typeof RemoveReactionParamsSchema>
 
 export const ListReactionsParamsSchema = Schema.Struct({
-  messageId: ActivityMessageId.annotations({ description: "ID of the activity message to list reactions for" }),
+  messageId: ActivityMessageId.annotate({ description: "ID of the activity message to list reactions for" }),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of reactions to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of reactions to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({ title: "ListReactionsParams", description: "Parameters for listing reactions on a message" })
+}).annotate({ title: "ListReactionsParams", description: "Parameters for listing reactions on a message" })
 
 export type ListReactionsParams = Schema.Schema.Type<typeof ListReactionsParamsSchema>
 
 export const SaveMessageParamsSchema = Schema.Struct({
-  messageId: ActivityMessageId.annotations({ description: "ID of the activity message to save/bookmark" })
-}).annotations({ title: "SaveMessageParams", description: "Parameters for saving/bookmarking a message" })
+  messageId: ActivityMessageId.annotate({ description: "ID of the activity message to save/bookmark" })
+}).annotate({ title: "SaveMessageParams", description: "Parameters for saving/bookmarking a message" })
 
 export type SaveMessageParams = Schema.Schema.Type<typeof SaveMessageParamsSchema>
 
 export const UnsaveMessageParamsSchema = Schema.Struct({
-  messageId: ActivityMessageId.annotations({ description: "ID of the saved activity message to remove from bookmarks" })
-}).annotations({ title: "UnsaveMessageParams", description: "Parameters for removing a message from bookmarks" })
+  messageId: ActivityMessageId.annotate({ description: "ID of the saved activity message to remove from bookmarks" })
+}).annotate({ title: "UnsaveMessageParams", description: "Parameters for removing a message from bookmarks" })
 
 export type UnsaveMessageParams = Schema.Schema.Type<typeof UnsaveMessageParamsSchema>
 
 export const ListSavedMessagesParamsSchema = Schema.Struct({
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of saved messages to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of saved messages to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({ title: "ListSavedMessagesParams", description: "Parameters for listing saved/bookmarked messages" })
+}).annotate({ title: "ListSavedMessagesParams", description: "Parameters for listing saved/bookmarked messages" })
 
 export type ListSavedMessagesParams = Schema.Schema.Type<typeof ListSavedMessagesParamsSchema>
 
 export const ListMentionsParamsSchema = Schema.Struct({
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of mentions to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of mentions to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({ title: "ListMentionsParams", description: "Parameters for listing mentions of the current user" })
+}).annotate({ title: "ListMentionsParams", description: "Parameters for listing mentions of the current user" })
 
 export type ListMentionsParams = Schema.Schema.Type<typeof ListMentionsParamsSchema>
 
@@ -247,22 +251,22 @@ export const listActivityParamsJsonSchema = {
     }
   ]
 }
-export const addReactionParamsJsonSchema = JSONSchema.make(AddReactionParamsSchema)
-export const removeReactionParamsJsonSchema = JSONSchema.make(RemoveReactionParamsSchema)
-export const listReactionsParamsJsonSchema = JSONSchema.make(ListReactionsParamsSchema)
-export const saveMessageParamsJsonSchema = JSONSchema.make(SaveMessageParamsSchema)
-export const unsaveMessageParamsJsonSchema = JSONSchema.make(UnsaveMessageParamsSchema)
-export const listSavedMessagesParamsJsonSchema = JSONSchema.make(ListSavedMessagesParamsSchema)
-export const listMentionsParamsJsonSchema = JSONSchema.make(ListMentionsParamsSchema)
+export const addReactionParamsJsonSchema = toDraft07JsonSchema(AddReactionParamsSchema)
+export const removeReactionParamsJsonSchema = toDraft07JsonSchema(RemoveReactionParamsSchema)
+export const listReactionsParamsJsonSchema = toDraft07JsonSchema(ListReactionsParamsSchema)
+export const saveMessageParamsJsonSchema = toDraft07JsonSchema(SaveMessageParamsSchema)
+export const unsaveMessageParamsJsonSchema = toDraft07JsonSchema(UnsaveMessageParamsSchema)
+export const listSavedMessagesParamsJsonSchema = toDraft07JsonSchema(ListSavedMessagesParamsSchema)
+export const listMentionsParamsJsonSchema = toDraft07JsonSchema(ListMentionsParamsSchema)
 
-export const parseListActivityParams = Schema.decodeUnknown(ListActivityParamsSchema)
-export const parseAddReactionParams = Schema.decodeUnknown(AddReactionParamsSchema)
-export const parseRemoveReactionParams = Schema.decodeUnknown(RemoveReactionParamsSchema)
-export const parseListReactionsParams = Schema.decodeUnknown(ListReactionsParamsSchema)
-export const parseSaveMessageParams = Schema.decodeUnknown(SaveMessageParamsSchema)
-export const parseUnsaveMessageParams = Schema.decodeUnknown(UnsaveMessageParamsSchema)
-export const parseListSavedMessagesParams = Schema.decodeUnknown(ListSavedMessagesParamsSchema)
-export const parseListMentionsParams = Schema.decodeUnknown(ListMentionsParamsSchema)
+export const parseListActivityParams = Schema.decodeUnknownEffect(ListActivityParamsSchema)
+export const parseAddReactionParams = Schema.decodeUnknownEffect(AddReactionParamsSchema)
+export const parseRemoveReactionParams = Schema.decodeUnknownEffect(RemoveReactionParamsSchema)
+export const parseListReactionsParams = Schema.decodeUnknownEffect(ListReactionsParamsSchema)
+export const parseSaveMessageParams = Schema.decodeUnknownEffect(SaveMessageParamsSchema)
+export const parseUnsaveMessageParams = Schema.decodeUnknownEffect(UnsaveMessageParamsSchema)
+export const parseListSavedMessagesParams = Schema.decodeUnknownEffect(ListSavedMessagesParamsSchema)
+export const parseListMentionsParams = Schema.decodeUnknownEffect(ListMentionsParamsSchema)
 
 export const ActivityMessageWireSchema = ActivityMessageSchema
 

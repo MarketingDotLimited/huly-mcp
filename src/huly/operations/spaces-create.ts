@@ -2,6 +2,7 @@ import {
   type AnyAttribute,
   type AccountUuid as HulyAccountUuid,
   type Class,
+  ClassifierKind,
   type Data,
   type Doc,
   generateId,
@@ -21,7 +22,6 @@ import {
   DEFAULT_TYPED_SPACE_PRIVATE,
   DEFAULT_TYPED_SPACE_RESTRICTED
 } from "../../domain/schemas/spaces-administration.js"
-import { HulySdkClassifierKindSchema } from "../../domain/schemas/sdk-discovery.js"
 import {
   AccountUuid,
   NonEmptyString,
@@ -66,12 +66,12 @@ const SpaceCreationMetadataSchema = Schema.Struct({
   descriptor: NonEmptyString,
   baseClass: ObjectClassName,
   targetClass: ObjectClassName,
-  system: Schema.optionalWith(Schema.Boolean, { exact: true })
+  system: Schema.optionalKey(Schema.Boolean)
 })
 type SpaceCreationMetadata = Schema.Schema.Type<typeof SpaceCreationMetadataSchema>
 
 const TargetClassifierMetadataSchema = Schema.Struct({
-  kind: HulySdkClassifierKindSchema,
+  kind: Schema.Literals([ClassifierKind.CLASS, ClassifierKind.INTERFACE, ClassifierKind.MIXIN]),
   extends: Schema.optional(ObjectClassName)
 })
 
@@ -81,8 +81,8 @@ const TargetAttributeMetadataSchema = Schema.Array(
     attributeOf: ObjectClassName,
     type: Schema.Struct({
       _class: ObjectClassName,
-      presenter: Schema.optionalWith(NonEmptyString, { exact: true }),
-      editor: Schema.optionalWith(NonEmptyString, { exact: true })
+      presenter: Schema.optionalKey(NonEmptyString),
+      editor: Schema.optionalKey(NonEmptyString)
     })
   })
 )
@@ -102,7 +102,7 @@ const targetShapeProblem = (
   attributes: TargetAttributeMetadata,
   roles: TargetRoleMetadata
 ): NonEmptyString | undefined => {
-  const roleIds = new Set(roles.map((role) => role.id))
+  const roleIds = new Set<string>(roles.map((role) => role.id))
   const extraAttribute = attributes.find((attribute) => !roleIds.has(attribute.name))
   if (extraAttribute !== undefined) {
     return NonEmptyString.make(
@@ -132,7 +132,7 @@ const parseCreationMetadata = (
   descriptor: SpaceTypeDescriptor
 ): Effect.Effect<SpaceCreationMetadata, SpaceTypeCreationUnsupportedError> => {
   const spaceTypeId = SpaceTypeId.make(spaceType._id)
-  return Schema.decodeUnknown(SpaceCreationMetadataSchema)({
+  return Schema.decodeUnknownEffect(SpaceCreationMetadataSchema)({
     spaceType: spaceType._id,
     descriptor: descriptor._id,
     baseClass: descriptor.baseClass,
@@ -146,7 +146,7 @@ const parseCreationMetadata = (
 }
 
 const requireSafeTargetShape = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   metadata: SpaceCreationMetadata
 ): Effect.Effect<void, HulyClientError | SpaceTypeCreationUnsupportedError> =>
   Effect.gen(function* () {
@@ -160,13 +160,13 @@ const requireSafeTargetShape = (
         NonEmptyString.make(`target mixin '${metadata.targetClass}' was not found in SDK model metadata`)
       )
     }
-    const classifierMetadata = yield* Schema.decodeUnknown(TargetClassifierMetadataSchema)(classifier).pipe(
+    const classifierMetadata = yield* Schema.decodeUnknownEffect(TargetClassifierMetadataSchema)(classifier).pipe(
       Effect.mapError(() =>
         unsupported(metadata.spaceType, NonEmptyString.make("target mixin SDK metadata is malformed"))
       )
     )
     if (
-      classifierMetadata.kind !== "mixin" ||
+      classifierMetadata.kind !== ClassifierKind.MIXIN ||
       classifierMetadata.extends !== ObjectClassName.make(core.class.TypedSpace)
     ) {
       return yield* unsupported(
@@ -184,7 +184,7 @@ const requireSafeTargetShape = (
         limit: clampLimit(undefined)
       })
     ])
-    const attributeMetadata = yield* Schema.decodeUnknown(TargetAttributeMetadataSchema)(
+    const attributeMetadata = yield* Schema.decodeUnknownEffect(TargetAttributeMetadataSchema)(
       attributes.map((attribute) => ({
         name: attribute.name,
         attributeOf: attribute.attributeOf,
@@ -195,7 +195,7 @@ const requireSafeTargetShape = (
         unsupported(metadata.spaceType, NonEmptyString.make("target mixin attribute metadata is malformed"))
       )
     )
-    const roleMetadata = yield* Schema.decodeUnknown(TargetRoleMetadataSchema)(
+    const roleMetadata = yield* Schema.decodeUnknownEffect(TargetRoleMetadataSchema)(
       roles.map((role) => ({ id: role._id }))
     ).pipe(
       Effect.mapError(() =>
@@ -204,10 +204,11 @@ const requireSafeTargetShape = (
     )
     const problem = targetShapeProblem(metadata, attributeMetadata, roleMetadata)
     if (problem !== undefined) return yield* unsupported(metadata.spaceType, problem)
+    return yield* Effect.void
   })
 
 const requireSupportedMetadata = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   spaceType: SpaceType
 ): Effect.Effect<SpaceCreationMetadata, HulyClientError | SpaceTypeCreationUnsupportedError> =>
   Effect.gen(function* () {
@@ -244,7 +245,7 @@ interface ResolvedRoleAssignments {
 type TypedSpaceRoleAssignments = TypedSpace & RolesAssignment
 
 const resolveRoleAssignments = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   spaceType: SpaceTypeId,
   requested: CreateSpaceParams["roleAssignments"]
 ): Effect.Effect<ResolvedRoleAssignments, CreateSpaceError> =>
@@ -275,7 +276,7 @@ const createSpaceResult = (id: Ref<TypedSpace>, data: Data<TypedSpace>): CreateS
 })
 
 const resolveOptionalMembers = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   requested: CreateSpaceParams["members"],
   fallback: ReadonlyArray<HulyAccountUuid>
 ) => (requested === undefined ? Effect.succeed([...fallback]) : resolveMembers(client, requested))
@@ -298,7 +299,7 @@ const newSpaceData = (
 })
 
 const createNewSpace = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: CreateSpaceParams,
   spaceType: SpaceType,
   metadata: SpaceCreationMetadata

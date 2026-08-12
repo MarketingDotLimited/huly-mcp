@@ -36,12 +36,12 @@ type MailSpaceProjection = Schema.Schema.Type<typeof MailSpaceProjectionSchema>
 type ListMailThreadsError = HulyClientError | HulyError | SpaceIdentifierAmbiguousError | SpaceNotFoundError
 
 const parseMailCard = (input: unknown): Effect.Effect<MailCardProjection, HulyError> =>
-  Schema.decodeUnknown(MailCardProjectionSchema)(input).pipe(
+  Schema.decodeUnknownEffect(MailCardProjectionSchema)(input).pipe(
     Effect.mapError((cause) => new HulyError({ message: "Huly returned malformed Mail thread card metadata.", cause }))
   )
 
 const parseMailSpace = (input: unknown): Effect.Effect<MailSpaceProjection, HulyError> =>
-  Schema.decodeUnknown(MailSpaceProjectionSchema)(input).pipe(
+  Schema.decodeUnknownEffect(MailSpaceProjectionSchema)(input).pipe(
     Effect.mapError((cause) => new HulyError({ message: "Huly returned malformed Mail thread space metadata.", cause }))
   )
 
@@ -57,7 +57,7 @@ const subjectSummary = (card: MailCardProjection): MailThreadSubjectSummary => (
 })
 
 const resolveSpaces = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   cards: ReadonlyArray<MailCardProjection>,
   selectedSpace?: GenericSpace
 ): Effect.Effect<ReadonlyMap<SpaceId, MailThreadSpace>, ListMailThreadsError> =>
@@ -87,7 +87,7 @@ const requireResolvedSpace = (
 }
 
 const listSubjects = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   thread: MailCardProjection
 ): Effect.Effect<Array<MailThreadSubjectSummary>, HulyClientError | HulyError> =>
   client

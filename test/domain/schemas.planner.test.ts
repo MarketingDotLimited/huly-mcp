@@ -3,6 +3,7 @@ import { Effect, Schema } from "effect"
 import { expect } from "vitest"
 
 import {
+  CreateTodoParamsSchema,
   parseCreateTodoParams,
   parseScheduleTodoParams,
   parseUnscheduleTodoParams,
@@ -11,9 +12,28 @@ import {
   TodoSummarySchema,
   TodoVisibilityValues,
   updateTodoParamsJsonSchema
-} from "../../src/domain/schemas.js"
+} from "../../src/domain/schemas/planner.js"
 
 describe("planner schemas", () => {
+  it.effect("preserves ordinary optional create fields and encoded omission", () =>
+    Effect.gen(function* () {
+      const withExplicitUndefined = yield* parseCreateTodoParams({
+        title: "Follow up",
+        description: undefined,
+        owner: undefined,
+        dueDate: undefined
+      })
+      const withoutOptionals = yield* parseCreateTodoParams({ title: "Follow up" })
+      const encoded = yield* Schema.encodeUnknownEffect(CreateTodoParamsSchema)(withoutOptionals)
+
+      expect(Object.hasOwn(withExplicitUndefined, "description")).toBe(true)
+      expect(withExplicitUndefined.description).toBeUndefined()
+      expect(Object.hasOwn(encoded, "description")).toBe(false)
+      expect(Object.hasOwn(encoded, "owner")).toBe(false)
+      expect(Object.hasOwn(encoded, "dueDate")).toBe(false)
+    })
+  )
+
   it.effect("accepts LLM-friendly issue attachment input", () =>
     Effect.gen(function* () {
       const params = yield* parseCreateTodoParams({
@@ -42,26 +62,26 @@ describe("planner schemas", () => {
 
   it.effect("rejects unsupported attachment target variants before operation execution", () =>
     Effect.gen(function* () {
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         parseCreateTodoParams({
           title: "Document task",
           attachedTo: { type: "document", teamspace: "Docs", document: "Spec" }
         })
       )
 
-      expect(result._tag).toBe("Left")
+      expect(result._tag).toBe("Failure")
     })
   )
 
   it.effect("rejects unschedule_todo without a concrete target shape", () =>
     Effect.gen(function* () {
-      const empty = yield* Effect.either(parseUnscheduleTodoParams({}))
-      const locatorOnly = yield* Effect.either(parseUnscheduleTodoParams({ locator: { todoId: "todo-1" } }))
-      const futureWithoutLocator = yield* Effect.either(parseUnscheduleTodoParams({ scope: "future" }))
+      const empty = yield* Effect.result(parseUnscheduleTodoParams({}))
+      const locatorOnly = yield* Effect.result(parseUnscheduleTodoParams({ locator: { todoId: "todo-1" } }))
+      const futureWithoutLocator = yield* Effect.result(parseUnscheduleTodoParams({ scope: "future" }))
 
-      expect(empty._tag).toBe("Left")
-      expect(locatorOnly._tag).toBe("Left")
-      expect(futureWithoutLocator._tag).toBe("Left")
+      expect(empty._tag).toBe("Failure")
+      expect(locatorOnly._tag).toBe("Failure")
+      expect(futureWithoutLocator._tag).toBe("Failure")
     })
   )
 
@@ -83,9 +103,9 @@ describe("planner schemas", () => {
 
   it.effect("rejects update_todo without update fields", () =>
     Effect.gen(function* () {
-      const result = yield* Effect.either(parseUpdateTodoParams({ locator: { todoId: "todo-1" } }))
+      const result = yield* Effect.result(parseUpdateTodoParams({ locator: { todoId: "todo-1" } }))
 
-      expect(result._tag).toBe("Left")
+      expect(result._tag).toBe("Failure")
     })
   )
 
@@ -103,7 +123,7 @@ describe("planner schemas", () => {
   })
 
   it("rejects empty titles in ToDo output summaries", () => {
-    const result = Schema.decodeUnknownEither(TodoSummarySchema)({
+    const result = Schema.decodeUnknownResult(TodoSummarySchema)({
       id: "todo-1",
       title: "",
       priority: "high",
@@ -113,11 +133,11 @@ describe("planner schemas", () => {
       workslots: 0
     })
 
-    expect(result._tag).toBe("Left")
+    expect(result._tag).toBe("Failure")
   })
 
   it("rejects empty titles in issue attachment output summaries", () => {
-    const result = Schema.decodeUnknownEither(TodoSummarySchema)({
+    const result = Schema.decodeUnknownResult(TodoSummarySchema)({
       id: "todo-1",
       title: "Follow up",
       priority: "high",
@@ -127,7 +147,7 @@ describe("planner schemas", () => {
       workslots: 0
     })
 
-    expect(result._tag).toBe("Left")
+    expect(result._tag).toBe("Failure")
   })
 
   it("adds anyOf requirements to update_todo JSON schema", () => {

@@ -47,7 +47,7 @@ import { toRef } from "./sdk-boundary.js"
 import { findThreadReply } from "./thread-replies-shared.js"
 
 interface ResolvedChatAttachmentTarget {
-  readonly client: HulyClient["Type"]
+  readonly client: HulyClient["Service"]
   readonly target: ListChatMessageAttachmentsResult["target"]
   readonly space: Ref<Space>
   readonly objectId: Ref<Doc>

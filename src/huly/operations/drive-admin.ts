@@ -49,12 +49,12 @@ type UpdateDriveEntries = {
   readonly [Field in UpdateDriveField]: DirectUpdateEntry<UpdateDriveField, DocumentUpdate<DriveSpace>, Field>
 }
 
-const currentAccountMemberList = (client: HulyClient["Type"]): ReadonlyArray<HulyAccountUuid> => [
+const currentAccountMemberList = (client: HulyClient["Service"]): ReadonlyArray<HulyAccountUuid> => [
   client.getAccountUuid()
 ]
 
 const resolveInitialMembers = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: CreateDriveParams
 ): Effect.Effect<
   { readonly members: ReadonlyArray<HulyAccountUuid>; readonly owners: ReadonlyArray<HulyAccountUuid> },
@@ -82,7 +82,7 @@ const buildUpdateDriveOperations = (params: UpdateDriveParams): DocumentUpdate<D
 }
 
 const updateDriveDoc = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   driveSpace: DriveSpace,
   operations: DocumentUpdate<DriveSpace>
 ): Effect.Effect<void, DriveOperationError> =>
@@ -123,7 +123,7 @@ const driveChildSummary = (item: Folder | File) => ({
 })
 
 const findDriveChildren = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   driveSpace: DriveSpace
 ): Effect.Effect<
   { readonly folders: ReadonlyArray<Folder>; readonly files: ReadonlyArray<File> },

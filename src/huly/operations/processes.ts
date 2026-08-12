@@ -91,12 +91,12 @@ interface ProcessDetailData extends ProcessDefinitionData {
   readonly transitions: ReadonlyArray<HulyProcessTransition>
 }
 
-const encodeOrConnectionError = <A, I, R>(
-  schema: Schema.Schema<A, I, R>,
-  value: A,
+const encodeOrConnectionError = <S extends Schema.Constraint>(
+  schema: S,
+  value: S["Type"],
   operation: string
-): Effect.Effect<A, HulyConnectionError, R> =>
-  Schema.encode(schema)(value).pipe(
+): Effect.Effect<S["Type"], HulyConnectionError, S["EncodingServices"]> =>
+  Schema.encodeEffect(schema)(value).pipe(
     Effect.as(value),
     Effect.mapError(
       (parseError) =>

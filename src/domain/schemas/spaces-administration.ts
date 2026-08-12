@@ -1,5 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
+import { toDraft07JsonSchema } from "./json-schema.js"
 import {
   AccountUuid,
   EmptyParamsSchema,
@@ -15,49 +16,47 @@ export const DEFAULT_TYPED_SPACE_AUTO_JOIN = false
 export const DEFAULT_TYPED_SPACE_PRIVATE = false
 export const DEFAULT_TYPED_SPACE_RESTRICTED = false
 
-const SpaceMemberLocatorSchema = SpaceMemberIdentifier.annotations({
+const SpaceMemberLocatorSchema = SpaceMemberIdentifier.annotate({
   description: "Workspace member account UUID, exact email address, or exact person display name."
 })
 
 export const CreateSpaceRoleAssignmentSchema = Schema.Struct({
-  role: SpaceRoleIdentifier.annotations({ description: "Role _id or exact role name from the selected space type." }),
+  role: SpaceRoleIdentifier.annotate({ description: "Role _id or exact role name from the selected space type." }),
   members: Schema.Array(SpaceMemberLocatorSchema)
-    .pipe(Schema.minItems(1))
-    .annotations({
+    .pipe(Schema.check(Schema.isMinLength(1)))
+    .annotate({
       description: "Members to assign to this role. Assigned members are also added to the space member list."
     })
 })
 export type CreateSpaceRoleAssignment = Schema.Schema.Type<typeof CreateSpaceRoleAssignmentSchema>
 
 export const CreateSpaceParamsSchema = Schema.Struct({
-  spaceType: SpaceTypeIdentifier.annotations({
+  spaceType: SpaceTypeIdentifier.annotate({
     description:
       "SpaceType _id or exact name. Generic creation is accepted only when SDK descriptor metadata proves the type uses core:class:TypedSpace directly."
   }),
-  name: NonEmptyString.annotations({ description: "New space display name." }),
-  description: Schema.optional(NonEmptyString.annotations({ description: "Plain-text space description." })),
-  private: Schema.optional(Schema.Boolean.annotations({ description: "Whether the space is private." })),
-  autoJoin: Schema.optional(
-    Schema.Boolean.annotations({ description: "Whether workspace members auto-join the space." })
-  ),
+  name: NonEmptyString.annotate({ description: "New space display name." }),
+  description: Schema.optional(NonEmptyString.annotate({ description: "Plain-text space description." })),
+  private: Schema.optional(Schema.Boolean.annotate({ description: "Whether the space is private." })),
+  autoJoin: Schema.optional(Schema.Boolean.annotate({ description: "Whether workspace members auto-join the space." })),
   restricted: Schema.optional(
-    Schema.Boolean.annotations({ description: "Whether transactions require an assigned space-type permission." })
+    Schema.Boolean.annotate({ description: "Whether transactions require an assigned space-type permission." })
   ),
   members: Schema.optional(
-    Schema.Array(SpaceMemberLocatorSchema).annotations({
+    Schema.Array(SpaceMemberLocatorSchema).annotate({
       description:
         "Initial members. SpaceType default members, owners, and role-assigned members are always included as well."
     })
   ),
   owners: Schema.optional(
     Schema.Array(SpaceMemberLocatorSchema)
-      .pipe(Schema.minItems(1))
-      .annotations({
+      .pipe(Schema.check(Schema.isMinLength(1)))
+      .annotate({
         description: "Initial owners. Defaults to the calling Huly account; every owner is also made a member."
       })
   ),
   roleAssignments: Schema.optional(
-    Schema.Array(CreateSpaceRoleAssignmentSchema).annotations({
+    Schema.Array(CreateSpaceRoleAssignmentSchema).annotate({
       description: "Optional role assignments created in the same MCP call after the space document is created."
     })
   )
@@ -80,7 +79,7 @@ export const GetGlobalSpaceAdminsResultSchema = Schema.Struct({ admins: Schema.A
 export type GetGlobalSpaceAdminsResult = Schema.Schema.Type<typeof GetGlobalSpaceAdminsResultSchema>
 
 export const SetGlobalSpaceAdminsParamsSchema = Schema.Struct({
-  admins: Schema.Array(SpaceMemberLocatorSchema).annotations({
+  admins: Schema.Array(SpaceMemberLocatorSchema).annotate({
     description:
       "Complete replacement global space-admin list. Accepts account UUIDs, exact emails, or exact person display names; pass [] to clear the role."
   })
@@ -92,10 +91,10 @@ export const SetGlobalSpaceAdminsResultSchema = Schema.Struct({
 })
 export type SetGlobalSpaceAdminsResult = Schema.Schema.Type<typeof SetGlobalSpaceAdminsResultSchema>
 
-export const createSpaceParamsJsonSchema = JSONSchema.make(CreateSpaceParamsSchema)
-export const getGlobalSpaceAdminsParamsJsonSchema = JSONSchema.make(GetGlobalSpaceAdminsParamsSchema)
-export const setGlobalSpaceAdminsParamsJsonSchema = JSONSchema.make(SetGlobalSpaceAdminsParamsSchema)
+export const createSpaceParamsJsonSchema = toDraft07JsonSchema(CreateSpaceParamsSchema)
+export const getGlobalSpaceAdminsParamsJsonSchema = toDraft07JsonSchema(GetGlobalSpaceAdminsParamsSchema)
+export const setGlobalSpaceAdminsParamsJsonSchema = toDraft07JsonSchema(SetGlobalSpaceAdminsParamsSchema)
 
-export const parseCreateSpaceParams = Schema.decodeUnknown(CreateSpaceParamsSchema)
-export const parseGetGlobalSpaceAdminsParams = Schema.decodeUnknown(GetGlobalSpaceAdminsParamsSchema)
-export const parseSetGlobalSpaceAdminsParams = Schema.decodeUnknown(SetGlobalSpaceAdminsParamsSchema)
+export const parseCreateSpaceParams = Schema.decodeUnknownEffect(CreateSpaceParamsSchema)
+export const parseGetGlobalSpaceAdminsParams = Schema.decodeUnknownEffect(GetGlobalSpaceAdminsParamsSchema)
+export const parseSetGlobalSpaceAdminsParams = Schema.decodeUnknownEffect(SetGlobalSpaceAdminsParamsSchema)

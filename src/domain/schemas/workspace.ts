@@ -1,5 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
+import { toDraft07JsonSchema } from "./json-schema.js"
 import {
   AccountId,
   assertUpdateFields,
@@ -24,7 +25,7 @@ import {
 
 export const AccountRoleValues = ["READONLYGUEST", "DocGuest", "GUEST", "USER", "MAINTAINER", "OWNER", "ADMIN"] as const
 
-export const AccountRoleSchema = Schema.Literal(...AccountRoleValues).annotations({
+export const AccountRoleSchema = Schema.Literals(AccountRoleValues).annotate({
   title: "AccountRole",
   description: `Workspace member role: ${enumValuesDescription(AccountRoleValues)}`
 })
@@ -33,31 +34,31 @@ export type AccountRole = Schema.Schema.Type<typeof AccountRoleSchema>
 
 export const ListWorkspaceMembersParamsSchema = Schema.Struct({
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of members to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of members to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({ title: "ListWorkspaceMembersParams", description: "Parameters for listing workspace members" })
+}).annotate({ title: "ListWorkspaceMembersParams", description: "Parameters for listing workspace members" })
 
 export type ListWorkspaceMembersParams = Schema.Schema.Type<typeof ListWorkspaceMembersParamsSchema>
 
 export const UpdateMemberRoleParamsSchema = Schema.Struct({
-  accountId: AccountId.annotations({ description: "Account UUID of the member" }),
-  role: AccountRoleSchema.annotations({ description: "New role for the member" })
-}).annotations({ title: "UpdateMemberRoleParams", description: "Parameters for updating a member's role" })
+  accountId: AccountId.annotate({ description: "Account UUID of the member" }),
+  role: AccountRoleSchema.annotate({ description: "New role for the member" })
+}).annotate({ title: "UpdateMemberRoleParams", description: "Parameters for updating a member's role" })
 
 export type UpdateMemberRoleParams = Schema.Schema.Type<typeof UpdateMemberRoleParamsSchema>
 
 export const ListWorkspacesParamsSchema = Schema.Struct({
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of workspaces to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of workspaces to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({ title: "ListWorkspacesParams", description: "Parameters for listing workspaces" })
+}).annotate({ title: "ListWorkspacesParams", description: "Parameters for listing workspaces" })
 
 export type ListWorkspacesParams = Schema.Schema.Type<typeof ListWorkspacesParamsSchema>
 
 export const CreateWorkspaceParamsSchema = Schema.Struct({
-  name: NonEmptyString.annotations({ description: "Name for the new workspace" }),
-  region: Schema.optional(RegionId.annotations({ description: "Region for the workspace (optional)" }))
-}).annotations({ title: "CreateWorkspaceParams", description: "Parameters for creating a workspace" })
+  name: NonEmptyString.annotate({ description: "Name for the new workspace" }),
+  region: Schema.optional(RegionId.annotate({ description: "Region for the workspace (optional)" }))
+}).annotate({ title: "CreateWorkspaceParams", description: "Parameters for creating a workspace" })
 
 export type CreateWorkspaceParams = Schema.Schema.Type<typeof CreateWorkspaceParamsSchema>
 
@@ -71,25 +72,27 @@ export const UPDATE_USER_PROFILE_FIELDS = [
 ] as const satisfies ReadonlyArray<"bio" | "city" | "country" | "website" | "socialLinks" | "isPublic">
 
 export const UpdateUserProfileParamsSchema = Schema.Struct({
-  bio: Schema.optional(Schema.NullOr(Schema.String).annotations({ description: "Bio text (null to clear)" })),
-  city: Schema.optional(Schema.NullOr(Schema.String).annotations({ description: "City (null to clear)" })),
-  country: Schema.optional(Schema.NullOr(Schema.String).annotations({ description: "Country (null to clear)" })),
-  website: Schema.optional(Schema.NullOr(Schema.String).annotations({ description: "Website URL (null to clear)" })),
+  bio: Schema.optional(Schema.NullOr(Schema.String).annotate({ description: "Bio text (null to clear)" })),
+  city: Schema.optional(Schema.NullOr(Schema.String).annotate({ description: "City (null to clear)" })),
+  country: Schema.optional(Schema.NullOr(Schema.String).annotate({ description: "Country (null to clear)" })),
+  website: Schema.optional(Schema.NullOr(Schema.String).annotate({ description: "Website URL (null to clear)" })),
   socialLinks: Schema.optional(
-    Schema.NullOr(Schema.Record({ key: Schema.String, value: Schema.String })).annotations({
+    Schema.NullOr(Schema.Record(Schema.String, Schema.String)).annotate({
       description: "Social links as key-value pairs (null to clear)"
     })
   ),
-  isPublic: Schema.optional(Schema.Boolean.annotations({ description: "Whether profile is public" }))
+  isPublic: Schema.optional(Schema.Boolean.annotate({ description: "Whether profile is public" }))
 })
   .pipe(
-    Schema.filter((params) =>
-      hasAtLeastOneDefined(params, UPDATE_USER_PROFILE_FIELDS)
-        ? undefined
-        : atLeastOneUpdateFieldMessage(UPDATE_USER_PROFILE_FIELDS)
+    Schema.check(
+      Schema.makeFilter((params) =>
+        hasAtLeastOneDefined(params, UPDATE_USER_PROFILE_FIELDS)
+          ? undefined
+          : atLeastOneUpdateFieldMessage(UPDATE_USER_PROFILE_FIELDS)
+      )
     )
   )
-  .annotations({
+  .annotate({
     title: "UpdateUserProfileParams",
     description: `Parameters for updating user profile. ${atLeastOneUpdateFieldMessage(UPDATE_USER_PROFILE_FIELDS)}`
   })
@@ -102,17 +105,19 @@ export const UPDATE_GUEST_SETTINGS_FIELDS = ["allowReadOnly", "allowSignUp"] as 
 >
 
 export const UpdateGuestSettingsParamsSchema = Schema.Struct({
-  allowReadOnly: Schema.optional(Schema.Boolean.annotations({ description: "Allow read-only guests" })),
-  allowSignUp: Schema.optional(Schema.Boolean.annotations({ description: "Allow guest sign-up" }))
+  allowReadOnly: Schema.optional(Schema.Boolean.annotate({ description: "Allow read-only guests" })),
+  allowSignUp: Schema.optional(Schema.Boolean.annotate({ description: "Allow guest sign-up" }))
 })
   .pipe(
-    Schema.filter((params) =>
-      hasAtLeastOneDefined(params, UPDATE_GUEST_SETTINGS_FIELDS)
-        ? undefined
-        : atLeastOneUpdateFieldMessage(UPDATE_GUEST_SETTINGS_FIELDS)
+    Schema.check(
+      Schema.makeFilter((params) =>
+        hasAtLeastOneDefined(params, UPDATE_GUEST_SETTINGS_FIELDS)
+          ? undefined
+          : atLeastOneUpdateFieldMessage(UPDATE_GUEST_SETTINGS_FIELDS)
+      )
     )
   )
-  .annotations({
+  .annotate({
     title: "UpdateGuestSettingsParams",
     description: `Parameters for updating guest settings. ${atLeastOneUpdateFieldMessage(UPDATE_GUEST_SETTINGS_FIELDS)}`
   })
@@ -123,11 +128,10 @@ assertUpdateFields<UpdateGuestSettingsParams>()([], UPDATE_GUEST_SETTINGS_FIELDS
 const MAX_UNIX_SECONDS_TIMESTAMP = 9_999_999_999
 export const DEFAULT_ACCESS_LINK_ROLE: AccountRole = "GUEST"
 
-const UnixSecondsTimestamp = Schema.Number.pipe(
-  Schema.int(),
-  Schema.nonNegative(),
-  Schema.lessThanOrEqualTo(MAX_UNIX_SECONDS_TIMESTAMP)
-).annotations({
+const UnixSecondsTimestamp = Schema.Int.check(
+  Schema.isGreaterThanOrEqualTo(0),
+  Schema.isLessThanOrEqualTo(MAX_UNIX_SECONDS_TIMESTAMP)
+).annotate({
   identifier: "UnixSecondsTimestamp",
   title: "UnixSecondsTimestamp",
   description: "Unix timestamp in seconds (non-negative integer)"
@@ -135,19 +139,17 @@ const UnixSecondsTimestamp = Schema.Number.pipe(
 
 const AccessLinkCommonParamsSchema = Schema.Struct({
   role: Schema.optional(
-    AccountRoleSchema.annotations({
+    AccountRoleSchema.annotate({
       description: `Workspace role granted by the link. Defaults to ${DEFAULT_ACCESS_LINK_ROLE}.`
     })
   ),
-  firstName: Schema.optional(
-    NonEmptyString.annotations({ description: "Optional first name for personalized links." })
-  ),
-  lastName: Schema.optional(NonEmptyString.annotations({ description: "Optional last name for personalized links." })),
+  firstName: Schema.optional(NonEmptyString.annotate({ description: "Optional first name for personalized links." })),
+  lastName: Schema.optional(NonEmptyString.annotate({ description: "Optional last name for personalized links." })),
   navigateUrl: Schema.optional(
-    Schema.String.annotations({ description: "Optional URL/path Huly should open after the link is used." })
+    Schema.String.annotate({ description: "Optional URL/path Huly should open after the link is used." })
   ),
   spaces: Schema.optional(
-    Schema.Array(SpaceId).annotations({
+    Schema.Array(SpaceId).annotate({
       description:
         "Optional Huly space IDs this link should grant access to. Use list_teamspaces, list_card_spaces, or other list tools to discover space IDs."
     })
@@ -157,13 +159,13 @@ const AccessLinkCommonParamsSchema = Schema.Struct({
 const PersonalizedAccessLinkParamsSchema = Schema.Struct({
   ...AccessLinkCommonParamsSchema.fields,
   notBefore: Schema.optional(
-    UnixSecondsTimestamp.annotations({ description: "Unix timestamp in seconds before which the link is invalid." })
+    UnixSecondsTimestamp.annotate({ description: "Unix timestamp in seconds before which the link is invalid." })
   ),
   expiration: Schema.optional(
-    UnixSecondsTimestamp.annotations({ description: "Unix timestamp in seconds after which the link expires." })
+    UnixSecondsTimestamp.annotate({ description: "Unix timestamp in seconds after which the link expires." })
   ),
   personalized: Schema.optional(
-    Schema.Literal(true).annotations({
+    Schema.Literal(true).annotate({
       description: "Whether the link is bound to one person. Omit to use Huly's personalized-link behavior."
     })
   )
@@ -171,30 +173,34 @@ const PersonalizedAccessLinkParamsSchema = Schema.Struct({
 
 const AnonymousAccessLinkParamsSchema = Schema.Struct({
   ...AccessLinkCommonParamsSchema.fields,
-  notBefore: UnixSecondsTimestamp.annotations({
+  notBefore: UnixSecondsTimestamp.annotate({
     description: "Unix timestamp in seconds before which a non-personalized link is invalid."
   }),
-  expiration: UnixSecondsTimestamp.annotations({
-    description: "Unix timestamp in seconds after which the link expires."
-  }),
-  personalized: Schema.Literal(false).annotations({
+  expiration: UnixSecondsTimestamp.annotate({ description: "Unix timestamp in seconds after which the link expires." }),
+  personalized: Schema.Literal(false).annotate({
     description: "Set false for anonymous reusable guest links. Anonymous links require notBefore and expiration."
   })
 })
 
-export const CreateAccessLinkParamsSchema = Schema.Union(
+export const CreateAccessLinkParamsSchema = Schema.Union([
   PersonalizedAccessLinkParamsSchema,
   AnonymousAccessLinkParamsSchema
-)
+])
   .pipe(
-    Schema.filter((params) => {
-      if (params.notBefore !== undefined && params.expiration !== undefined && params.expiration <= params.notBefore) {
-        return "expiration must be greater than notBefore."
-      }
-      return undefined
-    })
+    Schema.check(
+      Schema.makeFilter((params) => {
+        if (
+          params.notBefore !== undefined &&
+          params.expiration !== undefined &&
+          params.expiration <= params.notBefore
+        ) {
+          return "expiration must be greater than notBefore."
+        }
+        return undefined
+      })
+    )
   )
-  .annotations({ title: "CreateAccessLinkParams", description: "Parameters for creating a Huly workspace access link" })
+  .annotate({ title: "CreateAccessLinkParams", description: "Parameters for creating a Huly workspace access link" })
 
 export type CreateAccessLinkParams = Schema.Schema.Type<typeof CreateAccessLinkParamsSchema>
 
@@ -202,29 +208,29 @@ export const GetRegionsParamsSchema = EmptyParamsSchema
 
 export type GetRegionsParams = Schema.Schema.Type<typeof GetRegionsParamsSchema>
 
-export const listWorkspaceMembersParamsJsonSchema = JSONSchema.make(ListWorkspaceMembersParamsSchema)
-export const updateMemberRoleParamsJsonSchema = JSONSchema.make(UpdateMemberRoleParamsSchema)
-export const listWorkspacesParamsJsonSchema = JSONSchema.make(ListWorkspacesParamsSchema)
-export const createWorkspaceParamsJsonSchema = JSONSchema.make(CreateWorkspaceParamsSchema)
+export const listWorkspaceMembersParamsJsonSchema = toDraft07JsonSchema(ListWorkspaceMembersParamsSchema)
+export const updateMemberRoleParamsJsonSchema = toDraft07JsonSchema(UpdateMemberRoleParamsSchema)
+export const listWorkspacesParamsJsonSchema = toDraft07JsonSchema(ListWorkspacesParamsSchema)
+export const createWorkspaceParamsJsonSchema = toDraft07JsonSchema(CreateWorkspaceParamsSchema)
 export const updateUserProfileParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(UpdateUserProfileParamsSchema),
+  toDraft07JsonSchema(UpdateUserProfileParamsSchema),
   UPDATE_USER_PROFILE_FIELDS
 )
 export const updateGuestSettingsParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(UpdateGuestSettingsParamsSchema),
+  toDraft07JsonSchema(UpdateGuestSettingsParamsSchema),
   UPDATE_GUEST_SETTINGS_FIELDS
 )
-export const createAccessLinkParamsJsonSchema = JSONSchema.make(CreateAccessLinkParamsSchema)
-export const getRegionsParamsJsonSchema = JSONSchema.make(GetRegionsParamsSchema)
+export const createAccessLinkParamsJsonSchema = toDraft07JsonSchema(CreateAccessLinkParamsSchema)
+export const getRegionsParamsJsonSchema = toDraft07JsonSchema(GetRegionsParamsSchema)
 
-export const parseListWorkspaceMembersParams = Schema.decodeUnknown(ListWorkspaceMembersParamsSchema)
-export const parseUpdateMemberRoleParams = Schema.decodeUnknown(UpdateMemberRoleParamsSchema)
-export const parseListWorkspacesParams = Schema.decodeUnknown(ListWorkspacesParamsSchema)
-export const parseCreateWorkspaceParams = Schema.decodeUnknown(CreateWorkspaceParamsSchema)
-export const parseUpdateUserProfileParams = Schema.decodeUnknown(UpdateUserProfileParamsSchema)
-export const parseUpdateGuestSettingsParams = Schema.decodeUnknown(UpdateGuestSettingsParamsSchema)
-export const parseCreateAccessLinkParams = Schema.decodeUnknown(CreateAccessLinkParamsSchema)
-export const parseGetRegionsParams = Schema.decodeUnknown(GetRegionsParamsSchema)
+export const parseListWorkspaceMembersParams = Schema.decodeUnknownEffect(ListWorkspaceMembersParamsSchema)
+export const parseUpdateMemberRoleParams = Schema.decodeUnknownEffect(UpdateMemberRoleParamsSchema)
+export const parseListWorkspacesParams = Schema.decodeUnknownEffect(ListWorkspacesParamsSchema)
+export const parseCreateWorkspaceParams = Schema.decodeUnknownEffect(CreateWorkspaceParamsSchema)
+export const parseUpdateUserProfileParams = Schema.decodeUnknownEffect(UpdateUserProfileParamsSchema)
+export const parseUpdateGuestSettingsParams = Schema.decodeUnknownEffect(UpdateGuestSettingsParamsSchema)
+export const parseCreateAccessLinkParams = Schema.decodeUnknownEffect(CreateAccessLinkParamsSchema)
+export const parseGetRegionsParams = Schema.decodeUnknownEffect(GetRegionsParamsSchema)
 
 export const WorkspaceMemberSchema = Schema.Struct({
   personId: PersonUuid,
@@ -268,7 +274,7 @@ export const UserProfileSchema = Schema.Struct({
   city: Schema.optional(Schema.String),
   country: Schema.optional(Schema.String),
   website: Schema.optional(Schema.String),
-  socialLinks: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+  socialLinks: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   isPublic: Schema.Boolean
 })
 export type UserProfile = Schema.Schema.Type<typeof UserProfileSchema>

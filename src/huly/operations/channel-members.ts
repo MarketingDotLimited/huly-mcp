@@ -48,7 +48,7 @@ type ChannelMemberError =
 type ChannelLifecycleError = HulyClientError | ChannelNotFoundError
 
 const buildAccountUuidToNameMap = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   accountUuids: ReadonlyArray<HulyAccountUuid>
 ): Effect.Effect<ReadonlyMap<HulyAccountUuid, PersonName>, HulyClientError> =>
   Effect.gen(function* () {
@@ -71,7 +71,7 @@ const buildAccountUuidToNameMap = (
   })
 
 const resolveChannelMembers = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   members: ChannelMemberMutationParams["members"]
 ): Effect.Effect<Array<HulyAccountUuid>, ChannelMemberError> =>
   Effect.forEach(members, (member) =>
@@ -79,7 +79,7 @@ const resolveChannelMembers = (
   ).pipe(Effect.map((values) => sortStrings([...new Set(values)])))
 
 const updateChannelDoc = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   channel: HulyChannel,
   operations: DocumentUpdate<HulyChannel>
 ): Effect.Effect<void, HulyClientError> =>

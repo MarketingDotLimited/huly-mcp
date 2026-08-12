@@ -99,12 +99,12 @@ const WORKFLOW_WARNING = "This changes workspace-level tracker configuration for
 const toCategoryValue = (category: Ref<StatusCategory> | undefined): StatusCategoryValue =>
   category === undefined ? UnknownStatusCategoryValue : (REF_TO_CATEGORY.get(category) ?? UnknownStatusCategoryValue)
 
-const encodeOrConnectionError = <A, I, R>(
-  schema: Schema.Schema<A, I, R>,
-  value: A,
+const encodeOrConnectionError = <S extends Schema.Constraint>(
+  schema: S,
+  value: S["Type"],
   operation: string
-): Effect.Effect<A, HulyConnectionError, R> =>
-  Schema.encode(schema)(value).pipe(
+): Effect.Effect<S["Type"], HulyConnectionError, S["EncodingServices"]> =>
+  Schema.encodeEffect(schema)(value).pipe(
     Effect.as(value),
     Effect.mapError(
       (parseError) =>
@@ -168,7 +168,7 @@ const getTaskTypesByProjectType = (
     .pipe(Effect.map((result) => [...result]))
 
 const parseRecoveredStatusMetadata = (status: unknown): Effect.Effect<StatusMetadata, HulyConnectionError> =>
-  Schema.decodeUnknown(StatusMetadataSchema)(status).pipe(
+  Schema.decodeUnknownEffect(StatusMetadataSchema)(status).pipe(
     Effect.mapError(
       (parseError) =>
         new HulyConnectionError({
@@ -190,7 +190,7 @@ const getRecoverableStatusesByName = (
         // this broad recovery query was reported to null-deref on an older self-hosted
         // Huly. The primary project-type status data is already loaded, so losing only
         // cross-project duplicate recovery is preferable to failing status creation.
-        Effect.catchAll(() => Effect.succeed([]))
+        Effect.catch(() => Effect.succeed([]))
       )
     const statuses = yield* Effect.forEach(rows, parseRecoveredStatusMetadata)
     return statuses.filter((status) => normalizeForComparison(status.name) === normalizeForComparison(name))

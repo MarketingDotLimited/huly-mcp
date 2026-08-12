@@ -8,7 +8,7 @@ import { Schema } from "effect"
 import { AttachmentId, ChannelIdentifier, Count, NonEmptyString } from "../domain/schemas/shared.js"
 
 const MIN_AMBIGUOUS_DM_MATCHES = 2
-const AmbiguousMatchCount = Count.pipe(Schema.greaterThanOrEqualTo(MIN_AMBIGUOUS_DM_MATCHES))
+const AmbiguousMatchCount = Count.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(MIN_AMBIGUOUS_DM_MATCHES)))
 
 /**
  * Channel not found in the workspace.
@@ -197,14 +197,14 @@ export class ActivityMessageNotFoundError extends Schema.TaggedError<ActivityMes
 export class ActivityRecordInvalidError extends Schema.TaggedError<ActivityRecordInvalidError>()(
   "ActivityRecordInvalidError",
   {
-    operation: Schema.Literal(
+    operation: Schema.Literals([
       "list_activity",
       "get_activity_message",
       "list_activity_replies",
       "list_drive_file_activity",
       "list_inventory_product_activity",
       "list_recruiting_activity"
-    ),
+    ]),
     recordIndex: Count,
     details: NonEmptyString
   }

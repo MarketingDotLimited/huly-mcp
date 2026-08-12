@@ -26,7 +26,7 @@ import { clampLimit, findResultTotal, hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
 export interface AttachedCommentTarget {
-  readonly client: HulyClient["Type"]
+  readonly client: HulyClient["Service"]
   readonly space: Ref<Space>
   readonly attachedTo: Ref<Doc>
   readonly attachedToClass: Ref<Class<Doc>>
@@ -48,7 +48,7 @@ const attachedToClassQuery = (
   return classes.length === 1 ? target.attachedToClass : { $in: [...classes] }
 }
 
-const toComment = (client: HulyClient["Type"], message: ChatMessage) => ({
+const toComment = (client: HulyClient["Service"], message: ChatMessage) => ({
   id: message._id,
   body: optionalMarkupToMarkdown(message.message, client.markupUrlConfig, ""),
   authorId: message.modifiedBy,
@@ -61,7 +61,7 @@ const decodeComments = (
   context: string,
   comments: ReadonlyArray<ReturnType<typeof toComment>>
 ): Effect.Effect<ReadonlyArray<Comment>, HulyConnectionError> =>
-  Schema.decodeUnknown(Schema.Array(CommentSchema))(comments).pipe(
+  Schema.decodeUnknownEffect(Schema.Array(CommentSchema))(comments).pipe(
     Effect.mapError(
       (parseError) =>
         new HulyConnectionError({

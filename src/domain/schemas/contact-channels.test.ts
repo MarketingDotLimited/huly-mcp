@@ -1,8 +1,9 @@
-import { Effect, Either, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
 import {
   AddPersonChannelParamsSchema,
+  addPersonChannelParamsJsonSchema,
   ContactChannelProviderSchema,
   ContactChannelProviderValues,
   parseAddPersonChannelParams,
@@ -13,6 +14,15 @@ import {
 } from "./contact-channels.js"
 
 describe("Contact Channel Schemas", () => {
+  it("preserves LLM-facing property descriptions in the public schema", () => {
+    const properties = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(
+      Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(addPersonChannelParamsJsonSchema)
+        .properties
+    )
+    const person = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(properties.person)
+    expect(person.description).toContain("Person ID")
+  })
+
   describe("ContactChannelProviderSchema", () => {
     it("accepts every supported provider label", () => {
       for (const provider of ContactChannelProviderValues) {
@@ -21,8 +31,8 @@ describe("Contact Channel Schemas", () => {
     })
 
     it("rejects unsupported provider labels", () => {
-      const result = Schema.decodeUnknownEither(ContactChannelProviderSchema)("fax")
-      expect(Either.isLeft(result)).toBe(true)
+      const result = Schema.decodeUnknownResult(ContactChannelProviderSchema)("fax")
+      expect(Result.isFailure(result)).toBe(true)
     })
   })
 
@@ -39,26 +49,26 @@ describe("Contact Channel Schemas", () => {
 
     it("rejects empty values", () => {
       const result = Effect.runSync(
-        Effect.either(parseAddPersonChannelParams({ person: "person-1", provider: "phone", value: "" }))
+        Effect.result(parseAddPersonChannelParams({ person: "person-1", provider: "phone", value: "" }))
       )
-      expect(Either.isLeft(result)).toBe(true)
+      expect(Result.isFailure(result)).toBe(true)
     })
 
     it("rejects invalid email provider values", () => {
       const result = Effect.runSync(
-        Effect.either(parseAddPersonChannelParams({ person: "person-1", provider: "email", value: "not-email" }))
+        Effect.result(parseAddPersonChannelParams({ person: "person-1", provider: "email", value: "not-email" }))
       )
-      expect(Either.isLeft(result)).toBe(true)
+      expect(Result.isFailure(result)).toBe(true)
     })
   })
 
   describe("UpdatePersonChannelParamsSchema", () => {
     it("requires at least one replacement field", () => {
-      const result = Schema.decodeUnknownEither(UpdatePersonChannelParamsSchema)({
+      const result = Schema.decodeUnknownResult(UpdatePersonChannelParamsSchema)({
         person: "person-1",
         channelId: "channel-1"
       })
-      expect(Either.isLeft(result)).toBe(true)
+      expect(Result.isFailure(result)).toBe(true)
     })
 
     it("accepts channelId locator with newValue", () => {
@@ -82,10 +92,10 @@ describe("Contact Channel Schemas", () => {
 
     it("rejects missing and mixed locators", () => {
       const missing = Effect.runSync(
-        Effect.either(parseUpdatePersonChannelParams({ person: "person-1", newValue: "x" }))
+        Effect.result(parseUpdatePersonChannelParams({ person: "person-1", newValue: "x" }))
       )
       const mixed = Effect.runSync(
-        Effect.either(
+        Effect.result(
           parseUpdatePersonChannelParams({
             person: "person-1",
             channelId: "channel-1",
@@ -95,17 +105,17 @@ describe("Contact Channel Schemas", () => {
         )
       )
       const incomplete = Effect.runSync(
-        Effect.either(parseUpdatePersonChannelParams({ person: "person-1", provider: "phone", newValue: "x" }))
+        Effect.result(parseUpdatePersonChannelParams({ person: "person-1", provider: "phone", newValue: "x" }))
       )
 
-      expect(Either.isLeft(missing)).toBe(true)
-      expect(Either.isLeft(mixed)).toBe(true)
-      expect(Either.isLeft(incomplete)).toBe(true)
+      expect(Result.isFailure(missing)).toBe(true)
+      expect(Result.isFailure(mixed)).toBe(true)
+      expect(Result.isFailure(incomplete)).toBe(true)
     })
 
     it("rejects invalid target email values", () => {
       const result = Effect.runSync(
-        Effect.either(
+        Effect.result(
           parseUpdatePersonChannelParams({
             person: "person-1",
             channelId: "channel-1",
@@ -114,7 +124,7 @@ describe("Contact Channel Schemas", () => {
           })
         )
       )
-      expect(Either.isLeft(result)).toBe(true)
+      expect(Result.isFailure(result)).toBe(true)
     })
   })
 
@@ -134,9 +144,9 @@ describe("Contact Channel Schemas", () => {
     })
 
     it("rejects neither locator and both locator shapes", () => {
-      const neither = Effect.runSync(Effect.either(parseRemovePersonChannelParams({ person: "person-1" })))
+      const neither = Effect.runSync(Effect.result(parseRemovePersonChannelParams({ person: "person-1" })))
       const both = Effect.runSync(
-        Effect.either(
+        Effect.result(
           parseRemovePersonChannelParams({
             person: "person-1",
             channelId: "channel-1",
@@ -146,8 +156,8 @@ describe("Contact Channel Schemas", () => {
         )
       )
 
-      expect(Either.isLeft(neither)).toBe(true)
-      expect(Either.isLeft(both)).toBe(true)
+      expect(Result.isFailure(neither)).toBe(true)
+      expect(Result.isFailure(both)).toBe(true)
     })
   })
 })

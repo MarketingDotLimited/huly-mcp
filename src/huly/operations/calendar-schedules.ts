@@ -159,7 +159,7 @@ const scheduleTitle = (title: string): ScheduleTitle =>
   hulyNonEmptyTextOrFallback(ScheduleTitle, title, UNTITLED_SCHEDULE)
 
 const lookupMeetingScheduleRooms = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   schedules: ReadonlyArray<HulySchedule>
 ): Effect.Effect<ReadonlyMap<string, RoomReference>, HulyClientError> =>
   Effect.gen(function* () {
@@ -209,7 +209,10 @@ const scheduleDetails = (
     createdOn: optionalTimestamp(schedule.createdOn)
   }))
 
-const buildOwner = (client: HulyClient["Type"], schedule: HulySchedule): Effect.Effect<Participant, HulyClientError> =>
+const buildOwner = (
+  client: HulyClient["Service"],
+  schedule: HulySchedule
+): Effect.Effect<Participant, HulyClientError> =>
   Effect.map(
     buildParticipants(client, [schedule.owner]),
     (owners) => owners[0] ?? { id: PersonId.make(schedule.owner) }
@@ -250,7 +253,7 @@ export const getSchedule = (params: GetScheduleParams): Effect.Effect<ScheduleDe
   })
 
 const resolveOptionalScheduleCalendar = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: CreateScheduleParams
 ): Effect.Effect<Ref<HulyCalendar> | undefined, CalendarNotAccessibleError | HulyClientError> =>
   params.calendarId === undefined && params.calendarName === undefined
@@ -279,7 +282,7 @@ type UpdateScheduleField = (typeof UPDATE_SCHEDULE_FIELDS)[number]
 type UpdateScheduleEntry = Effect.Effect<DocumentUpdate<HulySchedule>, UpdateScheduleError>
 type UpdateScheduleEntries = Record<UpdateScheduleField, UpdateScheduleEntry>
 
-const updateScheduleEntries = (client: HulyClient["Type"], params: UpdateScheduleParams): UpdateScheduleEntries => ({
+const updateScheduleEntries = (client: HulyClient["Service"], params: UpdateScheduleParams): UpdateScheduleEntries => ({
   owner: Effect.gen(function* () {
     if (params.owner === undefined) return {}
     return { owner: yield* resolveTodoOwner(client, params.owner) }

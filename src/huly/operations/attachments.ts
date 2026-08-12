@@ -7,7 +7,7 @@
  * @module
  */
 import { type Class, type Doc, type Space } from "@hcengineering/core"
-import { Effect, Either, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 
 import type {
   Attachment,
@@ -84,7 +84,7 @@ const StoredAttachmentContentSchema = Schema.Struct({
 })
 
 const parseStoredAttachmentContent = (attachmentId: ReadAttachmentContentParams["attachmentId"], input: unknown) =>
-  Schema.decodeUnknown(StoredAttachmentContentSchema)(input).pipe(
+  Schema.decodeUnknownEffect(StoredAttachmentContentSchema)(input).pipe(
     Effect.mapError(
       () => new AttachmentContentUnavailableError({ attachmentId, reason: "stored attachment metadata is invalid" })
     )
@@ -94,9 +94,9 @@ const parseSupportedImageType = (
   attachmentId: ReadAttachmentContentParams["attachmentId"],
   input: MimeType
 ): Effect.Effect<SupportedAttachmentImageType, AttachmentContentTypeUnsupportedError> => {
-  const decoded = Schema.decodeUnknownEither(SupportedAttachmentImageTypeSchema)(input)
-  return Either.isRight(decoded)
-    ? Effect.succeed(decoded.right)
+  const decoded = Schema.decodeUnknownResult(SupportedAttachmentImageTypeSchema)(input)
+  return Result.isSuccess(decoded)
+    ? Effect.succeed(decoded.success)
     : Effect.fail(new AttachmentContentTypeUnsupportedError({ attachmentId, contentType: input }))
 }
 
@@ -237,18 +237,18 @@ export const readAttachmentContent = (
         reason: "bounded authenticated storage download is unavailable"
       })
     }
-    const download = yield* Effect.either(
+    const download = yield* Effect.result(
       downloadFileBounded(stored.file, AttachmentByteSize.make(READ_ATTACHMENT_CONTENT_MAX_BYTES))
     )
-    if (Either.isLeft(download)) {
+    if (Result.isFailure(download)) {
       yield* Effect.logWarning("Attachment inline image storage download failed").pipe(
         Effect.annotateLogs("attachmentId", params.attachmentId),
-        Effect.annotateLogs("storageErrorTag", download.left._tag)
+        Effect.annotateLogs("storageErrorTag", download.failure._tag)
       )
-      return yield* download.left._tag === "FileTooLargeError"
+      return yield* download.failure._tag === "FileTooLargeError"
         ? new AttachmentContentTooLargeError({
             attachmentId: params.attachmentId,
-            size: download.left.size,
+            size: download.failure.size,
             maxSize: READ_ATTACHMENT_CONTENT_MAX_BYTES
           })
         : new AttachmentContentUnavailableError({
@@ -256,7 +256,7 @@ export const readAttachmentContent = (
             reason: "authenticated storage download failed"
           })
     }
-    const bytes = download.right
+    const bytes = download.success
 
     if (bytes.length > READ_ATTACHMENT_CONTENT_MAX_BYTES) {
       return yield* new AttachmentContentTooLargeError({

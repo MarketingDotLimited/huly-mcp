@@ -556,7 +556,7 @@ describe("WorkspaceClient.testLayer", () => {
     Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.getPersonInfo("p" as PersonUuid))
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -564,7 +564,7 @@ describe("WorkspaceClient.testLayer", () => {
     Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.updateWorkspaceRole("acc", AccountRole.User))
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -572,7 +572,7 @@ describe("WorkspaceClient.testLayer", () => {
     Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.getWorkspaceInfo())
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -580,7 +580,7 @@ describe("WorkspaceClient.testLayer", () => {
     Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.createWorkspace("ws"))
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -588,7 +588,7 @@ describe("WorkspaceClient.testLayer", () => {
     Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.deleteWorkspace())
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -596,7 +596,7 @@ describe("WorkspaceClient.testLayer", () => {
     Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.setMyProfile({}))
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -604,7 +604,7 @@ describe("WorkspaceClient.testLayer", () => {
     Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.updateAllowReadOnlyGuests(true))
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -612,7 +612,7 @@ describe("WorkspaceClient.testLayer", () => {
     Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.updateAllowGuestSignUp(true))
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 

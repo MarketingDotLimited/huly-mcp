@@ -1,6 +1,7 @@
 import type { Ref, StatusCategory } from "@hcengineering/core"
-import { JSONSchema, ParseResult, Schema } from "effect"
+import { Effect, Schema, SchemaGetter, SchemaIssue } from "effect"
 
+import { parseJsonSchemaRecord, toDraft07JsonSchema } from "./json-schema.js"
 import { task } from "../../huly/huly-plugins.js"
 import {
   Count,
@@ -58,36 +59,44 @@ exactStatusCategoryEntries<ExactStatusCategoryEntries>(true)
 export const StatusCategoryValues = StatusCategoryKeys
 export const UnknownStatusCategoryValue = "unknown"
 
-export const StatusCategoryValueSchema = Schema.Literal(...StatusCategoryValues, UnknownStatusCategoryValue)
+export const StatusCategoryValueSchema = Schema.Literals([...StatusCategoryValues, UnknownStatusCategoryValue])
 export type StatusCategoryValue = Schema.Schema.Type<typeof StatusCategoryValueSchema>
 
-const KnownStatusCategoryValueLiteral = Schema.Literal(...StatusCategoryValues)
+const KnownStatusCategoryValueLiteral = Schema.Literals(StatusCategoryValues)
 const normalizedStatusCategoryLookup = new Map(
   StatusCategoryValues.map((value) => [value.toLowerCase(), value] as const)
 )
 
-export const KnownStatusCategoryValueSchema = Schema.transformOrFail(Schema.String, KnownStatusCategoryValueLiteral, {
-  strict: true,
-  decode: (input, _options, ast) => {
-    const match = normalizedStatusCategoryLookup.get(input.toLowerCase())
-    return match !== undefined
-      ? ParseResult.succeed(match)
-      : ParseResult.fail(
-          new ParseResult.Type(ast, input, `Expected one of: ${enumValuesDescription(StatusCategoryValues)}`)
-        )
-  },
-  encode: ParseResult.succeed
-}).annotations({
-  title: "KnownStatusCategoryValue",
-  description: `Huly SDK task.statusCategory key: ${enumValuesDescription(StatusCategoryValues)}`,
+export const KnownStatusCategoryValueSchema = Schema.String.annotate({
   jsonSchema: { type: "string", enum: [...StatusCategoryValues] }
 })
+  .pipe(
+    Schema.decodeTo(KnownStatusCategoryValueLiteral, {
+      decode: SchemaGetter.transformOrFail((input, options) => {
+        const match = normalizedStatusCategoryLookup.get(input.toLowerCase())
+        return match !== undefined
+          ? Effect.succeed(match)
+          : Effect.fail(
+              new SchemaIssue.InvalidValue(
+                { message: `Expected one of: ${enumValuesDescription(StatusCategoryValues)}` },
+                input,
+                options
+              )
+            )
+      }),
+      encode: SchemaGetter.passthrough()
+    })
+  )
+  .annotate({
+    title: "KnownStatusCategoryValue",
+    description: `Huly SDK task.statusCategory key: ${enumValuesDescription(StatusCategoryValues)}`
+  })
 export type KnownStatusCategoryValue = Schema.Schema.Type<typeof KnownStatusCategoryValueSchema>
 
 export const CreateStatusCategoryValueSchema = KnownStatusCategoryValueSchema
 export type CreateStatusCategoryValue = KnownStatusCategoryValue
 
-export const TaskTypeKindSchema = Schema.Literal("task", "subtask", "both")
+export const TaskTypeKindSchema = Schema.Literals(["task", "subtask", "both"])
 export type TaskTypeKind = Schema.Schema.Type<typeof TaskTypeKindSchema>
 
 export const ProjectTypeRefSchema = NonEmptyString.pipe(Schema.brand("ProjectTypeRef"))
@@ -154,7 +163,7 @@ export type ListProjectTypesParams = Schema.Schema.Type<typeof ListProjectTypesP
 
 export const GetProjectTypeParamsSchema = Schema.Struct({
   projectType: Schema.optional(
-    ProjectTypeRefSchema.annotations({
+    ProjectTypeRefSchema.annotate({
       description: "Project type ID or display name. If omitted, uses the unambiguous Classic tracker project type."
     })
   )
@@ -163,7 +172,7 @@ export type GetProjectTypeParams = Schema.Schema.Type<typeof GetProjectTypeParam
 
 export const ListTaskTypesParamsSchema = Schema.Struct({
   projectType: Schema.optional(
-    ProjectTypeRefSchema.annotations({
+    ProjectTypeRefSchema.annotate({
       description: "Optional project type ID or display name. If omitted, returns task types from all project types."
     })
   )
@@ -172,13 +181,13 @@ export type ListTaskTypesParams = Schema.Schema.Type<typeof ListTaskTypesParamsS
 
 export const CreateTaskTypeParamsSchema = Schema.Struct({
   projectType: Schema.optional(
-    ProjectTypeRefSchema.annotations({
+    ProjectTypeRefSchema.annotate({
       description: "Project type ID or display name. If omitted, uses the unambiguous Classic tracker project type."
     })
   ),
-  name: NonEmptyString.annotations({ description: "Display name for the new issue/task type." }),
+  name: NonEmptyString.annotate({ description: "Display name for the new issue/task type." }),
   templateTaskType: Schema.optional(
-    TaskTypeRefSchema.annotations({
+    TaskTypeRefSchema.annotate({
       description:
         "Existing task type ID or display name to copy required Huly configuration from. Omit to copy from the first task type on the project type."
     })
@@ -188,16 +197,16 @@ export type CreateTaskTypeParams = Schema.Schema.Type<typeof CreateTaskTypeParam
 
 export const CreateIssueStatusParamsSchema = Schema.Struct({
   projectType: Schema.optional(
-    ProjectTypeRefSchema.annotations({
+    ProjectTypeRefSchema.annotate({
       description: "Project type ID or display name. If omitted, uses the unambiguous Classic tracker project type."
     })
   ),
-  name: NonEmptyString.annotations({ description: "Display name for the workflow status to add." }),
-  category: CreateStatusCategoryValueSchema.annotations({
+  name: NonEmptyString.annotate({ description: "Display name for the workflow status to add." }),
+  category: CreateStatusCategoryValueSchema.annotate({
     description: `Huly SDK task.statusCategory key: ${enumValuesDescription(StatusCategoryValues)}.`
   }),
   taskType: Schema.optional(
-    TaskTypeRefSchema.annotations({
+    TaskTypeRefSchema.annotate({
       description:
         "Optional task type ID or display name to scope the status to. If omitted, the status is added to every task type in the project type."
     })
@@ -235,16 +244,26 @@ export const CreateIssueStatusResultSchema = Schema.Struct({
 })
 export type CreateIssueStatusResult = Schema.Schema.Type<typeof CreateIssueStatusResultSchema>
 
-export const listProjectTypesParamsJsonSchema = JSONSchema.make(ListProjectTypesParamsSchema)
-export const getProjectTypeParamsJsonSchema = JSONSchema.make(GetProjectTypeParamsSchema)
-export const listTaskTypesParamsJsonSchema = JSONSchema.make(ListTaskTypesParamsSchema)
-export const createTaskTypeParamsJsonSchema = JSONSchema.make(CreateTaskTypeParamsSchema)
-export const createIssueStatusParamsJsonSchema = JSONSchema.make(CreateIssueStatusParamsSchema)
+export const listProjectTypesParamsJsonSchema = toDraft07JsonSchema(ListProjectTypesParamsSchema)
+export const getProjectTypeParamsJsonSchema = toDraft07JsonSchema(GetProjectTypeParamsSchema)
+export const listTaskTypesParamsJsonSchema = toDraft07JsonSchema(ListTaskTypesParamsSchema)
+export const createTaskTypeParamsJsonSchema = toDraft07JsonSchema(CreateTaskTypeParamsSchema)
+const withStatusCategoryEnum = (schema: object): object => {
+  const parsed = parseJsonSchemaRecord(schema)
+  const properties = parseJsonSchemaRecord(parsed?.properties)
+  const category = parseJsonSchemaRecord(properties?.category)
+  if (parsed === undefined || properties === undefined || category === undefined) return schema
 
-export const parseListProjectTypesParams = Schema.decodeUnknown(ListProjectTypesParamsSchema)
-export const parseGetProjectTypeParams = Schema.decodeUnknown(GetProjectTypeParamsSchema)
-export const parseListTaskTypesParams = Schema.decodeUnknown(ListTaskTypesParamsSchema)
-export const parseCreateTaskTypeParams = Schema.decodeUnknown(CreateTaskTypeParamsSchema)
-export const parseCreateIssueStatusParams = Schema.decodeUnknown(CreateIssueStatusParamsSchema)
+  return { ...parsed, properties: { ...properties, category: { ...category, enum: [...StatusCategoryValues] } } }
+}
+export const createIssueStatusParamsJsonSchema = withStatusCategoryEnum(
+  toDraft07JsonSchema(CreateIssueStatusParamsSchema)
+)
+
+export const parseListProjectTypesParams = Schema.decodeUnknownEffect(ListProjectTypesParamsSchema)
+export const parseGetProjectTypeParams = Schema.decodeUnknownEffect(GetProjectTypeParamsSchema)
+export const parseListTaskTypesParams = Schema.decodeUnknownEffect(ListTaskTypesParamsSchema)
+export const parseCreateTaskTypeParams = Schema.decodeUnknownEffect(CreateTaskTypeParamsSchema)
+export const parseCreateIssueStatusParams = Schema.decodeUnknownEffect(CreateIssueStatusParamsSchema)
 
 export const GetProjectTypeResultSchema = ProjectTypeDetailSchema

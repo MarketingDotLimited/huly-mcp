@@ -1,5 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
+import { toDraft07JsonSchema } from "./json-schema.js"
 import {
   DEFAULT_LIMIT,
   DocId,
@@ -22,7 +23,7 @@ export type DocumentSnapshotIdentifier = Schema.Schema.Type<typeof DocumentSnaps
 export const DocumentSnapshotTitle = NonEmptyString.pipe(Schema.brand("DocumentSnapshotTitle"))
 export type DocumentSnapshotTitle = Schema.Schema.Type<typeof DocumentSnapshotTitle>
 
-export const DocumentMarkdown = Schema.String.pipe(Schema.brand("DocumentMarkdown")).annotations({
+export const DocumentMarkdown = Schema.String.pipe(Schema.brand("DocumentMarkdown")).annotate({
   identifier: "DocumentMarkdown",
   title: "DocumentMarkdown",
   description: "Markdown document content. Empty string is valid for an empty Huly document body."
@@ -30,25 +31,25 @@ export const DocumentMarkdown = Schema.String.pipe(Schema.brand("DocumentMarkdow
 export type DocumentMarkdown = Schema.Schema.Type<typeof DocumentMarkdown>
 
 export const ListDocumentSnapshotsParamsSchema = Schema.Struct({
-  teamspace: TeamspaceIdentifier.annotations({ description: "Document teamspace name or ID." }),
-  document: DocumentIdentifier.annotations({ description: "Document title or ID within the teamspace." }),
+  teamspace: TeamspaceIdentifier.annotate({ description: "Document teamspace name or ID." }),
+  document: DocumentIdentifier.annotate({ description: "Document title or ID within the teamspace." }),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of snapshots to return (default: ${DEFAULT_LIMIT}).` })
+    LimitParam.annotate({ description: `Maximum number of snapshots to return (default: ${DEFAULT_LIMIT}).` })
   )
-}).annotations({
+}).annotate({
   title: "ListDocumentSnapshotsParams",
   description: "List version-history snapshots for one Huly document. Each snapshot is a point-in-time copy."
 })
 export type ListDocumentSnapshotsParams = Schema.Schema.Type<typeof ListDocumentSnapshotsParamsSchema>
 
 export const GetDocumentSnapshotParamsSchema = Schema.Struct({
-  teamspace: TeamspaceIdentifier.annotations({ description: "Document teamspace name or ID." }),
-  document: DocumentIdentifier.annotations({ description: "Document title or ID within the teamspace." }),
-  snapshot: DocumentSnapshotIdentifier.annotations({
+  teamspace: TeamspaceIdentifier.annotate({ description: "Document teamspace name or ID." }),
+  document: DocumentIdentifier.annotate({ description: "Document title or ID within the teamspace." }),
+  snapshot: DocumentSnapshotIdentifier.annotate({
     description:
       "Snapshot ID, exact snapshot title, or exact createdOn timestamp in milliseconds. Use list_document_snapshots first when unsure."
   })
-}).annotations({
+}).annotate({
   title: "GetDocumentSnapshotParams",
   description: "Get one point-in-time document history snapshot and return its markdown content."
 })
@@ -62,7 +63,7 @@ export const DocumentSnapshotSummarySchema = Schema.Struct({
   parentDocumentId: DocumentId,
   createdOn: Schema.optional(Timestamp),
   modifiedOn: Schema.optional(Timestamp)
-}).annotations({
+}).annotate({
   title: "DocumentSnapshotSummary",
   description: "Point-in-time document history snapshot metadata without content."
 })
@@ -71,7 +72,7 @@ export type DocumentSnapshotSummary = Schema.Schema.Type<typeof DocumentSnapshot
 export const DocumentSnapshotSchema = Schema.Struct({
   ...DocumentSnapshotSummarySchema.fields,
   markdown: Schema.optional(DocumentMarkdown)
-}).annotations({
+}).annotate({
   title: "DocumentSnapshot",
   description: "Point-in-time document history snapshot metadata with markdown content."
 })
@@ -85,8 +86,8 @@ export type ListDocumentSnapshotsResult = Schema.Schema.Type<typeof ListDocument
 export const GetDocumentSnapshotResultSchema = DocumentSnapshotSchema
 export type GetDocumentSnapshotResult = Schema.Schema.Type<typeof GetDocumentSnapshotResultSchema>
 
-export const listDocumentSnapshotsParamsJsonSchema = JSONSchema.make(ListDocumentSnapshotsParamsSchema)
-export const getDocumentSnapshotParamsJsonSchema = JSONSchema.make(GetDocumentSnapshotParamsSchema)
+export const listDocumentSnapshotsParamsJsonSchema = toDraft07JsonSchema(ListDocumentSnapshotsParamsSchema)
+export const getDocumentSnapshotParamsJsonSchema = toDraft07JsonSchema(GetDocumentSnapshotParamsSchema)
 
-export const parseListDocumentSnapshotsParams = Schema.decodeUnknown(ListDocumentSnapshotsParamsSchema)
-export const parseGetDocumentSnapshotParams = Schema.decodeUnknown(GetDocumentSnapshotParamsSchema)
+export const parseListDocumentSnapshotsParams = Schema.decodeUnknownEffect(ListDocumentSnapshotsParamsSchema)
+export const parseGetDocumentSnapshotParams = Schema.decodeUnknownEffect(GetDocumentSnapshotParamsSchema)

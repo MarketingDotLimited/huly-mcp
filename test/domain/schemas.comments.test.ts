@@ -11,7 +11,7 @@ import {
   parseListCommentsParams,
   parseUpdateCommentParams,
   updateCommentParamsJsonSchema
-} from "../../src/domain/schemas.js"
+} from "../../src/domain/schemas/comments.js"
 import { assertExists } from "../../src/utils/assertions.js"
 
 type JsonSchemaObject = {
@@ -65,21 +65,21 @@ describe("Comment Schemas", () => {
     it.effect("rejects empty body", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseComment({ id: "comment-empty", body: "" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects missing id", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseComment({ body: "Comment without id" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects empty id", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseComment({ id: "  ", body: "Comment" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -121,14 +121,14 @@ describe("Comment Schemas", () => {
     it.effect("rejects empty project", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListCommentsParams({ project: "  ", issueIdentifier: "HULY-1" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects empty issueIdentifier", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListCommentsParams({ project: "HULY", issueIdentifier: "   " }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -137,7 +137,7 @@ describe("Comment Schemas", () => {
         const error = yield* Effect.flip(
           parseListCommentsParams({ project: "HULY", issueIdentifier: "HULY-1", limit: -1 })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -146,7 +146,7 @@ describe("Comment Schemas", () => {
         const error = yield* Effect.flip(
           parseListCommentsParams({ project: "HULY", issueIdentifier: "HULY-1", limit: 10.5 })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -155,7 +155,7 @@ describe("Comment Schemas", () => {
         const error = yield* Effect.flip(
           parseListCommentsParams({ project: "HULY", issueIdentifier: "HULY-1", limit: 0 })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -164,7 +164,7 @@ describe("Comment Schemas", () => {
         const error = yield* Effect.flip(
           parseListCommentsParams({ project: "HULY", issueIdentifier: "HULY-1", limit: 201 })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -208,14 +208,14 @@ describe("Comment Schemas", () => {
         const error = yield* Effect.flip(
           parseAddCommentParams({ project: "HULY", issueIdentifier: "HULY-1", body: "   " })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects missing body", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseAddCommentParams({ project: "HULY", issueIdentifier: "HULY-1" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -224,7 +224,7 @@ describe("Comment Schemas", () => {
         const error = yield* Effect.flip(
           parseAddCommentParams({ project: "  ", issueIdentifier: "HULY-1", body: "Comment" })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -261,7 +261,7 @@ describe("Comment Schemas", () => {
         const error = yield* Effect.flip(
           parseUpdateCommentParams({ project: "HULY", issueIdentifier: "HULY-1", commentId: "   ", body: "Updated" })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -270,7 +270,7 @@ describe("Comment Schemas", () => {
         const error = yield* Effect.flip(
           parseUpdateCommentParams({ project: "HULY", issueIdentifier: "HULY-1", body: "Updated" })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -279,7 +279,7 @@ describe("Comment Schemas", () => {
         const error = yield* Effect.flip(
           parseUpdateCommentParams({ project: "HULY", issueIdentifier: "HULY-1", commentId: "comment-1", body: "  " })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -316,7 +316,7 @@ describe("Comment Schemas", () => {
     it.effect("rejects missing commentId", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseDeleteCommentParams({ project: "HULY", issueIdentifier: "HULY-1" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -325,7 +325,7 @@ describe("Comment Schemas", () => {
         const error = yield* Effect.flip(
           parseDeleteCommentParams({ project: "HULY", issueIdentifier: "HULY-1", commentId: "   " })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 

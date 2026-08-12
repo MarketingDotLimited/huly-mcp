@@ -77,14 +77,14 @@ type RemoveOrganizationMemberError =
   | PersonNotFoundError
 
 const resolvePersonIdentifier = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: string
 ): Effect.Effect<HulyPerson, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
   Effect.gen(function* () {
-    const byId = Option.fromNullable(yield* findPersonById(client, identifier))
+    const byId = Option.fromNullishOr(yield* findPersonById(client, identifier))
     return yield* Option.match(byId, {
       onNone: () =>
-        Effect.flatMap(Effect.map(findPersonByEmail(client, identifier), Option.fromNullable), (byEmail) =>
+        Effect.flatMap(Effect.map(findPersonByEmail(client, identifier), Option.fromNullishOr), (byEmail) =>
           Option.match(byEmail, {
             onNone: () => Effect.fail(new PersonNotFoundError({ identifier })),
             onSome: Effect.succeed
@@ -95,7 +95,7 @@ const resolvePersonIdentifier = (
   })
 
 const resolvePersonIdentifiers = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifiers: ReadonlyArray<string>
 ): Effect.Effect<Array<Ref<HulyPerson>>, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
   Effect.gen(function* () {
@@ -109,7 +109,7 @@ const resolvePersonIdentifiers = (
   })
 
 const findOrganizationMemberships = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   organizationId: Ref<HulyOrganization>,
   personId: Ref<HulyPerson>
 ): Effect.Effect<Array<HulyMember>, HulyClientError> =>
@@ -359,7 +359,7 @@ export const listOrganizationMembers = (
       const email = emails.get(p._id)
       const entry = { personId: PersonId.make(p._id), name: PersonName.make(p.name) }
       return Option.match(
-        Option.map(Option.fromNullable(email), (value) => Email.make(value)),
+        Option.map(Option.fromNullishOr(email), (value) => Email.make(value)),
         { onNone: () => entry, onSome: (memberEmail) => ({ ...entry, email: memberEmail }) }
       )
     })

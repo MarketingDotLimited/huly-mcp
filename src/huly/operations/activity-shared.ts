@@ -79,14 +79,14 @@ const activityAttachedReferenceFields = (msg: HulyActivityRecord, isReference: b
 
 export const toActivityMessage = (
   value: unknown,
-  markupUrlConfig: HulyClient["Type"]["markupUrlConfig"],
+  markupUrlConfig: HulyClient["Service"]["markupUrlConfig"],
   operation: ActivityRecordInvalidError["operation"],
   recordIndex: Count
 ): Effect.Effect<ActivityMessage, ActivityRecordInvalidError> =>
   Effect.gen(function* () {
     const invalidRecord = (details: string) =>
       new ActivityRecordInvalidError({ operation, recordIndex, details: NonEmptyString.make(details) })
-    const msg = yield* Schema.decodeUnknown(HulyActivityRecordSchema)(value).pipe(
+    const msg = yield* Schema.decodeUnknownEffect(HulyActivityRecordSchema)(value).pipe(
       Effect.mapError((parseError) => invalidRecord(parseError.message))
     )
     const message = msg.message
@@ -119,14 +119,14 @@ export const toActivityMessage = (
 
 export const toActivityMessages = (
   values: ReadonlyArray<unknown>,
-  markupUrlConfig: HulyClient["Type"]["markupUrlConfig"],
+  markupUrlConfig: HulyClient["Service"]["markupUrlConfig"],
   operation: ActivityRecordInvalidError["operation"]
 ): Effect.Effect<Array<ActivityMessage>, ActivityRecordInvalidError> =>
   Effect.forEach(values, (value, recordIndex) =>
     toActivityMessage(value, markupUrlConfig, operation, Count.make(recordIndex))
   )
 
-export const findActivityMessage = (client: HulyClient["Type"], messageId: ActivityMessageId) =>
+export const findActivityMessage = (client: HulyClient["Service"], messageId: ActivityMessageId) =>
   findOneOrFail(
     client,
     activity.class.ActivityMessage,

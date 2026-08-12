@@ -72,7 +72,7 @@ export const resolveConversation = (
   })
 
 const findCurrentPersonSpace = (
-  client: HulyClient["Type"]
+  client: HulyClient["Service"]
 ): Effect.Effect<PersonSpace, HulyClientError | NotificationPersonSpaceNotFoundError> =>
   Effect.gen(function* () {
     const user = client.getAccountUuid()
@@ -96,7 +96,7 @@ const findCurrentPersonSpace = (
   })
 
 const findConversationContext = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   conversation: ResolvedConversation
 ): Effect.Effect<HulyDocNotifyContext | undefined, HulyClientError> =>
   client.findOne<HulyDocNotifyContext>(
@@ -109,7 +109,7 @@ const findConversationContext = (
   )
 
 const createConversationContext = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   conversation: ResolvedConversation
 ): Effect.Effect<
   { readonly id: Ref<HulyDocNotifyContext>; readonly space: Ref<Space> },
@@ -133,7 +133,7 @@ const createConversationContext = (
   })
 
 const updateContext = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   context: HulyDocNotifyContext,
   operations: DocumentUpdate<HulyDocNotifyContext>
 ): Effect.Effect<void, HulyClientError> =>

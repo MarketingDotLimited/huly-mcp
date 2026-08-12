@@ -1,4 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 
 import {
   AccountUuid,
@@ -17,32 +19,32 @@ import {
 
 const ObjectTargetFields = {
   objectId: Schema.optional(
-    DocId.annotations({
+    DocId.annotateKey({
       description:
         "Advanced: internal Huly object ID. Use with objectClass. Prefer project+issueIdentifier, teamspace+document, or channel when available."
     })
   ),
   objectClass: Schema.optional(
-    ObjectClassName.annotations({
+    ObjectClassName.annotateKey({
       description:
         "Advanced: internal Huly object class for objectId, such as 'tracker:class:Issue'. Use with objectId."
     })
   ),
   project: Schema.optional(
-    ProjectIdentifier.annotations({
+    ProjectIdentifier.annotateKey({
       description: "Project identifier for issue target, e.g. 'HULY'. Use with issueIdentifier."
     })
   ),
   issueIdentifier: Schema.optional(
-    IssueIdentifier.annotations({
+    IssueIdentifier.annotateKey({
       description: "Issue identifier for issue target, e.g. 'HULY-123' or '123'. Use with project."
     })
   ),
   teamspace: Schema.optional(
-    TeamspaceIdentifier.annotations({ description: "Teamspace name or ID for document target. Use with document." })
+    TeamspaceIdentifier.annotateKey({ description: "Teamspace name or ID for document target. Use with document." })
   ),
   document: Schema.optional(
-    DocumentIdentifier.annotations({ description: "Document title or ID for document target. Use with teamspace." })
+    DocumentIdentifier.annotateKey({ description: "Document title or ID for document target. Use with teamspace." })
   )
 }
 
@@ -75,25 +77,27 @@ const validateObjectTarget = (params: {
   return undefined
 }
 
-const CollaboratorMemberInputSchema = Schema.Union(
-  AccountUuid.annotations({ description: "Workspace account UUID to add/remove as collaborator." }),
-  PersonRefInput.annotations({
+const CollaboratorMemberInputSchema = Schema.Union([
+  AccountUuid.annotate({ description: "Workspace account UUID to add/remove as collaborator." }),
+  PersonRefInput.annotate({
     description: "Exact person/employee display name or email. Resolved to the employee account UUID."
   })
-)
+]).annotateKey({ description: "Workspace account UUID, or an exact person display name or email." })
 
 export type CollaboratorMemberInput = Schema.Schema.Type<typeof CollaboratorMemberInputSchema>
 
-const ObjectCollaboratorsBaseSchema = Schema.Struct({ ...ObjectTargetFields }).pipe(Schema.filter(validateObjectTarget))
+const ObjectCollaboratorsBaseSchema = Schema.Struct({ ...ObjectTargetFields }).pipe(
+  Schema.check(Schema.makeFilter(validateObjectTarget))
+)
 
 export const ListObjectCollaboratorsParamsSchema = Schema.Struct({
   ...ObjectTargetFields,
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of collaborators to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotateKey({ description: `Maximum number of collaborators to return (default: ${DEFAULT_LIMIT})` })
   )
 })
-  .pipe(Schema.filter(validateObjectTarget))
-  .annotations({
+  .pipe(Schema.check(Schema.makeFilter(validateObjectTarget)))
+  .annotate({
     title: "ListObjectCollaboratorsParams",
     description: `Parameters for listing collaborators on an object. ${targetModeMessage}`
   })
@@ -104,29 +108,50 @@ export const AddObjectCollaboratorParamsSchema = Schema.Struct({
   ...ObjectTargetFields,
   member: CollaboratorMemberInputSchema
 })
-  .pipe(Schema.filter(validateObjectTarget))
-  .annotations({
+  .pipe(Schema.check(Schema.makeFilter(validateObjectTarget)))
+  .annotate({
     title: "AddObjectCollaboratorParams",
     description: `Parameters for adding a collaborator to an object. ${targetModeMessage}`
   })
 
 export type AddObjectCollaboratorParams = Schema.Schema.Type<typeof AddObjectCollaboratorParamsSchema>
 
-export const RemoveObjectCollaboratorParamsSchema = AddObjectCollaboratorParamsSchema.annotations({
+export const RemoveObjectCollaboratorParamsSchema = AddObjectCollaboratorParamsSchema.annotate({
   title: "RemoveObjectCollaboratorParams",
   description: `Parameters for removing a collaborator from an object. ${targetModeMessage}`
 })
 
 export type RemoveObjectCollaboratorParams = Schema.Schema.Type<typeof RemoveObjectCollaboratorParamsSchema>
 
-export const objectCollaboratorTargetJsonSchema = JSONSchema.make(ObjectCollaboratorsBaseSchema)
-export const listObjectCollaboratorsParamsJsonSchema = JSONSchema.make(ListObjectCollaboratorsParamsSchema)
-export const addObjectCollaboratorParamsJsonSchema = JSONSchema.make(AddObjectCollaboratorParamsSchema)
-export const removeObjectCollaboratorParamsJsonSchema = JSONSchema.make(RemoveObjectCollaboratorParamsSchema)
+const collaboratorTargetDescriptions = {
+  objectId: "Advanced: internal Huly object ID. Use with objectClass.",
+  objectClass: "Advanced: internal Huly object class for objectId.",
+  project: "Project identifier for issue target, e.g. 'HULY'. Use with issueIdentifier.",
+  issueIdentifier: "Issue identifier, e.g. 'HULY-123' or '123'. Use with project.",
+  teamspace: "Teamspace name or ID for document target. Use with document.",
+  document: "Document title or ID for document target. Use with teamspace."
+}
 
-export const parseListObjectCollaboratorsParams = Schema.decodeUnknown(ListObjectCollaboratorsParamsSchema)
-export const parseAddObjectCollaboratorParams = Schema.decodeUnknown(AddObjectCollaboratorParamsSchema)
-export const parseRemoveObjectCollaboratorParams = Schema.decodeUnknown(RemoveObjectCollaboratorParamsSchema)
+export const objectCollaboratorTargetJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(ObjectCollaboratorsBaseSchema),
+  collaboratorTargetDescriptions
+)
+export const listObjectCollaboratorsParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(ListObjectCollaboratorsParamsSchema),
+  { ...collaboratorTargetDescriptions, limit: `Maximum number of collaborators to return (default: ${DEFAULT_LIMIT})` }
+)
+export const addObjectCollaboratorParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(AddObjectCollaboratorParamsSchema),
+  { ...collaboratorTargetDescriptions, member: "Workspace account UUID, or an exact person display name or email." }
+)
+export const removeObjectCollaboratorParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(RemoveObjectCollaboratorParamsSchema),
+  { ...collaboratorTargetDescriptions, member: "Workspace account UUID, or an exact person display name or email." }
+)
+
+export const parseListObjectCollaboratorsParams = Schema.decodeUnknownEffect(ListObjectCollaboratorsParamsSchema)
+export const parseAddObjectCollaboratorParams = Schema.decodeUnknownEffect(AddObjectCollaboratorParamsSchema)
+export const parseRemoveObjectCollaboratorParams = Schema.decodeUnknownEffect(RemoveObjectCollaboratorParamsSchema)
 
 export const ObjectCollaboratorSchema = Schema.Struct({
   id: CollaboratorId,

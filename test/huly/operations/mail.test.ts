@@ -3,7 +3,7 @@ import { describe, it } from "@effect/vitest"
 import type { Card as HulyCard, MasterTag } from "@hcengineering/card"
 import type { Doc, FindOptions, Ref, Space } from "@hcengineering/core"
 import { toFindResult } from "@hcengineering/core"
-import { Effect, Either, Exit, Schema } from "effect"
+import { Effect, Result, Exit, Schema } from "effect"
 import { expect } from "vitest"
 
 import {
@@ -129,14 +129,14 @@ const malformedCard = (input: unknown): HulyCard => input as HulyCard
 
 describe("Mail thread metadata discovery", () => {
   it("owns a bounded, human-oriented input and metadata-only output schema", () => {
-    const decodeInput = Schema.decodeUnknownEither(ListMailThreadsParamsSchema)
-    const decodeOutput = Schema.decodeUnknownEither(ListMailThreadsResultSchema)
+    const decodeInput = Schema.decodeUnknownResult(ListMailThreadsParamsSchema)
+    const decodeOutput = Schema.decodeUnknownResult(ListMailThreadsResultSchema)
 
-    expect(Either.isRight(decodeInput({ space: "Product", channelTitleSearch: "alerts", limit: 200 }))).toBe(true)
-    expect(Either.isLeft(decodeInput({ channelTitleSearch: "   " }))).toBe(true)
-    expect(Either.isLeft(decodeInput({ limit: 201 }))).toBe(true)
+    expect(Result.isSuccess(decodeInput({ space: "Product", channelTitleSearch: "alerts", limit: 200 }))).toBe(true)
+    expect(Result.isFailure(decodeInput({ channelTitleSearch: "   " }))).toBe(true)
+    expect(Result.isFailure(decodeInput({ limit: 201 }))).toBe(true)
     expect(
-      Either.isRight(
+      Result.isSuccess(
         decodeOutput({
           threads: [
             {

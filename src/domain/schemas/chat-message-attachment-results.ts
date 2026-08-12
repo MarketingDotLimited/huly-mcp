@@ -23,7 +23,7 @@ const ResolvedTargetBaseSchema = {
   collection: Schema.Literal("attachments")
 } as const
 
-export const ChatMessageAttachmentResolvedTargetSchema = Schema.Union(
+export const ChatMessageAttachmentResolvedTargetSchema = Schema.Union([
   Schema.Struct({
     kind: Schema.Literal("channel_message"),
     channelId: ChannelId,
@@ -48,7 +48,7 @@ export const ChatMessageAttachmentResolvedTargetSchema = Schema.Union(
     display: NonEmptyString,
     ...ResolvedTargetBaseSchema
   })
-).annotations({
+]).annotate({
   title: "ChatMessageAttachmentResolvedTarget",
   description:
     "Resolved Huly chat message attachment target. objectId/objectClass/space identify the exact object whose attachments collection is being read or mutated."

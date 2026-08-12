@@ -14,7 +14,7 @@ export const findChannelMessage = (params: {
   channel: ChannelIdentifier
   messageId: MessageId
 }): Effect.Effect<
-  { client: HulyClient["Type"]; channel: HulyChannel; message: ChatMessage },
+  { client: HulyClient["Service"]; channel: HulyChannel; message: ChatMessage },
   ChannelNotFoundError | MessageNotFoundError | HulyClientError,
   HulyClient
 > =>

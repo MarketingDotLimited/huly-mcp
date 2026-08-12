@@ -1,6 +1,7 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
 import { DrawingContent } from "./domain-values.js"
+import { toDraft07JsonSchema } from "./json-schema.js"
 import {
   AttachmentId,
   DEFAULT_LIMIT,
@@ -25,12 +26,12 @@ export const DrawingSchema = Schema.Struct({
 export type Drawing = Schema.Schema.Type<typeof DrawingSchema>
 
 export const SaveAttachmentParamsSchema = Schema.Struct({
-  attachmentId: AttachmentId.annotations({ description: "Attachment ID to save/bookmark." })
-}).annotations({ title: "SaveAttachmentParams", description: "Parameters for saving/bookmarking an attachment." })
+  attachmentId: AttachmentId.annotate({ description: "Attachment ID to save/bookmark." })
+}).annotate({ title: "SaveAttachmentParams", description: "Parameters for saving/bookmarking an attachment." })
 
 export type SaveAttachmentParams = Schema.Schema.Type<typeof SaveAttachmentParamsSchema>
 
-export const UnsaveAttachmentParamsSchema = SaveAttachmentParamsSchema.annotations({
+export const UnsaveAttachmentParamsSchema = SaveAttachmentParamsSchema.annotate({
   title: "UnsaveAttachmentParams",
   description: "Parameters for removing an attachment from saved/bookmarks."
 })
@@ -39,9 +40,9 @@ export type UnsaveAttachmentParams = Schema.Schema.Type<typeof UnsaveAttachmentP
 
 export const ListSavedAttachmentsParamsSchema = Schema.Struct({
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of saved attachments to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of saved attachments to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({
+}).annotate({
   title: "ListSavedAttachmentsParams",
   description: "Parameters for listing saved/bookmarked attachments."
 })
@@ -49,12 +50,12 @@ export const ListSavedAttachmentsParamsSchema = Schema.Struct({
 export type ListSavedAttachmentsParams = Schema.Schema.Type<typeof ListSavedAttachmentsParamsSchema>
 
 export const ListDrawingsParamsSchema = Schema.Struct({
-  parentId: DocId.annotations({ description: "Internal Huly parent object ID." }),
-  parentClass: ObjectClassName.annotations({ description: "Internal Huly parent object class." }),
+  parentId: DocId.annotate({ description: "Internal Huly parent object ID." }),
+  parentClass: ObjectClassName.annotate({ description: "Internal Huly parent object class." }),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of drawings to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of drawings to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({
+}).annotate({
   title: "ListDrawingsParams",
   description: "Parameters for listing drawings attached to a parent object."
 })
@@ -62,50 +63,50 @@ export const ListDrawingsParamsSchema = Schema.Struct({
 export type ListDrawingsParams = Schema.Schema.Type<typeof ListDrawingsParamsSchema>
 
 export const GetDrawingParamsSchema = Schema.Struct({
-  drawingId: DrawingId.annotations({ description: "Drawing ID." })
-}).annotations({ title: "GetDrawingParams", description: "Parameters for retrieving a drawing." })
+  drawingId: DrawingId.annotate({ description: "Drawing ID." })
+}).annotate({ title: "GetDrawingParams", description: "Parameters for retrieving a drawing." })
 
 export type GetDrawingParams = Schema.Schema.Type<typeof GetDrawingParamsSchema>
 
 export const CreateDrawingParamsSchema = Schema.Struct({
-  parentId: DocId.annotations({ description: "Internal Huly parent object ID." }),
-  parentClass: ObjectClassName.annotations({ description: "Internal Huly parent object class." }),
-  space: SpaceId.annotations({ description: "Space ID where the drawing should be created." }),
+  parentId: DocId.annotate({ description: "Internal Huly parent object ID." }),
+  parentClass: ObjectClassName.annotate({ description: "Internal Huly parent object class." }),
+  space: SpaceId.annotate({ description: "Space ID where the drawing should be created." }),
   content: Schema.optional(DrawingContent)
-}).annotations({ title: "CreateDrawingParams", description: "Parameters for creating a drawing under a Huly object." })
+}).annotate({ title: "CreateDrawingParams", description: "Parameters for creating a drawing under a Huly object." })
 
 export type CreateDrawingParams = Schema.Schema.Type<typeof CreateDrawingParamsSchema>
 
 export const UpdateDrawingParamsSchema = Schema.Struct({
-  drawingId: DrawingId.annotations({ description: "Drawing ID." }),
-  content: Schema.NullOr(DrawingContent).annotations({ description: "New drawing content payload. Use null to clear." })
-}).annotations({ title: "UpdateDrawingParams", description: "Parameters for updating drawing content." })
+  drawingId: DrawingId.annotate({ description: "Drawing ID." }),
+  content: Schema.NullOr(DrawingContent).annotate({ description: "New drawing content payload. Use null to clear." })
+}).annotate({ title: "UpdateDrawingParams", description: "Parameters for updating drawing content." })
 
 export type UpdateDrawingParams = Schema.Schema.Type<typeof UpdateDrawingParamsSchema>
 
 export const DeleteDrawingParamsSchema = Schema.Struct({
-  drawingId: DrawingId.annotations({ description: "Drawing ID to delete." })
-}).annotations({ title: "DeleteDrawingParams", description: "Parameters for deleting a drawing." })
+  drawingId: DrawingId.annotate({ description: "Drawing ID to delete." })
+}).annotate({ title: "DeleteDrawingParams", description: "Parameters for deleting a drawing." })
 
 export type DeleteDrawingParams = Schema.Schema.Type<typeof DeleteDrawingParamsSchema>
 
-export const saveAttachmentParamsJsonSchema = JSONSchema.make(SaveAttachmentParamsSchema)
-export const unsaveAttachmentParamsJsonSchema = JSONSchema.make(UnsaveAttachmentParamsSchema)
-export const listSavedAttachmentsParamsJsonSchema = JSONSchema.make(ListSavedAttachmentsParamsSchema)
-export const listDrawingsParamsJsonSchema = JSONSchema.make(ListDrawingsParamsSchema)
-export const getDrawingParamsJsonSchema = JSONSchema.make(GetDrawingParamsSchema)
-export const createDrawingParamsJsonSchema = JSONSchema.make(CreateDrawingParamsSchema)
-export const updateDrawingParamsJsonSchema = JSONSchema.make(UpdateDrawingParamsSchema)
-export const deleteDrawingParamsJsonSchema = JSONSchema.make(DeleteDrawingParamsSchema)
+export const saveAttachmentParamsJsonSchema = toDraft07JsonSchema(SaveAttachmentParamsSchema)
+export const unsaveAttachmentParamsJsonSchema = toDraft07JsonSchema(UnsaveAttachmentParamsSchema)
+export const listSavedAttachmentsParamsJsonSchema = toDraft07JsonSchema(ListSavedAttachmentsParamsSchema)
+export const listDrawingsParamsJsonSchema = toDraft07JsonSchema(ListDrawingsParamsSchema)
+export const getDrawingParamsJsonSchema = toDraft07JsonSchema(GetDrawingParamsSchema)
+export const createDrawingParamsJsonSchema = toDraft07JsonSchema(CreateDrawingParamsSchema)
+export const updateDrawingParamsJsonSchema = toDraft07JsonSchema(UpdateDrawingParamsSchema)
+export const deleteDrawingParamsJsonSchema = toDraft07JsonSchema(DeleteDrawingParamsSchema)
 
-export const parseSaveAttachmentParams = Schema.decodeUnknown(SaveAttachmentParamsSchema)
-export const parseUnsaveAttachmentParams = Schema.decodeUnknown(UnsaveAttachmentParamsSchema)
-export const parseListSavedAttachmentsParams = Schema.decodeUnknown(ListSavedAttachmentsParamsSchema)
-export const parseListDrawingsParams = Schema.decodeUnknown(ListDrawingsParamsSchema)
-export const parseGetDrawingParams = Schema.decodeUnknown(GetDrawingParamsSchema)
-export const parseCreateDrawingParams = Schema.decodeUnknown(CreateDrawingParamsSchema)
-export const parseUpdateDrawingParams = Schema.decodeUnknown(UpdateDrawingParamsSchema)
-export const parseDeleteDrawingParams = Schema.decodeUnknown(DeleteDrawingParamsSchema)
+export const parseSaveAttachmentParams = Schema.decodeUnknownEffect(SaveAttachmentParamsSchema)
+export const parseUnsaveAttachmentParams = Schema.decodeUnknownEffect(UnsaveAttachmentParamsSchema)
+export const parseListSavedAttachmentsParams = Schema.decodeUnknownEffect(ListSavedAttachmentsParamsSchema)
+export const parseListDrawingsParams = Schema.decodeUnknownEffect(ListDrawingsParamsSchema)
+export const parseGetDrawingParams = Schema.decodeUnknownEffect(GetDrawingParamsSchema)
+export const parseCreateDrawingParams = Schema.decodeUnknownEffect(CreateDrawingParamsSchema)
+export const parseUpdateDrawingParams = Schema.decodeUnknownEffect(UpdateDrawingParamsSchema)
+export const parseDeleteDrawingParams = Schema.decodeUnknownEffect(DeleteDrawingParamsSchema)
 
 export const SavedAttachmentWireSchema = Schema.Struct({ id: SavedAttachmentId, attachmentId: AttachmentId })
 

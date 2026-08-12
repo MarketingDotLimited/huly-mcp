@@ -149,6 +149,7 @@ The first v4-native testing slice now passes independently:
 
 ```bash
 mise exec node@22.22.2 -- pnpm exec vitest run \
+  src/domain/schemas/json-schema.test.ts \
   test/effect4/testing-primitives.test.ts \
   test/effect4/layer-isolation.test.ts
 ```
@@ -343,14 +344,53 @@ unions, and representative workflow reads and writes.
 
 The compiler inventory falls from 7,168 diagnostics in 446 files to 6,485 in
 423 files: 4,092 in `src` (259 files), 1,872 in `test` (123 files), 358 in
-`scripts` (30 files), and 163 in `packages` (11 files). Four issue-operation
-diagnostics are downstream status-category inference from `task-management.ts`,
-owned by #219. Issue, label, and milestone operation suites remain
-collection-blocked by `task-management.ts`, `time.ts`, `tags.ts`,
-`workbench.ts`, and `errors-domain-base.ts`, assigned to #219/#224. The focused
+`scripts` (30 files), and 163 in `packages` (11 files). The four downstream
+issue-operation status-category diagnostics were removed by #219. Issue, label,
+and milestone operation suites remain collection-blocked by `tags.ts` and
+`workbench.ts`, assigned to #224. The focused
 family MCP registry/call proof remains assigned to #225. Ticket #218 therefore
 remains open until those declared dependency seams make its full vertical proof
 executable; this checkpoint does not claim the complete acceptance matrix.
+
+## Tickets #219–#222 domain-wave checkpoint
+
+The work-management, content/storage, messaging/calendar, and
+contacts/collaboration families now use exact rc.108 annotations, optionality,
+checks, transformations, Result decoders, service shapes, and the shared
+Draft-07 adapter throughout their owned production leaves. Authored JSON Schema
+constraints and LLM-facing property descriptions are restored explicitly where
+Effect's Draft-07 conversion does not retain nested key metadata. No Effect 3
+compatibility layer or diagnostic suppression was introduced.
+
+```bash
+mise exec node@22.22.2 -- pnpm exec vitest run \
+  test/domain/schemas.planner.test.ts \
+  test/domain/schemas.task-management.test.ts \
+  test/domain/schemas.workspace.test.ts \
+  test/domain/schemas.chat-message-attachments.test.ts \
+  test/huly/storage.property.test.ts \
+  src/domain/schemas/calendar.test.ts \
+  src/domain/schemas/contact-channels.test.ts \
+  src/domain/schemas/contacts.test.ts \
+  test/domain/schemas.comments.test.ts
+```
+
+Result: 10 files and 180 tests pass. This covers representative ordinary
+optional omission versus explicit `undefined`, encoded omission, authored
+cross-field constraints and enum restoration, calendar recurrence boundaries,
+storage properties, contact target schemas, comment contracts, and public
+property descriptions. Each owned production manifest is clean under focused
+type-aware Oxlint, TypeScript/Effect diagnostics, formatting, and an obsolete-
+API scan.
+
+The aggregate compiler inventory is 3,963 diagnostics in 275 files: 2,069 in
+`src` (141 files), 1,375 in `test` (93 files), 357 in `scripts` (30 files), and
+162 in `packages` (11 files). Domain operation and protocol suites for these
+four tickets remain collection-blocked by the #224 `workbench.ts` and related
+shared platform/admin schema barrel. Focused MCP/CLI registration and call proof
+is assigned to #225 after every domain family is migrated. Tickets #219–#222
+therefore remain open; this checkpoint records coherent owned migrations and
+their declared integration edges rather than claiming full vertical closure.
 
 ## Ledger maintenance rule
 

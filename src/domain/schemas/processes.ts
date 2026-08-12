@@ -1,5 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
+import { toDraft07JsonSchema } from "./json-schema.js"
 import {
   CardId,
   Count,
@@ -34,7 +35,7 @@ export type ProcessCardIdentifier = Schema.Schema.Type<typeof ProcessCardIdentif
 export const ProcessMasterTagIdentifier = NonEmptyString.pipe(Schema.brand("ProcessMasterTagIdentifier"))
 export type ProcessMasterTagIdentifier = Schema.Schema.Type<typeof ProcessMasterTagIdentifier>
 
-export const ProcessExecutionStatusSchema = Schema.Literal("active", "done", "cancelled")
+export const ProcessExecutionStatusSchema = Schema.Literals(["active", "done", "cancelled"])
 export type ProcessExecutionStatus = Schema.Schema.Type<typeof ProcessExecutionStatusSchema>
 
 export const ProcessCandidateSchema = Schema.Struct({
@@ -74,13 +75,11 @@ export const ProcessTransitionSummarySchema = Schema.Struct({
 export type ProcessTransitionSummary = Schema.Schema.Type<typeof ProcessTransitionSummarySchema>
 
 export const ProcessDetailSchema = ProcessSummarySchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      initialStateId: Schema.optional(ProcessStateId),
-      states: Schema.Array(ProcessStateSummarySchema),
-      transitions: Schema.Array(ProcessTransitionSummarySchema)
-    })
-  )
+  Schema.fieldsAssign({
+    initialStateId: Schema.optional(ProcessStateId),
+    states: Schema.Array(ProcessStateSummarySchema),
+    transitions: Schema.Array(ProcessTransitionSummarySchema)
+  })
 )
 export type ProcessDetail = Schema.Schema.Type<typeof ProcessDetailSchema>
 
@@ -103,28 +102,25 @@ export type ProcessExecutionSummary = Schema.Schema.Type<typeof ProcessExecution
 
 export const ListProcessesParamsSchema = Schema.Struct({
   masterTag: Schema.optional(
-    ProcessMasterTagIdentifier.annotations({
+    ProcessMasterTagIdentifier.annotate({
       description:
         "Optional master tag/card type ID or display label. Use this when you only want workflows attached to one Huly card/document type."
     })
   ),
   limit: Schema.optional(
-    LimitParam.annotations({
+    LimitParam.annotate({
       description: `Maximum number of process definitions to return (default: ${DEFAULT_LIMIT}, maximum: ${MAX_LIMIT}).`
     })
   )
-}).annotations({
-  title: "ListProcessesParams",
-  description: "Parameters for listing Huly Process workflow definitions."
-})
+}).annotate({ title: "ListProcessesParams", description: "Parameters for listing Huly Process workflow definitions." })
 export type ListProcessesParams = Schema.Schema.Type<typeof ListProcessesParamsSchema>
 
 export const GetProcessParamsSchema = Schema.Struct({
-  process: ProcessIdentifier.annotations({
+  process: ProcessIdentifier.annotate({
     description:
       "Process/workflow ID or exact display name. Ambiguous names fail with candidate IDs instead of guessing."
   })
-}).annotations({
+}).annotate({
   title: "GetProcessParams",
   description: "Parameters for retrieving one Huly Process workflow definition."
 })
@@ -132,54 +128,54 @@ export type GetProcessParams = Schema.Schema.Type<typeof GetProcessParamsSchema>
 
 export const ListExecutionsParamsSchema = Schema.Struct({
   process: Schema.optional(
-    ProcessIdentifier.annotations({
+    ProcessIdentifier.annotate({
       description:
         "Optional process/workflow ID or exact display name. Ambiguous names fail with candidate IDs instead of guessing."
     })
   ),
   card: Schema.optional(
-    ProcessCardIdentifier.annotations({
+    ProcessCardIdentifier.annotate({
       description:
         "Optional card/document ID or exact title. If a title matches multiple cards, the call fails with candidates."
     })
   ),
   status: Schema.optional(
-    ProcessExecutionStatusSchema.annotations({
+    ProcessExecutionStatusSchema.annotate({
       description: "Optional execution status filter: active, done, or cancelled."
     })
   ),
   limit: Schema.optional(
-    LimitParam.annotations({
+    LimitParam.annotate({
       description: `Maximum number of executions to return (default: ${DEFAULT_LIMIT}, maximum: ${MAX_LIMIT}).`
     })
   )
-}).annotations({
+}).annotate({
   title: "ListExecutionsParams",
   description: "Parameters for listing read-only Huly Process workflow executions."
 })
 export type ListExecutionsParams = Schema.Schema.Type<typeof ListExecutionsParamsSchema>
 
 export const StartProcessParamsSchema = Schema.Struct({
-  process: ProcessIdentifier.annotations({
+  process: ProcessIdentifier.annotate({
     description:
       "Process/workflow ID or exact display name. Ambiguous names fail with candidate IDs instead of guessing."
   }),
-  card: ProcessCardIdentifier.annotations({
+  card: ProcessCardIdentifier.annotate({
     description:
       "Card/document ID or exact title to attach the new execution to. If a title matches multiple cards, the call fails with candidates."
   })
-}).annotations({
+}).annotate({
   title: "StartProcessParams",
   description: "Parameters for starting a Huly Process workflow execution on a card/document."
 })
 export type StartProcessParams = Schema.Schema.Type<typeof StartProcessParamsSchema>
 
 export const CancelExecutionParamsSchema = Schema.Struct({
-  execution: ProcessExecutionId.annotations({
+  execution: ProcessExecutionId.annotate({
     description:
       "Process execution ID to cancel. Already-cancelled executions return cancelled=false; completed executions fail without mutation."
   })
-}).annotations({
+}).annotate({
   title: "CancelExecutionParams",
   description: "Parameters for cancelling an active Huly Process workflow execution."
 })
@@ -216,14 +212,14 @@ export const CancelExecutionResultSchema = Schema.Struct({
 })
 export type CancelExecutionResult = Schema.Schema.Type<typeof CancelExecutionResultSchema>
 
-export const listProcessesParamsJsonSchema = JSONSchema.make(ListProcessesParamsSchema)
-export const getProcessParamsJsonSchema = JSONSchema.make(GetProcessParamsSchema)
-export const listExecutionsParamsJsonSchema = JSONSchema.make(ListExecutionsParamsSchema)
-export const startProcessParamsJsonSchema = JSONSchema.make(StartProcessParamsSchema)
-export const cancelExecutionParamsJsonSchema = JSONSchema.make(CancelExecutionParamsSchema)
+export const listProcessesParamsJsonSchema = toDraft07JsonSchema(ListProcessesParamsSchema)
+export const getProcessParamsJsonSchema = toDraft07JsonSchema(GetProcessParamsSchema)
+export const listExecutionsParamsJsonSchema = toDraft07JsonSchema(ListExecutionsParamsSchema)
+export const startProcessParamsJsonSchema = toDraft07JsonSchema(StartProcessParamsSchema)
+export const cancelExecutionParamsJsonSchema = toDraft07JsonSchema(CancelExecutionParamsSchema)
 
-export const parseListProcessesParams = Schema.decodeUnknown(ListProcessesParamsSchema)
-export const parseGetProcessParams = Schema.decodeUnknown(GetProcessParamsSchema)
-export const parseListExecutionsParams = Schema.decodeUnknown(ListExecutionsParamsSchema)
-export const parseStartProcessParams = Schema.decodeUnknown(StartProcessParamsSchema)
-export const parseCancelExecutionParams = Schema.decodeUnknown(CancelExecutionParamsSchema)
+export const parseListProcessesParams = Schema.decodeUnknownEffect(ListProcessesParamsSchema)
+export const parseGetProcessParams = Schema.decodeUnknownEffect(GetProcessParamsSchema)
+export const parseListExecutionsParams = Schema.decodeUnknownEffect(ListExecutionsParamsSchema)
+export const parseStartProcessParams = Schema.decodeUnknownEffect(StartProcessParamsSchema)
+export const parseCancelExecutionParams = Schema.decodeUnknownEffect(CancelExecutionParamsSchema)

@@ -91,7 +91,7 @@ const telegramUnsupportedResult = (
 })
 
 const hasMessageModel = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   messageModelId: ObjectClassName
 ): Effect.Effect<boolean, HulyClientError> =>
   Effect.map(
@@ -109,19 +109,19 @@ const warnUnsupportedRuntime = (reason: NonEmptyString): Effect.Effect<void, nev
   )
 
 const parseTelegramChannel = (input: unknown): Effect.Effect<TelegramChannelProjection, HulyError> =>
-  Schema.decodeUnknown(TelegramChannelProjectionSchema)(input).pipe(
+  Schema.decodeUnknownEffect(TelegramChannelProjectionSchema)(input).pipe(
     Effect.mapError(
       (cause) => new HulyError({ message: "Huly returned malformed Telegram contact-channel metadata.", cause })
     )
   )
 
 const parseTelegramMessage = (input: unknown): Effect.Effect<TelegramMessageProjection, HulyError> =>
-  Schema.decodeUnknown(TelegramMessageProjectionSchema)(input).pipe(
+  Schema.decodeUnknownEffect(TelegramMessageProjectionSchema)(input).pipe(
     Effect.mapError((cause) => new HulyError({ message: "Huly returned malformed Telegram message metadata.", cause }))
   )
 
 const resolveTelegramChannel = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: ListExternalChannelMessagesParams["channel"]
 ): Effect.Effect<TelegramChannelProjection | undefined, ExternalChannelMessagesError> =>
   Effect.gen(function* () {
@@ -154,7 +154,7 @@ const toTelegramMessageResult = (
 })
 
 const listTelegramMessages = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: ListExternalChannelMessagesParams,
   limit: LimitParam
 ): Effect.Effect<ListExternalChannelMessagesResult, ExternalChannelMessagesError, Diagnostics> =>

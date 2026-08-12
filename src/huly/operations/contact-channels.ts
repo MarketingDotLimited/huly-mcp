@@ -99,7 +99,7 @@ export const listContactChannelProviders = (): Effect.Effect<ReadonlyArray<Conta
   Effect.succeed(listContactChannelProviderLabels())
 
 const resolveChannelByLocator = <Owner extends ChannelOwner>(
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   owner: ResolvedOwner<Owner>,
   locator: ResolvedChannelLocator
 ): Effect.Effect<Channel, ContactChannelError> =>
@@ -137,7 +137,7 @@ const resolveChannelByLocator = <Owner extends ChannelOwner>(
   })
 
 const findRemovableChannel = <Owner extends ChannelOwner>(
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   owner: ResolvedOwner<Owner>,
   locator: ResolvedChannelLocator
 ): Effect.Effect<Option.Option<Channel>, ContactChannelError> =>
@@ -154,11 +154,11 @@ const findRemovableChannel = <Owner extends ChannelOwner>(
         matches: Count.make(matches.length)
       })
     }
-    return Option.fromNullable(matches[0])
+    return Option.fromNullishOr(matches[0])
   })
 
 const ensureNoTargetConflict = <Owner extends ChannelOwner>(
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   owner: ResolvedOwner<Owner>,
   currentChannelId: Ref<Channel>,
   provider: ContactChannelProvider,
@@ -173,7 +173,7 @@ const ensureNoTargetConflict = <Owner extends ChannelOwner>(
   })
 
 const listOwnerChannels = <Owner extends ChannelOwner>(
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   owner: ResolvedOwner<Owner>
 ): Effect.Effect<ReadonlyArray<ContactChannelSummary>, HulyClientError | InvalidContactProviderError> =>
   Effect.gen(function* () {
@@ -182,7 +182,7 @@ const listOwnerChannels = <Owner extends ChannelOwner>(
   })
 
 const addOwnerChannel = <Owner extends ChannelOwner>(
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   owner: ResolvedOwner<Owner>,
   params: { readonly provider: ContactChannelProvider; readonly value: string }
 ): Effect.Effect<{ readonly added: boolean; readonly channel: ContactChannelSummary }, ContactChannelError> =>
@@ -210,7 +210,7 @@ const addOwnerChannel = <Owner extends ChannelOwner>(
   })
 
 const updateOwnerChannel = <Owner extends ChannelOwner>(
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   owner: ResolvedOwner<Owner>,
   params: ChannelMutationParams
 ): Effect.Effect<{ readonly updated: boolean; readonly channel: ContactChannelSummary }, ContactChannelError> =>
@@ -242,7 +242,7 @@ const updateOwnerChannel = <Owner extends ChannelOwner>(
   })
 
 const removeOwnerChannel = <Owner extends ChannelOwner>(
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   owner: ResolvedOwner<Owner>,
   params: ChannelLocator
 ): Effect.Effect<RemoveOwnerChannelResult, ContactChannelError> =>

@@ -1,5 +1,4 @@
-import type { Either } from "effect"
-import { Effect } from "effect"
+import { Effect, type Result } from "effect"
 
 import type { Count } from "../../domain/schemas/shared.js"
 import type { HulyClientError } from "../client.js"
@@ -16,7 +15,7 @@ export interface NotificationMetadataResult<A> {
   readonly authoritative: boolean
 }
 
-type ModelMetadataLookup = Either.Either<ReadonlyArray<unknown>, HulyClientError>
+type ModelMetadataLookup = Result.Result<ReadonlyArray<unknown>, HulyClientError>
 
 interface InvalidRowsWarning {
   readonly invalidRows: Count
@@ -30,7 +29,7 @@ const modelMetadataFailure = <A>(
   result: ModelMetadataLookup,
   rows: ParsedRows<A> | undefined
 ): ModelMetadataFailure => {
-  if (result._tag === "Left") return "unavailable"
+  if (result._tag === "Failure") return "unavailable"
   return rows?.invalidRows === 0 ? "empty" : "invalid"
 }
 
@@ -46,8 +45,8 @@ export const executeMetadataLoad = <A>(
   operations: MetadataLoadOperations<A>
 ): Effect.Effect<NotificationMetadataResult<A>, HulyClientError, Diagnostics> =>
   Effect.gen(function* () {
-    const modelResult = yield* Effect.either(operations.loadModelRows())
-    const modelRows = modelResult._tag === "Right" ? operations.parse(modelResult.right) : undefined
+    const modelResult = yield* Effect.result(operations.loadModelRows())
+    const modelRows = modelResult._tag === "Success" ? operations.parse(modelResult.success) : undefined
     if (modelRows !== undefined && modelRows.rows.length > 0) {
       yield* operations.warnInvalidModelRows({ invalidRows: modelRows.invalidRows })
       return { rows: modelRows.rows, authoritative: true }
@@ -77,8 +76,8 @@ export const executeMetadataIdRequirement = <A extends { readonly _id: Identifie
   Effect.gen(function* () {
     // Model operations are local/in-memory. Decode the complete authoritative definition set here:
     // list limits are presentation concerns and must never make a valid update identifier disappear.
-    const modelResult = yield* Effect.either(operations.loadModelRows())
-    const modelRows = modelResult._tag === "Right" ? operations.parse(modelResult.right) : undefined
+    const modelResult = yield* Effect.result(operations.loadModelRows())
+    const modelRows = modelResult._tag === "Success" ? operations.parse(modelResult.success) : undefined
     if (modelRows !== undefined && modelRows.rows.length > 0) {
       yield* operations.warnInvalidModelRows({ invalidRows: modelRows.invalidRows })
       const modelIdentifier = operations.findIdentifier(modelRows.rows)

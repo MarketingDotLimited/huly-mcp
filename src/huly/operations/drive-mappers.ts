@@ -60,7 +60,7 @@ export const toDriveItemSummary = (
   })
 
 export const toFileVersionSummary = (
-  storage: HulyStorageClient["Type"],
+  storage: HulyStorageClient["Service"],
   versionId: Ref<FileVersion>,
   fileId: Ref<File>,
   version: FileVersion | Data<FileVersion> | AttachedData<FileVersion>,

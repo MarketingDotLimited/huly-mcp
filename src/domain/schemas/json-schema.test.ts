@@ -7,7 +7,8 @@ import {
   parseJsonSchemaRecord,
   toDraft07JsonSchema,
   withExactlyOneRequired,
-  withJsonSchemaPropertyDescriptions
+  withJsonSchemaPropertyDescriptions,
+  withJsonSchemaUnionPropertyDescriptions
 } from "./json-schema.js"
 
 const expectRecord = (value: unknown): { readonly [x: string | symbol]: unknown } => {
@@ -30,6 +31,13 @@ const getDescription = (schema: unknown, property: string): unknown => {
 }
 
 describe("JSON schema helpers", () => {
+  it("adds property descriptions inside anyOf branches", () => {
+    const schema = { anyOf: [{ type: "object", properties: { id: { type: "string" } } }] }
+    expect(withJsonSchemaUnionPropertyDescriptions(schema, { id: "Identifier" })).toEqual({
+      anyOf: [{ type: "object", properties: { id: { type: "string", description: "Identifier" } } }]
+    })
+  })
+
   it("returns schemas without object properties unchanged", () => {
     const schema = { type: "string" }
 

@@ -420,7 +420,7 @@ describe("logTime", () => {
         )
 
         if (error._tag !== "HulyConnectionError") {
-          return yield* Effect.dieMessage(`Expected HulyConnectionError, received ${error._tag}`)
+          return yield* Effect.die(new Error(`Expected HulyConnectionError, received ${error._tag}`))
         }
         expect(error.message).toContain("social identity")
         expect(captureAddCollection.attributes).toBeUndefined()

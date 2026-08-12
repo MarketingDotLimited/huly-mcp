@@ -67,9 +67,9 @@ describe("chat message attachment schemas", () => {
         })
       )
 
-      expect(channel._tag).toBe("ParseError")
-      expect(dm._tag).toBe("ParseError")
-      expect(reply._tag).toBe("ParseError")
+      expect(channel._tag).toBe("SchemaError")
+      expect(dm._tag).toBe("SchemaError")
+      expect(reply._tag).toBe("SchemaError")
     })
   )
 
@@ -98,8 +98,8 @@ describe("chat message attachment schemas", () => {
         data: "bG9n"
       })
 
-      expect(missing._tag).toBe("ParseError")
-      expect(multiple._tag).toBe("ParseError")
+      expect(missing._tag).toBe("SchemaError")
+      expect(multiple._tag).toBe("SchemaError")
       expect(parsed.data).toBe("bG9n")
     })
   )
@@ -118,7 +118,7 @@ describe("chat message attachment schemas", () => {
         pinned: false
       })
 
-      expect(error._tag).toBe("ParseError")
+      expect(error._tag).toBe("SchemaError")
       expect(parsed.pinned).toBe(false)
     })
   )

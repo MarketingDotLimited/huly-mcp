@@ -1,6 +1,6 @@
 import type { AnyAttribute, ClassCollaborators, Data, Doc } from "@hcengineering/core"
 import { generateId } from "@hcengineering/core"
-import { Effect, Either } from "effect"
+import { Effect, Result } from "effect"
 
 import type {
   DeleteClassCollaboratorMetadataParams,
@@ -40,7 +40,7 @@ type CollaboratorMetadataWriteError =
   | ModelClassNotFoundError
 
 const loadDirectCollaboratorMetadata = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   classId: ObjectClassName
 ): Effect.Effect<ClassCollaboratorRecord | undefined, HulyClientError | CollaboratorMetadataAmbiguousError> =>
   Effect.gen(function* () {
@@ -61,12 +61,12 @@ const loadDirectCollaboratorMetadata = (
 const classIdentity = (cls: MetadataClassDoc) => {
   const classId = ObjectClassName.make(String(cls._id))
   const decodedLabel = decodeHulyModelLabelTail(cls.label)
-  return Either.isRight(decodedLabel)
-    ? { identity: { classId, classLabel: decodedLabel.right }, synthesized: false }
+  return Result.isSuccess(decodedLabel)
+    ? { identity: { classId, classLabel: decodedLabel.success }, synthesized: false }
     : {
         identity: {
           classId,
-          classLabel: Either.getOrElse(decodeHulyModelLabelTail(classId), () => NonEmptyString.make(classId))
+          classLabel: Result.getOrElse(decodeHulyModelLabelTail(classId), () => NonEmptyString.make(classId))
         },
         synthesized: true
       }
@@ -98,7 +98,7 @@ const collaboratorMetadataSummary = (metadata: ClassCollaboratorRecord, cls: Met
 })
 
 const resolveCollaboratorClass = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   identifier: GetClassCollaboratorMetadataParams["class"]
 ) =>
   Effect.gen(function* () {

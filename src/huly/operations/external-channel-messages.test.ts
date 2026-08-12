@@ -3,7 +3,7 @@ import type { Channel } from "@hcengineering/contact"
 import type { Doc, FindOptions } from "@hcengineering/core"
 import { toFindResult } from "@hcengineering/core"
 import type { TelegramMessage } from "@hcengineering/telegram"
-import { Effect, Either, Exit, Schema } from "effect"
+import { Effect, Result, Exit, Schema } from "effect"
 import { expect } from "vitest"
 
 import {
@@ -31,8 +31,8 @@ import type { MetadataClassDoc } from "./sdk-discovery-mappers.js"
 import { toRef } from "./sdk-boundary.js"
 import { corePersonId, docRef } from "../../../test/helpers/huly-sdk.js"
 
-const decodeParams = Schema.decodeUnknownEither(ListExternalChannelMessagesParamsSchema)
-const decodeResult = Schema.decodeUnknownEither(ListExternalChannelMessagesResultSchema)
+const decodeParams = Schema.decodeUnknownResult(ListExternalChannelMessagesParamsSchema)
+const decodeResult = Schema.decodeUnknownResult(ListExternalChannelMessagesResultSchema)
 
 const actor = corePersonId("account:person:test")
 
@@ -159,15 +159,15 @@ const runTelegramOperation = <A, E>(
 
 describe("external channel message compatibility", () => {
   it("validates the assessed provider inputs and bounded limit", () => {
-    expect(Either.isRight(decodeParams({ provider: "gmail", channel: "inbox@example.com", limit: 200 }))).toBe(true)
-    expect(Either.isRight(decodeParams({ provider: "telegram", channel: "Ops" }))).toBe(true)
-    expect(Either.isLeft(decodeParams({ provider: "gmail", channel: "Inbox", limit: 201 }))).toBe(true)
-    expect(Either.isLeft(decodeParams({ provider: "email", channel: "Inbox" }))).toBe(true)
+    expect(Result.isSuccess(decodeParams({ provider: "gmail", channel: "inbox@example.com", limit: 200 }))).toBe(true)
+    expect(Result.isSuccess(decodeParams({ provider: "telegram", channel: "Ops" }))).toBe(true)
+    expect(Result.isFailure(decodeParams({ provider: "gmail", channel: "Inbox", limit: 201 }))).toBe(true)
+    expect(Result.isFailure(decodeParams({ provider: "email", channel: "Inbox" }))).toBe(true)
   })
 
   it("accepts honest unsupported states and typed Telegram message results", () => {
     expect(
-      Either.isRight(
+      Result.isSuccess(
         decodeResult({
           supported: false,
           provider: "gmail",
@@ -180,10 +180,10 @@ describe("external channel message compatibility", () => {
       )
     ).toBe(true)
     expect(
-      Either.isLeft(decodeResult({ supported: true, provider: "gmail", channel: "Inbox", limit: 5, messages: [] }))
+      Result.isFailure(decodeResult({ supported: true, provider: "gmail", channel: "Inbox", limit: 5, messages: [] }))
     ).toBe(true)
     expect(
-      Either.isRight(
+      Result.isSuccess(
         decodeResult({
           supported: true,
           provider: "telegram",

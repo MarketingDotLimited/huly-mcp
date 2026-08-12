@@ -60,7 +60,7 @@ export const toDocNotifyContextSummary = (ctx: HulyDocNotifyContext): DocNotifyC
 export const findNotification = (
   notificationId: string
 ): Effect.Effect<
-  { client: HulyClient["Type"]; notification: HulyInboxNotification },
+  { client: HulyClient["Service"]; notification: HulyInboxNotification },
   NotificationNotFoundError | HulyClientError,
   HulyClient
 > =>
@@ -80,7 +80,7 @@ export const findNotification = (
 export const findNotificationContext = (
   contextId: string
 ): Effect.Effect<
-  { client: HulyClient["Type"]; context: HulyDocNotifyContext },
+  { client: HulyClient["Service"]; context: HulyDocNotifyContext },
   NotificationContextNotFoundError | HulyClientError,
   HulyClient
 > =>

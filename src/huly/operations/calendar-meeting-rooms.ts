@@ -20,7 +20,7 @@ const roomReference = (
 ): RoomReference => ({ roomId: RoomId.make(roomId), name: optionalRoomName(rooms.get(roomId)?.name) })
 
 export const lookupEventRooms = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   events: ReadonlyArray<HulyEvent>
 ): Effect.Effect<ReadonlyMap<string, RoomReference>, HulyClientError> =>
   Effect.gen(function* () {

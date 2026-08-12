@@ -1,11 +1,19 @@
-import { Effect, Either, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
-import { AddOrganizationChannelParamsSchema, parseAddOrganizationChannelParams } from "./contact-organizations.js"
+import { addObjectCollaboratorParamsJsonSchema } from "./collaborators.js"
+import {
+  AddOrganizationChannelParamsSchema,
+  createOrganizationParamsJsonSchema,
+  parseAddOrganizationChannelParams
+} from "./contact-organizations.js"
 import {
   CreatePersonParamsSchema,
+  createPersonParamsJsonSchema,
   GetPersonParamsSchema,
+  getPersonParamsJsonSchema,
   ListPersonsParamsSchema,
+  listPersonsParamsJsonSchema,
   parseCreatePersonParams,
   parseGetPersonParams,
   parseListPersonsParams,
@@ -13,7 +21,10 @@ import {
   UpdatePersonParamsSchema
 } from "./contacts.js"
 
-type JsonSchemaObject = { readonly anyOf?: ReadonlyArray<{ readonly required?: ReadonlyArray<string> }> }
+type JsonSchemaObject = {
+  readonly anyOf?: ReadonlyArray<{ readonly required?: ReadonlyArray<string> }>
+  readonly properties?: Readonly<Record<string, { readonly description?: string }>>
+}
 
 const expectJsonSchemaObject = (schema: unknown): JsonSchemaObject => {
   if (typeof schema === "object" && schema !== null) return schema
@@ -21,6 +32,23 @@ const expectJsonSchemaObject = (schema: unknown): JsonSchemaObject => {
 }
 
 describe("Contact Schemas", () => {
+  it("preserves LLM-facing property descriptions in public schemas", () => {
+    const listSchema = expectJsonSchemaObject(listPersonsParamsJsonSchema)
+    const createSchema = expectJsonSchemaObject(createPersonParamsJsonSchema)
+    const collaboratorSchema = expectJsonSchemaObject(addObjectCollaboratorParamsJsonSchema)
+    const organizationSchema = expectJsonSchemaObject(createOrganizationParamsJsonSchema)
+    expect(listSchema.properties?.nameSearch?.description).toContain("name substring")
+    expect(createSchema.properties?.firstName?.description).toBe("First name")
+    expect(collaboratorSchema.properties?.member?.description).toContain("account UUID")
+    expect(organizationSchema.properties?.name?.description).toBe("Organization name")
+    expect(getPersonParamsJsonSchema).toMatchObject({
+      anyOf: [
+        { properties: { personId: { description: "Person ID" } } },
+        { properties: { email: { description: "Person email address" } } }
+      ]
+    })
+  })
+
   describe("ListPersonsParamsSchema", () => {
     it("accepts empty object", () => {
       const result = Schema.decodeUnknownSync(ListPersonsParamsSchema)({})
@@ -33,18 +61,18 @@ describe("Contact Schemas", () => {
     })
 
     it("rejects limit over 200", () => {
-      const result = Effect.runSync(Effect.either(parseListPersonsParams({ limit: 201 })))
-      expect(Either.isLeft(result)).toBe(true)
+      const result = Effect.runSync(Effect.result(parseListPersonsParams({ limit: 201 })))
+      expect(Result.isFailure(result)).toBe(true)
     })
 
     it("rejects zero limit", () => {
-      const result = Effect.runSync(Effect.either(parseListPersonsParams({ limit: 0 })))
-      expect(Either.isLeft(result)).toBe(true)
+      const result = Effect.runSync(Effect.result(parseListPersonsParams({ limit: 0 })))
+      expect(Result.isFailure(result)).toBe(true)
     })
 
     it("rejects negative limit", () => {
-      const result = Effect.runSync(Effect.either(parseListPersonsParams({ limit: -1 })))
-      expect(Either.isLeft(result)).toBe(true)
+      const result = Effect.runSync(Effect.result(parseListPersonsParams({ limit: -1 })))
+      expect(Result.isFailure(result)).toBe(true)
     })
   })
 
@@ -65,8 +93,8 @@ describe("Contact Schemas", () => {
     })
 
     it("rejects empty object (requires at least one identifier)", () => {
-      const result = Effect.runSync(Effect.either(parseGetPersonParams({})))
-      expect(Either.isLeft(result)).toBe(true)
+      const result = Effect.runSync(Effect.result(parseGetPersonParams({})))
+      expect(Result.isFailure(result)).toBe(true)
     })
 
     it("trims personId whitespace", () => {
@@ -75,13 +103,13 @@ describe("Contact Schemas", () => {
     })
 
     it("rejects whitespace-only personId", () => {
-      const result = Effect.runSync(Effect.either(parseGetPersonParams({ personId: "   " })))
-      expect(Either.isLeft(result)).toBe(true)
+      const result = Effect.runSync(Effect.result(parseGetPersonParams({ personId: "   " })))
+      expect(Result.isFailure(result)).toBe(true)
     })
 
     it("rejects email without @", () => {
-      const result = Effect.runSync(Effect.either(parseGetPersonParams({ email: "invalid" })))
-      expect(Either.isLeft(result)).toBe(true)
+      const result = Effect.runSync(Effect.result(parseGetPersonParams({ email: "invalid" })))
+      expect(Result.isFailure(result)).toBe(true)
     })
   })
 
@@ -107,30 +135,30 @@ describe("Contact Schemas", () => {
     })
 
     it("rejects empty firstName", () => {
-      const result = Effect.runSync(Effect.either(parseCreatePersonParams({ firstName: "", lastName: "Doe" })))
-      expect(Either.isLeft(result)).toBe(true)
+      const result = Effect.runSync(Effect.result(parseCreatePersonParams({ firstName: "", lastName: "Doe" })))
+      expect(Result.isFailure(result)).toBe(true)
     })
 
     it("rejects empty lastName", () => {
-      const result = Effect.runSync(Effect.either(parseCreatePersonParams({ firstName: "John", lastName: "" })))
-      expect(Either.isLeft(result)).toBe(true)
+      const result = Effect.runSync(Effect.result(parseCreatePersonParams({ firstName: "John", lastName: "" })))
+      expect(Result.isFailure(result)).toBe(true)
     })
 
     it("rejects whitespace-only firstName", () => {
-      const result = Effect.runSync(Effect.either(parseCreatePersonParams({ firstName: "   ", lastName: "Doe" })))
-      expect(Either.isLeft(result)).toBe(true)
+      const result = Effect.runSync(Effect.result(parseCreatePersonParams({ firstName: "   ", lastName: "Doe" })))
+      expect(Result.isFailure(result)).toBe(true)
     })
 
     it("rejects missing required fields", () => {
-      const result = Effect.runSync(Effect.either(parseCreatePersonParams({})))
-      expect(Either.isLeft(result)).toBe(true)
+      const result = Effect.runSync(Effect.result(parseCreatePersonParams({})))
+      expect(Result.isFailure(result)).toBe(true)
     })
   })
 
   describe("UpdatePersonParamsSchema", () => {
     it("rejects personId only and advertises update-field requirement in JSON Schema", () => {
-      const result = Schema.decodeUnknownEither(UpdatePersonParamsSchema)({ personId: "abc123" })
-      expect(result._tag).toBe("Left")
+      const result = Schema.decodeUnknownResult(UpdatePersonParamsSchema)({ personId: "abc123" })
+      expect(result._tag).toBe("Failure")
 
       const jsonSchema = expectJsonSchemaObject(updatePersonParamsJsonSchema)
       expect(jsonSchema.anyOf).toEqual(
@@ -155,9 +183,9 @@ describe("Contact Schemas", () => {
 
     it("rejects empty firstName in update", () => {
       const result = Effect.runSync(
-        Effect.either(Schema.decodeUnknown(UpdatePersonParamsSchema)({ personId: "abc123", firstName: "" }))
+        Effect.result(Schema.decodeUnknownEffect(UpdatePersonParamsSchema)({ personId: "abc123", firstName: "" }))
       )
-      expect(Either.isLeft(result)).toBe(true)
+      expect(Result.isFailure(result)).toBe(true)
     })
   })
 
@@ -173,11 +201,11 @@ describe("Contact Schemas", () => {
 
     it("rejects unsupported organization channel provider", () => {
       const result = Effect.runSync(
-        Effect.either(
+        Effect.result(
           parseAddOrganizationChannelParams({ organizationId: "org-1", provider: "fax", value: "555-1234" })
         )
       )
-      expect(Either.isLeft(result)).toBe(true)
+      expect(Result.isFailure(result)).toBe(true)
     })
   })
 })

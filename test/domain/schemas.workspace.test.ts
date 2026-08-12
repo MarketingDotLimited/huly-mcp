@@ -1,10 +1,27 @@
 import { describe, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import { expect } from "vitest"
 
-import { createAccessLinkParamsJsonSchema, parseCreateAccessLinkParams } from "../../src/domain/schemas.js"
+import {
+  CreateWorkspaceParamsSchema,
+  createAccessLinkParamsJsonSchema,
+  parseCreateAccessLinkParams,
+  parseCreateWorkspaceParams
+} from "../../src/domain/schemas/workspace.js"
 
 describe("workspace schemas", () => {
+  it.effect("preserves ordinary optional workspace region and encoded omission", () =>
+    Effect.gen(function* () {
+      const withExplicitUndefined = yield* parseCreateWorkspaceParams({ name: "Docs", region: undefined })
+      const withoutRegion = yield* parseCreateWorkspaceParams({ name: "Docs" })
+      const encoded = yield* Schema.encodeUnknownEffect(CreateWorkspaceParamsSchema)(withoutRegion)
+
+      expect(Object.hasOwn(withExplicitUndefined, "region")).toBe(true)
+      expect(withExplicitUndefined.region).toBeUndefined()
+      expect(Object.hasOwn(encoded, "region")).toBe(false)
+    })
+  )
+
   it.effect("accepts anonymous access links with second-based validity window", () =>
     Effect.gen(function* () {
       const result = yield* parseCreateAccessLinkParams({
@@ -24,25 +41,25 @@ describe("workspace schemas", () => {
 
   it.effect("rejects anonymous access links without validity bounds", () =>
     Effect.gen(function* () {
-      const result = yield* Effect.either(parseCreateAccessLinkParams({ personalized: false }))
+      const result = yield* Effect.result(parseCreateAccessLinkParams({ personalized: false }))
 
-      expect(result._tag).toBe("Left")
+      expect(result._tag).toBe("Failure")
     })
   )
 
   it.effect("rejects access links with expiration before notBefore", () =>
     Effect.gen(function* () {
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         parseCreateAccessLinkParams({ notBefore: 1_700_000_300, expiration: 1_700_000_000 })
       )
 
-      expect(result._tag).toBe("Left")
+      expect(result._tag).toBe("Failure")
     })
   )
 
   it.effect("rejects millisecond timestamps", () =>
     Effect.gen(function* () {
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         parseCreateAccessLinkParams({
           personalized: false,
           notBefore: 1_546_300_800_000,
@@ -50,7 +67,7 @@ describe("workspace schemas", () => {
         })
       )
 
-      expect(result._tag).toBe("Left")
+      expect(result._tag).toBe("Failure")
     })
   )
 

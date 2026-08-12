@@ -14,11 +14,11 @@ describe("activity message schemas", () => {
         direction: "both",
         limit: 5
       })
-      const emptyReply = yield* Effect.either(parseAddActivityReplyParams({ messageId: "msg-1", body: "" }))
+      const emptyReply = yield* Effect.result(parseAddActivityReplyParams({ messageId: "msg-1", body: "" }))
 
       expect(reply.body).toBe("Thanks for the update")
       expect(references.direction).toBe("both")
-      expect(emptyReply._tag).toBe("Left")
+      expect(emptyReply._tag).toBe("Failure")
     })
   )
 })

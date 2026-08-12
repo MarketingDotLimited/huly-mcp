@@ -14,7 +14,7 @@ const MINIMUM_AMBIGUOUS_MATCHES = 2
 const PathAmbiguousCandidateSchema = Schema.Struct({
   id: NonEmptyString,
   path: NonEmptyString,
-  kind: Schema.Literal("folder", "file")
+  kind: Schema.Literals(["folder", "file"])
 })
 
 export class DriveNotFoundError extends Schema.TaggedError<DriveNotFoundError>()("DriveNotFoundError", {
@@ -29,7 +29,7 @@ export class DriveIdentifierAmbiguousError extends Schema.TaggedError<DriveIdent
   "DriveIdentifierAmbiguousError",
   {
     drive: NonEmptyString,
-    matches: Schema.Array(DriveAmbiguousMatchSchema).pipe(Schema.minItems(MINIMUM_AMBIGUOUS_MATCHES))
+    matches: Schema.Array(DriveAmbiguousMatchSchema).check(Schema.isMinLength(MINIMUM_AMBIGUOUS_MATCHES))
   }
 ) {
   override get message(): string {
@@ -50,7 +50,7 @@ export class DrivePathNotFoundError extends Schema.TaggedError<DrivePathNotFound
 export class DrivePathAmbiguousError extends Schema.TaggedError<DrivePathAmbiguousError>()("DrivePathAmbiguousError", {
   drive: NonEmptyString,
   path: NonEmptyString,
-  candidates: Schema.Array(PathAmbiguousCandidateSchema).pipe(Schema.minItems(MINIMUM_AMBIGUOUS_MATCHES))
+  candidates: Schema.Array(PathAmbiguousCandidateSchema).check(Schema.isMinLength(MINIMUM_AMBIGUOUS_MATCHES))
 }) {
   override get message(): string {
     const matches = this.candidates
@@ -99,7 +99,7 @@ export class DriveFileCommentNotFoundError extends Schema.TaggedError<DriveFileC
 export class DrivePathConflictError extends Schema.TaggedError<DrivePathConflictError>()("DrivePathConflictError", {
   drive: NonEmptyString,
   path: NonEmptyString,
-  existingKind: Schema.Literal("folder", "file")
+  existingKind: Schema.Literals(["folder", "file"])
 }) {
   override get message(): string {
     return `Drive path '${this.path}' already exists as a ${this.existingKind} in drive '${this.drive}'`
@@ -122,7 +122,7 @@ export class DriveInvalidItemOperationError extends Schema.TaggedError<DriveInva
   {
     drive: NonEmptyString,
     path: NonEmptyString,
-    operation: Schema.Literal("move", "rename", "delete"),
+    operation: Schema.Literals(["move", "rename", "delete"]),
     reason: NonEmptyString
   }
 ) {
@@ -134,7 +134,7 @@ export class DriveInvalidItemOperationError extends Schema.TaggedError<DriveInva
 const DriveFolderChildSummarySchema = Schema.Struct({
   id: NonEmptyString,
   title: NonEmptyString,
-  kind: Schema.Literal("folder", "file")
+  kind: Schema.Literals(["folder", "file"])
 })
 
 export class DriveFolderNotEmptyError extends Schema.TaggedError<DriveFolderNotEmptyError>()(

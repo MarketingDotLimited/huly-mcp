@@ -360,18 +360,18 @@ describe("drive file comment operations", () => {
         body: "Updated"
       })
 
-      const folderError = yield* Effect.either(listDriveFileComments(folderParams).pipe(Effect.provide(layer)))
-      const missingComment = yield* Effect.either(
+      const folderError = yield* Effect.result(listDriveFileComments(folderParams).pipe(Effect.provide(layer)))
+      const missingComment = yield* Effect.result(
         updateDriveFileComment(missingCommentParams).pipe(Effect.provide(layer))
       )
 
-      expect(folderError._tag).toBe("Left")
-      if (folderError._tag === "Left") {
-        expect(folderError.left).toBeInstanceOf(DriveFileNotFoundError)
+      expect(folderError._tag).toBe("Failure")
+      if (folderError._tag === "Failure") {
+        expect(folderError.failure).toBeInstanceOf(DriveFileNotFoundError)
       }
-      expect(missingComment._tag).toBe("Left")
-      if (missingComment._tag === "Left") {
-        expect(missingComment.left).toBeInstanceOf(DriveFileCommentNotFoundError)
+      expect(missingComment._tag).toBe("Failure")
+      if (missingComment._tag === "Failure") {
+        expect(missingComment.failure).toBeInstanceOf(DriveFileCommentNotFoundError)
       }
     })
   )

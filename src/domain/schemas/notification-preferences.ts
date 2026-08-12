@@ -1,4 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+
+import { toDraft07JsonSchema } from "./json-schema.js"
 
 import { DisplayText, NotificationFieldName, NotificationProviderOrder } from "./domain-values.js"
 import {
@@ -48,14 +50,14 @@ export type NotificationTypeSetting = Schema.Schema.Type<typeof NotificationType
 
 export const ListNotificationProvidersParamsSchema = Schema.Struct({
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of providers to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of providers to return (default: ${DEFAULT_LIMIT})` })
   ),
   includeUnavailable: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: "Include providers that the workspace may not currently expose as configurable settings."
     })
   )
-}).annotations({
+}).annotate({
   title: "ListNotificationProvidersParams",
   description: "Parameters for listing notification providers such as inbox, push, and sound."
 })
@@ -64,29 +66,27 @@ export type ListNotificationProvidersParams = Schema.Schema.Type<typeof ListNoti
 
 export const ListNotificationTypesParamsSchema = Schema.Struct({
   limit: Schema.optional(
-    LimitParam.annotations({
-      description: `Maximum number of notification types to return (default: ${DEFAULT_LIMIT})`
-    })
+    LimitParam.annotate({ description: `Maximum number of notification types to return (default: ${DEFAULT_LIMIT})` })
   ),
   includeHidden: Schema.optional(
-    Schema.Boolean.annotations({ description: "Include hidden/internal notification types." })
+    Schema.Boolean.annotate({ description: "Include hidden/internal notification types." })
   ),
   objectClass: Schema.optional(
-    ObjectClassName.annotations({ description: "Filter to notification types for this Huly object class." })
+    ObjectClassName.annotate({ description: "Filter to notification types for this Huly object class." })
   )
-}).annotations({ title: "ListNotificationTypesParams", description: "Parameters for listing notification types." })
+}).annotate({ title: "ListNotificationTypesParams", description: "Parameters for listing notification types." })
 
 export type ListNotificationTypesParams = Schema.Schema.Type<typeof ListNotificationTypesParamsSchema>
 
 export const UpdateNotificationTypeSettingParamsSchema = Schema.Struct({
-  providerId: NotificationProviderId.annotations({
+  providerId: NotificationProviderId.annotate({
     description: "Notification provider ID, such as notification:providers:InboxNotificationProvider."
   }),
-  typeId: NotificationTypeIdSchema.annotations({ description: "Notification type ID to configure." }),
-  enabled: Schema.Boolean.annotations({
+  typeId: NotificationTypeIdSchema.annotate({ description: "Notification type ID to configure." }),
+  enabled: Schema.Boolean.annotate({
     description: "Whether to enable or disable this notification type for the provider."
   })
-}).annotations({
+}).annotate({
   title: "UpdateNotificationTypeSettingParams",
   description:
     "Parameters for updating a provider-specific notification type setting. Creates a setting only when the provider is configurable in this workspace."
@@ -95,17 +95,17 @@ export const UpdateNotificationTypeSettingParamsSchema = Schema.Struct({
 export type UpdateNotificationTypeSettingParams = Schema.Schema.Type<typeof UpdateNotificationTypeSettingParamsSchema>
 
 export const ArchiveNotificationContextParamsSchema = Schema.Struct({
-  contextId: NotificationContextId.annotations({
+  contextId: NotificationContextId.annotate({
     description: "Notification context ID whose inbox notifications should be archived."
   })
-}).annotations({
+}).annotate({
   title: "ArchiveNotificationContextParams",
   description: "Parameters for archiving all inbox notifications in a context."
 })
 
 export type ArchiveNotificationContextParams = Schema.Schema.Type<typeof ArchiveNotificationContextParamsSchema>
 
-export const UnarchiveNotificationContextParamsSchema = ArchiveNotificationContextParamsSchema.annotations({
+export const UnarchiveNotificationContextParamsSchema = ArchiveNotificationContextParamsSchema.annotate({
   title: "UnarchiveNotificationContextParams",
   description: "Parameters for unarchiving all inbox notifications in a context."
 })
@@ -113,16 +113,16 @@ export const UnarchiveNotificationContextParamsSchema = ArchiveNotificationConte
 export type UnarchiveNotificationContextParams = Schema.Schema.Type<typeof UnarchiveNotificationContextParamsSchema>
 
 const ObjectNotificationSubscriptionParamsSchema = Schema.Struct({
-  objectId: DocId.annotations({
+  objectId: DocId.annotate({
     description: "Internal Huly object ID to subscribe/unsubscribe the authenticated account to."
   }),
-  objectClass: ObjectClassName.annotations({ description: "Internal Huly object class for objectId." }),
+  objectClass: ObjectClassName.annotate({ description: "Internal Huly object class for objectId." }),
   space: Schema.optional(
-    DocId.annotations({
+    DocId.annotate({
       description: "Optional object space ID. If omitted, the operation reads the object to determine the space."
     })
   )
-}).annotations({
+}).annotate({
   title: "ObjectNotificationSubscriptionParams",
   description: "Parameters for subscribing or unsubscribing the authenticated account to object notifications."
 })
@@ -135,27 +135,35 @@ export type UnsubscribeFromObjectNotificationsParams = Schema.Schema.Type<
   typeof UnsubscribeFromObjectNotificationsParamsSchema
 >
 
-export const listNotificationProvidersParamsJsonSchema = JSONSchema.make(ListNotificationProvidersParamsSchema)
-export const listNotificationTypesParamsJsonSchema = JSONSchema.make(ListNotificationTypesParamsSchema)
-export const updateNotificationTypeSettingParamsJsonSchema = JSONSchema.make(UpdateNotificationTypeSettingParamsSchema)
-export const archiveNotificationContextParamsJsonSchema = JSONSchema.make(ArchiveNotificationContextParamsSchema)
-export const unarchiveNotificationContextParamsJsonSchema = JSONSchema.make(UnarchiveNotificationContextParamsSchema)
-export const subscribeToObjectNotificationsParamsJsonSchema = JSONSchema.make(
+export const listNotificationProvidersParamsJsonSchema = toDraft07JsonSchema(ListNotificationProvidersParamsSchema)
+export const listNotificationTypesParamsJsonSchema = toDraft07JsonSchema(ListNotificationTypesParamsSchema)
+export const updateNotificationTypeSettingParamsJsonSchema = toDraft07JsonSchema(
+  UpdateNotificationTypeSettingParamsSchema
+)
+export const archiveNotificationContextParamsJsonSchema = toDraft07JsonSchema(ArchiveNotificationContextParamsSchema)
+export const unarchiveNotificationContextParamsJsonSchema = toDraft07JsonSchema(
+  UnarchiveNotificationContextParamsSchema
+)
+export const subscribeToObjectNotificationsParamsJsonSchema = toDraft07JsonSchema(
   SubscribeToObjectNotificationsParamsSchema
 )
-export const unsubscribeFromObjectNotificationsParamsJsonSchema = JSONSchema.make(
+export const unsubscribeFromObjectNotificationsParamsJsonSchema = toDraft07JsonSchema(
   UnsubscribeFromObjectNotificationsParamsSchema
 )
 
-export const parseListNotificationProvidersParams = Schema.decodeUnknown(ListNotificationProvidersParamsSchema)
-export const parseListNotificationTypesParams = Schema.decodeUnknown(ListNotificationTypesParamsSchema)
-export const parseUpdateNotificationTypeSettingParams = Schema.decodeUnknown(UpdateNotificationTypeSettingParamsSchema)
-export const parseArchiveNotificationContextParams = Schema.decodeUnknown(ArchiveNotificationContextParamsSchema)
-export const parseUnarchiveNotificationContextParams = Schema.decodeUnknown(UnarchiveNotificationContextParamsSchema)
-export const parseSubscribeToObjectNotificationsParams = Schema.decodeUnknown(
+export const parseListNotificationProvidersParams = Schema.decodeUnknownEffect(ListNotificationProvidersParamsSchema)
+export const parseListNotificationTypesParams = Schema.decodeUnknownEffect(ListNotificationTypesParamsSchema)
+export const parseUpdateNotificationTypeSettingParams = Schema.decodeUnknownEffect(
+  UpdateNotificationTypeSettingParamsSchema
+)
+export const parseArchiveNotificationContextParams = Schema.decodeUnknownEffect(ArchiveNotificationContextParamsSchema)
+export const parseUnarchiveNotificationContextParams = Schema.decodeUnknownEffect(
+  UnarchiveNotificationContextParamsSchema
+)
+export const parseSubscribeToObjectNotificationsParams = Schema.decodeUnknownEffect(
   SubscribeToObjectNotificationsParamsSchema
 )
-export const parseUnsubscribeFromObjectNotificationsParams = Schema.decodeUnknown(
+export const parseUnsubscribeFromObjectNotificationsParams = Schema.decodeUnknownEffect(
   UnsubscribeFromObjectNotificationsParamsSchema
 )
 export const UpdateNotificationTypeSettingResultSchema = Schema.Struct({

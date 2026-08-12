@@ -36,7 +36,7 @@ type ChatMessageWorkflowError =
   | MessageNotFoundError
 
 const findLocatedMessage = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   conversation: ResolvedConversation,
   params: SetChatMessagePinnedParams
 ): Effect.Effect<ChatMessage | HulyThreadMessage, HulyClientError | MessageNotFoundError> =>
@@ -87,7 +87,7 @@ export const setChatMessagePinned = (
     }
   })
 
-const toPinnedMessage = (message: ChatMessage, client: HulyClient["Type"]): PinnedChatMessage => ({
+const toPinnedMessage = (message: ChatMessage, client: HulyClient["Service"]): PinnedChatMessage => ({
   kind: "message",
   id: MessageId.make(message._id),
   body: markupToMarkdownString(message.message, client.markupUrlConfig),
@@ -95,7 +95,7 @@ const toPinnedMessage = (message: ChatMessage, client: HulyClient["Type"]): Pinn
   ...(message.createdOn === undefined ? {} : { createdOn: Timestamp.make(message.createdOn) })
 })
 
-const toPinnedReply = (reply: HulyThreadMessage, client: HulyClient["Type"]): PinnedChatMessage => ({
+const toPinnedReply = (reply: HulyThreadMessage, client: HulyClient["Service"]): PinnedChatMessage => ({
   kind: "thread_reply",
   id: MessageId.make(reply._id),
   parentMessageId: MessageId.make(reply.attachedTo),

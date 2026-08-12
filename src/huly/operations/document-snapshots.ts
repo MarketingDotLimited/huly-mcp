@@ -54,7 +54,7 @@ const snapshotResult = (
 ): DocumentSnapshot => ({ ...snapshotSummary(snapshot, doc, teamspaceId), markdown: DocumentMarkdown.make(markdown) })
 
 const findSnapshotByIdentifier = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   doc: HulyDocument,
   identifier: GetDocumentSnapshotParams["snapshot"]
 ): Effect.Effect<DocumentSnapshotDoc, HulyClientError | HulyError> =>

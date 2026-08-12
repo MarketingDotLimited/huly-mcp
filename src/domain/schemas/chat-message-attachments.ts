@@ -1,8 +1,13 @@
-import { JSONSchema, Schema } from "effect"
+import { Result, Schema } from "effect"
 
 import { UPDATE_ATTACHMENT_FIELDS } from "./attachments.js"
 import { AttachmentDescription, AttachmentFileName, Base64FileData, LocalFilePath } from "./domain-values.js"
-import { parseJsonSchemaRecord, withExactlyOneRequired, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
+import {
+  parseJsonSchemaRecord,
+  toDraft07JsonSchema,
+  withExactlyOneRequired,
+  withJsonSchemaPropertyDescriptions
+} from "./json-schema.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -29,42 +34,42 @@ export * from "./chat-message-attachment-results.js"
 
 const ChannelMessageTargetSchema = Schema.Struct({
   kind: Schema.Literal("channel_message"),
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID containing the message." }),
-  messageId: MessageId.annotations({ description: "Channel message ID." })
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID containing the message." }),
+  messageId: MessageId.annotate({ description: "Channel message ID." })
 })
 
 const DmMessageTargetSchema = Schema.Struct({
   kind: Schema.Literal("dm_message"),
-  dm: DirectMessageIdentifier.annotations({
+  dm: DirectMessageIdentifier.annotate({
     description: "Direct-message conversation: either the DM `_id` or a one-to-one participant display name."
   }),
-  messageId: MessageId.annotations({ description: "Direct-message message ID." })
+  messageId: MessageId.annotate({ description: "Direct-message message ID." })
 })
 
 const ThreadReplyTargetSchema = Schema.Struct({
   kind: Schema.Literal("thread_reply"),
-  channel: ChannelIdentifier.annotations({ description: "Channel name or ID containing the parent message." }),
-  messageId: MessageId.annotations({ description: "Parent channel message ID." }),
-  replyId: ThreadReplyId.annotations({ description: "Thread reply ID." })
+  channel: ChannelIdentifier.annotate({ description: "Channel name or ID containing the parent message." }),
+  messageId: MessageId.annotate({ description: "Parent channel message ID." }),
+  replyId: ThreadReplyId.annotate({ description: "Thread reply ID." })
 })
 
-const ChatMessageAttachmentTargetSchema = Schema.Union(
+const ChatMessageAttachmentTargetSchema = Schema.Union([
   ChannelMessageTargetSchema,
   DmMessageTargetSchema,
   ThreadReplyTargetSchema
-)
+])
 export type ChatMessageAttachmentTarget = Schema.Schema.Type<typeof ChatMessageAttachmentTargetSchema>
 
 const ChatMessageAttachmentFileFields = {
-  filename: AttachmentFileName.annotations({
+  filename: AttachmentFileName.annotate({
     description: "Name of the file to attach to the chat message or thread reply."
   }),
-  contentType: MimeType.annotations({ description: "MIME type of the file, such as image/png or application/pdf." }),
-  filePath: Schema.optional(LocalFilePath.annotations({ description: UPLOAD_FILE_PATH_DESCRIPTION })),
-  fileUrl: Schema.optional(UrlString.annotations({ description: UPLOAD_FILE_URL_DESCRIPTION })),
-  data: Schema.optional(Base64FileData.annotations({ description: UPLOAD_BASE64_DATA_DESCRIPTION })),
-  description: Schema.optional(AttachmentDescription.annotations({ description: "Optional attachment description." })),
-  pinned: Schema.optional(Schema.Boolean.annotations({ description: "Whether the attachment should be pinned." }))
+  contentType: MimeType.annotate({ description: "MIME type of the file, such as image/png or application/pdf." }),
+  filePath: Schema.optional(LocalFilePath.annotate({ description: UPLOAD_FILE_PATH_DESCRIPTION })),
+  fileUrl: Schema.optional(UrlString.annotate({ description: UPLOAD_FILE_URL_DESCRIPTION })),
+  data: Schema.optional(Base64FileData.annotate({ description: UPLOAD_BASE64_DATA_DESCRIPTION })),
+  description: Schema.optional(AttachmentDescription.annotate({ description: "Optional attachment description." })),
+  pinned: Schema.optional(Schema.Boolean.annotate({ description: "Whether the attachment should be pinned." }))
 } as const
 
 const CHAT_MESSAGE_ATTACHMENT_FILE_SOURCE_FIELDS = ["filePath", "fileUrl", "data"] as const
@@ -82,9 +87,9 @@ const requireExactlyOneAttachmentFileSource = (params: {
 const ListChatMessageAttachmentsParamsSchema = Schema.Struct({
   target: ChatMessageAttachmentTargetSchema,
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of attachments to return (default: ${DEFAULT_LIMIT}).` })
+    LimitParam.annotate({ description: `Maximum number of attachments to return (default: ${DEFAULT_LIMIT}).` })
   )
-}).annotations({
+}).annotate({
   title: "ListChatMessageAttachmentsParams",
   description: "Parameters for listing files attached directly to a Huly chat message or thread reply."
 })
@@ -92,10 +97,10 @@ export type ListChatMessageAttachmentsParams = Schema.Schema.Type<typeof ListCha
 
 const GetChatMessageAttachmentParamsSchema = Schema.Struct({
   target: ChatMessageAttachmentTargetSchema,
-  attachmentId: AttachmentId.annotations({
+  attachmentId: AttachmentId.annotate({
     description: "Attachment ID. Must belong directly to the resolved chat message target."
   })
-}).annotations({
+}).annotate({
   title: "GetChatMessageAttachmentParams",
   description: "Parameters for retrieving one file attached directly to a Huly chat message or thread reply."
 })
@@ -105,8 +110,8 @@ const AddChatMessageAttachmentParamsSchema = Schema.Struct({
   target: ChatMessageAttachmentTargetSchema,
   ...ChatMessageAttachmentFileFields
 })
-  .pipe(Schema.filter(requireExactlyOneAttachmentFileSource))
-  .annotations({
+  .pipe(Schema.check(Schema.makeFilter(requireExactlyOneAttachmentFileSource)))
+  .annotate({
     title: "AddChatMessageAttachmentParams",
     description: `Parameters for adding a file to a Huly chat message or thread reply. ${chatMessageAttachmentExactlyOneFileSourceMessage}`
   })
@@ -116,22 +121,24 @@ const UPDATE_CHAT_MESSAGE_ATTACHMENT_FIELDS = UPDATE_ATTACHMENT_FIELDS
 
 const UpdateChatMessageAttachmentParamsSchema = Schema.Struct({
   target: ChatMessageAttachmentTargetSchema,
-  attachmentId: AttachmentId.annotations({
+  attachmentId: AttachmentId.annotate({
     description: "Attachment ID. Must belong directly to the resolved chat message target."
   }),
   description: Schema.optional(
-    Schema.NullOr(AttachmentDescription).annotations({ description: "New description; use null to clear it." })
+    Schema.NullOr(AttachmentDescription).annotate({ description: "New description; use null to clear it." })
   ),
-  pinned: Schema.optional(Schema.Boolean.annotations({ description: "Pin or unpin the attachment." }))
+  pinned: Schema.optional(Schema.Boolean.annotate({ description: "Pin or unpin the attachment." }))
 })
   .pipe(
-    Schema.filter((params) =>
-      hasAtLeastOneDefined(params, UPDATE_CHAT_MESSAGE_ATTACHMENT_FIELDS)
-        ? undefined
-        : atLeastOneUpdateFieldMessage(UPDATE_CHAT_MESSAGE_ATTACHMENT_FIELDS)
+    Schema.check(
+      Schema.makeFilter((params) =>
+        hasAtLeastOneDefined(params, UPDATE_CHAT_MESSAGE_ATTACHMENT_FIELDS)
+          ? undefined
+          : atLeastOneUpdateFieldMessage(UPDATE_CHAT_MESSAGE_ATTACHMENT_FIELDS)
+      )
     )
   )
-  .annotations({
+  .annotate({
     title: "UpdateChatMessageAttachmentParams",
     description: `Parameters for updating chat message attachment metadata. ${atLeastOneUpdateFieldMessage(
       UPDATE_CHAT_MESSAGE_ATTACHMENT_FIELDS
@@ -143,7 +150,7 @@ assertUpdateFields<UpdateChatMessageAttachmentParams>()(
   UPDATE_CHAT_MESSAGE_ATTACHMENT_FIELDS
 )
 
-const DeleteChatMessageAttachmentParamsSchema = GetChatMessageAttachmentParamsSchema.annotations({
+const DeleteChatMessageAttachmentParamsSchema = GetChatMessageAttachmentParamsSchema.annotate({
   title: "DeleteChatMessageAttachmentParams",
   description: "Parameters for permanently deleting a file attached directly to a Huly chat message or thread reply."
 })
@@ -182,8 +189,8 @@ const CHAT_MESSAGE_ATTACHMENT_TARGET_FIELD_DESCRIPTIONS = {
 const JsonSchemaArraySchema = Schema.Array(Schema.Unknown)
 
 const parseJsonSchemaArray = (value: unknown): ReadonlyArray<unknown> | undefined => {
-  const decoded = Schema.decodeUnknownEither(JsonSchemaArraySchema)(value)
-  return decoded._tag === "Right" ? decoded.right : undefined
+  const decoded = Schema.decodeUnknownResult(JsonSchemaArraySchema)(value)
+  return Result.isSuccess(decoded) ? decoded.success : undefined
 }
 
 const withRootSchemaMetadata = (schema: object, title: string, description: string): object => ({
@@ -192,9 +199,9 @@ const withRootSchemaMetadata = (schema: object, title: string, description: stri
   description
 })
 
-const chatMessageAttachmentJsonSchema = <A, I, R>(schema: Schema.Schema<A, I, R>): object => {
+const chatMessageAttachmentJsonSchema = (schema: Schema.Constraint): object => {
   const jsonSchema = withJsonSchemaPropertyDescriptions(
-    JSONSchema.make(schema),
+    toDraft07JsonSchema(schema),
     CHAT_MESSAGE_ATTACHMENT_FIELD_DESCRIPTIONS
   )
   const properties = parseJsonSchemaRecord(parseJsonSchemaRecord(jsonSchema)?.properties)
@@ -243,8 +250,12 @@ export const deleteChatMessageAttachmentParamsJsonSchema = chatMessageAttachment
   DeleteChatMessageAttachmentParamsSchema
 )
 
-export const parseListChatMessageAttachmentsParams = Schema.decodeUnknown(ListChatMessageAttachmentsParamsSchema)
-export const parseGetChatMessageAttachmentParams = Schema.decodeUnknown(GetChatMessageAttachmentParamsSchema)
-export const parseAddChatMessageAttachmentParams = Schema.decodeUnknown(AddChatMessageAttachmentParamsSchema)
-export const parseUpdateChatMessageAttachmentParams = Schema.decodeUnknown(UpdateChatMessageAttachmentParamsSchema)
-export const parseDeleteChatMessageAttachmentParams = Schema.decodeUnknown(DeleteChatMessageAttachmentParamsSchema)
+export const parseListChatMessageAttachmentsParams = Schema.decodeUnknownEffect(ListChatMessageAttachmentsParamsSchema)
+export const parseGetChatMessageAttachmentParams = Schema.decodeUnknownEffect(GetChatMessageAttachmentParamsSchema)
+export const parseAddChatMessageAttachmentParams = Schema.decodeUnknownEffect(AddChatMessageAttachmentParamsSchema)
+export const parseUpdateChatMessageAttachmentParams = Schema.decodeUnknownEffect(
+  UpdateChatMessageAttachmentParamsSchema
+)
+export const parseDeleteChatMessageAttachmentParams = Schema.decodeUnknownEffect(
+  DeleteChatMessageAttachmentParamsSchema
+)

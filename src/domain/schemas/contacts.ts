@@ -1,7 +1,12 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
 import { ContactChannelSummarySchema } from "./contact-channels.js"
 import { OrganizationMembershipSummarySchema } from "./contact-organizations.js"
+import {
+  toDraft07JsonSchema,
+  withJsonSchemaPropertyDescriptions,
+  withJsonSchemaUnionPropertyDescriptions
+} from "./json-schema.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -51,44 +56,47 @@ export type EmployeeSummary = Schema.Schema.Type<typeof EmployeeSummarySchema>
 
 const ListPersonsParamsBase = Schema.Struct({
   nameSearch: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotateKey({
       description: "Search persons by name substring (case-insensitive). Mutually exclusive with nameRegex."
     })
   ),
   nameRegex: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotateKey({
       description:
         "Filter persons by name using Huly $regex. On the supported Postgres backend this is SQL SIMILAR TO, not JavaScript RegExp; matching is case-sensitive and the pattern must match the whole name: use '%' for any string (e.g., '%Smith%' contains, 'Smith%' prefix). Mutually exclusive with nameSearch; use nameSearch for simple substring matching."
     })
   ),
   emailSearch: Schema.optional(
-    Schema.String.annotations({ description: "Search persons by email substring (case-insensitive)" })
+    Schema.String.annotateKey({ description: "Search persons by email substring (case-insensitive)" })
   ),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of persons to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotateKey({ description: `Maximum number of persons to return (default: ${DEFAULT_LIMIT})` })
   )
 })
 
 export const ListPersonsParamsSchema = ListPersonsParamsBase.pipe(
-  Schema.filter((params) => {
-    if (params.nameSearch !== undefined && params.nameRegex !== undefined) {
-      return "Cannot provide both 'nameSearch' and 'nameRegex'. Use one or the other."
-    }
-    return undefined
-  })
-).annotations({ title: "ListPersonsParams", description: "Parameters for listing persons" })
+  Schema.check(
+    Schema.makeFilter((params) => {
+      if (params.nameSearch !== undefined && params.nameRegex !== undefined) {
+        return "Cannot provide both 'nameSearch' and 'nameRegex'. Use one or the other."
+      }
+      return undefined
+    })
+  )
+).annotate({ title: "ListPersonsParams", description: "Parameters for listing persons" })
 
 export type ListPersonsParams = Schema.Schema.Type<typeof ListPersonsParamsSchema>
 
-const GetPersonByIdSchema = Schema.Struct({ personId: PersonId.annotations({ description: "Person ID" }) }).annotations(
-  { title: "GetPersonById", description: "Get person by ID" }
-)
+const GetPersonByIdSchema = Schema.Struct({ personId: PersonId.annotateKey({ description: "Person ID" }) }).annotate({
+  title: "GetPersonById",
+  description: "Get person by ID"
+})
 
 const GetPersonByEmailSchema = Schema.Struct({
-  email: Email.annotations({ description: "Person email address" })
-}).annotations({ title: "GetPersonByEmail", description: "Get person by email" })
+  email: Email.annotateKey({ description: "Person email address" })
+}).annotate({ title: "GetPersonByEmail", description: "Get person by email" })
 
-export const GetPersonParamsSchema = Schema.Union(GetPersonByIdSchema, GetPersonByEmailSchema).annotations({
+export const GetPersonParamsSchema = Schema.Union([GetPersonByIdSchema, GetPersonByEmailSchema]).annotate({
   title: "GetPersonParams",
   description: "Parameters for getting a single person (provide personId or email)"
 })
@@ -96,11 +104,11 @@ export const GetPersonParamsSchema = Schema.Union(GetPersonByIdSchema, GetPerson
 export type GetPersonParams = Schema.Schema.Type<typeof GetPersonParamsSchema>
 
 export const CreatePersonParamsSchema = Schema.Struct({
-  firstName: NonEmptyString.annotations({ description: "First name" }),
-  lastName: NonEmptyString.annotations({ description: "Last name" }),
-  email: Schema.optional(Email.annotations({ description: "Email address" })),
-  city: Schema.optional(Schema.String.annotations({ description: "City" }))
-}).annotations({ title: "CreatePersonParams", description: "Parameters for creating a person" })
+  firstName: NonEmptyString.annotateKey({ description: "First name" }),
+  lastName: NonEmptyString.annotateKey({ description: "Last name" }),
+  email: Schema.optional(Email.annotateKey({ description: "Email address" })),
+  city: Schema.optional(Schema.String.annotateKey({ description: "City" }))
+}).annotate({ title: "CreatePersonParams", description: "Parameters for creating a person" })
 
 export type CreatePersonParams = Schema.Schema.Type<typeof CreatePersonParamsSchema>
 
@@ -110,17 +118,19 @@ export const UPDATE_PERSON_FIELDS = ["firstName", "lastName", "city"] as const s
 const updatePersonFieldMessage = atLeastOneUpdateFieldMessage(UPDATE_PERSON_FIELDS)
 
 export const UpdatePersonParamsSchema = Schema.Struct({
-  personId: PersonId.annotations({ description: "Person ID" }),
-  firstName: Schema.optional(NonEmptyString.annotations({ description: "New first name" })),
-  lastName: Schema.optional(NonEmptyString.annotations({ description: "New last name" })),
-  city: Schema.optional(Schema.NullOr(Schema.String).annotations({ description: "New city (null to clear)" }))
+  personId: PersonId.annotateKey({ description: "Person ID" }),
+  firstName: Schema.optional(NonEmptyString.annotateKey({ description: "New first name" })),
+  lastName: Schema.optional(NonEmptyString.annotateKey({ description: "New last name" })),
+  city: Schema.optional(Schema.NullOr(Schema.String).annotateKey({ description: "New city (null to clear)" }))
 })
   .pipe(
-    Schema.filter((params) =>
-      hasAtLeastOneDefined(params, UPDATE_PERSON_FIELDS) ? undefined : updatePersonFieldMessage
+    Schema.check(
+      Schema.makeFilter((params) =>
+        hasAtLeastOneDefined(params, UPDATE_PERSON_FIELDS) ? undefined : updatePersonFieldMessage
+      )
     )
   )
-  .annotations({
+  .annotate({
     title: "UpdatePersonParams",
     description: `Parameters for updating a person. ${updatePersonFieldMessage}`
   })
@@ -129,35 +139,60 @@ export type UpdatePersonParams = Schema.Schema.Type<typeof UpdatePersonParamsSch
 assertUpdateFields<UpdatePersonParams>()(["personId"], UPDATE_PERSON_FIELDS)
 
 export const DeletePersonParamsSchema = Schema.Struct({
-  personId: PersonId.annotations({ description: "Person ID" })
-}).annotations({ title: "DeletePersonParams", description: "Parameters for deleting a person" })
+  personId: PersonId.annotateKey({ description: "Person ID" })
+}).annotate({ title: "DeletePersonParams", description: "Parameters for deleting a person" })
 
 export type DeletePersonParams = Schema.Schema.Type<typeof DeletePersonParamsSchema>
 
 export const ListEmployeesParamsSchema = Schema.Struct({
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of employees to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotateKey({ description: `Maximum number of employees to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({ title: "ListEmployeesParams", description: "Parameters for listing employees" })
+}).annotate({ title: "ListEmployeesParams", description: "Parameters for listing employees" })
 
 export type ListEmployeesParams = Schema.Schema.Type<typeof ListEmployeesParamsSchema>
 
-export const listPersonsParamsJsonSchema = JSONSchema.make(ListPersonsParamsSchema)
-export const getPersonParamsJsonSchema = JSONSchema.make(GetPersonParamsSchema)
-export const createPersonParamsJsonSchema = JSONSchema.make(CreatePersonParamsSchema)
+export const listPersonsParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(ListPersonsParamsSchema),
+  {
+    nameSearch: "Search persons by name substring (case-insensitive). Mutually exclusive with nameRegex.",
+    nameRegex: "Filter persons by name using Huly $regex. Mutually exclusive with nameSearch.",
+    emailSearch: "Search persons by email substring (case-insensitive)",
+    limit: `Maximum number of persons to return (default: ${DEFAULT_LIMIT})`
+  }
+)
+export const getPersonParamsJsonSchema = withJsonSchemaUnionPropertyDescriptions(
+  toDraft07JsonSchema(GetPersonParamsSchema),
+  { personId: "Person ID", email: "Person email address" }
+)
+export const createPersonParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(CreatePersonParamsSchema),
+  { firstName: "First name", lastName: "Last name", email: "Email address", city: "City" }
+)
 export const updatePersonParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(UpdatePersonParamsSchema),
+  withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(UpdatePersonParamsSchema), {
+    personId: "Person ID",
+    firstName: "New first name",
+    lastName: "New last name",
+    city: "New city (null to clear)"
+  }),
   UPDATE_PERSON_FIELDS
 )
-export const deletePersonParamsJsonSchema = JSONSchema.make(DeletePersonParamsSchema)
-export const listEmployeesParamsJsonSchema = JSONSchema.make(ListEmployeesParamsSchema)
+export const deletePersonParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(DeletePersonParamsSchema),
+  { personId: "Person ID" }
+)
+export const listEmployeesParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(ListEmployeesParamsSchema),
+  { limit: `Maximum number of employees to return (default: ${DEFAULT_LIMIT})` }
+)
 
-export const parseListPersonsParams = Schema.decodeUnknown(ListPersonsParamsSchema)
-export const parseGetPersonParams = Schema.decodeUnknown(GetPersonParamsSchema)
-export const parseCreatePersonParams = Schema.decodeUnknown(CreatePersonParamsSchema)
-export const parseUpdatePersonParams = Schema.decodeUnknown(UpdatePersonParamsSchema)
-export const parseDeletePersonParams = Schema.decodeUnknown(DeletePersonParamsSchema)
-export const parseListEmployeesParams = Schema.decodeUnknown(ListEmployeesParamsSchema)
+export const parseListPersonsParams = Schema.decodeUnknownEffect(ListPersonsParamsSchema)
+export const parseGetPersonParams = Schema.decodeUnknownEffect(GetPersonParamsSchema)
+export const parseCreatePersonParams = Schema.decodeUnknownEffect(CreatePersonParamsSchema)
+export const parseUpdatePersonParams = Schema.decodeUnknownEffect(UpdatePersonParamsSchema)
+export const parseDeletePersonParams = Schema.decodeUnknownEffect(DeletePersonParamsSchema)
+export const parseListEmployeesParams = Schema.decodeUnknownEffect(ListEmployeesParamsSchema)
 export const CreatePersonResultSchema = Schema.Struct({ id: PersonId })
 export type CreatePersonResult = Schema.Schema.Type<typeof CreatePersonResultSchema>
 export const UpdatePersonResultSchema = Schema.Struct({ id: PersonId, updated: Schema.Boolean })

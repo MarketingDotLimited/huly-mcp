@@ -1,6 +1,7 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema, SchemaGetter } from "effect"
 
 import { DOCUMENT_NATIVE_REFERENCE_TOOL_USAGE } from "./document-native-references.js"
+import { toDraft07JsonSchema } from "./json-schema.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -32,14 +33,14 @@ export type TeamspaceSummary = Schema.Schema.Type<typeof TeamspaceSummarySchema>
 
 export const ListTeamspacesParamsSchema = Schema.Struct({
   includeArchived: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: `Include archived teamspaces in results (default: ${DEFAULT_INCLUDE_ARCHIVED}, showing only active)`
     })
   ),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of teamspaces to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of teamspaces to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({ title: "ListTeamspacesParams", description: "Parameters for listing teamspaces" })
+}).annotate({ title: "ListTeamspacesParams", description: "Parameters for listing teamspaces" })
 
 export type ListTeamspacesParams = Schema.Schema.Type<typeof ListTeamspacesParamsSchema>
 export const ListTeamspacesResultSchema = Schema.Struct({
@@ -57,34 +58,36 @@ export const DocumentSummarySchema = Schema.Struct({
 export type DocumentSummary = Schema.Schema.Type<typeof DocumentSummarySchema>
 
 const ListDocumentsParamsBase = Schema.Struct({
-  teamspace: TeamspaceIdentifier.annotations({ description: "Teamspace name or ID" }),
+  teamspace: TeamspaceIdentifier.annotate({ description: "Teamspace name or ID" }),
   titleSearch: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: "Search documents by title substring (case-insensitive). Mutually exclusive with titleRegex."
     })
   ),
   titleRegex: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description:
         "Filter documents by title using Huly $regex. On the supported Postgres backend this is SQL SIMILAR TO, not JavaScript RegExp; matching is case-sensitive and the pattern must match the whole title: use '%' for any string (e.g., '%RFC%' contains, 'RFC%' prefix). Mutually exclusive with titleSearch; use titleSearch for simple substring matching."
     })
   ),
   contentSearch: Schema.optional(
-    Schema.String.annotations({ description: "Search documents by content (fulltext search)" })
+    Schema.String.annotate({ description: "Search documents by content (fulltext search)" })
   ),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of documents to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of documents to return (default: ${DEFAULT_LIMIT})` })
   )
 })
 
 export const ListDocumentsParamsSchema = ListDocumentsParamsBase.pipe(
-  Schema.filter((params) => {
-    if (params.titleSearch !== undefined && params.titleRegex !== undefined) {
-      return "Cannot provide both 'titleSearch' and 'titleRegex'. Use one or the other."
-    }
-    return undefined
-  })
-).annotations({ title: "ListDocumentsParams", description: "Parameters for listing documents in a teamspace" })
+  Schema.check(
+    Schema.makeFilter((params) => {
+      if (params.titleSearch !== undefined && params.titleRegex !== undefined) {
+        return "Cannot provide both 'titleSearch' and 'titleRegex'. Use one or the other."
+      }
+      return undefined
+    })
+  )
+).annotate({ title: "ListDocumentsParams", description: "Parameters for listing documents in a teamspace" })
 
 export type ListDocumentsParams = Schema.Schema.Type<typeof ListDocumentsParamsSchema>
 export const ListDocumentsResultSchema = Schema.Struct({
@@ -106,24 +109,24 @@ export const GetDocumentResultSchema = DocumentSchema
 export type GetDocumentResult = Schema.Schema.Type<typeof GetDocumentResultSchema>
 
 export const GetDocumentParamsSchema = Schema.Struct({
-  teamspace: TeamspaceIdentifier.annotations({ description: "Teamspace name or ID" }),
-  document: DocumentIdentifier.annotations({ description: "Document title or ID" })
-}).annotations({ title: "GetDocumentParams", description: "Parameters for getting a single document" })
+  teamspace: TeamspaceIdentifier.annotate({ description: "Teamspace name or ID" }),
+  document: DocumentIdentifier.annotate({ description: "Document title or ID" })
+}).annotate({ title: "GetDocumentParams", description: "Parameters for getting a single document" })
 
 export type GetDocumentParams = Schema.Schema.Type<typeof GetDocumentParamsSchema>
 
 export const CreateDocumentParamsSchema = Schema.Struct({
-  teamspace: TeamspaceIdentifier.annotations({ description: "Teamspace name or ID" }),
-  title: NonEmptyString.annotations({ description: "Document title" }),
+  teamspace: TeamspaceIdentifier.annotate({ description: "Teamspace name or ID" }),
+  title: NonEmptyString.annotate({ description: "Document title" }),
   content: Schema.optional(
-    Schema.String.annotations({ description: `Document content in markdown. ${DOCUMENT_NATIVE_REFERENCE_TOOL_USAGE}` })
+    Schema.String.annotate({ description: `Document content in markdown. ${DOCUMENT_NATIVE_REFERENCE_TOOL_USAGE}` })
   ),
   parent: Schema.optional(
-    DocumentIdentifier.annotations({
+    DocumentIdentifier.annotate({
       description: "Parent document title or ID to nest this document under. If omitted, creates a top-level document."
     })
   )
-}).annotations({ title: "CreateDocumentParams", description: "Parameters for creating a document" })
+}).annotate({ title: "CreateDocumentParams", description: "Parameters for creating a document" })
 
 export type CreateDocumentParams = Schema.Schema.Type<typeof CreateDocumentParamsSchema>
 
@@ -151,26 +154,26 @@ export type CreateDocumentParams = Schema.Schema.Type<typeof CreateDocumentParam
  * Agents familiar with Claude Code's Edit tool can use the same mental model.
  */
 const EditDocumentParamsBase = Schema.Struct({
-  teamspace: TeamspaceIdentifier.annotations({ description: "Teamspace name or ID" }),
-  document: DocumentIdentifier.annotations({ description: "Document title or ID" }),
-  title: Schema.optional(NonEmptyString.annotations({ description: "New document title" })),
+  teamspace: TeamspaceIdentifier.annotate({ description: "Teamspace name or ID" }),
+  document: DocumentIdentifier.annotate({ description: "Document title or ID" }),
+  title: Schema.optional(NonEmptyString.annotate({ description: "New document title" })),
   content: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: `Full replacement content in markdown. Mutually exclusive with old_text/new_text. ${DOCUMENT_NATIVE_REFERENCE_TOOL_USAGE}`
     })
   ),
   old_text: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: "Exact text to find in the document. Must be non-empty. Mutually exclusive with content."
     })
   ),
   new_text: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: "Replacement text. Empty string deletes the matched text. Required when old_text is provided."
     })
   ),
   replace_all: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: `Replace all occurrences of old_text (default: ${DEFAULT_REPLACE_ALL}). Only used with old_text/new_text.`
     })
   )
@@ -214,32 +217,34 @@ const editDocumentValidationError = (params: EditDocumentParamsBase): string | u
     emptyOldTextError(params)
   ].find((error) => error !== undefined)
 
-const ValidatedEditDocumentInputSchema = EditDocumentParamsBase.pipe(Schema.filter(editDocumentValidationError))
+const ValidatedEditDocumentInputSchema = EditDocumentParamsBase.pipe(
+  Schema.check(Schema.makeFilter(editDocumentValidationError))
+)
 const EditDocumentSearchText = Schema.String.pipe(
   /* v8 ignore next -- the outer input schema rejects blank old_text before constructing the command */
-  Schema.filter((value) => (value.trim() === "" ? "old_text must be non-empty" : undefined)),
+  Schema.check(Schema.makeFilter((value) => (value.trim() === "" ? "old_text must be non-empty" : undefined))),
   Schema.brand("EditDocumentSearchText")
 )
 
 const EditDocumentLocatorSchema = Schema.Struct({ teamspace: TeamspaceIdentifier, document: DocumentIdentifier })
 
-const EditDocumentCommandSchema = Schema.Union(
+const EditDocumentCommandSchema = Schema.Union([
   Schema.Struct({ ...EditDocumentLocatorSchema.fields, _tag: Schema.Literal("TitleOnly"), title: NonEmptyString }),
   Schema.Struct({
     ...EditDocumentLocatorSchema.fields,
     _tag: Schema.Literal("ReplaceContent"),
-    title: Schema.optionalWith(NonEmptyString, { exact: true }),
+    title: Schema.optionalKey(NonEmptyString),
     content: Schema.String
   }),
   Schema.Struct({
     ...EditDocumentLocatorSchema.fields,
     _tag: Schema.Literal("SearchAndReplace"),
-    title: Schema.optionalWith(NonEmptyString, { exact: true }),
+    title: Schema.optionalKey(NonEmptyString),
     oldText: EditDocumentSearchText,
     newText: Schema.String,
     replaceAll: Schema.Boolean
   })
-).annotations({ identifier: "EditDocumentCommand", title: "EditDocumentCommand" })
+]).annotate({ identifier: "EditDocumentCommand", title: "EditDocumentCommand" })
 
 type EditDocumentCommand = Schema.Schema.Type<typeof EditDocumentCommandSchema>
 
@@ -296,11 +301,12 @@ const fromEditDocumentCommand = (command: EditDocumentCommand): EditDocumentPara
   }
 }
 
-export const EditDocumentParamsSchema = Schema.transform(ValidatedEditDocumentInputSchema, EditDocumentCommandSchema, {
-  strict: true,
-  decode: toEditDocumentCommand,
-  encode: (_encoded, command) => fromEditDocumentCommand(command)
-}).annotations({
+export const EditDocumentParamsSchema = ValidatedEditDocumentInputSchema.pipe(
+  Schema.decodeTo(Schema.toType(EditDocumentCommandSchema), {
+    decode: SchemaGetter.transform(toEditDocumentCommand),
+    encode: SchemaGetter.transform(fromEditDocumentCommand)
+  })
+).annotate({
   title: "EditDocumentParams",
   description: `Edit a document. Two content modes (mutually exclusive): (1) 'content' for full replace, (2) 'old_text' + 'new_text' for targeted search-and-replace. Also supports renaming via 'title'. ${atLeastOneUpdateFieldMessage(
     EDIT_DOCUMENT_UPDATE_FIELD_GROUPS
@@ -308,30 +314,30 @@ export const EditDocumentParamsSchema = Schema.transform(ValidatedEditDocumentIn
 })
 
 export type EditDocumentParams = Schema.Schema.Type<typeof EditDocumentParamsSchema>
-export type EditDocumentInput = Schema.Schema.Encoded<typeof EditDocumentParamsSchema>
+export type EditDocumentInput = Schema.Codec.Encoded<typeof EditDocumentParamsSchema>
 
 export const DeleteDocumentParamsSchema = Schema.Struct({
-  teamspace: TeamspaceIdentifier.annotations({ description: "Teamspace name or ID" }),
-  document: DocumentIdentifier.annotations({ description: "Document title or ID" })
-}).annotations({ title: "DeleteDocumentParams", description: "Parameters for deleting a document" })
+  teamspace: TeamspaceIdentifier.annotate({ description: "Teamspace name or ID" }),
+  document: DocumentIdentifier.annotate({ description: "Document title or ID" })
+}).annotate({ title: "DeleteDocumentParams", description: "Parameters for deleting a document" })
 
 export type DeleteDocumentParams = Schema.Schema.Type<typeof DeleteDocumentParamsSchema>
 
 // --- Teamspace CRUD Schemas ---
 
 export const GetTeamspaceParamsSchema = Schema.Struct({
-  teamspace: TeamspaceIdentifier.annotations({ description: "Teamspace name or ID" })
-}).annotations({ title: "GetTeamspaceParams", description: "Parameters for getting a single teamspace" })
+  teamspace: TeamspaceIdentifier.annotate({ description: "Teamspace name or ID" })
+}).annotate({ title: "GetTeamspaceParams", description: "Parameters for getting a single teamspace" })
 
 export type GetTeamspaceParams = Schema.Schema.Type<typeof GetTeamspaceParamsSchema>
 
 export const CreateTeamspaceParamsSchema = Schema.Struct({
-  name: NonEmptyString.annotations({ description: "Teamspace name" }),
-  description: Schema.optional(Schema.String.annotations({ description: "Teamspace description" })),
+  name: NonEmptyString.annotate({ description: "Teamspace name" }),
+  description: Schema.optional(Schema.String.annotate({ description: "Teamspace description" })),
   private: Schema.optional(
-    Schema.Boolean.annotations({ description: `Whether the teamspace is private (default: ${DEFAULT_PRIVATE})` })
+    Schema.Boolean.annotate({ description: `Whether the teamspace is private (default: ${DEFAULT_PRIVATE})` })
   )
-}).annotations({ title: "CreateTeamspaceParams", description: "Parameters for creating a teamspace" })
+}).annotate({ title: "CreateTeamspaceParams", description: "Parameters for creating a teamspace" })
 
 export type CreateTeamspaceParams = Schema.Schema.Type<typeof CreateTeamspaceParamsSchema>
 
@@ -340,21 +346,23 @@ export const UPDATE_TEAMSPACE_FIELDS = ["name", "description", "archived"] as co
 >
 
 export const UpdateTeamspaceParamsSchema = Schema.Struct({
-  teamspace: TeamspaceIdentifier.annotations({ description: "Teamspace name or ID" }),
-  name: Schema.optional(NonEmptyString.annotations({ description: "New teamspace name" })),
+  teamspace: TeamspaceIdentifier.annotate({ description: "Teamspace name or ID" }),
+  name: Schema.optional(NonEmptyString.annotate({ description: "New teamspace name" })),
   description: Schema.optional(
-    Schema.NullOr(Schema.String).annotations({ description: "New description (null to clear)" })
+    Schema.NullOr(Schema.String).annotate({ description: "New description (null to clear)" })
   ),
-  archived: Schema.optional(Schema.Boolean.annotations({ description: "Set archived status" }))
+  archived: Schema.optional(Schema.Boolean.annotate({ description: "Set archived status" }))
 })
   .pipe(
-    Schema.filter((params) =>
-      hasAtLeastOneDefined(params, UPDATE_TEAMSPACE_FIELDS)
-        ? undefined
-        : atLeastOneUpdateFieldMessage(UPDATE_TEAMSPACE_FIELDS)
+    Schema.check(
+      Schema.makeFilter((params) =>
+        hasAtLeastOneDefined(params, UPDATE_TEAMSPACE_FIELDS)
+          ? undefined
+          : atLeastOneUpdateFieldMessage(UPDATE_TEAMSPACE_FIELDS)
+      )
     )
   )
-  .annotations({
+  .annotate({
     title: "UpdateTeamspaceParams",
     description: `Parameters for updating a teamspace. ${atLeastOneUpdateFieldMessage(UPDATE_TEAMSPACE_FIELDS)}`
   })
@@ -363,8 +371,8 @@ export type UpdateTeamspaceParams = Schema.Schema.Type<typeof UpdateTeamspacePar
 assertUpdateFields<UpdateTeamspaceParams>()(["teamspace"], UPDATE_TEAMSPACE_FIELDS)
 
 export const DeleteTeamspaceParamsSchema = Schema.Struct({
-  teamspace: TeamspaceIdentifier.annotations({ description: "Teamspace name or ID" })
-}).annotations({ title: "DeleteTeamspaceParams", description: "Parameters for deleting a teamspace" })
+  teamspace: TeamspaceIdentifier.annotate({ description: "Teamspace name or ID" })
+}).annotate({ title: "DeleteTeamspaceParams", description: "Parameters for deleting a teamspace" })
 
 export type DeleteTeamspaceParams = Schema.Schema.Type<typeof DeleteTeamspaceParamsSchema>
 export const GetTeamspaceResultSchema = Schema.Struct({ ...TeamspaceSummarySchema.fields, documents: ListTotal })
@@ -383,14 +391,14 @@ export type DeleteTeamspaceResult = Schema.Schema.Type<typeof DeleteTeamspaceRes
 // --- Inline Comments ---
 
 export const ListInlineCommentsParamsSchema = Schema.Struct({
-  teamspace: TeamspaceIdentifier.annotations({ description: "Teamspace name or ID" }),
-  document: DocumentIdentifier.annotations({ description: "Document title or ID" }),
+  teamspace: TeamspaceIdentifier.annotate({ description: "Teamspace name or ID" }),
+  document: DocumentIdentifier.annotate({ description: "Document title or ID" }),
   includeReplies: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: `Include thread reply messages for each inline comment (default: ${DEFAULT_INCLUDE_COMMENT_REPLIES})`
     })
   )
-}).annotations({
+}).annotate({
   title: "ListInlineCommentsParams",
   description: "Parameters for listing inline comment threads in a document"
 })
@@ -417,21 +425,21 @@ export type ListInlineCommentsResult = Schema.Schema.Type<typeof ListInlineComme
 
 // --- JSON Schemas & Parsers ---
 
-export const listTeamspacesParamsJsonSchema = JSONSchema.make(ListTeamspacesParamsSchema)
-export const getTeamspaceParamsJsonSchema = JSONSchema.make(GetTeamspaceParamsSchema)
-export const createTeamspaceParamsJsonSchema = JSONSchema.make(CreateTeamspaceParamsSchema)
+export const listTeamspacesParamsJsonSchema = toDraft07JsonSchema(ListTeamspacesParamsSchema)
+export const getTeamspaceParamsJsonSchema = toDraft07JsonSchema(GetTeamspaceParamsSchema)
+export const createTeamspaceParamsJsonSchema = toDraft07JsonSchema(CreateTeamspaceParamsSchema)
 export const updateTeamspaceParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(UpdateTeamspaceParamsSchema),
+  toDraft07JsonSchema(UpdateTeamspaceParamsSchema),
   UPDATE_TEAMSPACE_FIELDS
 )
-export const deleteTeamspaceParamsJsonSchema = JSONSchema.make(DeleteTeamspaceParamsSchema)
-export const listDocumentsParamsJsonSchema = JSONSchema.make(ListDocumentsParamsSchema)
-export const getDocumentParamsJsonSchema = JSONSchema.make(GetDocumentParamsSchema)
-export const createDocumentParamsJsonSchema = JSONSchema.make(CreateDocumentParamsSchema)
-const editDocumentGeneratedJsonSchema = JSONSchema.make(EditDocumentParamsSchema)
+export const deleteTeamspaceParamsJsonSchema = toDraft07JsonSchema(DeleteTeamspaceParamsSchema)
+export const listDocumentsParamsJsonSchema = toDraft07JsonSchema(ListDocumentsParamsSchema)
+export const getDocumentParamsJsonSchema = toDraft07JsonSchema(GetDocumentParamsSchema)
+export const createDocumentParamsJsonSchema = toDraft07JsonSchema(CreateDocumentParamsSchema)
+const editDocumentGeneratedJsonSchema = toDraft07JsonSchema(EditDocumentParamsSchema)
 const isJsonSchemaRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null
-/* v8 ignore start -- defensive: JSONSchema.make on this Struct-derived schema always yields object properties */
+/* v8 ignore start -- defensive: the Draft-07 adapter on this Struct-derived schema always yields object properties */
 const editDocumentGeneratedProperties =
   isJsonSchemaRecord(editDocumentGeneratedJsonSchema) && isJsonSchemaRecord(editDocumentGeneratedJsonSchema.properties)
     ? editDocumentGeneratedJsonSchema.properties
@@ -451,20 +459,20 @@ export const editDocumentParamsJsonSchema = {
     { if: { required: ["replace_all"] }, then: { required: ["old_text", "new_text"] } }
   ]
 }
-export const listInlineCommentsParamsJsonSchema = JSONSchema.make(ListInlineCommentsParamsSchema)
-export const deleteDocumentParamsJsonSchema = JSONSchema.make(DeleteDocumentParamsSchema)
+export const listInlineCommentsParamsJsonSchema = toDraft07JsonSchema(ListInlineCommentsParamsSchema)
+export const deleteDocumentParamsJsonSchema = toDraft07JsonSchema(DeleteDocumentParamsSchema)
 
-export const parseListTeamspacesParams = Schema.decodeUnknown(ListTeamspacesParamsSchema)
-export const parseGetTeamspaceParams = Schema.decodeUnknown(GetTeamspaceParamsSchema)
-export const parseCreateTeamspaceParams = Schema.decodeUnknown(CreateTeamspaceParamsSchema)
-export const parseUpdateTeamspaceParams = Schema.decodeUnknown(UpdateTeamspaceParamsSchema)
-export const parseDeleteTeamspaceParams = Schema.decodeUnknown(DeleteTeamspaceParamsSchema)
-export const parseListDocumentsParams = Schema.decodeUnknown(ListDocumentsParamsSchema)
-export const parseGetDocumentParams = Schema.decodeUnknown(GetDocumentParamsSchema)
-export const parseCreateDocumentParams = Schema.decodeUnknown(CreateDocumentParamsSchema)
-export const parseEditDocumentParams = Schema.decodeUnknown(EditDocumentParamsSchema)
-export const parseListInlineCommentsParams = Schema.decodeUnknown(ListInlineCommentsParamsSchema)
-export const parseDeleteDocumentParams = Schema.decodeUnknown(DeleteDocumentParamsSchema)
+export const parseListTeamspacesParams = Schema.decodeUnknownEffect(ListTeamspacesParamsSchema)
+export const parseGetTeamspaceParams = Schema.decodeUnknownEffect(GetTeamspaceParamsSchema)
+export const parseCreateTeamspaceParams = Schema.decodeUnknownEffect(CreateTeamspaceParamsSchema)
+export const parseUpdateTeamspaceParams = Schema.decodeUnknownEffect(UpdateTeamspaceParamsSchema)
+export const parseDeleteTeamspaceParams = Schema.decodeUnknownEffect(DeleteTeamspaceParamsSchema)
+export const parseListDocumentsParams = Schema.decodeUnknownEffect(ListDocumentsParamsSchema)
+export const parseGetDocumentParams = Schema.decodeUnknownEffect(GetDocumentParamsSchema)
+export const parseCreateDocumentParams = Schema.decodeUnknownEffect(CreateDocumentParamsSchema)
+export const parseEditDocumentParams = Schema.decodeUnknownEffect(EditDocumentParamsSchema)
+export const parseListInlineCommentsParams = Schema.decodeUnknownEffect(ListInlineCommentsParamsSchema)
+export const parseDeleteDocumentParams = Schema.decodeUnknownEffect(DeleteDocumentParamsSchema)
 export const CreateDocumentResultSchema = Schema.Struct({ id: DocumentId, title: Schema.String, url: UrlString })
 export type CreateDocumentResult = Schema.Schema.Type<typeof CreateDocumentResultSchema>
 export const EditDocumentResultSchema = Schema.Struct({ id: DocumentId, updated: Schema.Boolean, url: UrlString })

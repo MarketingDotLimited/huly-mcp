@@ -103,6 +103,21 @@ export const withJsonSchemaPropertyDescriptions = (
   }
 }
 
+export const withJsonSchemaUnionPropertyDescriptions = (
+  schema: object,
+  descriptions: JsonSchemaPropertyDescriptions
+): object => {
+  const parsed = parseJsonSchemaRecord(schema)
+  if (parsed === undefined || !Array.isArray(parsed.anyOf)) return schema
+  return {
+    ...parsed,
+    anyOf: parsed.anyOf.map((member) => {
+      const record = parseJsonSchemaRecord(member)
+      return record === undefined ? member : withJsonSchemaPropertyDescriptions(record, descriptions)
+    })
+  }
+}
+
 export const withExactlyOneRequired = <K extends string>(schema: object, fields: ReadonlyArray<K>): object => ({
   ...schema,
   oneOf: fields.map((field) => ({ required: [field] }))

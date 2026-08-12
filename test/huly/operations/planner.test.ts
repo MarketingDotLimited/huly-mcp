@@ -19,13 +19,15 @@ import {
 import { type ToDo as HulyToDo, ToDoPriority, type WorkSlot as HulyWorkSlot } from "@hcengineering/time"
 import type { Issue as HulyIssue, IssueStatus, Project as HulyProject } from "@hcengineering/tracker"
 import { IssuePriority, TimeReportDayType } from "@hcengineering/tracker"
-import { Effect, TestClock } from "effect"
+import { Effect, Result, Schema } from "effect"
+import { TestClock } from "effect/testing"
 import { expect } from "vitest"
 import { assertAt } from "../../../src/utils/assertions.js"
 
 import { TodoTitle } from "../../../src/domain/schemas/planner.js"
 import { Email, NonEmptyString, Timestamp, WorkSlotId } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
+import { PlannerSchedulingPrerequisiteError } from "../../../src/huly/errors-planner.js"
 import { calendar, contact, time, tracker } from "../../../src/huly/huly-plugins.js"
 import {
   markupRefAsTodoDescription,
@@ -56,6 +58,20 @@ const asEmployee = (v: unknown) => v as Employee
 const asWorkSlot = (v: unknown) => v as HulyWorkSlot
 
 const todoTitle = (value: string) => TodoTitle.make(value)
+
+type PlannerSchedulingPrerequisite = PlannerSchedulingPrerequisiteError["prerequisite"]
+
+const expectSchedulingPrerequisiteFailure = Effect.fn("expectSchedulingPrerequisiteFailure")(function* (
+  result: Result.Result<unknown, unknown>,
+  prerequisite: PlannerSchedulingPrerequisite
+) {
+  expect(Result.isFailure(result)).toBe(true)
+  if (Result.isSuccess(result)) return
+
+  const error = yield* Schema.decodeUnknownEffect(PlannerSchedulingPrerequisiteError)(result.failure)
+  expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
+  expect(error.prerequisite).toBe(prerequisite)
+})
 
 const makeProject = (overrides?: Partial<HulyProject>): HulyProject =>
   asProject({
@@ -1213,7 +1229,7 @@ describe("planner operations", () => {
   it.effect("fails scheduling when the authenticated primary social identity is unavailable", () =>
     Effect.gen(function* () {
       const captures: Captures = {}
-      const error = yield* Effect.flip(
+      const result = yield* Effect.result(
         scheduleTodo({
           locator: { todoId: todoId("todo-1") },
           date: Timestamp.make(1_800_000_000_000),
@@ -1221,8 +1237,7 @@ describe("planner operations", () => {
         }).pipe(Effect.provide(createLayer({ todos: [makeTodo()], captures })))
       )
 
-      expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
-      expect(error).toMatchObject({ prerequisite: "primary social identity" })
+      yield* expectSchedulingPrerequisiteFailure(result, "primary social identity")
       expect(captures.addCollection).toBeUndefined()
     })
   )
@@ -1231,7 +1246,7 @@ describe("planner operations", () => {
     Effect.gen(function* () {
       const captures: Captures = {}
       const malformedIdentity = makeSocialIdentity({ attachedTo: personRef("") })
-      const error = yield* Effect.flip(
+      const result = yield* Effect.result(
         scheduleTodo({
           locator: { todoId: todoId("todo-1") },
           date: Timestamp.make(1_800_000_000_000),
@@ -1239,8 +1254,7 @@ describe("planner operations", () => {
         }).pipe(Effect.provide(createLayer({ todos: [makeTodo()], socialIdentities: [malformedIdentity], captures })))
       )
 
-      expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
-      expect(error).toMatchObject({ prerequisite: "primary social identity" })
+      yield* expectSchedulingPrerequisiteFailure(result, "primary social identity")
       expect(captures.addCollection).toBeUndefined()
     })
   )
@@ -1248,7 +1262,7 @@ describe("planner operations", () => {
   it.effect("fails scheduling when the primary social identity has no employee", () =>
     Effect.gen(function* () {
       const captures: Captures = {}
-      const error = yield* Effect.flip(
+      const result = yield* Effect.result(
         scheduleTodo({
           locator: { todoId: todoId("todo-1") },
           date: Timestamp.make(1_800_000_000_000),
@@ -1258,8 +1272,7 @@ describe("planner operations", () => {
         )
       )
 
-      expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
-      expect(error).toMatchObject({ prerequisite: "employee identity" })
+      yield* expectSchedulingPrerequisiteFailure(result, "employee identity")
       expect(captures.addCollection).toBeUndefined()
     })
   )
@@ -1267,7 +1280,7 @@ describe("planner operations", () => {
   it.effect("maps an inactive employee to a typed prerequisite failure", () =>
     Effect.gen(function* () {
       const captures: Captures = {}
-      const error = yield* Effect.flip(
+      const result = yield* Effect.result(
         scheduleTodo({
           locator: { todoId: todoId("todo-1") },
           date: Timestamp.make(1_800_000_000_000),
@@ -1284,8 +1297,7 @@ describe("planner operations", () => {
         )
       )
 
-      expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
-      expect(error).toMatchObject({ prerequisite: "employee identity" })
+      yield* expectSchedulingPrerequisiteFailure(result, "employee identity")
       expect(captures.addCollection).toBeUndefined()
     })
   )
@@ -1293,7 +1305,7 @@ describe("planner operations", () => {
   it.effect("fails scheduling when the authenticated user has no writable personal calendar", () =>
     Effect.gen(function* () {
       const captures: Captures = {}
-      const error = yield* Effect.flip(
+      const result = yield* Effect.result(
         scheduleTodo({
           locator: { todoId: todoId("todo-1") },
           date: Timestamp.make(1_800_000_000_000),
@@ -1310,8 +1322,7 @@ describe("planner operations", () => {
         )
       )
 
-      expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
-      expect(error).toMatchObject({ prerequisite: "personal calendar" })
+      yield* expectSchedulingPrerequisiteFailure(result, "personal calendar")
       expect(captures.addCollection).toBeUndefined()
     })
   )
@@ -1320,7 +1331,7 @@ describe("planner operations", () => {
     Effect.gen(function* () {
       for (const access of [AccessLevel.Reader, AccessLevel.FreeBusyReader]) {
         const captures: Captures = {}
-        const error = yield* Effect.flip(
+        const result = yield* Effect.result(
           scheduleTodo({
             locator: { todoId: todoId("todo-1") },
             date: Timestamp.make(1_800_000_000_000),
@@ -1338,8 +1349,7 @@ describe("planner operations", () => {
           )
         )
 
-        expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
-        expect(error).toMatchObject({ prerequisite: "personal calendar" })
+        yield* expectSchedulingPrerequisiteFailure(result, "personal calendar")
         expect(captures.addCollection).toBeUndefined()
       }
     })
@@ -1349,7 +1359,7 @@ describe("planner operations", () => {
     Effect.gen(function* () {
       const captures: Captures = {}
       const malformedCalendar = makePersonalCalendar({ _class: toClassRef<HulyCalendar>("malformed-calendar-class") })
-      const error = yield* Effect.flip(
+      const result = yield* Effect.result(
         scheduleTodo({
           locator: { todoId: todoId("todo-1") },
           date: Timestamp.make(1_800_000_000_000),
@@ -1367,8 +1377,7 @@ describe("planner operations", () => {
         )
       )
 
-      expect(error._tag).toBe("PlannerSchedulingPrerequisiteError")
-      expect(error).toMatchObject({ prerequisite: "personal calendar" })
+      yield* expectSchedulingPrerequisiteFailure(result, "personal calendar")
       expect(captures.addCollection).toBeUndefined()
     })
   )

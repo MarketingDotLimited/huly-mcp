@@ -20,7 +20,7 @@ import {
   ThreadReplyNotFoundError
 } from "./errors-messaging.js"
 
-export const HulyMessagingDomainError = Schema.Union(
+export const HulyMessagingDomainError = Schema.Union([
   ChannelNotFoundError,
   ChannelArchivedError,
   ChannelLastMemberRemovalError,
@@ -38,4 +38,4 @@ export const HulyMessagingDomainError = Schema.Union(
   ReactionNotFoundError,
   SavedMessageNotFoundError,
   TelegramChannelIdentifierAmbiguousError
-)
+])

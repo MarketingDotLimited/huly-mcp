@@ -1,5 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
+import { toDraft07JsonSchema } from "./json-schema.js"
 import {
   DEFAULT_LIMIT,
   IssueIdentifier,
@@ -19,14 +20,14 @@ export const TIME_HOURS_EXAMPLES = "0.25 = 15 minutes; 8 = one work day"
 export const timeHoursDescription = (subject: string) =>
   `${subject} in hours (Huly native unit). Examples: ${TIME_HOURS_EXAMPLES}.`
 
-export const TimeHours = NonNegativeNumber.pipe(Schema.brand("TimeHours")).annotations({
+export const TimeHours = NonNegativeNumber.pipe(Schema.brand("TimeHours")).annotate({
   identifier: "TimeHours",
   title: "TimeHours",
   description: timeHoursDescription("Time")
 })
 export type TimeHours = Schema.Schema.Type<typeof TimeHours>
 
-export const PositiveTimeHours = PositiveNumber.pipe(Schema.brand("PositiveTimeHours")).annotations({
+export const PositiveTimeHours = PositiveNumber.pipe(Schema.brand("PositiveTimeHours")).annotate({
   identifier: "PositiveTimeHours",
   title: "PositiveTimeHours",
   description: timeHoursDescription("Positive time")
@@ -38,7 +39,7 @@ export const TimeSpendReportSchema = Schema.Struct({
   identifier: Schema.optional(IssueIdentifier),
   employee: Schema.optional(NonEmptyString),
   date: Schema.optional(Schema.NullOr(Timestamp)),
-  value: TimeHours.annotations({ description: timeHoursDescription("Reported time") }),
+  value: TimeHours.annotate({ description: timeHoursDescription("Reported time") }),
   description: Schema.String
 })
 export type TimeSpendReport = Schema.Schema.Type<typeof TimeSpendReportSchema>
@@ -51,89 +52,87 @@ export const WorkSlotSchema = Schema.Struct({
 })
 export type WorkSlot = Schema.Schema.Type<typeof WorkSlotSchema>
 export const LogTimeParamsSchema = Schema.Struct({
-  project: ProjectIdentifier.annotations({ description: "Project identifier (e.g., 'HULY')" }),
-  identifier: IssueIdentifier.annotations({ description: "Issue identifier (e.g., 'HULY-123' or just '123')" }),
-  value: PositiveTimeHours.annotations({ description: timeHoursDescription("Time spent") }),
-  description: Schema.optional(Schema.String.annotations({ description: "Description of work done" }))
-}).annotations({ title: "LogTimeParams", description: "Parameters for logging time on an issue" })
+  project: ProjectIdentifier.annotate({ description: "Project identifier (e.g., 'HULY')" }),
+  identifier: IssueIdentifier.annotate({ description: "Issue identifier (e.g., 'HULY-123' or just '123')" }),
+  value: PositiveTimeHours.annotate({ description: timeHoursDescription("Time spent") }),
+  description: Schema.optional(Schema.String.annotate({ description: "Description of work done" }))
+}).annotate({ title: "LogTimeParams", description: "Parameters for logging time on an issue" })
 
 export type LogTimeParams = Schema.Schema.Type<typeof LogTimeParamsSchema>
 
 export const GetTimeReportParamsSchema = Schema.Struct({
-  project: ProjectIdentifier.annotations({ description: "Project identifier (e.g., 'HULY')" }),
-  identifier: IssueIdentifier.annotations({ description: "Issue identifier (e.g., 'HULY-123' or just '123')" })
-}).annotations({ title: "GetTimeReportParams", description: "Parameters for getting time report for an issue" })
+  project: ProjectIdentifier.annotate({ description: "Project identifier (e.g., 'HULY')" }),
+  identifier: IssueIdentifier.annotate({ description: "Issue identifier (e.g., 'HULY-123' or just '123')" })
+}).annotate({ title: "GetTimeReportParams", description: "Parameters for getting time report for an issue" })
 
 export type GetTimeReportParams = Schema.Schema.Type<typeof GetTimeReportParamsSchema>
 
 export const ListTimeSpendReportsParamsSchema = Schema.Struct({
-  project: Schema.optional(ProjectIdentifier.annotations({ description: "Filter by project identifier" })),
-  from: Schema.optional(Timestamp.annotations({ description: "Filter entries from this timestamp" })),
-  to: Schema.optional(Timestamp.annotations({ description: "Filter entries until this timestamp" })),
+  project: Schema.optional(ProjectIdentifier.annotate({ description: "Filter by project identifier" })),
+  from: Schema.optional(Timestamp.annotate({ description: "Filter entries from this timestamp" })),
+  to: Schema.optional(Timestamp.annotate({ description: "Filter entries until this timestamp" })),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of entries to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of entries to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({ title: "ListTimeSpendReportsParams", description: "Parameters for listing time spend reports" })
+}).annotate({ title: "ListTimeSpendReportsParams", description: "Parameters for listing time spend reports" })
 
 export type ListTimeSpendReportsParams = Schema.Schema.Type<typeof ListTimeSpendReportsParamsSchema>
 
 export const GetDetailedTimeReportParamsSchema = Schema.Struct({
-  project: ProjectIdentifier.annotations({ description: "Project identifier (e.g., 'HULY')" }),
-  from: Schema.optional(Timestamp.annotations({ description: "Filter entries from this timestamp" })),
-  to: Schema.optional(Timestamp.annotations({ description: "Filter entries until this timestamp" }))
-}).annotations({ title: "GetDetailedTimeReportParams", description: "Parameters for getting detailed time breakdown" })
+  project: ProjectIdentifier.annotate({ description: "Project identifier (e.g., 'HULY')" }),
+  from: Schema.optional(Timestamp.annotate({ description: "Filter entries from this timestamp" })),
+  to: Schema.optional(Timestamp.annotate({ description: "Filter entries until this timestamp" }))
+}).annotate({ title: "GetDetailedTimeReportParams", description: "Parameters for getting detailed time breakdown" })
 
 export type GetDetailedTimeReportParams = Schema.Schema.Type<typeof GetDetailedTimeReportParamsSchema>
 
 export const ListWorkSlotsParamsSchema = Schema.Struct({
-  employeeId: Schema.optional(NonEmptyString.annotations({ description: "Filter by employee ID or email" })),
-  from: Schema.optional(Timestamp.annotations({ description: "Filter slots from this timestamp" })),
-  to: Schema.optional(Timestamp.annotations({ description: "Filter slots until this timestamp" })),
+  employeeId: Schema.optional(NonEmptyString.annotate({ description: "Filter by employee ID or email" })),
+  from: Schema.optional(Timestamp.annotate({ description: "Filter slots from this timestamp" })),
+  to: Schema.optional(Timestamp.annotate({ description: "Filter slots until this timestamp" })),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of slots to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of slots to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({ title: "ListWorkSlotsParams", description: "Parameters for listing work slots" })
+}).annotate({ title: "ListWorkSlotsParams", description: "Parameters for listing work slots" })
 
 export type ListWorkSlotsParams = Schema.Schema.Type<typeof ListWorkSlotsParamsSchema>
 
 export const StartTimerParamsSchema = Schema.Struct({
-  project: ProjectIdentifier.annotations({ description: "Project identifier (e.g., 'HULY')" }),
-  identifier: IssueIdentifier.annotations({ description: "Issue identifier (e.g., 'HULY-123' or just '123')" })
-}).annotations({ title: "StartTimerParams", description: "Parameters for starting a timer on an issue" })
+  project: ProjectIdentifier.annotate({ description: "Project identifier (e.g., 'HULY')" }),
+  identifier: IssueIdentifier.annotate({ description: "Issue identifier (e.g., 'HULY-123' or just '123')" })
+}).annotate({ title: "StartTimerParams", description: "Parameters for starting a timer on an issue" })
 
 export type StartTimerParams = Schema.Schema.Type<typeof StartTimerParamsSchema>
 
 export const StopTimerParamsSchema = Schema.Struct({
-  project: ProjectIdentifier.annotations({ description: "Project identifier (e.g., 'HULY')" }),
-  identifier: IssueIdentifier.annotations({ description: "Issue identifier (e.g., 'HULY-123' or just '123')" })
-}).annotations({ title: "StopTimerParams", description: "Parameters for stopping a timer on an issue" })
+  project: ProjectIdentifier.annotate({ description: "Project identifier (e.g., 'HULY')" }),
+  identifier: IssueIdentifier.annotate({ description: "Issue identifier (e.g., 'HULY-123' or just '123')" })
+}).annotate({ title: "StopTimerParams", description: "Parameters for stopping a timer on an issue" })
 
 export type StopTimerParams = Schema.Schema.Type<typeof StopTimerParamsSchema>
-export const logTimeParamsJsonSchema = JSONSchema.make(LogTimeParamsSchema)
-export const getTimeReportParamsJsonSchema = JSONSchema.make(GetTimeReportParamsSchema)
-export const listTimeSpendReportsParamsJsonSchema = JSONSchema.make(ListTimeSpendReportsParamsSchema)
-export const getDetailedTimeReportParamsJsonSchema = JSONSchema.make(GetDetailedTimeReportParamsSchema)
-export const listWorkSlotsParamsJsonSchema = JSONSchema.make(ListWorkSlotsParamsSchema)
-export const startTimerParamsJsonSchema = JSONSchema.make(StartTimerParamsSchema)
-export const stopTimerParamsJsonSchema = JSONSchema.make(StopTimerParamsSchema)
+export const logTimeParamsJsonSchema = toDraft07JsonSchema(LogTimeParamsSchema)
+export const getTimeReportParamsJsonSchema = toDraft07JsonSchema(GetTimeReportParamsSchema)
+export const listTimeSpendReportsParamsJsonSchema = toDraft07JsonSchema(ListTimeSpendReportsParamsSchema)
+export const getDetailedTimeReportParamsJsonSchema = toDraft07JsonSchema(GetDetailedTimeReportParamsSchema)
+export const listWorkSlotsParamsJsonSchema = toDraft07JsonSchema(ListWorkSlotsParamsSchema)
+export const startTimerParamsJsonSchema = toDraft07JsonSchema(StartTimerParamsSchema)
+export const stopTimerParamsJsonSchema = toDraft07JsonSchema(StopTimerParamsSchema)
 
-export const parseLogTimeParams = Schema.decodeUnknown(LogTimeParamsSchema)
-export const parseGetTimeReportParams = Schema.decodeUnknown(GetTimeReportParamsSchema)
-export const parseListTimeSpendReportsParams = Schema.decodeUnknown(ListTimeSpendReportsParamsSchema)
-export const parseGetDetailedTimeReportParams = Schema.decodeUnknown(GetDetailedTimeReportParamsSchema)
-export const parseListWorkSlotsParams = Schema.decodeUnknown(ListWorkSlotsParamsSchema)
-export const parseStartTimerParams = Schema.decodeUnknown(StartTimerParamsSchema)
-export const parseStopTimerParams = Schema.decodeUnknown(StopTimerParamsSchema)
+export const parseLogTimeParams = Schema.decodeUnknownEffect(LogTimeParamsSchema)
+export const parseGetTimeReportParams = Schema.decodeUnknownEffect(GetTimeReportParamsSchema)
+export const parseListTimeSpendReportsParams = Schema.decodeUnknownEffect(ListTimeSpendReportsParamsSchema)
+export const parseGetDetailedTimeReportParams = Schema.decodeUnknownEffect(GetDetailedTimeReportParamsSchema)
+export const parseListWorkSlotsParams = Schema.decodeUnknownEffect(ListWorkSlotsParamsSchema)
+export const parseStartTimerParams = Schema.decodeUnknownEffect(StartTimerParamsSchema)
+export const parseStopTimerParams = Schema.decodeUnknownEffect(StopTimerParamsSchema)
 
 export const TimeSpendReportWireSchema = TimeSpendReportSchema
 
 export const TimeReportSummarySchema = Schema.Struct({
   identifier: Schema.optional(IssueIdentifier),
-  totalTime: TimeHours.annotations({ description: timeHoursDescription("Total reported time") }),
-  estimation: Schema.optional(PositiveTimeHours.annotations({ description: timeHoursDescription("Issue estimate") })),
-  remainingTime: Schema.optional(
-    PositiveTimeHours.annotations({ description: timeHoursDescription("Remaining time") })
-  ),
+  totalTime: TimeHours.annotate({ description: timeHoursDescription("Total reported time") }),
+  estimation: Schema.optional(PositiveTimeHours.annotate({ description: timeHoursDescription("Issue estimate") })),
+  remainingTime: Schema.optional(PositiveTimeHours.annotate({ description: timeHoursDescription("Remaining time") })),
   reports: Schema.Array(TimeSpendReportWireSchema)
 })
 export type TimeReportSummary = Schema.Schema.Type<typeof TimeReportSummarySchema>
@@ -148,19 +147,19 @@ export const WorkSlotWireSchema = Schema.Struct({
 
 export const DetailedTimeReportSchema = Schema.Struct({
   project: ProjectIdentifier,
-  totalTime: TimeHours.annotations({ description: timeHoursDescription("Total reported time") }),
+  totalTime: TimeHours.annotate({ description: timeHoursDescription("Total reported time") }),
   byIssue: Schema.Array(
     Schema.Struct({
       identifier: Schema.optional(IssueIdentifier),
       issueTitle: Schema.String,
-      totalTime: TimeHours.annotations({ description: timeHoursDescription("Issue reported time") }),
+      totalTime: TimeHours.annotate({ description: timeHoursDescription("Issue reported time") }),
       reports: Schema.Array(TimeSpendReportWireSchema)
     })
   ),
   byEmployee: Schema.Array(
     Schema.Struct({
       employeeName: Schema.optional(NonEmptyString),
-      totalTime: TimeHours.annotations({ description: timeHoursDescription("Employee reported time") })
+      totalTime: TimeHours.annotate({ description: timeHoursDescription("Employee reported time") })
     })
   )
 })

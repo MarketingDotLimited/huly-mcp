@@ -83,7 +83,7 @@ export const listComments = (
     )
 
     // Spread: Schema.decodeUnknown returns readonly array; return type requires mutable
-    const validated = yield* Schema.decodeUnknown(Schema.Array(CommentSchema))(
+    const validated = yield* Schema.decodeUnknownEffect(Schema.Array(CommentSchema))(
       messages.map((msg) => ({
         id: msg._id,
         body: optionalMarkupToMarkdown(msg.message, markupUrlConfig, ""),

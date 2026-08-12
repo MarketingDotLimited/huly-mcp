@@ -133,7 +133,7 @@ const attachmentTitleOrFallback = (title: string, fallback: string): TodoAttachm
   hulyNonEmptyTextOrFallback(TodoAttachmentTitle, title, TodoAttachmentTitle.make(fallback))
 
 export const resolveTodoOwner = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   owner?: NonEmptyString
 ): Effect.Effect<
   Ref<Employee>,
@@ -174,7 +174,7 @@ export const resolveTodoOwner = (
   })
 
 export const resolveTodoAttachment = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   attachment?: TodoAttachmentInput
 ): Effect.Effect<ResolvedTodoAttachment, HulyClientError | ProjectNotFoundError | IssueNotFoundError, never> =>
   Effect.gen(function* () {
@@ -197,7 +197,7 @@ export const resolveTodoAttachment = (
   })
 
 export const latestOpenTodoRank = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   owner: Ref<Employee>
 ): Effect.Effect<TodoRank, HulyClientError> =>
   Effect.gen(function* () {
@@ -288,7 +288,7 @@ const queryFromLocator = (
 }
 
 export const findTodo = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   locator: TodoLocator,
   defaultCompletionState: TodoCompletionState = "open"
 ): Effect.Effect<HulyToDo, PlannerLookupError> =>

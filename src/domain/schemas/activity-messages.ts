@@ -1,4 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+
+import { toDraft07JsonSchema } from "./json-schema.js"
 
 import { ActivityMessageWireSchema } from "./activity.js"
 import { HULY_NATIVE_REFERENCE_MARKDOWN_INPUT } from "./document-native-references.js"
@@ -32,8 +34,8 @@ export const ActivityReferenceSchema = Schema.Struct({
 export type ActivityReference = Schema.Schema.Type<typeof ActivityReferenceSchema>
 
 export const GetActivityMessageParamsSchema = Schema.Struct({
-  messageId: ActivityMessageId.annotations({ description: "ID of the activity message to retrieve." })
-}).annotations({
+  messageId: ActivityMessageId.annotate({ description: "ID of the activity message to retrieve." })
+}).annotate({
   title: "GetActivityMessageParams",
   description: "Parameters for retrieving a single activity message by ID."
 })
@@ -41,9 +43,9 @@ export const GetActivityMessageParamsSchema = Schema.Struct({
 export type GetActivityMessageParams = Schema.Schema.Type<typeof GetActivityMessageParamsSchema>
 
 export const PinActivityMessageParamsSchema = Schema.Struct({
-  messageId: ActivityMessageId.annotations({ description: "ID of the activity message to pin or unpin." }),
-  pinned: Schema.Boolean.annotations({ description: "Whether the activity message should be pinned." })
-}).annotations({
+  messageId: ActivityMessageId.annotate({ description: "ID of the activity message to pin or unpin." }),
+  pinned: Schema.Boolean.annotate({ description: "Whether the activity message should be pinned." })
+}).annotate({
   title: "PinActivityMessageParams",
   description:
     "Parameters for pinning or unpinning an activity message. Idempotent when already in the requested state."
@@ -53,32 +55,25 @@ export type PinActivityMessageParams = Schema.Schema.Type<typeof PinActivityMess
 
 export const ListActivityFiltersParamsSchema = Schema.Struct({
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of activity filters to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of activity filters to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({
-  title: "ListActivityFiltersParams",
-  description: "Parameters for listing configured activity filters."
-})
+}).annotate({ title: "ListActivityFiltersParams", description: "Parameters for listing configured activity filters." })
 
 export type ListActivityFiltersParams = Schema.Schema.Type<typeof ListActivityFiltersParamsSchema>
 
 export const ListActivityReferencesParamsSchema = Schema.Struct({
-  objectId: DocId.annotations({ description: "Internal Huly object ID to list activity references for." }),
-  objectClass: ObjectClassName.annotations({
-    description: "Internal Huly object class to list activity references for."
-  }),
+  objectId: DocId.annotate({ description: "Internal Huly object ID to list activity references for." }),
+  objectClass: ObjectClassName.annotate({ description: "Internal Huly object class to list activity references for." }),
   direction: Schema.optional(
-    Schema.Literal("from", "to", "both").annotations({
+    Schema.Literals(["from", "to", "both"]).annotate({
       description:
         "Reference direction. 'from' lists references created by this object, 'to' lists references pointing at this object, 'both' lists either direction (default: both)."
     })
   ),
   limit: Schema.optional(
-    LimitParam.annotations({
-      description: `Maximum number of activity references to return (default: ${DEFAULT_LIMIT})`
-    })
+    LimitParam.annotate({ description: `Maximum number of activity references to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({
+}).annotate({
   title: "ListActivityReferencesParams",
   description: "Parameters for listing activity references connected to a raw Huly object."
 })
@@ -86,13 +81,11 @@ export const ListActivityReferencesParamsSchema = Schema.Struct({
 export type ListActivityReferencesParams = Schema.Schema.Type<typeof ListActivityReferencesParamsSchema>
 
 export const ListActivityRepliesParamsSchema = Schema.Struct({
-  messageId: ActivityMessageId.annotations({
-    description: "ID of the activity message whose replies should be listed."
-  }),
+  messageId: ActivityMessageId.annotate({ description: "ID of the activity message whose replies should be listed." }),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of replies to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of replies to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({
+}).annotate({
   title: "ListActivityRepliesParams",
   description: "Parameters for listing thread replies on any activity message."
 })
@@ -102,49 +95,46 @@ export type ListActivityRepliesParams = Schema.Schema.Type<typeof ListActivityRe
 // Reply bodies are free-form Markdown authored by users, not identities or closed
 // domain values, so the schema uses the primitive non-empty string validator.
 export const AddActivityReplyParamsSchema = Schema.Struct({
-  messageId: ActivityMessageId.annotations({ description: "ID of the activity message to reply to." }),
-  body: Schema.NonEmptyString.annotations({
+  messageId: ActivityMessageId.annotate({ description: "ID of the activity message to reply to." }),
+  body: Schema.NonEmptyString.annotate({
     description: `Reply body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
   })
-}).annotations({
-  title: "AddActivityReplyParams",
-  description: "Parameters for adding a reply to any activity message."
-})
+}).annotate({ title: "AddActivityReplyParams", description: "Parameters for adding a reply to any activity message." })
 
 export type AddActivityReplyParams = Schema.Schema.Type<typeof AddActivityReplyParamsSchema>
 
 export const UpdateActivityReplyParamsSchema = Schema.Struct({
-  replyId: ActivityMessageId.annotations({ description: "ID of the reply activity message to update." }),
-  body: Schema.NonEmptyString.annotations({
+  replyId: ActivityMessageId.annotate({ description: "ID of the reply activity message to update." }),
+  body: Schema.NonEmptyString.annotate({
     description: `New reply body in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
   })
-}).annotations({ title: "UpdateActivityReplyParams", description: "Parameters for updating an activity reply." })
+}).annotate({ title: "UpdateActivityReplyParams", description: "Parameters for updating an activity reply." })
 
 export type UpdateActivityReplyParams = Schema.Schema.Type<typeof UpdateActivityReplyParamsSchema>
 
 export const DeleteActivityReplyParamsSchema = Schema.Struct({
-  replyId: ActivityMessageId.annotations({ description: "ID of the reply activity message to delete." })
-}).annotations({ title: "DeleteActivityReplyParams", description: "Parameters for deleting an activity reply." })
+  replyId: ActivityMessageId.annotate({ description: "ID of the reply activity message to delete." })
+}).annotate({ title: "DeleteActivityReplyParams", description: "Parameters for deleting an activity reply." })
 
 export type DeleteActivityReplyParams = Schema.Schema.Type<typeof DeleteActivityReplyParamsSchema>
 
-export const getActivityMessageParamsJsonSchema = JSONSchema.make(GetActivityMessageParamsSchema)
-export const pinActivityMessageParamsJsonSchema = JSONSchema.make(PinActivityMessageParamsSchema)
-export const listActivityFiltersParamsJsonSchema = JSONSchema.make(ListActivityFiltersParamsSchema)
-export const listActivityReferencesParamsJsonSchema = JSONSchema.make(ListActivityReferencesParamsSchema)
-export const listActivityRepliesParamsJsonSchema = JSONSchema.make(ListActivityRepliesParamsSchema)
-export const addActivityReplyParamsJsonSchema = JSONSchema.make(AddActivityReplyParamsSchema)
-export const updateActivityReplyParamsJsonSchema = JSONSchema.make(UpdateActivityReplyParamsSchema)
-export const deleteActivityReplyParamsJsonSchema = JSONSchema.make(DeleteActivityReplyParamsSchema)
+export const getActivityMessageParamsJsonSchema = toDraft07JsonSchema(GetActivityMessageParamsSchema)
+export const pinActivityMessageParamsJsonSchema = toDraft07JsonSchema(PinActivityMessageParamsSchema)
+export const listActivityFiltersParamsJsonSchema = toDraft07JsonSchema(ListActivityFiltersParamsSchema)
+export const listActivityReferencesParamsJsonSchema = toDraft07JsonSchema(ListActivityReferencesParamsSchema)
+export const listActivityRepliesParamsJsonSchema = toDraft07JsonSchema(ListActivityRepliesParamsSchema)
+export const addActivityReplyParamsJsonSchema = toDraft07JsonSchema(AddActivityReplyParamsSchema)
+export const updateActivityReplyParamsJsonSchema = toDraft07JsonSchema(UpdateActivityReplyParamsSchema)
+export const deleteActivityReplyParamsJsonSchema = toDraft07JsonSchema(DeleteActivityReplyParamsSchema)
 
-export const parseGetActivityMessageParams = Schema.decodeUnknown(GetActivityMessageParamsSchema)
-export const parsePinActivityMessageParams = Schema.decodeUnknown(PinActivityMessageParamsSchema)
-export const parseListActivityFiltersParams = Schema.decodeUnknown(ListActivityFiltersParamsSchema)
-export const parseListActivityReferencesParams = Schema.decodeUnknown(ListActivityReferencesParamsSchema)
-export const parseListActivityRepliesParams = Schema.decodeUnknown(ListActivityRepliesParamsSchema)
-export const parseAddActivityReplyParams = Schema.decodeUnknown(AddActivityReplyParamsSchema)
-export const parseUpdateActivityReplyParams = Schema.decodeUnknown(UpdateActivityReplyParamsSchema)
-export const parseDeleteActivityReplyParams = Schema.decodeUnknown(DeleteActivityReplyParamsSchema)
+export const parseGetActivityMessageParams = Schema.decodeUnknownEffect(GetActivityMessageParamsSchema)
+export const parsePinActivityMessageParams = Schema.decodeUnknownEffect(PinActivityMessageParamsSchema)
+export const parseListActivityFiltersParams = Schema.decodeUnknownEffect(ListActivityFiltersParamsSchema)
+export const parseListActivityReferencesParams = Schema.decodeUnknownEffect(ListActivityReferencesParamsSchema)
+export const parseListActivityRepliesParams = Schema.decodeUnknownEffect(ListActivityRepliesParamsSchema)
+export const parseAddActivityReplyParams = Schema.decodeUnknownEffect(AddActivityReplyParamsSchema)
+export const parseUpdateActivityReplyParams = Schema.decodeUnknownEffect(UpdateActivityReplyParamsSchema)
+export const parseDeleteActivityReplyParams = Schema.decodeUnknownEffect(DeleteActivityReplyParamsSchema)
 
 export const ActivityFilterWireSchema = Schema.Struct({
   id: ActivityFilterId,

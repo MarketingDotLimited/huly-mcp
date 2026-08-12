@@ -26,11 +26,11 @@ import { toRef, toSocialIdentityRef } from "./sdk-boundary.js"
 const EmployeeProjectionSchema = Schema.Struct({ _id: PersonId, active: Schema.Literal(true) })
 const CalendarProjectionSchema = Schema.Struct({
   _id: CalendarId,
-  _class: Schema.Literal(calendar.class.Calendar, calendar.class.ExternalCalendar),
+  _class: Schema.Literals([calendar.class.Calendar, calendar.class.ExternalCalendar]),
   space: Schema.Literal(calendar.space.Calendar),
   user: PersonId,
   hidden: Schema.Literal(false),
-  access: Schema.Literal(AccessLevel.Writer, AccessLevel.Owner)
+  access: Schema.Literals([AccessLevel.Writer, AccessLevel.Owner])
 })
 const PlannerWorkSlotDataSchema = Schema.Struct({
   eventId: EventId,
@@ -43,7 +43,7 @@ const PlannerWorkSlotDataSchema = Schema.Struct({
   title: TodoTitle,
   allDay: Schema.Literal(false),
   access: Schema.Literal(AccessLevel.Owner),
-  visibility: Schema.Literal("public", "freeBusy"),
+  visibility: Schema.Literals(["public", "freeBusy"]),
   reminders: Schema.Array(Timestamp),
   user: PersonId
 })
@@ -80,19 +80,19 @@ const missingPrerequisite = (
 const parseEmployee = (
   value: unknown
 ): Effect.Effect<Schema.Schema.Type<typeof EmployeeProjectionSchema>, PlannerSchedulingPrerequisiteFailure> =>
-  Schema.decodeUnknown(EmployeeProjectionSchema)(value).pipe(
+  Schema.decodeUnknownEffect(EmployeeProjectionSchema)(value).pipe(
     Effect.mapError(() => new PlannerSchedulingPrerequisiteError({ prerequisite: "employee identity" }))
   )
 
 const parseCalendar = (
   value: unknown
 ): Effect.Effect<Schema.Schema.Type<typeof CalendarProjectionSchema>, PlannerSchedulingPrerequisiteFailure> =>
-  Schema.decodeUnknown(CalendarProjectionSchema)(value).pipe(
+  Schema.decodeUnknownEffect(CalendarProjectionSchema)(value).pipe(
     Effect.mapError(() => new PlannerSchedulingPrerequisiteError({ prerequisite: "personal calendar" }))
   )
 
 const resolvePlannerSchedulingContext = Effect.fn("PlannerScheduling.resolveContext")(function* (
-  client: HulyClient["Type"]
+  client: HulyClient["Service"]
 ): Effect.fn.Return<PlannerSchedulingContext, PlannerWorkSlotError> {
   const rawPrimarySocialIdentity = yield* client.findOne<SocialIdentity>(
     contact.class.SocialIdentity,
@@ -136,7 +136,7 @@ const plannerVisibility = (visibility: TodoVisibility): HulyVisibility =>
   visibility === "public" ? "public" : "freeBusy"
 
 const parseWorkSlotData = (value: unknown): Effect.Effect<PlannerWorkSlotData, HulyConnectionError> =>
-  Schema.decodeUnknown(PlannerWorkSlotDataSchema)(value).pipe(
+  Schema.decodeUnknownEffect(PlannerWorkSlotDataSchema)(value).pipe(
     Effect.mapError(
       (parseError) =>
         new HulyConnectionError({

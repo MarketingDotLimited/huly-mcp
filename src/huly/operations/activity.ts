@@ -83,12 +83,12 @@ const optionalPersonId = (value: string | undefined): PersonId | undefined =>
   value === undefined || value === "" ? undefined : PersonId.make(value)
 
 interface ActivityTarget {
-  readonly client: HulyClient["Type"]
+  readonly client: HulyClient["Service"]
   readonly objectId: DocId
   readonly objectClass: ObjectClassName
 }
 
-const activityTarget = (client: HulyClient["Type"], objectId: string, objectClass: string): ActivityTarget => ({
+const activityTarget = (client: HulyClient["Service"], objectId: string, objectClass: string): ActivityTarget => ({
   client,
   objectId: DocId.make(objectId),
   objectClass: ObjectClassName.make(objectClass)
@@ -124,7 +124,7 @@ const resolveActivityTarget = (
       return activityTarget(client, channel._id, chunter.class.Channel)
     }
 
-    return yield* Effect.dieMessage(
+    return yield* Effect.die(
       "Invalid list_activity parameters: choose objectId+objectClass, project+issueIdentifier, teamspace+document, or channel."
     )
   })
