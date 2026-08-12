@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, it } from "@effect/vitest"
-import { Effect, Redacted, Schema } from "effect"
+import { describe, it } from "@effect/vitest"
+import { ConfigProvider, Effect, Redacted, Schema } from "effect"
 import { expect } from "vitest"
 import {
   ConfigValidationError,
@@ -10,38 +10,13 @@ import {
   sanitizeHulyRuntimeConfigFromHeaders
 } from "../../src/config/config.js"
 
+const loadConfigFromEnv = (env: Record<string, string>) =>
+  HulyConfigService.pipe(
+    Effect.provide(HulyConfigService.layer),
+    Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv({ env }))
+  )
+
 describe("Config Module", () => {
-  // Store original env vars
-  const originalEnv: Record<string, string | undefined> = {}
-  const envVars = [
-    "HULY_URL",
-    "HULY_TOKEN",
-    "HULY_EMAIL",
-    "HULY_PASSWORD",
-    "HULY_WORKSPACE",
-    "HULY_CONNECTION_TIMEOUT",
-    "LAZY_ENVS"
-  ]
-
-  beforeEach(() => {
-    // Save and clear env vars
-    for (const key of envVars) {
-      originalEnv[key] = process.env[key]
-      delete process.env[key]
-    }
-  })
-
-  afterEach(() => {
-    // Restore env vars
-    for (const key of envVars) {
-      if (originalEnv[key] !== undefined) {
-        process.env[key] = originalEnv[key]
-      } else {
-        delete process.env[key]
-      }
-    }
-  })
-
   describe("HulyConfigSchema", () => {
     it.effect("validates valid config with password auth", () =>
       Effect.sync(function () {
@@ -252,13 +227,13 @@ describe("Config Module", () => {
   describe("HulyConfigService.layer (env vars)", () => {
     it.effect("loads config with password auth from env vars", () =>
       Effect.gen(function* () {
-        process.env["HULY_URL"] = "https://huly.app"
-        process.env["HULY_EMAIL"] = "user@example.com"
-        process.env["HULY_PASSWORD"] = "secret123"
-        process.env["HULY_WORKSPACE"] = "my-workspace"
-        process.env["HULY_CONNECTION_TIMEOUT"] = "60000"
-
-        const config = yield* HulyConfigService.pipe(Effect.provide(HulyConfigService.layer))
+        const config = yield* loadConfigFromEnv({
+          HULY_URL: "https://huly.app",
+          HULY_EMAIL: "user@example.com",
+          HULY_PASSWORD: "secret123",
+          HULY_WORKSPACE: "my-workspace",
+          HULY_CONNECTION_TIMEOUT: "60000"
+        })
 
         expect(config.url).toBe("https://huly.app")
         expect(config.auth._tag).toBe("password")
@@ -268,17 +243,18 @@ describe("Config Module", () => {
         }
         expect(config.workspace).toBe("my-workspace")
         expect(config.connectionTimeout).toBe(60000)
+        expect(JSON.stringify(config)).not.toContain("secret123")
       })
     )
 
     it.effect("loads config with token auth from env vars", () =>
       Effect.gen(function* () {
-        process.env["HULY_URL"] = "https://huly.app"
-        process.env["HULY_TOKEN"] = "my-api-token"
-        process.env["HULY_WORKSPACE"] = "my-workspace"
-        process.env["HULY_CONNECTION_TIMEOUT"] = "60000"
-
-        const config = yield* HulyConfigService.pipe(Effect.provide(HulyConfigService.layer))
+        const config = yield* loadConfigFromEnv({
+          HULY_URL: "https://huly.app",
+          HULY_TOKEN: "my-api-token",
+          HULY_WORKSPACE: "my-workspace",
+          HULY_CONNECTION_TIMEOUT: "60000"
+        })
 
         expect(config.url).toBe("https://huly.app")
         expect(config.auth._tag).toBe("token")
@@ -287,18 +263,19 @@ describe("Config Module", () => {
         }
         expect(config.workspace).toBe("my-workspace")
         expect(config.connectionTimeout).toBe(60000)
+        expect(JSON.stringify(config)).not.toContain("my-api-token")
       })
     )
 
     it.effect("token takes priority over password", () =>
       Effect.gen(function* () {
-        process.env["HULY_URL"] = "https://huly.app"
-        process.env["HULY_TOKEN"] = "my-api-token"
-        process.env["HULY_EMAIL"] = "user@example.com"
-        process.env["HULY_PASSWORD"] = "secret123"
-        process.env["HULY_WORKSPACE"] = "my-workspace"
-
-        const config = yield* HulyConfigService.pipe(Effect.provide(HulyConfigService.layer))
+        const config = yield* loadConfigFromEnv({
+          HULY_URL: "https://huly.app",
+          HULY_TOKEN: "my-api-token",
+          HULY_EMAIL: "user@example.com",
+          HULY_PASSWORD: "secret123",
+          HULY_WORKSPACE: "my-workspace"
+        })
 
         expect(config.auth._tag).toBe("token")
         if (config.auth._tag === "token") {
@@ -309,12 +286,12 @@ describe("Config Module", () => {
 
     it.effect("uses default timeout when not provided", () =>
       Effect.gen(function* () {
-        process.env["HULY_URL"] = "https://huly.app"
-        process.env["HULY_EMAIL"] = "user@example.com"
-        process.env["HULY_PASSWORD"] = "secret123"
-        process.env["HULY_WORKSPACE"] = "my-workspace"
-
-        const config = yield* HulyConfigService.pipe(Effect.provide(HulyConfigService.layer))
+        const config = yield* loadConfigFromEnv({
+          HULY_URL: "https://huly.app",
+          HULY_EMAIL: "user@example.com",
+          HULY_PASSWORD: "secret123",
+          HULY_WORKSPACE: "my-workspace"
+        })
 
         expect(config.connectionTimeout).toBe(HulyConfigService.DEFAULT_TIMEOUT)
       })
@@ -322,22 +299,24 @@ describe("Config Module", () => {
 
     it.effect("fails on missing required HULY_URL", () =>
       Effect.gen(function* () {
-        process.env["HULY_EMAIL"] = "user@example.com"
-        process.env["HULY_PASSWORD"] = "secret123"
-        process.env["HULY_WORKSPACE"] = "my-workspace"
-
-        const error = yield* Effect.flip(HulyConfigService.pipe(Effect.provide(HulyConfigService.layer)))
+        const error = yield* Effect.flip(
+          loadConfigFromEnv({
+            HULY_EMAIL: "user@example.com",
+            HULY_PASSWORD: "secret123",
+            HULY_WORKSPACE: "my-workspace"
+          })
+        )
 
         expect(error._tag).toBe("ConfigValidationError")
+        expect(error.field).toBe("HULY_URL")
       })
     )
 
     it.effect("fails on missing auth (no token or email/password)", () =>
       Effect.gen(function* () {
-        process.env["HULY_URL"] = "https://huly.app"
-        process.env["HULY_WORKSPACE"] = "my-workspace"
-
-        const error = yield* Effect.flip(HulyConfigService.pipe(Effect.provide(HulyConfigService.layer)))
+        const error = yield* Effect.flip(
+          loadConfigFromEnv({ HULY_URL: "https://huly.app", HULY_WORKSPACE: "my-workspace" })
+        )
 
         expect(error._tag).toBe("ConfigValidationError")
       })
@@ -345,11 +324,13 @@ describe("Config Module", () => {
 
     it.effect("fails on missing HULY_PASSWORD when using password auth", () =>
       Effect.gen(function* () {
-        process.env["HULY_URL"] = "https://huly.app"
-        process.env["HULY_EMAIL"] = "user@example.com"
-        process.env["HULY_WORKSPACE"] = "my-workspace"
-
-        const error = yield* Effect.flip(HulyConfigService.pipe(Effect.provide(HulyConfigService.layer)))
+        const error = yield* Effect.flip(
+          loadConfigFromEnv({
+            HULY_URL: "https://huly.app",
+            HULY_EMAIL: "user@example.com",
+            HULY_WORKSPACE: "my-workspace"
+          })
+        )
 
         expect(error._tag).toBe("ConfigValidationError")
       })
@@ -357,11 +338,13 @@ describe("Config Module", () => {
 
     it.effect("fails on missing required HULY_WORKSPACE", () =>
       Effect.gen(function* () {
-        process.env["HULY_URL"] = "https://huly.app"
-        process.env["HULY_EMAIL"] = "user@example.com"
-        process.env["HULY_PASSWORD"] = "secret123"
-
-        const error = yield* Effect.flip(HulyConfigService.pipe(Effect.provide(HulyConfigService.layer)))
+        const error = yield* Effect.flip(
+          loadConfigFromEnv({
+            HULY_URL: "https://huly.app",
+            HULY_EMAIL: "user@example.com",
+            HULY_PASSWORD: "secret123"
+          })
+        )
 
         expect(error._tag).toBe("ConfigValidationError")
       })
@@ -369,12 +352,14 @@ describe("Config Module", () => {
 
     it.effect("fails on invalid URL", () =>
       Effect.gen(function* () {
-        process.env["HULY_URL"] = "not-a-url"
-        process.env["HULY_EMAIL"] = "user@example.com"
-        process.env["HULY_PASSWORD"] = "secret123"
-        process.env["HULY_WORKSPACE"] = "my-workspace"
-
-        const error = yield* Effect.flip(HulyConfigService.pipe(Effect.provide(HulyConfigService.layer)))
+        const error = yield* Effect.flip(
+          loadConfigFromEnv({
+            HULY_URL: "not-a-url",
+            HULY_EMAIL: "user@example.com",
+            HULY_PASSWORD: "secret123",
+            HULY_WORKSPACE: "my-workspace"
+          })
+        )
 
         expect(error._tag).toBe("ConfigValidationError")
       })
@@ -382,27 +367,32 @@ describe("Config Module", () => {
 
     it.effect("fails on invalid timeout", () =>
       Effect.gen(function* () {
-        process.env["HULY_URL"] = "https://huly.app"
-        process.env["HULY_EMAIL"] = "user@example.com"
-        process.env["HULY_PASSWORD"] = "secret123"
-        process.env["HULY_WORKSPACE"] = "my-workspace"
-        process.env["HULY_CONNECTION_TIMEOUT"] = "not-a-number"
-
-        const error = yield* Effect.flip(HulyConfigService.pipe(Effect.provide(HulyConfigService.layer)))
+        const error = yield* Effect.flip(
+          loadConfigFromEnv({
+            HULY_URL: "https://huly.app",
+            HULY_EMAIL: "user@example.com",
+            HULY_PASSWORD: "secret123",
+            HULY_WORKSPACE: "my-workspace",
+            HULY_CONNECTION_TIMEOUT: "not-a-number"
+          })
+        )
 
         expect(error._tag).toBe("ConfigValidationError")
+        expect(error.field).toBe("HULY_CONNECTION_TIMEOUT")
       })
     )
 
     it.effect("fails on negative timeout", () =>
       Effect.gen(function* () {
-        process.env["HULY_URL"] = "https://huly.app"
-        process.env["HULY_EMAIL"] = "user@example.com"
-        process.env["HULY_PASSWORD"] = "secret123"
-        process.env["HULY_WORKSPACE"] = "my-workspace"
-        process.env["HULY_CONNECTION_TIMEOUT"] = "-100"
-
-        const error = yield* Effect.flip(HulyConfigService.pipe(Effect.provide(HulyConfigService.layer)))
+        const error = yield* Effect.flip(
+          loadConfigFromEnv({
+            HULY_URL: "https://huly.app",
+            HULY_EMAIL: "user@example.com",
+            HULY_PASSWORD: "secret123",
+            HULY_WORKSPACE: "my-workspace",
+            HULY_CONNECTION_TIMEOUT: "-100"
+          })
+        )
 
         expect(error._tag).toBe("ConfigValidationError")
       })
@@ -410,12 +400,14 @@ describe("Config Module", () => {
 
     it.effect("fails on empty password", () =>
       Effect.gen(function* () {
-        process.env["HULY_URL"] = "https://huly.app"
-        process.env["HULY_EMAIL"] = "user@example.com"
-        process.env["HULY_PASSWORD"] = ""
-        process.env["HULY_WORKSPACE"] = "my-workspace"
-
-        const error = yield* Effect.flip(HulyConfigService.pipe(Effect.provide(HulyConfigService.layer)))
+        const error = yield* Effect.flip(
+          loadConfigFromEnv({
+            HULY_URL: "https://huly.app",
+            HULY_EMAIL: "user@example.com",
+            HULY_PASSWORD: "",
+            HULY_WORKSPACE: "my-workspace"
+          })
+        )
 
         expect(error._tag).toBe("ConfigValidationError")
       })
@@ -423,12 +415,14 @@ describe("Config Module", () => {
 
     it.effect("fails on whitespace-only password", () =>
       Effect.gen(function* () {
-        process.env["HULY_URL"] = "https://huly.app"
-        process.env["HULY_EMAIL"] = "user@example.com"
-        process.env["HULY_PASSWORD"] = "   "
-        process.env["HULY_WORKSPACE"] = "my-workspace"
-
-        const error = yield* Effect.flip(HulyConfigService.pipe(Effect.provide(HulyConfigService.layer)))
+        const error = yield* Effect.flip(
+          loadConfigFromEnv({
+            HULY_URL: "https://huly.app",
+            HULY_EMAIL: "user@example.com",
+            HULY_PASSWORD: "   ",
+            HULY_WORKSPACE: "my-workspace"
+          })
+        )
 
         expect(error._tag).toBe("ConfigValidationError")
       })
@@ -436,12 +430,14 @@ describe("Config Module", () => {
 
     it.effect("fails on whitespace-only email", () =>
       Effect.gen(function* () {
-        process.env["HULY_URL"] = "https://huly.app"
-        process.env["HULY_EMAIL"] = "   "
-        process.env["HULY_PASSWORD"] = "secret123"
-        process.env["HULY_WORKSPACE"] = "my-workspace"
-
-        const error = yield* Effect.flip(HulyConfigService.pipe(Effect.provide(HulyConfigService.layer)))
+        const error = yield* Effect.flip(
+          loadConfigFromEnv({
+            HULY_URL: "https://huly.app",
+            HULY_EMAIL: "   ",
+            HULY_PASSWORD: "secret123",
+            HULY_WORKSPACE: "my-workspace"
+          })
+        )
 
         expect(error._tag).toBe("ConfigValidationError")
       })
@@ -449,11 +445,9 @@ describe("Config Module", () => {
 
     it.effect("fails on whitespace-only token", () =>
       Effect.gen(function* () {
-        process.env["HULY_URL"] = "https://huly.app"
-        process.env["HULY_TOKEN"] = "   "
-        process.env["HULY_WORKSPACE"] = "my-workspace"
-
-        const error = yield* Effect.flip(HulyConfigService.pipe(Effect.provide(HulyConfigService.layer)))
+        const error = yield* Effect.flip(
+          loadConfigFromEnv({ HULY_URL: "https://huly.app", HULY_TOKEN: "   ", HULY_WORKSPACE: "my-workspace" })
+        )
 
         expect(error._tag).toBe("ConfigValidationError")
       })
@@ -475,7 +469,7 @@ describe("Config Module", () => {
 
         const config = yield* HulyConfigService.pipe(
           Effect.provide(HulyConfigService.layer),
-          Effect.withConfigProvider(provider)
+          Effect.provideService(ConfigProvider.ConfigProvider, provider)
         )
 
         expect(config.url).toBe("https://huly.app")

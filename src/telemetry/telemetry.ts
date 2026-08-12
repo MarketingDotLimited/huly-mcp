@@ -40,6 +40,16 @@ export interface TelemetryOperations {
   readonly shutdown: () => Promise<void>
 }
 
+export interface TelemetryFactories {
+  readonly enabled: (debug: boolean, context: TelemetryRuntimeContext) => TelemetryOperations
+  readonly disabled: () => TelemetryOperations
+}
+
+const defaultTelemetryFactories: TelemetryFactories = {
+  enabled: createPostHogTelemetryWithContext,
+  disabled: createNoopTelemetry
+}
+
 const telemetryEnvNames = {
   cli: { debug: "HULY_CLI_TELEMETRY_DEBUG", enabled: "HULY_CLI_TELEMETRY" },
   mcp: { debug: "HULY_MCP_TELEMETRY_DEBUG", enabled: "HULY_MCP_TELEMETRY" }
@@ -52,14 +62,16 @@ const telemetryDebug = (surface: TelemetrySurface) =>
   Config.map(Config.string(telemetryEnvNames[surface].debug).pipe(Config.withDefault("0")), (v) => v === "1")
 
 export class TelemetryService extends Context.Service<TelemetryService, TelemetryOperations>()("@hulymcp/Telemetry") {
-  // Config reads have defaults so ConfigError cannot occur; orDie absorbs the impossible error
-  static readonly layerForContext = (context: TelemetryRuntimeContext): Layer.Layer<TelemetryService> =>
+  static readonly layerForContext = (
+    context: TelemetryRuntimeContext,
+    factories: TelemetryFactories = defaultTelemetryFactories
+  ): Layer.Layer<TelemetryService> =>
     Layer.effect(
       TelemetryService,
       Effect.gen(function* () {
         const enabled = yield* Effect.orDie(telemetryEnabled(context.surface))
         const debug = yield* Effect.orDie(telemetryDebug(context.surface))
-        return enabled ? createPostHogTelemetryWithContext(debug, context) : createNoopTelemetry()
+        return enabled ? factories.enabled(debug, context) : factories.disabled()
       })
     )
 

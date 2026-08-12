@@ -1,9 +1,10 @@
 import { describe, it } from "@effect/vitest"
-import { Effect } from "effect"
-import { afterEach, beforeEach, expect } from "vitest"
+import { ConfigProvider, Effect } from "effect"
+import { beforeEach, expect } from "vitest"
+import { cliTelemetryContext, mcpTelemetryContext, type TelemetrySurface } from "../../src/telemetry/context.js"
 import { createNoopTelemetry } from "../../src/telemetry/noop.js"
 import { createPostHogTelemetry, type PostHogTelemetryDependencies } from "../../src/telemetry/posthog.js"
-import { TelemetryService } from "../../src/telemetry/telemetry.js"
+import { TelemetryService, type TelemetryFactories } from "../../src/telemetry/telemetry.js"
 import { assertAt } from "../../src/utils/assertions.js"
 import { mockFn } from "../helpers/mock-fn.js"
 
@@ -24,6 +25,32 @@ const makeDependencies = (): PostHogTelemetryDependencies => ({
 })
 
 const createTelemetry = (debug: boolean) => createPostHogTelemetry(debug, makeDependencies())
+
+const telemetryLayerFixture = () => {
+  const enabledCalls: Array<{ readonly debug: boolean; readonly surface: TelemetrySurface }> = []
+  let disabledCalls = 0
+  let shutdownCalls = 0
+  const operations = {
+    ...createNoopTelemetry(),
+    shutdown: () => {
+      shutdownCalls++
+      return Promise.resolve()
+    }
+  }
+  const factories: TelemetryFactories = {
+    enabled: (debug, context) => {
+      enabledCalls.push({ debug, surface: context.surface })
+      return operations
+    },
+    disabled: () => {
+      disabledCalls++
+      return operations
+    }
+  }
+  return { factories, enabledCalls, disabledCalls: () => disabledCalls, shutdownCalls: () => shutdownCalls }
+}
+
+const envProvider = (env: Record<string, string>) => ConfigProvider.fromEnv({ env })
 
 describe("Telemetry", () => {
   beforeEach(() => {
@@ -138,17 +165,20 @@ describe("Telemetry", () => {
   })
 
   describe("TelemetryService", () => {
-    it.scoped("layer provides telemetry with default config (enabled)", () =>
+    it.effect("layer provides telemetry with default config (enabled)", () =>
       Effect.gen(function* () {
         const telemetry = yield* TelemetryService
         expect(telemetry.sessionStart).toBeTypeOf("function")
         expect(telemetry.firstListTools).toBeTypeOf("function")
         expect(telemetry.toolCalled).toBeTypeOf("function")
         expect(telemetry.shutdown).toBeTypeOf("function")
-      }).pipe(Effect.provide(TelemetryService.layer))
+      }).pipe(
+        Effect.provide(TelemetryService.layer),
+        Effect.provideService(ConfigProvider.ConfigProvider, envProvider({}))
+      )
     )
 
-    it.scoped("testLayer provides noop by default", () =>
+    it.effect("testLayer provides noop by default", () =>
       Effect.gen(function* () {
         const telemetry = yield* TelemetryService
         telemetry.sessionStart({ transport: "stdio", authMethod: "password", toolCount: 1, toolsets: null })
@@ -158,7 +188,7 @@ describe("Telemetry", () => {
       }).pipe(Effect.provide(TelemetryService.testLayer()))
     )
 
-    it.scoped("testLayer allows overriding operations", () => {
+    it.effect("testLayer allows overriding operations", () => {
       let called = false
       return Effect.gen(function* () {
         const telemetry = yield* TelemetryService
@@ -177,30 +207,67 @@ describe("Telemetry", () => {
   })
 
   describe("Layer selection via env", () => {
-    const envKey = "HULY_MCP_TELEMETRY"
-    let original: string | undefined
+    it.effect("constructing a layer is lazy and defaults MCP telemetry to enabled without debug", () => {
+      const fixture = telemetryLayerFixture()
+      const layer = TelemetryService.layerForContext(mcpTelemetryContext, fixture.factories)
+      expect(fixture.enabledCalls).toHaveLength(0)
+      expect(fixture.disabledCalls()).toBe(0)
 
-    beforeEach(() => {
-      original = process.env[envKey]
-    })
-
-    afterEach(() => {
-      if (original === undefined) {
-        delete process.env[envKey]
-      } else {
-        process.env[envKey] = original
-      }
-    })
-
-    it.scoped("HULY_MCP_TELEMETRY=0 yields noop (no captures)", () => {
-      process.env[envKey] = "0"
       return Effect.gen(function* () {
         const telemetry = yield* TelemetryService
-        telemetry.sessionStart({ transport: "stdio", authMethod: "password", toolCount: 0, toolsets: null })
-        telemetry.toolCalled({ toolName: "test", status: "success", durationMs: 10 })
-        // noop implementation: PostHog capture should not be called
-        expect(mockCapture.mock.calls).toHaveLength(0)
-      }).pipe(Effect.provide(TelemetryService.layer))
+        expect(fixture.enabledCalls).toEqual([{ debug: false, surface: "mcp" }])
+        expect(fixture.disabledCalls()).toBe(0)
+        yield* Effect.promise(() => telemetry.shutdown())
+        expect(fixture.shutdownCalls()).toBe(1)
+      }).pipe(Effect.provide(layer), Effect.provideService(ConfigProvider.ConfigProvider, envProvider({})))
+    })
+
+    it.effect("HULY_MCP_TELEMETRY=0 selects disabled telemetry", () => {
+      const fixture = telemetryLayerFixture()
+      return Effect.gen(function* () {
+        yield* TelemetryService
+        expect(fixture.enabledCalls).toHaveLength(0)
+        expect(fixture.disabledCalls()).toBe(1)
+      }).pipe(
+        Effect.provide(TelemetryService.layerForContext(mcpTelemetryContext, fixture.factories)),
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          envProvider({ HULY_MCP_TELEMETRY: "0", HULY_MCP_TELEMETRY_DEBUG: "1" })
+        )
+      )
+    })
+
+    it.effect("MCP debug config reaches the enabled telemetry factory", () => {
+      const fixture = telemetryLayerFixture()
+      return Effect.gen(function* () {
+        yield* TelemetryService
+        expect(fixture.enabledCalls).toEqual([{ debug: true, surface: "mcp" }])
+      }).pipe(
+        Effect.provide(TelemetryService.layerForContext(mcpTelemetryContext, fixture.factories)),
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          envProvider({ HULY_MCP_TELEMETRY: "1", HULY_MCP_TELEMETRY_DEBUG: "1" })
+        )
+      )
+    })
+
+    it.effect("CLI config uses its own enabled and debug variables", () => {
+      const fixture = telemetryLayerFixture()
+      return Effect.gen(function* () {
+        yield* TelemetryService
+        expect(fixture.enabledCalls).toEqual([{ debug: true, surface: "cli" }])
+      }).pipe(
+        Effect.provide(TelemetryService.layerForContext(cliTelemetryContext, fixture.factories)),
+        Effect.provideService(
+          ConfigProvider.ConfigProvider,
+          envProvider({
+            HULY_CLI_TELEMETRY: "1",
+            HULY_CLI_TELEMETRY_DEBUG: "1",
+            HULY_MCP_TELEMETRY: "0",
+            HULY_MCP_TELEMETRY_DEBUG: "0"
+          })
+        )
+      )
     })
   })
 })

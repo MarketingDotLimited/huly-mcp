@@ -7,8 +7,8 @@ import {
 } from "./huly-config-constants.js"
 
 type HulyConfigHeader = (typeof HULY_CONFIG_HEADERS)[number]
-const HeaderValueSchema = Schema.Union(Schema.String, Schema.Array(Schema.String), Schema.Undefined)
-const HeaderRecordSchema = Schema.Record({ key: Schema.String, value: HeaderValueSchema })
+const HeaderValueSchema = Schema.Union([Schema.String, Schema.Array(Schema.String), Schema.Undefined])
+const HeaderRecordSchema = Schema.Record(Schema.String, HeaderValueSchema)
 type HeaderValue = Schema.Schema.Type<typeof HeaderValueSchema>
 
 interface SanitizedUrlContext {
@@ -202,10 +202,10 @@ const isDefinedHeaderEntry = (
 ): entry is readonly [HulyConfigHeader, HeaderValue] => entry !== undefined
 
 const inspectHeaders = (headers: unknown): HeaderInspection => {
-  const decoded = Schema.decodeUnknownEither(HeaderRecordSchema)(headers)
-  if (decoded._tag === "Left") return emptyHeaderInspection()
+  const decoded = Schema.decodeUnknownResult(HeaderRecordSchema)(headers)
+  if (decoded._tag === "Failure") return emptyHeaderInspection()
 
-  const entries = Object.entries(decoded.right)
+  const entries = Object.entries(decoded.success)
     .map(normalizeHeaderEntry)
     .filter(([name]) => name.startsWith("x-huly-"))
   const supportedEntries = entries.map(toHulyConfigHeaderEntry).filter(isDefinedHeaderEntry)

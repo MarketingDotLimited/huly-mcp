@@ -5,8 +5,8 @@
  *
  * @module
  */
-import type { ConfigError } from "effect"
 import { Config, ConfigProvider, Context, Effect, Layer, Redacted, Schema } from "effect"
+import type { SchemaIssue } from "effect"
 
 import {
   DEFAULT_HULY_CONNECTION_TIMEOUT,
@@ -22,8 +22,8 @@ export {
 
 type HulyConfigHeader = (typeof HULY_CONFIG_HEADERS)[number]
 type HulyEnvNamePattern = `HULY_${string}`
-const HeaderValueSchema = Schema.Union(Schema.String, Schema.Array(Schema.String), Schema.Undefined)
-const HeaderRecordSchema = Schema.Record({ key: Schema.String, value: HeaderValueSchema })
+const HeaderValueSchema = Schema.Union([Schema.String, Schema.Array(Schema.String), Schema.Undefined])
+const HeaderRecordSchema = Schema.Record(Schema.String, HeaderValueSchema)
 type HeaderRecord = Schema.Schema.Type<typeof HeaderRecordSchema>
 type HeaderValue = Schema.Schema.Type<typeof HeaderValueSchema>
 type UrlHeaderEntries = ReadonlyMap<HulyConfigEnvName, string>
@@ -51,16 +51,18 @@ const isConfigMapEntry = (entry: ConfigMapEntry | undefined): entry is ConfigMap
  * Schema for URL validation - must be valid http/https URL.
  */
 const UrlSchema = Schema.String.pipe(
-  Schema.filter(
-    (s) => {
-      try {
-        const url = new URL(s)
-        return url.protocol === "http:" || url.protocol === "https:"
-      } catch {
-        return false
-      }
-    },
-    { message: () => "Must be a valid http or https URL" }
+  Schema.check(
+    Schema.makeFilter(
+      (s) => {
+        try {
+          const url = new URL(s)
+          return url.protocol === "http:" || url.protocol === "https:"
+        } catch {
+          return false
+        }
+      },
+      { message: "Must be a valid http or https URL" }
+    )
   )
 )
 
@@ -70,7 +72,7 @@ const UrlSchema = Schema.String.pipe(
  * Note: Does NOT transform the value - original string is preserved.
  */
 const NonWhitespaceString = Schema.String.pipe(
-  Schema.filter((s) => s.trim().length > 0, { message: () => "Must not be empty or whitespace-only" })
+  Schema.check(Schema.makeFilter((s) => s.trim().length > 0, { message: "Must not be empty or whitespace-only" }))
 )
 
 /**
@@ -78,27 +80,34 @@ const NonWhitespaceString = Schema.String.pipe(
  * Used for direct validation (e.g., HulyConfigSchema).
  */
 const PositiveInt = Schema.Number.pipe(
-  Schema.int({ message: () => "Must be an integer" }),
-  Schema.positive({ message: () => "Must be positive" })
+  Schema.check(
+    Schema.isInt({ message: "Must be an integer" }),
+    Schema.isGreaterThan(0, { message: "Must be positive" })
+  )
 )
 
 /**
  * Schema for positive integer from string (for env vars).
  */
 const PositiveIntFromString = Schema.NumberFromString.pipe(
-  Schema.int({ message: () => "Must be an integer" }),
-  Schema.positive({ message: () => "Must be positive" })
+  Schema.check(
+    Schema.isInt({ message: "Must be an integer" }),
+    Schema.isGreaterThan(0, { message: "Must be positive" })
+  )
 )
 
-const TokenAuthSchema = Schema.Struct({ _tag: Schema.Literal("token"), token: Schema.Redacted(NonWhitespaceString) })
+const TokenAuthSchema = Schema.Struct({
+  _tag: Schema.Literal("token"),
+  token: Schema.RedactedFromValue(NonWhitespaceString)
+})
 
 const PasswordAuthSchema = Schema.Struct({
   _tag: Schema.Literal("password"),
   email: NonWhitespaceString,
-  password: Schema.Redacted(NonWhitespaceString)
+  password: Schema.RedactedFromValue(NonWhitespaceString)
 })
 
-const AuthSchema = Schema.Union(TokenAuthSchema, PasswordAuthSchema)
+const AuthSchema = Schema.Union([TokenAuthSchema, PasswordAuthSchema])
 
 export type Auth = Schema.Schema.Type<typeof AuthSchema>
 
@@ -117,14 +126,14 @@ type HulyConfig = Schema.Schema.Type<typeof HulyConfigSchema>
 export class ConfigValidationError extends Schema.TaggedError<ConfigValidationError>()("ConfigValidationError", {
   message: Schema.String,
   field: Schema.optional(Schema.String),
-  cause: Schema.optional(Schema.Defect)
+  cause: Schema.optional(Schema.Defect())
 }) {}
 
 const configValidationError = (message: string, field: string): ConfigValidationError =>
   new ConfigValidationError({ message, field })
 
 const decodeHeaderRecord = (headers: unknown): Effect.Effect<HeaderRecord, ConfigValidationError> =>
-  Schema.decodeUnknown(HeaderRecordSchema)(headers).pipe(
+  Schema.decodeUnknownEffect(HeaderRecordSchema)(headers).pipe(
     Effect.mapError(
       (cause) =>
         new ConfigValidationError({
@@ -199,7 +208,7 @@ const parseUrlHeaderConfig = (headers: HeaderRecord): Effect.Effect<UrlHeaderCon
 
 const configProviderFromUrlHeaders = (
   config: Extract<UrlHeaderConfig, { readonly _tag: "UrlHeaders" }>
-): ConfigProvider.ConfigProvider => ConfigProvider.fromMap(new Map(config.entries))
+): ConfigProvider.ConfigProvider => ConfigProvider.fromUnknown(Object.fromEntries(config.entries))
 
 /**
  * Build an Effect ConfigProvider from URL mode headers.
@@ -220,14 +229,14 @@ export const hulyConfigProviderFromHeaders = (
   )
 
 const TokenAuthFromEnv = Config.map(
-  Schema.Config("HULY_TOKEN", Schema.Redacted(NonWhitespaceString)),
+  Config.schema(Schema.RedactedFromValue(NonWhitespaceString), "HULY_TOKEN"),
   (token): Auth => ({ _tag: "token", token })
 )
 
 const PasswordAuthFromEnv = Config.map(
   Config.all({
-    email: Schema.Config("HULY_EMAIL", NonWhitespaceString),
-    password: Schema.Config("HULY_PASSWORD", Schema.Redacted(NonWhitespaceString))
+    email: Config.schema(NonWhitespaceString, "HULY_EMAIL"),
+    password: Config.schema(Schema.RedactedFromValue(NonWhitespaceString), "HULY_PASSWORD")
   }),
   ({ email, password }): Auth => ({ _tag: "password", email, password })
 )
@@ -236,13 +245,13 @@ const AuthFromEnv = TokenAuthFromEnv.pipe(Config.orElse(() => PasswordAuthFromEn
 
 /**
  * Config definition using Effect's Config module.
- * Uses Schema.Config for consistent validation with NonWhitespaceString.
+ * Uses Config.schema for consistent validation with NonWhitespaceString.
  */
 const HulyConfigFromEnv = Config.all({
-  url: Schema.Config("HULY_URL", UrlSchema),
+  url: Config.schema(UrlSchema, "HULY_URL"),
   auth: AuthFromEnv,
-  workspace: Schema.Config("HULY_WORKSPACE", NonWhitespaceString),
-  connectionTimeout: Schema.Config("HULY_CONNECTION_TIMEOUT", PositiveIntFromString).pipe(
+  workspace: Config.schema(NonWhitespaceString, "HULY_WORKSPACE"),
+  connectionTimeout: Config.schema(PositiveIntFromString, "HULY_CONNECTION_TIMEOUT").pipe(
     Config.withDefault(DEFAULT_HULY_CONNECTION_TIMEOUT)
   )
 })
@@ -258,12 +267,27 @@ const loadConfig: Effect.Effect<HulyConfig, ConfigValidationError> = HulyConfigF
   )
 )
 
-const extractFieldFromConfigError = (error: ConfigError.ConfigError): string | undefined => {
-  const message = error.message
-  // Try to extract key name from message like "Expected HULY_URL to exist..."
-  const match = message.match(/Expected\s+(\w+)\s+to/)
-  return match?.[1]
+const fieldFromIssue = (issue: SchemaIssue.Issue): string | undefined => {
+  switch (issue._tag) {
+    case "Pointer": {
+      const field = issue.path.find(
+        (segment): segment is string => typeof segment === "string" && segment.startsWith("HULY_")
+      )
+      return field ?? fieldFromIssue(issue.issue)
+    }
+    case "Filter":
+    case "Encoding":
+      return fieldFromIssue(issue.issue)
+    case "Composite":
+    case "AnyOf":
+      return issue.issues.map(fieldFromIssue).find((field) => field !== undefined)
+    default:
+      return undefined
+  }
 }
+
+const extractFieldFromConfigError = (error: Config.ConfigError): string | undefined =>
+  Schema.isSchemaError(error.cause) ? fieldFromIssue(error.cause.issue) : undefined
 
 export class HulyConfigService extends Context.Service<HulyConfigService, HulyConfig>()("@hulymcp/HulyConfig") {
   static readonly DEFAULT_TIMEOUT = DEFAULT_HULY_CONNECTION_TIMEOUT

@@ -255,6 +255,34 @@ cascades without migrating the domain-owned `Service["Type"]` projections.
 The remaining `Layer.scoped` failures stay assigned to #217; config, Schema,
 MCP lifecycle/HTTP, domain, and CLI failures retain their existing owners.
 
+## Ticket #216 configuration and telemetry delta
+
+The typed configuration boundary now uses exact rc.108 `Config.schema`,
+`Config.ConfigError`, Schema checks, Result/Effect decoders, and explicit
+`ConfigProvider` services. Raw token and password values decode through
+`Schema.RedactedFromValue`; header configuration uses a request-owned in-memory
+provider. Focused tests no longer mutate ambient `process.env`. Telemetry remains
+a lazy layer recipe, keeps MCP and CLI variables isolated, and preserves its
+existing explicit shutdown ownership.
+
+```bash
+mise exec node@22.22.2 -- pnpm exec vitest run \
+  test/config/config.test.ts \
+  test/config/config-headers.property.test.ts \
+  test/telemetry/telemetry.test.ts
+```
+
+Result: 3 files and 75 tests pass. The matrix covers missing, malformed,
+empty-string, default, override, token-priority, header-provider, redaction,
+telemetry enablement/debug selection, lazy construction, CLI/MCP isolation, and
+callable shutdown behavior. Owned-source TypeScript diagnostics are zero.
+
+The compiler inventory falls from 7,363 diagnostics in 462 files to 7,262 in
+457 files: 4,642 in `src` (288 files), 2,099 in `test` (128 files), 358 in
+`scripts` (30 files), and 163 in `packages` (11 files). Remaining runtime-layer,
+domain Schema, MCP lifecycle/transport, script, and CLI diagnostics retain their
+assigned tickets.
+
 ## Ledger maintenance rule
 
 Every migration batch must rerun the focused surface it owns and update this
