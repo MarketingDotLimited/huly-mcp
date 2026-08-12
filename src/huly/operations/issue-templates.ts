@@ -132,7 +132,7 @@ type RemoveTemplateChildError =
   | TemplateChildNotFoundError
 
 const findTemplateByIdOrTitle = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   projectId: Ref<HulyProject>,
   templateIdOrTitle: string
 ): Effect.Effect<HulyIssueTemplate | undefined, HulyClientError> =>
@@ -154,7 +154,7 @@ const findProjectAndTemplate = (params: {
   project: string
   template: string
 }): Effect.Effect<
-  { client: HulyClient["Type"]; project: HulyProject; template: HulyIssueTemplate },
+  { client: HulyClient["Service"]; project: HulyProject; template: HulyIssueTemplate },
   ProjectNotFoundError | IssueTemplateNotFoundError | HulyClientError,
   HulyClient
 > =>
@@ -173,7 +173,7 @@ const findProjectAndTemplate = (params: {
 // --- Child resolution helpers ---
 
 const resolveTemplateReferenceLabels = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   assignee: Ref<Person> | null,
   component: Ref<HulyComponent> | null
 ): Effect.Effect<{ readonly assigneeName?: string; readonly componentLabel?: string }, HulyClientError> =>
@@ -196,7 +196,7 @@ const resolveTemplateReferenceLabels = (
 const templateChildProjection = (
   child: HulyIssueTemplateChild,
   markupUrlConfig: MarkupUrlConfig,
-  labels: Effect.Effect.Success<ReturnType<typeof resolveTemplateReferenceLabels>>
+  labels: Effect.Success<ReturnType<typeof resolveTemplateReferenceLabels>>
 ): IssueTemplateChild => {
   const rawEstimation = zeroAsUnset(NonNegativeNumber.make(child.estimation))
   const estimation = rawEstimation === undefined ? undefined : PositiveTimeHours.make(rawEstimation)
@@ -216,7 +216,7 @@ const templateChildProjection = (
  * Looks up assignee name and component label from refs.
  */
 const resolveChild = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   markupUrlConfig: MarkupUrlConfig,
   child: HulyIssueTemplateChild
 ): Effect.Effect<IssueTemplateChild, HulyClientError> =>
@@ -229,7 +229,7 @@ const resolveChild = (
  * Build a HulyIssueTemplateChild from a ChildTemplateInput, resolving assignee and component refs.
  */
 const buildTemplateChild = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   markupUrlConfig: MarkupUrlConfig,
   projectId: Ref<HulyProject>,
   projectIdentifier: string,
@@ -398,7 +398,7 @@ export const createIssueTemplate = (
   })
 
 const resolveIssueFromTemplateAssignee = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: CreateIssueFromTemplateParams,
   template: HulyIssueTemplate
 ): Effect.Effect<CreateIssueParams["assignee"], HulyClientError> =>
@@ -435,11 +435,11 @@ const templateChildUpdate = (child: HulyIssueTemplateChild): DocumentUpdate<Huly
 })
 
 const createTemplateChildIssues = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   project: HulyProject,
   template: HulyIssueTemplate,
   params: CreateIssueFromTemplateParams,
-  parentResult: Effect.Effect.Success<ReturnType<typeof createIssue>>,
+  parentResult: Effect.Success<ReturnType<typeof createIssue>>,
   title: CreateIssueParams["title"],
   markupUrlConfig: MarkupUrlConfig
 ): Effect.Effect<void, CreateIssueFromTemplateError, HulyClient | Diagnostics> =>

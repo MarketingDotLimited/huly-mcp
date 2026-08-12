@@ -131,7 +131,7 @@ export const moveIssue = (params: MoveIssueParams): Effect.Effect<MoveIssueResul
   })
 
 const updateDescendantParents = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   spaceId: Ref<HulyProject>,
   parentIssue: HulyIssue,
   parentNewParents: Array<IssueParentInfo>

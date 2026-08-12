@@ -21,7 +21,7 @@ const normalizeMilestoneLabel = (label: MilestoneIdentifier | MilestoneLabel): N
   NormalizedMilestoneLabel.make(label.trim().toLowerCase())
 
 const findMilestoneById = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   project: HulyProject,
   identifier: MilestoneIdentifier
 ): Effect.Effect<HulyMilestone | undefined, HulyClientError> =>
@@ -31,7 +31,7 @@ const findMilestoneById = (
   )
 
 const parseMilestoneRef = (milestone: HulyMilestone): Effect.Effect<IssueMilestoneRef, HulyConnectionError> =>
-  Schema.decodeUnknown(IssueMilestoneRefSchema)({ id: milestone._id, label: milestone.label }).pipe(
+  Schema.decodeUnknownEffect(IssueMilestoneRefSchema)({ id: milestone._id, label: milestone.label }).pipe(
     Effect.mapError(
       (cause) =>
         new HulyConnectionError({
@@ -42,7 +42,7 @@ const parseMilestoneRef = (milestone: HulyMilestone): Effect.Effect<IssueMilesto
   )
 
 export const resolveIssueFilterMilestone = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   project: HulyProject,
   identifier: MilestoneIdentifier,
   projectIdentifier: ProjectIdentifier
@@ -80,7 +80,7 @@ export const resolveIssueFilterMilestone = (
   })
 
 export const resolveMilestoneExact = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   project: HulyProject,
   identifier: MilestoneIdentifier,
   projectIdentifier: ProjectIdentifier

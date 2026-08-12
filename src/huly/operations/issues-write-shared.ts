@@ -15,7 +15,7 @@ import type { WorkflowStatus } from "./issues-shared.js"
 import { hulyQuery } from "./query-helpers.js"
 
 export const resolveAssignee = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   assigneeIdentifier: string
 ): Effect.Effect<Person, PersonNotFoundError | HulyClientError> =>
   Effect.gen(function* () {
@@ -52,7 +52,7 @@ const mergeTaskTypes = (first: ReadonlyArray<TaskType>, second: ReadonlyArray<Ta
 }
 
 export const resolveTaskTypeWorkflow = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   project: HulyProject,
   projectType: ProjectType | undefined,
   projectStatuses: ReadonlyArray<WorkflowStatus>,

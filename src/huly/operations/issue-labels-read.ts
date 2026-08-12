@@ -1,7 +1,7 @@
 import type { Doc, Ref } from "@hcengineering/core"
 import type { TagReference } from "@hcengineering/tags"
 import type { Issue as HulyIssue } from "@hcengineering/tracker"
-import { Effect, Either, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 
 import type { Label } from "../../domain/schemas/issues.js"
 import { ColorCode, IssueId, NonEmptyString, TagReferenceId } from "../../domain/schemas/shared.js"
@@ -17,7 +17,7 @@ const IssueLabelAttachmentBoundarySchema = Schema.Struct({
   attachedTo: IssueId,
   title: Schema.optional(Schema.Unknown),
   color: Schema.optional(Schema.Unknown)
-}).annotations({
+}).annotate({
   title: "IssueLabelAttachmentBoundary",
   description:
     "Partial Huly TagReference fields used to project issue labels. Missing or malformed presentation fields are handled by stable projection rules."
@@ -52,9 +52,9 @@ type IssueLabelCandidateProjection =
     }
   | { readonly _tag: "Rejected"; readonly degradationReason: "malformed_attachment" | "missing_or_malformed_title" }
 
-const decodeAttachment = Schema.decodeUnknownEither(IssueLabelAttachmentBoundarySchema)
-const decodeTitle = Schema.decodeUnknownEither(NonEmptyString)
-const decodeColor = Schema.decodeUnknownEither(ColorCode)
+const decodeAttachment = Schema.decodeUnknownResult(IssueLabelAttachmentBoundarySchema)
+const decodeTitle = Schema.decodeUnknownResult(NonEmptyString)
+const decodeColor = Schema.decodeUnknownResult(ColorCode)
 const toDocRef = (id: Ref<HulyIssue>): Ref<Doc> => toRef(IssueId.make(id))
 const toIssueRef: (id: IssueId) => Ref<HulyIssue> = toRef
 
@@ -78,25 +78,25 @@ const compareCandidates = (left: IssueLabelCandidate, right: IssueLabelCandidate
 
 const toCandidate = (input: unknown): IssueLabelCandidateProjection => {
   const attachment = decodeAttachment(input)
-  if (Either.isLeft(attachment)) {
+  if (Result.isFailure(attachment)) {
     return { _tag: "Rejected", degradationReason: "malformed_attachment" }
   }
 
-  const title = decodeTitle(attachment.right.title)
-  if (Either.isLeft(title)) {
+  const title = decodeTitle(attachment.success.title)
+  if (Result.isFailure(title)) {
     return { _tag: "Rejected", degradationReason: "missing_or_malformed_title" }
   }
 
-  const colorInput = attachment.right.color
+  const colorInput = attachment.success.color
   const color = colorInput === undefined ? undefined : decodeColor(colorInput)
   const candidate: IssueLabelCandidate = {
-    referenceId: attachment.right._id,
-    issueId: attachment.right.attachedTo,
-    title: title.right,
-    normalizedTitle: normalizeLabelTitle(title.right),
-    ...(color !== undefined && Either.isRight(color) ? { color: color.right } : {})
+    referenceId: attachment.success._id,
+    issueId: attachment.success.attachedTo,
+    title: title.success,
+    normalizedTitle: normalizeLabelTitle(title.success),
+    ...(color !== undefined && Result.isSuccess(color) ? { color: color.success } : {})
   }
-  return color !== undefined && Either.isLeft(color)
+  return color !== undefined && Result.isFailure(color)
     ? { _tag: "DegradedSuccess", candidate, degradationReason: "invalid_color" }
     : { _tag: "Success", candidate }
 }
@@ -175,7 +175,7 @@ export const issueIdsMatchingLabel = (index: IssueLabelIndex, label: NonEmptyStr
 }
 
 export const loadIssueLabelIndex = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   space: TagReference["space"],
   issueIds?: ReadonlyArray<Ref<HulyIssue>>
 ): Effect.Effect<IssueLabelIndex, HulyClientError, Diagnostics> =>

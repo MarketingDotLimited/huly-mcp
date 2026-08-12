@@ -24,7 +24,7 @@ export const milestoneForIssue = (index: IssueMilestoneIndex, issue: HulyIssue):
   issue.milestone === null || issue.milestone === undefined ? undefined : index.get(MilestoneId.make(issue.milestone))
 
 export const loadIssueMilestoneIndex = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   project: HulyProject,
   issues: ReadonlyArray<HulyIssue>
 ): Effect.Effect<IssueMilestoneIndex, HulyClientError, Diagnostics> =>

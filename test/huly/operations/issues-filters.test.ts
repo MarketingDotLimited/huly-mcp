@@ -1,8 +1,7 @@
 import { describe, it } from "@effect/vitest"
 import type { Attribute, Class, Doc, FindResult, PersonId, Ref, Space, Status } from "@hcengineering/core"
 import { type Issue as HulyIssue, type Project as HulyProject, TimeReportDayType } from "@hcengineering/tracker"
-import type { ParseResult } from "effect"
-import { Effect, Exit, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 import { expect } from "vitest"
 
 import { type ListIssuesInput, ListIssuesParamsSchema } from "../../../src/domain/schemas/issues.js"
@@ -108,12 +107,10 @@ const createTestLayer = (config: MockConfig) => {
   return HulyClient.testLayer({ findAll: findAllImpl, findOne: findOneImpl })
 }
 
-const expectParseFailure = (exit: Exit.Exit<unknown, ParseResult.ParseError>): string => {
-  expect(Exit.isFailure(exit)).toBe(true)
-  if (!Exit.isFailure(exit)) throw new Error("unreachable")
-  const fail = exit.cause
-  if (fail._tag !== "Fail") throw new Error("expected Fail cause")
-  return fail.error.message
+const expectParseFailure = (result: Result.Result<unknown, Schema.SchemaError>): string => {
+  expect(Result.isFailure(result)).toBe(true)
+  if (!Result.isFailure(result)) throw new Error("unreachable")
+  return result.failure.message
 }
 
 describe("listIssues filters", () => {
@@ -379,9 +376,11 @@ describe("listIssues filters", () => {
 
   describe("mutual exclusion", () => {
     it("rejects titleSearch + titleRegex", async () => {
-      const result = await Effect.runPromiseExit(
-        Schema.decodeUnknown(ListIssuesParamsSchema)({ project: "TEST", titleSearch: "bug", titleRegex: "BUG%" })
-      )
+      const result = Schema.decodeUnknownResult(ListIssuesParamsSchema)({
+        project: "TEST",
+        titleSearch: "bug",
+        titleRegex: "BUG%"
+      })
 
       const msg = expectParseFailure(result)
       expect(msg).toContain("titleSearch")
@@ -389,9 +388,11 @@ describe("listIssues filters", () => {
     })
 
     it("rejects assignee + hasAssignee", async () => {
-      const result = await Effect.runPromiseExit(
-        Schema.decodeUnknown(ListIssuesParamsSchema)({ project: "TEST", assignee: "test@test.com", hasAssignee: true })
-      )
+      const result = Schema.decodeUnknownResult(ListIssuesParamsSchema)({
+        project: "TEST",
+        assignee: "test@test.com",
+        hasAssignee: true
+      })
 
       const msg = expectParseFailure(result)
       expect(msg).toContain("assignee")
@@ -399,9 +400,11 @@ describe("listIssues filters", () => {
     })
 
     it("rejects component + hasComponent", async () => {
-      const result = await Effect.runPromiseExit(
-        Schema.decodeUnknown(ListIssuesParamsSchema)({ project: "TEST", component: "frontend", hasComponent: true })
-      )
+      const result = Schema.decodeUnknownResult(ListIssuesParamsSchema)({
+        project: "TEST",
+        component: "frontend",
+        hasComponent: true
+      })
 
       const msg = expectParseFailure(result)
       expect(msg).toContain("component")
@@ -409,9 +412,11 @@ describe("listIssues filters", () => {
     })
 
     it("rejects milestone + hasMilestone", async () => {
-      const result = await Effect.runPromiseExit(
-        Schema.decodeUnknown(ListIssuesParamsSchema)({ project: "TEST", milestone: "Sprint 1", hasMilestone: true })
-      )
+      const result = Schema.decodeUnknownResult(ListIssuesParamsSchema)({
+        project: "TEST",
+        milestone: "Sprint 1",
+        hasMilestone: true
+      })
 
       const msg = expectParseFailure(result)
       expect(msg).toContain("milestone")
@@ -419,9 +424,11 @@ describe("listIssues filters", () => {
     })
 
     it("rejects parentIssue + isTopLevel: true", async () => {
-      const result = await Effect.runPromiseExit(
-        Schema.decodeUnknown(ListIssuesParamsSchema)({ project: "TEST", parentIssue: "TEST-1", isTopLevel: true })
-      )
+      const result = Schema.decodeUnknownResult(ListIssuesParamsSchema)({
+        project: "TEST",
+        parentIssue: "TEST-1",
+        isTopLevel: true
+      })
 
       const msg = expectParseFailure(result)
       expect(msg).toContain("parentIssue")
@@ -429,11 +436,13 @@ describe("listIssues filters", () => {
     })
 
     it("allows parentIssue + isTopLevel: false", async () => {
-      const result = await Effect.runPromiseExit(
-        Schema.decodeUnknown(ListIssuesParamsSchema)({ project: "TEST", parentIssue: "TEST-1", isTopLevel: false })
-      )
+      const result = Schema.decodeUnknownResult(ListIssuesParamsSchema)({
+        project: "TEST",
+        parentIssue: "TEST-1",
+        isTopLevel: false
+      })
 
-      expect(Exit.isSuccess(result)).toBe(true)
+      expect(Result.isSuccess(result)).toBe(true)
     })
   })
 })

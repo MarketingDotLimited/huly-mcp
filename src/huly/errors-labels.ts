@@ -30,7 +30,7 @@ export class TagIdentifierAmbiguousError extends Schema.TaggedError<TagIdentifie
   "TagIdentifierAmbiguousError",
   {
     identifier: TagIdentifier,
-    candidateIds: Schema.Array(TagElementId).pipe(Schema.minItems(MIN_AMBIGUOUS_LABEL_MATCHES))
+    candidateIds: Schema.Array(TagElementId).check(Schema.isMinLength(MIN_AMBIGUOUS_LABEL_MATCHES))
   }
 ) {
   override get message(): NonEmptyString {
@@ -40,4 +40,4 @@ export class TagIdentifierAmbiguousError extends Schema.TaggedError<TagIdentifie
   }
 }
 
-export const LabelDomainError = Schema.Union(TagNotFoundError, TagCategoryNotFoundError, TagIdentifierAmbiguousError)
+export const LabelDomainError = Schema.Union([TagNotFoundError, TagCategoryNotFoundError, TagIdentifierAmbiguousError])

@@ -18,7 +18,7 @@ import {
   parseUpdateMilestoneParams,
   setIssueMilestoneParamsJsonSchema,
   updateMilestoneParamsJsonSchema
-} from "../../../src/domain/schemas.js"
+} from "../../../src/domain/schemas/milestones.js"
 
 type JsonSchemaObject = {
   $schema?: string
@@ -38,7 +38,7 @@ describe("Milestone Schemas", () => {
     it.effect("accepts all valid statuses", () =>
       Effect.gen(function* () {
         for (const status of MilestoneStatusValues) {
-          const result = yield* Schema.decodeUnknown(MilestoneStatusSchema)(status)
+          const result = yield* Schema.decodeUnknownEffect(MilestoneStatusSchema)(status)
           expect(result).toBe(status)
         }
       })
@@ -46,15 +46,15 @@ describe("Milestone Schemas", () => {
 
     it.effect("rejects invalid status", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(Schema.decodeUnknown(MilestoneStatusSchema)("invalid"))
-        expect(error._tag).toBe("ParseError")
+        const error = yield* Effect.flip(Schema.decodeUnknownEffect(MilestoneStatusSchema)("invalid"))
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects empty string", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(Schema.decodeUnknown(MilestoneStatusSchema)(""))
-        expect(error._tag).toBe("ParseError")
+        const error = yield* Effect.flip(Schema.decodeUnknownEffect(MilestoneStatusSchema)(""))
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -90,7 +90,7 @@ describe("Milestone Schemas", () => {
         const error = yield* Effect.flip(
           parseMilestoneSummary({ label: "Sprint 1", status: "planned", targetDate: 1706500000000 })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -99,7 +99,7 @@ describe("Milestone Schemas", () => {
         const error = yield* Effect.flip(
           parseMilestoneSummary({ id: "  ", label: "Sprint 1", status: "planned", targetDate: 1706500000000 })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -108,7 +108,7 @@ describe("Milestone Schemas", () => {
         const error = yield* Effect.flip(
           parseMilestoneSummary({ id: "milestone-1", label: "Sprint 1", status: "invalid", targetDate: 1706500000000 })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -117,7 +117,7 @@ describe("Milestone Schemas", () => {
         const error = yield* Effect.flip(
           parseMilestoneSummary({ id: "milestone-1", label: "Sprint 1", status: "planned", targetDate: -1 })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -187,7 +187,7 @@ describe("Milestone Schemas", () => {
             project: "  "
           })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -211,42 +211,42 @@ describe("Milestone Schemas", () => {
     it.effect("rejects empty project", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListMilestonesParams({ project: "  " }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects missing project", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListMilestonesParams({}))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects negative limit", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListMilestonesParams({ project: "HULY", limit: -1 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects zero limit", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListMilestonesParams({ project: "HULY", limit: 0 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects non-integer limit", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListMilestonesParams({ project: "HULY", limit: 10.5 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects limit over 200", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListMilestonesParams({ project: "HULY", limit: 201 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -278,14 +278,14 @@ describe("Milestone Schemas", () => {
     it.effect("rejects missing milestone", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseGetMilestoneParams({ project: "HULY" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects empty milestone", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseGetMilestoneParams({ project: "HULY", milestone: "  " }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -332,14 +332,14 @@ describe("Milestone Schemas", () => {
         const error = yield* Effect.flip(
           parseCreateMilestoneParams({ project: "HULY", label: "  ", targetDate: 1706500000000 })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects missing targetDate", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseCreateMilestoneParams({ project: "HULY", label: "Sprint 1" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -348,7 +348,7 @@ describe("Milestone Schemas", () => {
         const error = yield* Effect.flip(
           parseCreateMilestoneParams({ project: "HULY", label: "Sprint 1", targetDate: -1 })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -357,7 +357,7 @@ describe("Milestone Schemas", () => {
         const error = yield* Effect.flip(
           parseCreateMilestoneParams({ project: "HULY", label: "Sprint 1", targetDate: 1706500000000.5 })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -366,7 +366,7 @@ describe("Milestone Schemas", () => {
     it.effect("rejects minimal params and advertises update-field requirement in JSON Schema", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseUpdateMilestoneParams({ project: "HULY", milestone: "Sprint 1" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
 
         const schema = expectJsonSchemaObject(updateMilestoneParamsJsonSchema)
         expect(schema.anyOf).toEqual(
@@ -452,7 +452,7 @@ describe("Milestone Schemas", () => {
         const error = yield* Effect.flip(
           parseUpdateMilestoneParams({ project: "HULY", milestone: "Sprint 1", status: "invalid" })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -461,7 +461,7 @@ describe("Milestone Schemas", () => {
         const error = yield* Effect.flip(
           parseUpdateMilestoneParams({ project: "HULY", milestone: "Sprint 1", label: "  " })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -490,7 +490,7 @@ describe("Milestone Schemas", () => {
     it.effect("rejects missing milestone field", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseSetIssueMilestoneParams({ project: "HULY", identifier: "HULY-123" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -499,7 +499,7 @@ describe("Milestone Schemas", () => {
         const error = yield* Effect.flip(
           parseSetIssueMilestoneParams({ project: "HULY", identifier: "  ", milestone: "Sprint 1" })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -528,14 +528,14 @@ describe("Milestone Schemas", () => {
     it.effect("rejects empty project", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseDeleteMilestoneParams({ project: "  ", milestone: "Sprint 1" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects empty milestone", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseDeleteMilestoneParams({ project: "HULY", milestone: "  " }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })

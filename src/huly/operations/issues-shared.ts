@@ -2,7 +2,7 @@ import type { Ref, Status, StatusCategory, WithLookup } from "@hcengineering/cor
 import type { ProjectType } from "@hcengineering/task"
 import type { Issue as HulyIssue, Project as HulyProject } from "@hcengineering/tracker"
 import { IssuePriority } from "@hcengineering/tracker"
-import { Effect, Either, ParseResult, Schema } from "effect"
+import { Effect, Result, Schema, SchemaGetter } from "effect"
 
 import type { IssuePriority as IssuePriorityStr } from "../../domain/schemas/issues.js"
 import type { NonNegativeNumber } from "../../domain/schemas/shared.js"
@@ -32,7 +32,7 @@ type ProjectWithType = WithLookup<HulyProject> & { $lookup?: { type?: ProjectTyp
 export const findProject = (
   projectIdentifier: string
 ): Effect.Effect<
-  { client: HulyClient["Type"]; project: HulyProject },
+  { client: HulyClient["Service"]; project: HulyProject },
   ProjectNotFoundError | HulyClientError,
   HulyClient
 > =>
@@ -51,31 +51,28 @@ export const findProject = (
 
 export type WorkflowStatus = { _id: Ref<Status>; name: StatusName; category: StatusCategoryValue }
 
-const StatusRefSchema = Schema.transformOrFail(
-  IssueStatusId,
-  Schema.declare((input): input is Ref<Status> => typeof input === "string"),
-  {
-    strict: true,
-    decode: (input) => ParseResult.succeed(toRef<Status>(input)),
-    encode: (input) => ParseResult.succeed(IssueStatusId.make(input))
-  }
+const StatusRefSchema = IssueStatusId.pipe(
+  Schema.decodeTo(
+    Schema.declare((input): input is Ref<Status> => typeof input === "string"),
+    {
+      decode: SchemaGetter.transform(toRef<Status>),
+      encode: SchemaGetter.transform((input) => IssueStatusId.make(input))
+    }
+  )
 )
 
-const StatusCategoryRefSchema = Schema.transformOrFail(
-  Schema.String,
-  Schema.declare((input): input is Ref<StatusCategory> => typeof input === "string"),
-  {
-    strict: true,
-    decode: (input) => ParseResult.succeed(toRef<StatusCategory>(input)),
-    encode: (input) => ParseResult.succeed(input)
-  }
+const StatusCategoryRefSchema = Schema.String.pipe(
+  Schema.decodeTo(
+    Schema.declare((input): input is Ref<StatusCategory> => typeof input === "string"),
+    { decode: SchemaGetter.transform(toRef<StatusCategory>), encode: SchemaGetter.transform((input) => input) }
+  )
 )
 
 export const StatusMetadataSchema = Schema.Struct({
   _id: StatusRefSchema,
   name: StatusName,
   category: Schema.optional(StatusCategoryRefSchema)
-}).annotations({
+}).annotate({
   title: "StatusMetadata",
   description: "Huly model-space workflow status fields consumed by tracker operations."
 })
@@ -88,12 +85,12 @@ interface ParsedStatusRows {
 }
 
 const parseStatusRows = (rows: ReadonlyArray<unknown>): ParsedStatusRows => {
-  const decode = Schema.decodeUnknownEither(StatusMetadataSchema)
+  const decode = Schema.decodeUnknownResult(StatusMetadataSchema)
   const parsed = rows.map((row) => decode(row))
-  const valid = parsed.flatMap((row) => (Either.isRight(row) ? [row.right] : []))
+  const valid = parsed.flatMap((row) => (Result.isSuccess(row) ? [row.success] : []))
   return {
     statuses: valid,
-    invalidRows: Count.make(parsed.filter(Either.isLeft).length),
+    invalidRows: Count.make(parsed.filter(Result.isFailure).length),
     categoryFidelityLoss: {
       missing: Count.make(valid.filter((status) => status.category === undefined).length),
       empty: Count.make(valid.filter((status) => status.category === "").length),
@@ -182,7 +179,10 @@ const modelStatusState = (result: StatusLookupResult, docs: ReadonlyArray<Status
   return docs.length === 0 ? "model metadata unavailable" : "partial model metadata"
 }
 
-const warnInvalidAuthoritativeStatuses = (diagnostics: Diagnostics["Type"], invalidRows: Count): Effect.Effect<void> =>
+const warnInvalidAuthoritativeStatuses = (
+  diagnostics: Diagnostics["Service"],
+  invalidRows: Count
+): Effect.Effect<void> =>
   invalidRows === 0
     ? Effect.void
     : diagnostics.warnAgent({
@@ -193,7 +193,7 @@ const warnInvalidAuthoritativeStatuses = (diagnostics: Diagnostics["Type"], inva
       })
 
 const warnAuthoritativeCategoryFidelityLoss = (
-  diagnostics: Diagnostics["Type"],
+  diagnostics: Diagnostics["Service"],
   parsed: ParsedStatusRows
 ): Effect.Effect<void> => {
   const { empty, missing, unrecognized } = parsed.categoryFidelityLoss
@@ -211,7 +211,7 @@ const warnAuthoritativeCategoryFidelityLoss = (
 }
 
 const warnStatusCompatibilityResult = (
-  diagnostics: Diagnostics["Type"],
+  diagnostics: Diagnostics["Service"],
   modelResult: StatusLookupResult,
   modelDocs: ReadonlyArray<StatusMetadata>,
   remoteDocs: ReadonlyArray<StatusMetadata>,
@@ -238,7 +238,7 @@ const warnStatusCompatibilityResult = (
 }
 
 export const findStatusDocs = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   statusRefs: ReadonlyArray<Ref<Status>>
 ): Effect.Effect<ReadonlyArray<StatusMetadata>, HulyClientError, Diagnostics> =>
   Effect.gen(function* () {
@@ -281,7 +281,7 @@ export const findProjectWithStatuses = (
   projectIdentifier: string
 ): Effect.Effect<
   {
-    client: HulyClient["Type"]
+    client: HulyClient["Service"]
     project: HulyProject
     projectType: ProjectType | undefined
     statuses: Array<WorkflowStatus>
@@ -346,7 +346,7 @@ export const parseIssueIdentifier = (
 }
 
 export const findIssueInProject = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   project: HulyProject,
   identifierStr: string
 ): Effect.Effect<HulyIssue, IssueNotFoundError | HulyClientError> =>
@@ -372,7 +372,7 @@ export const findProjectAndIssue = (params: {
   project: string
   identifier: string
 }): Effect.Effect<
-  { client: HulyClient["Type"]; project: HulyProject; issue: HulyIssue },
+  { client: HulyClient["Service"]; project: HulyProject; issue: HulyIssue },
   ProjectNotFoundError | IssueNotFoundError | HulyClientError,
   HulyClient
 > =>

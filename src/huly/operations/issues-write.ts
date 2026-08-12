@@ -74,11 +74,11 @@ const requireUpdatedSequence = (
     : Effect.succeed(sequence)
 }
 
-type ProjectWorkflowData = Effect.Effect.Success<ReturnType<typeof findProjectWithStatuses>>
-type CreateIssueTaskTypeWorkflow = Effect.Effect.Success<ReturnType<typeof resolveTaskTypeWorkflow>>
+type ProjectWorkflowData = Effect.Success<ReturnType<typeof findProjectWithStatuses>>
+type CreateIssueTaskTypeWorkflow = Effect.Success<ReturnType<typeof resolveTaskTypeWorkflow>>
 
 const resolveCreateIssueTaskType = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   project: HulyProject,
   workflow: Pick<ProjectWorkflowData, "projectType" | "statuses">,
   params: CreateIssueParams
@@ -101,7 +101,7 @@ const resolveCreateIssueStatus = (
 }
 
 const resolveCreateIssueAssignee = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   params: CreateIssueParams
 ): Effect.Effect<Ref<Person> | null, HulyClientError | PersonNotFoundError> =>
   params.assignee === undefined
@@ -111,7 +111,7 @@ const resolveCreateIssueAssignee = (
 const renderCreateIssueDescription = (
   params: CreateIssueParams
 ): Effect.Effect<
-  Effect.Effect.Success<ReturnType<typeof renderIssueDescriptionForWrite>> | undefined,
+  Effect.Success<ReturnType<typeof renderIssueDescriptionForWrite>> | undefined,
   IssueReferenceError,
   HulyClient
 > =>
@@ -120,7 +120,7 @@ const renderCreateIssueDescription = (
     : Effect.succeed(undefined)
 
 const resolveCreateIssueParent = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   project: HulyProject,
   parentIssue: CreateIssueParams["parentIssue"]
 ): Effect.Effect<ReturnType<typeof topLevelIssueParent>, HulyClientError | IssueNotFoundError> =>
@@ -129,9 +129,9 @@ const resolveCreateIssueParent = (
     : Effect.map(findIssueInProject(client, project, parentIssue), (parent) => childIssueParent(parent, project._id))
 
 const uploadCreateIssueDescription = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   issueId: Ref<HulyIssue>,
-  renderedDescription: Effect.Effect.Success<ReturnType<typeof renderIssueDescriptionForWrite>> | undefined
+  renderedDescription: Effect.Success<ReturnType<typeof renderIssueDescriptionForWrite>> | undefined
 ): Effect.Effect<MarkupBlobRef | null, HulyClientError> =>
   renderedDescription === undefined
     ? Effect.succeed(null)

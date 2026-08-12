@@ -16,7 +16,7 @@ import type {
 import { toFindResult } from "@hcengineering/core"
 import type { Asset, IntlString } from "@hcengineering/platform"
 import type { ProjectType, Task, TaskType } from "@hcengineering/task"
-import { Effect, Either, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 import { expect } from "vitest"
 
 import { HulyClient, type HulyClientError, type HulyClientOperations } from "../../../src/huly/client.js"
@@ -229,12 +229,12 @@ describe("generic workflow status reads", () => {
     Effect.gen(function* () {
       const result = yield* getWorkflowStatus({ status: WorkflowStatusIdentifier.make("In Progress") }).pipe(
         Effect.provide(createWorkflowLayer(fixtures)),
-        Effect.either
+        Effect.result
       )
 
-      expect(Either.isLeft(result)).toBe(true)
-      if (Either.isLeft(result)) {
-        expect(result.left._tag).toBe(
+      expect(Result.isFailure(result)).toBe(true)
+      if (Result.isFailure(result)) {
+        expect(result.failure._tag).toBe(
           "WorkflowStatusIdentifierAmbiguousError" satisfies WorkflowStatusIdentifierAmbiguousError["_tag"]
         )
       }
@@ -280,17 +280,17 @@ describe("generic workflow status reads", () => {
       const localFixtures = { ...fixtures, categories: [...fixtures.categories, leadCategory] }
       const attributeResult = yield* listWorkflowStatuses({ ofAttribute: HulyAttributeIdentifier.make("status") }).pipe(
         Effect.provide(createWorkflowLayer(localFixtures)),
-        Effect.either
+        Effect.result
       )
       const categoryResult = yield* getStatusCategory({ category: StatusCategoryIdentifier.make("Active") }).pipe(
         Effect.provide(createWorkflowLayer(localFixtures)),
-        Effect.either
+        Effect.result
       )
 
-      expect(Either.isLeft(attributeResult) && attributeResult.left._tag).toBe(
+      expect(Result.isFailure(attributeResult) && attributeResult.failure._tag).toBe(
         "WorkflowAttributeIdentifierAmbiguousError"
       )
-      expect(Either.isLeft(categoryResult) && categoryResult.left._tag).toBe(
+      expect(Result.isFailure(categoryResult) && categoryResult.failure._tag).toBe(
         "WorkflowStatusCategoryIdentifierAmbiguousError"
       )
     })
@@ -300,11 +300,11 @@ describe("generic workflow status reads", () => {
     Effect.gen(function* () {
       const missingStatus = yield* getWorkflowStatus({ status: WorkflowStatusIdentifier.make("Missing") }).pipe(
         Effect.provide(createWorkflowLayer(fixtures)),
-        Effect.either
+        Effect.result
       )
       const missingCategory = yield* getStatusCategory({ category: StatusCategoryIdentifier.make("Missing") }).pipe(
         Effect.provide(createWorkflowLayer(fixtures)),
-        Effect.either
+        Effect.result
       )
       const brokenAttribute = makeStatus(
         "status-broken-attribute",
@@ -321,13 +321,13 @@ describe("generic workflow status reads", () => {
         status: WorkflowStatusIdentifier.make(brokenAttribute._id)
       }).pipe(
         Effect.provide(createWorkflowLayer({ ...fixtures, statuses: [...fixtures.statuses, brokenAttribute] })),
-        Effect.either
+        Effect.result
       )
       const invalidCategory = yield* getWorkflowStatus({
         status: WorkflowStatusIdentifier.make(brokenCategory._id)
       }).pipe(
         Effect.provide(createWorkflowLayer({ ...fixtures, statuses: [...fixtures.statuses, brokenCategory] })),
-        Effect.either
+        Effect.result
       )
       const invalidDefault = yield* getStatusCategory({
         category: StatusCategoryIdentifier.make("category-invalid-default")
@@ -341,14 +341,18 @@ describe("generic workflow status reads", () => {
             ]
           })
         ),
-        Effect.either
+        Effect.result
       )
 
-      expect(Either.isLeft(missingStatus) && missingStatus.left._tag).toBe("WorkflowStatusNotFoundError")
-      expect(Either.isLeft(missingCategory) && missingCategory.left._tag).toBe("WorkflowStatusCategoryNotFoundError")
-      expect(Either.isLeft(invalidAttribute) && invalidAttribute.left._tag).toBe("WorkflowRelationshipInvalidError")
-      expect(Either.isLeft(invalidCategory) && invalidCategory.left._tag).toBe("WorkflowRelationshipInvalidError")
-      expect(Either.isLeft(invalidDefault) && invalidDefault.left._tag).toBe("WorkflowRelationshipInvalidError")
+      expect(Result.isFailure(missingStatus) && missingStatus.failure._tag).toBe("WorkflowStatusNotFoundError")
+      expect(Result.isFailure(missingCategory) && missingCategory.failure._tag).toBe(
+        "WorkflowStatusCategoryNotFoundError"
+      )
+      expect(Result.isFailure(invalidAttribute) && invalidAttribute.failure._tag).toBe(
+        "WorkflowRelationshipInvalidError"
+      )
+      expect(Result.isFailure(invalidCategory) && invalidCategory.failure._tag).toBe("WorkflowRelationshipInvalidError")
+      expect(Result.isFailure(invalidDefault) && invalidDefault.failure._tag).toBe("WorkflowRelationshipInvalidError")
     })
   )
 
@@ -363,14 +367,14 @@ describe("generic workflow status reads", () => {
       const localFixtures = { ...fixtures, statuses: [...fixtures.statuses, crossAttribute] }
       const statusResult = yield* getWorkflowStatus({ status: WorkflowStatusIdentifier.make(crossAttribute._id) }).pipe(
         Effect.provide(createWorkflowLayer(localFixtures)),
-        Effect.either
+        Effect.result
       )
       const categoryResult = yield* getStatusCategory({
         category: StatusCategoryIdentifier.make(activeCategory._id)
-      }).pipe(Effect.provide(createWorkflowLayer(localFixtures)), Effect.either)
+      }).pipe(Effect.provide(createWorkflowLayer(localFixtures)), Effect.result)
 
-      expect(Either.isRight(statusResult) && statusResult.right.category?.categoryId).toBe(activeCategory._id)
-      expect(Either.isRight(categoryResult) && categoryResult.right.statusCount).toBe(2)
+      expect(Result.isSuccess(statusResult) && statusResult.success.category?.categoryId).toBe(activeCategory._id)
+      expect(Result.isSuccess(categoryResult) && categoryResult.success.statusCount).toBe(2)
     })
   )
 
@@ -381,10 +385,10 @@ describe("generic workflow status reads", () => {
       }).pipe(Effect.provide(createWorkflowLayer(fixtures)))
       const missing = yield* listWorkflowStatuses({
         ofAttribute: HulyAttributeIdentifier.make("missing:attribute")
-      }).pipe(Effect.provide(createWorkflowLayer(fixtures)), Effect.either)
+      }).pipe(Effect.provide(createWorkflowLayer(fixtures)), Effect.result)
 
       expect(byLabel.total).toBe(2)
-      expect(Either.isLeft(missing) && missing.left._tag).toBe("WorkflowAttributeNotFoundError")
+      expect(Result.isFailure(missing) && missing.failure._tag).toBe("WorkflowAttributeNotFoundError")
     })
   )
 })
@@ -472,7 +476,7 @@ describe("generic workflow status writes", () => {
         Effect.provide(
           createWorkflowLayer({ attributes: [...fixtures.attributes, unsupported], categories: [], statuses: [] })
         ),
-        Effect.either
+        Effect.result
       )
       const capture: { attributes?: Record<string, unknown> } = {}
       const category = yield* createStatusCategory({
@@ -481,7 +485,9 @@ describe("generic workflow status writes", () => {
         defaultStatus: WorkflowStatusIdentifier.make("Done")
       }).pipe(Effect.provide(createStatusMutationLayer(fixtures, capture)))
 
-      expect(Either.isLeft(unsupportedResult) && unsupportedResult.left._tag).toBe("WorkflowAttributeUnsupportedError")
+      expect(Result.isFailure(unsupportedResult) && unsupportedResult.failure._tag).toBe(
+        "WorkflowAttributeUnsupportedError"
+      )
       expect(category.category.color).toBe(0)
       expect(category.category.order).toBe(0)
       expect(capture.attributes).toMatchObject({ icon: core.icon.TypeString, color: 0, order: 0 })
@@ -532,9 +538,9 @@ describe("generic workflow status writes", () => {
       const result = yield* updateWorkflowStatus({
         status: WorkflowStatusIdentifier.make("status-progress"),
         name: StatusName.make("Reviewing")
-      }).pipe(Effect.provide(createWorkflowLayer(fixtures)), Effect.either)
+      }).pipe(Effect.provide(createWorkflowLayer(fixtures)), Effect.result)
 
-      expect(Either.isLeft(result) && result.left._tag).toBe("WorkflowStatusInUseError")
+      expect(Result.isFailure(result) && result.failure._tag).toBe("WorkflowStatusInUseError")
     })
   )
 
@@ -596,7 +602,7 @@ describe("generic workflow status writes", () => {
       const conflict = yield* updateWorkflowStatus({
         status: WorkflowStatusIdentifier.make("status-done"),
         name: StatusName.make("In Progress")
-      }).pipe(Effect.provide(createWorkflowLayer(fixtures)), Effect.either)
+      }).pipe(Effect.provide(createWorkflowLayer(fixtures)), Effect.result)
       const categorized = makeStatus("status-categorized", "Categorized", issueAttribute._id, activeCategory._id)
       const sharedCategoryMove = yield* updateWorkflowStatus({
         status: WorkflowStatusIdentifier.make(categorized._id),
@@ -612,7 +618,7 @@ describe("generic workflow status writes", () => {
         color: [2, 3],
         description: "Finished"
       })
-      expect(Either.isLeft(conflict) && conflict.left._tag).toBe("WorkflowStatusNameConflictError")
+      expect(Result.isFailure(conflict) && conflict.failure._tag).toBe("WorkflowStatusNameConflictError")
       expect(sharedCategoryMove.status.ofAttribute.attributeId).toBe(leadAttribute._id)
       expect(sharedCategoryMove.status.category?.categoryId).toBe(activeCategory._id)
     })
@@ -630,7 +636,7 @@ describe("generic workflow status writes", () => {
         label: Schema.decodeUnknownSync(WorkflowLabelSchema)("Duplicate")
       }).pipe(
         Effect.provide(createWorkflowLayer({ ...fixtures, categories: [...fixtures.categories, duplicate] })),
-        Effect.either
+        Effect.result
       )
 
       const unused = makeCategory("category-safe-move", "Safe", issueAttribute._id, "Done")
@@ -651,7 +657,9 @@ describe("generic workflow status writes", () => {
 
       expect(movedSharedCategory.category.ofAttribute.attributeId).toBe(leadAttribute._id)
       expect(movedSharedCategory.category.statusCount).toBe(1)
-      expect(Either.isLeft(labelConflict) && labelConflict.left._tag).toBe("WorkflowStatusCategoryLabelConflictError")
+      expect(Result.isFailure(labelConflict) && labelConflict.failure._tag).toBe(
+        "WorkflowStatusCategoryLabelConflictError"
+      )
       expect(moved.category.ofAttribute.attributeId).toBe(leadAttribute._id)
       expect(capture.updateOperations).toEqual({
         label: "Lead Safe",
@@ -668,10 +676,10 @@ describe("generic workflow status writes", () => {
     Effect.gen(function* () {
       const result = yield* deleteStatusCategory({ category: StatusCategoryIdentifier.make(activeCategory._id) }).pipe(
         Effect.provide(createWorkflowLayer(fixtures)),
-        Effect.either
+        Effect.result
       )
 
-      expect(Either.isLeft(result) && result.left._tag).toBe("WorkflowStatusCategoryInUseError")
+      expect(Result.isFailure(result) && result.failure._tag).toBe("WorkflowStatusCategoryInUseError")
     })
   )
 
@@ -679,10 +687,10 @@ describe("generic workflow status writes", () => {
     Effect.gen(function* () {
       const result = yield* deleteWorkflowStatus({ status: WorkflowStatusIdentifier.make("status-progress") }).pipe(
         Effect.provide(createWorkflowLayer(fixtures)),
-        Effect.either
+        Effect.result
       )
 
-      expect(Either.isLeft(result) && result.left._tag).toBe("WorkflowStatusInUseError")
+      expect(Result.isFailure(result) && result.failure._tag).toBe("WorkflowStatusInUseError")
     })
   )
 
@@ -705,12 +713,16 @@ describe("generic workflow status writes", () => {
             tasks: [taskRow]
           })
         ),
-        Effect.either
+        Effect.result
       )
 
-      expect(Either.isLeft(result) && result.left._tag).toBe("WorkflowStatusInUseError")
-      if (Either.isLeft(result) && result.left._tag === "WorkflowStatusInUseError") {
-        expect(result.left.references.map((reference) => reference.kind)).toEqual(["project-type", "task-type", "task"])
+      expect(Result.isFailure(result) && result.failure._tag).toBe("WorkflowStatusInUseError")
+      if (Result.isFailure(result) && result.failure._tag === "WorkflowStatusInUseError") {
+        expect(result.failure.references.map((reference) => reference.kind)).toEqual([
+          "project-type",
+          "task-type",
+          "task"
+        ])
       }
     })
   )
@@ -737,10 +749,10 @@ describe("generic workflow status writes", () => {
             statuses: [...fixtures.statuses, movable]
           })
         ),
-        Effect.either
+        Effect.result
       )
 
-      expect(Either.isLeft(result) && result.left._tag).toBe("WorkflowStatusClassMismatchError")
+      expect(Result.isFailure(result) && result.failure._tag).toBe("WorkflowStatusClassMismatchError")
     })
   )
 

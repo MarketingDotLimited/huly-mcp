@@ -37,7 +37,7 @@ export class WorkflowAttributeIdentifierAmbiguousError extends Schema.TaggedErro
   "WorkflowAttributeIdentifierAmbiguousError",
   {
     identifier: HulyAttributeIdentifier,
-    matches: Schema.Array(AmbiguousAttributeMatchSchema).pipe(Schema.minItems(MINIMUM_AMBIGUOUS_MATCHES))
+    matches: Schema.Array(AmbiguousAttributeMatchSchema).check(Schema.isMinLength(MINIMUM_AMBIGUOUS_MATCHES))
   }
 ) {
   override get message(): string {
@@ -59,7 +59,7 @@ export class WorkflowStatusIdentifierAmbiguousError extends Schema.TaggedError<W
   "WorkflowStatusIdentifierAmbiguousError",
   {
     identifier: WorkflowStatusIdentifier,
-    matches: Schema.Array(AmbiguousStatusMatchSchema).pipe(Schema.minItems(MINIMUM_AMBIGUOUS_MATCHES))
+    matches: Schema.Array(AmbiguousStatusMatchSchema).check(Schema.isMinLength(MINIMUM_AMBIGUOUS_MATCHES))
   }
 ) {
   override get message(): string {
@@ -81,7 +81,7 @@ export class WorkflowStatusCategoryIdentifierAmbiguousError extends Schema.Tagge
   "WorkflowStatusCategoryIdentifierAmbiguousError",
   {
     identifier: StatusCategoryIdentifier,
-    matches: Schema.Array(AmbiguousCategoryMatchSchema).pipe(Schema.minItems(MINIMUM_AMBIGUOUS_MATCHES))
+    matches: Schema.Array(AmbiguousCategoryMatchSchema).check(Schema.isMinLength(MINIMUM_AMBIGUOUS_MATCHES))
   }
 ) {
   override get message(): string {
@@ -135,12 +135,12 @@ export class WorkflowStatusCategoryLabelConflictError extends Schema.TaggedError
   }
 }
 
-export const WorkflowStatusReferenceSchema = Schema.Union(
+export const WorkflowStatusReferenceSchema = Schema.Union([
   Schema.Struct({ kind: Schema.Literal("status-category-default"), categoryId: StatusCategoryId }),
   Schema.Struct({ kind: Schema.Literal("project-type"), projectTypeId: ProjectTypeId }),
   Schema.Struct({ kind: Schema.Literal("task-type"), taskTypeId: TaskTypeId }),
   Schema.Struct({ kind: Schema.Literal("task"), taskId: DocId })
-)
+])
 export type WorkflowStatusReference = Schema.Schema.Type<typeof WorkflowStatusReferenceSchema>
 
 const workflowReferenceDescription = (reference: WorkflowStatusReference): string => {
@@ -158,7 +158,7 @@ const workflowReferenceDescription = (reference: WorkflowStatusReference): strin
 
 export class WorkflowStatusInUseError extends Schema.TaggedError<WorkflowStatusInUseError>()(
   "WorkflowStatusInUseError",
-  { statusId: WorkflowStatusId, references: Schema.Array(WorkflowStatusReferenceSchema).pipe(Schema.minItems(1)) }
+  { statusId: WorkflowStatusId, references: Schema.Array(WorkflowStatusReferenceSchema).check(Schema.isNonEmpty()) }
 ) {
   override get message(): string {
     const references = this.references.map(workflowReferenceDescription).join(", ")
@@ -168,14 +168,14 @@ export class WorkflowStatusInUseError extends Schema.TaggedError<WorkflowStatusI
 
 export class WorkflowStatusCategoryInUseError extends Schema.TaggedError<WorkflowStatusCategoryInUseError>()(
   "WorkflowStatusCategoryInUseError",
-  { categoryId: StatusCategoryId, statusIds: Schema.Array(WorkflowStatusId).pipe(Schema.minItems(1)) }
+  { categoryId: StatusCategoryId, statusIds: Schema.Array(WorkflowStatusId).check(Schema.isNonEmpty()) }
 ) {
   override get message(): string {
     return `Workflow status category '${this.categoryId}' is referenced by statuses ${this.statusIds.join(", ")}; move or clear those relationships before deleting it`
   }
 }
 
-export const WorkflowStatusDomainError = Schema.Union(
+export const WorkflowStatusDomainError = Schema.Union([
   WorkflowAttributeNotFoundError,
   WorkflowAttributeIdentifierAmbiguousError,
   WorkflowStatusNotFoundError,
@@ -189,4 +189,4 @@ export const WorkflowStatusDomainError = Schema.Union(
   WorkflowStatusCategoryLabelConflictError,
   WorkflowStatusInUseError,
   WorkflowStatusCategoryInUseError
-)
+])

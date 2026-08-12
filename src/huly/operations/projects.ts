@@ -65,7 +65,7 @@ export const listProjects = (
 
     const total = projects.total
 
-    const validated = yield* Schema.decodeUnknown(Schema.Array(ProjectSummarySchema))(
+    const validated = yield* Schema.decodeUnknownEffect(Schema.Array(ProjectSummarySchema))(
       projects.map((project) => ({
         identifier: project.identifier,
         name: project.name,

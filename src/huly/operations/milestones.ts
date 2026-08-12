@@ -79,7 +79,7 @@ const findProjectAndMilestone = (params: {
   project: ProjectIdentifier
   milestone: MilestoneIdentifier
 }): Effect.Effect<
-  { client: HulyClient["Type"]; project: HulyProject; milestone: HulyMilestone },
+  { client: HulyClient["Service"]; project: HulyProject; milestone: HulyMilestone },
   ProjectNotFoundError | MilestoneNotFoundError | HulyClientError,
   HulyClient
 > =>

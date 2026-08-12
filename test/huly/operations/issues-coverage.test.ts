@@ -386,17 +386,17 @@ const createTestLayerWithMocks = (config: MockConfig) => {
 describe("Issues Coverage - resolveStatusName", () => {
   it.effect("round-trips minimal status metadata through its boundary schema", () =>
     Effect.gen(function* () {
-      const parsedWithCategory = yield* Schema.decodeUnknown(StatusMetadataSchema)({
+      const parsedWithCategory = yield* Schema.decodeUnknownEffect(StatusMetadataSchema)({
         _id: "status-active",
         name: "Active",
         category: task.statusCategory.Active
       })
-      const parsedWithoutCategory = yield* Schema.decodeUnknown(StatusMetadataSchema)({
+      const parsedWithoutCategory = yield* Schema.decodeUnknownEffect(StatusMetadataSchema)({
         _id: "status-todo",
         name: "Todo"
       })
-      const withCategory = yield* Schema.encode(StatusMetadataSchema)(parsedWithCategory)
-      const withoutCategory = yield* Schema.encode(StatusMetadataSchema)(parsedWithoutCategory)
+      const withCategory = yield* Schema.encodeEffect(StatusMetadataSchema)(parsedWithCategory)
+      const withoutCategory = yield* Schema.encodeEffect(StatusMetadataSchema)(parsedWithoutCategory)
       const brandedName: StatusName = parsedWithCategory.name
 
       expect(withCategory).toEqual({ _id: "status-active", name: "Active", category: task.statusCategory.Active })

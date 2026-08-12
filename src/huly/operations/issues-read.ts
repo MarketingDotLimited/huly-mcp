@@ -88,7 +88,7 @@ const statusIdsByCategory = (
 ): Array<Ref<Status>> => statuses.filter((status) => status.category === category).map((status) => status._id)
 
 const applyStatusAndAssigneeFilters = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   query: StrictDocumentQuery<IssueWithLookup>,
   statuses: ReadonlyArray<WorkflowStatus>,
   params: ListIssuesParams
@@ -112,7 +112,7 @@ const applyStatusAndAssigneeFilters = (
   })
 
 const applyCreatorFilter = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   query: StrictDocumentQuery<IssueWithLookup>,
   creatorIdentifier: ListIssuesParams["creator"]
 ): Effect.Effect<boolean, ListIssuesError> =>
@@ -151,7 +151,7 @@ const applyIssuePresenceFilters = (query: StrictDocumentQuery<IssueWithLookup>, 
 }
 
 const applyIssueScopeFilters = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   query: StrictDocumentQuery<IssueWithLookup>,
   project: ProjectWorkflowData["project"],
   params: ListIssuesParams
@@ -170,7 +170,7 @@ const applyIssueScopeFilters = (
   })
 
 const applyIssueMilestoneFilter = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   query: StrictDocumentQuery<IssueWithLookup>,
   project: ProjectWorkflowData["project"],
   params: ListIssuesParams
@@ -182,10 +182,10 @@ const applyIssueMilestoneFilter = (
     else if (params.hasMilestone === false) query.milestone = null
   })
 
-type ProjectWorkflowData = Effect.Effect.Success<ReturnType<typeof findProjectWithStatuses>>
+type ProjectWorkflowData = Effect.Success<ReturnType<typeof findProjectWithStatuses>>
 
 const applyIssueQueryFilters = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   query: StrictDocumentQuery<IssueWithLookup>,
   project: ProjectWorkflowData["project"],
   statuses: ReadonlyArray<WorkflowStatus>,
@@ -204,9 +204,9 @@ const applyIssueQueryFilters = (
 const issueSummaryProjection = (
   issue: IssueWithLookup,
   statuses: ReadonlyArray<WorkflowStatus>,
-  labelIndex: Effect.Effect.Success<ReturnType<typeof loadIssueLabelIndex>>,
-  milestoneIndex: Effect.Effect.Success<ReturnType<typeof loadIssueMilestoneIndex>>,
-  creatorIndex: Effect.Effect.Success<ReturnType<typeof loadIssueCreatorIndex>>
+  labelIndex: Effect.Success<ReturnType<typeof loadIssueLabelIndex>>,
+  milestoneIndex: Effect.Success<ReturnType<typeof loadIssueMilestoneIndex>>,
+  creatorIndex: Effect.Success<ReturnType<typeof loadIssueCreatorIndex>>
 ) => {
   const directParent = issue.parents.length > 0 ? issue.parents[issue.parents.length - 1] : undefined
   const milestone = milestoneForIssue(milestoneIndex, issue)
@@ -228,7 +228,7 @@ const issueSummaryProjection = (
 }
 
 const findIssueForRead = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   project: ProjectWorkflowData["project"],
   params: GetIssueParams
 ): Effect.Effect<HulyIssue, HulyClientError | IssueNotFoundError> =>
@@ -250,7 +250,7 @@ const findIssueForRead = (
   })
 
 const loadIssueAssignee = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   issue: HulyIssue
 ): Effect.Effect<Person | undefined, HulyClientError> =>
   issue.assignee === null
@@ -258,7 +258,7 @@ const loadIssueAssignee = (
     : client.findOne<Person>(contact.class.Person, hulyQuery<Person>({ _id: issue.assignee }))
 
 const loadIssueDescription = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   issue: HulyIssue
 ): Effect.Effect<string | undefined, HulyClientError> =>
   issue.description
@@ -365,8 +365,8 @@ export const listIssues = (
       issueSummaryProjection(issue, statuses, labelIndex, milestoneIndex, creatorIndex)
     )
 
-    // Spread: Schema.decodeUnknown returns readonly array; return type requires mutable
-    const validated = yield* Schema.decodeUnknown(Schema.Array(IssueSummarySchema))(rawSummaries).pipe(
+    // Spread: Schema decoding returns a readonly array; return type requires mutable
+    const validated = yield* Schema.decodeUnknownEffect(Schema.Array(IssueSummarySchema))(rawSummaries).pipe(
       Effect.mapError(
         (parseError) =>
           new HulyConnectionError({

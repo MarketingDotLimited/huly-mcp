@@ -41,7 +41,7 @@ export const hasConcreteIssueParent = (issue: Pick<HulyIssue, "attachedTo" | "at
   issue.attachedToClass === tracker.class.Issue && issue.attachedTo !== tracker.ids.NoParent
 
 export const attachIssueChild = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   project: Ref<HulyProject>,
   child: Ref<HulyIssue>,
   parentIssue: Pick<HulyIssue, "_id" | "identifier" | "parents" | "title">,

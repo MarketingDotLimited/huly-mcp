@@ -389,7 +389,7 @@ describe("issue write task type support", () => {
   it.effect("rejects a status that exists in the project but not on the selected task type", () =>
     Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         createIssue({
           project: projectIdentifier("TEST"),
           title: "Bug with issue-only status",
@@ -398,10 +398,10 @@ describe("issue write task type support", () => {
         }).pipe(Effect.provide(createLayer({ captures })), withDiagnostics)
       )
 
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left.message).toContain("not valid for task type 'Bug'")
-        expect(result.left.message).toContain("list_task_types")
+      expect(result._tag).toBe("Failure")
+      if (result._tag === "Failure") {
+        expect(result.failure.message).toContain("not valid for task type 'Bug'")
+        expect(result.failure.message).toContain("list_task_types")
       }
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
@@ -411,7 +411,7 @@ describe("issue write task type support", () => {
   it.effect("rejects an unknown task type before incrementing the project sequence", () =>
     Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         createIssue({
           project: projectIdentifier("TEST"),
           title: "Unknown task type",
@@ -419,11 +419,11 @@ describe("issue write task type support", () => {
         }).pipe(Effect.provide(createLayer({ captures })), withDiagnostics)
       )
 
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left.message).toContain("Task type 'Story' was not found")
-        expect(result.left.message).toContain("Available task types: Issue")
-        expect(result.left.message).toContain("Bug")
+      expect(result._tag).toBe("Failure")
+      if (result._tag === "Failure") {
+        expect(result.failure.message).toContain("Task type 'Story' was not found")
+        expect(result.failure.message).toContain("Available task types: Issue")
+        expect(result.failure.message).toContain("Bug")
       }
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
@@ -433,7 +433,7 @@ describe("issue write task type support", () => {
   it.effect("rejects task type when the project does not expose workflow data", () =>
     Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         createIssue({
           project: projectIdentifier("TEST"),
           title: "No workflow",
@@ -441,9 +441,9 @@ describe("issue write task type support", () => {
         }).pipe(Effect.provide(createLayer({ captures, projectType: null })), withDiagnostics)
       )
 
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left.message).toContain("does not expose a project type/workflow")
+      expect(result._tag).toBe("Failure")
+      if (result._tag === "Failure") {
+        expect(result.failure.message).toContain("does not expose a project type/workflow")
       }
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
@@ -453,7 +453,7 @@ describe("issue write task type support", () => {
   it.effect("rejects ambiguous task type names within the project workflow", () =>
     Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         createIssue({
           project: projectIdentifier("TEST"),
           title: "Ambiguous task type",
@@ -466,9 +466,9 @@ describe("issue write task type support", () => {
         )
       )
 
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left.message).toContain("matched more than one task type")
+      expect(result._tag).toBe("Failure")
+      if (result._tag === "Failure") {
+        expect(result.failure.message).toContain("matched more than one task type")
       }
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
@@ -478,7 +478,7 @@ describe("issue write task type support", () => {
   it.effect("rejects task type when the project workflow has no configured task types", () =>
     Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         createIssue({
           project: projectIdentifier("TEST"),
           title: "No configured task types",
@@ -489,9 +489,9 @@ describe("issue write task type support", () => {
         )
       )
 
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left.message).toContain("No task types are configured")
+      expect(result._tag).toBe("Failure")
+      if (result._tag === "Failure") {
+        expect(result.failure.message).toContain("No task types are configured")
       }
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
@@ -501,7 +501,7 @@ describe("issue write task type support", () => {
   it.effect("rejects task type when neither current nor default status can be chosen", () =>
     Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         createIssue({
           project: projectIdentifier("TEST"),
           title: "No task type status",
@@ -519,9 +519,9 @@ describe("issue write task type support", () => {
         )
       )
 
-      expect(result._tag).toBe("Left")
-      if (result._tag === "Left") {
-        expect(result.left.message).toContain("Valid statuses for this task type")
+      expect(result._tag).toBe("Failure")
+      if (result._tag === "Failure") {
+        expect(result.failure.message).toContain("Valid statuses for this task type")
       }
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
@@ -559,7 +559,7 @@ describe("issue write task type support", () => {
   it.effect("rejects a project status before incrementing the project sequence", () =>
     Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         createIssue({
           project: projectIdentifier("TEST"),
           title: "Unknown status",
@@ -567,7 +567,7 @@ describe("issue write task type support", () => {
         }).pipe(Effect.provide(createLayer({ captures })), withDiagnostics)
       )
 
-      expect(result._tag).toBe("Left")
+      expect(result._tag).toBe("Failure")
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
     })
@@ -576,7 +576,7 @@ describe("issue write task type support", () => {
   it.effect("rejects an unknown parent issue before incrementing the project sequence", () =>
     Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         createIssue({
           project: projectIdentifier("TEST"),
           title: "Child issue",
@@ -584,7 +584,7 @@ describe("issue write task type support", () => {
         }).pipe(Effect.provide(createLayer({ captures })), withDiagnostics)
       )
 
-      expect(result._tag).toBe("Left")
+      expect(result._tag).toBe("Failure")
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
     })
@@ -593,7 +593,7 @@ describe("issue write task type support", () => {
   it.effect("rejects an unknown assignee before incrementing the project sequence", () =>
     Effect.gen(function* () {
       const captures: Captures = { addCollections: [], updates: [] }
-      const result = yield* Effect.either(
+      const result = yield* Effect.result(
         createIssue({
           project: projectIdentifier("TEST"),
           title: "Assigned issue",
@@ -601,7 +601,7 @@ describe("issue write task type support", () => {
         }).pipe(Effect.provide(createLayer({ captures })), withDiagnostics)
       )
 
-      expect(result._tag).toBe("Left")
+      expect(result._tag).toBe("Failure")
       expect(captures.addCollections).toEqual([])
       expect(captures.updates).toEqual([])
     })

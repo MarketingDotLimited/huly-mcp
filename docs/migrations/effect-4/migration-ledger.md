@@ -319,6 +319,39 @@ The compiler inventory falls from 7,262 diagnostics in 457 files to 7,168 in
 files have zero TypeScript diagnostics; remaining domain Schema, MCP
 lifecycle/transport, script, and CLI diagnostics retain their assigned tickets.
 
+## Ticket #218 work-management vertical checkpoint
+
+The project, issue, issue-template, label, milestone, and generic workflow
+status boundary schemas now use exact rc.108 annotations, optionality, checks,
+transformations, parsers, tagged-error unions, and the shared Draft-07 adapter.
+Ordinary optional fields continue to accept explicit `undefined`; only the six
+formerly exact issue reference/metadata fields use `Schema.optionalKey`. Authored
+at-least-one constraints and error messages remain present.
+
+```bash
+mise exec node@22.22.2 -- pnpm exec vitest run \
+  test/domain/schemas/milestones.test.ts \
+  test/domain/schemas.workflow-statuses.test.ts \
+  test/huly/errors-workflow-statuses.test.ts \
+  test/huly/operations/workflow-statuses.test.ts
+```
+
+Result: 4 files and 93 tests pass. The runnable matrix covers milestone status
+literals and update constraints, workflow scalar/gradient codecs, explicit
+undefined versus omitted encoding, authored update messages, workflow error
+unions, and representative workflow reads and writes.
+
+The compiler inventory falls from 7,168 diagnostics in 446 files to 6,485 in
+423 files: 4,092 in `src` (259 files), 1,872 in `test` (123 files), 358 in
+`scripts` (30 files), and 163 in `packages` (11 files). Four issue-operation
+diagnostics are downstream status-category inference from `task-management.ts`,
+owned by #219. Issue, label, and milestone operation suites remain
+collection-blocked by `task-management.ts`, `time.ts`, `tags.ts`,
+`workbench.ts`, and `errors-domain-base.ts`, assigned to #219/#224. The focused
+family MCP registry/call proof remains assigned to #225. Ticket #218 therefore
+remains open until those declared dependency seams make its full vertical proof
+executable; this checkpoint does not claim the complete acceptance matrix.
+
 ## Ledger maintenance rule
 
 Every migration batch must rerun the focused surface it owns and update this

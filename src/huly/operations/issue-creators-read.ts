@@ -32,7 +32,7 @@ export const creatorForIssue = (index: IssueCreatorBySocialIdentity, issue: Huly
   issue.createdBy === undefined ? undefined : index.get(issue.createdBy)
 
 export const loadIssueCreatorIndex = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   issues: ReadonlyArray<HulyIssue>
 ): Effect.Effect<IssueCreatorBySocialIdentity, HulyClientError, Diagnostics> =>
   Effect.gen(function* () {

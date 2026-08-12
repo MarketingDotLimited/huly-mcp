@@ -50,8 +50,8 @@ type UpdateIssueDirectEffect<Field extends UpdateIssueField & keyof DocumentUpda
 >
 type IssueTaskTypeUpdateEntry = DirectUpdateSubsetEntry<"kind" | "status", DocumentUpdate<HulyIssue>>
 type IssueDescriptionUpdateEntry = DirectUpdateEntry<UpdateIssueField, DocumentUpdate<HulyIssue>, "description">
-type UpdateWorkflowData = Effect.Effect.Success<ReturnType<typeof findProjectWithStatuses>>
-type TaskTypeWorkflow = Effect.Effect.Success<ReturnType<typeof resolveTaskTypeWorkflow>>
+type UpdateWorkflowData = Effect.Success<ReturnType<typeof findProjectWithStatuses>>
+type TaskTypeWorkflow = Effect.Success<ReturnType<typeof resolveTaskTypeWorkflow>>
 type UpdateIssueEntries = {
   readonly title: UpdateIssueDirectEffect<"title">
   readonly description: Effect.Effect<
@@ -74,7 +74,7 @@ const descriptionUpdateEntry = (operations: IssueDescriptionUpdateEntry) =>
   coveredUpdateEntry("description", operations)
 
 const issueUpdateEntries = (
-  client: HulyClient["Type"],
+  client: HulyClient["Service"],
   issue: HulyIssue,
   params: UpdateIssueParams,
   workflowData: Pick<UpdateWorkflowData, "statuses">,

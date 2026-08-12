@@ -1,7 +1,8 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
 import { clearableText } from "./clearable.js"
 import { HULY_NATIVE_REFERENCE_MARKDOWN_INPUT } from "./document-native-references.js"
+import { toDraft07JsonSchema } from "./json-schema.js"
 import { IssuePrioritySchema } from "./issues.js"
 import {
   assertUpdateFields,
@@ -39,31 +40,29 @@ export const IssueTemplateChildSchema = Schema.Struct({
   assignee: Schema.optional(PersonName),
   component: Schema.optional(ComponentLabel),
   estimation: Schema.optional(
-    PositiveTimeHours.annotations({ description: timeHoursDescription("Child default estimation") })
+    PositiveTimeHours.annotate({ description: timeHoursDescription("Child default estimation") })
   )
-}).annotations({ title: "IssueTemplateChild", description: "A child (sub-task) template within an issue template" })
+}).annotate({ title: "IssueTemplateChild", description: "A child (sub-task) template within an issue template" })
 
 export type IssueTemplateChild = Schema.Schema.Type<typeof IssueTemplateChildSchema>
 
 /** Shared fields for child template input (used by both inline children and add_template_child). */
 const ChildTemplateFieldsSchema = Schema.Struct({
-  title: NonEmptyString.annotations({ description: "Child template title" }),
+  title: NonEmptyString.annotate({ description: "Child template title" }),
   description: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: `Child template description in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
     })
   ),
-  priority: Schema.optional(IssuePrioritySchema.annotations({ description: "Child default priority" })),
-  assignee: Schema.optional(
-    PersonRefInput.annotations({ description: "Child default assignee email or display name" })
-  ),
-  component: Schema.optional(ComponentIdentifier.annotations({ description: "Child default component ID or label" })),
+  priority: Schema.optional(IssuePrioritySchema.annotate({ description: "Child default priority" })),
+  assignee: Schema.optional(PersonRefInput.annotate({ description: "Child default assignee email or display name" })),
+  component: Schema.optional(ComponentIdentifier.annotate({ description: "Child default component ID or label" })),
   estimation: Schema.optional(
-    PositiveTimeHours.annotations({ description: timeHoursDescription("Child default estimation") })
+    PositiveTimeHours.annotate({ description: timeHoursDescription("Child default estimation") })
   )
 })
 
-export const ChildTemplateInputSchema = ChildTemplateFieldsSchema.annotations({
+export const ChildTemplateInputSchema = ChildTemplateFieldsSchema.annotate({
   title: "ChildTemplateInput",
   description: "Input for creating a child template within an issue template"
 })
@@ -78,7 +77,7 @@ export const IssueTemplateSummarySchema = Schema.Struct({
   priority: Schema.optional(IssuePrioritySchema),
   childrenCount: Schema.optional(Count),
   modifiedOn: Schema.optional(Timestamp)
-}).annotations({ title: "IssueTemplateSummary", description: "Issue template summary for list operations" })
+}).annotate({ title: "IssueTemplateSummary", description: "Issue template summary for list operations" })
 
 export type IssueTemplateSummary = Schema.Schema.Type<typeof IssueTemplateSummarySchema>
 
@@ -89,85 +88,74 @@ export const IssueTemplateSchema = Schema.Struct({
   priority: Schema.optional(IssuePrioritySchema),
   assignee: Schema.optional(PersonName),
   component: Schema.optional(ComponentLabel),
-  estimation: Schema.optional(
-    PositiveTimeHours.annotations({ description: timeHoursDescription("Default estimation") })
-  ),
+  estimation: Schema.optional(PositiveTimeHours.annotate({ description: timeHoursDescription("Default estimation") })),
   children: Schema.optional(Schema.Array(IssueTemplateChildSchema)),
   project: ProjectIdentifier,
   modifiedOn: Schema.optional(Timestamp),
   createdOn: Schema.optional(Timestamp)
-}).annotations({ title: "IssueTemplate", description: "Full issue template with all fields including children" })
+}).annotate({ title: "IssueTemplate", description: "Full issue template with all fields including children" })
 
 export type IssueTemplate = Schema.Schema.Type<typeof IssueTemplateSchema>
 
 // --- Params schemas ---
 
 export const ListIssueTemplatesParamsSchema = Schema.Struct({
-  project: ProjectIdentifier.annotations({ description: "Project identifier (e.g., 'HULY')" }),
+  project: ProjectIdentifier.annotate({ description: "Project identifier (e.g., 'HULY')" }),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of templates to return (default: ${DEFAULT_LIMIT})` })
+    LimitParam.annotate({ description: `Maximum number of templates to return (default: ${DEFAULT_LIMIT})` })
   )
-}).annotations({ title: "ListIssueTemplatesParams", description: "Parameters for listing issue templates" })
+}).annotate({ title: "ListIssueTemplatesParams", description: "Parameters for listing issue templates" })
 
 export type ListIssueTemplatesParams = Schema.Schema.Type<typeof ListIssueTemplatesParamsSchema>
 
 export const GetIssueTemplateParamsSchema = Schema.Struct({
-  project: ProjectIdentifier.annotations({ description: "Project identifier (e.g., 'HULY')" }),
-  template: TemplateIdentifier.annotations({ description: "Template ID or title" })
-}).annotations({ title: "GetIssueTemplateParams", description: "Parameters for getting a single issue template" })
+  project: ProjectIdentifier.annotate({ description: "Project identifier (e.g., 'HULY')" }),
+  template: TemplateIdentifier.annotate({ description: "Template ID or title" })
+}).annotate({ title: "GetIssueTemplateParams", description: "Parameters for getting a single issue template" })
 
 export type GetIssueTemplateParams = Schema.Schema.Type<typeof GetIssueTemplateParamsSchema>
 
 export const CreateIssueTemplateParamsSchema = Schema.Struct({
-  project: ProjectIdentifier.annotations({ description: "Project identifier (e.g., 'HULY')" }),
-  title: NonEmptyString.annotations({ description: "Template title" }),
+  project: ProjectIdentifier.annotate({ description: "Project identifier (e.g., 'HULY')" }),
+  title: NonEmptyString.annotate({ description: "Template title" }),
   description: Schema.optional(
-    Schema.String.annotations({
-      description: `Template description in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
-    })
+    Schema.String.annotate({ description: `Template description in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}` })
   ),
   priority: Schema.optional(
-    IssuePrioritySchema.annotations({ description: "Default priority for issues created from this template" })
+    IssuePrioritySchema.annotate({ description: "Default priority for issues created from this template" })
   ),
-  assignee: Schema.optional(
-    PersonRefInput.annotations({ description: "Default assignee email address or display name" })
-  ),
-  component: Schema.optional(ComponentIdentifier.annotations({ description: "Default component ID or label" })),
-  estimation: Schema.optional(
-    PositiveTimeHours.annotations({ description: timeHoursDescription("Default estimation") })
-  ),
+  assignee: Schema.optional(PersonRefInput.annotate({ description: "Default assignee email address or display name" })),
+  component: Schema.optional(ComponentIdentifier.annotate({ description: "Default component ID or label" })),
+  estimation: Schema.optional(PositiveTimeHours.annotate({ description: timeHoursDescription("Default estimation") })),
   children: Schema.optional(
-    Schema.Array(ChildTemplateInputSchema).annotations({ description: "Child (sub-task) templates to include" })
+    Schema.Array(ChildTemplateInputSchema).annotate({ description: "Child (sub-task) templates to include" })
   )
-}).annotations({ title: "CreateIssueTemplateParams", description: "Parameters for creating an issue template" })
+}).annotate({ title: "CreateIssueTemplateParams", description: "Parameters for creating an issue template" })
 
 export type CreateIssueTemplateParams = Schema.Schema.Type<typeof CreateIssueTemplateParamsSchema>
 
 export const CreateIssueFromTemplateParamsSchema = Schema.Struct({
-  project: ProjectIdentifier.annotations({ description: "Project identifier (e.g., 'HULY')" }),
-  template: TemplateIdentifier.annotations({ description: "Template ID or title" }),
+  project: ProjectIdentifier.annotate({ description: "Project identifier (e.g., 'HULY')" }),
+  template: TemplateIdentifier.annotate({ description: "Template ID or title" }),
   title: Schema.optional(
-    NonEmptyString.annotations({ description: "Override title (uses template title if not specified)" })
+    NonEmptyString.annotate({ description: "Override title (uses template title if not specified)" })
   ),
   description: Schema.optional(
-    Schema.String.annotations({
+    Schema.String.annotate({
       description: `Override description in markdown (uses template description if not specified). ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`
     })
   ),
-  priority: Schema.optional(IssuePrioritySchema.annotations({ description: "Override priority" })),
-  assignee: Schema.optional(PersonRefInput.annotations({ description: "Override assignee email or display name" })),
+  priority: Schema.optional(IssuePrioritySchema.annotate({ description: "Override priority" })),
+  assignee: Schema.optional(PersonRefInput.annotate({ description: "Override assignee email or display name" })),
   status: Schema.optional(
-    StatusName.annotations({ description: "Initial status (uses project default if not specified)" })
+    StatusName.annotate({ description: "Initial status (uses project default if not specified)" })
   ),
   includeChildren: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotate({
       description: `Whether to create sub-issues from template children (default: ${DEFAULT_INCLUDE_TEMPLATE_CHILDREN})`
     })
   )
-}).annotations({
-  title: "CreateIssueFromTemplateParams",
-  description: "Parameters for creating an issue from a template"
-})
+}).annotate({ title: "CreateIssueFromTemplateParams", description: "Parameters for creating an issue from a template" })
 
 export type CreateIssueFromTemplateParams = Schema.Schema.Type<typeof CreateIssueFromTemplateParamsSchema>
 
@@ -181,35 +169,37 @@ export const UPDATE_ISSUE_TEMPLATE_FIELDS = [
 ] as const satisfies ReadonlyArray<"title" | "description" | "priority" | "assignee" | "component" | "estimation">
 
 export const UpdateIssueTemplateParamsSchema = Schema.Struct({
-  project: ProjectIdentifier.annotations({ description: "Project identifier (e.g., 'HULY')" }),
-  template: TemplateIdentifier.annotations({ description: "Template ID or title" }),
-  title: Schema.optional(NonEmptyString.annotations({ description: "New template title" })),
+  project: ProjectIdentifier.annotate({ description: "Project identifier (e.g., 'HULY')" }),
+  template: TemplateIdentifier.annotate({ description: "Template ID or title" }),
+  title: Schema.optional(NonEmptyString.annotate({ description: "New template title" })),
   description: Schema.optional(
     clearableText(`New template description in markdown. ${HULY_NATIVE_REFERENCE_MARKDOWN_INPUT}`)
   ),
-  priority: Schema.optional(IssuePrioritySchema.annotations({ description: "New default priority" })),
+  priority: Schema.optional(IssuePrioritySchema.annotate({ description: "New default priority" })),
   assignee: Schema.optional(
-    Schema.NullOr(PersonRefInput).annotations({
+    Schema.NullOr(PersonRefInput).annotate({
       description: "New default assignee email or display name (null to unassign)"
     })
   ),
   component: Schema.optional(
-    Schema.NullOr(ComponentIdentifier).annotations({ description: "New default component ID or label (null to clear)" })
+    Schema.NullOr(ComponentIdentifier).annotate({ description: "New default component ID or label (null to clear)" })
   ),
   estimation: Schema.optional(
-    Schema.NullOr(PositiveTimeHours).annotations({
+    Schema.NullOr(PositiveTimeHours).annotate({
       description: `${timeHoursDescription("New default estimation")} Use null to clear.`
     })
   )
 })
   .pipe(
-    Schema.filter((params) =>
-      hasAtLeastOneDefined(params, UPDATE_ISSUE_TEMPLATE_FIELDS)
-        ? undefined
-        : atLeastOneUpdateFieldMessage(UPDATE_ISSUE_TEMPLATE_FIELDS)
+    Schema.check(
+      Schema.makeFilter((params) =>
+        hasAtLeastOneDefined(params, UPDATE_ISSUE_TEMPLATE_FIELDS)
+          ? undefined
+          : atLeastOneUpdateFieldMessage(UPDATE_ISSUE_TEMPLATE_FIELDS)
+      )
     )
   )
-  .annotations({
+  .annotate({
     title: "UpdateIssueTemplateParams",
     description: `Parameters for updating an issue template. ${atLeastOneUpdateFieldMessage(
       UPDATE_ISSUE_TEMPLATE_FIELDS
@@ -220,19 +210,18 @@ export type UpdateIssueTemplateParams = Schema.Schema.Type<typeof UpdateIssueTem
 assertUpdateFields<UpdateIssueTemplateParams>()(["project", "template"], UPDATE_ISSUE_TEMPLATE_FIELDS)
 
 export const DeleteIssueTemplateParamsSchema = Schema.Struct({
-  project: ProjectIdentifier.annotations({ description: "Project identifier (e.g., 'HULY')" }),
-  template: TemplateIdentifier.annotations({ description: "Template ID or title" })
-}).annotations({ title: "DeleteIssueTemplateParams", description: "Parameters for deleting an issue template" })
+  project: ProjectIdentifier.annotate({ description: "Project identifier (e.g., 'HULY')" }),
+  template: TemplateIdentifier.annotate({ description: "Template ID or title" })
+}).annotate({ title: "DeleteIssueTemplateParams", description: "Parameters for deleting an issue template" })
 
 export type DeleteIssueTemplateParams = Schema.Schema.Type<typeof DeleteIssueTemplateParamsSchema>
 
-export const AddTemplateChildParamsSchema = Schema.extend(
-  ChildTemplateFieldsSchema,
-  Schema.Struct({
-    project: ProjectIdentifier.annotations({ description: "Project identifier (e.g., 'HULY')" }),
-    template: TemplateIdentifier.annotations({ description: "Template ID or title" })
+export const AddTemplateChildParamsSchema = ChildTemplateFieldsSchema.pipe(
+  Schema.fieldsAssign({
+    project: ProjectIdentifier.annotate({ description: "Project identifier (e.g., 'HULY')" }),
+    template: TemplateIdentifier.annotate({ description: "Template ID or title" })
   })
-).annotations({
+).annotate({
   title: "AddTemplateChildParams",
   description: "Parameters for adding a child template to an issue template"
 })
@@ -240,10 +229,10 @@ export const AddTemplateChildParamsSchema = Schema.extend(
 export type AddTemplateChildParams = Schema.Schema.Type<typeof AddTemplateChildParamsSchema>
 
 export const RemoveTemplateChildParamsSchema = Schema.Struct({
-  project: ProjectIdentifier.annotations({ description: "Project identifier (e.g., 'HULY')" }),
-  template: TemplateIdentifier.annotations({ description: "Template ID or title" }),
-  childId: IssueTemplateChildId.annotations({ description: "ID of the child template to remove" })
-}).annotations({
+  project: ProjectIdentifier.annotate({ description: "Project identifier (e.g., 'HULY')" }),
+  template: TemplateIdentifier.annotate({ description: "Template ID or title" }),
+  childId: IssueTemplateChildId.annotate({ description: "ID of the child template to remove" })
+}).annotate({
   title: "RemoveTemplateChildParams",
   description: "Parameters for removing a child template from an issue template"
 })
@@ -252,30 +241,30 @@ export type RemoveTemplateChildParams = Schema.Schema.Type<typeof RemoveTemplate
 
 // --- JSON schemas ---
 
-export const listIssueTemplatesParamsJsonSchema = JSONSchema.make(ListIssueTemplatesParamsSchema)
-export const getIssueTemplateParamsJsonSchema = JSONSchema.make(GetIssueTemplateParamsSchema)
-export const createIssueTemplateParamsJsonSchema = JSONSchema.make(CreateIssueTemplateParamsSchema)
-export const createIssueFromTemplateParamsJsonSchema = JSONSchema.make(CreateIssueFromTemplateParamsSchema)
+export const listIssueTemplatesParamsJsonSchema = toDraft07JsonSchema(ListIssueTemplatesParamsSchema)
+export const getIssueTemplateParamsJsonSchema = toDraft07JsonSchema(GetIssueTemplateParamsSchema)
+export const createIssueTemplateParamsJsonSchema = toDraft07JsonSchema(CreateIssueTemplateParamsSchema)
+export const createIssueFromTemplateParamsJsonSchema = toDraft07JsonSchema(CreateIssueFromTemplateParamsSchema)
 export const updateIssueTemplateParamsJsonSchema = withAtLeastOneRequired(
-  JSONSchema.make(UpdateIssueTemplateParamsSchema),
+  toDraft07JsonSchema(UpdateIssueTemplateParamsSchema),
   UPDATE_ISSUE_TEMPLATE_FIELDS
 )
-export const deleteIssueTemplateParamsJsonSchema = JSONSchema.make(DeleteIssueTemplateParamsSchema)
-export const addTemplateChildParamsJsonSchema = JSONSchema.make(AddTemplateChildParamsSchema)
-export const removeTemplateChildParamsJsonSchema = JSONSchema.make(RemoveTemplateChildParamsSchema)
+export const deleteIssueTemplateParamsJsonSchema = toDraft07JsonSchema(DeleteIssueTemplateParamsSchema)
+export const addTemplateChildParamsJsonSchema = toDraft07JsonSchema(AddTemplateChildParamsSchema)
+export const removeTemplateChildParamsJsonSchema = toDraft07JsonSchema(RemoveTemplateChildParamsSchema)
 
 // --- Parsers ---
 
-export const parseIssueTemplate = Schema.decodeUnknown(IssueTemplateSchema)
-export const parseIssueTemplateSummary = Schema.decodeUnknown(IssueTemplateSummarySchema)
-export const parseListIssueTemplatesParams = Schema.decodeUnknown(ListIssueTemplatesParamsSchema)
-export const parseGetIssueTemplateParams = Schema.decodeUnknown(GetIssueTemplateParamsSchema)
-export const parseCreateIssueTemplateParams = Schema.decodeUnknown(CreateIssueTemplateParamsSchema)
-export const parseCreateIssueFromTemplateParams = Schema.decodeUnknown(CreateIssueFromTemplateParamsSchema)
-export const parseUpdateIssueTemplateParams = Schema.decodeUnknown(UpdateIssueTemplateParamsSchema)
-export const parseDeleteIssueTemplateParams = Schema.decodeUnknown(DeleteIssueTemplateParamsSchema)
-export const parseAddTemplateChildParams = Schema.decodeUnknown(AddTemplateChildParamsSchema)
-export const parseRemoveTemplateChildParams = Schema.decodeUnknown(RemoveTemplateChildParamsSchema)
+export const parseIssueTemplate = Schema.decodeUnknownEffect(IssueTemplateSchema)
+export const parseIssueTemplateSummary = Schema.decodeUnknownEffect(IssueTemplateSummarySchema)
+export const parseListIssueTemplatesParams = Schema.decodeUnknownEffect(ListIssueTemplatesParamsSchema)
+export const parseGetIssueTemplateParams = Schema.decodeUnknownEffect(GetIssueTemplateParamsSchema)
+export const parseCreateIssueTemplateParams = Schema.decodeUnknownEffect(CreateIssueTemplateParamsSchema)
+export const parseCreateIssueFromTemplateParams = Schema.decodeUnknownEffect(CreateIssueFromTemplateParamsSchema)
+export const parseUpdateIssueTemplateParams = Schema.decodeUnknownEffect(UpdateIssueTemplateParamsSchema)
+export const parseDeleteIssueTemplateParams = Schema.decodeUnknownEffect(DeleteIssueTemplateParamsSchema)
+export const parseAddTemplateChildParams = Schema.decodeUnknownEffect(AddTemplateChildParamsSchema)
+export const parseRemoveTemplateChildParams = Schema.decodeUnknownEffect(RemoveTemplateChildParamsSchema)
 export const CreateIssueTemplateResultSchema = Schema.Struct({ id: IssueTemplateId, title: Schema.String })
 export type CreateIssueTemplateResult = Schema.Schema.Type<typeof CreateIssueTemplateResultSchema>
 export const UpdateIssueTemplateResultSchema = Schema.Struct({ id: IssueTemplateId, updated: Schema.Boolean })
