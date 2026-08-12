@@ -5,7 +5,7 @@
  */
 import { ProtocolError, ProtocolErrorCode } from "@modelcontextprotocol/server"
 import type { ListResourcesResult, ListResourceTemplatesResult, ReadResourceResult } from "@modelcontextprotocol/server"
-import { Effect, ParseResult, Schema } from "effect"
+import { Effect, Schema } from "effect"
 
 import {
   type Issue,
@@ -215,11 +215,11 @@ const projectSummaryResource = (project: ProjectSummary): ListResourcesResult["r
   mimeType: HULY_RESOURCE_MIME_TYPE
 })
 
-const mapListErrorToMcp = (error: HulyDomainError | ParseResult.ParseError): ProtocolError => {
+const mapListErrorToMcp = (error: HulyDomainError | Schema.SchemaError): ProtocolError => {
   // defensive: listResources passes hardcoded valid params, so the parse channel never yields a
-  // ParseError at runtime — but the union type keeps this branch for type-completeness.
+  // SchemaError at runtime — but the union type keeps this branch for type-completeness.
   /* v8 ignore start */
-  if (ParseResult.isParseError(error)) {
+  if (Schema.isSchemaError(error)) {
     return new ProtocolError(
       ProtocolErrorCode.InternalError,
       `Failed to list Huly resources: ${formatParseError(error)}.`
@@ -259,11 +259,11 @@ export const listResourceTemplates = (): ListResourceTemplatesResult => ({ resou
 const isNotFoundError = (error: HulyDomainError): boolean =>
   error._tag === "ProjectNotFoundError" || error._tag === "IssueNotFoundError"
 
-const mapReadErrorToMcp = (uri: string, error: HulyDomainError | ParseResult.ParseError): ProtocolError => {
+const mapReadErrorToMcp = (uri: string, error: HulyDomainError | Schema.SchemaError): ProtocolError => {
   // defensive: readParsedHulyResource passes pre-validated params, so the parse channel never yields
-  // a ParseError at runtime — but the union type keeps this branch for type-completeness.
+  // a SchemaError at runtime — but the union type keeps this branch for type-completeness.
   /* v8 ignore start */
-  if (ParseResult.isParseError(error)) {
+  if (Schema.isSchemaError(error)) {
     return new ProtocolError(
       ProtocolErrorCode.InvalidParams,
       `Invalid Huly resource URI "${uri}": ${formatParseError(error)}. ${expectedFormats}`

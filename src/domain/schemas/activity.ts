@@ -202,6 +202,7 @@ const activityLimitJsonSchema = {
 const targetStringJsonSchema = (description: string): object => ({ type: "string", minLength: 1, description })
 
 export const listActivityParamsJsonSchema = {
+  $schema: "http://json-schema.org/draft-07/schema#",
   type: "object",
   description:
     "Choose exactly one target mode for activity lookup: project+issueIdentifier, teamspace+document, channel, or objectId+objectClass.",

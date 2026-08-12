@@ -1,5 +1,5 @@
 import type { ToolAnnotations } from "@modelcontextprotocol/server"
-import { Either, Schema } from "effect"
+import { Result, Schema } from "effect"
 
 import { Count } from "../domain/schemas/index.js"
 import type { HulyStorageClient } from "../huly/storage.js"
@@ -49,15 +49,12 @@ export const PROXY_TOOL_NAMES: ReadonlyArray<ToolName> = [
   INVOKE_TOOL_TOOL_NAME
 ]
 
-const EmptyProxyParamsSchema = Schema.Record({ key: Schema.String, value: Schema.Never })
-const SearchToolsParamsSchema = Schema.Struct({
-  query: ToolSearchQuery,
-  limit: Schema.optionalWith(SearchToolLimit, { exact: true })
-})
+const EmptyProxyParamsSchema = Schema.Record(Schema.String, Schema.Never)
+const SearchToolsParamsSchema = Schema.Struct({ query: ToolSearchQuery, limit: Schema.optionalKey(SearchToolLimit) })
 const ToolNameParamsSchema = Schema.Struct({ toolName: ToolName })
 export const InvokeToolParamsSchema = Schema.Struct({
   toolName: ToolName,
-  arguments: Schema.optionalWith(Schema.Unknown, { exact: true })
+  arguments: Schema.optionalKey(Schema.Unknown)
 })
 
 const ProxyToolCategorySchema = Schema.Struct({ name: ToolCategory, description: ToolDescription, toolCount: Count })
@@ -69,25 +66,23 @@ const ToolSearchMatchBaseSchema = Schema.Struct({
   requiredParams: Schema.Array(ToolParameterName),
   optionalParams: Schema.Array(ToolParameterName)
 })
-const ToolSearchMatchSchema = Schema.Union(
-  ToolSearchMatchBaseSchema.pipe(Schema.extend(Schema.Struct({ parameterSummaryStatus: Schema.Literal("available") }))),
-  ToolSearchMatchBaseSchema.pipe(Schema.extend(Schema.Struct({ parameterSummaryStatus: Schema.Literal("empty") }))),
+const ToolSearchMatchSchema = Schema.Union([
+  ToolSearchMatchBaseSchema.pipe(Schema.fieldsAssign({ parameterSummaryStatus: Schema.Literal("available") })),
+  ToolSearchMatchBaseSchema.pipe(Schema.fieldsAssign({ parameterSummaryStatus: Schema.Literal("empty") })),
   ToolSearchMatchBaseSchema.pipe(
-    Schema.extend(
-      Schema.Struct({
-        parameterSummaryStatus: Schema.Literal("invalid_input_schema"),
-        parameterSummaryIssue: Schema.String
-      })
-    )
+    Schema.fieldsAssign({
+      parameterSummaryStatus: Schema.Literal("invalid_input_schema"),
+      parameterSummaryIssue: Schema.String
+    })
   )
-)
+])
 const SearchToolsResultSchema = Schema.Struct({ matches: Schema.Array(ToolSearchMatchSchema) })
 const ToolAnnotationsSchema = Schema.Struct({
-  title: Schema.optionalWith(Schema.NonEmptyTrimmedString, { exact: true }),
-  readOnlyHint: Schema.optionalWith(Schema.Boolean, { exact: true }),
-  destructiveHint: Schema.optionalWith(Schema.Boolean, { exact: true }),
-  idempotentHint: Schema.optionalWith(Schema.Boolean, { exact: true }),
-  openWorldHint: Schema.optionalWith(Schema.Boolean, { exact: true })
+  title: Schema.optionalKey(Schema.Trimmed.pipe(Schema.check(Schema.isNonEmpty()))),
+  readOnlyHint: Schema.optionalKey(Schema.Boolean),
+  destructiveHint: Schema.optionalKey(Schema.Boolean),
+  idempotentHint: Schema.optionalKey(Schema.Boolean),
+  openWorldHint: Schema.optionalKey(Schema.Boolean)
 })
 const GetToolSchemaResultSchema = Schema.Struct({
   name: ToolName,
@@ -100,16 +95,18 @@ const GetToolSchemaResultSchema = Schema.Struct({
 const InvokeToolResultSchema = Schema.Struct({
   toolName: ToolName,
   result: Schema.Unknown,
-  warnings: Schema.optionalWith(Schema.Array(Schema.Unknown), { exact: true })
+  warnings: Schema.optionalKey(Schema.Array(Schema.Unknown))
 })
 
 const emptyInputSchema = {
+  $schema: "http://json-schema.org/draft-07/schema#",
   type: "object",
   properties: {},
   additionalProperties: false
 } satisfies ToolDefinition["inputSchema"]
 
 const searchToolsInputSchema = {
+  $schema: "http://json-schema.org/draft-07/schema#",
   type: "object",
   properties: {
     query: {
@@ -129,6 +126,7 @@ const searchToolsInputSchema = {
 } satisfies ToolDefinition["inputSchema"]
 
 const toolNameInputSchema = {
+  $schema: "http://json-schema.org/draft-07/schema#",
   type: "object",
   properties: {
     toolName: {
@@ -142,6 +140,7 @@ const toolNameInputSchema = {
 } satisfies ToolDefinition["inputSchema"]
 
 const invokeToolInputSchema = {
+  $schema: "http://json-schema.org/draft-07/schema#",
   type: "object",
   properties: {
     toolName: { type: "string", minLength: 1, description: "Exact Huly tool name to invoke through the proxy." },
@@ -214,13 +213,13 @@ type DecodeOrErrorResult<A> =
   | { readonly _tag: "error"; readonly response: McpToolResponse }
 
 const decodeOrError = <A, I>(
-  schema: Schema.Schema<A, I, never>,
+  schema: Schema.Codec<A, I>,
   input: unknown,
   toolName: ToolName
 ): DecodeOrErrorResult<A> => {
-  const decoded = Schema.decodeUnknownEither(schema)(input ?? {})
-  if (Either.isRight(decoded)) return { _tag: "success", params: decoded.right }
-  return { _tag: "error", response: mapParseErrorToMcp(decoded.left, toolName) }
+  const decoded = Schema.decodeUnknownResult(schema)(input ?? {})
+  if (Result.isSuccess(decoded)) return { _tag: "success", params: decoded.success }
+  return { _tag: "error", response: mapParseErrorToMcp(decoded.failure, toolName) }
 }
 
 const searchTools = (registry: ToolRegistry, args: unknown): McpToolResponse => {
@@ -264,11 +263,11 @@ const getToolSchema = (registry: ToolRegistry, args: unknown): McpToolResponse =
 
 interface InvokeToolClients {
   readonly hulyClient: Parameters<ToolRegistry["handleToolCall"]>[2]
-  readonly storageClient: HulyStorageClient["Type"]
+  readonly storageClient: HulyStorageClient["Service"]
   readonly workspaceClient?: WorkspaceClientOperations
 }
 
-const DeferredToolArgumentsJsonSchema = Schema.parseJson()
+const DeferredToolArgumentsJsonSchema = Schema.fromJsonString(Schema.Unknown)
 
 /**
  * Some deferred-tool clients serialize invoke_tool's schema-less arguments value.
@@ -277,8 +276,8 @@ const DeferredToolArgumentsJsonSchema = Schema.parseJson()
  */
 const normalizeDeferredToolArguments = (value: unknown): unknown => {
   if (typeof value !== "string") return value
-  const decoded = Schema.decodeUnknownEither(DeferredToolArgumentsJsonSchema)(value)
-  return Either.isRight(decoded) ? decoded.right : value
+  const decoded = Schema.decodeUnknownResult(DeferredToolArgumentsJsonSchema)(value)
+  return Result.isSuccess(decoded) ? decoded.success : value
 }
 
 type SuccessfulToolCallResponse = Exclude<McpToolResponse, { readonly isError: true }>

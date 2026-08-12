@@ -367,6 +367,12 @@ const buildStubClientsWithWorkspace = (): ClientResolver => () =>
     })
   ).then(Exit.succeed)
 
+const resolveStubClients = async (): Promise<ClientBundle> => {
+  const exit = await buildStubClients()()
+  if (Exit.isFailure(exit)) throw new Error("Stub clients failed to resolve")
+  return exit.value
+}
+
 const emptyFindResult = <T extends Doc>(): FindResult<T> => toFindResult([] satisfies Array<T>)
 
 type ProjectWithTypeLookup = WithLookup<HulyProject> & { readonly $lookup: { readonly type: ProjectType } }
@@ -485,7 +491,7 @@ const diagnosticProbeTool = defineTool(
     resultSchema: DiagnosticProbeResult,
     category: "test"
   },
-  Schema.decodeUnknown(DiagnosticProbeParams),
+  Schema.decodeUnknownEffect(DiagnosticProbeParams),
   (params: DiagnosticProbeParams) =>
     Effect.gen(function* () {
       const diagnostics = yield* Diagnostics
@@ -505,7 +511,7 @@ const arraySchemaProbeTool = defineTool(
     resultSchema: Schema.Struct({ ok: Schema.Boolean }),
     category: "test"
   },
-  Schema.decodeUnknown(Schema.Unknown),
+  Schema.decodeUnknownEffect(Schema.Unknown),
   () => Effect.succeed({ ok: true })
 )
 
@@ -521,7 +527,7 @@ const malformedSummaryProbeTool = defineTool(
     resultSchema: Schema.Struct({ ok: Schema.Boolean }),
     category: "test"
   },
-  Schema.decodeUnknown(Schema.Unknown),
+  Schema.decodeUnknownEffect(Schema.Unknown),
   () => Effect.succeed({ ok: true })
 )
 
@@ -533,7 +539,7 @@ const malformedRequiredProbeTool = defineTool(
     resultSchema: Schema.Struct({ ok: Schema.Boolean }),
     category: "test"
   },
-  Schema.decodeUnknown(Schema.Unknown),
+  Schema.decodeUnknownEffect(Schema.Unknown),
   () => Effect.succeed({ ok: true })
 )
 
@@ -545,7 +551,7 @@ const undeclaredRequiredProbeTool = defineTool(
     resultSchema: Schema.Struct({ ok: Schema.Boolean }),
     category: "test"
   },
-  Schema.decodeUnknown(Schema.Unknown),
+  Schema.decodeUnknownEffect(Schema.Unknown),
   () => Effect.succeed({ ok: true })
 )
 
@@ -1129,7 +1135,7 @@ describe("createMcpProtocolHandlers — tool dispatch", () => {
 describe("createMcpProtocolHandlers — proxy mode", () => {
   it("uses an empty visible native registry for unscoped proxy mode", async () => {
     const exposure = resolveProtocolExposure(protocolRegistries(toolRegistry), proxyExposureOptions())
-    const clients = await buildStubClients()()
+    const clients = await resolveStubClients()
 
     const response = await exposure.visibleNativeRegistry.handleToolCall(
       makeToolName("list_projects"),
@@ -1460,7 +1466,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
         return createInvalidParamsError("captured target arguments", "CapturedArguments")
       }
     }
-    const clients = await buildStubClients()()
+    const clients = await resolveStubClients()
     const structuredArguments = { subject: "structured invoke" }
 
     await handleProxyToolCall({
@@ -1639,7 +1645,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
   })
 
   it("returns target proxy errors and null dispatches without wrapping them as successes", async () => {
-    const clients = await buildStubClients()()
+    const clients = await resolveStubClients()
     const errorResponse = await handleProxyToolCall({
       toolName: makeToolName("invoke_tool"),
       args: { toolName: "diagnostic_probe", arguments: {} },
@@ -1903,8 +1909,8 @@ describe("createMcpProtocolHandlers — drainInflight", () => {
   })
 
   it("waits for an in-flight call to complete, then resolves", async () => {
-    let release: (bundle: ClientBundle) => void = () => {}
-    const gate = new Promise<ClientBundle>((resolve) => {
+    let release: (bundle: Exit.Exit<ClientBundle, never>) => void = () => {}
+    const gate = new Promise<Exit.Exit<ClientBundle, never>>((resolve) => {
       release = resolve
     })
     const handlers = createMcpProtocolHandlers(
@@ -1918,13 +1924,13 @@ describe("createMcpProtocolHandlers — drainInflight", () => {
     const callPromise = handlers.callTool({ params: { name: "list_projects", arguments: {} } })
     const drainPromise = handlers.drainInflight()
 
-    release(await buildStubClients()())
+    release(Exit.succeed(await resolveStubClients()))
     await callPromise
     await expect(drainPromise).resolves.toBeUndefined()
   })
 
   it("stops draining once the timeout elapses even if a call is still in flight", async () => {
-    const neverResolves = new Promise<ClientBundle>(() => {})
+    const neverResolves = new Promise<Exit.Exit<ClientBundle, never>>(() => {})
     // Clock readings: callTool start, drain start, drain check (> 30s after start) -> timeout branch
     const clock = queuedClock([0, 0, 31_000])
     const handlers = createMcpProtocolHandlers(

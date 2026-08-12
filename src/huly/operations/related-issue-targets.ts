@@ -15,7 +15,7 @@ import type {
 } from "../../domain/schemas/related-issue-targets.js"
 import { RelatedIssueTargetId } from "../../domain/schemas/related-issue-targets.js"
 import { ObjectClassName, ProjectIdentifier, SpaceId, SpaceIdentifier, Timestamp } from "../../domain/schemas/shared.js"
-import { HulyClient, type HulyClientError } from "../client.js"
+import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
 import type { ProjectNotFoundError, SpaceIdentifierAmbiguousError, SpaceNotFoundError } from "../errors.js"
 import { HulyError } from "../errors.js"
 import { tracker } from "../huly-plugins.js"
@@ -44,7 +44,7 @@ type RelatedIssueTargetQuery = StrictDocumentQuery<HulyRelatedIssueTarget> & {
 }
 
 const projectMapById = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   ids: ReadonlyArray<Ref<HulyProject>>
 ): Effect.Effect<ReadonlyMap<Ref<HulyProject>, HulyProject>, HulyClientError> =>
   Effect.gen(function* () {
@@ -60,7 +60,7 @@ const projectMapById = (
   })
 
 const spaceMapById = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   ids: ReadonlyArray<Ref<Space>>
 ): Effect.Effect<ReadonlyMap<Ref<Space>, GenericSpace>, HulyClientError> =>
   Effect.gen(function* () {
@@ -115,7 +115,7 @@ const resolveTargetProject = (
     : findProject(project).pipe(Effect.map(({ project: resolved }) => resolved._id))
 
 const findSpaceRule = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   space: Ref<Space>
 ): Effect.Effect<HulyRelatedIssueTarget | undefined, HulyClientError> => {
   // Huly document queries support dot-path predicates for nested object fields.
@@ -127,7 +127,7 @@ const findSpaceRule = (
 }
 
 const findClassRule = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   objectClass: Ref<Class<Doc>>
 ): Effect.Effect<HulyRelatedIssueTarget | undefined, HulyClientError> => {
   // Huly document queries support dot-path predicates for nested object fields.
@@ -139,7 +139,7 @@ const findClassRule = (
 }
 
 const renderSingleTarget = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   target: RelatedIssueTargetProjection
 ): Effect.Effect<RelatedIssueTarget, HulyClientError> =>
   Effect.gen(function* () {

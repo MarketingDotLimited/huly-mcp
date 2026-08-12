@@ -11,6 +11,7 @@ import { testWorkbenchUrlConfig } from "../../src/huly/url-builders.js"
 import {
   CATEGORY_NAMES,
   createFilteredRegistry,
+  operationRegistry,
   resolveAnnotations,
   TOOL_DEFINITIONS,
   toolRegistry
@@ -48,6 +49,14 @@ const noopStorageClient: HulyStorageOperations = {
 }
 
 describe("CATEGORY_NAMES", () => {
+  it("preserves the certified 522-operation registry cardinality", () => {
+    expect(toolRegistry.definitions).toHaveLength(522)
+    expect(toolRegistry.tools.size).toBe(522)
+    expect(operationRegistry.definitions).toHaveLength(522)
+    expect(operationRegistry.operations.size).toBe(522)
+    expect(new Set(toolRegistry.definitions.map((tool) => tool.name)).size).toBe(522)
+  })
+
   it.effect("contains expected categories", () =>
     Effect.sync(function () {
       expect(CATEGORY_NAMES.has(makeToolCategory("projects"))).toBe(true)

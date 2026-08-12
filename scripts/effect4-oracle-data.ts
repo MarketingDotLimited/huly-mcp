@@ -2,8 +2,8 @@ import * as fs from "node:fs/promises"
 import * as os from "node:os"
 import * as path from "node:path"
 
-import { NodeContext } from "@effect/platform-node"
-import { Effect, Either, Option, Schema } from "effect"
+import { NodeServices } from "@effect/platform-node"
+import { Effect, Option, Result, Schema } from "effect"
 
 import { cliCommandCatalog, type CliToolName } from "../packages/huly-cli/src/catalog.js"
 import { CliCommandSegment } from "../packages/huly-cli/src/command-schema.js"
@@ -20,7 +20,9 @@ import { parseHulyResourceUri } from "../src/mcp/resources.js"
 import { operationRegistry, toolRegistry } from "../src/mcp/tools/index.js"
 import { canonicalJson } from "./effect4-oracle-canonical.js"
 import { captureAuthoredConstraints } from "./effect4-oracle-constraints.js"
-import { captureBundledProcessOracle } from "./effect4-oracle-process.js"
+import { validateCurrentDraft07Corpora } from "./effect4-oracle-current-corpus.js"
+import { validateDraft07DiscoveryResult } from "./effect4-oracle-draft07.js"
+import { captureBundledProcessOracle, LIST_TOOLS_REQUEST_ID } from "./effect4-oracle-process.js"
 import { type BehavioralOracle, BehavioralOracleSchema } from "./effect4-oracle-schema.js"
 
 const COMPARISON_BEFORE = -1
@@ -52,7 +54,7 @@ const invokeCli = (name: CliToolName, raw: ReadonlyArray<string>) => {
   return Effect.runPromise(
     parseCliCommandLine(tool, cliCommandCatalog[name], raw).pipe(
       Effect.flatMap((parsed) => buildCliInvocation(tool, cliCommandCatalog[name], parsed)),
-      Effect.provide(NodeContext.layer)
+      Effect.provide(NodeServices.layer)
     )
   )
 }
@@ -92,23 +94,23 @@ const isKnownCliError = (error: unknown): error is CliInputError | CliRuntimeErr
 
 const captureCliErrorFixtures = async () => {
   const invalidJson = await Effect.runPromise(
-    Effect.either(
+    Effect.result(
       parseCliCommandLine(cliTool("fulltext_search"), cliCommandCatalog.fulltext_search, ["--input-json", "{bad"]).pipe(
         Effect.flatMap((parsed) =>
           buildCliInvocation(cliTool("fulltext_search"), cliCommandCatalog.fulltext_search, parsed)
         ),
-        Effect.provide(NodeContext.layer)
+        Effect.provide(NodeServices.layer)
       )
     )
   )
-  if (Either.isRight(invalidJson)) throw new Error("CLI oracle invalid JSON fixture unexpectedly succeeded.")
-  const human = presentCliFailure(invalidJson.left, false, isKnownCliError)
-  const json = presentCliFailure(invalidJson.left, true, isKnownCliError)
+  if (Result.isSuccess(invalidJson)) throw new Error("CLI oracle invalid JSON fixture unexpectedly succeeded.")
+  const human = presentCliFailure(invalidJson.failure, false, isKnownCliError)
+  const json = presentCliFailure(invalidJson.failure, true, isKnownCliError)
   const defect = presentCliFailure(new Error("secret oracle defect"), true, isKnownCliError)
   return {
-    defect: { ...defect, decoded: Schema.decodeUnknownSync(Schema.parseJson(CliFailureSchema))(defect.stderr) },
+    defect: { ...defect, decoded: Schema.decodeUnknownSync(Schema.fromJsonString(CliFailureSchema))(defect.stderr) },
     human,
-    json: { ...json, decoded: Schema.decodeUnknownSync(Schema.parseJson(CliFailureSchema))(json.stderr) }
+    json: { ...json, decoded: Schema.decodeUnknownSync(Schema.fromJsonString(CliFailureSchema))(json.stderr) }
   }
 }
 
@@ -144,10 +146,20 @@ const liveParity = () => {
   }
 }
 
-export const captureEffect4Oracle = async (): Promise<BehavioralOracle> =>
-  Schema.decodeUnknownSync(BehavioralOracleSchema)({
+export const captureEffect4Oracle = async (): Promise<BehavioralOracle> => {
+  validateCurrentDraft07Corpora()
+  const bundledProcesses = await captureBundledProcessOracle()
+  const nativeDiscovery = bundledProcesses.stdio.native.find((response) => response.id === LIST_TOOLS_REQUEST_ID)
+  const proxyDiscovery = bundledProcesses.stdio.proxy.find((response) => response.id === LIST_TOOLS_REQUEST_ID)
+  if (nativeDiscovery === undefined || proxyDiscovery === undefined) {
+    throw new Error("Bundled oracle capture did not return both native and proxy tools/list responses.")
+  }
+  validateDraft07DiscoveryResult(nativeDiscovery.result)
+  validateDraft07DiscoveryResult(proxyDiscovery.result)
+
+  return Schema.decodeUnknownSync(BehavioralOracleSchema)({
     formatVersion: 1,
-    bundledProcesses: await captureBundledProcessOracle(),
+    bundledProcesses,
     registry: {
       authoredConstraints: captureAuthoredConstraints(toolRegistry.definitions),
       rawOrder: toolRegistry.definitions.map((tool) => tool.name),
@@ -166,5 +178,6 @@ export const captureEffect4Oracle = async (): Promise<BehavioralOracle> =>
       failureContract: CLI_FAILURE_CONTRACT
     }
   })
+}
 
 export const renderEffect4Oracle = async (): Promise<string> => canonicalJson(await captureEffect4Oracle())

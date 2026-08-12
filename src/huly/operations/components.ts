@@ -31,7 +31,7 @@ import type {
 import { UPDATE_COMPONENT_FIELDS } from "../../domain/schemas/components.js"
 import { ComponentId, ComponentLabel, IssueIdentifier, PersonName, Timestamp } from "../../domain/schemas/shared.js"
 import { isExistent } from "../../utils/assertions.js"
-import type { HulyClient, HulyClientError } from "../client.js"
+import type { HulyClient, HulyClientError, HulyClientOperations } from "../client.js"
 import type { HulyConnectionError, IssueNotFoundError, NoUpdateFieldsError, ProjectNotFoundError } from "../errors.js"
 import { ComponentNotFoundError, PersonNotFoundError } from "../errors.js"
 import { clearTextAsEmptyString } from "./clear-field-updates.js"
@@ -65,7 +65,7 @@ const DEFAULT_COMPONENT_LIMIT = 50
 const MAX_COMPONENT_LIMIT = 200
 
 export const findComponentByIdOrLabel = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   projectId: Ref<HulyProject>,
   componentIdOrLabel: string
 ): Effect.Effect<HulyComponent | undefined, HulyClientError> =>
@@ -84,7 +84,7 @@ const findProjectAndComponent = (params: {
   project: string
   component: string
 }): Effect.Effect<
-  { client: HulyClient["Type"]; project: HulyProject; component: HulyComponent },
+  { client: HulyClientOperations; project: HulyProject; component: HulyComponent },
   ProjectNotFoundError | ComponentNotFoundError | HulyClientError,
   HulyClient
 > =>

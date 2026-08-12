@@ -421,6 +421,37 @@ deferred registry/protocol, CLI, HTTP/lifecycle, and shared domain/barrel seams.
 Tickets #223–#224 remain open until #225/#228 prove complete MCP/CLI exposure
 and the final focused operation suites execute.
 
+## Ticket #225 registry and schema-corpus checkpoint
+
+The complete production operation registry now constructs under Effect 4 and
+retains exactly 522 unique operation names. Shared component, context, module
+label, related-issue-target, user-status, and virtual-office schemas now route
+through the project Draft-07 adapter. There are no remaining direct
+`JSONSchema.make` calls in production, package, script, or test TypeScript.
+Registry, proxy, resource, protocol-parser, and service-shape consumers use
+rc.108 Result, SchemaError, optional-key, and Context.Service APIs.
+
+The oracle tooling now performs structural JSON-Pointer comparison with an
+exact intentional-delta allowlist that rejects unexpected, duplicate, and
+stale entries, with a machine-readable per-surface delta report. It compiles
+the native and proxy corpus with strict Ajv
+Draft-07 validation and checks representative runtime parsing against emitted
+refinement, tuple, closed-object, and authored cross-field constraints. The
+focused corpus/adapter/registry matrix passes 8 files and 67 tests;
+the broader owned registry/proxy/resource cohorts account for 275 passing
+assertions, and the migrated domain dependency suites pass 157 tests.
+
+The full bundled wire comparison is not yet executable because the build still
+stops at the #227-owned `@effect/platform` HTTP transport import, while the
+oracle command imports the #228-owned Effect CLI framework. Those downstream
+tickets must make both artifacts constructible before the checked-in Effect 3
+wire oracle can be compared end to end. Likewise, a fresh complete TypeScript
+inventory is currently red in the explicitly deferred CLI, server/transport,
+and integration-script/test surfaces; the earlier zero-diagnostic statement
+above records the settled domain-wave checkpoint, not the current whole-tree
+state. Ticket #225 remains open until the bundled comparison runs after those
+edges land.
+
 ## Ledger maintenance rule
 
 Every migration batch must rerun the focused surface it owns and update this

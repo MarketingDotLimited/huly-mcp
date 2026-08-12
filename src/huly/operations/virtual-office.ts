@@ -68,7 +68,7 @@ import type {
   RoomType
 } from "../../domain/schemas/virtual-office.js"
 import { FloorName, MeetingMinutesTitle } from "../../domain/schemas/virtual-office.js"
-import { HulyClient, type HulyClientError } from "../client.js"
+import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
 import { FloorNotFoundError, MeetingMinutesNotFoundError, RoomNotFoundError } from "../errors.js"
 import { contact, love } from "../huly-plugins.js"
 import { hulyNonEmptyTextOrFallback } from "./non-empty-text.js"
@@ -164,7 +164,7 @@ const summarizeRoom = (room: Room): RoomSummary => ({
 })
 
 const lookupRooms = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   roomIds: ReadonlyArray<Ref<Room>>
 ): Effect.Effect<Map<Ref<Room>, Room>, HulyClientError> =>
   Effect.gen(function* () {
@@ -175,7 +175,7 @@ const lookupRooms = (
   })
 
 const lookupPersons = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   personIds: ReadonlyArray<Ref<Person>>
 ): Effect.Effect<Map<Ref<Person>, Person>, HulyClientError> =>
   Effect.gen(function* () {
@@ -185,14 +185,17 @@ const lookupPersons = (
     return new Map(persons.map((person) => [person._id, person]))
   })
 
-const roomDescription = (client: HulyClient["Type"], room: Room): Effect.Effect<string | undefined, HulyClientError> =>
+const roomDescription = (
+  client: HulyClientOperations,
+  room: Room
+): Effect.Effect<string | undefined, HulyClientError> =>
   // Huly uses null for an absent markup reference; the MCP surface exposes absent descriptions as undefined.
   room.description === null
     ? Effect.succeed(undefined)
     : client.fetchMarkup(love.class.Room, room._id, "description", room.description, "markdown")
 
 const minutesDescription = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   minutes: MeetingMinutes
 ): Effect.Effect<string | undefined, HulyClientError> =>
   // Huly uses null for an absent markup reference; the MCP surface exposes absent descriptions as undefined.

@@ -13,7 +13,8 @@ import type {
   RelatedIssueTarget as HulyRelatedIssueTarget
 } from "@hcengineering/tracker"
 import { TimeReportDayType } from "@hcengineering/tracker"
-import { Effect, Exit, TestClock } from "effect"
+import { Effect, Exit } from "effect"
+import { TestClock } from "effect/testing"
 import { expect } from "vitest"
 import { assertAt } from "../../../src/utils/assertions.js"
 

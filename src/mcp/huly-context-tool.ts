@@ -3,7 +3,7 @@ import type { SanitizedHulyRuntimeConfigContext } from "../config/config.js"
 import type { GetHulyContextResult } from "../domain/schemas/index.js"
 import { Count, NonEmptyString } from "../domain/schemas/index.js"
 import { VERSION } from "../version.js"
-import { DEFAULT_HTTP_PORT } from "./http-transport.js"
+import { DEFAULT_HTTP_HOST_VALUE, DEFAULT_HTTP_PORT_NUMBER } from "./http-defaults.js"
 import type { ClientKind, ToolExposureMode, ToolModeConfig } from "./tool-mode.js"
 import { createToolOutputSchema, hulyContextToolOutputSchema } from "./tool-output-schema.js"
 import { resolveToolScope, type ToolScopeSummary } from "./tool-scope.js"
@@ -18,10 +18,11 @@ export const GET_HULY_CONTEXT_TOOL_NAME = makeToolName(BUILTIN_TOOL_NAME_LITERAL
 type BuiltinToolName = (typeof BUILTIN_TOOL_NAME_LITERALS)[number]
 
 const emptyInputSchema: {
+  readonly $schema: "http://json-schema.org/draft-07/schema#"
   readonly type: "object"
   readonly properties: Record<string, never>
   readonly additionalProperties: false
-} = { type: "object", properties: {}, additionalProperties: false }
+} = { $schema: "http://json-schema.org/draft-07/schema#", type: "object", properties: {}, additionalProperties: false }
 
 export const VersionToolResultSchema = Schema.Struct({ current: NonEmptyString, latest: NonEmptyString })
 
@@ -112,7 +113,10 @@ export const buildHulyContext = (
       type: config.transport,
       ...(config.transport === "http"
         ? {
-            http: { host: nonEmptyOrDefault(config.httpHost, "127.0.0.1"), port: config.httpPort ?? DEFAULT_HTTP_PORT }
+            http: {
+              host: nonEmptyOrDefault(config.httpHost, DEFAULT_HTTP_HOST_VALUE),
+              port: config.httpPort ?? DEFAULT_HTTP_PORT_NUMBER
+            }
           }
         : {})
     },

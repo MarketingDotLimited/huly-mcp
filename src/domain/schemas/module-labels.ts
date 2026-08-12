@@ -1,5 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 import { TodoLocatorSchema } from "./planner.js"
 import {
   ColorCode,
@@ -23,7 +24,7 @@ export const ModuleLabelDefinitionSchema = Schema.Struct({
   description: Schema.String,
   color: ColorCode,
   refCount: Schema.optional(Count)
-}).annotations({
+}).annotate({
   title: "ModuleLabelDefinition",
   description: "Human-readable label definition for one Huly module domain."
 })
@@ -34,54 +35,54 @@ export const AttachedModuleLabelSchema = Schema.Struct({
   label: TagElementId,
   title: NonEmptyString,
   color: ColorCode
-}).annotations({ title: "AttachedModuleLabel", description: "Human-readable label attached to one Huly object." })
+}).annotate({ title: "AttachedModuleLabel", description: "Human-readable label attached to one Huly object." })
 export type AttachedModuleLabel = Schema.Schema.Type<typeof AttachedModuleLabelSchema>
 
 const ListModuleLabelDefinitionsParamsSchema = Schema.Struct({
-  titleSearch: Schema.optional(Schema.String.annotations({ description: "Optional label title substring search." })),
+  titleSearch: Schema.optional(Schema.String.annotateKey({ description: "Optional label title substring search." })),
   limit: Schema.optional(
-    LimitParam.annotations({
+    LimitParam.annotateKey({
       description: `Maximum number of label definitions to return (default: ${DEFAULT_LIMIT}).`
     })
   )
 })
 export type ListModuleLabelDefinitionsParams = Schema.Schema.Type<typeof ListModuleLabelDefinitionsParamsSchema>
 
-export const ListDocumentLabelDefinitionsParamsSchema = ListModuleLabelDefinitionsParamsSchema.annotations({
+export const ListDocumentLabelDefinitionsParamsSchema = ListModuleLabelDefinitionsParamsSchema.annotate({
   title: "ListDocumentLabelDefinitionsParams",
   description: "List document label definitions without requiring the document target class."
 })
 export type ListDocumentLabelDefinitionsParams = Schema.Schema.Type<typeof ListDocumentLabelDefinitionsParamsSchema>
 
-export const ListTodoLabelDefinitionsParamsSchema = ListModuleLabelDefinitionsParamsSchema.annotations({
+export const ListTodoLabelDefinitionsParamsSchema = ListModuleLabelDefinitionsParamsSchema.annotate({
   title: "ListTodoLabelDefinitionsParams",
   description: "List Planner ToDo label definitions without requiring the ToDo target class."
 })
 export type ListTodoLabelDefinitionsParams = Schema.Schema.Type<typeof ListTodoLabelDefinitionsParamsSchema>
 
 const DocumentLocatorFields = {
-  teamspace: TeamspaceIdentifier.annotations({ description: "Teamspace name or ID containing the document." }),
-  document: DocumentIdentifier.annotations({ description: "Document title or ID within the teamspace." })
+  teamspace: TeamspaceIdentifier.annotateKey({ description: "Teamspace name or ID containing the document." }),
+  document: DocumentIdentifier.annotateKey({ description: "Document title or ID within the teamspace." })
 }
 
-export const ListDocumentLabelsParamsSchema = Schema.Struct(DocumentLocatorFields).annotations({
+export const ListDocumentLabelsParamsSchema = Schema.Struct(DocumentLocatorFields).annotate({
   title: "ListDocumentLabelsParams",
   description: "List labels attached to one document resolved by teamspace and document title or ID."
 })
 export type ListDocumentLabelsParams = Schema.Schema.Type<typeof ListDocumentLabelsParamsSchema>
 
 const NewLabelFields = {
-  label: TagIdentifier.annotations({
+  label: TagIdentifier.annotateKey({
     description: "Label TagElement _id or exact title. A missing title creates the module label definition."
   }),
   color: Schema.optional(
-    ColorCode.annotations({
+    ColorCode.annotateKey({
       description: `Color for a newly created label definition from 0 through ${MAX_COLOR_INDEX} (default: ${DEFAULT_COLOR_INDEX}). Ignored for an existing label.`
     })
   )
 }
 
-export const AddDocumentLabelParamsSchema = Schema.Struct({ ...DocumentLocatorFields, ...NewLabelFields }).annotations({
+export const AddDocumentLabelParamsSchema = Schema.Struct({ ...DocumentLocatorFields, ...NewLabelFields }).annotate({
   title: "AddDocumentLabelParams",
   description: "Idempotently attach a label to one document, creating a missing label title first."
 })
@@ -89,20 +90,20 @@ export type AddDocumentLabelParams = Schema.Schema.Type<typeof AddDocumentLabelP
 
 export const RemoveDocumentLabelParamsSchema = Schema.Struct({
   ...DocumentLocatorFields,
-  label: TagIdentifier.annotations({ description: "Label TagElement _id or exact title." })
-}).annotations({
+  label: TagIdentifier.annotateKey({ description: "Label TagElement _id or exact title." })
+}).annotate({
   title: "RemoveDocumentLabelParams",
   description: "Detach a label from one document without deleting the label definition."
 })
 export type RemoveDocumentLabelParams = Schema.Schema.Type<typeof RemoveDocumentLabelParamsSchema>
 
-export const ListTodoLabelsParamsSchema = Schema.Struct({ locator: TodoLocatorSchema }).annotations({
+export const ListTodoLabelsParamsSchema = Schema.Struct({ locator: TodoLocatorSchema }).annotate({
   title: "ListTodoLabelsParams",
   description: "List labels attached to one Planner ToDo resolved by raw ID or human-oriented locator."
 })
 export type ListTodoLabelsParams = Schema.Schema.Type<typeof ListTodoLabelsParamsSchema>
 
-export const AddTodoLabelParamsSchema = Schema.Struct({ locator: TodoLocatorSchema, ...NewLabelFields }).annotations({
+export const AddTodoLabelParamsSchema = Schema.Struct({ locator: TodoLocatorSchema, ...NewLabelFields }).annotate({
   title: "AddTodoLabelParams",
   description: "Idempotently attach a label to one Planner ToDo, creating a missing label title first."
 })
@@ -110,8 +111,8 @@ export type AddTodoLabelParams = Schema.Schema.Type<typeof AddTodoLabelParamsSch
 
 export const RemoveTodoLabelParamsSchema = Schema.Struct({
   locator: TodoLocatorSchema,
-  label: TagIdentifier.annotations({ description: "Label TagElement _id or exact title." })
-}).annotations({
+  label: TagIdentifier.annotateKey({ description: "Label TagElement _id or exact title." })
+}).annotate({
   title: "RemoveTodoLabelParams",
   description: "Detach a label from one Planner ToDo without deleting the label definition."
 })
@@ -127,7 +128,7 @@ export type ListAttachedModuleLabelsResult = Schema.Schema.Type<typeof ListAttac
 
 const ModuleLabelMutationResultFields = { id: TagReferenceId, label: TagElementId, title: NonEmptyString }
 
-export const AddModuleLabelResultSchema = Schema.Union(
+export const AddModuleLabelResultSchema = Schema.Union([
   Schema.Struct({
     ...ModuleLabelMutationResultFields,
     attached: Schema.Literal(true),
@@ -143,31 +144,58 @@ export const AddModuleLabelResultSchema = Schema.Union(
     attached: Schema.Literal(false),
     labelCreated: Schema.Literal(false)
   })
-)
+])
 export type AddModuleLabelResult = Schema.Schema.Type<typeof AddModuleLabelResultSchema>
 
 const RemovedModuleLabelFields = { label: TagElementId, title: NonEmptyString }
 
-export const RemoveModuleLabelResultSchema = Schema.Union(
+export const RemoveModuleLabelResultSchema = Schema.Union([
   Schema.Struct({ ...RemovedModuleLabelFields, detached: Schema.Literal(true), detachedCount: PositiveInteger }),
   Schema.Struct({ ...RemovedModuleLabelFields, detached: Schema.Literal(false), detachedCount: Schema.Literal(0) })
-)
+])
 export type RemoveModuleLabelResult = Schema.Schema.Type<typeof RemoveModuleLabelResultSchema>
 
-export const listDocumentLabelDefinitionsParamsJsonSchema = JSONSchema.make(ListDocumentLabelDefinitionsParamsSchema)
-export const listDocumentLabelsParamsJsonSchema = JSONSchema.make(ListDocumentLabelsParamsSchema)
-export const addDocumentLabelParamsJsonSchema = JSONSchema.make(AddDocumentLabelParamsSchema)
-export const removeDocumentLabelParamsJsonSchema = JSONSchema.make(RemoveDocumentLabelParamsSchema)
-export const listTodoLabelDefinitionsParamsJsonSchema = JSONSchema.make(ListTodoLabelDefinitionsParamsSchema)
-export const listTodoLabelsParamsJsonSchema = JSONSchema.make(ListTodoLabelsParamsSchema)
-export const addTodoLabelParamsJsonSchema = JSONSchema.make(AddTodoLabelParamsSchema)
-export const removeTodoLabelParamsJsonSchema = JSONSchema.make(RemoveTodoLabelParamsSchema)
+const MODULE_LABEL_DESCRIPTIONS = {
+  titleSearch: "Optional label title substring search.",
+  limit: `Maximum number of label definitions to return (default: ${DEFAULT_LIMIT}).`,
+  teamspace: "Teamspace name or ID containing the document.",
+  document: "Document title or ID within the teamspace.",
+  locator: "Planner ToDo raw ID or human-oriented locator.",
+  label: "Label TagElement _id or exact title.",
+  color: `Color for a newly created label definition from 0 through ${MAX_COLOR_INDEX} (default: ${DEFAULT_COLOR_INDEX}). Ignored for an existing label.`
+} as const
 
-export const parseListDocumentLabelDefinitionsParams = Schema.decodeUnknown(ListDocumentLabelDefinitionsParamsSchema)
-export const parseListDocumentLabelsParams = Schema.decodeUnknown(ListDocumentLabelsParamsSchema)
-export const parseAddDocumentLabelParams = Schema.decodeUnknown(AddDocumentLabelParamsSchema)
-export const parseRemoveDocumentLabelParams = Schema.decodeUnknown(RemoveDocumentLabelParamsSchema)
-export const parseListTodoLabelDefinitionsParams = Schema.decodeUnknown(ListTodoLabelDefinitionsParamsSchema)
-export const parseListTodoLabelsParams = Schema.decodeUnknown(ListTodoLabelsParamsSchema)
-export const parseAddTodoLabelParams = Schema.decodeUnknown(AddTodoLabelParamsSchema)
-export const parseRemoveTodoLabelParams = Schema.decodeUnknown(RemoveTodoLabelParamsSchema)
+const moduleLabelParamsJsonSchema = (
+  schema: Schema.Constraint,
+  descriptions: Readonly<Record<string, string>> = MODULE_LABEL_DESCRIPTIONS
+): object => withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(schema), descriptions)
+
+export const listDocumentLabelDefinitionsParamsJsonSchema = moduleLabelParamsJsonSchema(
+  ListDocumentLabelDefinitionsParamsSchema
+)
+export const listDocumentLabelsParamsJsonSchema = moduleLabelParamsJsonSchema(ListDocumentLabelsParamsSchema)
+export const addDocumentLabelParamsJsonSchema = moduleLabelParamsJsonSchema(AddDocumentLabelParamsSchema, {
+  ...MODULE_LABEL_DESCRIPTIONS,
+  label: "Label TagElement _id or exact title. A missing title creates the module label definition."
+})
+export const removeDocumentLabelParamsJsonSchema = moduleLabelParamsJsonSchema(RemoveDocumentLabelParamsSchema)
+export const listTodoLabelDefinitionsParamsJsonSchema = moduleLabelParamsJsonSchema(
+  ListTodoLabelDefinitionsParamsSchema
+)
+export const listTodoLabelsParamsJsonSchema = moduleLabelParamsJsonSchema(ListTodoLabelsParamsSchema)
+export const addTodoLabelParamsJsonSchema = moduleLabelParamsJsonSchema(AddTodoLabelParamsSchema, {
+  ...MODULE_LABEL_DESCRIPTIONS,
+  label: "Label TagElement _id or exact title. A missing title creates the module label definition."
+})
+export const removeTodoLabelParamsJsonSchema = moduleLabelParamsJsonSchema(RemoveTodoLabelParamsSchema)
+
+export const parseListDocumentLabelDefinitionsParams = Schema.decodeUnknownEffect(
+  ListDocumentLabelDefinitionsParamsSchema
+)
+export const parseListDocumentLabelsParams = Schema.decodeUnknownEffect(ListDocumentLabelsParamsSchema)
+export const parseAddDocumentLabelParams = Schema.decodeUnknownEffect(AddDocumentLabelParamsSchema)
+export const parseRemoveDocumentLabelParams = Schema.decodeUnknownEffect(RemoveDocumentLabelParamsSchema)
+export const parseListTodoLabelDefinitionsParams = Schema.decodeUnknownEffect(ListTodoLabelDefinitionsParamsSchema)
+export const parseListTodoLabelsParams = Schema.decodeUnknownEffect(ListTodoLabelsParamsSchema)
+export const parseAddTodoLabelParams = Schema.decodeUnknownEffect(AddTodoLabelParamsSchema)
+export const parseRemoveTodoLabelParams = Schema.decodeUnknownEffect(RemoveTodoLabelParamsSchema)

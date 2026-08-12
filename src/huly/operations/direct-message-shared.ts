@@ -5,7 +5,7 @@ import { Effect } from "effect"
 
 import { Count, type DirectMessageIdentifier } from "../../domain/schemas/shared.js"
 import { isSingle } from "../../utils/assertions.js"
-import { HulyClient, type HulyClientError } from "../client.js"
+import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
 import { DirectMessageIdentifierAmbiguousError, DirectMessageNotFoundError } from "../errors.js"
 import { chunter, contact, core } from "../huly-plugins.js"
 import { hulyQuery } from "./query-helpers.js"
@@ -31,7 +31,7 @@ export const hasExactDirectMessageMembers = (
 
 export const findDirectMessage = (
   identifier: DirectMessageIdentifier
-): Effect.Effect<{ client: HulyClient["Type"]; dm: HulyDirectMessage }, FindDirectMessageError, HulyClient> =>
+): Effect.Effect<{ client: HulyClientOperations; dm: HulyDirectMessage }, FindDirectMessageError, HulyClient> =>
   Effect.gen(function* () {
     const client = yield* HulyClient
 
@@ -89,7 +89,7 @@ export const findDirectMessage = (
   })
 
 export const createDirectMessageSpace = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   members: ReadonlyArray<HulyAccountUuid>
 ): Effect.Effect<Ref<HulyDirectMessage>, HulyClientError> =>
   Effect.gen(function* () {

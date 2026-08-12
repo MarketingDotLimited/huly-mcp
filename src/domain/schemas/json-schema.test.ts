@@ -66,6 +66,27 @@ describe("JSON schema helpers", () => {
 })
 
 describe("toDraft07JsonSchema", () => {
+  it("keeps repeated scalar constraints conjunctive", () => {
+    const schema = toDraft07JsonSchema(
+      Schema.String.pipe(Schema.check(Schema.isPattern(/^a/)), Schema.check(Schema.isPattern(/z$/)))
+    )
+
+    expect(schema).toMatchObject({ type: "string", allOf: [{ pattern: "^a" }, { pattern: "z$" }] })
+  })
+
+  it("does not promote one union member description to the whole property", () => {
+    const schema = toDraft07JsonSchema(
+      Schema.Struct({
+        value: Schema.Union([
+          Schema.String.annotate({ description: "string choice" }),
+          Schema.Number.annotate({ description: "number choice" })
+        ])
+      })
+    )
+
+    expect(getProperty(schema, "value")).not.toHaveProperty("description")
+  })
+
   const SharedCode = Schema.String.annotate({ identifier: "AdapterFixtureCode", description: "Stable fixture code." })
   const InputFixture = Schema.Struct({
     code: SharedCode,
@@ -90,7 +111,10 @@ describe("toDraft07JsonSchema", () => {
       additionalProperties: false,
       $defs: { AdapterFixtureCode: { type: "string", description: "Stable fixture code." } }
     })
-    expect(getProperty(schema, "code")).toEqual({ $ref: "#/$defs/AdapterFixtureCode" })
+    expect(getProperty(schema, "code")).toEqual({
+      allOf: [{ $ref: "#/$defs/AdapterFixtureCode" }],
+      description: "Stable fixture code."
+    })
     expect(pair).toEqual(expect.objectContaining({ type: "array", items: expect.any(Array), minItems: 2, maxItems: 2 }))
     expect(pair).not.toHaveProperty("prefixItems")
     expect(schema).not.toHaveProperty("definitions")

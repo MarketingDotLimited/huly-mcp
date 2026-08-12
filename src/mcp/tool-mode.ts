@@ -1,12 +1,12 @@
-import { Either, Schema } from "effect"
+import { Result, Schema } from "effect"
 
-const ToolExposureModeSchema = Schema.Literal("native", "proxy")
+const ToolExposureModeSchema = Schema.Literals(["native", "proxy"])
 export type ToolExposureMode = Schema.Schema.Type<typeof ToolExposureModeSchema>
 
-const ToolModeConfigSchema = Schema.Literal("auto", "native", "proxy")
+const ToolModeConfigSchema = Schema.Literals(["auto", "native", "proxy"])
 export type ToolModeConfig = Schema.Schema.Type<typeof ToolModeConfigSchema>
 
-const ProxyOutputStrictEnvSchema = Schema.Literal("true", "false")
+const ProxyOutputStrictEnvSchema = Schema.Literals(["true", "false"])
 const decodeToolExposureMode = Schema.decodeUnknownSync(ToolExposureModeSchema)
 const NATIVE_TOOL_EXPOSURE_MODE = decodeToolExposureMode("native")
 const PROXY_TOOL_EXPOSURE_MODE = decodeToolExposureMode("proxy")
@@ -18,8 +18,8 @@ const ToolExposureConfigSchema = Schema.Struct({
 export type ToolExposureConfig = Schema.Schema.Type<typeof ToolExposureConfigSchema>
 
 const ToolExposureEnvSchema = Schema.Struct({
-  hulyToolMode: Schema.optionalWith(Schema.String, { exact: true }),
-  proxyOutputStrict: Schema.optionalWith(Schema.String, { exact: true })
+  hulyToolMode: Schema.optionalKey(Schema.String),
+  proxyOutputStrict: Schema.optionalKey(Schema.String)
 })
 
 type ToolExposureConfigField = "HULY_TOOL_MODE" | "PROXY_OUTPUT_STRICT"
@@ -69,7 +69,7 @@ const envShapeFailure = (input: unknown): ToolExposureConfigParseResult => {
   }
 }
 
-const ClientKindSchema = Schema.Literal(
+const ClientKindSchema = Schema.Literals([
   "claude-code",
   "claude-ai",
   "cursor",
@@ -78,7 +78,7 @@ const ClientKindSchema = Schema.Literal(
   "codex",
   "opencode",
   "unknown"
-)
+])
 export type ClientKind = Schema.Schema.Type<typeof ClientKindSchema>
 
 export const DEFAULT_MODE_BY_CLIENT_KIND = {
@@ -92,13 +92,17 @@ export const DEFAULT_MODE_BY_CLIENT_KIND = {
   unknown: PROXY_TOOL_EXPOSURE_MODE
 } satisfies Record<ClientKind, ToolExposureMode>
 
-const McpClientName = Schema.Trim.pipe(Schema.nonEmptyString(), Schema.brand("McpClientName")).annotations({
-  identifier: "McpClientName",
-  title: "McpClientName",
-  description: "Trimmed MCP client name from initialize or request metadata."
-})
+const McpClientName = Schema.Trim.pipe(
+  Schema.check(Schema.isNonEmpty()),
+  Schema.brand("McpClientName"),
+  Schema.annotate({
+    identifier: "McpClientName",
+    title: "McpClientName",
+    description: "Trimmed MCP client name from initialize or request metadata."
+  })
+)
 
-const McpClientInfoLikeSchema = Schema.Struct({ name: Schema.optionalWith(McpClientName, { exact: true }) })
+const McpClientInfoLikeSchema = Schema.Struct({ name: Schema.optionalKey(McpClientName) })
 export type McpClientInfoLike = Schema.Schema.Type<typeof McpClientInfoLikeSchema>
 
 export interface ResolveToolExposureModeInput {
@@ -114,8 +118,8 @@ const parseConfiguredMode = (raw: string | undefined): EnvValueParseResult<ToolM
   }
 
   const normalized = trimmedLower(raw)
-  const decoded = Schema.decodeUnknownEither(ToolModeConfigSchema)(normalized)
-  if (Either.isRight(decoded)) return { _tag: "Success", value: decoded.right }
+  const decoded = Schema.decodeUnknownResult(ToolModeConfigSchema)(normalized)
+  if (Result.isSuccess(decoded)) return { _tag: "Success", value: decoded.success }
   return {
     _tag: "Failure",
     field: "HULY_TOOL_MODE",
@@ -127,8 +131,8 @@ const parseProxyOutputStrict = (raw: string | undefined): EnvValueParseResult<bo
   if (raw === undefined) return { _tag: "Success", value: false }
 
   const normalized = trimmedLower(raw)
-  const decoded = Schema.decodeUnknownEither(ProxyOutputStrictEnvSchema)(normalized)
-  if (Either.isRight(decoded)) return { _tag: "Success", value: decoded.right === "true" }
+  const decoded = Schema.decodeUnknownResult(ProxyOutputStrictEnvSchema)(normalized)
+  if (Result.isSuccess(decoded)) return { _tag: "Success", value: decoded.success === "true" }
   return {
     _tag: "Failure",
     field: "PROXY_OUTPUT_STRICT",
@@ -137,10 +141,10 @@ const parseProxyOutputStrict = (raw: string | undefined): EnvValueParseResult<bo
 }
 
 export const parseToolExposureConfig = (input: unknown): ToolExposureConfigParseResult => {
-  const decodedEnv = Schema.decodeUnknownEither(ToolExposureEnvSchema)(input)
-  if (Either.isLeft(decodedEnv)) return envShapeFailure(input)
+  const decodedEnv = Schema.decodeUnknownResult(ToolExposureEnvSchema)(input)
+  if (Result.isFailure(decodedEnv)) return envShapeFailure(input)
 
-  const env = decodedEnv.right
+  const env = decodedEnv.success
   const configuredMode = parseConfiguredMode(env.hulyToolMode)
   if (configuredMode._tag === "Failure") return configuredMode
 
@@ -157,8 +161,8 @@ export const parseToolExposureConfig = (input: unknown): ToolExposureConfigParse
 }
 
 export const parseMcpClientInfo = (input: unknown): McpClientInfoLike | undefined => {
-  const decoded = Schema.decodeUnknownEither(McpClientInfoLikeSchema)(input)
-  return Either.isRight(decoded) ? decoded.right : undefined
+  const decoded = Schema.decodeUnknownResult(McpClientInfoLikeSchema)(input)
+  return Result.isSuccess(decoded) ? decoded.success : undefined
 }
 
 const rawClientName = (clientInfo: McpClientInfoLike | undefined): string => {

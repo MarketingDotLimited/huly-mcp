@@ -6,7 +6,7 @@ import type {
   ReadResourceRequestParams,
   ReadResourceResult
 } from "@modelcontextprotocol/server"
-import { Clock, Effect, Exit, Schema } from "effect"
+import { Clock, Effect, Exit, Result, Schema } from "effect"
 
 import { type GetHulyContextResult, GetHulyContextResultSchema } from "../domain/schemas/index.js"
 import { HulyError } from "../huly/errors-base.js"
@@ -154,8 +154,8 @@ export const fetchLatestNpmVersion = async (fetchImpl: typeof fetch = fetch): Pr
 }
 
 const invokeToolEditMode = (args: unknown): string | undefined => {
-  const decoded = Schema.decodeUnknownEither(InvokeToolParamsSchema)(args)
-  return decoded._tag === "Right" ? deriveEditMode(decoded.right.toolName, decoded.right.arguments) : undefined
+  const decoded = Schema.decodeUnknownResult(InvokeToolParamsSchema)(args)
+  return Result.isSuccess(decoded) ? deriveEditMode(decoded.success.toolName, decoded.success.arguments) : undefined
 }
 
 type ClientResolution =

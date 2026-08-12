@@ -54,7 +54,10 @@ describe("Lead MCP Tools", () => {
       expect(tool?.inputSchema).toBeDefined()
       expect(tool.outputSchema.properties?.result).toMatchObject({
         type: "object",
-        properties: { leadId: { type: "string" }, identifier: { type: "string", pattern: "^LEAD-[0-9]+$" } },
+        properties: {
+          leadId: { allOf: [{ $ref: "#/$defs/NonEmptyString" }], description: "Raw Huly Lead document _id." },
+          identifier: { type: "string", pattern: "^LEAD-[0-9]+$" }
+        },
         required: ["leadId", "identifier"]
       })
       expect(typeof tool?.handler).toBe("function")

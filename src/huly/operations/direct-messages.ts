@@ -35,7 +35,7 @@ import type {
   UpdateDmMessageResult
 } from "../../domain/schemas/direct-messages.js"
 import { ChannelId, type DirectMessageIdentifier, MessageId, type PersonRefInput } from "../../domain/schemas/shared.js"
-import { HulyClient, type HulyClientError } from "../client.js"
+import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
 import type { PersonIdentifierAmbiguousError, PersonNotAnEmployeeError, PersonNotFoundError } from "../errors.js"
 import { CannotDirectMessageSelfError, MessageNotFoundError } from "../errors.js"
 import { buildSocialIdToPersonNameMap } from "./channels.js"
@@ -79,7 +79,7 @@ export const findDirectMessageMessage = (params: {
   dm: DirectMessageIdentifier
   messageId: MessageId
 }): Effect.Effect<
-  { client: HulyClient["Type"]; dm: HulyDirectMessage; message: ChatMessage },
+  { client: HulyClientOperations; dm: HulyDirectMessage; message: ChatMessage },
   FindDirectMessageError | MessageNotFoundError,
   HulyClient
 > =>

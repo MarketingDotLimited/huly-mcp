@@ -1,5 +1,6 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 import { DEFAULT_LIMIT, LimitParam, ListTotal, MAX_LIMIT, NonEmptyString, Timestamp } from "./shared.js"
 
 export const UserStatusId = NonEmptyString.pipe(Schema.brand("UserStatusId"))
@@ -18,21 +19,21 @@ export type UserStatusSummary = Schema.Schema.Type<typeof UserStatusSummarySchem
 
 export const ListUserStatusesParamsSchema = Schema.Struct({
   online: Schema.optional(
-    Schema.Boolean.annotations({
+    Schema.Boolean.annotateKey({
       description: "Optional presence filter. Use true for currently connected users, false for offline records."
     })
   ),
   user: Schema.optional(
-    UserStatusAccountUuid.annotations({
+    UserStatusAccountUuid.annotateKey({
       description: "Optional Huly account UUID filter. Pass the exact account UUID from a user status row."
     })
   ),
   limit: Schema.optional(
-    LimitParam.annotations({
+    LimitParam.annotateKey({
       description: `Maximum number of user status records to return (default: ${DEFAULT_LIMIT}, maximum: ${MAX_LIMIT}).`
     })
   )
-}).annotations({ title: "ListUserStatusesParams", description: "Parameters for listing Huly user presence records." })
+}).annotate({ title: "ListUserStatusesParams", description: "Parameters for listing Huly user presence records." })
 export type ListUserStatusesParams = Schema.Schema.Type<typeof ListUserStatusesParamsSchema>
 
 export const ListUserStatusesResultSchema = Schema.Struct({
@@ -41,6 +42,13 @@ export const ListUserStatusesResultSchema = Schema.Struct({
 })
 export type ListUserStatusesResult = Schema.Schema.Type<typeof ListUserStatusesResultSchema>
 
-export const listUserStatusesParamsJsonSchema = JSONSchema.make(ListUserStatusesParamsSchema)
+export const listUserStatusesParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  toDraft07JsonSchema(ListUserStatusesParamsSchema),
+  {
+    online: "Optional presence filter. Use true for currently connected users, false for offline records.",
+    user: "Optional Huly account UUID filter. Pass the exact account UUID from a user status row.",
+    limit: `Maximum number of user status records to return (default: ${DEFAULT_LIMIT}, maximum: ${MAX_LIMIT}).`
+  }
+)
 
-export const parseListUserStatusesParams = Schema.decodeUnknown(ListUserStatusesParamsSchema)
+export const parseListUserStatusesParams = Schema.decodeUnknownEffect(ListUserStatusesParamsSchema)

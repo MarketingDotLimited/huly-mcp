@@ -1,4 +1,4 @@
-import { Either, Schema } from "effect"
+import { Result, Schema } from "effect"
 
 import { Count } from "../domain/schemas/index.js"
 import { createSuccessResponse, type McpToolResponse } from "./error-mapping.js"
@@ -9,16 +9,16 @@ import type { ToolCategory, ToolDefinition } from "./tools/registry.js"
 const SEARCH_DEFAULT_LIMIT = 10
 export const SEARCH_MAX_LIMIT = 50
 
-export const ToolSearchQuery = Schema.NonEmptyTrimmedString.pipe(Schema.brand("ToolSearchQuery"))
+const NonEmptyTrimmedText = Schema.Trimmed.pipe(Schema.check(Schema.isNonEmpty()))
+
+export const ToolSearchQuery = NonEmptyTrimmedText.pipe(Schema.brand("ToolSearchQuery"))
 export type ToolSearchQuery = Schema.Schema.Type<typeof ToolSearchQuery>
 
-export const ToolParameterName = Schema.NonEmptyTrimmedString.pipe(Schema.brand("ToolParameterName"))
+export const ToolParameterName = NonEmptyTrimmedText.pipe(Schema.brand("ToolParameterName"))
 export type ToolParameterName = Schema.Schema.Type<typeof ToolParameterName>
 
 export const SearchToolLimit = Schema.Number.pipe(
-  Schema.int(),
-  Schema.positive(),
-  Schema.lessThanOrEqualTo(SEARCH_MAX_LIMIT),
+  Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(SEARCH_MAX_LIMIT)),
   Schema.brand("SearchToolLimit")
 )
 export type SearchToolLimit = Schema.Schema.Type<typeof SearchToolLimit>
@@ -27,14 +27,13 @@ export const makeToolSearchQuery = (value: string): ToolSearchQuery => ToolSearc
 export const makeSearchToolLimit = (value: number): SearchToolLimit => SearchToolLimit.make(value)
 export const SEARCH_DEFAULT_LIMIT_VALUE = makeSearchToolLimit(SEARCH_DEFAULT_LIMIT)
 
-const UnknownRecordSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
-const ToolInputSummarySchema = UnknownRecordSchema.pipe(
-  Schema.extend(
-    Schema.Struct({
-      properties: Schema.optionalWith(UnknownRecordSchema, { exact: true }),
-      required: Schema.optionalWith(Schema.Array(Schema.String), { exact: true })
-    })
-  )
+const UnknownRecordSchema = Schema.Record(Schema.String, Schema.Unknown)
+const ToolInputSummarySchema = Schema.StructWithRest(
+  Schema.Struct({
+    properties: Schema.optionalKey(UnknownRecordSchema),
+    required: Schema.optionalKey(Schema.Array(Schema.String))
+  }),
+  [UnknownRecordSchema]
 )
 type ToolInputSummary = Schema.Schema.Type<typeof ToolInputSummarySchema>
 
@@ -49,16 +48,16 @@ const INVALID_INPUT_SCHEMA_SUMMARY_ISSUE =
   "inputSchema summary must expose object properties keyed by non-empty strings and an optional string required array"
 
 const parseToolInputSummary = (value: unknown): ToolInputSummaryParseResult => {
-  const decoded = Schema.decodeUnknownEither(ToolInputSummarySchema)(value)
-  return Either.isRight(decoded)
-    ? { _tag: "success", summary: decoded.right }
+  const decoded = Schema.decodeUnknownResult(ToolInputSummarySchema)(value)
+  return Result.isSuccess(decoded)
+    ? { _tag: "success", summary: decoded.success }
     : { _tag: "invalid", issue: INVALID_INPUT_SCHEMA_SUMMARY_ISSUE }
 }
 
 const parseToolParameterNames = (values: ReadonlyArray<string>): ToolParameterNamesParseResult => {
   const names = values.map((value) => {
-    const decoded = Schema.decodeUnknownEither(ToolParameterName)(value)
-    return decoded._tag === "Right" ? decoded.right : undefined
+    const decoded = Schema.decodeUnknownResult(ToolParameterName)(value)
+    return Result.isSuccess(decoded) ? decoded.success : undefined
   })
   const parsedNames = names.filter((name): name is ToolParameterName => name !== undefined)
   if (parsedNames.length !== names.length) return { _tag: "invalid", issue: INVALID_INPUT_SCHEMA_SUMMARY_ISSUE }

@@ -16,7 +16,7 @@ import type {
 } from "../../domain/schemas/approval-requests.js"
 import { ApprovalRequestCollection, ApprovalRequestId } from "../../domain/schemas/approval-requests.js"
 import { Count, Email, MessageId, PersonId, PersonName } from "../../domain/schemas/shared.js"
-import { HulyClient, type HulyClientError } from "../client.js"
+import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
 import type { PersonIdentifierAmbiguousError } from "../errors-contacts.js"
 import {
   ApprovalRequestApproverNotRequestedError,
@@ -49,7 +49,7 @@ type ApprovalRequestWriteError =
   | PersonNotFoundError
 
 const currentEmployeeRef = (
-  client: HulyClient["Type"]
+  client: HulyClientOperations
 ): Effect.Effect<Ref<HulyPerson>, HulyClientError | PersonNotFoundError> =>
   Effect.gen(function* () {
     const actor = client.getPrimarySocialId()
@@ -80,7 +80,7 @@ const personRefInput = (identifier: string) => {
 }
 
 const resolveRequestedPerson = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   identifier: string
 ): Effect.Effect<Ref<HulyPerson>, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
   Effect.gen(function* () {
@@ -94,7 +94,7 @@ const resolveRequestedPerson = (
   })
 
 const resolveRequestedPeople = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   identifiers: ReadonlyArray<string>
 ): Effect.Effect<Array<Ref<HulyPerson>>, HulyClientError | PersonIdentifierAmbiguousError | PersonNotFoundError> =>
   Effect.gen(function* () {
@@ -119,7 +119,7 @@ const requiredApprovalCount = (
 }
 
 const targetSpace = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   params: AddApprovalRequestParams
 ): Effect.Effect<Ref<Space>, HulyClientError | ApprovalRequestTargetNotFoundError> =>
   Effect.gen(function* () {
@@ -141,7 +141,7 @@ const targetSpace = (
   })
 
 const findApprovalRequest = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   request: ApprovalRequestId
 ): Effect.Effect<HulyApprovalRequest, HulyClientError | ApprovalRequestNotFoundError> =>
   Effect.gen(function* () {
@@ -169,7 +169,7 @@ const matchesDirectApprovalActor = (
 ): boolean => creator === actor || creator === primarySocialId || socialIds.includes(creator ?? "")
 
 const approvalCancelAuthorization = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   item: HulyApprovalRequest
 ): Effect.Effect<ApprovalCancelAuthorization, HulyClientError | PersonNotFoundError> =>
   Effect.gen(function* () {
@@ -190,7 +190,7 @@ const requireActive = (item: HulyApprovalRequest): Effect.Effect<void, ApprovalR
     : Effect.fail(new ApprovalRequestNotActiveError({ request: item._id, status: item.status }))
 
 const requestedCurrentEmployee = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   item: HulyApprovalRequest
 ): Effect.Effect<Ref<HulyPerson>, HulyClientError | PersonNotFoundError | ApprovalRequestApproverNotRequestedError> =>
   Effect.gen(function* () {
@@ -202,7 +202,7 @@ const requestedCurrentEmployee = (
   })
 
 const updateRequestCollection = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   operation: string,
   item: HulyApprovalRequest,
   operations: DocumentUpdate<HulyApprovalRequest>
@@ -223,7 +223,7 @@ const updateRequestCollection = (
 }
 
 const addRequestComment = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   item: HulyApprovalRequest,
   body: string,
   decision: boolean

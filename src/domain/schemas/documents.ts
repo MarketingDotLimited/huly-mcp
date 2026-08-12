@@ -450,7 +450,11 @@ const editDocumentOldTextJsonSchema = isJsonSchemaRecord(editDocumentGeneratedPr
 /* v8 ignore stop */
 export const editDocumentParamsJsonSchema = {
   ...editDocumentGeneratedJsonSchema,
-  properties: { ...editDocumentGeneratedProperties, old_text: { ...editDocumentOldTextJsonSchema, pattern: "\\S" } },
+  type: "object",
+  properties: {
+    ...editDocumentGeneratedProperties,
+    old_text: { ...editDocumentOldTextJsonSchema, type: "string", pattern: "\\S" }
+  },
   anyOf: [{ required: ["title"] }, { required: ["content"] }, { required: ["old_text", "new_text"] }],
   allOf: [
     { not: { anyOf: [{ required: ["content", "old_text"] }, { required: ["content", "new_text"] }] } },

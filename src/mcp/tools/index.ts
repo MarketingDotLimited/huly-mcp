@@ -147,8 +147,8 @@ type ToolRegistryMethods = {
   readonly handleToolCall: (
     toolName: string,
     args: unknown,
-    hulyClient: HulyClient["Type"],
-    storageClient: HulyStorageClient["Type"],
+    hulyClient: HulyClient["Service"],
+    storageClient: HulyStorageClient["Service"],
     workspaceClient?: WorkspaceClientOperations
   ) => Promise<McpToolResponse | null>
 }

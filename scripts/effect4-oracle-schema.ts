@@ -8,7 +8,7 @@ import { isJsonValue } from "./effect4-oracle-canonical.js"
 export type { JsonValue } from "./effect4-oracle-canonical.js"
 
 export const JsonValueSchema = Schema.declare(isJsonValue)
-export const JsonRecordSchema = Schema.Record({ key: Schema.String, value: JsonValueSchema })
+export const JsonRecordSchema = Schema.Record(Schema.String, JsonValueSchema)
 
 export const OracleProcessResultSchema = Schema.Struct({
   exitCode: Schema.Int,
@@ -17,17 +17,17 @@ export const OracleProcessResultSchema = Schema.Struct({
 })
 export type OracleProcessResult = Schema.Schema.Type<typeof OracleProcessResultSchema>
 
-export const OracleMethodSchema = Schema.Literal(
+export const OracleMethodSchema = Schema.Literals([
   "server/discover",
   "tools/list",
   "resources/list",
   "resources/templates/list",
   "tools/call"
-)
+])
 export type OracleMethod = Schema.Schema.Type<typeof OracleMethodSchema>
 
 export const OracleJsonRpcResponseSchema = Schema.Struct({
-  id: Schema.Union(Schema.String, Schema.Number),
+  id: Schema.Union([Schema.String, Schema.Number]),
   jsonrpc: Schema.Literal("2.0"),
   result: JsonValueSchema
 })
@@ -63,11 +63,11 @@ export type BundledProcesses = Schema.Schema.Type<typeof BundledProcessesSchema>
 
 const RegistryToolInventorySchema = Schema.Struct({ category: ToolCategory, name: ToolName })
 const AuthoredConstraintSchema = Schema.Struct({
-  path: Schema.Array(Schema.Union(Schema.String, Schema.Int)),
+  path: Schema.Array(Schema.Union([Schema.String, Schema.Int])),
   value: JsonValueSchema
 })
 const AuthoredToolConstraintsSchema = Schema.Struct({
-  constraints: Schema.Array(AuthoredConstraintSchema).pipe(Schema.minItems(1)),
+  constraints: Schema.Array(AuthoredConstraintSchema).pipe(Schema.check(Schema.isMinLength(1))),
   toolName: ToolName
 })
 const RegistryInventorySchema = Schema.Struct({
@@ -95,33 +95,31 @@ const CliHistoricalParitySchema = Schema.Struct({
 const CliParityTargetSchema = Schema.Struct({ ignoredOperations: Count, routesPerRegistryOperation: Count })
 
 const CliFileInputPolicySchema = Schema.Struct({ fields: Schema.Array(Schema.String) })
-const CliFileOutputPolicySchema = Schema.Union(
+const CliFileOutputPolicySchema = Schema.Union([
   Schema.Struct({ attachmentIdField: Schema.String, type: Schema.Literal("attachment-download") }),
   Schema.Struct({ type: Schema.Literal("image-content") })
-)
+])
 const CliCommandBehaviorSchema = Schema.Struct({
-  base64FileInput: Schema.optionalWith(CliFileInputPolicySchema, { exact: true }),
-  confirmation: Schema.optionalWith(Schema.Struct({ message: Schema.String, type: Schema.Literal("requires-yes") }), {
-    exact: true
-  }),
-  fileInput: Schema.optionalWith(CliFileInputPolicySchema, { exact: true }),
-  fileOutput: Schema.optionalWith(CliFileOutputPolicySchema, { exact: true })
+  base64FileInput: Schema.optionalKey(CliFileInputPolicySchema),
+  confirmation: Schema.optionalKey(Schema.Struct({ message: Schema.String, type: Schema.Literal("requires-yes") })),
+  fileInput: Schema.optionalKey(CliFileInputPolicySchema),
+  fileOutput: Schema.optionalKey(CliFileOutputPolicySchema)
 })
 const CliHumanColumnSchema = Schema.Struct({
   field: Schema.String,
-  label: Schema.optionalWith(Schema.String, { exact: true }),
+  label: Schema.optionalKey(Schema.String),
   priority: Schema.Number,
-  reusable: Schema.optionalWith(Schema.Boolean, { exact: true })
+  reusable: Schema.optionalKey(Schema.Boolean)
 })
 const CliRouteSchema = Schema.Struct({
   toolName: ToolName,
-  path: Schema.Array(Schema.String).pipe(Schema.minItems(1)),
+  path: Schema.Array(Schema.String).pipe(Schema.check(Schema.isMinLength(1))),
   positional: Schema.Array(Schema.String),
   description: Schema.String,
-  behavior: Schema.optionalWith(CliCommandBehaviorSchema, { exact: true }),
-  human: Schema.optionalWith(Schema.Struct({ columns: Schema.Array(CliHumanColumnSchema).pipe(Schema.minItems(1)) }), {
-    exact: true
-  })
+  behavior: Schema.optionalKey(CliCommandBehaviorSchema),
+  human: Schema.optionalKey(
+    Schema.Struct({ columns: Schema.Array(CliHumanColumnSchema).pipe(Schema.check(Schema.isMinLength(1))) })
+  )
 })
 
 const CliGlobalsFixtureSchema = Schema.Struct({ json: Schema.Boolean, yes: Schema.Boolean })
@@ -149,7 +147,7 @@ const CliErrorFixturesSchema = Schema.Struct({
 const CliFailureContractEntrySchema = Schema.Struct({
   code: CliFailureCodeSchema,
   exitStatus: CliExitStatusSchema,
-  hint: Schema.optionalWith(Schema.String, { exact: true })
+  hint: Schema.optionalKey(Schema.String)
 })
 const CliFailureContractSchema = Schema.Struct({
   input: CliFailureContractEntrySchema,

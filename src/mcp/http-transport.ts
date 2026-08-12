@@ -19,12 +19,12 @@ import {
 } from "@modelcontextprotocol/server"
 import type { Scope } from "effect"
 import { Context, Effect, Layer, Schema } from "effect"
+import { DEFAULT_HTTP_HOST_VALUE, DEFAULT_HTTP_PORT_NUMBER } from "./http-defaults.js"
 
 const MIN_HTTP_PORT = 0
 const MAX_HTTP_PORT = 65_535
 const HTTP_UNAUTHORIZED_ERROR_CODE = -32_000
 const HTTP_UNAUTHORIZED = 401
-const DEFAULT_HTTP_PORT_NUMBER = 3000
 
 export const HttpPort = Schema.Number.pipe(Schema.int(), Schema.between(MIN_HTTP_PORT, MAX_HTTP_PORT)).annotations({
   identifier: "HttpPort",
@@ -39,7 +39,7 @@ export const HttpHost = Schema.NonEmptyTrimmedString.annotations({
 export type HttpHost = Schema.Schema.Type<typeof HttpHost>
 
 export const DEFAULT_HTTP_PORT: HttpPort = HttpPort.make(DEFAULT_HTTP_PORT_NUMBER)
-export const DEFAULT_HTTP_HOST: HttpHost = HttpHost.make("127.0.0.1")
+export const DEFAULT_HTTP_HOST: HttpHost = HttpHost.make(DEFAULT_HTTP_HOST_VALUE)
 
 const UnauthorizedJsonRpcResponse = Schema.Struct({
   jsonrpc: Schema.Literal("2.0"),

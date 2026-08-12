@@ -30,8 +30,8 @@ export type FunnelIdentifier = Schema.Schema.Type<typeof FunnelIdentifier>
 // Specific upstream proof for the LEAD prefix:
 // - https://github.com/hcengineering/platform/blob/b9657d53d130a2ed8034c1b71ab0cf8b7a0b4994/models/lead/src/types.ts#L70
 // - https://github.com/hcengineering/platform/blob/b9657d53d130a2ed8034c1b71ab0cf8b7a0b4994/models/lead/src/migration.ts#L67
-const CanonicalLeadIdentifier = Schema.String.check(
-  Schema.isPattern(/^LEAD-\d+$/, { message: "Expected lead identifier like 'LEAD-1'" })
+export const CanonicalLeadIdentifier = Schema.String.check(
+  Schema.isPattern(/^LEAD-[0-9]+$/, { message: "Expected lead identifier like 'LEAD-1'" })
 ).pipe(Schema.brand("LeadIdentifier"))
 
 const leadIdentifierPattern = /^(?:LEAD-)?(\d+)$/i
@@ -243,7 +243,7 @@ export const GetLeadResultSchema = LeadDetailSchema
 
 export const CreateLeadResultSchema = Schema.Struct({
   leadId: DocId.annotateKey({ description: "Raw Huly Lead document _id." }),
-  identifier: LeadIdentifier.annotateKey({ description: "Human lead identifier in LEAD-<number> form." })
+  identifier: CanonicalLeadIdentifier.annotateKey({ description: "Human lead identifier in LEAD-<number> form." })
 }).annotate({ title: "CreateLeadResult", description: "Identifiers for the newly created native Huly lead." })
 
 export type CreateLeadResult = Schema.Schema.Type<typeof CreateLeadResultSchema>

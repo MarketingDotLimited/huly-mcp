@@ -1,5 +1,4 @@
 import { describe, it } from "@effect/vitest"
-import { JSONSchema } from "effect"
 import { expect } from "vitest"
 
 import {
@@ -11,6 +10,7 @@ import {
   UpdateIssueTemplateParamsSchema
 } from "../../src/domain/schemas.js"
 import { createIssueParamsJsonSchema, updateIssueParamsJsonSchema } from "../../src/domain/schemas/issues.js"
+import { toDraft07JsonSchema } from "../../src/domain/schemas/json-schema.js"
 import { TIME_HOURS_EXAMPLES } from "../../src/domain/schemas/time.js"
 
 interface JsonSchemaProperty {
@@ -32,14 +32,14 @@ const estimationDescription = (schema: unknown): string | undefined => {
 }
 
 const estimationSchemas: ReadonlyArray<readonly [string, JsonSchemaObject]> = [
-  ["issue output", JSONSchema.make(IssueSchema)],
+  ["issue output", toDraft07JsonSchema(IssueSchema)],
   ["issue create input", createIssueParamsJsonSchema],
   ["issue update input", updateIssueParamsJsonSchema],
-  ["template output", JSONSchema.make(IssueTemplateSchema)],
-  ["template child output", JSONSchema.make(IssueTemplateChildSchema)],
-  ["template create input", JSONSchema.make(CreateIssueTemplateParamsSchema)],
-  ["template child input", JSONSchema.make(ChildTemplateInputSchema)],
-  ["template update input", JSONSchema.make(UpdateIssueTemplateParamsSchema)]
+  ["template output", toDraft07JsonSchema(IssueTemplateSchema)],
+  ["template child output", toDraft07JsonSchema(IssueTemplateChildSchema)],
+  ["template create input", toDraft07JsonSchema(CreateIssueTemplateParamsSchema)],
+  ["template child input", toDraft07JsonSchema(ChildTemplateInputSchema)],
+  ["template update input", toDraft07JsonSchema(UpdateIssueTemplateParamsSchema)]
 ]
 
 describe("issue estimation hour contracts", () => {

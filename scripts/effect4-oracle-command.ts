@@ -4,8 +4,8 @@ import { renderEffect4Oracle } from "./effect4-oracle-data.js"
 import { verifyEffect4Oracle, writeEffect4Oracle } from "./effect4-oracle-io.js"
 
 const COMMAND_ARGUMENT_INDEX = 2
-const OracleCommand = Schema.Literal("capture", "verify").annotations({
-  message: () => "Usage: effect4-oracle-command.ts capture|verify"
+const OracleCommand = Schema.Literals(["capture", "verify"]).annotate({
+  message: "Usage: effect4-oracle-command.ts capture|verify"
 })
 
 const main = async (): Promise<void> => {

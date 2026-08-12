@@ -22,7 +22,7 @@ import {
 } from "../../domain/schemas/shared.js"
 import { IssueRelationMetadataDegradedWarningCode } from "../../domain/schemas/tool-warnings.js"
 import { assertAt } from "../../utils/assertions.js"
-import type { HulyClient, HulyClientError } from "../client.js"
+import type { HulyClient, HulyClientError, HulyClientOperations } from "../client.js"
 import { Diagnostics } from "../diagnostics.js"
 import type { HulyModelMetadataError, IssueNotFoundError, ProjectNotFoundError } from "../errors.js"
 import { documentPlugin, tracker } from "../huly-plugins.js"
@@ -49,7 +49,7 @@ const blockingIssueFindOptions = {
 } satisfies FindOptions<HulyIssue>
 
 const resolveTargetIssue = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   sourceProject: HulyProject,
   targetIssueStr: string
 ): Effect.Effect<
@@ -245,7 +245,7 @@ const partitionIssueRelations = (relations: ReadonlyArray<RelatedDocument>): Par
 }
 
 const loadIssueIdentifiers = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   relations: ReadonlyArray<RelatedDocument>
 ): Effect.Effect<ReadonlyMap<IssueId, IssueIdentifier>, HulyClientError | HulyModelMetadataError> =>
   Effect.gen(function* () {
@@ -259,7 +259,7 @@ const loadIssueIdentifiers = (
   })
 
 const loadTeamspaceNames = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   documents: ReadonlyArray<HulyDocument>
 ): Effect.Effect<ReadonlyMap<TeamspaceId, TeamspaceIdentifier>, HulyClientError | HulyModelMetadataError> =>
   Effect.gen(function* () {
@@ -274,7 +274,7 @@ const loadTeamspaceNames = (
   })
 
 const loadDocumentRelationEntries = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   relations: ReadonlyArray<RelatedDocument>
 ): Effect.Effect<DocumentRelationProjection, HulyClientError | HulyModelMetadataError> =>
   Effect.gen(function* () {

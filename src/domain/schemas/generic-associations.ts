@@ -298,10 +298,12 @@ export const ListRelationsResultSchema = Schema.Struct({
   relations: Schema.Array(RelationSummarySchema),
   total: ListTotal,
   warnings: Schema.optional(
-    Schema.NonEmptyArray(ListRelationsWarning).annotate({
-      description:
-        "Non-fatal warnings about result completeness or resolution. Treat these as guidance for narrowing a follow-up call."
-    })
+    Schema.Array(ListRelationsWarning)
+      .pipe(Schema.check(Schema.isMinLength(1)))
+      .annotate({
+        description:
+          "Non-fatal warnings about result completeness or resolution. Treat these as guidance for narrowing a follow-up call."
+      })
   )
 })
 export type ListRelationsResult = Schema.Schema.Type<typeof ListRelationsResultSchema>

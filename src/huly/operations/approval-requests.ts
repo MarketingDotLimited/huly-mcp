@@ -30,8 +30,8 @@ import {
   ApprovalRequestCountMetadataDegradedWarningCode,
   ApprovalRequestPersonMetadataDegradedWarningCode
 } from "../../domain/schemas/tool-warnings.js"
-import { HulyClient, type HulyClientError } from "../client.js"
-import { Diagnostics } from "../diagnostics.js"
+import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
+import { Diagnostics, type DiagnosticsOperations } from "../diagnostics.js"
 import { ApprovalRequestNotFoundError } from "../errors.js"
 import { contact, request as requestPlugin } from "../huly-plugins.js"
 import { buildContactUrlFromConfig } from "../url-builders.js"
@@ -89,7 +89,7 @@ const personRefs = (ids: ReadonlyArray<string>): Array<Ref<HulyPerson>> =>
   ids.map((id) => toRef<HulyPerson>(PersonId.make(id)))
 
 const personSummary = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   emailByPersonId: ReadonlyMap<Ref<HulyPerson>, Email>,
   person: HulyPerson
 ): ApprovalPersonRef => {
@@ -104,7 +104,7 @@ const personSummary = (
 }
 
 const warnMissingPeople = (
-  diagnostics: Diagnostics["Type"],
+  diagnostics: DiagnosticsOperations,
   personIds: ReadonlyArray<string>,
   peopleById: ReadonlyMap<string, ApprovalPersonRef>
 ): Effect.Effect<void> => {
@@ -120,8 +120,8 @@ const warnMissingPeople = (
 }
 
 const fetchPeopleById = (
-  client: HulyClient["Type"],
-  diagnostics: Diagnostics["Type"],
+  client: HulyClientOperations,
+  diagnostics: DiagnosticsOperations,
   requests: ReadonlyArray<HulyApprovalRequest>
 ): Effect.Effect<ReadonlyMap<string, ApprovalPersonRef>, HulyClientError> =>
   Effect.gen(function* () {
@@ -148,7 +148,7 @@ const resolvePerson = (peopleById: ReadonlyMap<string, ApprovalPersonRef>, id: R
 type ApprovalCountField = "requiredApprovesCount" | "comments"
 
 const countOrWarn = (
-  diagnostics: Diagnostics["Type"],
+  diagnostics: DiagnosticsOperations,
   requestId: ApprovalRequestId,
   field: ApprovalCountField,
   value: number
@@ -163,7 +163,7 @@ const countOrWarn = (
         .pipe(Effect.as(Count.make(0)))
 
 const requestSummary = (
-  diagnostics: Diagnostics["Type"],
+  diagnostics: DiagnosticsOperations,
   item: HulyApprovalRequest,
   peopleById: ReadonlyMap<string, ApprovalPersonRef>
 ): Effect.Effect<ApprovalRequestSummary> =>
@@ -197,7 +197,7 @@ const requestSummary = (
   })
 
 const requestDetail = (
-  diagnostics: Diagnostics["Type"],
+  diagnostics: DiagnosticsOperations,
   item: HulyApprovalRequest,
   peopleById: ReadonlyMap<string, ApprovalPersonRef>
 ): Effect.Effect<ApprovalRequestDetail> =>

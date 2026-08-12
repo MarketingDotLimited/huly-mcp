@@ -16,7 +16,7 @@ import { runOracleProcess } from "./effect4-oracle-process-runner.js"
 
 const FINAL_PROTOCOL_VERSION = "2026-07-28"
 const LEGACY_PROTOCOL_VERSION = "2025-06-18"
-const LIST_TOOLS_REQUEST_ID = 2
+export const LIST_TOOLS_REQUEST_ID = 2
 const LIST_RESOURCE_TEMPLATES_REQUEST_ID = 3
 const MISSING_ARGUMENTS_REQUEST_ID = 4
 const EXTRA_ARGUMENTS_REQUEST_ID = 5
@@ -80,7 +80,7 @@ const decodeStdioResponses = (stdout: string): ReadonlyArray<OracleJsonRpcRespon
     .trim()
     .split("\n")
     .filter((line) => line !== "")
-    .map((line) => Schema.decodeUnknownSync(Schema.parseJson(OracleJsonRpcResponseSchema))(line))
+    .map((line) => Schema.decodeUnknownSync(Schema.fromJsonString(OracleJsonRpcResponseSchema))(line))
     .map(normalizeServerVersion)
 
 const captureStdioMode = async (mode: "native" | "proxy") => {
@@ -157,8 +157,11 @@ const captureCli = async () => {
 }
 
 const manifestVersion = async (manifestPath: string): Promise<string> =>
-  (await Schema.decodeUnknownPromise(Schema.parseJson(PackageManifestSchema))(await fs.readFile(manifestPath, "utf8")))
-    .version
+  (
+    await Schema.decodeUnknownPromise(Schema.fromJsonString(PackageManifestSchema))(
+      await fs.readFile(manifestPath, "utf8")
+    )
+  ).version
 
 const embeddedManifestVersion = async (manifestPath: string, bundlePath: string): Promise<boolean> => {
   const [version, bundle] = await Promise.all([manifestVersion(manifestPath), fs.readFile(bundlePath, "utf8")])

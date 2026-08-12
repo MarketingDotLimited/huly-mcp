@@ -6,6 +6,7 @@ import { Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { canonicalJson } from "../../scripts/effect4-oracle-canonical.js"
+import { validateCurrentDraft07Corpora } from "../../scripts/effect4-oracle-current-corpus.js"
 import { EFFECT4_ORACLE_PATH, verifyEffect4Oracle, writeEffect4Oracle } from "../../scripts/effect4-oracle-io.js"
 import { runOracleProcess } from "../../scripts/effect4-oracle-process-runner.js"
 import { BehavioralOracleSchema, JsonValueSchema } from "../../scripts/effect4-oracle-schema.js"
@@ -13,7 +14,7 @@ import { BehavioralOracleSchema, JsonValueSchema } from "../../scripts/effect4-o
 describe("Effect 4 behavioral oracle", () => {
   it("captures complete registries and deterministic CLI fixtures", async () => {
     const content = await fs.readFile(EFFECT4_ORACLE_PATH, "utf8")
-    const oracle = Schema.decodeUnknownSync(Schema.parseJson(BehavioralOracleSchema))(content)
+    const oracle = Schema.decodeUnknownSync(Schema.fromJsonString(BehavioralOracleSchema))(content)
 
     expect(oracle).toMatchObject({
       formatVersion: 1,
@@ -117,6 +118,10 @@ describe("Effect 4 behavioral oracle", () => {
     expect(() => Schema.decodeUnknownSync(JsonValueSchema)(cyclic)).toThrow()
   })
 
+  it("compiles every native and proxy public schema as Draft-07", () => {
+    expect(validateCurrentDraft07Corpora()).toEqual({ native: 524, proxy: 6 })
+  }, 60_000)
+
   it("terminates and reaps an oracle subprocess after its deadline", async () => {
     await expect(
       runOracleProcess(
@@ -136,7 +141,7 @@ describe("Effect 4 behavioral oracle", () => {
       const oraclePath = await writeEffect4Oracle(root, content)
       expect(oraclePath).toBe(path.join(root, EFFECT4_ORACLE_PATH))
       await expect(verifyEffect4Oracle(root, content)).resolves.toBe(oraclePath)
-      await expect(verifyEffect4Oracle(root, `${content}changed\n`)).rejects.toThrow("contract delta")
+      await expect(verifyEffect4Oracle(root, canonicalJson({ small: "changed fixture" }))).rejects.toThrow("/small")
     } finally {
       await fs.rm(root, { force: true, recursive: true })
     }

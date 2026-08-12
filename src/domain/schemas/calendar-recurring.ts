@@ -222,9 +222,9 @@ export const CreateRecurringEventParamsSchema = Schema.Struct({
       description: `First occurrence end date/time (timestamp). If omitted, Huly MCP uses startDate + ${DEFAULT_EVENT_DURATION_DESCRIPTION}.`
     })
   ),
-  rules: Schema.NonEmptyArray(CreatableRecurringRuleSchema).annotate({
-    description: "Recurring rules (RFC5545 RRULE format)"
-  }),
+  rules: Schema.Array(CreatableRecurringRuleSchema)
+    .pipe(Schema.check(Schema.isMinLength(1)))
+    .annotate({ description: "Recurring rules (RFC5545 RRULE format)" }),
   allDay: Schema.optional(
     Schema.Boolean.annotate({ description: `All-day event (default: ${DEFAULT_EVENT_ALL_DAY})` })
   ),

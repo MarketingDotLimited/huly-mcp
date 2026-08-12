@@ -92,6 +92,7 @@ import {
   createImageSuccessResponse,
   createSuccessResponse,
   createUnknownToolError,
+  formatParseError,
   mapClientResolutionErrorToMcp,
   mapDomainCauseToMcp,
   mapDomainErrorToMcp,

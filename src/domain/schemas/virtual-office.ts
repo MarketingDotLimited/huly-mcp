@@ -1,5 +1,7 @@
 import type { RoomLanguage as HulyRoomLanguage } from "@hcengineering/love"
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
+
+import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 
 import {
   AccountUuid,
@@ -26,14 +28,14 @@ import {
   VirtualOfficeDimension
 } from "./shared.js"
 
-export const FloorName = NonEmptyString.pipe(Schema.brand("FloorName")).annotations({
+export const FloorName = NonEmptyString.pipe(Schema.brand("FloorName")).annotate({
   identifier: "FloorName",
   title: "FloorName",
   description: "Non-empty virtual-office floor name."
 })
 export type FloorName = Schema.Schema.Type<typeof FloorName>
 
-export const MeetingMinutesTitle = NonEmptyString.pipe(Schema.brand("MeetingMinutesTitle")).annotations({
+export const MeetingMinutesTitle = NonEmptyString.pipe(Schema.brand("MeetingMinutesTitle")).annotate({
   identifier: "MeetingMinutesTitle",
   title: "MeetingMinutesTitle",
   description: "Non-empty meeting-minutes title."
@@ -108,19 +110,19 @@ type ExactRoomLanguageValues = [HulyRoomLanguage] extends [RoomLanguageValue]
 const exactRoomLanguageValues = <T extends true>(value: T): T => value
 exactRoomLanguageValues<ExactRoomLanguageValues>(true)
 
-export const RoomLanguageSchema = Schema.Literal(...RoomLanguageValues).annotations({
+export const RoomLanguageSchema = Schema.Literals(RoomLanguageValues).annotate({
   title: "RoomLanguage",
   description: `Virtual office room language tag: ${enumValuesDescription(RoomLanguageValues)}`
 })
 
 export type RoomLanguage = Schema.Schema.Type<typeof RoomLanguageSchema>
 
-export const RoomAccessSchema = Schema.Literal(...RoomAccessValues).annotations({
+export const RoomAccessSchema = Schema.Literals(RoomAccessValues).annotate({
   title: "RoomAccess",
   description: `Virtual office room access mode: ${enumValuesDescription(RoomAccessValues)}`
 })
 
-export const RoomTypeSchema = Schema.Literal(...RoomTypeValues).annotations({
+export const RoomTypeSchema = Schema.Literals(RoomTypeValues).annotate({
   title: "RoomType",
   description: `Virtual office room type: ${enumValuesDescription(RoomTypeValues)}`
 })
@@ -190,7 +192,7 @@ export const MeetingMinutesSummarySchema = Schema.Struct({
   meetingMinutesId: MeetingMinutesId,
   title: MeetingMinutesTitle,
   attachedToId: DocId,
-  status: Schema.Literal("active", "finished"),
+  status: Schema.Literals(["active", "finished"]),
   createdOn: Schema.optional(TimestampType),
   meetingEnd: Schema.optional(TimestampType),
   transcription: Schema.optional(Count),
@@ -222,50 +224,50 @@ export type OfficeDefaultsSummary = Schema.Schema.Type<typeof OfficeDefaultsSumm
 
 const ListOfficeFloorsParamsSchema = Schema.Struct({
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of floors to return (default: ${DEFAULT_LIMIT}).` })
+    LimitParam.annotateKey({ description: `Maximum number of floors to return (default: ${DEFAULT_LIMIT}).` })
   )
-}).annotations({ title: "ListOfficeFloorsParams", description: "List virtual office floors." })
+}).annotate({ title: "ListOfficeFloorsParams", description: "List virtual office floors." })
 export type ListOfficeFloorsParams = Schema.Schema.Type<typeof ListOfficeFloorsParamsSchema>
 
 const GetOfficeFloorParamsSchema = Schema.Struct({
-  floorId: FloorId.annotations({ description: "Virtual office floor ID." })
-}).annotations({ title: "GetOfficeFloorParams", description: "Get one virtual office floor by ID." })
+  floorId: FloorId.annotateKey({ description: "Virtual office floor ID." })
+}).annotate({ title: "GetOfficeFloorParams", description: "Get one virtual office floor by ID." })
 export type GetOfficeFloorParams = Schema.Schema.Type<typeof GetOfficeFloorParamsSchema>
 
 export const ListOfficeRoomsParamsSchema = Schema.Struct({
-  floorId: Schema.optional(FloorId.annotations({ description: "Optional floor ID filter." })),
+  floorId: Schema.optional(FloorId.annotateKey({ description: "Optional floor ID filter." })),
   limit: Schema.optional(
-    LimitParam.annotations({ description: `Maximum number of rooms to return (default: ${DEFAULT_LIMIT}).` })
+    LimitParam.annotateKey({ description: `Maximum number of rooms to return (default: ${DEFAULT_LIMIT}).` })
   )
-}).annotations({ title: "ListOfficeRoomsParams", description: "List virtual office rooms." })
+}).annotate({ title: "ListOfficeRoomsParams", description: "List virtual office rooms." })
 export type ListOfficeRoomsParams = Schema.Schema.Type<typeof ListOfficeRoomsParamsSchema>
 
 export const GetOfficeRoomParamsSchema = Schema.Struct({
-  roomId: RoomId.annotations({ description: "Virtual office room ID." })
-}).annotations({ title: "GetOfficeRoomParams", description: "Get one virtual office room by ID." })
+  roomId: RoomId.annotateKey({ description: "Virtual office room ID." })
+}).annotate({ title: "GetOfficeRoomParams", description: "Get one virtual office room by ID." })
 export type GetOfficeRoomParams = Schema.Schema.Type<typeof GetOfficeRoomParamsSchema>
 
-const ListOfficesParamsSchema = ListOfficeRoomsParamsSchema.annotations({
+const ListOfficesParamsSchema = ListOfficeRoomsParamsSchema.annotate({
   title: "ListOfficesParams",
   description: "List personal office rooms."
 })
 export type ListOfficesParams = Schema.Schema.Type<typeof ListOfficesParamsSchema>
 
-const GetOfficeParamsSchema = GetOfficeRoomParamsSchema.annotations({
+const GetOfficeParamsSchema = GetOfficeRoomParamsSchema.annotate({
   title: "GetOfficeParams",
   description: "Get one personal office room by ID."
 })
 export type GetOfficeParams = Schema.Schema.Type<typeof GetOfficeParamsSchema>
 
-const ListActiveRoomInfoParamsSchema = EmptyParamsSchema.annotations({
+const ListActiveRoomInfoParamsSchema = EmptyParamsSchema.annotate({
   title: "ListActiveRoomInfoParams",
   description: "List active transient room occupancy summaries."
 })
 export type ListActiveRoomInfoParams = Schema.Schema.Type<typeof ListActiveRoomInfoParamsSchema>
 
 export const ListActiveRoomParticipantsParamsSchema = Schema.Struct({
-  roomId: Schema.optional(RoomId.annotations({ description: "Optional room ID filter." }))
-}).annotations({
+  roomId: Schema.optional(RoomId.annotateKey({ description: "Optional room ID filter." }))
+}).annotate({
   title: "ListActiveRoomParticipantsParams",
   description: "List active transient participant positions in virtual office rooms."
 })
@@ -273,68 +275,98 @@ export type ListActiveRoomParticipantsParams = Schema.Schema.Type<typeof ListAct
 
 export const ListMeetingMinutesParamsSchema = Schema.Struct({
   attachedToId: Schema.optional(
-    DocId.annotations({
+    DocId.annotateKey({
       description:
         "Optional room or meeting document ID that the meeting notes/transcript record (minutes) is attached to."
     })
   ),
-  from: Schema.optional(Timestamp.annotations({ description: "Created-on lower bound timestamp." })),
-  to: Schema.optional(Timestamp.annotations({ description: "Created-on upper bound timestamp." })),
+  from: Schema.optional(Timestamp.annotateKey({ description: "Created-on lower bound timestamp." })),
+  to: Schema.optional(Timestamp.annotateKey({ description: "Created-on upper bound timestamp." })),
   limit: Schema.optional(
-    LimitParam.annotations({
+    LimitParam.annotateKey({
       description: `Maximum number of meeting notes/transcript records (minutes) to return (default: ${DEFAULT_LIMIT}).`
     })
   )
-}).annotations({ title: "ListMeetingMinutesParams", description: "List meeting notes/transcript records (minutes)." })
+}).annotate({ title: "ListMeetingMinutesParams", description: "List meeting notes/transcript records (minutes)." })
 export type ListMeetingMinutesParams = Schema.Schema.Type<typeof ListMeetingMinutesParamsSchema>
 
 export const GetMeetingMinutesParamsSchema = Schema.Struct({
-  meetingMinutesId: MeetingMinutesId.annotations({
+  meetingMinutesId: MeetingMinutesId.annotateKey({
     description: "Meeting notes/transcript record ID (meeting minutes ID)."
   })
-}).annotations({
+}).annotate({
   title: "GetMeetingMinutesParams",
   description: "Get one meeting notes/transcript record (minutes) by ID."
 })
 export type GetMeetingMinutesParams = Schema.Schema.Type<typeof GetMeetingMinutesParamsSchema>
 
-const ListDevicePreferencesParamsSchema = EmptyParamsSchema.annotations({
+const ListDevicePreferencesParamsSchema = EmptyParamsSchema.annotate({
   title: "ListDevicePreferencesParams",
   description: "List readable virtual office media device preferences."
 })
 export type ListDevicePreferencesParams = Schema.Schema.Type<typeof ListDevicePreferencesParamsSchema>
 
-const ListOfficeDefaultsParamsSchema = EmptyParamsSchema.annotations({
+const ListOfficeDefaultsParamsSchema = EmptyParamsSchema.annotate({
   title: "ListOfficeDefaultsParams",
   description: "List room-level recording/transcription/language defaults."
 })
 export type ListOfficeDefaultsParams = Schema.Schema.Type<typeof ListOfficeDefaultsParamsSchema>
 
-export const listOfficeFloorsParamsJsonSchema = JSONSchema.make(ListOfficeFloorsParamsSchema)
-export const getOfficeFloorParamsJsonSchema = JSONSchema.make(GetOfficeFloorParamsSchema)
-export const listOfficeRoomsParamsJsonSchema = JSONSchema.make(ListOfficeRoomsParamsSchema)
-export const getOfficeRoomParamsJsonSchema = JSONSchema.make(GetOfficeRoomParamsSchema)
-export const listOfficesParamsJsonSchema = JSONSchema.make(ListOfficesParamsSchema)
-export const getOfficeParamsJsonSchema = JSONSchema.make(GetOfficeParamsSchema)
-export const listActiveRoomInfoParamsJsonSchema = JSONSchema.make(ListActiveRoomInfoParamsSchema)
-export const listActiveRoomParticipantsParamsJsonSchema = JSONSchema.make(ListActiveRoomParticipantsParamsSchema)
-export const listMeetingMinutesParamsJsonSchema = JSONSchema.make(ListMeetingMinutesParamsSchema)
-export const getMeetingMinutesParamsJsonSchema = JSONSchema.make(GetMeetingMinutesParamsSchema)
-export const listDevicePreferencesParamsJsonSchema = JSONSchema.make(ListDevicePreferencesParamsSchema)
-export const listOfficeDefaultsParamsJsonSchema = JSONSchema.make(ListOfficeDefaultsParamsSchema)
+const virtualOfficeParamsJsonSchema = (
+  schema: Schema.Constraint,
+  descriptions: Readonly<Record<string, string>> = {}
+): object => withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(schema), descriptions)
 
-export const parseListOfficeFloorsParams = Schema.decodeUnknown(ListOfficeFloorsParamsSchema)
-export const parseGetOfficeFloorParams = Schema.decodeUnknown(GetOfficeFloorParamsSchema)
-export const parseListOfficeRoomsParams = Schema.decodeUnknown(ListOfficeRoomsParamsSchema)
-export const parseGetOfficeRoomParams = Schema.decodeUnknown(GetOfficeRoomParamsSchema)
-export const parseListOfficesParams = Schema.decodeUnknown(ListOfficesParamsSchema)
-export const parseGetOfficeParams = Schema.decodeUnknown(GetOfficeParamsSchema)
-export const parseListActiveRoomInfoParams = Schema.decodeUnknown(ListActiveRoomInfoParamsSchema)
-export const parseListActiveRoomParticipantsParams = Schema.decodeUnknown(ListActiveRoomParticipantsParamsSchema)
-export const parseListMeetingMinutesParams = Schema.decodeUnknown(ListMeetingMinutesParamsSchema)
-export const parseGetMeetingMinutesParams = Schema.decodeUnknown(GetMeetingMinutesParamsSchema)
-export const parseListDevicePreferencesParams = Schema.decodeUnknown(ListDevicePreferencesParamsSchema)
-export const parseListOfficeDefaultsParams = Schema.decodeUnknown(ListOfficeDefaultsParamsSchema)
+export const listOfficeFloorsParamsJsonSchema = virtualOfficeParamsJsonSchema(ListOfficeFloorsParamsSchema, {
+  limit: `Maximum number of floors to return (default: ${DEFAULT_LIMIT}).`
+})
+export const getOfficeFloorParamsJsonSchema = virtualOfficeParamsJsonSchema(GetOfficeFloorParamsSchema, {
+  floorId: "Virtual office floor ID."
+})
+export const listOfficeRoomsParamsJsonSchema = virtualOfficeParamsJsonSchema(ListOfficeRoomsParamsSchema, {
+  floorId: "Optional floor ID filter.",
+  limit: `Maximum number of rooms to return (default: ${DEFAULT_LIMIT}).`
+})
+export const getOfficeRoomParamsJsonSchema = virtualOfficeParamsJsonSchema(GetOfficeRoomParamsSchema, {
+  roomId: "Virtual office room ID."
+})
+export const listOfficesParamsJsonSchema = virtualOfficeParamsJsonSchema(ListOfficesParamsSchema, {
+  floorId: "Optional floor ID filter.",
+  limit: `Maximum number of rooms to return (default: ${DEFAULT_LIMIT}).`
+})
+export const getOfficeParamsJsonSchema = virtualOfficeParamsJsonSchema(GetOfficeParamsSchema, {
+  roomId: "Virtual office room ID."
+})
+export const listActiveRoomInfoParamsJsonSchema = virtualOfficeParamsJsonSchema(ListActiveRoomInfoParamsSchema)
+export const listActiveRoomParticipantsParamsJsonSchema = virtualOfficeParamsJsonSchema(
+  ListActiveRoomParticipantsParamsSchema,
+  { roomId: "Optional room ID filter." }
+)
+export const listMeetingMinutesParamsJsonSchema = virtualOfficeParamsJsonSchema(ListMeetingMinutesParamsSchema, {
+  attachedToId:
+    "Optional room or meeting document ID that the meeting notes/transcript record (minutes) is attached to.",
+  from: "Created-on lower bound timestamp.",
+  to: "Created-on upper bound timestamp.",
+  limit: `Maximum number of meeting notes/transcript records (minutes) to return (default: ${DEFAULT_LIMIT}).`
+})
+export const getMeetingMinutesParamsJsonSchema = virtualOfficeParamsJsonSchema(GetMeetingMinutesParamsSchema, {
+  meetingMinutesId: "Meeting notes/transcript record ID (meeting minutes ID)."
+})
+export const listDevicePreferencesParamsJsonSchema = virtualOfficeParamsJsonSchema(ListDevicePreferencesParamsSchema)
+export const listOfficeDefaultsParamsJsonSchema = virtualOfficeParamsJsonSchema(ListOfficeDefaultsParamsSchema)
+
+export const parseListOfficeFloorsParams = Schema.decodeUnknownEffect(ListOfficeFloorsParamsSchema)
+export const parseGetOfficeFloorParams = Schema.decodeUnknownEffect(GetOfficeFloorParamsSchema)
+export const parseListOfficeRoomsParams = Schema.decodeUnknownEffect(ListOfficeRoomsParamsSchema)
+export const parseGetOfficeRoomParams = Schema.decodeUnknownEffect(GetOfficeRoomParamsSchema)
+export const parseListOfficesParams = Schema.decodeUnknownEffect(ListOfficesParamsSchema)
+export const parseGetOfficeParams = Schema.decodeUnknownEffect(GetOfficeParamsSchema)
+export const parseListActiveRoomInfoParams = Schema.decodeUnknownEffect(ListActiveRoomInfoParamsSchema)
+export const parseListActiveRoomParticipantsParams = Schema.decodeUnknownEffect(ListActiveRoomParticipantsParamsSchema)
+export const parseListMeetingMinutesParams = Schema.decodeUnknownEffect(ListMeetingMinutesParamsSchema)
+export const parseGetMeetingMinutesParams = Schema.decodeUnknownEffect(GetMeetingMinutesParamsSchema)
+export const parseListDevicePreferencesParams = Schema.decodeUnknownEffect(ListDevicePreferencesParamsSchema)
+export const parseListOfficeDefaultsParams = Schema.decodeUnknownEffect(ListOfficeDefaultsParamsSchema)
 
 export const ListOfficeFloorsResultSchema = Schema.Array(FloorSummarySchema)
 export const GetOfficeFloorResultSchema = FloorSummarySchema

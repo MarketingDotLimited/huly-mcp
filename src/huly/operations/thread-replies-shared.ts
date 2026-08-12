@@ -3,7 +3,7 @@ import type { Channel as HulyChannel, ChatMessage, ThreadMessage as HulyThreadMe
 import { Effect } from "effect"
 
 import type { ThreadReplyId } from "../../domain/schemas/shared.js"
-import type { HulyClient, HulyClientError } from "../client.js"
+import type { HulyClientError, HulyClientOperations } from "../client.js"
 import { HulyError, ThreadReplyNotFoundError } from "../errors.js"
 import { chunter } from "../huly-plugins.js"
 import { hulyQuery } from "./query-helpers.js"
@@ -12,7 +12,7 @@ import { toRef } from "./sdk-boundary.js"
 type RemoveThreadReplyError = HulyClientError | HulyError
 
 export const findThreadReply = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   channel: HulyChannel,
   message: ChatMessage,
   replyId: ThreadReplyId
@@ -35,7 +35,7 @@ export const findThreadReply = (
   })
 
 export const removeThreadReply = (
-  client: HulyClient["Type"],
+  client: HulyClientOperations,
   reply: HulyThreadMessage
 ): Effect.Effect<void, RemoveThreadReplyError> =>
   Effect.gen(function* () {

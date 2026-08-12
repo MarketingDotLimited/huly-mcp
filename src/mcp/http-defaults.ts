@@ -1,0 +1,2 @@
+export const DEFAULT_HTTP_PORT_NUMBER = 3000
+export const DEFAULT_HTTP_HOST_VALUE = "127.0.0.1"

@@ -62,14 +62,14 @@ const UrlResult = Schema.Struct({ url: Schema.String })
 const CombinedResult = Schema.Struct({ combined: Schema.String })
 const WorkspaceResult = Schema.Struct({ ws: Schema.String })
 const MembersResult = Schema.Struct({ members: Schema.Number })
-const PositiveResult = Schema.Struct({ count: Schema.Number.pipe(Schema.positive()) })
+const PositiveResult = Schema.Struct({ count: Schema.Number.pipe(Schema.check(Schema.isGreaterThan(0))) })
 const ImageMetadataResult = Schema.Struct({
   name: Schema.String,
   type: SupportedAttachmentImageTypeSchema,
   size: Schema.Number
 })
 
-const parse = (input: unknown) => Schema.decodeUnknown(Params)(input)
+const parse = (input: unknown) => Schema.decodeUnknownEffect(Params)(input)
 
 const toolInputSchema = {
   type: "object",
@@ -160,7 +160,7 @@ describe("combined image tool presentation", () => {
 describe("formatOperationFailure", () => {
   it.effect("formats parse, domain, output, and provision failures", () =>
     Effect.gen(function* () {
-      const parseError = yield* Schema.decodeUnknown(Params)({}).pipe(Effect.flip)
+      const parseError = yield* Schema.decodeUnknownEffect(Params)({}).pipe(Effect.flip)
 
       expect(
         formatOperationFailure(new ToolParseFailure({ cause: Cause.fail(parseError), toolName: "test_tool" }))
@@ -243,7 +243,7 @@ describe("describeOperationFailure", () => {
 
   it.effect("describes parse, output, provision, and empty domain failures", () =>
     Effect.gen(function* () {
-      const parseError = yield* Schema.decodeUnknown(Params)({}).pipe(Effect.flip)
+      const parseError = yield* Schema.decodeUnknownEffect(Params)({}).pipe(Effect.flip)
       expect(describeOperationFailure(new ToolDomainFailure({ cause: Cause.empty, warnings: [] })).kind).toBe(
         "internal"
       )

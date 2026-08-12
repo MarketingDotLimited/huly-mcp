@@ -1,29 +1,36 @@
-import { JSONSchema, Schema } from "effect"
+import { Schema } from "effect"
 
+import { toDraft07JsonSchema } from "./json-schema.js"
 import { Count } from "./shared.js"
 
-const NonEmptyTrimmedString = Schema.NonEmptyTrimmedString
+const NonEmptyTrimmedString = Schema.Trimmed.pipe(Schema.check(Schema.isNonEmpty())).annotate({
+  identifier: "NonEmptyTrimmedString",
+  title: "NonEmptyTrimmedString",
+  description: "A non-empty string with no leading or trailing whitespace."
+})
 
 const SanitizedUrlSchema = Schema.Struct({
   configured: Schema.Boolean,
   valid: Schema.optional(Schema.Boolean),
   origin: Schema.optional(
     NonEmptyTrimmedString.pipe(
-      Schema.filter(
-        (value) => {
-          try {
-            const url = new URL(value)
-            return (url.protocol === "http:" || url.protocol === "https:") && url.href === url.origin + "/"
-          } catch {
-            return false
-          }
-        },
-        { message: () => "Must be a sanitized http or https URL origin" }
+      Schema.check(
+        Schema.makeFilter(
+          (value) => {
+            try {
+              const url = new URL(value)
+              return (url.protocol === "http:" || url.protocol === "https:") && url.href === url.origin + "/"
+            } catch {
+              return false
+            }
+          },
+          { message: "Must be a sanitized http or https URL origin" }
+        )
       )
     )
   ),
   host: Schema.optional(NonEmptyTrimmedString),
-  protocol: Schema.optional(Schema.Literal("http:", "https:"))
+  protocol: Schema.optional(Schema.Literals(["http:", "https:"]))
 })
 
 const WorkspaceContextSchema = Schema.Struct({
@@ -34,9 +41,9 @@ const WorkspaceContextSchema = Schema.Struct({
 const ConnectionTimeoutContextSchema = Schema.Struct({
   configured: Schema.Boolean,
   valid: Schema.optional(Schema.Boolean),
-  valueMs: Schema.optional(Schema.Number.pipe(Schema.int(), Schema.positive())),
-  defaultMs: Schema.Number.pipe(Schema.int(), Schema.positive()),
-  source: Schema.Literal("env", "header", "default", "missing", "invalid")
+  valueMs: Schema.optional(Schema.Number.pipe(Schema.check(Schema.isInt()), Schema.check(Schema.isGreaterThan(0)))),
+  defaultMs: Schema.Number.pipe(Schema.check(Schema.isInt()), Schema.check(Schema.isGreaterThan(0))),
+  source: Schema.Literals(["env", "header", "default", "missing", "invalid"])
 })
 
 const HulyRuntimeContextSchema = Schema.Struct({
@@ -46,8 +53,8 @@ const HulyRuntimeContextSchema = Schema.Struct({
 })
 
 const AuthContextSchema = Schema.Struct({
-  method: Schema.Literal("token", "password", "unknown"),
-  source: Schema.Literal("env", "header", "none"),
+  method: Schema.Literals(["token", "password", "unknown"]),
+  source: Schema.Literals(["env", "header", "none"]),
   tokenConfigured: Schema.Boolean,
   emailConfigured: Schema.Boolean,
   passwordConfigured: Schema.Boolean
@@ -86,7 +93,7 @@ const ToolsetsContextSchema = Schema.Struct({
   availableCategories: Schema.Array(NonEmptyTrimmedString),
   visibleRegisteredToolCount: Count,
   totalRegisteredToolCount: Count,
-  builtinTools: Schema.Array(Schema.Literal("get_version", "get_huly_context"))
+  builtinTools: Schema.Array(Schema.Literals(["get_version", "get_huly_context"]))
 })
 
 const ToolScopeContextSchema = Schema.Struct({
@@ -100,13 +107,13 @@ const ToolScopeContextSchema = Schema.Struct({
   availableCategories: Schema.Array(NonEmptyTrimmedString),
   visibleRegisteredToolCount: Count,
   totalRegisteredToolCount: Count,
-  builtinTools: Schema.Array(Schema.Literal("get_version", "get_huly_context"))
+  builtinTools: Schema.Array(Schema.Literals(["get_version", "get_huly_context"]))
 })
 
 const ToolExposureContextSchema = Schema.Struct({
-  configuredMode: Schema.Literal("auto", "native", "proxy"),
-  resolvedMode: Schema.Literal("native", "proxy"),
-  clientKind: Schema.Literal(
+  configuredMode: Schema.Literals(["auto", "native", "proxy"]),
+  resolvedMode: Schema.Literals(["native", "proxy"]),
+  clientKind: Schema.Literals([
     "claude-code",
     "claude-ai",
     "cursor",
@@ -115,7 +122,7 @@ const ToolExposureContextSchema = Schema.Struct({
     "codex",
     "opencode",
     "unknown"
-  ),
+  ]),
   proxyOutputStrict: Schema.Boolean,
   visibleToolCount: Count,
   nativeVisibleToolCount: Count,
@@ -126,9 +133,12 @@ const ToolExposureContextSchema = Schema.Struct({
 export const GetHulyContextResultSchema = Schema.Struct({
   package: Schema.Struct({ name: Schema.Literal("@firfi/huly-mcp"), version: NonEmptyTrimmedString }),
   transport: Schema.Struct({
-    type: Schema.Literal("stdio", "http"),
+    type: Schema.Literals(["stdio", "http"]),
     http: Schema.optional(
-      Schema.Struct({ host: NonEmptyTrimmedString, port: Schema.Number.pipe(Schema.int(), Schema.positive()) })
+      Schema.Struct({
+        host: NonEmptyTrimmedString,
+        port: Schema.Number.pipe(Schema.check(Schema.isInt()), Schema.check(Schema.isGreaterThan(0)))
+      })
     )
   }),
   huly: HulyRuntimeContextSchema,
@@ -141,4 +151,4 @@ export const GetHulyContextResultSchema = Schema.Struct({
 
 export type GetHulyContextResult = Schema.Schema.Type<typeof GetHulyContextResultSchema>
 
-export const getHulyContextResultJsonSchema = JSONSchema.make(GetHulyContextResultSchema)
+export const getHulyContextResultJsonSchema = toDraft07JsonSchema(GetHulyContextResultSchema)
