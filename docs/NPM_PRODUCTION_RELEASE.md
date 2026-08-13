@@ -57,7 +57,7 @@ The script runs:
 - release commit/tag push
 - latest GitHub release creation from the `@firfi/huly-mcp@<version>` package tag when MCP changed
 
-Run `pnpm check-all` and the local Huly integration suites before starting the production release. The publish script does not run live Huly integration tests; those remain an explicit pre-release gate.
+Run `pnpm check-all` and the local Huly integration suites before starting the production release. `pnpm local-release` intentionally does not repeat the full quality gate or live Huly integration tests; those remain explicit pre-release and CI gates. The release command retains only its focused build, version, package, and publishing checks.
 
 ## Rerunning After A Failed Release
 
