@@ -271,7 +271,10 @@ For HTTP header mode, send the same JSON-RPC methods to `/mcp` with `x-huly-url`
 
 **Coverage**: 800+ tool calls across 22 domains. Self-cleaning: all created entities are deleted at the end of each section. Tools that would leak data (no delete counterpart) are skipped.
 
-**Last verified**: 2026-08-09 — MCP and packed CLI mirror each passed 1095, failed 0, and skipped 27 (of 1122 total per surface).
+**Last verified**: 2026-08-13 — native stdio passed 1095, failed 0, and skipped 27;
+HTTP environment and request-header modes each passed 1091, failed 0, and skipped
+31 (of 1122 total per surface). The focused packed CLI passed all 123 labeled
+checks, and its full mirror passed 1095, failed 0, and skipped 27 of 1122.
 
 ### How to Run
 

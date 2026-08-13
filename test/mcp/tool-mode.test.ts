@@ -1,3 +1,4 @@
+import { Option } from "effect"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -6,7 +7,9 @@ import {
   DEFAULT_MODE_BY_CLIENT_KIND,
   type McpClientInfoLike,
   parseMcpClientInfo,
+  parseMcpClientInfoEnvelope,
   parseToolExposureConfig,
+  resolveRequestMcpClientInfo,
   resolveToolExposureMode,
   type ResolveToolExposureModeInput,
   type ToolExposureMode,
@@ -20,6 +23,25 @@ const clientInfo = (name: string): McpClientInfoLike => {
 }
 
 describe("classifyMcpClient", () => {
+  it("parses request-local client identity from the modern protocol envelope", () => {
+    expect(parseMcpClientInfoEnvelope({ "io.modelcontextprotocol/clientInfo": { name: " codex-cli " } })).toEqual({
+      name: "codex-cli"
+    })
+    expect(parseMcpClientInfoEnvelope({})).toBeUndefined()
+    expect(parseMcpClientInfoEnvelope({ "io.modelcontextprotocol/clientInfo": { name: 42 } })).toBeUndefined()
+  })
+
+  it("does not reuse connection identity when a modern request omits optional client info", () => {
+    const connectionClient = clientInfo("claude-code")
+    const codexEnvelope = { "io.modelcontextprotocol/clientInfo": { name: "codex-cli" } }
+
+    expect(resolveRequestMcpClientInfo(codexEnvelope, () => connectionClient)).toEqual(
+      Option.some({ name: "codex-cli" })
+    )
+    expect(resolveRequestMcpClientInfo({}, () => connectionClient)).toEqual(Option.none())
+    expect(resolveRequestMcpClientInfo(undefined, () => connectionClient)).toEqual(Option.some(connectionClient))
+  })
+
   it("classifies known client names after trimming and case normalization", () => {
     const cases: ReadonlyArray<{ readonly clientInfo: McpClientInfoLike; readonly expected: ClientKind }> = [
       { clientInfo: clientInfo(" claude-code "), expected: "claude-code" },

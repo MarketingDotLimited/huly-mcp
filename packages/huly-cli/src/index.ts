@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { NodeRuntime, NodeServices } from "@effect/platform-node"
-import { Console, Effect, Layer, Option } from "effect"
+import { Console, Effect, Layer, Logger, Option } from "effect"
 import { CliError, Command } from "effect/unstable/cli"
 
 import { TelemetryService } from "../../../src/telemetry/telemetry.js"
@@ -111,6 +111,7 @@ const main = Effect.suspend(() => {
   })
 }).pipe(
   Effect.provide(Layer.mergeAll(NodeServices.layer, TelemetryService.cliLayer, LocalCliService.defaultLayer)),
+  Effect.provideService(Logger.LogToStderr, true),
   (program) => runCliFailureBoundary(program, argv.includes("--json"), isKnownCliError)
 )
 

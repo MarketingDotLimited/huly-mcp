@@ -296,18 +296,18 @@ const markdown = await client.fetchMarkup(
 
 ### Schema Definitions
 
-Use `@effect/schema` (part of Effect 3.10+) for all data validation:
+Use `Schema` from the installed `effect` package for all boundary parsing and data validation:
 
 ```typescript
 import { Schema } from "effect"
 
 // Config
 const HulyConfigSchema = Schema.Struct({
-  url: Schema.String.pipe(Schema.nonEmptyString()),
-  email: Schema.String.pipe(Schema.nonEmptyString()),
-  password: Schema.String.pipe(Schema.nonEmptyString()),
-  workspace: Schema.String.pipe(Schema.nonEmptyString()),
-  connectionTimeout: Schema.Number.pipe(Schema.positive()).pipe(Schema.optional())
+  url: Schema.NonEmptyString,
+  email: Schema.NonEmptyString,
+  password: Schema.RedactedFromValue(Schema.NonEmptyString),
+  workspace: Schema.NonEmptyString,
+  connectionTimeout: Schema.optional(Schema.Number.check(Schema.isGreaterThan(0)))
 })
 
 // Domain types

@@ -6,7 +6,7 @@ import type {
   ReadResourceRequestParams,
   ReadResourceResult
 } from "@modelcontextprotocol/server"
-import { Clock, Effect, Exit, Result, Schema } from "effect"
+import { Clock, Effect, Exit, Option, Result, Schema } from "effect"
 
 import { type GetHulyContextResult, GetHulyContextResultSchema } from "../domain/schemas/index.js"
 import { HulyError } from "../huly/errors-base.js"
@@ -54,6 +54,7 @@ import {
 import { listResourceTemplates } from "./resources.js"
 import { noToolCallNoticeProvider, type ToolCallNoticeProvider } from "./tool-call-notices.js"
 import type { ToolRegistry } from "./tools/index.js"
+import type { McpClientInfoLike } from "./tool-mode.js"
 import {
   createMissingArgumentsError,
   createUnexpectedArgumentsError,
@@ -76,8 +77,11 @@ type ListToolsProtocolResult = ListToolsResult
 type HulyContextProvider = (toolExposure: ToolExposureContext) => GetHulyContextResult
 
 export interface McpProtocolHandlers {
-  readonly listTools: () => Promise<ListToolsProtocolResult>
-  readonly callTool: (request: ToolCallRequest) => Promise<McpWireResponse>
+  readonly listTools: (requestClientInfo?: Option.Option<McpClientInfoLike>) => Promise<ListToolsProtocolResult>
+  readonly callTool: (
+    request: ToolCallRequest,
+    requestClientInfo?: Option.Option<McpClientInfoLike>
+  ) => Promise<McpWireResponse>
   readonly listResources: () => Promise<ListResourcesResult>
   readonly listResourceTemplates: () => ListResourceTemplatesResult
   readonly readResource: (request: ResourceReadRequest) => Promise<ReadResourceResult>
@@ -217,8 +221,19 @@ export const createMcpProtocolHandlers = (
   }
   const admission = createRequestAdmission()
 
-  const listTools = async (): Promise<ListToolsProtocolResult> => {
-    const exposure = resolveProtocolExposure(registries, protocolExposureOptions)
+  const exposureFor = (requestClientInfo: Option.Option<McpClientInfoLike> | undefined): ResolvedProtocolExposure =>
+    resolveProtocolExposure(
+      registries,
+      requestClientInfo === undefined
+        ? protocolExposureOptions
+        : {
+            ...protocolExposureOptions,
+            currentClientInfo: () => (Option.isSome(requestClientInfo) ? requestClientInfo.value : undefined)
+          }
+    )
+
+  const listTools = async (requestClientInfo?: Option.Option<McpClientInfoLike>): Promise<ListToolsProtocolResult> => {
+    const exposure = exposureFor(requestClientInfo)
     telemetry.firstListTools({ clientKind: exposure.context.clientKind, resolvedMode: exposure.context.resolvedMode })
     return {
       tools: [
@@ -229,13 +244,16 @@ export const createMcpProtocolHandlers = (
     }
   }
 
-  const callTool = async (request: ToolCallRequest): Promise<McpWireResponse> => {
+  const callTool = async (
+    request: ToolCallRequest,
+    requestClientInfo?: Option.Option<McpClientInfoLike>
+  ): Promise<McpWireResponse> => {
     const lease = admission.enter()
     if (lease === null) return toMcpResponse(createServerShuttingDownError())
     const noticeClaim = toolCallNoticeProvider.claim()
     try {
       const { arguments: args, name } = request.params
-      const exposure = resolveProtocolExposure(registries, protocolExposureOptions)
+      const exposure = exposureFor(requestClientInfo)
 
       const start = clock.currentTimeMillis()
       const inputBytes = JSON.stringify(args ?? {}).length

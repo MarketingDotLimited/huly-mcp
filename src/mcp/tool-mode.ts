@@ -1,4 +1,4 @@
-import { Result, Schema } from "effect"
+import { Option, Result, Schema } from "effect"
 
 const ToolExposureModeSchema = Schema.Literals(["native", "proxy"])
 export type ToolExposureMode = Schema.Schema.Type<typeof ToolExposureModeSchema>
@@ -105,6 +105,10 @@ const McpClientName = Schema.Trim.pipe(
 const McpClientInfoLikeSchema = Schema.Struct({ name: Schema.optionalKey(McpClientName) })
 export type McpClientInfoLike = Schema.Schema.Type<typeof McpClientInfoLikeSchema>
 
+const McpClientInfoEnvelopeSchema = Schema.Struct({
+  "io.modelcontextprotocol/clientInfo": Schema.optionalKey(McpClientInfoLikeSchema)
+})
+
 export interface ResolveToolExposureModeInput {
   readonly configuredMode: ToolModeConfig
   readonly clientInfo?: McpClientInfoLike
@@ -164,6 +168,17 @@ export const parseMcpClientInfo = (input: unknown): McpClientInfoLike | undefine
   const decoded = Schema.decodeUnknownResult(McpClientInfoLikeSchema)(input)
   return Result.isSuccess(decoded) ? decoded.success : undefined
 }
+
+export const parseMcpClientInfoEnvelope = (input: unknown): McpClientInfoLike | undefined => {
+  const decoded = Schema.decodeUnknownResult(McpClientInfoEnvelopeSchema)(input)
+  return Result.isSuccess(decoded) ? decoded.success["io.modelcontextprotocol/clientInfo"] : undefined
+}
+
+export const resolveRequestMcpClientInfo = (
+  envelope: unknown,
+  connectionClientInfo: () => McpClientInfoLike | undefined
+): Option.Option<McpClientInfoLike> =>
+  Option.fromNullishOr(envelope === undefined ? connectionClientInfo() : parseMcpClientInfoEnvelope(envelope))
 
 const rawClientName = (clientInfo: McpClientInfoLike | undefined): string => {
   const name = clientInfo?.name?.toLowerCase()

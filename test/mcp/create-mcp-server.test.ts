@@ -89,16 +89,20 @@ describe("createMcpServer", () => {
     )
 
     const handler = handlers.get(CallToolRequestSchema) as
-      | ((request: {
-          params: { name: string; arguments: Record<string, never> }
-        }) => Promise<{ readonly isError?: boolean; readonly content: ReadonlyArray<{ readonly text: string }> }>)
+      | ((
+          request: { params: { name: string; arguments: Record<string, never> } },
+          context: { mcpReq: { envelope?: Record<string, unknown> } }
+        ) => Promise<{ readonly isError?: boolean; readonly content: ReadonlyArray<{ readonly text: string }> }>)
       | undefined
 
     expect(handler).toBeDefined()
     if (handler === undefined) {
       throw new Error("CallTool handler was not registered")
     }
-    const result = await handler({ params: { name: GET_HULY_CONTEXT_TOOL_NAME, arguments: {} } })
+    const result = await handler(
+      { params: { name: GET_HULY_CONTEXT_TOOL_NAME, arguments: {} } },
+      { mcpReq: { envelope: {} } }
+    )
 
     expect(result.isError).toBe(true)
     expect(result.content[0]?.text).toBe("Failed to build Huly context")

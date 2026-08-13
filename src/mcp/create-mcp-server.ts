@@ -1,4 +1,4 @@
-import type { Server } from "@modelcontextprotocol/server"
+import type { Server, ServerContext } from "@modelcontextprotocol/server"
 import type { GetHulyContextResult } from "../domain/schemas/index.js"
 import type { HostedHulyMigrationInstructions } from "../huly/unavailable-diagnostics.js"
 import type { ClientResolver } from "../runtime/client-resolver.js"
@@ -8,7 +8,7 @@ import { createMcpProtocolHandlers } from "./protocol-handlers.js"
 import { type ProtocolExposureOptions, type ProtocolToolRegistries } from "./protocol-tool-exposure.js"
 import { createDefaultMcpSdkServer } from "./sdk-server.js"
 import { noToolCallNoticeProvider, type ToolCallNoticeProvider } from "./tool-call-notices.js"
-import { parseMcpClientInfo } from "./tool-mode.js"
+import { parseMcpClientInfo, resolveRequestMcpClientInfo } from "./tool-mode.js"
 import type { ToolRegistry } from "./tools/index.js"
 
 export type { ClientBundle } from "../runtime/client-resolver.js"
@@ -39,6 +39,8 @@ export const createMcpServer = (
   const server = createServer(serverInstructions)
   const currentClientInfo = (): ReturnType<NonNullable<ProtocolExposureOptions["currentClientInfo"]>> =>
     exposureOptions.currentClientInfo?.() ?? currentClientInfoFromServer(server)
+  const requestClientInfo = (context: ServerContext | undefined) =>
+    resolveRequestMcpClientInfo(context?.mcpReq.envelope, currentClientInfo)
   const handlers = createMcpProtocolHandlers(
     resolveClients,
     telemetry,
@@ -50,8 +52,8 @@ export const createMcpServer = (
     toolCallNoticeProvider
   )
 
-  server.setRequestHandler("tools/list", handlers.listTools)
-  server.setRequestHandler("tools/call", handlers.callTool)
+  server.setRequestHandler("tools/list", (_request, context) => handlers.listTools(requestClientInfo(context)))
+  server.setRequestHandler("tools/call", (request, context) => handlers.callTool(request, requestClientInfo(context)))
   server.setRequestHandler("resources/list", handlers.listResources)
   server.setRequestHandler("resources/templates/list", handlers.listResourceTemplates)
   server.setRequestHandler("resources/read", handlers.readResource)

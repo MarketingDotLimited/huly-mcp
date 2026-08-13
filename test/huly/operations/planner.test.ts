@@ -146,6 +146,13 @@ const makeEmployee = (overrides?: Partial<Employee>): Employee =>
     ...overrides
   })
 
+const makeMixinBackedEmployee = (): Employee => {
+  const employee = makeEmployee()
+  Reflect.deleteProperty(employee, "active")
+  Object.setPrototypeOf(employee, { active: true })
+  return employee
+}
+
 const makeSocialIdentity = (overrides?: Partial<SocialIdentity>): SocialIdentity => {
   const person = makePerson()
   const identity: SocialIdentity = {
@@ -1193,6 +1200,33 @@ describe("planner operations", () => {
       expect(captures.addCollection?.attributes.blockTime).toBe(true)
       expect(captures.addCollection?.attributes.eventId).toEqual(expect.any(String))
       expect(captures.addCollection?.attributes.eventId).not.toBe("")
+    })
+  )
+
+  it.effect("projects readable Huly mixin fields before employee schema decoding", () =>
+    Effect.gen(function* () {
+      const captures: Captures = {}
+      const employee = makeMixinBackedEmployee()
+      expect(employee.active).toBe(true)
+      expect(Object.hasOwn(employee, "active")).toBe(false)
+
+      yield* scheduleTodo({
+        locator: { todoId: todoId("todo-1") },
+        date: Timestamp.make(1_800_000_000_000),
+        dueDate: Timestamp.make(1_800_003_600_000)
+      }).pipe(
+        Effect.provide(
+          createLayer({
+            todos: [makeTodo()],
+            employees: [employee],
+            socialIdentities: [makeSocialIdentity()],
+            calendars: [makePersonalCalendar()],
+            captures
+          })
+        )
+      )
+
+      expect(captures.addCollection?.attributes.participants).toEqual([employee._id])
     })
   )
 

@@ -1,12 +1,17 @@
 import { NodeServices } from "@effect/platform-node"
-import { Effect, Layer, Schema } from "effect"
+import { Effect, Layer, Logger, References, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 import type { ClientBundle } from "../../src/mcp/server.js"
 
 import { cliCommandCatalog, type CliToolName } from "../../packages/huly-cli/src/catalog.js"
 import { parseCliCommandLine } from "../../packages/huly-cli/src/cli-options.js"
 import { LocalCliService } from "../../packages/huly-cli/src/local-commands.js"
-import { type CliRunnerPorts, runCliTool, runCliToolWithPorts } from "../../packages/huly-cli/src/runner.js"
+import {
+  closeCliClientBundle,
+  type CliRunnerPorts,
+  runCliTool,
+  runCliToolWithPorts
+} from "../../packages/huly-cli/src/runner.js"
 import { McpImageContentSchema } from "../../src/domain/schemas/attachments.js"
 import { operationRegistry } from "../../src/mcp/tools/index.js"
 import type { ToolOperationSuccess } from "../../src/mcp/tools/registry.js"
@@ -100,6 +105,49 @@ const rejected = async (promise: Promise<unknown>): Promise<unknown> => {
     return error
   }
 }
+
+describe("CLI client cleanup", () => {
+  it("awaits successful close", async () => {
+    const state = { closed: false }
+
+    await Effect.runPromise(
+      closeCliClientBundle(() => {
+        state.closed = true
+        return Promise.resolve()
+      })
+    )
+
+    expect(state.closed).toBe(true)
+  })
+
+  it("bounds a stuck close and emits a static operator diagnostic", async () => {
+    const messages: Array<unknown> = []
+    const logger = Logger.make<unknown, void>((entry) => messages.push(entry.message))
+
+    await Effect.runPromise(
+      closeCliClientBundle(() => new Promise<void>(() => {}), 0).pipe(
+        Effect.provide(Logger.layer([logger])),
+        Effect.provideService(References.MinimumLogLevel, "Info")
+      )
+    )
+
+    expect(messages).toEqual([["CLI Huly client cleanup timed out"]])
+  })
+
+  it("sanitizes close failures", async () => {
+    const messages: Array<unknown> = []
+    const logger = Logger.make<unknown, void>((entry) => messages.push(entry.message))
+
+    await Effect.runPromise(
+      closeCliClientBundle(() => Promise.reject(new Error("secret close detail"))).pipe(
+        Effect.provide(Logger.layer([logger])),
+        Effect.provideService(References.MinimumLogLevel, "Info")
+      )
+    )
+
+    expect(messages).toEqual([["CLI Huly client cleanup failed"]])
+  })
+})
 
 const errorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error))
 

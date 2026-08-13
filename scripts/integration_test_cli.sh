@@ -291,7 +291,7 @@ cover_cli_failure "start_process" "process start confirmation" "requires --yes" 
 cover_cli_failure "mark_all_notifications_read" "bulk notification confirmation" "requires --yes" \
   notifications all read
 cover_cli_confirmed_failure "update_member_role" "confirmed workspace role update" \
-  "Failed to update workspace role" \
+  "Connection error while communicating with Huly" \
   workspace members role update "00000000-0000-0000-0000-000000000000" USER
 cover_cli_confirmed_failure "approve_approval_request" "confirmed approval decision" \
   "Approval request 'missing-$RUN_ID' not found" approvals approve "missing-$RUN_ID"

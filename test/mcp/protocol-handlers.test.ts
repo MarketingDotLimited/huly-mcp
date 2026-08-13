@@ -15,7 +15,7 @@ import { toFindResult } from "@hcengineering/core"
 import type { ProjectType } from "@hcengineering/task"
 import { type Project as HulyProject, TimeReportDayType } from "@hcengineering/tracker"
 import { ProtocolError, ProtocolErrorCode } from "@modelcontextprotocol/server"
-import { Context, Effect, Exit, Layer, Schema } from "effect"
+import { Context, Effect, Exit, Layer, Option, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { ConfigValidationError, sanitizeHulyRuntimeConfigFromEnv } from "../../src/config/config.js"
@@ -964,6 +964,36 @@ describe("createMcpProtocolHandlers — get_huly_context tool", () => {
         clientKind: "codex",
         proxyToolNames: ["list_tool_categories", "search_tools", "get_tool_schema", "invoke_tool"]
       }
+    })
+  })
+
+  it("uses request-local client identity ahead of the connection fallback", async () => {
+    const handlers = createMcpProtocolHandlers(
+      unusedResolveClients,
+      createTelemetryProbe().telemetry,
+      protocolRegistries(toolRegistry),
+      (toolExposure) =>
+        buildHulyContext(
+          { transport: "stdio" },
+          toolRegistry,
+          parseToolsets(undefined, () => {}),
+          sanitizeHulyRuntimeConfigFromEnv({}),
+          toolExposure
+        ),
+      liveNowClock,
+      () => Promise.resolve("0.0.0"),
+      proxyExposureOptions({ clientName: "some-legacy-client" })
+    )
+
+    const requestClient = parseMcpClientInfo({ name: "codex-cli" })
+    if (requestClient === undefined) throw new Error("expected valid request-local client identity")
+    const response = await handlers.callTool(
+      { params: { name: GET_HULY_CONTEXT_TOOL_NAME, arguments: {} } },
+      Option.some(requestClient)
+    )
+
+    expect(response.structuredContent?.result).toMatchObject({
+      toolExposure: { clientKind: "codex", resolvedMode: "proxy" }
     })
   })
 })

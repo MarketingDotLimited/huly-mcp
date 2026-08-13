@@ -112,7 +112,9 @@ const resolvePlannerSchedulingContext = Effect.fn("PlannerScheduling.resolveCont
   if (rawEmployee === undefined) {
     return yield* missingPrerequisite("employee identity")
   }
-  const employee = yield* parseEmployee(rawEmployee)
+  // Huly mixin fields can be readable through the SDK proxy without being own
+  // properties. Project the boundary fields before Struct decoding.
+  const employee = yield* parseEmployee({ _id: rawEmployee._id, active: rawEmployee.active })
 
   const defaultCalendar = yield* getDefaultCalendarRef(client)
   const rawPersonalCalendar = yield* client.findOne<HulyCalendar>(

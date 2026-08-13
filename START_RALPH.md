@@ -232,9 +232,9 @@ From RALPH.md: "the loop is not the technique. state hygiene is the technique."
 ## Project-Specific: Effect + Testability
 
 ### Guardrails (Already Set)
-- ALWAYS follow `docs/mcps/effect.md` and consult the pinned Effect sources and official migration workflow before writing Effect code
+- ALWAYS follow `docs/mcps/effect.md`; consult the installed rc.108 declarations, `node_modules/effect/AGENTS.md`, and the pinned v4 source before writing Effect code
 - No `any` types in src/
-- Use @effect/schema for validation
+- Use `Schema` from `effect` for validation
 - Tagged errors throughout (Schema.TaggedError)
 - **Service/Layer dependency injection** (critical for testing)
 

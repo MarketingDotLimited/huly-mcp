@@ -1,7 +1,7 @@
 import * as fs from "node:fs/promises"
 import * as path from "node:path"
 
-import { Clock, ConfigProvider, Effect, Redacted, Ref } from "effect"
+import { Clock, ConfigProvider, type Duration, Effect, Redacted, Ref } from "effect"
 
 import { AttachmentId } from "../../../src/domain/schemas/shared.js"
 import { attachment } from "../../../src/huly/huly-plugins.js"
@@ -26,6 +26,21 @@ import { explicitCliConfirmationMessage } from "./safety-policies.js"
 import { collectFieldSpecs } from "./schema-fields.js"
 
 type CliOperation = ReturnType<typeof operationRegistry.getOperation>
+
+const DEFAULT_CLI_CLIENT_CLOSE_GRACE_PERIOD = "5 seconds"
+
+export const closeCliClientBundle = (
+  close: () => Promise<void>,
+  gracePeriod: Duration.Input = DEFAULT_CLI_CLIENT_CLOSE_GRACE_PERIOD
+): Effect.Effect<void> =>
+  Effect.tryPromise((_signal) => close()).pipe(
+    Effect.interruptible,
+    Effect.timeoutOrElse({
+      duration: gracePeriod,
+      orElse: () => Effect.logWarning("CLI Huly client cleanup timed out")
+    }),
+    Effect.catch(() => Effect.logWarning("CLI Huly client cleanup failed"))
+  )
 
 export interface CliRunnerPorts {
   readonly downloadAttachment: (
@@ -146,7 +161,7 @@ const defaultRunnerPorts: CliRunnerPorts = {
         Effect.mapError((error) => new CliRuntimeError({ message: errorMessage(error) }))
       ),
       ({ bundle }) => use(bundle),
-      ({ close }) => Effect.promise(close)
+      ({ close }) => closeCliClientBundle(close)
     )
 }
 /* c8 ignore stop */

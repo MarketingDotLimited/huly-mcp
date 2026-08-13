@@ -668,10 +668,57 @@ CLI runtime and compatibility layer. CI and package-smoke use the same exact
 22.22.2/24.15.0 matrix as both package manifests, while the Docker and registry
 publication paths intentionally use the exact supported 24.15.0 release line.
 
-The final aggregate gate passes 289 files and all 4,271 tests after the remote
-stdio lifecycle merge and artifact-certification coverage were integrated.
+The final release-candidate aggregate gate passes 289 files and all 4,278 tests.
 Coverage is 99.57% statements, 99.01% branches, 99.25% functions, and 99.61%
 lines, with the configured 99% thresholds unchanged.
+
+## Ticket #232 final local-Huly and release certification
+
+The release candidate was exercised from the project container against
+local Huly after loading `.env.local` and rewriting only `localhost` to
+`host.docker.internal`. HTTP environment and request-header configuration each
+completed the full lifecycle matrix with 1,091 passing, zero failing, and 31
+intentionally skipped checks. The isolated stdio matrix and full packed CLI
+mirror each completed with 1,095 passing, zero failing, and 27 intentionally
+skipped checks. The focused packed CLI suite passed all 123 labeled parsing,
+typed-failure, confirmation, output, write, and cleanup checks. The dedicated tool-scope matrix passes for
+request-local client classification, automatic/explicit exposure modes,
+category and tool pins, strict proxy output, and invalid pins.
+
+The live matrix found and repaired four boundary defects. Planner scheduling now
+projects Huly's mixin-backed employee fields before Schema decoding, preserving
+the active-employee invariant without requiring the SDK proxy fields to be own
+properties. Modern MCP exposure now reads client identity from the validated
+per-request metadata envelope and uses the connection accessor only for legacy
+fallback. CLI operator diagnostics now use stderr rather than corrupting JSON
+stdout, and CLI client cleanup has a five-second bound with static diagnostics so
+a stuck SDK close cannot hide a completed operation. Targeted real-HTTP
+authentication checks return 401 for missing and incorrect bearer credentials
+and 200 for the configured credential. Disposable resources are cleaned by the
+lifecycle harness, and stdio/HTTP shutdown remains owned and bounded by the
+certified lifecycle implementation.
+
+The final parity report is `final-parity-report.md`. It links the unchanged
+Effect 3 baseline to the reviewed 21,086-delta certificate and the #225, #229,
+and #231 schema, CLI, artifact, and clean-consumer evidence. The archival
+decision is explicit: `.reference/effect-v3.22.1` remains historical parity
+provenance only; setup does not provision or verify it, it is outside the active
+lookup order, and no `.reference/effect` alias exists. Active guidance names the
+installed rc.108 declarations, installed `AGENTS.md`, and pinned v4 source.
+
+Both published packages receive a patch Changesets entry. The final supported
+Node 22 release-candidate command is:
+
+```bash
+mise exec node@22.22.2 -- pnpm check-all
+```
+
+It passed on the final tree: strict Effect diagnostics checked 854 files with
+zero errors or warnings, 515 dependency files had no cycles, all 289 test files
+and 4,278 tests passed, and coverage was 99.57% statements, 99.01% branches,
+99.25% functions, and 99.61% lines. No compatibility layers, suppressions, or
+changes to diagnostic, architecture, duplication, no-mocks, complexity, or 99%
+coverage gates were introduced.
 
 ## Closed-ledger maintenance rule
 
