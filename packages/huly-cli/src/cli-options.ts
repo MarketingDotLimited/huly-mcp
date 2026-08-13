@@ -349,6 +349,18 @@ const parseWithConfig = (
     )
   })
 
+const shouldInlineTextOptionValue = (
+  token: string,
+  next: string | undefined,
+  textOptionNames: ReadonlySet<string>,
+  knownOptionNames: ReadonlySet<string>
+): boolean => {
+  if (!token.startsWith("--") || token.includes("=") || next === undefined) return false
+  const optionName = token.slice(LONG_OPTION_PREFIX_LENGTH)
+  const nextOptionName = next.startsWith("--") ? next.slice(LONG_OPTION_PREFIX_LENGTH).split("=", 1)[0] : undefined
+  return textOptionNames.has(optionName) && (nextOptionName === undefined || !knownOptionNames.has(nextOptionName))
+}
+
 const normalizeTextOptionValues = (
   raw: ReadonlyArray<string>,
   textOptionNames: ReadonlySet<string>,
@@ -357,23 +369,14 @@ const normalizeTextOptionValues = (
   const normalized: Array<string> = []
   for (let index = 0; index < raw.length; index += 1) {
     const token = raw[index]
-    if (token === undefined || !token.startsWith("--") || token.includes("=")) {
+    if (token === undefined) continue
+    const next = raw[index + 1]
+    if (!shouldInlineTextOptionValue(token, next, textOptionNames, knownOptionNames)) {
       if (token !== undefined) normalized.push(token)
       continue
     }
-    const optionName = token.slice(LONG_OPTION_PREFIX_LENGTH)
-    const next = raw[index + 1]
-    const nextOptionName = next?.startsWith("--") ? next.slice(LONG_OPTION_PREFIX_LENGTH).split("=", 1)[0] : undefined
-    if (
-      textOptionNames.has(optionName) &&
-      next !== undefined &&
-      (nextOptionName === undefined || !knownOptionNames.has(nextOptionName))
-    ) {
-      normalized.push(`${token}=${next}`)
-      index += 1
-    } else {
-      normalized.push(token)
-    }
+    normalized.push(`${token}=${next}`)
+    index += 1
   }
   return normalized
 }

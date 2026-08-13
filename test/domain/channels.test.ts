@@ -53,28 +53,28 @@ describe("Channel Domain Schemas", () => {
     it.effect("rejects limit over 200", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListChannelsParams({ limit: 201 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects negative limit", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListChannelsParams({ limit: -1 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects non-integer limit", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListChannelsParams({ limit: 10.5 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects zero limit", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListChannelsParams({ limit: 0 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -97,14 +97,14 @@ describe("Channel Domain Schemas", () => {
     it.effect("rejects empty channel", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseGetChannelParams({ channel: "  " }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects missing channel", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseGetChannelParams({}))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -129,7 +129,7 @@ describe("Channel Domain Schemas", () => {
     it.effect("rejects empty name", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseCreateChannelParams({ name: "   " }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -138,7 +138,7 @@ describe("Channel Domain Schemas", () => {
     it.effect("rejects minimal params and advertises update-field requirement in JSON Schema", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseUpdateChannelParams({ channel: "general" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
 
         const schema = expectJsonSchemaObject(updateChannelParamsJsonSchema)
         expect(schema.anyOf).toEqual(expect.arrayContaining([{ required: ["name"] }, { required: ["topic"] }]))
@@ -157,7 +157,7 @@ describe("Channel Domain Schemas", () => {
     it.effect("rejects empty channel", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseUpdateChannelParams({ channel: "  " }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -173,7 +173,7 @@ describe("Channel Domain Schemas", () => {
     it.effect("rejects empty channel", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseDeleteChannelParams({ channel: "" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -196,7 +196,7 @@ describe("Channel Domain Schemas", () => {
     it.effect("rejects empty channel", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListChannelMessagesParams({ channel: "  " }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -213,14 +213,14 @@ describe("Channel Domain Schemas", () => {
     it.effect("rejects empty body", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseSendChannelMessageParams({ channel: "general", body: "  " }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects empty channel", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseSendChannelMessageParams({ channel: "  ", body: "Hello" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -312,7 +312,7 @@ describe("Channel Domain Schemas", () => {
         const schema = listDirectMessagesParamsJsonSchema as JsonSchemaObject
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
-        expect(schema.required).toEqual([])
+        expect(schema.required).toBeUndefined()
         expect(schema.properties).toHaveProperty("limit")
       })
     )

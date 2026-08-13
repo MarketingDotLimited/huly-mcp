@@ -29,6 +29,7 @@ type AddCommentError = HulyClientError | ProjectNotFoundError | IssueNotFoundErr
 type UpdateCommentError = HulyClientError | ProjectNotFoundError | IssueNotFoundError | CommentNotFoundError
 
 type DeleteCommentError = HulyClientError | ProjectNotFoundError | IssueNotFoundError | CommentNotFoundError
+const parseComments = Schema.decodeUnknownEffect(Schema.Array(CommentSchema))
 
 // --- Helpers ---
 
@@ -82,8 +83,8 @@ export const listComments = (
       { limit, sort: { createdOn: SortingOrder.Ascending } }
     )
 
-    // Spread: Schema.decodeUnknown returns readonly array; return type requires mutable
-    const validated = yield* Schema.decodeUnknownEffect(Schema.Array(CommentSchema))(
+    // Schema decoding returns a readonly array; the Huly operation contract requires a mutable array.
+    const validated = yield* parseComments(
       messages.map((msg) => ({
         id: msg._id,
         body: optionalMarkupToMarkdown(msg.message, markupUrlConfig, ""),

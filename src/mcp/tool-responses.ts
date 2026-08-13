@@ -33,7 +33,7 @@ interface McpToolErrorResponse extends McpToolResponseBase {
 
 export type McpToolResponse = McpToolSuccessResponse | McpToolErrorResponse
 
-type McpWireImageContent = Schema.Schema.Encoded<typeof McpImageContentSchema>
+type McpWireImageContent = (typeof McpImageContentSchema)["Encoded"]
 type McpWireSuccessResponse = {
   readonly content: [McpTextContent, ...Array<McpTextContent | McpWireImageContent>]
   readonly structuredContent?: { readonly result: unknown; readonly warnings?: ReadonlyArray<ToolWarning> }

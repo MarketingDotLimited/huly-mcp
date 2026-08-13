@@ -1,5 +1,5 @@
 import { describe } from "@effect/vitest"
-import { Schema } from "effect"
+import { Result, Schema } from "effect"
 import * as fc from "fast-check"
 import { expect, it } from "vitest"
 
@@ -130,7 +130,7 @@ type JsonSchemaObject = {
 
 interface UpdateSchemaCase {
   readonly name: string
-  readonly schema: Schema.Schema.AnyNoContext
+  readonly schema: Schema.ConstraintDecoder<unknown>
   readonly jsonSchema: JsonSchemaObject
   readonly base: Record<string, unknown>
   readonly fields: ReadonlyArray<string>
@@ -141,21 +141,25 @@ interface UpdateSchemaCase {
 const jsonSchemaRequiredFields = (schema: JsonSchemaObject): ReadonlyArray<string> =>
   (schema.anyOf ?? []).flatMap((branch) => branch.required ?? [])
 
-const expectDecodeFailure = (schema: Schema.Schema.AnyNoContext, input: unknown): void => {
-  expect(Schema.decodeUnknownEither(schema)(input)._tag).toBe("Left")
+const expectDecodeFailure = (schema: Schema.ConstraintDecoder<unknown>, input: unknown): void => {
+  expect(Schema.decodeUnknownResult(schema)(input)._tag).toBe("Failure")
 }
 
-const expectDecodeFailureContaining = (schema: Schema.Schema.AnyNoContext, input: unknown, message: string): void => {
-  const decoded = Schema.decodeUnknownEither(schema)(input)
+const expectDecodeFailureContaining = (
+  schema: Schema.ConstraintDecoder<unknown>,
+  input: unknown,
+  message: string
+): void => {
+  const decoded = Schema.decodeUnknownResult(schema)(input)
 
-  expect(decoded._tag).toBe("Left")
-  if (decoded._tag === "Left") {
-    expect(String(decoded.left)).toContain(message)
+  expect(decoded._tag).toBe("Failure")
+  if (Result.isFailure(decoded)) {
+    expect(String(decoded.failure)).toContain(message)
   }
 }
 
-const expectDecodeSuccess = (schema: Schema.Schema.AnyNoContext, input: unknown): void => {
-  expect(Schema.decodeUnknownEither(schema)(input)._tag).toBe("Right")
+const expectDecodeSuccess = (schema: Schema.ConstraintDecoder<unknown>, input: unknown): void => {
+  expect(Schema.decodeUnknownResult(schema)(input)._tag).toBe("Success")
 }
 
 const nonWhitespaceStringArbitrary = fc.string({ maxLength: 80 }).filter((value) => value.trim().length > 0)
@@ -475,11 +479,11 @@ describe("shared/domain schema properties", () => {
   it("NonEmptyString decodes exactly trimmed non-empty strings and rejects blank strings", () => {
     fc.assert(
       fc.property(nonWhitespaceStringArbitrary, (input) => {
-        const decoded = Schema.decodeUnknownEither(NonEmptyString)(input)
+        const decoded = Schema.decodeUnknownResult(NonEmptyString)(input)
 
-        expect(decoded._tag).toBe("Right")
-        if (decoded._tag === "Right") {
-          expect(decoded.right).toBe(input.trim())
+        expect(decoded._tag).toBe("Success")
+        if (Result.isSuccess(decoded)) {
+          expect(decoded.success).toBe(input.trim())
         }
       }),
       propertyTestParameters
@@ -487,7 +491,7 @@ describe("shared/domain schema properties", () => {
 
     fc.assert(
       fc.property(whitespaceOnlyStringArbitrary, (input) => {
-        expect(Schema.decodeUnknownEither(NonEmptyString)(input)._tag).toBe("Left")
+        expect(Schema.decodeUnknownResult(NonEmptyString)(input)._tag).toBe("Failure")
       }),
       propertyTestParameters
     )
@@ -496,11 +500,11 @@ describe("shared/domain schema properties", () => {
   it("IssuePrioritySchema normalizes accepted spellings and rejects unrelated values", () => {
     fc.assert(
       fc.property(priorityInputArbitrary, (input) => {
-        const decoded = Schema.decodeUnknownEither(IssuePrioritySchema)(input)
+        const decoded = Schema.decodeUnknownResult(IssuePrioritySchema)(input)
 
-        expect(decoded._tag).toBe("Right")
-        if (decoded._tag === "Right") {
-          expect(IssuePriorityValues).toContain(decoded.right)
+        expect(decoded._tag).toBe("Success")
+        if (Result.isSuccess(decoded)) {
+          expect(IssuePriorityValues).toContain(decoded.success)
         }
       }),
       propertyTestParameters
@@ -508,7 +512,7 @@ describe("shared/domain schema properties", () => {
 
     fc.assert(
       fc.property(invalidPriorityArbitrary, (input) => {
-        expect(Schema.decodeUnknownEither(IssuePrioritySchema)(input)._tag).toBe("Left")
+        expect(Schema.decodeUnknownResult(IssuePrioritySchema)(input)._tag).toBe("Failure")
       }),
       propertyTestParameters
     )
@@ -517,11 +521,11 @@ describe("shared/domain schema properties", () => {
   it("LeadIdentifier canonicalizes numeric and prefixed inputs to LEAD-number", () => {
     fc.assert(
       fc.property(leadInputArbitrary, ({ expected, input }) => {
-        const decoded = Schema.decodeUnknownEither(LeadIdentifier)(input)
+        const decoded = Schema.decodeUnknownResult(LeadIdentifier)(input)
 
-        expect(decoded._tag).toBe("Right")
-        if (decoded._tag === "Right") {
-          expect(decoded.right).toBe(expected)
+        expect(decoded._tag).toBe("Success")
+        if (Result.isSuccess(decoded)) {
+          expect(decoded.success).toBe(expected)
         }
       }),
       propertyTestParameters
@@ -530,7 +534,7 @@ describe("shared/domain schema properties", () => {
     fc.assert(
       fc.property(fc.stringMatching(/^[A-Z]{1,8}-[A-Z0-9]{1,8}$/), (input) => {
         fc.pre(!/^LEAD-\d+$/i.test(input))
-        expect(Schema.decodeUnknownEither(LeadIdentifier)(input)._tag).toBe("Left")
+        expect(Schema.decodeUnknownResult(LeadIdentifier)(input)._tag).toBe("Failure")
       }),
       propertyTestParameters
     )
@@ -567,12 +571,12 @@ describe("access-link and document state-machine properties", () => {
   it("EditDocumentParamsSchema runtime acceptance matches the documented edit modes", () => {
     fc.assert(
       fc.property(editDocumentParamsArbitrary, (params) => {
-        const decoded = Schema.decodeUnknownEither(EditDocumentParamsSchema)(params)
-        expect(decoded._tag === "Right").toBe(modelEditDocumentAcceptance(params))
-        if (decoded._tag === "Left") return
-        switch (decoded.right._tag) {
+        const decoded = Schema.decodeUnknownResult(EditDocumentParamsSchema)(params)
+        expect(Result.isSuccess(decoded)).toBe(modelEditDocumentAcceptance(params))
+        if (Result.isFailure(decoded)) return
+        switch (decoded.success._tag) {
           case "TitleOnly":
-            expect(decoded.right).toEqual({
+            expect(decoded.success).toEqual({
               _tag: "TitleOnly",
               teamspace: params.teamspace,
               document: params.document,
@@ -580,14 +584,14 @@ describe("access-link and document state-machine properties", () => {
             })
             break
           case "ReplaceContent":
-            expect(decoded.right).toHaveProperty("content")
-            expect(decoded.right).not.toHaveProperty("oldText")
+            expect(decoded.success).toHaveProperty("content")
+            expect(decoded.success).not.toHaveProperty("oldText")
             break
           case "SearchAndReplace":
-            expect(decoded.right).toHaveProperty("oldText")
-            expect(decoded.right).toHaveProperty("newText")
-            expect(decoded.right.replaceAll).toBe(params.replace_all ?? false)
-            expect(decoded.right).not.toHaveProperty("content")
+            expect(decoded.success).toHaveProperty("oldText")
+            expect(decoded.success).toHaveProperty("newText")
+            expect(decoded.success.replaceAll).toBe(params.replace_all ?? false)
+            expect(decoded.success).not.toHaveProperty("content")
             break
         }
       }),

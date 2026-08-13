@@ -25,7 +25,8 @@ import {
   markdownToMarkup as realMarkdownToMarkup,
   markupToMarkdown as realMarkupToMarkdown
 } from "@hcengineering/text-markdown"
-import { Cause, Effect, Exit, Fiber, Layer, TestClock } from "effect"
+import { Cause, Effect, Exit, Fiber, Layer } from "effect"
+import { TestClock } from "effect/testing"
 import { beforeEach, expect } from "vitest"
 import { HulyConfigService } from "../../src/config/config.js"
 import { HulyTransactionScope } from "../../src/domain/schemas/shared.js"
@@ -180,6 +181,7 @@ const inlineCommentMarkup = JSON.stringify({
 })
 
 const resetSdkDefaults = () => {
+  mockCreateRestTxOperations.mockResolvedValue(mockTxOperations)
   mockLoadServerConfig.mockResolvedValue({
     COLLABORATOR_URL: "http://localhost:3078",
     ACCOUNTS_URL: "http://localhost:8083"
@@ -220,6 +222,7 @@ describe("HulyClient Service", () => {
     mockGetMarkup.mockResolvedValue("raw-markup")
     mockCreateMarkup.mockResolvedValue("markup-ref-id")
     mockUpdateMarkup.mockResolvedValue(undefined)
+    mockClose.mockResolvedValue(undefined)
     resetApplyDefaults()
     resetSdkDefaults()
   })
@@ -299,7 +302,7 @@ describe("HulyClient Service", () => {
           client.uploadMarkup("class" as DocRef<Class<Doc>>, "id" as DocRef<Doc>, "attr", "content", "markdown")
         )
 
-        expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+        expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
       })
     )
 
@@ -329,7 +332,7 @@ describe("HulyClient Service", () => {
           client.removeDoc("c" as DocRef<Class<TestDoc>>, "s" as DocRef<Space>, "id" as DocRef<TestDoc>)
         )
 
-        expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+        expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
       })
     )
 
@@ -342,7 +345,7 @@ describe("HulyClient Service", () => {
           client.updateMarkup("c" as DocRef<Class<Doc>>, "id" as DocRef<Doc>, "attr", "content", "markdown")
         )
 
-        expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+        expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
       })
     )
 
@@ -362,7 +365,7 @@ describe("HulyClient Service", () => {
           )
         )
 
-        expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+        expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
       })
     )
 
@@ -375,7 +378,7 @@ describe("HulyClient Service", () => {
           client.createDoc("c" as DocRef<Class<TestDoc>>, "s" as DocRef<Space>, { title: "t" } as Data<TestDoc>)
         )
 
-        expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+        expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
       })
     )
 
@@ -388,7 +391,7 @@ describe("HulyClient Service", () => {
           client.updateDoc("c" as DocRef<Class<TestDoc>>, "s" as DocRef<Space>, "id" as DocRef<TestDoc>, {})
         )
 
-        expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+        expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
       })
     )
   })
@@ -662,7 +665,9 @@ describe("HulyClient.layer (live layer with mocked externals)", () => {
     mockGetMarkup.mockResolvedValue("raw-markup")
     mockCreateMarkup.mockResolvedValue("markup-ref-id")
     mockUpdateMarkup.mockResolvedValue(undefined)
+    mockClose.mockResolvedValue(undefined)
     resetApplyDefaults()
+    resetSdkDefaults()
   })
 
   describe("connection", () => {
@@ -1559,7 +1564,7 @@ describe("HulyClient.layer (live layer with mocked externals)", () => {
           Layer.provide(Layer.merge(testConfigLayer, testSdkLayer))
         )
 
-        const fiber = yield* Effect.fork(HulyClient.pipe(Effect.provide(freshLayer)))
+        const fiber = yield* HulyClient.pipe(Effect.provide(freshLayer), Effect.forkScoped)
 
         yield* TestClock.adjust("500 millis")
 

@@ -59,11 +59,12 @@ const StatusClassRefSchema = Schema.declare(
   (input): input is Ref<Class<Status>> => typeof input === "string" && input.length > 0
 )
 const StatusAttributeTypeSchema = Schema.Struct({ to: StatusClassRefSchema })
+const parseStatusAttributeType = Schema.decodeUnknownOption(StatusAttributeTypeSchema)
 
 const resolveStatusClass = (
   attribute: AnyAttribute
 ): Effect.Effect<Ref<Class<Status>>, WorkflowAttributeUnsupportedError> => {
-  const decoded = Schema.decodeUnknownOption(StatusAttributeTypeSchema)(attribute.type)
+  const decoded = parseStatusAttributeType(attribute.type)
   return Option.isSome(decoded)
     ? Effect.succeed(decoded.value.to)
     : Effect.fail(

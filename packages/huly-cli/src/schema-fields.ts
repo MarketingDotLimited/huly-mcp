@@ -10,6 +10,9 @@ const MAX_SCHEMA_REF_DEPTH = 8
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
 
+const variantValues = (schema: Record<string, unknown>): ReadonlyArray<unknown> =>
+  ["allOf", "anyOf", "oneOf"].flatMap((key) => (Array.isArray(schema[key]) ? schema[key] : []))
+
 export const fieldNameToOptionName = (fieldName: CliSchemaFieldName): CliOptionName =>
   fieldName
     .replaceAll("_", "-")
@@ -28,13 +31,8 @@ const collectPropertyRecords = (rootSchema: object, schema: unknown, depth = 0):
     records.push(schema.properties)
   }
 
-  for (const variantKey of ["allOf", "anyOf", "oneOf"]) {
-    const variants = schema[variantKey]
-    if (Array.isArray(variants)) {
-      for (const variant of variants) {
-        records.push(...collectPropertyRecords(rootSchema, variant, depth + 1))
-      }
-    }
+  for (const variant of variantValues(schema)) {
+    records.push(...collectPropertyRecords(rootSchema, variant, depth + 1))
   }
 
   return records
@@ -78,6 +76,15 @@ const intersectSets = (sets: ReadonlyArray<ReadonlySet<string>>): ReadonlySet<st
   return first === undefined ? new Set() : new Set([...first].filter((name) => rest.every((set) => set.has(name))))
 }
 
+const commonUnionRequiredNames = (schema: Record<string, unknown>, rootSchema: object): ReadonlySet<string> => {
+  const unions = ["anyOf", "oneOf"].flatMap((key) => (Array.isArray(schema[key]) ? [schema[key]] : []))
+  return new Set(
+    unions.flatMap((variants) => [
+      ...intersectSets(variants.map((variant) => requiredFieldNamesFor(variant, rootSchema)))
+    ])
+  )
+}
+
 const requiredFieldNamesFor = (
   schema: unknown,
   rootSchema: object = isRecord(schema) ? schema : {}
@@ -88,13 +95,7 @@ const requiredFieldNamesFor = (
   const required = new Set(directRequiredFieldNames(resolved))
   const allOf = Array.isArray(resolved.allOf) ? resolved.allOf : []
   for (const name of allOf.flatMap((variant) => [...requiredFieldNamesFor(variant, rootSchema)])) required.add(name)
-  for (const variantKey of ["anyOf", "oneOf"]) {
-    const variants = resolved[variantKey]
-    if (Array.isArray(variants)) {
-      for (const name of intersectSets(variants.map((variant) => requiredFieldNamesFor(variant, rootSchema))))
-        required.add(name)
-    }
-  }
+  for (const name of commonUnionRequiredNames(resolved, rootSchema)) required.add(name)
   return required
 }
 

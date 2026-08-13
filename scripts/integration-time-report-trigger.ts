@@ -16,8 +16,8 @@ const CliArgsSchema = Schema.Struct({
   project: ProjectIdentifier,
   issue: IssueIdentifier,
   report: TimeSpendReportId,
-  estimateHours: Schema.NumberFromString.pipe(Schema.compose(PositiveTimeHours)),
-  reportHours: Schema.NumberFromString.pipe(Schema.compose(PositiveTimeHours))
+  estimateHours: Schema.NumberFromString.pipe(Schema.decodeTo(PositiveTimeHours)),
+  reportHours: Schema.NumberFromString.pipe(Schema.decodeTo(PositiveTimeHours))
 })
 const TimeAggregateStateSchema = Schema.Struct({ reportedTime: TimeHours, remainingTime: TimeHours, reports: Count })
 const TimeReportStateSchema = Schema.Struct({ ...TimeAggregateStateSchema.fields, employee: Schema.NullOr(PersonId) })

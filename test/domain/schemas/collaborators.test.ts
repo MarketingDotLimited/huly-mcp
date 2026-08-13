@@ -13,10 +13,10 @@ describe("collaborator schemas", () => {
         issueIdentifier: "HULY-1",
         member: "person@example.com"
       })
-      const missingRawClass = yield* Effect.either(parseListObjectCollaboratorsParams({ objectId: "issue-1" }))
-      const missingIssueIdentifier = yield* Effect.either(parseListObjectCollaboratorsParams({ project: "HULY" }))
-      const missingDocument = yield* Effect.either(parseListObjectCollaboratorsParams({ teamspace: "Engineering" }))
-      const conflicting = yield* Effect.either(
+      const missingRawClass = yield* Effect.result(parseListObjectCollaboratorsParams({ objectId: "issue-1" }))
+      const missingIssueIdentifier = yield* Effect.result(parseListObjectCollaboratorsParams({ project: "HULY" }))
+      const missingDocument = yield* Effect.result(parseListObjectCollaboratorsParams({ teamspace: "Engineering" }))
+      const conflicting = yield* Effect.result(
         parseListObjectCollaboratorsParams({
           objectId: "issue-1",
           objectClass: "tracker:class:Issue",
@@ -27,10 +27,10 @@ describe("collaborator schemas", () => {
 
       expect(raw.objectId).toBe("issue-1")
       expect(issue.member).toBe("person@example.com")
-      expect(missingRawClass._tag).toBe("Left")
-      expect(missingIssueIdentifier._tag).toBe("Left")
-      expect(missingDocument._tag).toBe("Left")
-      expect(conflicting._tag).toBe("Left")
+      expect(missingRawClass._tag).toBe("Failure")
+      expect(missingIssueIdentifier._tag).toBe("Failure")
+      expect(missingDocument._tag).toBe("Failure")
+      expect(conflicting._tag).toBe("Failure")
     })
   )
 })

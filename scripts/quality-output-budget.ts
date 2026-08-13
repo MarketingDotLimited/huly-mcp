@@ -2,7 +2,7 @@ import { Schema } from "effect"
 
 import { NonNegativeInteger } from "../src/domain/schemas/shared.js"
 
-export const OutputLineCount = NonNegativeInteger.pipe(Schema.brand("OutputLineCount")).annotations({
+export const OutputLineCount = NonNegativeInteger.pipe(Schema.brand("OutputLineCount")).annotate({
   identifier: "OutputLineCount",
   description: "Number of lines emitted by a successful quality-gate command."
 })

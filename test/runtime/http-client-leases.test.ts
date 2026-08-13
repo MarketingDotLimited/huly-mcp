@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 
 import { HulyConfigService } from "../../src/config/config.js"
 import { HulyClient } from "../../src/huly/client.js"
+import { HulyConnectionError } from "../../src/huly/errors.js"
 import { HulyStorageClient } from "../../src/huly/storage.js"
 import { WorkspaceClient } from "../../src/huly/workspace-client.js"
 import { buildScopedClientBundle } from "../../src/runtime/huly-clients.js"
@@ -78,5 +79,29 @@ describe("HTTP client lease resolution", () => {
     } finally {
       await scoped.close()
     }
+  })
+
+  it("returns typed failures for invalid headers and scoped client acquisition", async () => {
+    const resolveEnvClients = async () => Exit.die(new Error("env resolver must not run"))
+    const invalidHeaders = createHttpClientLeaseResolver(baseClientLayer, resolveEnvClients)
+    const invalid = await invalidHeaders(
+      new Request("http://localhost/mcp", { headers: { "x-huly-url": "not-a-url" } })
+    )
+    const failedClientLayer = Layer.merge(
+      Layer.merge(
+        Layer.effect(HulyClient, Effect.fail(new HulyConnectionError({ message: "client failed" }))),
+        HulyStorageClient.testLayer({})
+      ),
+      WorkspaceClient.testLayer({})
+    )
+    const failedClient = await createHttpClientLeaseResolver(
+      failedClientLayer,
+      resolveEnvClients
+    )(requestWithConfig("workspace-a", "token-a"))
+
+    expect(Exit.isFailure(invalid.bundle)).toBe(true)
+    expect(Exit.isFailure(failedClient.bundle)).toBe(true)
+    await invalid.close()
+    await failedClient.close()
   })
 })

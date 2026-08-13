@@ -260,6 +260,22 @@ describe("permission definition administration", () => {
         scope: "space",
         confirm: true
       }).pipe(Effect.provide(permissionLayer({ permissions: [existingPermission] }, writes)))
+      const describedPermission = makePermission({
+        description: intlString("embedded:embedded:Can review training"),
+        txClass: core.class.TxCreateDoc
+      })
+      const describedExisting = yield* createHulyPermission({
+        label: NonEmptyString.make("Review training"),
+        scope: "space",
+        transaction: "create",
+        description: NonEmptyString.make("Can review training"),
+        confirm: true
+      }).pipe(Effect.provide(permissionLayer({ permissions: [describedPermission] }, writes)))
+      const idAsLabel = yield* createHulyPermission({
+        label: NonEmptyString.make("custom-permission"),
+        scope: "space",
+        confirm: true
+      }).pipe(Effect.provide(permissionLayer({ permissions: [existingPermission] }, writes)), Effect.exit)
 
       expect(created.created).toBe(true)
       expect(created.permission).toMatchObject({ label: "Review training".replace("Review", "Export"), scope: "space" })
@@ -273,6 +289,44 @@ describe("permission definition administration", () => {
         permission: { id: "custom-permission", label: "Review training", scope: "space" },
         created: false
       })
+      expect(describedExisting).toMatchObject({ created: false, permission: { description: "Can review training" } })
+      expect(Exit.isFailure(idAsLabel)).toBe(true)
+    })
+  )
+
+  it.effect("returns every optional field for an exact existing permission definition", () =>
+    Effect.gen(function* () {
+      const writes: Array<CapturedWrite> = []
+      const objectClass = toClassRef<Doc>("tracker:class:Issue")
+      const permission = makePermission({
+        description: intlString("embedded:embedded:Review issue changes"),
+        objectClass,
+        txClass: core.class.TxUpdateDoc,
+        forbid: true
+      })
+      const result = yield* createHulyPermission({
+        label: NonEmptyString.make("Review training"),
+        scope: "space",
+        objectClass: ModelIdentifier.make("tracker:class:Issue"),
+        transaction: "update",
+        forbid: true,
+        description: NonEmptyString.make("Review issue changes"),
+        confirm: true
+      }).pipe(Effect.provide(permissionLayer({ permissions: [permission], classes: [makeClass()] }, writes)))
+
+      expect(result).toEqual({
+        permission: {
+          id: "custom-permission",
+          label: "Review training",
+          description: "Review issue changes",
+          scope: "space",
+          objectClass: "tracker:class:Issue",
+          txClass: core.class.TxUpdateDoc,
+          forbid: true
+        },
+        created: false
+      })
+      expect(writes).toEqual([])
     })
   )
 

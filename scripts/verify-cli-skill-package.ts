@@ -13,14 +13,25 @@ class CliSkillPackageError extends Schema.TaggedError<CliSkillPackageError>()("C
   message: Schema.String
 }) {}
 
-const PackageFileNameSchema = Schema.String.pipe(Schema.endsWith(".tgz"))
+const PackageFileNameSchema = Schema.String.pipe(Schema.check(Schema.isEndsWith(".tgz")))
 const TarEntrySchema = Schema.Array(Schema.NonEmptyString)
 const requiredEntries = [
   "package/dist/index.cjs",
   "package/skills/huly-cli/SKILL.md",
   "package/skills/huly-cli/agents/openai.yaml",
   "package/skills/huly-cli/references/automation.md"
-] as const
+]
+const generatedSkillEntries = [
+  { archive: "package/skills/huly-cli/SKILL.md", tracked: "packages/huly-cli/skills/huly-cli/SKILL.md" },
+  {
+    archive: "package/skills/huly-cli/agents/openai.yaml",
+    tracked: "packages/huly-cli/skills/huly-cli/agents/openai.yaml"
+  },
+  {
+    archive: "package/skills/huly-cli/references/automation.md",
+    tracked: "packages/huly-cli/skills/huly-cli/references/automation.md"
+  }
+]
 
 const run = (executable: string, args: ReadonlyArray<string>) =>
   Effect.tryPromise({
@@ -44,7 +55,7 @@ const program = Effect.acquireUseRelease(
         try: () => fs.readdir(directory),
         catch: () => new CliSkillPackageError({ message: "Could not inspect packed CLI artifacts." })
       })
-      const archives = yield* Schema.decodeUnknown(Schema.Array(PackageFileNameSchema))(
+      const archives = yield* Schema.decodeUnknownEffect(Schema.Array(PackageFileNameSchema))(
         fileNames.filter((fileName) => fileName.endsWith(".tgz"))
       ).pipe(
         Effect.mapError(() => new CliSkillPackageError({ message: "Packed CLI artifact has an invalid filename." }))
@@ -55,20 +66,34 @@ const program = Effect.acquireUseRelease(
       }
       const archivePath = path.join(directory, archive)
       const listing = yield* run("tar", ["-tzf", archivePath])
-      const entries = yield* Schema.decodeUnknown(TarEntrySchema)(listing.stdout.trim().split("\n")).pipe(
+      const entries = yield* Schema.decodeUnknownEffect(TarEntrySchema)(listing.stdout.trim().split("\n")).pipe(
         Effect.mapError(() => new CliSkillPackageError({ message: "CLI tarball listing is malformed." }))
       )
       const missing = requiredEntries.filter((entry) => !entries.includes(entry))
       if (missing.length > 0) {
         return yield* new CliSkillPackageError({ message: `CLI tarball is missing: ${missing.join(", ")}.` })
       }
-      const skill = yield* run("tar", ["-xOzf", archivePath, "package/skills/huly-cli/SKILL.md"])
-      if (!skill.stdout.startsWith("---\nname: huly-cli\n") || skill.stdout.includes("TODO")) {
+      const extracted = yield* Effect.forEach(generatedSkillEntries, (entry) =>
+        Effect.gen(function* () {
+          const packed = yield* run("tar", ["-xOzf", archivePath, entry.archive])
+          const tracked = yield* Effect.tryPromise({
+            try: () => fs.readFile(entry.tracked, "utf8"),
+            catch: () => new CliSkillPackageError({ message: `Could not read tracked skill file ${entry.tracked}.` })
+          })
+          return { entry, packed: packed.stdout, tracked }
+        })
+      )
+      const skill = extracted.find((entry) => entry.entry.archive.endsWith("/SKILL.md"))
+      if (skill === undefined || !skill.packed.startsWith("---\nname: huly-cli\n") || skill.packed.includes("TODO")) {
         return yield* new CliSkillPackageError({ message: "Packed Huly CLI skill is not usable." })
       }
-      console.log("CLI tarball contains a usable generated Huly CLI Agent Skill.")
+      const stale = extracted.filter((entry) => entry.packed !== entry.tracked).map((entry) => entry.entry.archive)
+      if (stale.length > 0) {
+        return yield* new CliSkillPackageError({ message: `Packed Huly CLI skill bytes differ: ${stale.join(", ")}.` })
+      }
+      console.log("CLI tarball contains byte-identical generated Huly CLI Agent Skill files.")
     }),
   (directory) => Effect.promise(() => fs.rm(directory, { force: true, recursive: true }))
 )
 
-NodeRuntime.runMain(program, { disablePrettyLogger: true })
+NodeRuntime.runMain(program)

@@ -26,8 +26,8 @@ const CliArgsSchema = Schema.Struct({
   slot: WorkSlotId,
   todo: TodoId,
   calendar: CalendarId,
-  date: Schema.NumberFromString.pipe(Schema.compose(Timestamp)),
-  dueDate: Schema.NumberFromString.pipe(Schema.compose(Timestamp))
+  date: Schema.NumberFromString.pipe(Schema.decodeTo(Timestamp)),
+  dueDate: Schema.NumberFromString.pipe(Schema.decodeTo(Timestamp))
 })
 const PlannerSlotStateSchema = Schema.Struct({
   slotId: WorkSlotId,
@@ -47,6 +47,7 @@ const PlannerSlotStateSchema = Schema.Struct({
 
 type CliArgs = Schema.Schema.Type<typeof CliArgsSchema>
 type PlannerSlotState = Schema.Schema.Type<typeof PlannerSlotStateSchema>
+const parsePlannerSlotState = Schema.decodeUnknownSync(PlannerSlotStateSchema)
 
 const MAX_POLL_ATTEMPTS = 30
 const NODE_ARGV_OFFSET = 2
@@ -116,7 +117,7 @@ const readPlannerSlot = async (
     throw new Error("Planner slot participants do not contain exactly the authenticated employee.")
   }
 
-  return Schema.decodeUnknownSync(PlannerSlotStateSchema)({
+  return parsePlannerSlotState({
     slotId: slot._id,
     todoId: slot.attachedTo,
     attachedToClass: slot.attachedToClass,

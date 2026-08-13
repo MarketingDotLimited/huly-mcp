@@ -3,6 +3,7 @@ import { Schema } from "effect"
 import { canonicalJson, isJsonValue, type JsonValue } from "./effect4-oracle-canonical.js"
 
 const JsonValueSchema = Schema.declare(isJsonValue)
+const decodeJsonValue = Schema.decodeUnknownSync(JsonValueSchema)
 
 const JsonPointerSchema = Schema.String.pipe(Schema.check(Schema.isPattern(/^(?:\/(?:[^~/]|~0|~1)*)*$/u)))
 
@@ -49,19 +50,13 @@ export const IntentionalOracleDeltaSchema = Schema.Union([
 ])
 export type IntentionalOracleDelta = Schema.Schema.Type<typeof IntentionalOracleDeltaSchema>
 
-export const EFFECT4_ORACLE_INTENTIONAL_DELTAS: ReadonlyArray<IntentionalOracleDelta> = []
-
 const isRecord = (value: JsonValue): value is Readonly<Record<string, JsonValue>> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
 const isArray = (value: JsonValue): value is ReadonlyArray<JsonValue> => Array.isArray(value)
 
 const escapePointerPart = (part: string): string => part.replaceAll("~", "~0").replaceAll("/", "~1")
 const childPath = (path: string, part: string | number): string => `${path}/${escapePointerPart(String(part))}`
-const arrayValueAt = (values: ReadonlyArray<JsonValue>, index: number): JsonValue => {
-  const value = values[index]
-  if (value === undefined) throw new Error(`Oracle array index ${index} is out of bounds.`)
-  return value
-}
+const arrayValueAt = (values: ReadonlyArray<JsonValue>, index: number): JsonValue => decodeJsonValue(values[index])
 
 const compareAt = (before: JsonValue, after: JsonValue, path: string): ReadonlyArray<OracleDelta> => {
   if (canonicalJson(before) === canonicalJson(after)) return []
@@ -85,9 +80,9 @@ const compareAt = (before: JsonValue, after: JsonValue, path: string): ReadonlyA
     return keys.flatMap((key) => {
       const beforeHasKey = Object.hasOwn(before, key)
       const afterHasKey = Object.hasOwn(after, key)
-      if (!beforeHasKey) return [{ _tag: "Added", path: childPath(path, key), after: after[key] ?? null }]
-      if (!afterHasKey) return [{ _tag: "Removed", path: childPath(path, key), before: before[key] ?? null }]
-      return compareAt(before[key] ?? null, after[key] ?? null, childPath(path, key))
+      if (!beforeHasKey) return [{ _tag: "Added", path: childPath(path, key), after: decodeJsonValue(after[key]) }]
+      if (!afterHasKey) return [{ _tag: "Removed", path: childPath(path, key), before: decodeJsonValue(before[key]) }]
+      return compareAt(decodeJsonValue(before[key]), decodeJsonValue(after[key]), childPath(path, key))
     })
   }
   return [{ _tag: "Changed", path, before, after }]
@@ -96,7 +91,7 @@ const compareAt = (before: JsonValue, after: JsonValue, path: string): ReadonlyA
 export const compareOracleValues = (before: JsonValue, after: JsonValue): ReadonlyArray<OracleDelta> =>
   compareAt(before, after, "")
 
-const deltaIdentity = (delta: OracleDelta | IntentionalOracleDelta): string => {
+export const oracleDeltaIdentity = (delta: OracleDelta | IntentionalOracleDelta): string => {
   switch (delta._tag) {
     case "Added":
       return canonicalJson({ _tag: delta._tag, after: delta.after, path: delta.path })
@@ -127,18 +122,18 @@ export const classifyOracleDeltas = (
   deltas: ReadonlyArray<OracleDelta>,
   intentional: ReadonlyArray<IntentionalOracleDelta>
 ): OracleDeltaClassification => {
-  const actual = new Set(deltas.map(deltaIdentity))
-  const allowed = new Set(intentional.map(deltaIdentity))
+  const actual = new Set(deltas.map(oracleDeltaIdentity))
+  const allowed = new Set(intentional.map(oracleDeltaIdentity))
   const seen = new Set<string>()
   const duplicateIntentional = intentional.filter((delta) => {
-    const identity = deltaIdentity(delta)
+    const identity = oracleDeltaIdentity(delta)
     if (seen.has(identity)) return true
     seen.add(identity)
     return false
   })
   return {
-    unexpected: deltas.filter((delta) => !allowed.has(deltaIdentity(delta))),
-    stale: intentional.filter((delta) => !actual.has(deltaIdentity(delta))),
+    unexpected: deltas.filter((delta) => !allowed.has(oracleDeltaIdentity(delta))),
+    stale: intentional.filter((delta) => !actual.has(oracleDeltaIdentity(delta))),
     duplicateIntentional
   }
 }

@@ -432,6 +432,20 @@ describe("getMilestone", () => {
         expect(result.description).toBe("")
       })
     )
+
+    it.effect("omits absent milestone creation timestamps", () =>
+      Effect.gen(function* () {
+        const project = makeProject()
+        const milestone = makeMilestone()
+        Reflect.deleteProperty(milestone, "createdOn")
+        const result = yield* getMilestone({
+          project: projectIdentifier("TEST"),
+          milestone: milestoneIdentifier("Sprint 1")
+        }).pipe(Effect.provide(createTestLayerWithMocks({ projects: [project], milestones: [milestone] })))
+
+        expect(result.createdOn).toBeUndefined()
+      })
+    )
   })
 
   describe("error handling", () => {

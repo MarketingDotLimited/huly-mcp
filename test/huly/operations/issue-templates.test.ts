@@ -539,6 +539,20 @@ describe("getIssueTemplate", () => {
     })
   )
 
+  it.effect("omits an absent template creation timestamp", () =>
+    Effect.gen(function* () {
+      const project = makeProject({ identifier: "TEST" })
+      const template = makeIssueTemplate()
+      Reflect.deleteProperty(template, "createdOn")
+      const result = yield* getIssueTemplate({
+        project: projectIdentifier("TEST"),
+        template: templateIdentifier("Bug Report Template")
+      }).pipe(Effect.provide(createTestLayerWithMocks({ projects: [project], templates: [template] })), withDiagnostics)
+
+      expect(result.createdOn).toBeUndefined()
+    })
+  )
+
   it.effect("resolves assignee name when present", () =>
     Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })
@@ -788,8 +802,8 @@ describe("createIssueTemplate", () => {
 
 describe("createIssueFromTemplate", () => {
   const setupForCreateFromTemplate = (overrides?: Partial<MockConfig>) => {
-    const project = makeProject({ identifier: "TEST" })
-    const status = makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })
+    const status = makeStatus({ name: "Open" })
+    const project = makeProject({ identifier: "TEST", defaultIssueStatus: status._id })
     const template = makeIssueTemplate({
       title: "Bug Report",
       description: "Template description",
@@ -1792,6 +1806,33 @@ describe("removeTemplateChild", () => {
 })
 
 describe("createIssueFromTemplate with children", () => {
+  it.effect("normalizes absent child descriptions through issue creation", () =>
+    Effect.gen(function* () {
+      const status = makeStatus({ name: "Open" })
+      const project = makeProject({ identifier: "TEST", defaultIssueStatus: status._id })
+      const child = makeTemplateChild()
+      Reflect.deleteProperty(child, "description")
+      const template = makeIssueTemplate({ title: "Parent Template", children: [child] })
+      const captureAll: MockConfig["captureAddCollectionAll"] = []
+      yield* createIssueFromTemplate({
+        project: projectIdentifier("TEST"),
+        template: templateIdentifier("Parent Template")
+      }).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({
+            projects: [project],
+            templates: [template],
+            statuses: [status],
+            captureAddCollectionAll: captureAll
+          })
+        ),
+        withDiagnostics
+      )
+
+      expect(assertAt(captureAll, 1).attributes.description).toBeNull()
+    })
+  )
+
   it.effect("creates sub-issues for each template child", () =>
     Effect.gen(function* () {
       const project = makeProject({ identifier: "TEST" })

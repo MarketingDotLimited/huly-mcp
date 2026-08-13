@@ -127,17 +127,13 @@ Code review agents must consult `.claude/review-rules.md` for project-specific q
 2. Run `effect-solutions show <topic>...` for relevant patterns (supports multiple topics)
 3. Read `docs/mcps/effect.md` for the authoritative lookup order
 4. Read `node_modules/effect/AGENTS.md` for guidance shipped with the exact installed package
-5. Search `.reference/effect-v4.0.0-rc.108/` for target implementations and migration guides
-6. Search `.reference/effect-v3.22.1/` or the recorded v3 cohort only when old semantics matter
-7. Consult `.reference/effect-skills/skills/effect-v3-to-v4/SKILL.md` for the official migration workflow
+5. Search `.reference/effect-v4.0.0-rc.108/` for exact target implementations and declarations
 
 In secondary worktrees, `.reference` may exist only in the master checkout at `/workspace/typescript/hulymcp/.reference`. After creating a worktree, run `bash scripts/bootstrap-worktree.sh` to link ignored local resources (`node_modules`, `.reference`, `.env.local`, `CLAUDE.local.md`) from the master checkout when available. If `effect-solutions` is not on PATH, use the pinned references directly. Exact installed package declarations and pinned source override generic or globally installed skill guidance.
 
 Topics: quick-start, project-setup, tsconfig, basics, services-and-layers, data-modeling, error-handling, config, testing, cli.
 
-Never read `migration/v3-to-v4.md` whole. Search it by symbol or module, then inspect the relevant topic guide and exact source. Never guess at Effect patterns.
-
-Steps 6-7 are temporary migration guidance. Ticket #232 removes them only after final parity certification, records the reviewed source commits in the migration evidence, and retains or updates step 5 according to the installed Effect version.
+Use the installed rc.108 declarations and the smallest relevant pinned source region. Never guess at Effect patterns.
 <!-- effect-solutions:end -->
 
 ## Huly API Reference

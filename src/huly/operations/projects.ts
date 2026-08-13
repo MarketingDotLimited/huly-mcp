@@ -44,6 +44,7 @@ type GetProjectError = ProjectNotFoundError | HulyClientError | HulyConnectionEr
 type CreateProjectError = HulyClientError
 type UpdateProjectError = ProjectNotFoundError | NoUpdateFieldsError | HulyClientError
 type DeleteProjectError = ProjectNotFoundError | HulyClientError
+const parseProjectSummaries = Schema.decodeUnknownEffect(Schema.Array(ProjectSummarySchema))
 
 export const listProjects = (
   params: ListProjectsParams
@@ -65,7 +66,7 @@ export const listProjects = (
 
     const total = projects.total
 
-    const validated = yield* Schema.decodeUnknownEffect(Schema.Array(ProjectSummarySchema))(
+    const validated = yield* parseProjectSummaries(
       projects.map((project) => ({
         identifier: project.identifier,
         name: project.name,

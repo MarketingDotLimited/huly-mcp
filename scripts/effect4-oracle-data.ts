@@ -23,11 +23,8 @@ import { captureAuthoredConstraints } from "./effect4-oracle-constraints.js"
 import { validateCurrentDraft07Corpora } from "./effect4-oracle-current-corpus.js"
 import { validateDraft07DiscoveryResult } from "./effect4-oracle-draft07.js"
 import { captureBundledProcessOracle, LIST_TOOLS_REQUEST_ID } from "./effect4-oracle-process.js"
-import { type BehavioralOracle, BehavioralOracleSchema } from "./effect4-oracle-schema.js"
+import { type BehavioralOracle, BehavioralOracleSchema, type BundledProcesses } from "./effect4-oracle-schema.js"
 
-const COMPARISON_BEFORE = -1
-const COMPARISON_EQUAL = 0
-const COMPARISON_AFTER = 1
 const ORACLE_HELP_WIDTH = 100
 const HELP_WIDTH = CliHelpWidth.make(ORACLE_HELP_WIDTH)
 const ORACLE_CLI_VERSION = CliPackageVersion.make("effect-3-oracle")
@@ -44,9 +41,7 @@ const renderedHelp = (pathSegments: ReadonlyArray<string>): string =>
   )
 
 const cliTool = (name: CliToolName) => {
-  const tool = toolRegistry.tools.get(name)
-  if (tool === undefined) throw new Error(`CLI oracle is missing registered tool ${name}.`)
-  return tool
+  return Option.getOrThrow(Option.fromNullishOr(toolRegistry.tools.get(name)))
 }
 
 const invokeCli = (name: CliToolName, raw: ReadonlyArray<string>) => {
@@ -103,9 +98,9 @@ const captureCliErrorFixtures = async () => {
       )
     )
   )
-  if (Result.isSuccess(invalidJson)) throw new Error("CLI oracle invalid JSON fixture unexpectedly succeeded.")
-  const human = presentCliFailure(invalidJson.failure, false, isKnownCliError)
-  const json = presentCliFailure(invalidJson.failure, true, isKnownCliError)
+  const invalidJsonFailure = Option.getOrThrow(Result.getFailure(invalidJson))
+  const human = presentCliFailure(invalidJsonFailure, false, isKnownCliError)
+  const json = presentCliFailure(invalidJsonFailure, true, isKnownCliError)
   const defect = presentCliFailure(new Error("secret oracle defect"), true, isKnownCliError)
   return {
     defect: { ...defect, decoded: Schema.decodeUnknownSync(Schema.fromJsonString(CliFailureSchema))(defect.stderr) },
@@ -119,21 +114,15 @@ const captureInvalidResource = () => {
     parseHulyResourceUri("https://example.invalid/not-huly")
     throw new Error("Resource oracle invalid URI fixture unexpectedly succeeded.")
   } catch (error) {
-    if (!(error instanceof Error)) throw error
-    return { message: error.message, name: error.name }
+    const parsedError = Schema.decodeUnknownSync(Schema.instanceOf(Error))(error)
+    return { message: parsedError.message, name: parsedError.name }
   }
 }
 
 const cliRoutes = () =>
   Object.entries(cliCommandCatalog)
     .map(([toolName, spec]) => ({ toolName, ...spec }))
-    .sort((left, right) =>
-      left.toolName < right.toolName
-        ? COMPARISON_BEFORE
-        : left.toolName > right.toolName
-          ? COMPARISON_AFTER
-          : COMPARISON_EQUAL
-    )
+    .sort((left, right) => left.toolName.localeCompare(right.toolName))
 
 const liveParity = () => {
   const operationNames = new Set(operationRegistry.definitions.map((tool) => tool.name))
@@ -146,14 +135,19 @@ const liveParity = () => {
   }
 }
 
+export const requireOracleDiscoveries = (bundledProcesses: BundledProcesses) => {
+  const native = bundledProcesses.stdio.native.find((response) => response.id === LIST_TOOLS_REQUEST_ID)
+  const proxy = bundledProcesses.stdio.proxy.find((response) => response.id === LIST_TOOLS_REQUEST_ID)
+  if (native === undefined || proxy === undefined) {
+    throw new Error("Bundled oracle capture did not return both native and proxy tools/list responses.")
+  }
+  return { native, proxy }
+}
+
 export const captureEffect4Oracle = async (): Promise<BehavioralOracle> => {
   validateCurrentDraft07Corpora()
   const bundledProcesses = await captureBundledProcessOracle()
-  const nativeDiscovery = bundledProcesses.stdio.native.find((response) => response.id === LIST_TOOLS_REQUEST_ID)
-  const proxyDiscovery = bundledProcesses.stdio.proxy.find((response) => response.id === LIST_TOOLS_REQUEST_ID)
-  if (nativeDiscovery === undefined || proxyDiscovery === undefined) {
-    throw new Error("Bundled oracle capture did not return both native and proxy tools/list responses.")
-  }
+  const { native: nativeDiscovery, proxy: proxyDiscovery } = requireOracleDiscoveries(bundledProcesses)
   validateDraft07DiscoveryResult(nativeDiscovery.result)
   validateDraft07DiscoveryResult(proxyDiscovery.result)
 

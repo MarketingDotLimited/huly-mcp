@@ -38,7 +38,7 @@ describe("User status schemas", () => {
   it.effect("rejects empty user filter", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(parseListUserStatusesParams({ user: "" }))
-      expect(error._tag).toBe("ParseError")
+      expect(error._tag).toBe("SchemaError")
     })
   )
 

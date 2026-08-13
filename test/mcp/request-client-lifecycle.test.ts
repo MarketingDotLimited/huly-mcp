@@ -362,7 +362,10 @@ describe("request-scoped Huly client lifecycle", () => {
     await lifecycle.resolve()
 
     let settled = false
-    const closing = server.close().then(() => {
+    const firstClose = server.close()
+    const repeatedClose = server.close()
+    expect(repeatedClose).toBe(firstClose)
+    const closing = firstClose.then(() => {
       settled = true
     })
     await Promise.resolve()

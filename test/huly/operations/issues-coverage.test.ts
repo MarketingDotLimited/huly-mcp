@@ -42,6 +42,8 @@ import { withDiagnostics } from "../../helpers/diagnostics.js"
 import { listIssuesParams } from "../../helpers/parsed-params.js"
 
 const listIssues = (input: ListIssuesInput) => listIssuesOperation(listIssuesParams(input))
+const parseStatusMetadata = Schema.decodeUnknownEffect(StatusMetadataSchema)
+const encodeStatusMetadata = Schema.encodeEffect(StatusMetadataSchema)
 
 const toFindResult = <T extends Doc>(docs: Array<T>): FindResult<T> => {
   const result = docs as FindResult<T>
@@ -386,17 +388,14 @@ const createTestLayerWithMocks = (config: MockConfig) => {
 describe("Issues Coverage - resolveStatusName", () => {
   it.effect("round-trips minimal status metadata through its boundary schema", () =>
     Effect.gen(function* () {
-      const parsedWithCategory = yield* Schema.decodeUnknownEffect(StatusMetadataSchema)({
+      const parsedWithCategory = yield* parseStatusMetadata({
         _id: "status-active",
         name: "Active",
         category: task.statusCategory.Active
       })
-      const parsedWithoutCategory = yield* Schema.decodeUnknownEffect(StatusMetadataSchema)({
-        _id: "status-todo",
-        name: "Todo"
-      })
-      const withCategory = yield* Schema.encodeEffect(StatusMetadataSchema)(parsedWithCategory)
-      const withoutCategory = yield* Schema.encodeEffect(StatusMetadataSchema)(parsedWithoutCategory)
+      const parsedWithoutCategory = yield* parseStatusMetadata({ _id: "status-todo", name: "Todo" })
+      const withCategory = yield* encodeStatusMetadata(parsedWithCategory)
+      const withoutCategory = yield* encodeStatusMetadata(parsedWithoutCategory)
       const brandedName: StatusName = parsedWithCategory.name
 
       expect(withCategory).toEqual({ _id: "status-active", name: "Active", category: task.statusCategory.Active })

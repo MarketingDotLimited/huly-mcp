@@ -77,4 +77,8 @@ describe("stripCollidingSchemaIdsProperties", () => {
     expect(expectRecord(out.a).title).toBe("unknown")
     expect(expectRecord(out.b).type).toBe("string")
   })
+
+  it("preserves non-record object property values", () => {
+    expect(stripCollidingSchemaIdsProperties({ list: [] })).toEqual({ list: [] })
+  })
 })

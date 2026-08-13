@@ -267,5 +267,5 @@ export const startHttpTransport = (
       writeError(`MCP HTTP server listening on ${formatHttpAddress(server.address)}\n`)
     })
 
-    yield* Effect.never
+    return yield* Effect.never
   })

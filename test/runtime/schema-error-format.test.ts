@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect"
+import { Effect, Schema, SchemaIssue } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { formatParseError } from "../../src/mcp/schema-error-format.js"
@@ -30,5 +30,19 @@ describe("Schema error formatting", () => {
     )
 
     expect(formatParseError(error)).toBe("name: custom, got wording stays authored")
+  })
+
+  it("formats root-level issues without inventing a path", async () => {
+    const error = await Effect.runPromise(
+      Schema.decodeUnknownEffect(Schema.String)(123, { reportInput: true }).pipe(Effect.flip)
+    )
+
+    expect(formatParseError(error)).toBe(": Expected string, actual 123")
+  })
+
+  it("delegates non-type leaf issues to Effect's formatter", async () => {
+    const error = new Schema.SchemaError(new SchemaIssue.InvalidValue({ message: "Expected a refined value" }))
+
+    expect(formatParseError(error)).toBe(": Expected a refined value")
   })
 })

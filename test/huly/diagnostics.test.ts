@@ -1,5 +1,5 @@
 import { describe, it } from "@effect/vitest"
-import { Effect, Logger, LogLevel } from "effect"
+import { Effect, Logger, References } from "effect"
 import { expect } from "vitest"
 
 import { makeDiagnosticsScope } from "../../src/huly/diagnostics.js"
@@ -11,19 +11,15 @@ const captureLogs = <A>(
   readonly logs: ReadonlyArray<{ readonly level: string; readonly value: unknown }>
 }> =>
   Effect.gen(function* () {
-    const consoleService = yield* Effect.console
     const logs: Array<{ readonly level: string; readonly value: unknown }> = []
-    const capture = (level: string) => (value: unknown) => {
-      logs.push({ level, value })
-    }
-    const logger = Logger.make((entry) => String(entry.message)).pipe(Logger.withLeveledConsole)
+    const logger = Logger.make<unknown, void>((entry) => {
+      const level = entry.logLevel === "Warn" ? "warn" : entry.logLevel === "Info" ? "info" : entry.logLevel
+      const message = Array.isArray(entry.message) && entry.message.length === 1 ? entry.message[0] : entry.message
+      logs.push({ level, value: message })
+    })
     const result = yield* effect.pipe(
-      Effect.provide(Logger.replace(Logger.defaultLogger, logger)),
-      Logger.withMinimumLogLevel(LogLevel.Info),
-      Effect.withConsole({
-        ...consoleService,
-        unsafe: { ...consoleService.unsafe, info: capture("info"), warn: capture("warn") }
-      })
+      Effect.provide(Logger.layer([logger])),
+      Effect.provideService(References.MinimumLogLevel, "Info")
     )
     return { result, logs }
   })

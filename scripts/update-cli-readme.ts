@@ -12,12 +12,31 @@ import {
 } from "../packages/huly-cli/src/schema-fields.js"
 import { cliFieldOptionDescription } from "../packages/huly-cli/src/field-help.js"
 import { explicitCliConfirmationMessage } from "../packages/huly-cli/src/safety-policies.js"
+import { cliDescriptionProblems, cliFieldDescriptionProblems } from "./cli-documentation-contract.js"
 
 const readmePath = "packages/huly-cli/README.md"
 const startMarker = "<!-- CLI_COMMAND_REFERENCE_START -->"
 const endMarker = "<!-- CLI_COMMAND_REFERENCE_END -->"
 const checkOnly = process.argv.includes("--check")
 const NOT_FOUND = -1
+
+const commandEntries = Object.entries(cliCommandCatalog).map(([toolName, spec]) => {
+  if (!isCliToolName(toolName)) throw new Error(`Unknown CLI catalog tool ${toolName}.`)
+  return { command: spec.path.join(" "), description: spec.description }
+})
+const fieldEntries = Object.entries(cliCommandCatalog).flatMap(([toolName, spec]) => {
+  if (!isCliToolName(toolName)) throw new Error(`Unknown CLI catalog tool ${toolName}.`)
+  const operation = operationRegistry.getOperation(toolName)
+  return [...collectFieldSpecs(operation.inputSchema).values()].map((field) => ({
+    command: spec.path.join(" "),
+    description: cliFieldOptionDescription(spec, operation.inputSchema, field),
+    field: fieldNameToOptionName(field.fieldName)
+  }))
+})
+const descriptionProblems = [...cliDescriptionProblems(commandEntries), ...cliFieldDescriptionProblems(fieldEntries)]
+if (descriptionProblems.length > 0) {
+  throw new Error(`CLI catalog descriptions violate the LLM-first contract:\n${descriptionProblems.join("\n")}`)
+}
 
 const escapeCell = (value: string): string => value.replaceAll("|", "\\|").replaceAll("\n", " ")
 

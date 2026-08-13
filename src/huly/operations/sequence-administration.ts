@@ -64,6 +64,7 @@ const IdentifierTypeReferenceSchema = Schema.Struct({
   _class: Schema.Literal(core.class.TypeIdentifier),
   of: HulySequenceId
 })
+const parseIdentifierTypeReference = Schema.decodeUnknownOption(IdentifierTypeReferenceSchema)
 
 const customSequenceReferences = (
   client: HulyClient["Service"],
@@ -72,7 +73,7 @@ const customSequenceReferences = (
   Effect.gen(function* () {
     const attributes = yield* client.findAll<AnyAttribute>(core.class.Attribute, hulyQuery<AnyAttribute>({}))
     return attributes.flatMap((attribute) => {
-      const descriptor = Schema.decodeUnknownOption(IdentifierTypeReferenceSchema)(attribute.type)
+      const descriptor = parseIdentifierTypeReference(attribute.type)
       return Option.isSome(descriptor) && descriptor.value.of === sequenceId
         ? [HulyAttributeId.make(String(attribute._id))]
         : []

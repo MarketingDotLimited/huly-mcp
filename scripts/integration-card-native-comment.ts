@@ -19,22 +19,22 @@ const text = require("@hcengineering/text") as typeof import("@hcengineering/tex
 
 const CliArgsSchema = Schema.Struct({ cardSpace: CardSpaceIdentifier, card: CardIdentifier, body: NonEmptyString })
 const ResultSchema = Schema.Struct({ commentId: CommentId })
-const IntegrationOperation = Schema.Literal(
+const IntegrationOperation = Schema.Literals([
   "add-comment",
   "close-client",
   "connect-client",
   "find-card",
   "find-card-space"
-)
+])
 
 type CliArgs = Schema.Schema.Type<typeof CliArgsSchema>
 type IntegrationOperation = Schema.Schema.Type<typeof IntegrationOperation>
 
-class CliInputError extends Schema.TaggedError<CliInputError>()("CliInputError", { cause: Schema.Defect }) {}
+class CliInputError extends Schema.TaggedError<CliInputError>()("CliInputError", { cause: Schema.Defect() }) {}
 
 class IntegrationOperationError extends Schema.TaggedError<IntegrationOperationError>()("IntegrationOperationError", {
   operation: IntegrationOperation,
-  cause: Schema.Defect
+  cause: Schema.Defect()
 }) {}
 
 class IntegrationCardSpaceNotFoundError extends Schema.TaggedError<IntegrationCardSpaceNotFoundError>()(
@@ -64,7 +64,7 @@ const parseCliArgs = (): Effect.Effect<CliArgs, CliInputError> =>
       }).values,
     catch: (cause) => new CliInputError({ cause })
   }).pipe(
-    Effect.flatMap(Schema.decodeUnknown(CliArgsSchema)),
+    Effect.flatMap(Schema.decodeUnknownEffect(CliArgsSchema)),
     Effect.mapError((cause) => (cause instanceof CliInputError ? cause : new CliInputError({ cause })))
   )
 

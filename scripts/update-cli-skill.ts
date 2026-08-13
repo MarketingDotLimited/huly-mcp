@@ -1,11 +1,10 @@
 import { readFileSync, writeFileSync } from "node:fs"
 
-import { CliConfig, Command, CommandDescriptor, HelpDoc } from "@effect/cli"
-import { HashMap, HashSet, Schema } from "effect"
+import { Schema } from "effect"
 
 import { cliCommandCatalog } from "../packages/huly-cli/src/catalog.js"
 import { CLI_FAILURE_CONTRACT } from "../packages/huly-cli/src/failures.js"
-import { authCommand, profileCommand } from "../packages/huly-cli/src/local-commands.js"
+import { authCommand, localCommandSkillSurfaces, profileCommand } from "../packages/huly-cli/src/local-commands.js"
 
 const skillPath = "packages/huly-cli/skills/huly-cli/SKILL.md"
 const automationPath = "packages/huly-cli/skills/huly-cli/references/automation.md"
@@ -13,28 +12,29 @@ const check = process.argv.includes("--check")
 
 const commandPath = (name: keyof typeof cliCommandCatalog): string => `huly ${cliCommandCatalog[name].path.join(" ")}`
 
-const requireSubcommand = <Name extends string, R, E, A>(
-  group: Command.Command<Name, R, E, A>,
-  expectedGroup: string,
-  names: ReadonlyArray<string>
-): void => {
-  if (!HashSet.has(Command.getNames(group), expectedGroup)) {
+interface LocalCommandMetadata {
+  readonly description: string | undefined
+  readonly name: string
+  readonly subcommands: ReadonlyArray<{ readonly commands: ReadonlyArray<LocalCommandMetadata> }>
+}
+
+const requireSubcommand = (group: LocalCommandMetadata, expectedGroup: string, names: ReadonlyArray<string>): void => {
+  if (group.name !== expectedGroup) {
     throw new Error(`Expected local CLI group '${expectedGroup}'.`)
   }
-  const subcommands = Command.getSubcommands(group)
-  const missing = names.filter((name) => !HashMap.has(subcommands, name))
+  const subcommands = group.subcommands.flatMap((entry) => entry.commands)
+  const missing = names.filter((name) => !subcommands.some((command) => command.name === name))
   if (missing.length > 0) throw new Error(`Local CLI group '${expectedGroup}' is missing: ${missing.join(", ")}.`)
 }
 
 requireSubcommand(authCommand, "auth", ["login", "status", "logout"])
 requireSubcommand(profileCommand, "profile", ["create", "list", "select", "update"])
 
-const commandHelp = <Name extends string, R, E, A>(group: Command.Command<Name, R, E, A>, name: string): string => {
-  const command = [...HashMap.values(Command.getSubcommands(group))].find((candidate) =>
-    HashSet.has(CommandDescriptor.getNames(candidate), name)
-  )
+const commandDescription = (group: LocalCommandMetadata, name: string): string => {
+  const command = group.subcommands.flatMap((entry) => entry.commands).find((candidate) => candidate.name === name)
   if (command === undefined) throw new Error(`Missing command help for '${name}'.`)
-  return HelpDoc.toAnsiText(CommandDescriptor.getHelp(command, CliConfig.defaultConfig))
+  if (command.description === undefined) throw new Error(`Missing command description for '${name}'.`)
+  return command.description
 }
 
 const skill = `---
@@ -59,10 +59,9 @@ Use \`huly profile create|list|select|update\` for named URL, workspace, and def
 
 Key local command surfaces:
 
-\`huly auth login [--profile <name>] [--json]\`
-\`huly auth logout [--profile <name>] [--json]\`
-\`huly profile create <name> --url <url> --workspace <workspace> [--default-project <project>] [--json]\`
-\`huly profile update <name> [--url <url>] [--workspace <workspace>] [--default-project <project> | --clear-default-project] [--json]\`
+${Object.values(localCommandSkillSurfaces)
+  .map((surface) => `\`${surface}\``)
+  .join("\n")}
 
 ## Discover before acting
 
@@ -95,53 +94,55 @@ For scripts, read [references/automation.md](references/automation.md) before ha
 
 const requiredLocalSurface = [
   {
-    help: commandHelp(authCommand, "login"),
+    documentedSurface: localCommandSkillSurfaces.authLogin,
+    descriptionSource: commandDescription(authCommand, "login"),
     command: "login",
-    description: "store only the resulting token",
-    flags: ["profile", "json"]
+    description: "store only the resulting token"
   },
   {
-    help: commandHelp(authCommand, "status"),
+    documentedSurface: localCommandSkillSurfaces.authStatus,
+    descriptionSource: commandDescription(authCommand, "status"),
     command: "status",
-    description: "sanitized authentication",
-    flags: ["json"]
+    description: "sanitized authentication"
   },
   {
-    help: commandHelp(authCommand, "logout"),
+    documentedSurface: localCommandSkillSurfaces.authLogout,
+    descriptionSource: commandDescription(authCommand, "logout"),
     command: "logout",
-    description: "Remove the stored token",
-    flags: ["profile", "json"]
+    description: "Remove the stored token"
   },
   {
-    help: commandHelp(profileCommand, "create"),
+    documentedSurface: localCommandSkillSurfaces.profileCreate,
+    descriptionSource: commandDescription(profileCommand, "create"),
     command: "create",
-    description: "Create a named URL and workspace profile",
-    flags: ["url", "workspace", "default-project", "json"]
+    description: "Create a named URL and workspace profile"
   },
-  { help: commandHelp(profileCommand, "list"), command: "list", description: "List named profiles", flags: ["json"] },
   {
-    help: commandHelp(profileCommand, "select"),
+    documentedSurface: localCommandSkillSurfaces.profileList,
+    descriptionSource: commandDescription(profileCommand, "list"),
+    command: "list",
+    description: "List named profiles"
+  },
+  {
+    documentedSurface: localCommandSkillSurfaces.profileSelect,
+    descriptionSource: commandDescription(profileCommand, "select"),
     command: "select",
-    description: "Select the active profile",
-    flags: ["json"]
+    description: "Select the active profile"
   },
   {
-    help: commandHelp(profileCommand, "update"),
+    documentedSurface: localCommandSkillSurfaces.profileUpdate,
+    descriptionSource: commandDescription(profileCommand, "update"),
     command: "update",
-    description: "Update a named profile",
-    flags: ["url", "workspace", "default-project", "clear-default-project", "json"]
+    description: "Update a named profile"
   }
-] as const
+]
 
 for (const surface of requiredLocalSurface) {
-  if (!surface.help.includes(surface.description)) {
+  if (!surface.descriptionSource.includes(surface.description)) {
     throw new Error(`Local CLI description drifted for '${surface.command}'.`)
   }
-  for (const flag of surface.flags) {
-    if (!surface.help.includes(`--${flag}`)) {
-      throw new Error(`Local CLI flag '--${flag}' is missing from ${surface.command}.`)
-    }
-    if (!skill.includes(`--${flag}`)) throw new Error(`Generated skill does not document local flag '--${flag}'.`)
+  if (!skill.includes(surface.documentedSurface)) {
+    throw new Error(`Generated skill does not document the local '${surface.command}' surface.`)
   }
 }
 

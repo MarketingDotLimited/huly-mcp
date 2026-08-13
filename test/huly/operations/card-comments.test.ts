@@ -299,8 +299,15 @@ describe("card comment operations", () => {
         card: "Decision Record",
         commentId: "comment-1"
       })
+      const unchangedParams = yield* parseUpdateCardCommentParams({
+        cardSpace: "Product Strategy",
+        card: "Decision Record",
+        commentId: "comment-1",
+        body: "Updated"
+      })
 
       expect((yield* updateCardComment(updateParams).pipe(Effect.provide(makeLayer(state)))).updated).toBe(true)
+      expect((yield* updateCardComment(unchangedParams).pipe(Effect.provide(makeLayer(state)))).updated).toBe(false)
       expect((yield* deleteCardComment(deleteParams).pipe(Effect.provide(makeLayer(state)))).deleted).toBe(true)
       expect(state.updatedIds).toEqual(["comment-1"])
       expect(state.removals).toEqual(["comment-1"])

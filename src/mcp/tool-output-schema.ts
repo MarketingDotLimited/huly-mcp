@@ -1,5 +1,5 @@
 import { getHulyContextResultJsonSchema } from "../domain/schemas/index.js"
-import { wrapResultOutputSchema } from "./tool-output-schema-core.js"
+import { type McpOutputSchema, wrapResultOutputSchema } from "./tool-output-schema-core.js"
 
 export { createToolOutputSchema, type McpOutputSchema } from "./tool-output-schema-core.js"
 

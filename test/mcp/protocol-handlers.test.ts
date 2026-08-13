@@ -1851,6 +1851,30 @@ describe("createMcpProtocolHandlers — resource handlers", () => {
     await expect(handlers.listResources()).resolves.toEqual({ resources: [] })
   })
 
+  it("maps non-config client resolution failures while listing resources", async () => {
+    const handlers = createMcpProtocolHandlers(
+      failedClientResolution,
+      createTelemetryProbe().telemetry,
+      emptyRegistry,
+      unusedGetHulyContext
+    )
+
+    await expect(handlers.listResources()).rejects.toThrow("Unable to list Huly resources")
+  })
+
+  it("maps config client resolution failures while reading resources", async () => {
+    const handlers = createMcpProtocolHandlers(
+      configFailureResolveClients,
+      createTelemetryProbe().telemetry,
+      emptyRegistry,
+      unusedGetHulyContext
+    )
+
+    await expect(handlers.readResource({ params: { uri: "huly://projects/TEST" } })).rejects.toThrow(
+      'Unable to read resource "huly://projects/TEST"'
+    )
+  })
+
   it("surfaces an McpError when the backend fails while listing resources", async () => {
     const handlers = createMcpProtocolHandlers(
       buildStubClients({ findAll: () => Effect.fail(new HulyConnectionError({ message: "backend down" })) }),

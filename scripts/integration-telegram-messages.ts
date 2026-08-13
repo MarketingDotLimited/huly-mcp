@@ -18,17 +18,17 @@ const core = require("@hcengineering/core") as typeof import("@hcengineering/cor
 const text = require("@hcengineering/text") as typeof import("@hcengineering/text")
 
 const NODE_ARGUMENT_OFFSET = 2
-const CliArgsSchema = Schema.Union(
+const CliArgsSchema = Schema.Union([
   Schema.Struct({ mode: Schema.Literal("setup"), runId: NonEmptyString }),
   Schema.Struct({ mode: Schema.Literal("cleanup"), channelId: ChannelId, messageId: MessageId })
-)
+])
 const SetupResultSchema = Schema.Struct({
   channelId: ChannelId,
   channelValue: NonEmptyString,
   messageId: MessageId,
   contentMarkdown: NonEmptyString
 })
-const CleanupResultSchema = Schema.Struct({ removed: Schema.Array(Schema.Union(ChannelId, MessageId)) })
+const CleanupResultSchema = Schema.Struct({ removed: Schema.Array(Schema.Union([ChannelId, MessageId])) })
 type CliArgs = Schema.Schema.Type<typeof CliArgsSchema>
 
 const parseCliArgs = (): CliArgs =>

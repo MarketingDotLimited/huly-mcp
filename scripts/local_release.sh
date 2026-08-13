@@ -186,6 +186,10 @@ else
   fi
 fi
 
+if [[ "$mcp_needs_publish" == "true" || "$cli_needs_publish" == "true" ]]; then
+  pnpm check-all
+fi
+
 if [[ "$mcp_needs_publish" == "true" ]]; then
   build_mcp_package "$mcp_package_version"
 fi

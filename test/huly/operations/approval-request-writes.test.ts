@@ -85,6 +85,7 @@ interface WriteLayerConfig {
   readonly accountSocialIds?: ReadonlyArray<HulyPersonId>
   readonly targetDocs?: ReadonlyArray<Doc>
   readonly captures?: Captures
+  readonly omitGetSocialIds?: boolean
   readonly omitUpdateCollection?: boolean
 }
 
@@ -294,7 +295,7 @@ const testLayer = (config: WriteLayerConfig = {}) => {
 
   return HulyClient.testLayer({
     getPrimarySocialId: () => actor,
-    getSocialIds: () => config.accountSocialIds ?? [actor],
+    ...(config.omitGetSocialIds === true ? {} : { getSocialIds: () => config.accountSocialIds ?? [actor] }),
     findAll,
     findOne,
     addCollection,
@@ -648,6 +649,17 @@ describe("approval request write operations", () => {
 
       expect(result).toEqual({ request: "request-1", action: "cancelled", changed: true, status: "Cancelled" })
       expect(assertAt(captures.updates, 0).operations).toMatchObject({ status: HulyRequestStatus.Cancelled })
+    })
+  )
+
+  it.effect("falls back to the primary social id when the client omits account social ids", () =>
+    Effect.gen(function* () {
+      const captures = emptyCaptures()
+      const result = yield* cancelApprovalRequest({ request: ApprovalRequestId.make("request-1") }).pipe(
+        Effect.provide(testLayer({ captures, omitGetSocialIds: true }))
+      )
+
+      expect(result).toEqual({ request: "request-1", action: "cancelled", changed: true, status: "Cancelled" })
     })
   )
 

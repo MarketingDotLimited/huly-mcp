@@ -999,6 +999,10 @@ describe("HulyStorageClient.layer (real layer with mocked api-client)", () => {
       expect(yield* downloadFileBounded(BlobId.make("blob-small"), AttachmentByteSize.make(3))).toEqual(
         Buffer.from("abc")
       )
+      mockGet.mockImplementation(() => Promise.resolve(Readable.from(["plain text"])))
+      const downloadFile = client.downloadFile
+      if (downloadFile === undefined) throw new Error("Expected download operation")
+      expect(yield* downloadFile(BlobId.make("blob-text"))).toEqual(Buffer.from("plain text"))
 
       mockGet.mockImplementation(() => Promise.reject(new Error("adapter unavailable")))
       const boundedError = yield* Effect.flip(

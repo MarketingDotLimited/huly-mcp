@@ -1,0 +1,42 @@
+{
+  "baselineSha256": "02bb5e4bf2fdb0e4dd30f980810bd0fe70d5c91482c309b4621264c373d6adac",
+  "categories": [
+    {
+      "category": "draft07-structure",
+      "count": 12754,
+      "deltaSetSha256": "d9debbd147cb85251d7dfb58eec310a71ff5dd330826289eb25f0276084e6408",
+      "issue": "#225",
+      "rationale": "Reviewed Effect 4 Draft-07 structural dialect: refs, definitions, optional/null unions, refinements, and composition wrappers."
+    },
+    {
+      "category": "schema-metadata",
+      "count": 4894,
+      "deltaSetSha256": "0fecd4efc0fe1c325a1d53476f9d1161723e62f67c7c41f5ede3de15d6cfa144",
+      "issue": "#225",
+      "rationale": "Reviewed schema metadata migration: authored descriptions are preserved and legacy generator-default metadata is replaced."
+    },
+    {
+      "category": "authored-constraints",
+      "count": 3428,
+      "deltaSetSha256": "7ef10e257d365c7b850a38b906a271f26318f848228992806426ec1eeafec4fd",
+      "issue": "#225",
+      "rationale": "Reviewed authored-constraint projection: the same 522 ordered tools remain represented and strict Draft-07/runtime agreement passes."
+    },
+    {
+      "category": "cli-json-diagnostic",
+      "count": 6,
+      "deltaSetSha256": "c7fad36fffaffa35e829dd6bf9bdf3eeaddcc03c76d82ddcaad8ccb13b6a6910",
+      "issue": "#228",
+      "rationale": "Reviewed CLI JSON diagnostic: deterministic line/column context was added without changing failure classification or exit status."
+    },
+    {
+      "category": "cli-help",
+      "count": 4,
+      "deltaSetSha256": "753af7b643f82ef61da69ec085f6ead23e244f8cf726b6f690acb7041e8535ea",
+      "issue": "#228",
+      "rationale": "Reviewed concise Effect 4 CLI help rendering; route inventory and order are unchanged."
+    }
+  ],
+  "formatVersion": 1,
+  "reviewedCurrentSha256": "3dcaac8a240371853f2b50f304ea3478aac23b29b24bd18db82ae7d73769fa6d"
+}

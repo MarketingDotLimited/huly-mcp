@@ -782,6 +782,18 @@ describe("McpServerService.layer operations", () => {
         expect(shutdownCalled).toBe(false)
       })
     })
+
+    it.effect("awaitReady fails when the server has not started", () =>
+      Effect.gen(function* () {
+        const serverLayer = buildStdioService()
+        const ctx = yield* Layer.build(serverLayer)
+        const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
+        const failure = yield* ops.awaitReady().pipe(Effect.flip)
+
+        expect(failure).toBeInstanceOf(McpServerError)
+        expect(failure.message).toBe("MCP server is not running")
+      })
+    )
   })
 
   describe("run() stdio transport", () => {

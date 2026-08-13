@@ -144,7 +144,9 @@ describe("McpServerService released HTTP integration", () => {
       requestForIdentity("https://beta.huly.example.com", "workspace-beta", "token-beta")
     ])
     await bothLeasesRequested.promise
-    expect(seenLeases.map(({ token }) => token).toSorted()).toEqual(["token-alpha", "token-beta"])
+    expect(
+      seenLeases.map(({ token }) => token).toSorted((left, right) => String(left).localeCompare(String(right)))
+    ).toEqual(["token-alpha", "token-beta"])
     expect(seenLeases.find(({ token }) => token === "token-alpha")?.bundle).toBe(alphaBundle)
     expect(seenLeases.find(({ token }) => token === "token-beta")?.bundle).toBe(betaBundle)
     releaseLeases.resolve()

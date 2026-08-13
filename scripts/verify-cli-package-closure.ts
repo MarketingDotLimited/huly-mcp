@@ -5,13 +5,13 @@ import { Schema } from "effect"
 
 const CliPackageJsonSchema = Schema.Struct({
   bin: Schema.Struct({ huly: Schema.Literal("./dist/index.cjs") }),
-  dependencies: Schema.Record({ key: Schema.String, value: Schema.String }),
+  dependencies: Schema.Record(Schema.String, Schema.String),
   files: Schema.Array(Schema.String),
   main: Schema.Literal("./dist/index.cjs"),
   name: Schema.Literal("@firfi/huly-cli")
 })
 
-const cliPackageJson = Schema.decodeUnknownSync(Schema.parseJson(CliPackageJsonSchema))(
+const cliPackageJson = Schema.decodeUnknownSync(Schema.fromJsonString(CliPackageJsonSchema))(
   readFileSync("packages/huly-cli/package.json", "utf8")
 )
 const bundle = readFileSync("packages/huly-cli/dist/index.cjs", "utf8")
@@ -22,6 +22,7 @@ const requiredModules = new Set(
 const builtins = new Set([...builtinModules, ...builtinModules.map((name) => `node:${name}`)])
 const externalModules = [...requiredModules].filter((name) => !name.startsWith("node:") && !builtins.has(name)).sort()
 const undeclared = externalModules.filter((name) => cliPackageJson.dependencies[name] === undefined)
+const EXPECTED_EXTERNAL_MODULES: ReadonlyArray<string> = ["ws"]
 const EXPECTED_PACKAGE_FILE_COUNT = 2
 
 const errors = [
@@ -30,7 +31,11 @@ const errors = [
   cliPackageJson.files[1] === "skills"
     ? undefined
     : "CLI package files must contain dist/index.cjs and the Agent Skill directory.",
-  undeclared.length === 0 ? undefined : `CLI bundle has undeclared runtime dependencies: ${undeclared.join(", ")}.`
+  undeclared.length === 0 ? undefined : `CLI bundle has undeclared runtime dependencies: ${undeclared.join(", ")}.`,
+  externalModules.length === EXPECTED_EXTERNAL_MODULES.length &&
+  externalModules.every((name, index) => name === EXPECTED_EXTERNAL_MODULES[index])
+    ? undefined
+    : `CLI bundle external dependency set must be exactly ${EXPECTED_EXTERNAL_MODULES.join(", ")}; found ${externalModules.join(", ") || "none"}.`
 ].filter((message) => message !== undefined)
 
 if (errors.length > 0) {
@@ -38,6 +43,6 @@ if (errors.length > 0) {
   process.exitCode = 1
 } else {
   console.log(
-    `CLI package closure verified: bundled shared registry plus ${externalModules.length} declared external runtime dependency.`
+    `CLI package closure verified: bundled shared registry plus exactly one declared external runtime dependency (${EXPECTED_EXTERNAL_MODULES[0]}).`
   )
 }

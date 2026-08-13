@@ -19,24 +19,42 @@ const NODE_ARGUMENT_OFFSET = 2
 const GLOBAL_BOOLEAN_FLAGS = new Set(["--json", "--yes"])
 const GLOBAL_TEXT_FLAGS = new Set(["--input-json", "--input-file", "--output"])
 
+interface GlobalOptionClassification {
+  readonly isBoolean: boolean
+  readonly isText: boolean
+}
+
+const classifyGlobalOption = (token: string): GlobalOptionClassification => {
+  const flag = token.split("=", 1)[0]
+  return {
+    isText: flag !== undefined && GLOBAL_TEXT_FLAGS.has(flag),
+    isBoolean: flag !== undefined && GLOBAL_BOOLEAN_FLAGS.has(flag)
+  }
+}
+
+const globalOptionConsumesNext = (
+  token: string,
+  next: string | undefined,
+  classification: GlobalOptionClassification
+): boolean =>
+  !token.includes("=") &&
+  next !== undefined &&
+  (classification.isText || (classification.isBoolean && ["true", "false"].includes(next)))
+
 const moveGlobalOptionsToLeaf = (argv: ReadonlyArray<string>): ReadonlyArray<string> => {
   const command: Array<string> = []
   const globals: Array<string> = []
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index]
     if (token === undefined) continue
-    const flag = token.split("=", 1)[0]
-    const isText = flag !== undefined && GLOBAL_TEXT_FLAGS.has(flag)
-    const isBoolean = flag !== undefined && GLOBAL_BOOLEAN_FLAGS.has(flag)
-    if (!isText && !isBoolean) {
+    const classification = classifyGlobalOption(token)
+    if (!classification.isText && !classification.isBoolean) {
       command.push(token)
       continue
     }
     globals.push(token)
     const next = argv[index + 1]
-    const takesFollowingValue =
-      !token.includes("=") && next !== undefined && (isText || (isBoolean && ["true", "false"].includes(next)))
-    if (takesFollowingValue) {
+    if (next !== undefined && globalOptionConsumesNext(token, next, classification)) {
       globals.push(next)
       index += 1
     }

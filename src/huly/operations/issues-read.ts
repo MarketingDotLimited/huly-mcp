@@ -366,7 +366,8 @@ export const listIssues = (
     )
 
     // Spread: Schema decoding returns a readonly array; return type requires mutable
-    const validated = yield* Schema.decodeUnknownEffect(Schema.Array(IssueSummarySchema))(rawSummaries).pipe(
+    const parseIssueSummaries = Schema.decodeUnknownEffect(Schema.Array(IssueSummarySchema))
+    const validated = yield* parseIssueSummaries(rawSummaries).pipe(
       Effect.mapError(
         (parseError) =>
           new HulyConnectionError({

@@ -18,7 +18,7 @@ const decodeJsonPointerToken = (token: string): string => token.replaceAll("~1",
 const localDefinitionName = (ref: string): string | undefined => {
   if (!ref.startsWith("#/$defs/")) return undefined
   const token = ref.slice("#/$defs/".length).split("/")[0]
-  return token === undefined ? undefined : decodeJsonPointerToken(token)
+  return decodeJsonPointerToken(Schema.decodeUnknownSync(Schema.String)(token))
 }
 
 const inspectSchema = (value: unknown, definitions: Readonly<Record<string, unknown>>, path: string): void => {
@@ -40,9 +40,12 @@ const inspectSchema = (value: unknown, definitions: Readonly<Record<string, unkn
   Object.entries(record).forEach(([key, child]) => inspectSchema(child, definitions, `${path}/${key}`))
 }
 
-const validateSchemaDocument = (toolName: string, surface: "input" | "output", schema: object): void => {
-  const record = parseJsonSchemaRecord(schema)
-  if (record === undefined) throw new Error(`${toolName} ${surface} schema is not a JSON object.`)
+const validateSchemaDocument = (
+  toolName: string,
+  surface: "input" | "output",
+  schema: Readonly<Record<string, unknown>>
+): void => {
+  const record = schema
   if (record.$schema !== DRAFT_07_URI) {
     throw new Error(`${toolName} ${surface} schema must declare ${DRAFT_07_URI}.`)
   }

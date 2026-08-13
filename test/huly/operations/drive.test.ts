@@ -13,7 +13,8 @@ import type {
   Ref,
   Space
 } from "@hcengineering/core"
-import { Effect, Layer, TestClock } from "effect"
+import { Effect, Layer } from "effect"
+import { TestClock } from "effect/testing"
 import { expect } from "vitest"
 
 import {

@@ -15,7 +15,7 @@ import { expect } from "vitest"
 import { Email, PersonId } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import { contact } from "../../../src/huly/huly-plugins.js"
-import { findPersonByExactEmailOrName } from "../../../src/huly/operations/contacts-shared.js"
+import { findPersonByEmailOrName, findPersonByExactEmailOrName } from "../../../src/huly/operations/contacts-shared.js"
 import { createOrganization, listOrganizations } from "../../../src/huly/operations/organizations.js"
 import { getPerson, listEmployees, listPersons, updatePerson } from "../../../src/huly/operations/persons.js"
 import { resolveAssignee } from "../../../src/huly/operations/test-management-shared.js"
@@ -358,6 +358,19 @@ const createTestLayer = (config: MockConfig) => {
 }
 
 describe("Contacts Extended Coverage", () => {
+  it.effect("resolves a substring email channel to its attached person", () =>
+    Effect.gen(function* () {
+      const person = createMockPerson()
+      const channel = createMockChannel({ value: "john@example.com", attachedTo: person._id })
+      const result = yield* Effect.gen(function* () {
+        const client = yield* HulyClient
+        return yield* findPersonByEmailOrName(client, "john@")
+      }).pipe(Effect.provide(createTestLayer({ persons: [person], channels: [channel] })))
+
+      expect(result?._id).toBe(person._id)
+    })
+  )
+
   describe("findPersonByExactEmailOrName", () => {
     it.effect("returns undefined when exact email has no identity or channel matches", () =>
       Effect.gen(function* () {

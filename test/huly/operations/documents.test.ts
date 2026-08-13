@@ -49,7 +49,7 @@ const editDocument = (input: Parameters<typeof editDocumentParams>[0]) =>
 
 const CapturedMarkupChildNodeSchema = Schema.Struct({
   type: Schema.optional(Schema.String),
-  attrs: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.Unknown }))
+  attrs: Schema.optional(Schema.Record(Schema.String, Schema.Unknown))
 })
 
 const CapturedMarkupTreeSchema = Schema.Struct({

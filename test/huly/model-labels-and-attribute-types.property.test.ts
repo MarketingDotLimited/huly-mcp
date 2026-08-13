@@ -47,9 +47,9 @@ describe("Huly model label and attribute type properties", () => {
       fc.property(fc.array(labelSegmentArbitrary, { minLength: 1, maxLength: 5 }), (segments) => {
         const decoded = decodeHulyModelLabelTail(segments.join(":"))
 
-        expect(decoded._tag).toBe("Right")
-        if (decoded._tag === "Right") {
-          expect(decoded.right).toBe(NonEmptyString.make(assertAt(segments, segments.length - 1)))
+        expect(decoded._tag).toBe("Success")
+        if (decoded._tag === "Success") {
+          expect(decoded.success).toBe(NonEmptyString.make(assertAt(segments, segments.length - 1)))
         }
       }),
       propertyTestParameters
@@ -59,14 +59,14 @@ describe("Huly model label and attribute type properties", () => {
   it("decodeHulyModelLabelTail rejects non-strings and labels with empty final tails", () => {
     fc.assert(
       fc.property(fc.oneof(fc.integer(), fc.boolean(), fc.array(fc.string({ maxLength: 10 }))), (value) => {
-        expect(decodeHulyModelLabelTail(value)._tag).toBe("Left")
+        expect(decodeHulyModelLabelTail(value)._tag).toBe("Failure")
       }),
       propertyTestParameters
     )
 
     fc.assert(
       fc.property(fc.array(labelSegmentArbitrary, { minLength: 1, maxLength: 4 }), (segments) => {
-        expect(decodeHulyModelLabelTail(`${segments.join(":")}:`)._tag).toBe("Left")
+        expect(decodeHulyModelLabelTail(`${segments.join(":")}:`)._tag).toBe("Failure")
       }),
       propertyTestParameters
     )

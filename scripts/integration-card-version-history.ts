@@ -20,12 +20,10 @@ const MAX_ADDITIONAL_VERSIONS = 60
 const NODE_ARGUMENT_OFFSET = 2
 
 const AdditionalVersionCount = Schema.NumberFromString.pipe(
-  Schema.int(),
-  Schema.positive(),
-  Schema.lessThanOrEqualTo(MAX_ADDITIONAL_VERSIONS)
+  Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(MAX_ADDITIONAL_VERSIONS))
 )
 
-const CliArgsSchema = Schema.Union(
+const CliArgsSchema = Schema.Union([
   Schema.Struct({
     mode: Schema.Literal("setup"),
     cardSpace: CardSpaceIdentifier,
@@ -34,7 +32,7 @@ const CliArgsSchema = Schema.Union(
   }),
   Schema.Struct({ mode: Schema.Literal("cleanup"), cardSpace: CardSpaceIdentifier, baseId: CardId }),
   Schema.Struct({ mode: Schema.Literal("strip"), cardSpace: CardSpaceIdentifier, card: CardIdentifier })
-)
+])
 const SetupResultSchema = Schema.Struct({ baseId: CardId, versionIds: Schema.Array(CardId), total: Count })
 const CleanupResultSchema = Schema.Struct({ removed: Count })
 const StripResultSchema = Schema.Struct({ cardId: CardId })

@@ -178,7 +178,7 @@ jobs:
           pnpm exec huly --help > help.log
           grep -q "Huly CLI" help.log
           node "$repo_root/scripts/run-bundled.mjs" "$repo_root/scripts/smoke-packed-cli.ts" \
-            "$(pwd)/node_modules/.bin/huly"
+            "$(pwd)/node_modules/.bin/huly" "$expected_version"
 
           npm_smoke_dir="$(mktemp -d)"
           cd "$npm_smoke_dir"
@@ -188,7 +188,10 @@ jobs:
           ./node_modules/.bin/huly --help > help.log
           grep -q "Huly CLI" help.log
           node "$repo_root/scripts/run-bundled.mjs" "$repo_root/scripts/smoke-packed-cli.ts" \
-            "$(pwd)/node_modules/.bin/huly"
+            "$(pwd)/node_modules/.bin/huly" "$expected_version"
+
+          cd "$repo_root"
+          pnpm report-cli-artifact-size
 
   docker-image:
     name: Docker image

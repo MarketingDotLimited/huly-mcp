@@ -8,9 +8,9 @@ describe("Huly label helpers", () => {
     expect(HULY_MODEL_ID_SEPARATOR).toBe(":")
     expect(String(tracker.class.Issue)).toBe("tracker:class:Issue")
     expect(hulyModelLabelTail(tracker.class.Issue)).toBe("Issue")
-    expect(decodeHulyModelLabelTail(tracker.class.Issue)).toEqual(
-      expect.objectContaining({ _tag: "Right", right: "Issue" })
-    )
+    const decoded = decodeHulyModelLabelTail(tracker.class.Issue)
+    expect(decoded._tag).toBe("Success")
+    if (decoded._tag === "Success") expect(decoded.success).toBe("Issue")
   })
 
   it("preserves non-namespaced string labels", () => {
@@ -18,8 +18,8 @@ describe("Huly label helpers", () => {
   })
 
   it("rejects non-string labels instead of coercing them", () => {
-    expect(decodeHulyModelLabelTail(undefined)._tag).toBe("Left")
-    expect(decodeHulyModelLabelTail(123)._tag).toBe("Left")
-    expect(decodeHulyModelLabelTail({ label: "Issue" })._tag).toBe("Left")
+    expect(decodeHulyModelLabelTail(undefined)._tag).toBe("Failure")
+    expect(decodeHulyModelLabelTail(123)._tag).toBe("Failure")
+    expect(decodeHulyModelLabelTail({ label: "Issue" })._tag).toBe("Failure")
   })
 })

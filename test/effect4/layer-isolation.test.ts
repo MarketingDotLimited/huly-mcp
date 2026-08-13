@@ -7,10 +7,13 @@ type LifecycleEvent = "acquired" | "released"
 const makeTrackedLayer = (events: Ref.Ref<ReadonlyArray<LifecycleEvent>>) =>
   Layer.effectDiscard(
     Effect.acquireRelease(
-      Ref.update(events, (current) => [...current, "acquired"]),
-      () => Ref.update(events, (current) => [...current, "released"])
+      Ref.update(events, (current) => [...current, acquired]),
+      () => Ref.update(events, (current) => [...current, released])
     )
   )
+
+const acquired: LifecycleEvent = "acquired"
+const released: LifecycleEvent = "released"
 
 describe("Effect 4 layer isolation", () => {
   it.effect("shares one acquisition across separate provide calls", () =>

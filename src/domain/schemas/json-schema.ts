@@ -13,7 +13,7 @@ const JsonArraySchema = Schema.Array(Schema.Json)
 
 type JsonSchemaObject = Schema.Schema.Type<typeof JsonSchemaObjectSchema>
 
-const parseJsonObject = (value: Schema.Json): JsonSchemaObject | undefined => {
+const parseJsonObject = (value: unknown): JsonSchemaObject | undefined => {
   try {
     return Schema.decodeUnknownSync(JsonSchemaObjectSchema)(value)
   } catch {
@@ -93,12 +93,25 @@ const flattenScalarAllOf = (value: Schema.Json): Schema.Json => {
   return { ...withoutAllOf, ...merged }
 }
 
+const annotatedAstDescription = (ast: SchemaAST.AST): string | undefined => {
+  const contextDescription = ast.context === undefined ? undefined : ast.context.annotations?.description
+  const direct = contextDescription === undefined ? ast.annotations?.description : contextDescription
+  return typeof direct === "string" ? direct : undefined
+}
+
+const checkedAstDescription = (ast: SchemaAST.AST): string | undefined => {
+  const checks = ast.checks === undefined ? [] : ast.checks
+  const matchingCheck = checks.find((check) => typeof check.annotations?.description === "string")
+  const checkDescription = matchingCheck === undefined ? undefined : matchingCheck.annotations?.description
+  return typeof checkDescription === "string" ? checkDescription : undefined
+}
+
+const directAstDescription = (ast: SchemaAST.AST): string | undefined =>
+  annotatedAstDescription(ast) ?? checkedAstDescription(ast)
+
 const astDescription = (ast: SchemaAST.AST): string | undefined => {
-  const direct = ast.context?.annotations?.description ?? ast.annotations?.description
-  if (typeof direct === "string") return direct
-  for (const check of ast.checks ?? []) {
-    if (typeof check.annotations?.description === "string") return check.annotations.description
-  }
+  const direct = directAstDescription(ast)
+  if (direct !== undefined) return direct
   if (SchemaAST.isUnion(ast)) {
     const members = ast.types.filter((member) => !SchemaAST.isUndefined(member))
     const descriptions = members
@@ -115,57 +128,61 @@ const astAuthoredJsonSchema = (ast: SchemaAST.AST): JsonSchemaObject | undefined
   return parseJsonObject(annotation)
 }
 
+const restoreUnionDescriptions = (ast: SchemaAST.Union, record: JsonSchemaObject): Schema.Json => {
+  if (!Array.isArray(record.anyOf)) return record
+  const members = ast.types.filter((member) => !SchemaAST.isUndefined(member))
+  const anyOf = Schema.decodeUnknownSync(JsonArraySchema)(record.anyOf)
+  return {
+    ...record,
+    anyOf: anyOf.map((member, index) => {
+      const astMember = members[index]
+      return astMember === undefined ? member : restoreAstPropertyDescriptions(astMember, member)
+    })
+  }
+}
+
+const restorePropertyDescription = (propertyAst: SchemaAST.AST, property: Schema.Json): Schema.Json => {
+  const restored = restoreAstPropertyDescriptions(propertyAst, property)
+  const record = parseJsonObject(restored)
+  const description = astDescription(propertyAst)
+  if (description === undefined || record === undefined) return restored
+  return record.$ref === undefined
+    ? { ...record, description: record.description ?? description }
+    : { allOf: [{ $ref: record.$ref }], description }
+}
+
+const restoreObjectDescriptions = (ast: SchemaAST.Objects, record: JsonSchemaObject): Schema.Json => {
+  const properties = record.properties === undefined ? undefined : parseJsonObject(record.properties)
+  if (properties === undefined) return record
+  const signatures = new Map(ast.propertySignatures.map((signature) => [signature.name, signature.type]))
+  return {
+    ...record,
+    properties: Object.fromEntries(
+      Object.entries(properties).map(([key, property]) => {
+        const propertyAst = signatures.get(key)
+        return [key, propertyAst === undefined ? property : restorePropertyDescription(propertyAst, property)]
+      })
+    )
+  }
+}
+
+const restoreArrayDescriptions = (ast: SchemaAST.Arrays, record: JsonSchemaObject): Schema.Json => {
+  if (record.items === undefined) return record
+  const elementAst = ast.rest[0] ?? ast.elements[0]
+  return elementAst === undefined
+    ? record
+    : { ...record, items: restoreAstPropertyDescriptions(elementAst, record.items) }
+}
+
 const restoreAstPropertyDescriptions = (ast: SchemaAST.AST, jsonSchema: Schema.Json): Schema.Json => {
   const record = parseJsonObject(jsonSchema)
   if (record === undefined) return jsonSchema
-
   const authored = astAuthoredJsonSchema(ast)
   const restoredRecord = authored === undefined ? record : { ...record, ...authored }
+  if (SchemaAST.isUnion(ast)) return restoreUnionDescriptions(ast, restoredRecord)
+  if (SchemaAST.isObjects(ast)) return restoreObjectDescriptions(ast, restoredRecord)
 
-  if (SchemaAST.isUnion(ast) && Array.isArray(restoredRecord.anyOf)) {
-    const members = ast.types.filter((member) => !SchemaAST.isUndefined(member))
-    const anyOf = Schema.decodeUnknownSync(JsonArraySchema)(restoredRecord.anyOf)
-    return {
-      ...restoredRecord,
-      anyOf: anyOf.map((member, index) => {
-        const astMember = members[index]
-        return astMember === undefined ? member : restoreAstPropertyDescriptions(astMember, member)
-      })
-    }
-  }
-
-  if (SchemaAST.isObjects(ast)) {
-    const properties = restoredRecord.properties === undefined ? undefined : parseJsonObject(restoredRecord.properties)
-    if (properties === undefined) return restoredRecord
-    const signatures = new Map(ast.propertySignatures.map((signature) => [signature.name, signature.type]))
-    return {
-      ...restoredRecord,
-      properties: Object.fromEntries(
-        Object.entries(properties).map(([key, property]) => {
-          const propertyAst = signatures.get(key)
-          if (propertyAst === undefined) return [key, property]
-          const restored = restoreAstPropertyDescriptions(propertyAst, property)
-          const restoredRecord = parseJsonObject(restored)
-          const description = astDescription(propertyAst)
-          return [
-            key,
-            description === undefined || restoredRecord === undefined
-              ? restored
-              : restoredRecord.$ref === undefined
-                ? { ...restoredRecord, description: restoredRecord.description ?? description }
-                : { allOf: [{ $ref: restoredRecord.$ref }], description }
-          ]
-        })
-      )
-    }
-  }
-
-  if (SchemaAST.isArrays(ast) && restoredRecord.items !== undefined) {
-    const elementAst = ast.rest[0] ?? ast.elements[0]
-    return elementAst === undefined
-      ? restoredRecord
-      : { ...restoredRecord, items: restoreAstPropertyDescriptions(elementAst, restoredRecord.items) }
-  }
+  if (SchemaAST.isArrays(ast)) return restoreArrayDescriptions(ast, restoredRecord)
 
   return restoredRecord
 }

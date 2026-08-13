@@ -1,6 +1,7 @@
 import { describe, it } from "@effect/vitest"
 import { PlatformError, Severity, Status } from "@hcengineering/platform"
-import { Effect, Fiber, Redacted, TestClock } from "effect"
+import { Effect, Fiber, Redacted } from "effect"
+import { TestClock } from "effect/testing"
 import { expect } from "vitest"
 import type { Auth } from "../../src/config/config.js"
 import { authToOptions, connectWithRetry } from "../../src/huly/client.js"
@@ -39,7 +40,7 @@ describe("connection-helpers", () => {
     it.effect("retries on non-auth errors and eventually fails with HulyConnectionError", () =>
       Effect.gen(function* () {
         let callCount = 0
-        const fiber = yield* Effect.fork(
+        const fiber = yield* Effect.forkScoped(
           connectWithRetry(() => {
             callCount++
             return Promise.reject(new Error("network down"))
@@ -77,7 +78,7 @@ describe("connection-helpers", () => {
 
     it.effect("retains only an allow-listed detail code", () =>
       Effect.gen(function* () {
-        const fiber = yield* Effect.fork(
+        const fiber = yield* Effect.forkScoped(
           connectWithRetry(
             () => Promise.reject(Object.assign(new Error("token=secret"), { code: "ECONNREFUSED" })),
             "https://huly.app"
@@ -94,7 +95,7 @@ describe("connection-helpers", () => {
     it.effect("succeeds after initial failures when retry works", () =>
       Effect.gen(function* () {
         let callCount = 0
-        const fiber = yield* Effect.fork(
+        const fiber = yield* Effect.forkScoped(
           connectWithRetry(() => {
             callCount++
             if (callCount < 3) {
@@ -136,7 +137,7 @@ describe("connection-helpers", () => {
 
     it.effect("maps non-auth PlatformError to HulyConnectionError", () =>
       Effect.gen(function* () {
-        const fiber = yield* Effect.fork(
+        const fiber = yield* Effect.forkScoped(
           connectWithRetry(
             () => Promise.reject(makePlatformError("platform:status:InternalServerError")),
             "https://huly.app"

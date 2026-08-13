@@ -496,7 +496,7 @@ describe("addAttachment", () => {
 
       expect(exit._tag).toBe("Failure")
       if (exit._tag === "Failure") {
-        expect(Cause.isDie(exit.cause)).toBe(true)
+        expect(Cause.hasDies(exit.cause)).toBe(true)
       }
     })
   )

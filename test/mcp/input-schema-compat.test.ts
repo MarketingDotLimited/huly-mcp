@@ -14,6 +14,36 @@ const expectRecord = (value: unknown): Record<string, unknown> => {
 }
 
 describe("toClientCompatibleInputSchema", () => {
+  it("resolves escaped local definition references and keeps root required fields", () => {
+    const schema = {
+      $ref: "#/$defs/Root~1Schema",
+      $defs: { "Root/Schema": { type: "object", properties: { name: { type: "string" } }, required: ["name"] } }
+    }
+
+    const sanitized = toClientCompatibleInputSchema(schema)
+
+    expect(sanitized.required).toEqual(["name"])
+    expect(expectRecord(sanitized.properties).name).toEqual({ type: "string" })
+  })
+
+  it("ignores malformed and unresolved local definition references", () => {
+    const malformed = toClientCompatibleInputSchema({ $ref: "#/$defs/%E0%A4%A", $defs: {} })
+    const missing = toClientCompatibleInputSchema({ $ref: "#/$defs/Missing", $defs: {} })
+
+    expect(malformed.properties).toBeUndefined()
+    expect(missing.properties).toBeUndefined()
+  })
+
+  it("ignores local references without definitions and bounds recursive compositions", () => {
+    const noDefinitions = toClientCompatibleInputSchema({ $ref: "#/$defs/Root" })
+    let nested: object = { type: "object", properties: { deepest: { type: "string" } } }
+    for (let depth = 0; depth < 10; depth += 1) nested = { allOf: [nested] }
+    const bounded = toClientCompatibleInputSchema(nested)
+
+    expect(noDefinitions.properties).toBeUndefined()
+    expect(bounded.properties).toBeUndefined()
+  })
+
   it("removes root composition while keeping branch-required constraints runtime-only", () => {
     const schema: McpInputSchema = {
       type: "object",

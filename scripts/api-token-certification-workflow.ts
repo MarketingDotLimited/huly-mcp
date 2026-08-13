@@ -1,18 +1,19 @@
-import { Either, Schema } from "effect"
+import { Result, Schema } from "effect"
 
 import {
   AttachmentId,
   DocumentId,
   type DocumentIdentifier,
   IssueIdentifier,
+  NonEmptyString,
   type ProjectIdentifier,
   TeamspaceId,
   type TeamspaceIdentifier
 } from "../src/domain/schemas/shared.js"
 
-const ToolArguments = Schema.Record({ key: Schema.String, value: Schema.Unknown })
+const ToolArguments = Schema.Record(Schema.String, Schema.Unknown)
 
-export const CertificationToolNameSchema = Schema.Literal(
+export const CertificationToolNameSchema = Schema.Literals([
   "list_projects",
   "create_issue",
   "update_issue",
@@ -26,12 +27,12 @@ export const CertificationToolNameSchema = Schema.Literal(
   "delete_attachment",
   "delete_issue",
   "get_document"
-)
+])
 export type CertificationToolName = Schema.Schema.Type<typeof CertificationToolNameSchema>
 
 export const CertificationCallSchema = Schema.Struct({
   tool: CertificationToolNameSchema,
-  kind: Schema.Literal("read", "write", "cleanup"),
+  kind: Schema.Literals(["read", "write", "cleanup"]),
   arguments: ToolArguments
 })
 export type CertificationCall = Schema.Schema.Type<typeof CertificationCallSchema>
@@ -39,47 +40,52 @@ export type CertificationCall = Schema.Schema.Type<typeof CertificationCallSchem
 const CertificationSuccessSchema = Schema.TaggedStruct("Success", { value: Schema.Unknown })
 const CertificationFailureSchema = Schema.TaggedStruct("Failure", { message: Schema.String })
 const CertificationUncertainSchema = Schema.TaggedStruct("Uncertain", { message: Schema.String })
-export const CertificationCallResultSchema = Schema.Union(
+export const CertificationCallResultSchema = Schema.Union([
   CertificationSuccessSchema,
   CertificationFailureSchema,
   CertificationUncertainSchema
-)
+])
 export type CertificationCallResult = Schema.Schema.Type<typeof CertificationCallResultSchema>
 
-export const CertificationSurfaceSchema = Schema.Literal("core-rest", "account", "storage-file", "collaborator-markup")
+export const CertificationSurfaceSchema = Schema.Literals([
+  "core-rest",
+  "account",
+  "storage-file",
+  "collaborator-markup"
+])
 export type CertificationSurface = Schema.Schema.Type<typeof CertificationSurfaceSchema>
 
-export const ActiveSurfaceStatusSchema = Schema.Literal("passed", "failed", "uncertain", "skipped")
+export const ActiveSurfaceStatusSchema = Schema.Literals(["passed", "failed", "uncertain", "skipped"])
 export type ActiveSurfaceStatus = Schema.Schema.Type<typeof ActiveSurfaceStatusSchema>
 const ActiveSurfaceFields = { status: ActiveSurfaceStatusSchema, detail: Schema.String }
-const ActiveCertificationSurfacesSchema = Schema.Tuple(
+const ActiveCertificationSurfacesSchema = Schema.Tuple([
   Schema.Struct({ surface: Schema.Literal("core-rest"), ...ActiveSurfaceFields }),
   Schema.Struct({ surface: Schema.Literal("account"), ...ActiveSurfaceFields }),
   Schema.Struct({ surface: Schema.Literal("storage-file"), ...ActiveSurfaceFields }),
   Schema.Struct({ surface: Schema.Literal("collaborator-markup"), ...ActiveSurfaceFields })
-)
+])
 
-const RevokedSurfaceStatusSchema = Schema.Literal("call-succeeded", "call-failed", "uncertain")
+const RevokedSurfaceStatusSchema = Schema.Literals(["call-succeeded", "call-failed", "uncertain"])
 const RevokedSurfaceFields = { status: RevokedSurfaceStatusSchema, detail: Schema.String }
-const RevokedCertificationSurfacesSchema = Schema.Tuple(
+const RevokedCertificationSurfacesSchema = Schema.Tuple([
   Schema.Struct({ surface: Schema.Literal("core-rest"), ...RevokedSurfaceFields }),
   Schema.Struct({ surface: Schema.Literal("account"), ...RevokedSurfaceFields }),
   Schema.Struct({ surface: Schema.Literal("storage-file"), ...RevokedSurfaceFields }),
   Schema.Struct({ surface: Schema.Literal("collaborator-markup"), ...RevokedSurfaceFields })
-)
+])
 const ResourceNotCreatedSchema = Schema.TaggedStruct("NotCreated", {})
 const ResourceWriteUncertainSchema = Schema.TaggedStruct("WriteUncertain", {})
 const ResourceConfirmedSchema = Schema.TaggedStruct("Confirmed", {
-  cleanup: Schema.Literal("cleaned", "failed", "uncertain")
+  cleanup: Schema.Literals(["cleaned", "failed", "uncertain"])
 })
-export const CertificationResourceCleanupSchema = Schema.Union(
+export const CertificationResourceCleanupSchema = Schema.Union([
   ResourceNotCreatedSchema,
   ResourceWriteUncertainSchema,
   ResourceConfirmedSchema
-)
+])
 export type CertificationResourceCleanup = Schema.Schema.Type<typeof CertificationResourceCleanupSchema>
 type ResourceConfirmed = Schema.Schema.Type<typeof ResourceConfirmedSchema>
-export const CertificationCleanupSchema = Schema.Union(
+export const CertificationCleanupSchema = Schema.Union([
   Schema.Struct({
     issue: ResourceWriteUncertainSchema,
     attachment: ResourceNotCreatedSchema,
@@ -95,7 +101,7 @@ export const CertificationCleanupSchema = Schema.Union(
     attachment: CertificationResourceCleanupSchema,
     document: CertificationResourceCleanupSchema
   })
-)
+])
 export type CertificationCleanup = Schema.Schema.Type<typeof CertificationCleanupSchema>
 
 const ActiveCertificationReportFields = {
@@ -113,7 +119,7 @@ export const ActiveHttpCertificationReportSchema = Schema.Struct({
 })
 export const ActiveCertificationReportSchema = Schema.Struct({
   ...ActiveCertificationReportFields,
-  transport: Schema.Literal("stdio", "http")
+  transport: Schema.Literals(["stdio", "http"])
 })
 export type ActiveCertificationReport = Schema.Schema.Type<typeof ActiveCertificationReportSchema>
 
@@ -131,11 +137,14 @@ export const RevokedHttpCertificationReportSchema = Schema.Struct({
 })
 export const RevokedCertificationReportSchema = Schema.Struct({
   ...RevokedCertificationReportFields,
-  transport: Schema.Literal("stdio", "http")
+  transport: Schema.Literals(["stdio", "http"])
 })
 export type RevokedCertificationReport = Schema.Schema.Type<typeof RevokedCertificationReportSchema>
 
-export const CertificationReportSchema = Schema.Union(ActiveCertificationReportSchema, RevokedCertificationReportSchema)
+export const CertificationReportSchema = Schema.Union([
+  ActiveCertificationReportSchema,
+  RevokedCertificationReportSchema
+])
 export type CertificationReport = Schema.Schema.Type<typeof CertificationReportSchema>
 
 export interface CertificationPort {
@@ -155,14 +164,14 @@ interface RevokedCertificationOptions {
   readonly transport: "stdio" | "http"
 }
 
-export const CertificationRunId = Schema.NonEmptyTrimmedString.pipe(Schema.brand("CertificationRunId"))
+export const CertificationRunId = NonEmptyString.pipe(Schema.brand("CertificationRunId"))
 export type CertificationRunId = Schema.Schema.Type<typeof CertificationRunId>
 
 const IssueCreated = Schema.Struct({ identifier: IssueIdentifier })
 const AttachmentCreated = Schema.Struct({ attachmentId: AttachmentId })
 const DocumentCreated = Schema.Struct({ id: DocumentId })
 const TeamspacesListed = Schema.Struct({
-  teamspaces: Schema.Array(Schema.Struct({ id: TeamspaceId, name: Schema.NonEmptyTrimmedString }))
+  teamspaces: Schema.Array(Schema.Struct({ id: TeamspaceId, name: NonEmptyString }))
 })
 
 const call = (
@@ -178,12 +187,12 @@ const detail = (result: CertificationCallResult): string =>
 const activeStatus = (result: CertificationCallResult): "passed" | "failed" | "uncertain" =>
   result._tag === "Success" ? "passed" : result._tag === "Uncertain" ? "uncertain" : "failed"
 
-const decodeSuccess = <S extends Schema.Schema.AnyNoContext>(
+const decodeSuccess = <S extends Schema.ConstraintDecoder<unknown>>(
   schema: S,
   result: Schema.Schema.Type<typeof CertificationSuccessSchema>
-): Schema.Schema.Type<S> | undefined => {
-  const decoded = Schema.decodeUnknownEither(schema)(result.value)
-  return Either.isRight(decoded) ? decoded.right : undefined
+): S["Type"] | undefined => {
+  const decoded = Schema.decodeUnknownResult(schema)(result.value)
+  return Result.isSuccess(decoded) ? decoded.success : undefined
 }
 
 const surfaceResult = <S extends CertificationSurface>(

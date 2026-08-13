@@ -234,6 +234,27 @@ describe("CLI catalog", () => {
     expect(collectRequiredFieldNames({ anyOf: [] })).toEqual(new Set())
   })
 
+  it("bounds malformed and cyclic-looking schema references", () => {
+    const tooDeep = {
+      allOf: [
+        {
+          allOf: [
+            {
+              allOf: [{ allOf: [{ allOf: [{ allOf: [{ allOf: [{ allOf: [{ allOf: [{ type: "object" }] }] }] }] }] }] }]
+            }
+          ]
+        }
+      ]
+    }
+    const nonObjectDefinition = { $ref: "#/$defs/Invalid", $defs: { Invalid: [] } }
+
+    expect(collectFieldSpecs(tooDeep)).toEqual(new Map())
+    expect(collectRequiredFieldNames(nonObjectDefinition)).toEqual(new Set())
+    expect(
+      fieldOptionDescription(nonObjectDefinition, { fieldName: "invalid", schema: { $ref: "#/$defs/Invalid" } })
+    ).toBe("")
+  })
+
   it("narrows CLI tool names at runtime", () => {
     expect(isCliToolName("list_projects")).toBe(true)
     expect(isCliToolName("not_a_tool")).toBe(false)

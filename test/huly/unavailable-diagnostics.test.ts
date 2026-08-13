@@ -36,6 +36,7 @@ describe("unavailable Huly diagnostics", () => {
       "unknown",
       undefined
     ])
+    expect(classifyHulyUnavailableFailure("not an error")).toEqual(["unknown", undefined])
   })
 
   it("rejects empty endpoint values", () => {

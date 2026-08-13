@@ -5,11 +5,13 @@ import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/cli
 import { Server } from "@modelcontextprotocol/server"
 import { Context, Effect, Exit, Fiber, Layer, Schema, Scope } from "effect"
 import { TestClock } from "effect/testing"
+import { HttpServer } from "effect/unstable/http"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { createMcpServer } from "../../src/mcp/create-mcp-server.js"
 import {
   createMountedMcpHttpHandler,
+  type HttpServerFactory,
   HttpServerFactoryService,
   HttpTransportError,
   startHttpTransport
@@ -787,6 +789,38 @@ describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
 })
 
 describe("HTTP transport Effect lifecycle", () => {
+  it.each([
+    {
+      address: { _tag: "UnixAddress", path: "/tmp/huly-mcp.sock" } satisfies HttpServer.Address,
+      expected: "/tmp/huly-mcp.sock"
+    },
+    {
+      address: { _tag: "TcpAddress", hostname: "::1", port: 4123 } satisfies HttpServer.Address,
+      expected: "http://[::1]:4123/mcp"
+    }
+  ])("reports the acquired $address._tag address", async ({ address, expected }) => {
+    const ready = deferred<void>()
+    const writes: Array<string> = []
+    const factory: HttpServerFactory = {
+      make: () => Effect.succeed(HttpServer.make({ address, serve: () => Effect.void })),
+      writeError: (message) => {
+        writes.push(message)
+        ready.resolve()
+      }
+    }
+    const fiber = Effect.runFork(
+      startHttpTransport({ port: 0, host: "127.0.0.1" }, createTestServer).pipe(
+        Effect.scoped,
+        Effect.provideService(HttpServerFactoryService, factory)
+      )
+    )
+
+    await ready.promise
+    await Effect.runPromise(Fiber.interrupt(fiber))
+
+    expect(writes).toEqual([`MCP HTTP server listening on ${expected}\n`])
+  })
+
   it("closes the listening server when its owning fiber is interrupted", async () => {
     const listening = deferred<http.Server>()
     const transportReady = deferred<void>()

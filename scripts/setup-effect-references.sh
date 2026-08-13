@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Create or verify the pinned Effect reference corpus used by the v3-to-v4 migration.
+# Create or verify the pinned Effect 4 reference corpus.
 # Usage: bash scripts/setup-effect-references.sh [--check]
 set -euo pipefail
 
@@ -7,9 +7,6 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REFERENCE_ROOT="$PROJECT_ROOT/.reference"
 EFFECT_REPOSITORY="https://github.com/Effect-TS/effect.git"
 SKILLS_REPOSITORY="https://github.com/Effect-TS/skills.git"
-V3_NAME="effect-v3.22.1"
-V3_REF="effect@3.22.1"
-V3_COMMIT="417e0faa80e471d77fc4a67452e68b09ae0ee861"
 V4_NAME="effect-v4.0.0-rc.108"
 V4_REF="effect@4.0.0-rc.108"
 V4_COMMIT="bef7bf38ae4b73d5511043f707aed083de5da7cc"
@@ -21,7 +18,7 @@ STAGING_DIRECTORY=""
 usage() {
   echo "Usage: bash scripts/setup-effect-references.sh [--check]"
   echo ""
-  echo "Without options, create missing pinned repositories and verify all three."
+  echo "Without options, create missing pinned repositories and verify both."
   echo "With --check, verify only; do not access the network or create anything."
 }
 
@@ -192,28 +189,14 @@ require_command mktemp
 require_command node
 assert_reference_root
 
-ensure_tagged_repository "$V3_NAME" "$EFFECT_REPOSITORY" "$V3_REF"
 ensure_tagged_repository "$V4_NAME" "$EFFECT_REPOSITORY" "$V4_REF"
 ensure_commit_repository "$SKILLS_NAME" "$SKILLS_REPOSITORY" "$SKILLS_COMMIT"
-
-verify_repository "$V3_NAME" "$EFFECT_REPOSITORY" "$V3_COMMIT"
-verify_tag "$V3_NAME" "$V3_REF" "$V3_COMMIT"
-verify_package_version "$V3_NAME" "3.22.1"
 
 verify_repository "$V4_NAME" "$EFFECT_REPOSITORY" "$V4_COMMIT"
 verify_tag "$V4_NAME" "$V4_REF" "$V4_COMMIT"
 verify_package_version "$V4_NAME" "4.0.0-rc.108"
-verify_required_file "$V4_NAME/MIGRATION.md"
-verify_required_file "$V4_NAME/migration/v3-to-v4.md"
-verify_required_file "$V4_NAME/migration/cause.md"
-verify_required_file "$V4_NAME/migration/error-handling.md"
-verify_required_file "$V4_NAME/migration/forking.md"
-verify_required_file "$V4_NAME/migration/layer-memoization.md"
-verify_required_file "$V4_NAME/migration/schema.md"
-verify_required_file "$V4_NAME/migration/services.md"
 
 verify_repository "$SKILLS_NAME" "$SKILLS_REPOSITORY" "$SKILLS_COMMIT"
 verify_required_file "$SKILLS_NAME/skills/effect-ts/SKILL.md"
-verify_required_file "$SKILLS_NAME/skills/effect-v3-to-v4/SKILL.md"
 
 echo "OK: pinned Effect reference corpus verified"

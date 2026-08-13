@@ -5,6 +5,7 @@ import { createToolOutputSchema } from "../../mcp/tool-output-schema-core.js"
 
 import {
   parseJsonSchemaRecord,
+  toDraft07EmptyObjectJsonSchema,
   toDraft07JsonSchema,
   withExactlyOneRequired,
   withJsonSchemaPropertyDescriptions,
@@ -38,6 +39,16 @@ describe("JSON schema helpers", () => {
     })
   })
 
+  it("leaves malformed union members and property values unchanged", () => {
+    const schema = { anyOf: [null, { type: "object", properties: { id: null } }] }
+
+    expect(withJsonSchemaUnionPropertyDescriptions(schema, { id: "Identifier" })).toEqual(schema)
+    expect(withJsonSchemaUnionPropertyDescriptions({ type: "string" }, { id: "Identifier" })).toEqual({
+      type: "string"
+    })
+    expect(withJsonSchemaUnionPropertyDescriptions([], { id: "Identifier" })).toEqual([])
+  })
+
   it("returns schemas without object properties unchanged", () => {
     const schema = { type: "string" }
 
@@ -66,12 +77,61 @@ describe("JSON schema helpers", () => {
 })
 
 describe("toDraft07JsonSchema", () => {
+  it("emits a strict empty object without empty definitions", () => {
+    expect(toDraft07EmptyObjectJsonSchema(Schema.Struct({}))).toEqual({
+      $schema: "http://json-schema.org/draft-07/schema#",
+      type: "object",
+      properties: {},
+      additionalProperties: false
+    })
+  })
+
+  it("retains definitions when projecting a strict empty object", () => {
+    const Shared = Schema.String.annotate({ identifier: "EmptyProjectionShared" })
+    const projected = toDraft07EmptyObjectJsonSchema(Schema.Struct({ value: Shared }))
+
+    expect(projected).toHaveProperty("$defs.EmptyProjectionShared")
+    expect(projected.properties).toEqual({})
+  })
+
+  it("handles authored definition-root refs and fixed empty tuples", () => {
+    expect(toDraft07JsonSchema(Schema.String.annotate({ jsonSchema: { $ref: "#/definitions" } }))).toHaveProperty(
+      "$ref",
+      "#/definitions"
+    )
+    expect(toDraft07JsonSchema(Schema.Tuple([]))).toMatchObject({ type: "array", items: false })
+  })
+
+  it("restores descriptions through homogeneous unions and array elements", () => {
+    const described = Schema.String.annotate({ description: "Shared description." })
+    const schema = toDraft07JsonSchema(
+      Schema.Struct({
+        homogeneous: Schema.Union([
+          described,
+          Schema.Literal("fixed").annotate({ description: "Shared description." })
+        ]),
+        values: Schema.Array(described)
+      })
+    )
+
+    expect(getDescription(schema, "homogeneous")).toBe("Shared description.")
+    expect(expectRecord(getProperty(schema, "values")).items).toMatchObject({ description: "Shared description." })
+  })
+
   it("keeps repeated scalar constraints conjunctive", () => {
     const schema = toDraft07JsonSchema(
       Schema.String.pipe(Schema.check(Schema.isPattern(/^a/)), Schema.check(Schema.isPattern(/z$/)))
     )
 
     expect(schema).toMatchObject({ type: "string", allOf: [{ pattern: "^a" }, { pattern: "z$" }] })
+  })
+
+  it("does not flatten unsafe, malformed, or conflicting authored allOf members", () => {
+    const cases = [{ allOf: [null] }, { allOf: [{ type: "string" }] }, { allOf: [{ minLength: 1 }], minLength: 2 }]
+
+    for (const jsonSchema of cases) {
+      expect(toDraft07JsonSchema(Schema.String.annotate({ jsonSchema }))).toMatchObject({ allOf: jsonSchema.allOf })
+    }
   })
 
   it("does not promote one union member description to the whole property", () => {

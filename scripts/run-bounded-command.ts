@@ -6,7 +6,7 @@ import { Schema } from "effect"
 import { NonNegativeInteger } from "../src/domain/schemas/shared.js"
 import { OutputLineCount } from "./quality-output-budget.js"
 
-export const Milliseconds = NonNegativeInteger.pipe(Schema.brand("QualityGateMilliseconds")).annotations({
+export const Milliseconds = NonNegativeInteger.pipe(Schema.brand("QualityGateMilliseconds")).annotate({
   identifier: "QualityGateMilliseconds",
   description: "Duration in milliseconds used to bound a quality-gate process."
 })

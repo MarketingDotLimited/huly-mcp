@@ -1,5 +1,5 @@
 import { describe, it } from "@effect/vitest"
-import { Effect, Either, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 import { expect } from "vitest"
 import { AssociationName } from "../../src/domain/schemas/generic-associations.js"
 import { ProcessExecutionId, ProcessId } from "../../src/domain/schemas/processes.js"
@@ -76,11 +76,11 @@ const assertMessages = (cases: ReadonlyArray<MessageCase>) =>
 
 describe("Extended Huly error message getters", () => {
   it("rejects empty card locators when decoding domain errors", () => {
-    const decode = Schema.decodeUnknownEither(HulyDomainErrorSchema)
+    const decode = Schema.decodeUnknownResult(HulyDomainErrorSchema)
 
-    expect(Either.isLeft(decode({ _tag: "CardSpaceNotFoundError", identifier: "" }))).toBe(true)
-    expect(Either.isLeft(decode({ _tag: "CardNotFoundError", identifier: "", cardSpace: "my-space" }))).toBe(true)
-    expect(Either.isLeft(decode({ _tag: "CardNotFoundError", identifier: "CARD-1", cardSpace: "" }))).toBe(true)
+    expect(Result.isFailure(decode({ _tag: "CardSpaceNotFoundError", identifier: "" }))).toBe(true)
+    expect(Result.isFailure(decode({ _tag: "CardNotFoundError", identifier: "", cardSpace: "my-space" }))).toBe(true)
+    expect(Result.isFailure(decode({ _tag: "CardNotFoundError", identifier: "CARD-1", cardSpace: "" }))).toBe(true)
   })
 
   it.effect("errors-base: NoUpdateFieldsError", () =>
@@ -402,8 +402,8 @@ describe("Extended Huly error message getters", () => {
       ]
 
       for (const sample of samples) {
-        const encoded = yield* Schema.encode(HulyDomainErrorSchema)(sample)
-        const decoded = yield* Schema.decode(HulyDomainErrorSchema)(encoded)
+        const encoded = yield* Schema.encodeUnknownEffect(HulyDomainErrorSchema)(sample)
+        const decoded = yield* Schema.decodeUnknownEffect(HulyDomainErrorSchema)(encoded)
         expect(decoded._tag).toBe(sample._tag)
       }
     })

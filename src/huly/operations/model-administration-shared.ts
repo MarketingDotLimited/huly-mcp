@@ -95,14 +95,15 @@ export const resolveEnum = (enums: ReadonlyArray<HulyEnum>, identifier: ModelIde
   )
 }
 
+const EnumReferenceSchema = Schema.Struct({ _class: Schema.String, of: Schema.String })
+const parseEnumReference = Schema.decodeUnknownOption(EnumReferenceSchema)
+
 export const enumReferences = (
   attributes: ReadonlyArray<AnyAttribute>,
   enumId: HulyEnumId
 ): ReadonlyArray<AnyAttribute> =>
   attributes.filter((attribute) => {
-    const descriptor = Schema.decodeUnknownOption(Schema.Struct({ _class: Schema.String, of: Schema.String }))(
-      attribute.type
-    )
+    const descriptor = parseEnumReference(attribute.type)
     return Option.isSome(descriptor) && descriptor.value._class === core.class.EnumOf && descriptor.value.of === enumId
   })
 

@@ -303,7 +303,8 @@ export const listLeads = (
       })
     )
 
-    const validated = yield* Schema.decodeUnknownEffect(Schema.Array(LeadSummarySchema))(rawSummaries).pipe(
+    const parseLeadSummaries = Schema.decodeUnknownEffect(Schema.Array(LeadSummarySchema))
+    const validated = yield* parseLeadSummaries(rawSummaries).pipe(
       Effect.mapError(
         (parseError) =>
           new HulyConnectionError({

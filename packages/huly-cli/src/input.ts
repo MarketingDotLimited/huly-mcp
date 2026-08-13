@@ -224,6 +224,80 @@ interface ExplicitOptionOccurrence {
   readonly value: boolean | string
 }
 
+interface ParsedOptionToken {
+  readonly inlineValue: string | undefined
+  readonly negated: boolean
+  readonly optionName: string
+}
+
+const parseOptionToken = (token: string): ParsedOptionToken | undefined => {
+  if (!token.startsWith("--")) return undefined
+  const equalsIndex = token.indexOf("=")
+  const rawName = token.slice(LONG_OPTION_PREFIX_LENGTH, equalsIndex < 0 ? undefined : equalsIndex)
+  const negated = rawName.startsWith("no-")
+  return {
+    inlineValue: equalsIndex < 0 ? undefined : token.slice(equalsIndex + 1),
+    negated,
+    optionName: negated ? rawName.slice(NEGATED_OPTION_PREFIX_LENGTH) : rawName
+  }
+}
+
+const booleanFieldOccurrence = (
+  parsed: ParsedOptionToken,
+  next: string | undefined,
+  field: FieldSpec
+): ExplicitOptionOccurrence => {
+  const followingBoolean = next !== undefined && isBooleanLiteral(next) ? next : true
+  const value = parsed.negated ? false : parsed.inlineValue === undefined ? followingBoolean : parsed.inlineValue
+  return { field, kind: "boolean", value }
+}
+
+const directFieldOccurrence = (
+  parsed: ParsedOptionToken,
+  next: string | undefined,
+  field: FieldSpec,
+  rootSchema: object
+): ExplicitOptionOccurrence | undefined => {
+  if (fieldUsesBooleanOption(rootSchema, field)) return booleanFieldOccurrence(parsed, next, field)
+  if (parsed.negated || (parsed.inlineValue === undefined && next === undefined)) return undefined
+  return { field, kind: "text", value: parsed.inlineValue ?? next ?? "" }
+}
+
+const fileSuffix = (optionName: string): "-base64-file" | "-file" | undefined => {
+  if (optionName.endsWith("-base64-file")) return "-base64-file"
+  return optionName.endsWith("-file") ? "-file" : undefined
+}
+
+const fileOccurrenceValue = (inlineValue: string | undefined, next: string | undefined): string | undefined =>
+  inlineValue === undefined ? next : inlineValue
+
+const fileFieldOccurrence = (
+  parsed: ParsedOptionToken,
+  next: string | undefined,
+  fields: ReadonlyMap<CliOptionName, FieldSpec>,
+  fileFields: ReadonlySet<string>,
+  base64Fields: ReadonlySet<string>
+): ExplicitOptionOccurrence | undefined => {
+  if (parsed.negated) return undefined
+  const suffix = fileSuffix(parsed.optionName)
+  if (suffix === undefined) return undefined
+  const field = fields.get(parsed.optionName.slice(0, -suffix.length))
+  const kind = suffix === "-base64-file" ? "base64-file" : "file"
+  const allowed = kind === "base64-file" ? base64Fields : fileFields
+  if (field === undefined) return undefined
+  if (!allowed.has(field.fieldName)) return undefined
+  const value = fileOccurrenceValue(parsed.inlineValue, next)
+  return value === undefined ? undefined : { field, kind, value }
+}
+
+const explicitFileFields = (spec: CliCommandSpec) => ({
+  base64Fields: new Set(spec.behavior?.base64FileInput?.fields ?? []),
+  fileFields: new Set(spec.behavior?.fileInput?.fields ?? [])
+})
+
+const occurrenceConsumesNext = (rawToken: string | undefined, occurrence: ExplicitOptionOccurrence): boolean =>
+  rawToken?.includes("=") === false && typeof occurrence.value === "string"
+
 const explicitOptionOccurrence = (
   token: string,
   next: string | undefined,
@@ -232,41 +306,26 @@ const explicitOptionOccurrence = (
   base64Fields: ReadonlySet<string>,
   rootSchema: object
 ): ExplicitOptionOccurrence | undefined => {
-  if (!token.startsWith("--")) return undefined
-  const equalsIndex = token.indexOf("=")
-  const rawName = token.slice(LONG_OPTION_PREFIX_LENGTH, equalsIndex < 0 ? undefined : equalsIndex)
-  const negated = rawName.startsWith("no-")
-  const optionName = negated ? rawName.slice(NEGATED_OPTION_PREFIX_LENGTH) : rawName
-  const inlineValue = equalsIndex < 0 ? undefined : token.slice(equalsIndex + 1)
-  const directField = fields.get(optionName)
-  if (directField !== undefined) {
-    if (fieldUsesBooleanOption(rootSchema, directField)) {
-      return {
-        field: directField,
-        kind: "boolean",
-        value: negated ? false : (inlineValue ?? (next !== undefined && isBooleanLiteral(next) ? next : true))
-      }
-    }
-    if (negated) return undefined
-    return inlineValue === undefined && next === undefined
-      ? undefined
-      : { field: directField, kind: "text", value: inlineValue ?? next ?? "" }
-  }
-  if (negated) return undefined
-  const base64Suffix = "-base64-file"
-  const fileSuffix = "-file"
-  const suffix = optionName.endsWith(base64Suffix)
-    ? base64Suffix
-    : optionName.endsWith(fileSuffix)
-      ? fileSuffix
-      : undefined
-  if (suffix === undefined) return undefined
-  const baseName = optionName.slice(0, -suffix.length)
-  const field = fields.get(baseName)
-  const allowed = suffix === base64Suffix ? base64Fields : fileFields
-  if (field === undefined || !allowed.has(field.fieldName)) return undefined
-  const kind = suffix === base64Suffix ? "base64-file" : "file"
-  return inlineValue === undefined && next === undefined ? undefined : { field, kind, value: inlineValue ?? next ?? "" }
+  const parsed = parseOptionToken(token)
+  if (parsed === undefined) return undefined
+  const directField = fields.get(parsed.optionName)
+  return directField === undefined
+    ? fileFieldOccurrence(parsed, next, fields, fileFields, base64Fields)
+    : directFieldOccurrence(parsed, next, directField, rootSchema)
+}
+
+const nextOccurrence = (
+  raw: ReadonlyArray<string>,
+  index: number,
+  rootSchema: object,
+  fields: ReadonlyMap<CliOptionName, FieldSpec>,
+  fileFields: ReadonlySet<string>,
+  base64Fields: ReadonlySet<string>
+): ExplicitOptionOccurrence | undefined => {
+  const token = raw[index]
+  return token === undefined
+    ? undefined
+    : explicitOptionOccurrence(token, raw[index + 1], fields, fileFields, base64Fields, rootSchema)
 }
 
 const collectExplicitOptionOccurrences = (
@@ -276,15 +335,12 @@ const collectExplicitOptionOccurrences = (
   spec: CliCommandSpec
 ): ReadonlyArray<ExplicitOptionOccurrence> => {
   const occurrences: Array<ExplicitOptionOccurrence> = []
-  const fileFields = new Set(spec.behavior?.fileInput?.fields ?? [])
-  const base64Fields = new Set(spec.behavior?.base64FileInput?.fields ?? [])
+  const { base64Fields, fileFields } = explicitFileFields(spec)
   for (let index = 0; index < raw.length; index += 1) {
-    const token = raw[index]
-    if (token === undefined) continue
-    const occurrence = explicitOptionOccurrence(token, raw[index + 1], fields, fileFields, base64Fields, rootSchema)
+    const occurrence = nextOccurrence(raw, index, rootSchema, fields, fileFields, base64Fields)
     if (occurrence === undefined) continue
     occurrences.push(occurrence)
-    if (!token.includes("=") && typeof occurrence.value === "string") index += 1
+    if (occurrenceConsumesNext(raw[index], occurrence)) index += 1
   }
   return occurrences
 }

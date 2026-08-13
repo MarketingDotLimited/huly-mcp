@@ -6,8 +6,18 @@ import { Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { canonicalJson } from "../../scripts/effect4-oracle-canonical.js"
+import {
+  captureEffect4Oracle,
+  renderEffect4Oracle,
+  requireOracleDiscoveries
+} from "../../scripts/effect4-oracle-data.js"
 import { validateCurrentDraft07Corpora } from "../../scripts/effect4-oracle-current-corpus.js"
-import { EFFECT4_ORACLE_PATH, verifyEffect4Oracle, writeEffect4Oracle } from "../../scripts/effect4-oracle-io.js"
+import {
+  EFFECT4_ORACLE_DELTA_REVIEW_PATH,
+  EFFECT4_ORACLE_PATH,
+  verifyEffect4Oracle,
+  writeEffect4Oracle
+} from "../../scripts/effect4-oracle-io.js"
 import { runOracleProcess } from "../../scripts/effect4-oracle-process-runner.js"
 import { BehavioralOracleSchema, JsonValueSchema } from "../../scripts/effect4-oracle-schema.js"
 
@@ -122,6 +132,22 @@ describe("Effect 4 behavioral oracle", () => {
     expect(validateCurrentDraft07Corpora()).toEqual({ native: 524, proxy: 6 })
   }, 60_000)
 
+  it("captures the complete current oracle through built process and CLI seams", async () => {
+    const oracle = await captureEffect4Oracle()
+    expect(oracle.registry.operationOrder).toHaveLength(522)
+    expect(oracle.registry.authoredConstraints).toHaveLength(522)
+    expect(oracle.bundledProcesses.stdio.native).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))
+    expect(oracle.bundledProcesses.stdio.proxy).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))
+    expect(oracle.bundledProcesses.stdio.legacy).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))
+    expect(oracle.cli.input.explicitLast.input).toMatchObject({ limit: 3, query: "positional query" })
+    expect(oracle.cli.errors.json.decoded.code).toBe("INVALID_INPUT")
+    expect(requireOracleDiscoveries(oracle.bundledProcesses)).toMatchObject({ native: { id: 2 }, proxy: { id: 2 } })
+    expect(() =>
+      requireOracleDiscoveries({ ...oracle.bundledProcesses, stdio: { ...oracle.bundledProcesses.stdio, native: [] } })
+    ).toThrow("both native and proxy")
+    expect(await renderEffect4Oracle()).toContain('"formatVersion": 1')
+  }, 60_000)
+
   it("terminates and reaps an oracle subprocess after its deadline", async () => {
     await expect(
       runOracleProcess(
@@ -139,9 +165,33 @@ describe("Effect 4 behavioral oracle", () => {
     try {
       const content = canonicalJson({ small: "deterministic fixture" })
       const oraclePath = await writeEffect4Oracle(root, content)
+      const reviewPath = path.join(root, EFFECT4_ORACLE_DELTA_REVIEW_PATH)
+      await fs.writeFile(
+        reviewPath,
+        canonicalJson({
+          formatVersion: 1,
+          baselineSha256: "9053d8e8efe22940ca928624fae1b62a9e7aa5e0b2bd9782ad54915b498ea53a",
+          reviewedCurrentSha256: "9053d8e8efe22940ca928624fae1b62a9e7aa5e0b2bd9782ad54915b498ea53a",
+          categories: []
+        }),
+        "utf8"
+      )
       expect(oraclePath).toBe(path.join(root, EFFECT4_ORACLE_PATH))
       await expect(verifyEffect4Oracle(root, content)).resolves.toBe(oraclePath)
       await expect(verifyEffect4Oracle(root, canonicalJson({ small: "changed fixture" }))).rejects.toThrow("/small")
+      await fs.writeFile(
+        reviewPath,
+        canonicalJson({
+          formatVersion: 1,
+          baselineSha256: "0".repeat(64),
+          reviewedCurrentSha256: "9053d8e8efe22940ca928624fae1b62a9e7aa5e0b2bd9782ad54915b498ea53a",
+          categories: []
+        }),
+        "utf8"
+      )
+      await expect(verifyEffect4Oracle(root, content)).rejects.toThrow(
+        /^Effect 4 behavioral oracle differs from docs\/migrations\/effect-4\/behavioral-oracle\.json\.$/
+      )
     } finally {
       await fs.rm(root, { force: true, recursive: true })
     }

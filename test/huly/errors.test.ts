@@ -151,6 +151,7 @@ import {
   InventoryVariantIdentifierAmbiguousError,
   InventoryVariantNotFoundError,
   IssueNotFoundError,
+  IssueReferenceError,
   IssueTemplateNotFoundError,
   LeadNotFoundError,
   MasterTagNotFoundError,
@@ -361,6 +362,126 @@ describe("Huly Errors", () => {
         expect(new ViewletNotFoundError({ identifier: "Table" }).message).toBe("Viewlet 'Table' not found")
         expect(new ViewletIdentifierAmbiguousError({ identifier: "Table", matches: 2 }).message).toBe(
           "Viewlet 'Table' matched 2 viewlets; pass a viewlet _id"
+        )
+      })
+    )
+  })
+
+  describe("Contact channel errors", () => {
+    it.effect("generates locator and conflict messages", () =>
+      Effect.sync(function () {
+        expect(
+          new ContactChannelNotFoundError({ ownerIdentifier: "Ada", channelIdentifier: "email:a@b.test" }).message
+        ).toBe("Contact channel 'email:a@b.test' not found for 'Ada'")
+        expect(
+          new ContactChannelIdentifierAmbiguousError({
+            ownerIdentifier: "Ada",
+            channelIdentifier: "email:a@b.test",
+            matches: Count.make(2)
+          }).message
+        ).toBe("Contact channel 'email:a@b.test' matched 2 channels for 'Ada'; use channelId instead")
+        expect(new InvalidContactChannelLocatorError({ ownerIdentifier: "Ada", reason: "missing value" }).message).toBe(
+          "Invalid contact channel locator for 'Ada': missing value"
+        )
+        expect(
+          new ContactChannelConflictError({ ownerIdentifier: "Ada", provider: "email", value: "a@b.test" }).message
+        ).toBe("Contact channel 'email:a@b.test' already exists for 'Ada'")
+        expect(new InvalidContactChannelValueError({ provider: "email", value: "invalid" }).message).toBe(
+          "Invalid value 'invalid' for contact channel provider 'email'"
+        )
+        expect(new PersonNotFoundError({ identifier: "Ada" }).message).toBe("Person 'Ada' not found")
+        expect(new OrganizationNotFoundError({ identifier: "Acme" }).message).toBe("Organization 'Acme' not found")
+        expect(new OrganizationIdentifierAmbiguousError({ identifier: "Acme", matches: Count.make(2) }).message).toBe(
+          "Organization identifier 'Acme' matched 2 organizations; use the organization ID instead"
+        )
+        expect(new InvalidContactProviderError({ provider: "fax" }).message).toBe("Invalid contact provider: 'fax'")
+        expect(new InvalidPersonUuidError({ uuid: "invalid" }).message).toBe("Invalid PersonUuid format: 'invalid'")
+      })
+    )
+  })
+
+  describe("Recruiting errors", () => {
+    it.effect("generates review, opinion, match, and attachment messages", () =>
+      Effect.sync(function () {
+        expect(new RecruitingReviewNotFoundError({ identifier: ReviewIdentifier.make("RVE-1") }).message).toBe(
+          "Recruiting review 'RVE-1' not found"
+        )
+        expect(
+          new RecruitingReviewIdentifierAmbiguousError({
+            identifier: ReviewIdentifier.make("Interview"),
+            matches: Count.make(2)
+          }).message
+        ).toBe("Recruiting review identifier 'Interview' matched 2 reviews; use the review ID")
+        expect(new RecruitingOpinionNotFoundError({ identifier: OpinionIdentifier.make("OPE-1") }).message).toBe(
+          "Recruiting opinion 'OPE-1' not found"
+        )
+        expect(
+          new RecruitingOpinionIdentifierAmbiguousError({
+            identifier: OpinionIdentifier.make("Strong hire"),
+            matches: Count.make(2)
+          }).message
+        ).toBe("Recruiting opinion identifier 'Strong hire' matched 2 opinions; pass review")
+        expect(
+          new RecruitingApplicantMatchNotFoundError({ identifier: ApplicantMatchIdentifier.make("APM-1") }).message
+        ).toBe("Recruiting applicant match 'APM-1' not found")
+        expect(
+          new RecruitingAttachmentNotFoundError({
+            target: "vacancy VCN-1",
+            attachmentId: AttachmentId.make("attachment-1")
+          }).message
+        ).toBe("Attachment 'attachment-1' not found on vacancy VCN-1")
+        expect(new RecruitingVacancyNotFoundError({ identifier: VacancyIdentifier.make("VCN-1") }).message).toBe(
+          "Recruiting vacancy 'VCN-1' not found"
+        )
+        expect(
+          new RecruitingVacancyIdentifierAmbiguousError({
+            identifier: VacancyIdentifier.make("Engineer"),
+            matches: Count.make(2)
+          }).message
+        ).toBe("Recruiting vacancy identifier 'Engineer' matched 2 vacancies; use the vacancy ID")
+        expect(new RecruitingVacancyTypeNotFoundError({ identifier: "Engineering" }).message).toBe(
+          "Recruiting vacancy type 'Engineering' not found"
+        )
+        expect(new RecruitingCandidateNotFoundError({ identifier: CandidateIdentifier.make("CAN-1") }).message).toBe(
+          "Recruiting candidate 'CAN-1' not found"
+        )
+        expect(new RecruitingApplicantNotFoundError({ identifier: ApplicantIdentifier.make("APP-1") }).message).toBe(
+          "Recruiting applicant 'APP-1' not found"
+        )
+        expect(
+          new RecruitingApplicantIdentifierAmbiguousError({
+            identifier: ApplicantIdentifier.make("Ada"),
+            matches: Count.make(2)
+          }).message
+        ).toBe("Recruiting applicant identifier 'Ada' matched 2 applicants; pass vacancy or candidate")
+        expect(
+          new RecruitingDuplicateApplicantError({
+            vacancy: VacancyIdentifier.make("VCN-1"),
+            candidate: CandidateIdentifier.make("CAN-1")
+          }).message
+        ).toBe("Recruiting applicant already exists for vacancy 'VCN-1' and candidate 'CAN-1'")
+        expect(
+          new RecruitingCommentNotFoundError({ target: "vacancy VCN-1", commentId: CommentId.make("comment-1") })
+            .message
+        ).toBe("Comment 'comment-1' not found on vacancy VCN-1")
+        expect(
+          new RecruitingIssueLocatorInvalidError({ issue: IssueIdentifier.make("HULY-1"), reason: "not found" }).message
+        ).toBe("Recruiting related issue locator 'HULY-1' is invalid: not found")
+      })
+    )
+  })
+
+  describe("Reference and planner errors", () => {
+    it.effect("generates actionable boundary messages", () =>
+      Effect.sync(function () {
+        expect(new DocumentReferenceError({ reason: "target is missing" }).message).toBe(
+          "Invalid document references: target is missing"
+        )
+        expect(new IssueReferenceError({ reason: "target is missing" }).message).toBe(
+          "Invalid issue references: target is missing"
+        )
+        expect(new PlannerSchedulingPrerequisiteError({ prerequisite: "personal calendar" }).message).toContain(
+          "authenticated user has no usable personal calendar"
         )
       })
     )
@@ -988,7 +1109,7 @@ describe("Huly Errors", () => {
     it.effect("decodes a valid error via Schema.Union", () =>
       Effect.gen(function* () {
         const error = new ProjectNotFoundError({ identifier: "X" })
-        const decoded = yield* Schema.decode(HulyDomainErrorSchema)(error)
+        const decoded = yield* Schema.decodeUnknownEffect(HulyDomainErrorSchema)(error)
         expect(decoded._tag).toBe("ProjectNotFoundError")
       })
     )

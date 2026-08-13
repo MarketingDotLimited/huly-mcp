@@ -89,6 +89,10 @@ const TargetAttributeMetadataSchema = Schema.Array(
 const TargetRoleMetadataSchema = Schema.Array(Schema.Struct({ id: RoleId }))
 type TargetAttributeMetadata = Schema.Schema.Type<typeof TargetAttributeMetadataSchema>
 type TargetRoleMetadata = Schema.Schema.Type<typeof TargetRoleMetadataSchema>
+const parseSpaceCreationMetadata = Schema.decodeUnknownEffect(SpaceCreationMetadataSchema)
+const parseTargetClassifierMetadata = Schema.decodeUnknownEffect(TargetClassifierMetadataSchema)
+const parseTargetAttributeMetadata = Schema.decodeUnknownEffect(TargetAttributeMetadataSchema)
+const parseTargetRoleMetadata = Schema.decodeUnknownEffect(TargetRoleMetadataSchema)
 const unsupported = (spaceType: SpaceTypeId, reason: NonEmptyString): SpaceTypeCreationUnsupportedError =>
   new SpaceTypeCreationUnsupportedError({ spaceType, reason })
 
@@ -132,7 +136,7 @@ const parseCreationMetadata = (
   descriptor: SpaceTypeDescriptor
 ): Effect.Effect<SpaceCreationMetadata, SpaceTypeCreationUnsupportedError> => {
   const spaceTypeId = SpaceTypeId.make(spaceType._id)
-  return Schema.decodeUnknownEffect(SpaceCreationMetadataSchema)({
+  return parseSpaceCreationMetadata({
     spaceType: spaceType._id,
     descriptor: descriptor._id,
     baseClass: descriptor.baseClass,
@@ -160,7 +164,7 @@ const requireSafeTargetShape = (
         NonEmptyString.make(`target mixin '${metadata.targetClass}' was not found in SDK model metadata`)
       )
     }
-    const classifierMetadata = yield* Schema.decodeUnknownEffect(TargetClassifierMetadataSchema)(classifier).pipe(
+    const classifierMetadata = yield* parseTargetClassifierMetadata(classifier).pipe(
       Effect.mapError(() =>
         unsupported(metadata.spaceType, NonEmptyString.make("target mixin SDK metadata is malformed"))
       )
@@ -184,7 +188,7 @@ const requireSafeTargetShape = (
         limit: clampLimit(undefined)
       })
     ])
-    const attributeMetadata = yield* Schema.decodeUnknownEffect(TargetAttributeMetadataSchema)(
+    const attributeMetadata = yield* parseTargetAttributeMetadata(
       attributes.map((attribute) => ({
         name: attribute.name,
         attributeOf: attribute.attributeOf,
@@ -195,9 +199,7 @@ const requireSafeTargetShape = (
         unsupported(metadata.spaceType, NonEmptyString.make("target mixin attribute metadata is malformed"))
       )
     )
-    const roleMetadata = yield* Schema.decodeUnknownEffect(TargetRoleMetadataSchema)(
-      roles.map((role) => ({ id: role._id }))
-    ).pipe(
+    const roleMetadata = yield* parseTargetRoleMetadata(roles.map((role) => ({ id: role._id }))).pipe(
       Effect.mapError(() =>
         unsupported(metadata.spaceType, NonEmptyString.make("target mixin role metadata is malformed"))
       )

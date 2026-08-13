@@ -133,6 +133,17 @@ describe("getSupportStatus", () => {
     })
   )
 
+  it.effect("fails with a typed domain error for malformed support-system metadata", () =>
+    Effect.gen(function* () {
+      const malformed = system("system-1", "Intercom")
+      Reflect.deleteProperty(malformed, "name")
+      const error = yield* run(makeState([malformed])).pipe(Effect.flip)
+
+      expect(error._tag).toBe("HulyError")
+      expect(error.message).toContain("malformed support-system metadata")
+    })
+  )
+
   it.effect("reports multiple systems as ambiguous instead of choosing one", () =>
     Effect.gen(function* () {
       const result = yield* run(makeState([system("system-1", "One"), system("system-2", "Two")]))
@@ -151,7 +162,21 @@ describe("getSupportStatus", () => {
       expect(result.statusRecords.map(({ recordId }) => recordId)).toEqual(["conversation-2"])
       expect(state.warnings).toHaveLength(1)
       expect(state.warnings[0]?.code).toBe("support_status_metadata_degraded")
+      expect(state.warnings[0]?.message).toContain("record;")
       expect(state.warnings[0]?.message).not.toContain("provider-conversation-1")
+    })
+  )
+
+  it.effect("pluralizes degraded metadata warnings for multiple malformed records", () =>
+    Effect.gen(function* () {
+      const first = { ...conversation("conversation-1"), hasUnreadMessages: "yes" }
+      const second = { ...conversation("conversation-2"), hasUnreadMessages: "no" }
+      const state = makeState([], [first, second])
+      const result = yield* run(state)
+
+      if (!result.supported) return yield* Effect.die("Support model should be available")
+      expect(result.statusRecords).toEqual([])
+      expect(state.warnings[0]?.message).toContain("2 malformed private support-status records;")
     })
   )
 

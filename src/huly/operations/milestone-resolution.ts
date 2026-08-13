@@ -16,6 +16,7 @@ import { toRef } from "./sdk-boundary.js"
 
 const NormalizedMilestoneLabel = NonEmptyString.pipe(Schema.brand("NormalizedMilestoneLabel"))
 type NormalizedMilestoneLabel = Schema.Schema.Type<typeof NormalizedMilestoneLabel>
+const parseIssueMilestoneRef = Schema.decodeUnknownEffect(IssueMilestoneRefSchema)
 
 const normalizeMilestoneLabel = (label: MilestoneIdentifier | MilestoneLabel): NormalizedMilestoneLabel =>
   NormalizedMilestoneLabel.make(label.trim().toLowerCase())
@@ -31,7 +32,7 @@ const findMilestoneById = (
   )
 
 const parseMilestoneRef = (milestone: HulyMilestone): Effect.Effect<IssueMilestoneRef, HulyConnectionError> =>
-  Schema.decodeUnknownEffect(IssueMilestoneRefSchema)({ id: milestone._id, label: milestone.label }).pipe(
+  parseIssueMilestoneRef({ id: milestone._id, label: milestone.label }).pipe(
     Effect.mapError(
       (cause) =>
         new HulyConnectionError({

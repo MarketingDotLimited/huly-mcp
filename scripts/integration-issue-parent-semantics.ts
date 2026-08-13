@@ -16,50 +16,47 @@ import { hulyQuery } from "../src/huly/operations/query-helpers.js"
 import { toRef } from "../src/huly/operations/sdk-boundary.js"
 import { connectIntegrationHuly } from "./integration-huly-client.js"
 
-const OptionalCountFromString = Schema.optionalWith(Schema.NumberFromString.pipe(Schema.compose(Count)), {
-  exact: true
-})
+const OptionalCountFromString = Schema.optionalKey(Schema.NumberFromString.pipe(Schema.decodeTo(Count)))
 const CommonCliFields = {
   project: ProjectIdentifier,
   issue: IssueIdentifier,
   expectedIssueChildren: OptionalCountFromString,
   expectedParentChildren: OptionalCountFromString
 }
-const CliArgsSchema = Schema.Union(
-  Schema.Struct({
-    ...CommonCliFields,
-    mode: Schema.Literal("top-level"),
-    parent: Schema.optionalWith(IssueIdentifier, { exact: true })
-  }),
+const CliArgsSchema = Schema.Union([
+  Schema.Struct({ ...CommonCliFields, mode: Schema.Literal("top-level"), parent: Schema.optionalKey(IssueIdentifier) }),
   Schema.Struct({ ...CommonCliFields, mode: Schema.Literal("child"), parent: IssueIdentifier }),
   Schema.Struct({
     ...CommonCliFields,
     mode: Schema.Literal("make-legacy"),
-    parent: Schema.optionalWith(IssueIdentifier, { exact: true })
+    parent: Schema.optionalKey(IssueIdentifier)
   })
-)
+])
 const ParentStateSchema = Schema.Struct({
   issueId: IssueId,
   attachedTo: DocId,
   attachedToClass: ObjectClassName,
-  collection: Schema.Literal("issues", "subIssues"),
+  collection: Schema.Literals(["issues", "subIssues"]),
   parents: Count,
   subIssues: Count,
-  parentSubIssues: Schema.optionalWith(Count, { exact: true })
+  parentSubIssues: Schema.optionalKey(Count)
 })
-const IntegrationOperation = Schema.Literal(
+const IntegrationOperation = Schema.Literals([
   "close-client",
   "connect-client",
   "find-issue",
   "find-project",
   "repair-legacy"
-)
+])
 
 type CliArgs = Schema.Schema.Type<typeof CliArgsSchema>
 type IntegrationOperation = Schema.Schema.Type<typeof IntegrationOperation>
 type ParentState = Schema.Schema.Type<typeof ParentStateSchema>
+const parseCliArgsInput = Schema.decodeUnknownEffect(CliArgsSchema)
+const parseParentState = Schema.decodeUnknownEffect(ParentStateSchema)
+const encodeParentState = Schema.encodeUnknownEffect(ParentStateSchema)
 
-class CliInputError extends Schema.TaggedError<CliInputError>()("CliInputError", { cause: Schema.Defect }) {
+class CliInputError extends Schema.TaggedError<CliInputError>()("CliInputError", { cause: Schema.Defect() }) {
   override get message(): string {
     return `Invalid integration parent-semantics arguments: ${String(this.cause)}`
   }
@@ -67,7 +64,7 @@ class CliInputError extends Schema.TaggedError<CliInputError>()("CliInputError",
 
 class IntegrationOperationError extends Schema.TaggedError<IntegrationOperationError>()("IntegrationOperationError", {
   operation: IntegrationOperation,
-  cause: Schema.Defect
+  cause: Schema.Defect()
 }) {
   override get message(): string {
     return `Huly integration operation '${this.operation}' failed: ${String(this.cause)}`
@@ -91,17 +88,17 @@ class IssueNotVisibleError extends Schema.TaggedError<IssueNotVisibleError>()("I
 }
 
 class ParentStateDecodeError extends Schema.TaggedError<ParentStateDecodeError>()("ParentStateDecodeError", {
-  cause: Schema.Defect
+  cause: Schema.Defect()
 }) {}
 
 class ParentStatePendingError extends Schema.TaggedError<ParentStatePendingError>()("ParentStatePendingError", {
   issue: IssueIdentifier,
-  mode: Schema.Literal("top-level", "child", "make-legacy")
+  mode: Schema.Literals(["top-level", "child", "make-legacy"])
 }) {}
 
 class ParentStateTimeoutError extends Schema.TaggedError<ParentStateTimeoutError>()("ParentStateTimeoutError", {
   issue: IssueIdentifier,
-  mode: Schema.Literal("top-level", "child", "make-legacy")
+  mode: Schema.Literals(["top-level", "child", "make-legacy"])
 }) {
   override get message(): string {
     return `Timed out waiting for '${this.mode}' parent state for issue '${this.issue}'.`
@@ -136,7 +133,7 @@ const parseCliArgs = (): Effect.Effect<CliArgs, CliInputError> =>
       }).values,
     catch: (cause) => new CliInputError({ cause })
   }).pipe(
-    Effect.flatMap(Schema.decodeUnknown(CliArgsSchema)),
+    Effect.flatMap(parseCliArgsInput),
     Effect.mapError((cause) => (cause instanceof CliInputError ? cause : new CliInputError({ cause })))
   )
 
@@ -186,7 +183,7 @@ const readState = (
     ({ client }) =>
       Effect.gen(function* () {
         const resolved = yield* resolveIssues(client, args)
-        const state = yield* Schema.decodeUnknown(ParentStateSchema)({
+        const state = yield* parseParentState({
           issueId: resolved.issue._id,
           attachedTo: resolved.issue.attachedTo,
           attachedToClass: resolved.issue.attachedToClass,
@@ -200,10 +197,7 @@ const readState = (
     ({ client }) => integrationOperation("close-client", () => client.close()).pipe(Effect.orDie)
   )
 
-const stateMatches = (
-  args: CliArgs,
-  { resolved, state }: Awaited<Effect.Effect.Success<ReturnType<typeof readState>>>
-): boolean => {
+const stateMatches = (args: CliArgs, { resolved, state }: Effect.Success<ReturnType<typeof readState>>): boolean => {
   const countsMatch =
     (args.expectedIssueChildren === undefined || state.subIssues === args.expectedIssueChildren) &&
     (args.expectedParentChildren === undefined || state.parentSubIssues === args.expectedParentChildren)
@@ -257,11 +251,12 @@ const waitForState = (
         : Effect.fail(new ParentStatePendingError({ issue: args.issue, mode: args.mode }))
     )
   )
-  const retryPolicy = Schedule.intersect(Schedule.recurs(MAX_POLL_ATTEMPTS - 1), Schedule.spaced(POLL_INTERVAL)).pipe(
-    Schedule.whileInput(isRetryablePollingError)
-  )
   return poll.pipe(
-    Effect.retry(retryPolicy),
+    Effect.retry({
+      times: MAX_POLL_ATTEMPTS - 1,
+      schedule: Schedule.spaced(POLL_INTERVAL),
+      while: isRetryablePollingError
+    }),
     Effect.catchTags({
       IssueNotVisibleError: () => Effect.fail(new ParentStateTimeoutError({ issue: args.issue, mode: args.mode })),
       ParentStatePendingError: () => Effect.fail(new ParentStateTimeoutError({ issue: args.issue, mode: args.mode }))
@@ -293,7 +288,7 @@ const makeLegacy = (
 const program = Effect.gen(function* () {
   const args = yield* parseCliArgs()
   if (args.mode === "make-legacy") yield* makeLegacy(args)
-  const encoded = yield* Schema.encode(ParentStateSchema)(yield* waitForState(args)).pipe(
+  const encoded = yield* encodeParentState(yield* waitForState(args)).pipe(
     Effect.mapError((cause) => new ParentStateDecodeError({ cause }))
   )
   return JSON.stringify(encoded)

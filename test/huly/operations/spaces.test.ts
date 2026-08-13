@@ -568,6 +568,17 @@ describe("spaces operations", () => {
     })
   )
 
+  it.effect("getSpace skips typed-role loading when the space has no type", () =>
+    Effect.gen(function* () {
+      const layer = createTestLayer({ spaces: [makeSpace()] })
+
+      const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(Effect.provide(layer), withDiagnostics)
+
+      expect(result.type).toBeUndefined()
+      expect(result.roleAssignments).toBeUndefined()
+    })
+  )
+
   it.effect("getSpace returns existing owners", () =>
     Effect.gen(function* () {
       const layer = createTestLayer({ spaces: [makeSpace({ owners: [accountB] })] })
@@ -1225,6 +1236,21 @@ describe("spaces operations", () => {
       const detail = yield* getSpaceType({ spaceType: spaceTypeIdentifier("Named Type") }).pipe(Effect.provide(layer))
 
       expect(detail.id).toBe("space-type-1")
+    })
+  )
+
+  it.effect("getSpaceType clears an empty short description while resolving referenced permissions", () =>
+    Effect.gen(function* () {
+      const layer = createTestLayer({
+        spaceTypes: [makeSpaceType({ shortDescription: "" })],
+        descriptors: [makeDescriptor()],
+        permissions: [makePermission()]
+      })
+
+      const detail = yield* getSpaceType({ spaceType: spaceTypeIdentifier("space-type-1") }).pipe(Effect.provide(layer))
+
+      expect(detail.shortDescription).toBeUndefined()
+      expect(detail.availablePermissions.map((permission) => permission.id)).toEqual(["permission-update"])
     })
   )
 

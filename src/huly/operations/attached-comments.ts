@@ -56,12 +56,13 @@ const toComment = (client: HulyClient["Service"], message: ChatMessage) => ({
   modifiedOn: message.modifiedOn,
   editedOn: message.editedOn
 })
+const parseComments = Schema.decodeUnknownEffect(Schema.Array(CommentSchema))
 
 const decodeComments = (
   context: string,
   comments: ReadonlyArray<ReturnType<typeof toComment>>
 ): Effect.Effect<ReadonlyArray<Comment>, HulyConnectionError> =>
-  Schema.decodeUnknownEffect(Schema.Array(CommentSchema))(comments).pipe(
+  parseComments(comments).pipe(
     Effect.mapError(
       (parseError) =>
         new HulyConnectionError({

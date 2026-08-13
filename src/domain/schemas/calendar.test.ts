@@ -1,4 +1,4 @@
-import { Result, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
 import {
@@ -10,6 +10,7 @@ import {
   CreateScheduleParamsSchema,
   GetScheduleParamsSchema,
   ListSchedulesParamsSchema,
+  parseHulyScheduleAvailability,
   updateScheduleParamsJsonSchema,
   UpdateScheduleParamsSchema
 } from "./calendar-schedules.js"
@@ -406,6 +407,14 @@ describe("Calendar Schemas", () => {
   })
 
   describe("Schedule schemas", () => {
+    it("accepts SDK weekday keys and rejects out-of-range SDK keys", async () => {
+      await expect(
+        Effect.runPromise(parseHulyScheduleAvailability({ "0": [{ start: 540, end: 1020 }] }))
+      ).resolves.toEqual({ "0": [{ start: 540, end: 1020 }] })
+      await expect(
+        Effect.runPromise(parseHulyScheduleAvailability({ "7": [{ start: 540, end: 1020 }] }))
+      ).rejects.toBeDefined()
+    })
     it("accepts schedule list and get params", () => {
       expect(
         Result.isSuccess(Schema.decodeUnknownResult(ListSchedulesParamsSchema)({ owner: "alice@example.com" }))

@@ -2,6 +2,7 @@ import { Result, Schema } from "effect"
 
 import { Count } from "../domain/schemas/index.js"
 import { createSuccessResponse, type McpToolResponse } from "./error-mapping.js"
+import { toClientCompatibleInputSchema } from "./input-schema-compat.js"
 import type { ToolRegistry } from "./tools/index.js"
 import { makeToolCategory, makeToolDescription, ToolDescription } from "./tools/registry.js"
 import type { ToolCategory, ToolDefinition } from "./tools/registry.js"
@@ -80,7 +81,9 @@ export const toolParamSummary = (
   readonly parameterSummaryStatus: ToolParamSummaryStatus
   readonly parameterSummaryIssue?: string
 } => {
-  const parsed = parseToolInputSummary(tool.inputSchema)
+  const rawParsed = parseToolInputSummary(tool.inputSchema)
+  const parsed =
+    rawParsed._tag === "invalid" ? rawParsed : parseToolInputSummary(toClientCompatibleInputSchema(tool.inputSchema))
   if (parsed._tag === "invalid") {
     return {
       requiredParams: [],

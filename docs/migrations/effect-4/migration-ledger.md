@@ -1,16 +1,15 @@
-# Effect 4 controlled-red migration ledger
+# Effect 4 migration ledger — closed
 
 Date: 2026-08-12
 Target cohort: `4.0.0-rc.108`
 Capture runtime: Node `22.22.2` (with the supported-line checks noted below on Node `24.15.0`)
 
-This is the exhaustive, reproducible failure ledger immediately after replacing
-the Effect 3 dependency graph. It is intentionally red: issue #211 changes only
-the dependency/toolchain cohort, while later migration tickets repair the source.
-Do not make `check-all` green by restoring Effect 3, adding compatibility facades,
-suppressing diagnostics, or weakening a quality threshold. A later change is
-within the controlled-red policy only when it removes entries below without
-introducing a new category.
+This document preserves the exhaustive, reproducible failure history captured
+immediately after replacing the Effect 3 dependency graph. That controlled-red
+interval is closed: the final checkpoint below records the complete green gate.
+The historical entries explain how each failure family was removed without
+restoring Effect 3, adding compatibility facades, suppressing diagnostics, or
+weakening a quality threshold.
 
 ## Cohort and native-tool checks
 
@@ -570,11 +569,78 @@ catalog assertion is resolved. The CLI-owned and directly required adapter paths
 have no TypeScript diagnostics; broader diagnostics remain in separately owned
 migration surfaces.
 
-## Ledger maintenance rule
+## Ticket #225 final bundled oracle certification
 
-Every migration batch must rerun the focused surface it owns and update this
-file in the same change. Counts may fall and categories may be removed. A new
-error code, root runtime failure, build blocker, timeout, or test-failure family
-must be explained and assigned before the batch is considered within the
-controlled-red policy. Full `pnpm check-all` becomes mandatory again once its
-build and typecheck stages can complete.
+The immutable Effect 3 behavioral baseline was compared to a separately rendered
+Effect 4 corpus after the #227 HTTP and #228 CLI build edges landed. The baseline
+was not regenerated. The comparison found exactly 21,086 structural deltas:
+12,754 Draft-07 structural dialect changes, 4,894 schema-metadata changes, 3,428
+authored-constraint projection changes, 6 richer CLI JSON parse diagnostics, and
+4 concise CLI help-renderer changes.
+
+Each category records an exact count and SHA-256 of its sorted exact delta identities
+in `behavioral-oracle-delta-review.json`, avoiding duplication of baseline/current
+values. The verifier rejects unclassified paths, changed exact sets, stale or
+duplicate categories, and corpus hash drift.
+The complete classification, immutable baseline hash, reviewed current-corpus
+hash, and verification commands are recorded in
+`behavioral-oracle-delta-review.md`.
+
+`mise exec node@22.22.2 -- pnpm verify:effect4-oracle:built` passes against the
+full bundled MCP and CLI corpus. Strict Ajv Draft-07 compilation remains green
+for all 524 native and 6 proxy tool schemas; the registry remains 522 ordered,
+unique operations and the authored-constraint corpus retains all 522 tools.
+
+## Ticket #229 packed CLI and generated documentation checkpoint
+
+README command reference and the shipped Agent Skill are regenerated from the
+522-entry CLI catalog, shared operation schemas, local rc.108 command metadata,
+and typed failure contract. All catalog descriptions pass the mechanical
+LLM-first contract: each begins with an action, names a target, and excludes
+framework-facing wording. Packed skill files are compared byte-for-byte with
+their tracked generated sources.
+
+The fresh packed executable reports `huly v0.48.1`, exposes 54 root commands and
+all 522 operation routes, accepts structured JSON with explicit-field
+precedence, and preserves exact human/JSON stderr and exit-2 input failures.
+Package closure is pinned to exactly one external, `ws`.
+
+Schema-owned artifact metrics and exact absolute/percentage deltas are generated
+in `cli-artifact-size.json`. Verification rejects stale evidence and an
+unexplained increase above 10%. The measured decrease is explained by removal of
+the Effect 3 CLI runtime and compatibility surface.
+
+## Ticket #230 zero-diagnostic and full-gate checkpoint
+
+The migration baseline is fully green. TypeScript 7 reports zero diagnostics,
+and strict Effect language-service diagnostics check all 842 files with zero
+errors, warnings, or messages. Pathological language-service expansion from
+inline construction of large schema decoders was removed by hoisting the exact
+same decoders once; no diagnostic scope, severity, or execution timeout was
+weakened.
+
+The full unchanged quality gate passes under the supported Node 22 runtime:
+
+```bash
+mise exec node@22.22.2 -- pnpm check-all
+```
+
+The gate builds both artifacts; verifies the exact Effect cohort, schema
+boundaries, circular dependencies, complexity, registry metadata/schema, the
+reviewed bundled oracle, CLI integration inventory, generated README and Agent
+Skill, packed-skill byte parity, and package closure; then runs type-aware lint,
+formatting, duplication detection, and coverage. The final test run passes 283
+files and all 4,243 tests. Coverage is 99.61% statements, 99.01% branches,
+99.35% functions, and 99.66% lines, with the configured 99% thresholds unchanged.
+
+Active instructions now direct Effect work to the installed declarations and
+the pinned v4 source. The v3 snapshot remains explicitly archival parity
+evidence and is no longer provisioned, verified, or presented as implementation
+guidance.
+
+## Closed-ledger maintenance rule
+
+The controlled-red exception has ended. `pnpm check-all` is mandatory for every
+subsequent release-ready change; new compiler, diagnostic, architecture, lint,
+test, coverage, or packaging failures are ordinary blockers and must not be
+recorded as deferred migration work.

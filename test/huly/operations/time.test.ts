@@ -720,6 +720,16 @@ describe("listTimeSpendReports", () => {
       })
     )
 
+    it.effect("preserves null report dates", () =>
+      Effect.gen(function* () {
+        const result = yield* listTimeSpendReports({}).pipe(
+          Effect.provide(createTestLayerWithMocks({ reports: [makeTimeSpendReport({ date: null })] }))
+        )
+
+        expect(assertAt(result, 0).date).toBeNull()
+      })
+    )
+
     it.effect("filters by project", () =>
       Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST", _id: "project-1" as Ref<HulyProject> })

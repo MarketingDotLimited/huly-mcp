@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest"
 import { assertAt } from "../../utils/assertions.js"
 
 import { ChannelId } from "../../domain/schemas/shared.js"
+import { classifyCause } from "../../runtime/cause-exit.js"
 import type { HulyClientOperations } from "../client.js"
 import { HulyClient } from "../client.js"
 import { contact } from "../huly-plugins.js"
@@ -237,9 +238,12 @@ const testLayer = (state: TestState) => {
 
 const failureTag = (exit: Exit.Exit<unknown, unknown>): string | undefined => {
   if (!Exit.isFailure(exit)) return undefined
-  const cause = exit.cause
-  return cause._tag === "Fail" && typeof cause.error === "object" && cause.error !== null && "_tag" in cause.error
-    ? String(cause.error._tag)
+  const classification = classifyCause(exit.cause)
+  return classification._tag === "Failure" &&
+    typeof classification.firstFailure === "object" &&
+    classification.firstFailure !== null &&
+    "_tag" in classification.firstFailure
+    ? String(classification.firstFailure._tag)
     : undefined
 }
 

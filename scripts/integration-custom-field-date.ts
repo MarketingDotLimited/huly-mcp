@@ -27,11 +27,17 @@ const CleanupResultSchema = Schema.Struct({ cleaned: Schema.Literal(true) })
 const DynamicDocumentSchema = Schema.Record(Schema.String, Schema.Unknown)
 
 type CliArgs = Schema.Schema.Type<typeof CliArgsSchema>
+const parseCliArgsInput = Schema.decodeUnknownSync(CliArgsSchema)
+const parseDynamicDocument = Schema.decodeUnknownSync(DynamicDocumentSchema)
+const parseCustomFieldDateTimestamp = Schema.decodeUnknownSync(CustomFieldDateTimestamp)
+const encodeSetupResult = Schema.encodeUnknownSync(SetupResultSchema)
+const encodeReadResult = Schema.encodeUnknownSync(ReadResultSchema)
+const encodeCleanupResult = Schema.encodeUnknownSync(CleanupResultSchema)
 
 const NODE_ARGV_OFFSET = 2
 
 const parseCliArgs = (): CliArgs =>
-  Schema.decodeUnknownSync(CliArgsSchema)(
+  parseCliArgsInput(
     parseArgs({
       args: process.argv.slice(NODE_ARGV_OFFSET),
       options: {
@@ -74,9 +80,9 @@ const read = async (
   fieldName: string
 ): Promise<Schema.Schema.Type<typeof ReadResultSchema>> => {
   const issue = await requireIssue(client, issueId)
-  const values = Schema.decodeUnknownSync(DynamicDocumentSchema)(issue)
+  const values = parseDynamicDocument(issue)
   const value = values[fieldName]
-  return { value: value === undefined ? null : Schema.decodeUnknownSync(CustomFieldDateTimestamp)(value) }
+  return { value: value === undefined ? null : parseCustomFieldDateTimestamp(value) }
 }
 
 const cleanup = async (
@@ -97,17 +103,11 @@ const main = async (): Promise<string> => {
   try {
     switch (args.mode) {
       case "setup":
-        return JSON.stringify(Schema.encodeUnknownSync(SetupResultSchema)(await setup(client)))
+        return JSON.stringify(encodeSetupResult(await setup(client)))
       case "read":
-        return JSON.stringify(
-          Schema.encodeUnknownSync(ReadResultSchema)(await read(client, args.issueId, args.fieldName))
-        )
+        return JSON.stringify(encodeReadResult(await read(client, args.issueId, args.fieldName)))
       case "cleanup":
-        return JSON.stringify(
-          Schema.encodeUnknownSync(CleanupResultSchema)(
-            await cleanup(client, args.issueId, args.fieldId, args.fieldName)
-          )
-        )
+        return JSON.stringify(encodeCleanupResult(await cleanup(client, args.issueId, args.fieldId, args.fieldName)))
     }
   } finally {
     await client.close()

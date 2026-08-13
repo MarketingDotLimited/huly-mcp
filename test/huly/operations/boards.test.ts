@@ -23,6 +23,7 @@ import {
   BoardCardTitle,
   BoardIdentifier,
   BoardName,
+  Count,
   NonEmptyString,
   Timestamp
 } from "../../../src/domain/schemas.js"
@@ -48,6 +49,7 @@ import {
 } from "../../../src/huly/errors.js"
 import { board, contact, core, task } from "../../../src/huly/huly-plugins.js"
 import { resolveBoardFromContext } from "../../../src/huly/operations/boards-shared.js"
+import { toBoardDetail } from "../../../src/huly/operations/boards-output.js"
 import {
   archiveBoard,
   archiveBoardCard,
@@ -358,6 +360,10 @@ const provideDiagnostics = <A, E>(
   })
 
 describe("board operations", () => {
+  it("projects a board whose project type metadata is unavailable", () => {
+    expect(toBoardDetail(makeBoard(), undefined, Count.make(0)).projectTypeName).toBeUndefined()
+  })
+
   it.effect("lists, gets, creates, updates, archives, and unarchives boards", () =>
     Effect.gen(function* () {
       const fixture = createLayer()

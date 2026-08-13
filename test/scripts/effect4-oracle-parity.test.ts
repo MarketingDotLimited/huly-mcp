@@ -6,10 +6,13 @@ import { Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { toDraft07JsonSchema, withExactlyOneRequired } from "../../src/domain/schemas/json-schema.js"
+import { canonicalJson } from "../../scripts/effect4-oracle-canonical.js"
+import { captureAuthoredConstraints } from "../../scripts/effect4-oracle-constraints.js"
 import {
   classifyOracleDeltas,
   compareOracleValues,
   createOracleDeltaReport,
+  formatOracleDelta,
   type IntentionalOracleDelta
 } from "../../scripts/effect4-oracle-delta.js"
 import { validateCurrentDraft07Corpora } from "../../scripts/effect4-oracle-current-corpus.js"
@@ -18,7 +21,27 @@ import {
   validateDraft07ToolCorpus,
   verifyRuntimeDraft07Agreement
 } from "../../scripts/effect4-oracle-draft07.js"
-import { EFFECT4_ORACLE_PATH, verifyEffect4Oracle } from "../../scripts/effect4-oracle-io.js"
+import {
+  EFFECT4_ORACLE_DELTA_REVIEW_PATH,
+  EFFECT4_ORACLE_PATH,
+  verifyEffect4Oracle
+} from "../../scripts/effect4-oracle-io.js"
+import {
+  createOracleDeltaAuditReport,
+  createOracleDeltaReview,
+  oracleDeltaReviewCategory,
+  OracleDeltaAuditReportSchema,
+  OracleDeltaReviewSchema,
+  verifyReviewedOracleDeltas
+} from "../../scripts/effect4-oracle-review.js"
+import {
+  readEffect4OracleBaseline,
+  reportEffect4OracleDeltas,
+  runEffect4OracleDeltaReportCommand,
+  writeEffect4OracleDeltaReport
+} from "../../scripts/report-effect4-oracle-deltas.js"
+import { BehavioralOracleSchema } from "../../scripts/effect4-oracle-schema.js"
+import { decodeOracleStdioResponses, requireSuccessfulOracleProcess } from "../../scripts/effect4-oracle-process.js"
 
 describe("Effect 4 oracle structural parity", () => {
   it("retains array order and reports escaped JSON Pointer paths", () => {
@@ -29,6 +52,12 @@ describe("Effect 4 oracle structural parity", () => {
     expect(compareOracleValues({ "a/b~c": 1 }, { "a/b~c": 2 })).toEqual([
       { _tag: "Changed", path: "/a~1b~0c", before: 1, after: 2 }
     ])
+    expect(compareOracleValues([1], [1, 2])).toEqual([{ _tag: "Added", path: "/1", after: 2 }])
+    expect(compareOracleValues({ before: true }, { after: false })).toEqual([
+      { _tag: "Added", path: "/after", after: false },
+      { _tag: "Removed", path: "/before", before: true }
+    ])
+    expect(compareOracleValues({ unchanged: true }, { unchanged: true })).toEqual([])
   })
 
   it("accepts exact intentional deltas and rejects unexpected or stale entries", () => {
@@ -48,14 +77,246 @@ describe("Effect 4 oracle structural parity", () => {
     expect(classifyOracleDeltas([], exact)).toEqual({ unexpected: [], stale: exact, duplicateIntentional: [] })
     expect(classifyOracleDeltas(deltas, [...exact, ...exact]).duplicateIntentional).toEqual(exact)
     expect(createOracleDeltaReport(deltas, exact)).toMatchObject({ bySurface: { count: 1 }, total: 1 })
+    const variants = [
+      { _tag: "Added", path: "", after: true },
+      { _tag: "Removed", path: "", before: false },
+      { _tag: "Changed", path: "", before: 1, after: 2 },
+      { _tag: "Changed", path: "/a~1b~0c", before: "before", after: "after" }
+    ] as const
+    expect(variants.map(formatOracleDelta)).toEqual([
+      "/: added true",
+      "/: removed false",
+      "/: 1 -> 2",
+      '/a~1b~0c: "before" -> "after"'
+    ])
+    expect(createOracleDeltaReport(variants, [])).toMatchObject({ bySurface: { root: 3, "a/b~c": 1 }, total: 4 })
+  })
+
+  it("captures nested authored composition and boolean constraints in stable order", () => {
+    expect(
+      captureAuthoredConstraints([
+        { name: "empty", inputSchema: { type: "string" } },
+        {
+          name: "constrained",
+          inputSchema: {
+            anyOf: [{ type: "string" }, { not: { const: false } }],
+            properties: { values: { uniqueItems: true } },
+            additionalProperties: false
+          }
+        }
+      ])
+    ).toEqual([
+      {
+        toolName: "constrained",
+        constraints: [
+          { path: ["additionalProperties"], value: false },
+          { path: ["anyOf"], value: [{ type: "string" }, { not: { const: false } }] },
+          { path: ["anyOf", 1, "not"], value: { const: false } },
+          { path: ["anyOf", 1, "not", "const"], value: false },
+          { path: ["properties", "values", "uniqueItems"], value: true }
+        ]
+      }
+    ])
+  })
+
+  it("normalizes stdio version surfaces and rejects unsuccessful captures", () => {
+    const responses = decodeOracleStdioResponses(
+      [
+        { jsonrpc: "2.0", id: 1, result: { serverInfo: { name: "huly", version: "1.2.3" } } },
+        {
+          jsonrpc: "2.0",
+          id: 2,
+          result: { _meta: { "io.modelcontextprotocol/serverInfo": { name: "huly", version: "1.2.3" } } }
+        },
+        { jsonrpc: "2.0", id: 3, result: null },
+        { jsonrpc: "2.0", id: 4, result: { _meta: null } },
+        { jsonrpc: "2.0", id: 5, result: { _meta: { "io.modelcontextprotocol/serverInfo": null } } }
+      ]
+        .map((response) => JSON.stringify(response))
+        .join("\n")
+    )
+    expect(responses[0]?.result).toMatchObject({ serverInfo: { version: "<package-version>" } })
+    expect(responses[1]?.result).toMatchObject({
+      _meta: { "io.modelcontextprotocol/serverInfo": { version: "<package-version>" } }
+    })
+    expect(responses[2]?.result).toBeNull()
+    expect(responses[3]?.result).toEqual({ _meta: null })
+    expect(responses[4]?.result).toEqual({ _meta: { "io.modelcontextprotocol/serverInfo": null } })
+    expect(requireSuccessfulOracleProcess("fixture", { exitCode: 0, stdout: "ok", stderr: "" })).toMatchObject({
+      stdout: "ok"
+    })
+    expect(() => requireSuccessfulOracleProcess("fixture", { exitCode: 1, stdout: "", stderr: "" })).toThrow("exit 1")
+    expect(() =>
+      requireSuccessfulOracleProcess("fixture", { exitCode: 0, stdout: "", stderr: "sanitized failure" })
+    ).toThrow("sanitized failure")
+  })
+
+  it("classifies every reviewed delta surface and builds ordered category metadata", () => {
+    const deltas = [
+      { _tag: "Added", path: "/registry/authoredConstraints/0/constraints/0", after: true },
+      { _tag: "Changed", path: "/registry/tools/0/inputSchema/description", before: "old", after: "new" },
+      { _tag: "Changed", path: "/registry/tools/0/outputSchema/type", before: "string", after: "number" },
+      { _tag: "Changed", path: "/bundledProcesses/cli/rootHelp/stdout", before: "old", after: "new" },
+      { _tag: "Changed", path: "/cli/errors/json/message", before: "old", after: "new" }
+    ] as const
+    expect(deltas.map(oracleDeltaReviewCategory)).toEqual([
+      "authored-constraints",
+      "schema-metadata",
+      "draft07-structure",
+      "cli-help",
+      "cli-json-diagnostic"
+    ])
+    expect(oracleDeltaReviewCategory({ _tag: "Changed", path: "/cli/help/root", before: "old", after: "new" })).toBe(
+      "cli-help"
+    )
+    expect(
+      oracleDeltaReviewCategory({ _tag: "Changed", path: "/cli/result/stderr", before: "old", after: "new" })
+    ).toBe("cli-json-diagnostic")
+    expect(oracleDeltaReviewCategory({ _tag: "Added", path: "/unclassified", after: true })).toBeUndefined()
+
+    const review = createOracleDeltaReview("baseline", "current", deltas)
+    expect(review.categories.map(({ category, issue }) => ({ category, issue }))).toEqual([
+      { category: "draft07-structure", issue: "#225" },
+      { category: "schema-metadata", issue: "#225" },
+      { category: "authored-constraints", issue: "#225" },
+      { category: "cli-json-diagnostic", issue: "#228" },
+      { category: "cli-help", issue: "#228" }
+    ])
+    expect(() =>
+      createOracleDeltaReview("baseline", "current", [{ _tag: "Added", path: "/unclassified", after: true }])
+    ).toThrow("unclassified")
+  })
+
+  it("rejects unclassified, zero-count, duplicate, and stale compact review categories", () => {
+    const fixture = canonicalJson({ count: 1 })
+    const review = (categories: ReadonlyArray<unknown>) =>
+      Schema.decodeUnknownSync(OracleDeltaReviewSchema)({
+        formatVersion: 1,
+        baselineSha256: "7b2652e71fb224bd0ee1a2a62b131782d1b78604ef51c9b08f1dc01e4e6bf67b",
+        reviewedCurrentSha256: "7b2652e71fb224bd0ee1a2a62b131782d1b78604ef51c9b08f1dc01e4e6bf67b",
+        categories
+      })
+    expect(() =>
+      verifyReviewedOracleDeltas(fixture, fixture, [{ _tag: "Added", path: "/unclassified", after: true }], review([]))
+    ).toThrow("unclassified")
+
+    const category = {
+      category: "cli-help",
+      count: 1,
+      deltaSetSha256: "0".repeat(64),
+      rationale: "Reviewed fixture.",
+      issue: "#225"
+    }
+    expect(() => verifyReviewedOracleDeltas(fixture, fixture, [], review([category, category]))).toThrow("duplicate")
+    expect(() => review([{ ...category, count: 0 }])).toThrow()
+    expect(() => review([{ ...category, rationale: "   " }])).toThrow()
+    expect(() => review([{ ...category, issue: "issue-225" }])).toThrow()
+
+    const reviewedDelta = { _tag: "Changed", path: "/cli/errors/json/message", before: "old", after: "new" } as const
+    const exactReview = createOracleDeltaReview(fixture, fixture, [reviewedDelta])
+    expect(() => verifyReviewedOracleDeltas(fixture, fixture, [reviewedDelta], exactReview)).not.toThrow()
+    expect(() => verifyReviewedOracleDeltas(fixture, fixture, [], exactReview)).toThrow("differs")
+    expect(() => verifyReviewedOracleDeltas("changed", fixture, [reviewedDelta], exactReview)).toThrow("baseline")
+    expect(() => verifyReviewedOracleDeltas(fixture, "changed", [reviewedDelta], exactReview)).toThrow("corpus")
+    expect(() => verifyReviewedOracleDeltas(fixture, fixture, [reviewedDelta], review([]))).toThrow("unreviewed")
+  })
+
+  it("groups authored-constraint audit details by stable tool and rejects invalid associations", async () => {
+    const baselineJson = await fs.readFile(EFFECT4_ORACLE_PATH, "utf8")
+    const baseline = Schema.decodeUnknownSync(Schema.fromJsonString(BehavioralOracleSchema))(baselineJson)
+    const firstTool = baseline.registry.authoredConstraints[0]
+    const secondTool = baseline.registry.authoredConstraints[1]
+    expect(firstTool).toBeDefined()
+    expect(secondTool).toBeDefined()
+    if (firstTool === undefined || secondTool === undefined) return
+
+    const authoredDelta = {
+      _tag: "Added",
+      path: "/registry/authoredConstraints/0/constraints/0/value",
+      after: true
+    } as const
+    const report = createOracleDeltaAuditReport(baselineJson, baselineJson, baseline, baseline, [authoredDelta])
+    expect(report.authoredConstraintsByTool).toEqual([{ toolName: firstTool.toolName, deltas: [authoredDelta] }])
+    expect(report.categories).toEqual([{ category: "authored-constraints", deltas: [authoredDelta] }])
+
+    expect(() =>
+      createOracleDeltaAuditReport(baselineJson, baselineJson, baseline, baseline, [
+        { _tag: "Added", path: "/registry/authoredConstraints/not-an-index/value", after: true }
+      ])
+    ).toThrow("invalid path")
+    expect(() =>
+      createOracleDeltaAuditReport(baselineJson, baselineJson, baseline, baseline, [
+        { _tag: "Added", path: "/registry/authoredConstraints/999999/value", after: true }
+      ])
+    ).toThrow("stable tool")
+
+    const changedCurrent = Schema.decodeUnknownSync(BehavioralOracleSchema)({
+      ...baseline,
+      registry: {
+        ...baseline.registry,
+        authoredConstraints: [
+          { ...firstTool, toolName: secondTool.toolName },
+          ...baseline.registry.authoredConstraints.slice(1)
+        ]
+      }
+    })
+    expect(() =>
+      createOracleDeltaAuditReport(baselineJson, baselineJson, baseline, changedCurrent, [authoredDelta])
+    ).toThrow("stable tool")
+    expect(() =>
+      createOracleDeltaAuditReport(baselineJson, baselineJson, baseline, baseline, [
+        { _tag: "Added", path: "/unclassified", after: true }
+      ])
+    ).toThrow("unclassified")
+  })
+
+  it("renders the report command through injected corpus boundaries", async () => {
+    const baselineJson = await readEffect4OracleBaseline()
+    const writes: Array<string> = []
+    const dependencies = {
+      readBaseline: async () => baselineJson,
+      renderCurrent: async () => baselineJson,
+      write: (content: string) => writes.push(content)
+    }
+    await runEffect4OracleDeltaReportCommand(undefined, dependencies)
+    expect(writes).toHaveLength(1)
+    expect(
+      Schema.decodeUnknownSync(Schema.fromJsonString(OracleDeltaAuditReportSchema))(writes[0] ?? "")
+    ).toMatchObject({ categories: [], authoredConstraintsByTool: [] })
+    await expect(
+      reportEffect4OracleDeltas({
+        readBaseline: async () => "not-json",
+        renderCurrent: async () => baselineJson,
+        write: (content) => writes.push(content)
+      })
+    ).rejects.toThrow()
+    await runEffect4OracleDeltaReportCommand("true", {
+      readBaseline: async () => Promise.reject(new Error("must not run")),
+      renderCurrent: async () => Promise.reject(new Error("must not run")),
+      write: () => {
+        throw new Error("must not run")
+      }
+    })
+    writeEffect4OracleDeltaReport("")
   })
 
   it("rejects unexpected and stale deltas through the file verifier", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "effect4-oracle-parity-"))
     try {
       const oraclePath = path.join(root, EFFECT4_ORACLE_PATH)
+      const reviewPath = path.join(root, EFFECT4_ORACLE_DELTA_REVIEW_PATH)
       await fs.mkdir(path.dirname(oraclePath), { recursive: true })
       await fs.writeFile(oraclePath, '{"count":1}\n', "utf8")
+      await fs.writeFile(
+        reviewPath,
+        canonicalJson({
+          formatVersion: 1,
+          baselineSha256: "bc237aec467eef4ad72ab44c19ed2edbed79f7b5824a2e7ebfb3faf583433e66",
+          reviewedCurrentSha256: "bc237aec467eef4ad72ab44c19ed2edbed79f7b5824a2e7ebfb3faf583433e66",
+          categories: []
+        }),
+        "utf8"
+      )
       await expect(verifyEffect4Oracle(root, '{"count":2}\n')).rejects.toThrow("/count")
       await expect(verifyEffect4Oracle(root, '{"count":1}\n')).resolves.toBe(oraclePath)
     } finally {
@@ -110,6 +371,36 @@ describe("Effect 4 oracle Draft-07 validation", () => {
         }
       ])
     ).toThrow("unresolved local ref")
+    expect(() =>
+      validateDraft07ToolCorpus([
+        {
+          name: "legacy-definition-ref",
+          inputSchema: { $schema: "http://json-schema.org/draft-07/schema#", $ref: "#/definitions/Legacy" },
+          outputSchema
+        }
+      ])
+    ).toThrow("unrestored Draft-07 definition ref")
+    expect(() =>
+      validateDraft07ToolCorpus([{ name: "missing-dialect", inputSchema: { type: "string" }, outputSchema }])
+    ).toThrow("must declare")
+    expect(() =>
+      validateDraft07ToolCorpus([
+        {
+          name: "invalid-draft07",
+          inputSchema: { $schema: "http://json-schema.org/draft-07/schema#", type: "not-a-json-schema-type" },
+          outputSchema
+        }
+      ])
+    ).toThrow("not valid Draft-07")
+    expect(() =>
+      validateDraft07ToolCorpus([
+        {
+          name: "external-ref",
+          inputSchema: { $schema: "http://json-schema.org/draft-07/schema#", $ref: "https://example.test/schema" },
+          outputSchema
+        }
+      ])
+    ).toThrow("not valid Draft-07")
   })
 
   it("resolves escaped JSON Pointer definition names", () => {
@@ -133,6 +424,17 @@ describe("Effect 4 oracle Draft-07 validation", () => {
         { code: "A", count: 1, pair: ["left"] }
       ]
     })
+  })
+
+  it("rejects runtime and Draft-07 disagreement", () => {
+    expect(() =>
+      verifyRuntimeDraft07Agreement({
+        name: "disagreement",
+        schema: Schema.String,
+        jsonSchema: toDraft07JsonSchema(Schema.Number),
+        samples: ["accepted-only-at-runtime"]
+      })
+    ).toThrow("runtime/Draft-07 disagreement")
   })
 
   it("proves authored cross-field constraints agree with the matching runtime rule", () => {

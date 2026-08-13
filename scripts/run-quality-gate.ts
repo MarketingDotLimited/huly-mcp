@@ -1,5 +1,6 @@
 import { Schema } from "effect"
 
+import { NonEmptyString } from "../src/domain/schemas/shared.js"
 import { addSuccessfulOutputLines, OutputLineCount } from "./quality-output-budget.js"
 import { Milliseconds, runBoundedCommand } from "./run-bounded-command.js"
 
@@ -13,7 +14,7 @@ const MINUTE = Milliseconds.make(SECONDS_PER_MINUTE * SECOND)
 const TWO_MINUTES = Milliseconds.make(TWO_MINUTE_COUNT * MINUTE)
 const FIVE_MINUTES = Milliseconds.make(FIVE_MINUTE_COUNT * MINUTE)
 const maximumSuccessfulOutputLines = OutputLineCount.make(MAXIMUM_SUCCESSFUL_OUTPUT_LINE_COUNT)
-const PnpmEntryPoint = Schema.NonEmptyTrimmedString.annotations({
+const PnpmEntryPoint = NonEmptyString.annotate({
   identifier: "PnpmEntryPoint",
   description: "Executable path injected by pnpm for nested quality-gate stages."
 })

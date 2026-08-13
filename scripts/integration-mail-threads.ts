@@ -17,10 +17,10 @@ const core = require("@hcengineering/core") as typeof import("@hcengineering/cor
 const rank = require("@hcengineering/rank") as typeof import("@hcengineering/rank")
 
 const NODE_ARGUMENT_OFFSET = 2
-const CliArgsSchema = Schema.Union(
+const CliArgsSchema = Schema.Union([
   Schema.Struct({ mode: Schema.Literal("setup"), runId: NonEmptyString }),
   Schema.Struct({ mode: Schema.Literal("cleanup"), outerId: CardId, childId: CardId })
-)
+])
 const SetupResultSchema = Schema.Struct({
   outerId: CardId,
   childId: CardId,

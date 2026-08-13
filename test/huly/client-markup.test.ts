@@ -64,7 +64,7 @@ describe("HulyClient.testLayer defaults", () => {
       const exit = yield* Effect.exit(
         client.createDoc("c" as DocRef<Class<TestDoc>>, "s" as DocRef<Space>, { title: "t" } as Data<TestDoc>)
       )
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -74,7 +74,7 @@ describe("HulyClient.testLayer defaults", () => {
       const exit = yield* Effect.exit(
         client.updateDoc("c" as DocRef<Class<TestDoc>>, "s" as DocRef<Space>, "id" as DocRef<TestDoc>, {})
       )
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -91,7 +91,7 @@ describe("HulyClient.testLayer defaults", () => {
           {} as AttachedData<AttachedDoc>
         )
       )
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -101,7 +101,7 @@ describe("HulyClient.testLayer defaults", () => {
       const exit = yield* Effect.exit(
         client.removeDoc("c" as DocRef<Class<TestDoc>>, "s" as DocRef<Space>, "id" as DocRef<TestDoc>)
       )
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -111,7 +111,7 @@ describe("HulyClient.testLayer defaults", () => {
       const exit = yield* Effect.exit(
         client.uploadMarkup("c" as DocRef<Class<Doc>>, "id" as DocRef<Doc>, "attr", "content", "markdown")
       )
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -121,7 +121,7 @@ describe("HulyClient.testLayer defaults", () => {
       const exit = yield* Effect.exit(
         client.updateMarkup("c" as DocRef<Class<Doc>>, "id" as DocRef<Doc>, "attr", "content", "markdown")
       )
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 })
@@ -223,7 +223,7 @@ describe("WorkspaceClient.testLayer defaults", () => {
     Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.getPersonInfo("person-uuid" as PersonUuid))
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -231,7 +231,7 @@ describe("WorkspaceClient.testLayer defaults", () => {
     Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.updateWorkspaceRole("account", AccountRole.Guest))
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -239,7 +239,7 @@ describe("WorkspaceClient.testLayer defaults", () => {
     Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.getWorkspaceInfo())
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -247,7 +247,7 @@ describe("WorkspaceClient.testLayer defaults", () => {
     Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.createWorkspace("new-ws"))
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -255,7 +255,7 @@ describe("WorkspaceClient.testLayer defaults", () => {
     Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.deleteWorkspace())
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -263,7 +263,7 @@ describe("WorkspaceClient.testLayer defaults", () => {
     Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.setMyProfile({}))
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -271,7 +271,7 @@ describe("WorkspaceClient.testLayer defaults", () => {
     Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.updateAllowReadOnlyGuests(true))
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 
@@ -279,7 +279,7 @@ describe("WorkspaceClient.testLayer defaults", () => {
     Effect.gen(function* () {
       const client = yield* WorkspaceClient.pipe(Effect.provide(WorkspaceClient.testLayer({})))
       const exit = yield* Effect.exit(client.updateAllowGuestSignUp(true))
-      expect(Exit.isFailure(exit) && Cause.isDie(exit.cause)).toBe(true)
+      expect(Exit.isFailure(exit) && Cause.hasDies(exit.cause)).toBe(true)
     })
   )
 })

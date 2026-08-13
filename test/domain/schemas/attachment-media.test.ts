@@ -1,5 +1,5 @@
 import { describe, it } from "@effect/vitest"
-import { Effect, Either, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 import { expect } from "vitest"
 
 import {
@@ -53,48 +53,48 @@ describe("attachment media schemas", () => {
   })
 
   it("owns MCP image blocks with base64 and supported image MIME schemas", () => {
-    const valid = Schema.decodeUnknownEither(McpImageContentSchema)({
+    const valid = Schema.decodeUnknownResult(McpImageContentSchema)({
       type: "image",
       data: "cG5n",
       mimeType: "image/png"
     })
-    const invalid = Schema.decodeUnknownEither(McpImageContentSchema)({
+    const invalid = Schema.decodeUnknownResult(McpImageContentSchema)({
       type: "image",
       data: "cG5n",
       mimeType: "image/svg+xml"
     })
 
-    expect(Either.isRight(valid)).toBe(true)
-    expect(Either.isLeft(invalid)).toBe(true)
+    expect(Result.isSuccess(valid)).toBe(true)
+    expect(Result.isFailure(invalid)).toBe(true)
   })
 
   it("accepts canonical base64 and rejects malformed, empty, or noncanonical image data", () => {
     for (const value of ["Zg==", "Zm8=", "Zm9v", "AP+A/w=="]) {
-      expect(Either.isRight(Schema.decodeUnknownEither(CanonicalBase64ImageData)(value))).toBe(true)
+      expect(Result.isSuccess(Schema.decodeUnknownResult(CanonicalBase64ImageData)(value))).toBe(true)
     }
 
     for (const value of ["", "Zg", "Zg=", "Zg===", "Z g==", "-_==", "Zh==", "Zm9="]) {
-      expect(Either.isLeft(Schema.decodeUnknownEither(CanonicalBase64ImageData)(value))).toBe(true)
+      expect(Result.isFailure(Schema.decodeUnknownResult(CanonicalBase64ImageData)(value))).toBe(true)
     }
   })
 
   it("keeps upload transport data permissive for downstream normalization", () => {
     for (const value of ["", " Zg== ", "data:image/png;base64,Zg=="]) {
-      expect(Either.isRight(Schema.decodeUnknownEither(Base64FileData)(value))).toBe(true)
+      expect(Result.isSuccess(Schema.decodeUnknownResult(Base64FileData)(value))).toBe(true)
     }
   })
 
   it("rejects malformed image data when encoding the outbound MCP presentation schema", () => {
     for (const data of ["Zg==", "Zm8=", "Zm9v", "AP+A/w=="]) {
-      const encoded = Schema.encodeUnknownEither(McpImageContentSchema)({ type: "image", data, mimeType: "image/png" })
+      const encoded = Schema.encodeUnknownResult(McpImageContentSchema)({ type: "image", data, mimeType: "image/png" })
 
-      expect(Either.isRight(encoded)).toBe(true)
+      expect(Result.isSuccess(encoded)).toBe(true)
     }
 
     for (const data of ["not-base64", "Zh=="]) {
-      const encoded = Schema.encodeUnknownEither(McpImageContentSchema)({ type: "image", data, mimeType: "image/png" })
+      const encoded = Schema.encodeUnknownResult(McpImageContentSchema)({ type: "image", data, mimeType: "image/png" })
 
-      expect(Either.isLeft(encoded)).toBe(true)
+      expect(Result.isFailure(encoded)).toBe(true)
     }
 
     expect(() => CanonicalBase64ImageData.make("not-base64")).toThrow()
@@ -119,7 +119,7 @@ describe("attachment media schemas", () => {
         data: "aGVsbG8=",
         kind: "photo"
       })
-      const invalid = yield* Effect.either(
+      const invalid = yield* Effect.result(
         parseAddAttachmentParams({
           objectId: "issue-1",
           objectClass: "tracker:class:Issue",
@@ -133,7 +133,7 @@ describe("attachment media schemas", () => {
 
       expect(defaultKind.kind).toBeUndefined()
       expect(photo.kind).toBe("photo")
-      expect(invalid._tag).toBe("Left")
+      expect(invalid._tag).toBe("Failure")
     })
   )
 

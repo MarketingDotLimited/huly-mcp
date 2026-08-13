@@ -2845,4 +2845,17 @@ describe("Recruiting Operations", () => {
       }
     })
   )
+
+  it.effect("omits absent recruiting related issue creation timestamps", () =>
+    Effect.gen(function* () {
+      const issue = makeIssue({ relations: [makeRelatedDocEntry("vacancy-1", recruitIds.class.Vacancy)] })
+      Reflect.deleteProperty(issue, "createdOn")
+      const { layer } = createRecruitingLayer({ issues: [issue], projects: [makeProject()] })
+      const listed = yield* listRecruitingRelatedIssues({
+        target: { kind: "vacancy", vacancy: VacancyIdentifier.make("VCN-1") }
+      }).pipe(Effect.provide(layer), withDiagnostics)
+
+      expect(listed.relatedIssues[0]?.createdOn).toBeUndefined()
+    })
+  )
 })

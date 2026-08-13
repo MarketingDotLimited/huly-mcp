@@ -15,16 +15,18 @@ describe("Effect 4 testing primitives", () => {
   it.effect("coordinates deferred child startup and virtual time explicitly", () =>
     Effect.gen(function* () {
       type WorkerEvent = "started" | "completed"
+      const workerStarted: WorkerEvent = "started"
+      const workerCompleted: WorkerEvent = "completed"
       const started = yield* Deferred.make<void>()
       const gate = yield* Latch.make(false)
       const events = yield* Ref.make<ReadonlyArray<WorkerEvent>>([])
 
       const worker = Effect.gen(function* () {
-        yield* Ref.update(events, (current) => [...current, "started"])
+        yield* Ref.update(events, (current) => [...current, workerStarted])
         yield* Deferred.succeed(started, undefined)
         yield* gate.await
         yield* Effect.sleep("10 seconds")
-        yield* Ref.update(events, (current) => [...current, "completed"])
+        yield* Ref.update(events, (current) => [...current, workerCompleted])
       })
 
       const fiber = yield* Effect.forkChild(worker)
@@ -46,18 +48,20 @@ describe("Effect 4 testing primitives", () => {
   it.effect("interrupts an eagerly started scoped worker when its owner closes", () =>
     Effect.gen(function* () {
       type ScopedWorkerEvent = "scope-started" | "scope-interrupted"
+      const scopeStarted: ScopedWorkerEvent = "scope-started"
+      const scopeInterrupted: ScopedWorkerEvent = "scope-interrupted"
       const started = yield* Deferred.make<void>()
       const interrupted = yield* Deferred.make<void>()
       const events = yield* Ref.make<ReadonlyArray<ScopedWorkerEvent>>([])
 
       const worker = Effect.gen(function* () {
-        yield* Ref.update(events, (current) => [...current, "scope-started"])
+        yield* Ref.update(events, (current) => [...current, scopeStarted])
         yield* Deferred.succeed(started, undefined)
         return yield* Effect.never
       }).pipe(
         Effect.onInterrupt(() =>
           Effect.gen(function* () {
-            yield* Ref.update(events, (current) => [...current, "scope-interrupted"])
+            yield* Ref.update(events, (current) => [...current, scopeInterrupted])
             yield* Deferred.succeed(interrupted, undefined)
           })
         )

@@ -401,6 +401,17 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
       })
     )
 
+    it.effect("omits an empty organization city", () =>
+      Effect.gen(function* () {
+        const org = createMockOrganization({ city: "" })
+        const result = yield* getOrganization({ identifier: "org-1" }).pipe(
+          Effect.provide(createTestLayer({ organizations: [org] }))
+        )
+
+        expect(result.city).toBeUndefined()
+      })
+    )
+
     it.effect("returns undefined description when org has null description", () =>
       Effect.gen(function* () {
         const org = createMockOrganization({ description: null })

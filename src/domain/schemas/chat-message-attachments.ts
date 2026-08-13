@@ -1,13 +1,8 @@
-import { Result, Schema } from "effect"
+import { Schema } from "effect"
 
 import { UPDATE_ATTACHMENT_FIELDS } from "./attachments.js"
 import { AttachmentDescription, AttachmentFileName, Base64FileData, LocalFilePath } from "./domain-values.js"
-import {
-  parseJsonSchemaRecord,
-  toDraft07JsonSchema,
-  withExactlyOneRequired,
-  withJsonSchemaPropertyDescriptions
-} from "./json-schema.js"
+import { toDraft07JsonSchema, withExactlyOneRequired, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -187,11 +182,7 @@ const CHAT_MESSAGE_ATTACHMENT_TARGET_FIELD_DESCRIPTIONS = {
 } satisfies Readonly<Record<ChatMessageAttachmentTargetDescriptionField, string>>
 
 const JsonSchemaArraySchema = Schema.Array(Schema.Unknown)
-
-const parseJsonSchemaArray = (value: unknown): ReadonlyArray<unknown> | undefined => {
-  const decoded = Schema.decodeUnknownResult(JsonSchemaArraySchema)(value)
-  return Result.isSuccess(decoded) ? decoded.success : undefined
-}
+const JsonSchemaRecordSchema = Schema.Record(Schema.String, Schema.Unknown)
 
 const withRootSchemaMetadata = (schema: object, title: string, description: string): object => ({
   ...schema,
@@ -204,10 +195,10 @@ const chatMessageAttachmentJsonSchema = (schema: Schema.Constraint): object => {
     toDraft07JsonSchema(schema),
     CHAT_MESSAGE_ATTACHMENT_FIELD_DESCRIPTIONS
   )
-  const properties = parseJsonSchemaRecord(parseJsonSchemaRecord(jsonSchema)?.properties)
-  const target = parseJsonSchemaRecord(properties?.target)
-  const anyOf = parseJsonSchemaArray(target?.anyOf)
-  if (properties === undefined || target === undefined || anyOf === undefined) return jsonSchema
+  const root = Schema.decodeUnknownSync(JsonSchemaRecordSchema)(jsonSchema)
+  const properties = Schema.decodeUnknownSync(JsonSchemaRecordSchema)(root.properties)
+  const target = Schema.decodeUnknownSync(JsonSchemaRecordSchema)(properties.target)
+  const anyOf = Schema.decodeUnknownSync(JsonSchemaArraySchema)(target.anyOf)
 
   return {
     ...jsonSchema,
@@ -216,10 +207,8 @@ const chatMessageAttachmentJsonSchema = (schema: Schema.Constraint): object => {
       target: {
         ...target,
         anyOf: anyOf.map((variant) => {
-          const variantRecord = parseJsonSchemaRecord(variant)
-          return variantRecord === undefined
-            ? variant
-            : withJsonSchemaPropertyDescriptions(variantRecord, CHAT_MESSAGE_ATTACHMENT_TARGET_FIELD_DESCRIPTIONS)
+          const variantRecord = Schema.decodeUnknownSync(JsonSchemaRecordSchema)(variant)
+          return withJsonSchemaPropertyDescriptions(variantRecord, CHAT_MESSAGE_ATTACHMENT_TARGET_FIELD_DESCRIPTIONS)
         })
       }
     }

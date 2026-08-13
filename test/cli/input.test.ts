@@ -188,6 +188,12 @@ describe("CLI input merging", () => {
     }
   })
 
+  it("preserves a text value that resembles an unknown long option", async () => {
+    const invocation = await invoke("list_issues", ["--project", "--not-a-registered-option"])
+
+    expect(invocation.input).toEqual({ project: "--not-a-registered-option" })
+  })
+
   it("encodes local binary files for upload data and gives the file flag explicit precedence", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "huly-cli-binary-"))
     const inputPath = path.join(dir, "payload.bin")
@@ -244,6 +250,25 @@ describe("CLI input merging", () => {
     expect(invocation.input).toEqual({ project: "HULY", identifier: "HULY-1", description: null })
     expect(invocation.globals).toEqual({ json: false, output: "download.bin", yes: false })
     expect(negatedBoolean.input).toEqual({ hasAssignee: false })
+  })
+
+  it("accepts separated boolean literals and ignores incomplete raw value flags", async () => {
+    const separatedFalse = await invoke("list_issues", ["--has-assignee", "false"])
+    const tool = getTool("update_issue")
+    const incompleteText = await runCliEffect(
+      buildCliInvocation(tool, cliCommandCatalog.update_issue, { options: [], positionals: [], raw: ["--title"] })
+    )
+    const incompleteFile = await runCliEffect(
+      buildCliInvocation(tool, cliCommandCatalog.update_issue, {
+        options: [],
+        positionals: [],
+        raw: ["--description-file"]
+      })
+    )
+
+    expect(separatedFalse.input).toEqual({ hasAssignee: false })
+    expect(incompleteText.input).toEqual({})
+    expect(incompleteFile.input).toEqual({})
   })
 
   it("uses JSON Schema references when coercing CLI values", async () => {
@@ -366,6 +391,9 @@ describe("CLI input merging", () => {
     const missingFile = await rejected(
       invoke("update_issue", ["--description-file", "/tmp/huly-cli-missing-description-file"])
     )
+    const missingBase64File = await rejected(
+      invoke("add_issue_attachment", ["--data-base64-file", "/tmp/huly-cli-missing-binary-file"])
+    )
     const invalidNegation = await rejected(invoke("list_issues", ["--no-limit"]))
 
     expect(errorMessage(invalidJson)).toContain("--input-json must contain a JSON object")
@@ -374,6 +402,7 @@ describe("CLI input merging", () => {
     expect(errorMessage(invalidBoolean)).toContain("expects true or false")
     expect(errorMessage(invalidNumber)).toContain("expects a number")
     expect(errorMessage(missingFile)).toContain("Failed to read")
+    expect(errorMessage(missingBase64File)).toContain("Failed to read")
     expect(errorMessage(invalidNegation)).toContain("no-limit")
   })
 
@@ -416,11 +445,29 @@ describe("CLI input merging", () => {
         raw: ["--missing-boolean"]
       })
     )
+    const ignoredUnsupportedFileAndNegation = await runCliEffect(
+      buildCliInvocation(tool, cliCommandCatalog.list_issues, {
+        options: [],
+        positionals: [],
+        raw: ["--limit-file", "/tmp/value", "--no-limit"]
+      })
+    )
+    const unknownRawPositional = await rejected(
+      runCliEffect(
+        buildCliInvocation(tool, cliCommandCatalog.list_issues, {
+          options: [],
+          positionals: ["--not-a-field"],
+          raw: []
+        })
+      )
+    )
 
     expect(noPositionalInput.input).toEqual({})
     expect(positionalWithoutSchemaField.input).toEqual({ notInSchema: "raw-value" })
     expect(manualBoolean.input).toEqual({ hasAssignee: true })
     expect(unknownOptions.input).toEqual({})
+    expect(ignoredUnsupportedFileAndNegation.input).toEqual({})
+    expect(errorMessage(unknownRawPositional)).toContain("Unknown option --not-a-field")
   })
 
   it("reports invalid boolean-only positional values", async () => {

@@ -5,7 +5,7 @@ import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/cli
 import { getDefaultEnvironment, StdioClientTransport } from "@modelcontextprotocol/client/stdio"
 import { Redacted, Schema } from "effect"
 
-import { UrlString, WorkspaceName } from "../src/domain/schemas/shared.js"
+import { NonEmptyString, UrlString, WorkspaceName } from "../src/domain/schemas/shared.js"
 import {
   type CertificationCall,
   type CertificationCallResult,
@@ -20,8 +20,8 @@ const PROTOCOL_VERSION = "2026-07-28"
 const MAXIMUM_TCP_PORT = 65_535
 
 const ToolResultBoundary = Schema.Struct({
-  isError: Schema.optionalWith(Schema.Boolean, { exact: true }),
-  structuredContent: Schema.optionalWith(Schema.Struct({ result: Schema.Unknown }), { exact: true }),
+  isError: Schema.optionalKey(Schema.Boolean),
+  structuredContent: Schema.optionalKey(Schema.Struct({ result: Schema.Unknown })),
   content: Schema.Array(Schema.Unknown)
 })
 const TextContentBoundary = Schema.Struct({ type: Schema.Literal("text"), text: Schema.String })
@@ -29,13 +29,12 @@ const TextContentBoundary = Schema.Struct({ type: Schema.Literal("text"), text: 
 export const CertificationConnectionConfigSchema = Schema.Struct({
   url: UrlString,
   workspace: WorkspaceName,
-  token: Schema.Redacted(Schema.NonEmptyTrimmedString)
+  token: Schema.Redacted(NonEmptyString)
 })
 export type CertificationConnectionConfig = Schema.Schema.Type<typeof CertificationConnectionConfigSchema>
 
 export const CertificationHttpPort = Schema.Number.pipe(
-  Schema.int(),
-  Schema.between(1, MAXIMUM_TCP_PORT),
+  Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: MAXIMUM_TCP_PORT })),
   Schema.brand("CertificationHttpPort")
 )
 export type CertificationHttpPort = Schema.Schema.Type<typeof CertificationHttpPort>

@@ -163,6 +163,64 @@ const profileForLogin = (
 
 const optionalText = (name: string) => Flag.string(name).pipe(Flag.optional)
 const jsonOption = Flag.boolean("json").pipe(Flag.withDescription("Print JSON output."))
+
+const positionalArgument = (name: string) => ({ param: Argument.string(name), syntax: `<${name}>` })
+const requiredTextFlag = (name: string, valueName = name) => ({
+  param: Flag.string(name),
+  syntax: `--${name} <${valueName}>`
+})
+const optionalTextFlag = (name: string, valueName = name) => ({
+  param: optionalText(name),
+  syntax: `[--${name} <${valueName}>]`
+})
+const optionalBooleanFlag = (name: string, param = Flag.boolean(name)) => ({ param, syntax: `[--${name}]` })
+
+const nameArgument = positionalArgument("name")
+const profileFlag = optionalTextFlag("profile", "name")
+const jsonFlag = optionalBooleanFlag("json", jsonOption)
+const urlFlag = requiredTextFlag("url")
+const optionalUrlFlag = optionalTextFlag("url")
+const workspaceFlag = requiredTextFlag("workspace")
+const optionalWorkspaceFlag = optionalTextFlag("workspace")
+const defaultProjectFlag = optionalTextFlag("default-project", "project")
+const clearDefaultProjectFlag = optionalBooleanFlag("clear-default-project")
+
+const localCommandConfigs = {
+  authLogin: { profile: profileFlag.param, json: jsonFlag.param },
+  authStatus: { json: jsonOption },
+  authLogout: { profile: profileFlag.param, json: jsonFlag.param },
+  profileCreate: {
+    name: nameArgument.param,
+    url: urlFlag.param,
+    workspace: workspaceFlag.param,
+    defaultProject: defaultProjectFlag.param,
+    json: jsonFlag.param
+  },
+  profileList: { json: jsonOption },
+  profileSelect: { name: nameArgument.param, json: jsonFlag.param },
+  profileUpdate: {
+    name: nameArgument.param,
+    url: optionalUrlFlag.param,
+    workspace: optionalWorkspaceFlag.param,
+    defaultProject: defaultProjectFlag.param,
+    clearDefaultProject: clearDefaultProjectFlag.param,
+    json: jsonFlag.param
+  }
+} as const
+
+const stripOuterBrackets = (syntax: string): string => syntax.slice("[".length, syntax.length - "]".length)
+
+export const localCommandSkillSurfaces = {
+  authLogin: `huly auth login ${profileFlag.syntax} ${jsonFlag.syntax}`,
+  authStatus: `huly auth status ${jsonFlag.syntax}`,
+  authLogout: `huly auth logout ${profileFlag.syntax} ${jsonFlag.syntax}`,
+  profileCreate: `huly profile create ${nameArgument.syntax} ${urlFlag.syntax} ${workspaceFlag.syntax} ${defaultProjectFlag.syntax} ${jsonFlag.syntax}`,
+  profileList: `huly profile list ${jsonFlag.syntax}`,
+  profileSelect: `huly profile select ${nameArgument.syntax} ${jsonFlag.syntax}`,
+  profileUpdate:
+    `huly profile update ${nameArgument.syntax} ${optionalUrlFlag.syntax} ${optionalWorkspaceFlag.syntax} ` +
+    `[${stripOuterBrackets(defaultProjectFlag.syntax)} | ${stripOuterBrackets(clearDefaultProjectFlag.syntax)}] ${jsonFlag.syntax}`
+} as const
 const optionValue = <A>(value: Option.Option<A>): A | undefined => Option.getOrUndefined(value)
 
 const hasProfilePatch = (
@@ -190,7 +248,7 @@ const profilePatch = (
     )
   )
 
-const authLogin = Command.make("login", { profile: optionalText("profile"), json: jsonOption }, ({ json, profile }) =>
+const authLogin = Command.make("login", localCommandConfigs.authLogin, ({ json, profile }) =>
   Effect.gen(function* () {
     const ports = yield* LocalCliService
     const target = yield* profileForLogin(ports, optionValue(profile))
@@ -207,7 +265,7 @@ const authLogin = Command.make("login", { profile: optionalText("profile"), json
   })
 ).pipe(Command.withDescription("Log in interactively and store only the resulting token."))
 
-const authStatus = Command.make("status", { json: jsonOption }, ({ json }) =>
+const authStatus = Command.make("status", localCommandConfigs.authStatus, ({ json }) =>
   Effect.gen(function* () {
     const ports = yield* LocalCliService
     const status = yield* getAuthStatus(ports.store, ports.environment).pipe(Effect.mapError(storeError))
@@ -215,7 +273,7 @@ const authStatus = Command.make("status", { json: jsonOption }, ({ json }) =>
   })
 ).pipe(Command.withDescription("Show sanitized authentication and configuration status."))
 
-const authLogout = Command.make("logout", { profile: optionalText("profile"), json: jsonOption }, ({ json, profile }) =>
+const authLogout = Command.make("logout", localCommandConfigs.authLogout, ({ json, profile }) =>
   Effect.gen(function* () {
     const ports = yield* LocalCliService
     const requested = Option.isNone(profile) ? undefined : yield* profileName(profile.value)
@@ -231,13 +289,7 @@ export const authCommand = Command.make("auth").pipe(
 
 const profileCreate = Command.make(
   "create",
-  {
-    name: Argument.string("name"),
-    url: Flag.string("url"),
-    workspace: Flag.string("workspace"),
-    defaultProject: optionalText("default-project"),
-    json: jsonOption
-  },
+  localCommandConfigs.profileCreate,
   ({ defaultProject, json, name, url, workspace }) =>
     Effect.gen(function* () {
       const ports = yield* LocalCliService
@@ -256,7 +308,7 @@ const profileCreate = Command.make(
     })
 ).pipe(Command.withDescription("Create a named URL and workspace profile."))
 
-const profileList = Command.make("list", { json: jsonOption }, ({ json }) =>
+const profileList = Command.make("list", localCommandConfigs.profileList, ({ json }) =>
   Effect.gen(function* () {
     const ports = yield* LocalCliService
     const profiles = yield* ports.store.readProfiles().pipe(Effect.mapError(storeError))
@@ -271,7 +323,7 @@ const profileList = Command.make("list", { json: jsonOption }, ({ json }) =>
   })
 ).pipe(Command.withDescription("List named profiles without exposing credentials."))
 
-const profileSelect = Command.make("select", { name: Argument.string("name"), json: jsonOption }, ({ json, name }) =>
+const profileSelect = Command.make("select", localCommandConfigs.profileSelect, ({ json, name }) =>
   Effect.gen(function* () {
     const ports = yield* LocalCliService
     const parsedName = yield* profileName(name)
@@ -282,14 +334,7 @@ const profileSelect = Command.make("select", { name: Argument.string("name"), js
 
 const profileUpdate = Command.make(
   "update",
-  {
-    name: Argument.string("name"),
-    url: optionalText("url"),
-    workspace: optionalText("workspace"),
-    defaultProject: optionalText("default-project"),
-    clearDefaultProject: Flag.boolean("clear-default-project"),
-    json: jsonOption
-  },
+  localCommandConfigs.profileUpdate,
   ({ clearDefaultProject, defaultProject, json, name, url, workspace }) =>
     Effect.gen(function* () {
       const ports = yield* LocalCliService

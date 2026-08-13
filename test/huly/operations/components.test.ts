@@ -488,6 +488,20 @@ describe("getComponent", () => {
     })
   )
 
+  it.effect("omits absent component creation timestamps", () =>
+    Effect.gen(function* () {
+      const project = makeProject({ identifier: "PROJ" })
+      const comp = makeComponent({ label: componentLabel("Infra"), lead: null })
+      Reflect.deleteProperty(comp, "createdOn")
+      const result = yield* getComponent({
+        project: projectIdentifier("PROJ"),
+        component: componentIdentifier("Infra")
+      }).pipe(Effect.provide(createTestLayerWithMocks({ projects: [project], components: [comp] })))
+
+      expect(result.createdOn).toBeUndefined()
+    })
+  )
+
   it.effect("returns ComponentNotFoundError when component doesn't exist", () =>
     Effect.gen(function* () {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })

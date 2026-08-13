@@ -19,7 +19,7 @@ import {
   runRevokedCertification
 } from "./api-token-certification-workflow.js"
 
-export const CertificationTransport = Schema.Literal("stdio", "http")
+export const CertificationTransport = Schema.Literals(["stdio", "http"])
 export type CertificationTransport = Schema.Schema.Type<typeof CertificationTransport>
 
 export const ActiveOrchestrationInputSchema = Schema.Struct({
@@ -35,10 +35,10 @@ export const RevokedOrchestrationInputSchema = Schema.Struct({
   teamspace: TeamspaceIdentifier
 })
 
-export const CertificationOrchestrationInputSchema = Schema.Union(
+export const CertificationOrchestrationInputSchema = Schema.Union([
   ActiveOrchestrationInputSchema,
   RevokedOrchestrationInputSchema
-)
+])
 export type CertificationOrchestrationInput = Schema.Schema.Type<typeof CertificationOrchestrationInputSchema>
 
 export interface ManagedCertificationPort {

@@ -65,6 +65,8 @@ import { assertExists } from "../../src/utils/assertions.js"
 // Helper type for JSON Schema assertions
 type JsonSchemaObject = {
   $schema?: string
+  $ref?: string
+  $defs?: Record<string, JsonSchemaObject>
   type?: string
   required?: Array<string>
   anyOf?: Array<{ required?: Array<string> }>
@@ -73,7 +75,16 @@ type JsonSchemaObject = {
     then?: { required?: Array<string> }
     not?: { anyOf?: Array<{ required?: Array<string> }> }
   }>
-  properties?: Record<string, { description?: string; enum?: Array<string>; pattern?: string; type?: string }>
+  properties?: Record<
+    string,
+    {
+      anyOf?: Array<{ enum?: Array<string> }>
+      description?: string
+      enum?: Array<string>
+      pattern?: string
+      type?: string
+    }
+  >
 }
 
 const isJsonSchemaObject = (schema: unknown): schema is JsonSchemaObject =>
@@ -89,12 +100,26 @@ const expectJsonSchemaProperties = (schema: JsonSchemaObject): NonNullable<JsonS
   throw new Error("Expected JSON schema properties")
 }
 
+const resolveRootReference = (schema: JsonSchemaObject): JsonSchemaObject => {
+  const definitionName = schema.$ref?.match(/^#\/\$defs\/(.+)$/)?.[1]
+  if (definitionName === undefined) return schema
+  const definition = schema.$defs?.[definitionName]
+  return {
+    ...definition,
+    ...schema,
+    properties: { ...definition?.properties, ...schema.properties },
+    ...((definition?.required ?? schema.required) === undefined
+      ? {}
+      : { required: definition?.required ?? schema.required })
+  }
+}
+
 describe("Domain Schemas", () => {
   describe("IssuePrioritySchema", () => {
     it.effect("accepts valid priorities", () =>
       Effect.gen(function* () {
         for (const priority of IssuePriorityValues) {
-          const result = yield* Schema.decodeUnknown(IssuePrioritySchema)(priority)
+          const result = yield* Schema.decodeUnknownEffect(IssuePrioritySchema)(priority)
           expect(result).toBe(priority)
         }
       })
@@ -102,49 +127,49 @@ describe("Domain Schemas", () => {
 
     it.effect("rejects invalid priority", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(Schema.decodeUnknown(IssuePrioritySchema)("invalid"))
-        expect(error._tag).toBe("ParseError")
+        const error = yield* Effect.flip(Schema.decodeUnknownEffect(IssuePrioritySchema)("invalid"))
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("normalizes no_priority to no-priority", () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(IssuePrioritySchema)("no_priority")
+        const result = yield* Schema.decodeUnknownEffect(IssuePrioritySchema)("no_priority")
         expect(result).toBe("no-priority")
       })
     )
 
     it.effect("normalizes NoPriority to no-priority", () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(IssuePrioritySchema)("NoPriority")
+        const result = yield* Schema.decodeUnknownEffect(IssuePrioritySchema)("NoPriority")
         expect(result).toBe("no-priority")
       })
     )
 
     it.effect("normalizes No Priority to no-priority", () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(IssuePrioritySchema)("No Priority")
+        const result = yield* Schema.decodeUnknownEffect(IssuePrioritySchema)("No Priority")
         expect(result).toBe("no-priority")
       })
     )
 
     it.effect("normalizes NO-PRIORITY to no-priority", () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(IssuePrioritySchema)("NO-PRIORITY")
+        const result = yield* Schema.decodeUnknownEffect(IssuePrioritySchema)("NO-PRIORITY")
         expect(result).toBe("no-priority")
       })
     )
 
     it.effect("normalizes URGENT to urgent", () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(IssuePrioritySchema)("URGENT")
+        const result = yield* Schema.decodeUnknownEffect(IssuePrioritySchema)("URGENT")
         expect(result).toBe("urgent")
       })
     )
 
     it.effect("normalizes High to high", () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(IssuePrioritySchema)("High")
+        const result = yield* Schema.decodeUnknownEffect(IssuePrioritySchema)("High")
         expect(result).toBe("high")
       })
     )
@@ -154,7 +179,7 @@ describe("Domain Schemas", () => {
         const schema = expectJsonSchemaObject(createIssueParamsJsonSchema)
         const priorityProp = schema.properties?.priority
         expect(priorityProp).toBeDefined()
-        expect(priorityProp?.enum).toEqual(["urgent", "high", "medium", "low", "no-priority"])
+        expect(priorityProp?.anyOf?.[0]?.enum).toEqual(["urgent", "high", "medium", "low", "no-priority"])
       })
     )
   })
@@ -162,22 +187,22 @@ describe("Domain Schemas", () => {
   describe("LabelSchema", () => {
     it.effect("parses label with title only", () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(LabelSchema)({ title: "bug" })
+        const result = yield* Schema.decodeUnknownEffect(LabelSchema)({ title: "bug" })
         expect(result).toEqual({ title: "bug" })
       })
     )
 
     it.effect("parses label with title and color", () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(LabelSchema)({ title: "feature", color: 5 })
+        const result = yield* Schema.decodeUnknownEffect(LabelSchema)({ title: "feature", color: 5 })
         expect(result).toEqual({ title: "feature", color: 5 })
       })
     )
 
     it.effect("rejects empty title", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(Schema.decodeUnknown(LabelSchema)({ title: "  " }))
-        expect(error._tag).toBe("ParseError")
+        const error = yield* Effect.flip(Schema.decodeUnknownEffect(LabelSchema)({ title: "  " }))
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -185,14 +210,14 @@ describe("Domain Schemas", () => {
   describe("PersonRefSchema", () => {
     it.effect("parses with id only", () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(PersonRefSchema)({ id: "person-123" })
+        const result = yield* Schema.decodeUnknownEffect(PersonRefSchema)({ id: "person-123" })
         expect(result).toEqual({ id: "person-123" })
       })
     )
 
     it.effect("parses with all fields", () =>
       Effect.gen(function* () {
-        const result = yield* Schema.decodeUnknown(PersonRefSchema)({
+        const result = yield* Schema.decodeUnknownEffect(PersonRefSchema)({
           id: "person-123",
           name: "John Doe",
           email: "john@example.com"
@@ -394,7 +419,7 @@ describe("Domain Schemas", () => {
     it.effect("rejects invented statusCategory values", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListIssuesParams({ project: "HULY", statusCategory: "open" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -403,21 +428,21 @@ describe("Domain Schemas", () => {
         const error = yield* Effect.flip(
           parseListIssuesParams({ project: "HULY", status: "Open", statusCategory: "Active" })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects negative limit", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListIssuesParams({ project: "HULY", limit: -1 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects non-integer limit", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListIssuesParams({ project: "HULY", limit: 10.5 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -440,7 +465,7 @@ describe("Domain Schemas", () => {
     it.effect("rejects missing identifier", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseGetIssueParams({ project: "HULY" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -475,7 +500,7 @@ describe("Domain Schemas", () => {
     it.effect("rejects empty title", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseCreateIssueParams({ project: "HULY", title: "   " }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -484,7 +509,7 @@ describe("Domain Schemas", () => {
     it.effect("rejects minimal params and advertises update-field requirement in JSON Schema", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseUpdateIssueParams({ project: "HULY", identifier: "HULY-123" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
 
         const schema = expectJsonSchemaObject(updateIssueParamsJsonSchema)
         expect(schema.anyOf).toEqual(
@@ -521,7 +546,7 @@ describe("Domain Schemas", () => {
     it.effect("card updates reject minimal params and advertise update-field requirement", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseUpdateCardParams({ cardSpace: "Cards", card: "Roadmap" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
 
         const schema = expectJsonSchemaObject(updateCardParamsJsonSchema)
         expect(schema.anyOf).toEqual(expect.arrayContaining([{ required: ["title"] }, { required: ["content"] }]))
@@ -532,8 +557,8 @@ describe("Domain Schemas", () => {
       Effect.gen(function* () {
         const profileError = yield* Effect.flip(parseUpdateUserProfileParams({}))
         const guestSettingsError = yield* Effect.flip(parseUpdateGuestSettingsParams({}))
-        expect(profileError._tag).toBe("ParseError")
-        expect(guestSettingsError._tag).toBe("ParseError")
+        expect(profileError._tag).toBe("SchemaError")
+        expect(guestSettingsError._tag).toBe("SchemaError")
 
         const profileSchema = expectJsonSchemaObject(updateUserProfileParamsJsonSchema)
         expect(profileSchema.anyOf).toEqual(
@@ -559,9 +584,9 @@ describe("Domain Schemas", () => {
         const planError = yield* Effect.flip(parseUpdateTestPlanParams({ project: "QA", plan: "Regression" }))
         const runError = yield* Effect.flip(parseUpdateTestRunParams({ project: "QA", run: "Nightly" }))
         const resultError = yield* Effect.flip(parseUpdateTestResultParams({ project: "QA", result: "Login result" }))
-        expect(planError._tag).toBe("ParseError")
-        expect(runError._tag).toBe("ParseError")
-        expect(resultError._tag).toBe("ParseError")
+        expect(planError._tag).toBe("SchemaError")
+        expect(runError._tag).toBe("SchemaError")
+        expect(resultError._tag).toBe("SchemaError")
 
         const planSchema = expectJsonSchemaObject(updateTestPlanParamsJsonSchema)
         expect(planSchema.anyOf).toEqual(
@@ -592,7 +617,7 @@ describe("Domain Schemas", () => {
     it.effect("rejects empty label", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseAddLabelParams({ project: "HULY", identifier: "HULY-123", label: "  " }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -615,21 +640,21 @@ describe("Domain Schemas", () => {
     it.effect("rejects negative limit", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListProjectsParams({ limit: -1 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects non-integer limit", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListProjectsParams({ limit: 10.5 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects zero limit", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListProjectsParams({ limit: 0 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -730,7 +755,7 @@ describe("Domain Schemas", () => {
     it.effect("rejects limit over 200", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListTeamspacesParams({ limit: 201 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -753,7 +778,7 @@ describe("Domain Schemas", () => {
     it.effect("rejects empty teamspace", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListDocumentsParams({ teamspace: "  " }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -770,7 +795,7 @@ describe("Domain Schemas", () => {
     it.effect("rejects missing document", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseGetDocumentParams({ teamspace: "My Docs" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -799,7 +824,7 @@ describe("Domain Schemas", () => {
     it.effect("rejects empty title", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseCreateDocumentParams({ teamspace: "My Docs", title: "   " }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -808,9 +833,9 @@ describe("Domain Schemas", () => {
     it.effect("rejects minimal params and advertises edit-field requirement in JSON Schema", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseEditDocumentParams({ teamspace: "My Docs", document: "Getting Started" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
 
-        const schema = expectJsonSchemaObject(editDocumentParamsJsonSchema)
+        const schema = resolveRootReference(expectJsonSchemaObject(editDocumentParamsJsonSchema))
         expect(schema.anyOf).toEqual(
           expect.arrayContaining([
             { required: ["title"] },
@@ -948,7 +973,7 @@ describe("Domain Schemas", () => {
             replace_all: true
           })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -963,7 +988,7 @@ describe("Domain Schemas", () => {
             new_text: "edit"
           })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -972,7 +997,7 @@ describe("Domain Schemas", () => {
         const error = yield* Effect.flip(
           parseEditDocumentParams({ teamspace: "My Docs", document: "Getting Started", old_text: "something" })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
@@ -986,7 +1011,7 @@ describe("Domain Schemas", () => {
             new_text: "replacement"
           })
         )
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -1043,7 +1068,7 @@ describe("Domain Schemas", () => {
 
     it.effect("generates JSON Schema for EditDocumentParams", () =>
       Effect.sync(function () {
-        const schema = expectJsonSchemaObject(editDocumentParamsJsonSchema)
+        const schema = resolveRootReference(expectJsonSchemaObject(editDocumentParamsJsonSchema))
         const properties = expectJsonSchemaProperties(schema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("teamspace")
@@ -1093,14 +1118,14 @@ describe("Domain Schemas", () => {
     it.effect("rejects non-positive value", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseLogTimeParams({ project: "TEST", identifier: "TEST-1", value: 0 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
 
     it.effect("rejects negative value", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseLogTimeParams({ project: "TEST", identifier: "TEST-1", value: -10 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -1117,7 +1142,7 @@ describe("Domain Schemas", () => {
     it.effect("rejects empty project", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseGetTimeReportParams({ project: "  ", identifier: "TEST-1" }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })
@@ -1148,7 +1173,7 @@ describe("Domain Schemas", () => {
     it.effect("rejects limit over 200", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseListTimeSpendReportsParams({ limit: 201 }))
-        expect(error._tag).toBe("ParseError")
+        expect(error._tag).toBe("SchemaError")
       })
     )
   })

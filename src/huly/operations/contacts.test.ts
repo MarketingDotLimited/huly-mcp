@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest"
 import { assertAt, assertExists } from "../../utils/assertions.js"
 
 import { Email, PersonId } from "../../domain/schemas/shared.js"
+import { classifyCause } from "../../runtime/cause-exit.js"
 import type { HulyClientOperations } from "../client.js"
 import { HulyClient } from "../client.js"
 import { createPerson, deletePerson, getPerson, listPersons, updatePerson } from "./persons.js"
@@ -358,13 +359,13 @@ describe("Contacts Operations", () => {
 
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
-        const error = result.cause.pipe((cause) => {
-          if (cause._tag === "Fail") return cause.error
-          return undefined
-        })
-        expect(error).toBeDefined()
-        expect((error as { _tag: string })._tag).toBe("PersonNotFoundError")
-        expect((error as { identifier: string }).identifier).toBe("nonexistent")
+        const error = classifyCause(result.cause)
+        expect(error._tag).toBe("Failure")
+        if (error._tag === "Failure") {
+          expect(error.firstFailure._tag).toBe("PersonNotFoundError")
+          if (error.firstFailure._tag === "PersonNotFoundError")
+            expect(error.firstFailure.identifier).toBe("nonexistent")
+        }
       }
     })
 
@@ -435,13 +436,14 @@ describe("Contacts Operations", () => {
 
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
-        const error = result.cause.pipe((cause) => {
-          if (cause._tag === "Fail") return cause.error
-          return undefined
-        })
-        expect(error).toBeDefined()
-        expect((error as { _tag: string })._tag).toBe("PersonNotFoundError")
-        expect((error as { identifier: string }).identifier).toBe("nonexistent@example.com")
+        const error = classifyCause(result.cause)
+        expect(error._tag).toBe("Failure")
+        if (error._tag === "Failure") {
+          expect(error.firstFailure._tag).toBe("PersonNotFoundError")
+          if (error.firstFailure._tag === "PersonNotFoundError") {
+            expect(error.firstFailure.identifier).toBe("nonexistent@example.com")
+          }
+        }
       }
     })
   })
@@ -542,13 +544,13 @@ describe("Contacts Operations", () => {
 
       expect(Exit.isFailure(result)).toBe(true)
       if (Exit.isFailure(result)) {
-        const error = result.cause.pipe((cause) => {
-          if (cause._tag === "Fail") return cause.error
-          return undefined
-        })
-        expect(error).toBeDefined()
-        expect((error as { _tag: string })._tag).toBe("PersonNotFoundError")
-        expect((error as { identifier: string }).identifier).toBe("nonexistent")
+        const error = classifyCause(result.cause)
+        expect(error._tag).toBe("Failure")
+        if (error._tag === "Failure") {
+          expect(error.firstFailure._tag).toBe("PersonNotFoundError")
+          if (error.firstFailure._tag === "PersonNotFoundError")
+            expect(error.firstFailure.identifier).toBe("nonexistent")
+        }
       }
     })
   })

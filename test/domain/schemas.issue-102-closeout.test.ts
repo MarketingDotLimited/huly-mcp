@@ -10,6 +10,15 @@ import {
 } from "../../src/domain/schemas.js"
 import { parseJsonSchemaRecord } from "../../src/domain/schemas/json-schema.js"
 
+const resolveSchemaReference = (root: Record<string, unknown>, value: unknown): Record<string, unknown> | undefined => {
+  const record = parseJsonSchemaRecord(value)
+  if (record === undefined || typeof record.$ref !== "string") return record
+  const prefix = "#/$defs/"
+  if (!record.$ref.startsWith(prefix)) return record
+  const definitions = parseJsonSchemaRecord(root.$defs)
+  return definitions === undefined ? undefined : parseJsonSchemaRecord(definitions[record.$ref.slice(prefix.length)])
+}
+
 describe("issue #102 schemas", () => {
   it.effect("accepts document snapshot lookup by teamspace, document, and snapshot identifier", () =>
     Effect.gen(function* () {
@@ -39,16 +48,23 @@ describe("issue #102 schemas", () => {
     if (rootSchema === undefined) {
       throw new Error("Expected root schema object")
     }
-    const rootProperties = parseJsonSchemaRecord(rootSchema.properties)
+    const resolvedRoot = resolveSchemaReference(rootSchema, rootSchema)
+    const rootProperties = parseJsonSchemaRecord(resolvedRoot?.properties)
     if (rootProperties === undefined) {
       throw new Error("Expected root schema properties")
     }
-    const props = parseJsonSchemaRecord(rootProperties.props)
-    const propsItems = parseJsonSchemaRecord(props?.items)
-    if (props === undefined || propsItems === undefined) {
+    const props = resolveSchemaReference(rootSchema, rootProperties.props)
+    const propsArray = Array.isArray(props?.anyOf)
+      ? props.anyOf
+          .map((branch) => resolveSchemaReference(rootSchema, branch))
+          .find((branch) => branch?.type === "array")
+      : props
+    const propsItems = resolveSchemaReference(rootSchema, propsArray?.items)
+    if (props === undefined || propsArray === undefined || propsItems === undefined) {
       throw new Error("Expected props array schema")
     }
-    const itemProperties = parseJsonSchemaRecord(propsItems.properties)
+    const resolvedItems = resolveSchemaReference(rootSchema, propsItems)
+    const itemProperties = parseJsonSchemaRecord(resolvedItems?.properties)
     if (itemProperties === undefined) {
       throw new Error("Expected props item properties")
     }

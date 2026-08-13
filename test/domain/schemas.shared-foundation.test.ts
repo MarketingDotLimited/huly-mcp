@@ -5,9 +5,13 @@ import { clearableText } from "../../src/domain/schemas/clearable.js"
 import { AttachmentDescription, LocalFilePath } from "../../src/domain/schemas/domain-values.js"
 import { toDraft07JsonSchema } from "../../src/domain/schemas/json-schema.js"
 import { optionalOutput } from "../../src/domain/schemas/output-helpers.js"
+import { nonEmptyTrimmedString } from "../../src/domain/schemas/shared-base.js"
 import { ToolWarningCodeSchema, ToolWarningSchema } from "../../src/domain/schemas/tool-warnings.js"
 
 describe("shared schema foundations", () => {
+  it("constructs an unannotated non-empty trimmed string schema", () => {
+    expect(Schema.decodeUnknownSync(nonEmptyTrimmedString())(" value ")).toBe("value")
+  })
   it("keeps exact optional output fields absent and rejects explicit undefined and null", () => {
     const schema = Schema.Struct({ value: optionalOutput(Schema.String) })
 
@@ -44,13 +48,9 @@ describe("shared schema foundations", () => {
           properties: {
             message: {
               type: "string",
-              allOf: [
-                {
-                  minLength: 1,
-                  description:
-                    "LLM-facing explanation of degraded result fidelity or an important operational condition requiring user action."
-                }
-              ]
+              minLength: 1,
+              description:
+                "LLM-facing explanation of degraded result fidelity or an important operational condition requiring user action."
             }
           }
         }

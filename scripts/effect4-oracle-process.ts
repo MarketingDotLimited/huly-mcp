@@ -75,13 +75,20 @@ const normalizeServerVersion = (response: OracleJsonRpcResponse): OracleJsonRpcR
   })
 }
 
-const decodeStdioResponses = (stdout: string): ReadonlyArray<OracleJsonRpcResponse> =>
+export const decodeOracleStdioResponses = (stdout: string): ReadonlyArray<OracleJsonRpcResponse> =>
   stdout
     .trim()
     .split("\n")
     .filter((line) => line !== "")
     .map((line) => Schema.decodeUnknownSync(Schema.fromJsonString(OracleJsonRpcResponseSchema))(line))
     .map(normalizeServerVersion)
+
+export const requireSuccessfulOracleProcess = (label: string, result: OracleProcessResult): OracleProcessResult => {
+  if (result.exitCode !== 0 || result.stderr !== "") {
+    throw new Error(`${label} failed with exit ${result.exitCode}: ${result.stderr}`)
+  }
+  return result
+}
 
 const captureStdioMode = async (mode: "native" | "proxy") => {
   const input = `${stdioRequests()
@@ -93,10 +100,7 @@ const captureStdioMode = async (mode: "native" | "proxy") => {
     { HULY_TOOL_MODE: mode, LAZY_ENVS: "true", MCP_AUTO_EXIT: "true" },
     input
   )
-  if (result.exitCode !== 0 || result.stderr !== "") {
-    throw new Error(`Bundled ${mode} stdio oracle failed with exit ${result.exitCode}: ${result.stderr}`)
-  }
-  return decodeStdioResponses(result.stdout)
+  return decodeOracleStdioResponses(requireSuccessfulOracleProcess(`Bundled ${mode} stdio oracle`, result).stdout)
 }
 
 const captureLegacyStdio = async (): Promise<ReadonlyArray<OracleJsonRpcResponse>> => {
@@ -120,10 +124,7 @@ const captureLegacyStdio = async (): Promise<ReadonlyArray<OracleJsonRpcResponse
     { HULY_TOOL_MODE: "proxy", LAZY_ENVS: "true", MCP_AUTO_EXIT: "true" },
     `${messages.map((message) => JSON.stringify(message)).join("\n")}\n`
   )
-  if (result.exitCode !== 0 || result.stderr !== "") {
-    throw new Error(`Bundled legacy stdio oracle failed with exit ${result.exitCode}: ${result.stderr}`)
-  }
-  return decodeStdioResponses(result.stdout)
+  return decodeOracleStdioResponses(requireSuccessfulOracleProcess("Bundled legacy stdio oracle", result).stdout)
 }
 
 const normalizeCliVersion = (result: OracleProcessResult): OracleProcessResult => ({

@@ -45,11 +45,11 @@ const HarnessEnvironmentSchema = Schema.Struct({
   ...CertificationConnectionConfigSchema.fields,
   project: ProjectIdentifier,
   httpPort: CertificationHttpPort,
-  attachmentId: Schema.optionalWith(AttachmentId, { exact: true }),
-  teamspace: Schema.optionalWith(TeamspaceIdentifier, { exact: true }),
-  document: Schema.optionalWith(DocumentIdentifier, { exact: true })
+  attachmentId: Schema.optionalKey(AttachmentId),
+  teamspace: Schema.optionalKey(TeamspaceIdentifier),
+  document: Schema.optionalKey(DocumentIdentifier)
 })
-const HarnessPhaseSchema = Schema.Literal("active", "revoked")
+const HarnessPhaseSchema = Schema.Literals(["active", "revoked"])
 const SummaryFields = {
   certification: Schema.Literal("legacy-token-harness"),
   personalApiTokenCompatibility: Schema.Literal("uncertified"),
@@ -58,14 +58,14 @@ const SummaryFields = {
 const ActiveHarnessSummarySchema = Schema.Struct({
   ...SummaryFields,
   phase: Schema.Literal("active"),
-  reports: Schema.Tuple(ActiveStdioCertificationReportSchema, ActiveHttpCertificationReportSchema)
+  reports: Schema.Tuple([ActiveStdioCertificationReportSchema, ActiveHttpCertificationReportSchema])
 })
 const RevokedHarnessSummarySchema = Schema.Struct({
   ...SummaryFields,
   phase: Schema.Literal("revoked"),
-  reports: Schema.Tuple(RevokedStdioCertificationReportSchema, RevokedHttpCertificationReportSchema)
+  reports: Schema.Tuple([RevokedStdioCertificationReportSchema, RevokedHttpCertificationReportSchema])
 })
-const HarnessSummarySchema = Schema.Union(ActiveHarnessSummarySchema, RevokedHarnessSummarySchema)
+const HarnessSummarySchema = Schema.Union([ActiveHarnessSummarySchema, RevokedHarnessSummarySchema])
 
 type HarnessPhase = Schema.Schema.Type<typeof HarnessPhaseSchema>
 type HarnessEnvironment = Schema.Schema.Type<typeof HarnessEnvironmentSchema>
@@ -82,7 +82,7 @@ const parsePhase = (arguments_: ReadonlyArray<string>): HarnessPhase => {
 
 const parseHttpPort = (value: string | undefined): CertificationHttpPort => {
   if (value === undefined) return DEFAULT_HTTP_PORT
-  return Schema.decodeUnknownSync(Schema.compose(Schema.NumberFromString, CertificationHttpPort))(value)
+  return Schema.decodeUnknownSync(Schema.NumberFromString.pipe(Schema.decodeTo(CertificationHttpPort)))(value)
 }
 
 const loadEnvironment = (): HarnessEnvironment =>

@@ -1,11 +1,39 @@
-import { describe, expect, it } from "vitest"
+import { Console, Effect } from "effect"
+import { afterEach, describe, expect, it } from "vitest"
 
+import { runCliFailureBoundary } from "../../packages/huly-cli/src/failure-boundary.js"
 import { failureFromOperation, presentCliFailure } from "../../packages/huly-cli/src/failures.js"
 import { CliInputError } from "../../packages/huly-cli/src/input.js"
 import { CliRuntimeError } from "../../packages/huly-cli/src/render.js"
 
 const isKnownCliError = (error: unknown): error is CliInputError | CliRuntimeError =>
   error instanceof CliInputError || error instanceof CliRuntimeError
+
+const originalExitCode = process.exitCode
+
+afterEach(() => {
+  process.exitCode = originalExitCode
+})
+
+const runBoundary = async <A>(
+  program: Effect.Effect<A, CliInputError>
+): Promise<{ readonly output: ReadonlyArray<string>; readonly value: A | void }> => {
+  const output: Array<string> = []
+  const consoleService = await Effect.runPromise(Console.Console)
+  const value = await Effect.runPromise(
+    runCliFailureBoundary(program, true, isKnownCliError).pipe(
+      Effect.provideService(
+        Console.Console,
+        Object.assign(Object.create(consoleService), {
+          error: (message: unknown) => {
+            output.push(String(message))
+          }
+        })
+      )
+    )
+  )
+  return { output, value }
+}
 
 describe("CLI automation failure contract", () => {
   it.each([
@@ -75,5 +103,31 @@ describe("CLI automation failure contract", () => {
     expect(
       failureFromOperation({ detailTag: "ProjectNotFoundError", kind: "lookup", message: "Missing.", retryable: false })
     ).toMatchObject({ details: { tag: "ProjectNotFoundError" } })
+  })
+
+  it("returns successful values through the failure boundary", async () => {
+    const result = await runBoundary(Effect.succeed("completed"))
+
+    expect(result).toEqual({ output: [], value: "completed" })
+    expect(process.exitCode).toBe(originalExitCode)
+  })
+
+  it("renders typed failures and assigns their stable process status", async () => {
+    const result = await runBoundary(Effect.fail(new CliInputError({ message: "Invalid project." })))
+
+    expect(result.value).toBeUndefined()
+    expect(result.output).toHaveLength(1)
+    expect(JSON.parse(result.output[0] ?? "")).toMatchObject({ code: "INVALID_INPUT", message: "Invalid project." })
+    expect(process.exitCode).toBe(2)
+  })
+
+  it("redacts defects at the in-process failure boundary", async () => {
+    const result = await runBoundary(Effect.die(new Error("token=do-not-print")))
+
+    expect(result.value).toBeUndefined()
+    expect(result.output).toHaveLength(1)
+    expect(result.output[0]).not.toContain("do-not-print")
+    expect(JSON.parse(result.output[0] ?? "")).toMatchObject({ code: "INTERNAL_ERROR" })
+    expect(process.exitCode).toBe(70)
   })
 })

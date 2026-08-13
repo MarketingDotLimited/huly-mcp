@@ -3,12 +3,15 @@ import { describe, expect, it } from "vitest"
 
 import {
   AddPersonChannelParamsSchema,
+  AddOrganizationChannelParamsSchema,
   addPersonChannelParamsJsonSchema,
   ContactChannelProviderSchema,
   ContactChannelProviderValues,
   parseAddPersonChannelParams,
+  parseRemoveOrganizationChannelParams,
   parseRemovePersonChannelParams,
   parseUpdatePersonChannelParams,
+  parseUpdateOrganizationChannelParams,
   RemovePersonChannelParamsSchema,
   UpdatePersonChannelParamsSchema
 } from "./contact-channels.js"
@@ -158,6 +161,67 @@ describe("Contact Channel Schemas", () => {
 
       expect(Result.isFailure(neither)).toBe(true)
       expect(Result.isFailure(both)).toBe(true)
+    })
+  })
+
+  describe("Organization channel schemas", () => {
+    it("accepts valid organization channel values", () => {
+      expect(
+        Schema.decodeUnknownSync(AddOrganizationChannelParamsSchema)({
+          organizationId: "org-1",
+          provider: "email",
+          value: "owner@example.com"
+        })
+      ).toEqual({ organizationId: "org-1", provider: "email", value: "owner@example.com" })
+    })
+
+    it("checks organization update locators and replacement email values", () => {
+      const valid = Effect.runSync(
+        parseUpdateOrganizationChannelParams({
+          organizationId: "org-1",
+          provider: "phone",
+          value: "+15551234",
+          newProvider: "email",
+          newValue: "owner@example.com"
+        })
+      )
+      const invalidExistingEmail = Effect.runSync(
+        Effect.result(
+          parseUpdateOrganizationChannelParams({
+            organizationId: "org-1",
+            provider: "email",
+            value: "invalid",
+            newValue: "owner@example.com"
+          })
+        )
+      )
+      const incomplete = Effect.runSync(
+        Effect.result(
+          parseUpdateOrganizationChannelParams({ organizationId: "org-1", provider: "phone", newValue: "+15551234" })
+        )
+      )
+
+      expect(valid.newValue).toBe("owner@example.com")
+      expect(Result.isFailure(invalidExistingEmail)).toBe(true)
+      expect(Result.isFailure(incomplete)).toBe(true)
+    })
+
+    it("checks organization removal locators and provider values", () => {
+      const valid = Effect.runSync(
+        parseRemoveOrganizationChannelParams({ organizationId: "org-1", provider: "email", value: "owner@example.com" })
+      )
+      const incomplete = Effect.runSync(
+        Effect.result(parseRemoveOrganizationChannelParams({ organizationId: "org-1", provider: "phone" }))
+      )
+      const invalidEmail = Effect.runSync(
+        Effect.result(
+          parseRemoveOrganizationChannelParams({ organizationId: "org-1", provider: "email", value: "invalid" })
+        )
+      )
+
+      expect(valid.value).toBe("owner@example.com")
+      expect(Result.isFailure(incomplete)).toBe(true)
+      expect(Result.isFailure(invalidEmail)).toBe(true)
     })
   })
 })

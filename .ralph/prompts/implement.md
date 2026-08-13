@@ -20,7 +20,7 @@ You are the implementer for Ralph lane `{{LANE_ID}}`.
   full `pnpm check-all`.
 - Commit your implementation if it is ready for review.
 - Follow `AGENTS.md`.
-- For Effect code, follow `docs/mcps/effect.md`; use the explicit pinned v4 and v3 source trees and official migration skill rather than an ambiguous Effect checkout.
+- For Effect code, follow `docs/mcps/effect.md`; use the installed declarations and explicit pinned v4 source rather than an ambiguous Effect checkout. The v3 snapshot is archival parity evidence, not implementation guidance.
 
 # PLAN FILE
 

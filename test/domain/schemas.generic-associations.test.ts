@@ -39,6 +39,16 @@ describe("generic association schemas", () => {
     })
   )
 
+  it.effect("accepts source-only and target-only list_relations filters", () =>
+    Effect.gen(function* () {
+      const sourceOnly = yield* parseListRelationsParams({ source: { kind: "issue", issue: "HULY-1" } })
+      const targetOnly = yield* parseListRelationsParams({ target: { kind: "document", document: "Architecture" } })
+
+      expect(sourceOnly.source?.kind).toBe("issue")
+      expect(targetOnly.target?.kind).toBe("document")
+    })
+  )
+
   it.effect("emits JSON schema filter alternatives for list_relations", () =>
     Effect.sync(function () {
       expect(listRelationsParamsJsonSchema).toMatchObject({

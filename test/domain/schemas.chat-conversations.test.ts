@@ -1,5 +1,5 @@
 import { describe, it } from "@effect/vitest"
-import { Either, Schema } from "effect"
+import { Result, Schema } from "effect"
 import { expect } from "vitest"
 
 import {
@@ -9,8 +9,8 @@ import {
   SetConversationStarredParamsSchema
 } from "../../src/domain/schemas.js"
 
-const decodes = <A, I>(schema: Schema.Schema<A, I, never>, input: unknown): boolean =>
-  Either.isRight(Schema.decodeUnknownEither(schema)(input))
+const decodes = (schema: Schema.ConstraintDecoder<unknown>, input: unknown): boolean =>
+  Result.isSuccess(Schema.decodeUnknownResult(schema)(input))
 
 describe("chat conversation schemas", () => {
   it("accepts channel member identifiers as account UUID, email, and exact person name", () => {
