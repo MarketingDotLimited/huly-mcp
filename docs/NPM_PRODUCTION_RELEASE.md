@@ -11,6 +11,10 @@ mise exec node@24.15.0 -- pnpm local-release
 Use that exact command even when another Node version is active locally. The
 release script deliberately accepts only the two certified runtimes, Node
 22.22.2 and 24.15.0; Node 24.15.0 is the preferred release environment.
+That release-build restriction is intentionally narrower than the published
+packages' consumer requirement, Node `>=22.19.0`. Users may run the packages on
+newer Node releases; maintainers publish from an exact certified runtime so the
+generated artifacts remain reproducible.
 
 That command versions packages from pending changesets when they exist, computes which package versions are not yet published on npm, builds only those package bundles with `pnpm dlx esbuild` so workspace-native binaries are not required on the host, verifies the bundled versions, publishes to npm with the default `latest` dist-tag, pushes the release commit and git tags, and creates the MCP GitHub release when MCP changed. It fails before changing files if npm auth is not available.
 

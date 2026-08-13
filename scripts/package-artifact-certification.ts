@@ -6,7 +6,7 @@ import { createGunzip, gzipSync } from "node:zlib"
 import { Schema } from "effect"
 import * as tar from "tar-stream"
 
-const SupportedNodeRange = Schema.Literal("^22.22.2 || ^24.15.0")
+const SupportedNodeRange = Schema.Literal(">=22.19.0")
 const PackageManifestSchema = Schema.Struct({
   bin: Schema.Record(Schema.String, Schema.String),
   dependencies: Schema.Record(Schema.String, Schema.String),

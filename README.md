@@ -21,6 +21,8 @@ Huly MCP and Huly CLI are maintained together in this monorepo and derive from t
 
 ## Installation
 
+Requires Node.js 22.19.0 or later.
+
 The standard configuration works with most MCP clients:
 
 ```json

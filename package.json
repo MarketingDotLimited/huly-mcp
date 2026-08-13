@@ -1,6 +1,6 @@
 {
   "name": "@firfi/huly-mcp",
-  "version": "0.49.4",
+  "version": "0.49.5",
   "description": "Huly MCP: feature-complete MCP server for Huly integration",
   "mcpName": "io.github.dearlordylord/huly-mcp",
   "type": "module",
@@ -88,7 +88,7 @@
   ],
   "packageManager": "pnpm@10.29.3",
   "engines": {
-    "node": "^22.22.2 || ^24.15.0"
+    "node": ">=22.19.0"
   },
   "author": "dearlordylord",
   "license": "MIT",

@@ -4,7 +4,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/@firfi/huly-cli)](https://www.npmjs.com/package/@firfi/huly-cli)
 [![CI](https://github.com/dearlordylord/huly-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/dearlordylord/huly-mcp/actions/workflows/ci.yml)
 [![Package smoke](https://github.com/dearlordylord/huly-mcp/actions/workflows/package-smoke.yml/badge.svg)](https://github.com/dearlordylord/huly-mcp/actions/workflows/package-smoke.yml)
-[![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Node.js 22.19+](https://img.shields.io/badge/Node.js-22.19%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Huly CLI** is a feature-complete command-line interface for [Huly](https://huly.io/), with full Huly operation parity with [`@firfi/huly-mcp`](https://www.npmjs.com/package/@firfi/huly-mcp). Every shared Huly operation is available as a native, schema-aware command.
@@ -27,7 +27,7 @@ Visit the [Huly CLI website](https://huly-mcp.dearlordylord.com/cli/) for focuse
 
 ## Installation
 
-Requires Node.js 20 or later.
+Requires Node.js 22.19.0 or later.
 
 Run without installing:
 

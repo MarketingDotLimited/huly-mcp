@@ -1,5 +1,12 @@
 # @firfi/huly-mcp
 
+## 0.49.5
+
+### Patch Changes
+
+- 1533987: Complete the direct Effect 4.0.0-rc.108 cutover with certified MCP, HTTP, CLI, schema, lifecycle, package, and local-Huly parity. The supported Node.js floor is now `>=22.19.0`; releases remain reproducibly built and certified on Node 22.22.2 and 24.15.0. No MCP wire or CLI command contract changes are intended. This remains a patch release because it completes the already-announced release-candidate migration while preserving those public contracts.
+- 78a45e7: Exit stdio servers when their client connection closes and bound all graceful shutdown work to one ten-second deadline.
+
 ## 0.49.4
 
 ### Patch Changes

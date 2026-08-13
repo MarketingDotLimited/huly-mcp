@@ -19,7 +19,7 @@ const manifest = (overrides: Readonly<Record<string, unknown>> = {}): string =>
   JSON.stringify({
     bin: { "huly-mcp": "./dist/index.cjs" },
     dependencies: { ws: "1.0.0" },
-    engines: { node: "^22.22.2 || ^24.15.0" },
+    engines: { node: ">=22.19.0" },
     main: "./dist/index.cjs",
     name: "@firfi/huly-mcp",
     version: "1.2.3",
