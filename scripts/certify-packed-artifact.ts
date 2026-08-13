@@ -4,11 +4,22 @@ import { Schema } from "effect"
 
 import { certifyPackedArtifact, PackedArtifactCertificationSchema } from "./package-artifact-certification.js"
 
-const ArgumentsSchema = Schema.Tuple([Schema.NonEmptyString, Schema.Literals(["mcp", "cli"]), Schema.NonEmptyString])
+const CertificationArgumentsSchema = Schema.Tuple([
+  Schema.NonEmptyString,
+  Schema.Literals(["mcp", "cli"]),
+  Schema.NonEmptyString
+])
+const WriteArgumentsSchema = Schema.Tuple([
+  Schema.NonEmptyString,
+  Schema.Literals(["mcp", "cli"]),
+  Schema.NonEmptyString,
+  Schema.Literal("--write")
+])
+const ArgumentsSchema = Schema.Union([CertificationArgumentsSchema, WriteArgumentsSchema])
 
 const processArgumentOffset = 2
 const jsonIndent = 2
-const [archivePath, kind, version] = Schema.decodeUnknownSync(ArgumentsSchema)(
+const [archivePath, kind, version, writeFlag] = Schema.decodeUnknownSync(ArgumentsSchema)(
   process.argv.slice(processArgumentOffset)
 )
 const expected =
@@ -48,7 +59,7 @@ const main = async (): Promise<void> => {
   if (kind === "mcp") {
     const evidencePath = "docs/migrations/effect-4/mcp-artifact-certification.json"
     const parseEvidence = Schema.decodeUnknownSync(Schema.fromJsonString(PackedArtifactCertificationSchema))
-    if (process.argv.includes("--write")) {
+    if (writeFlag === "--write") {
       writeFileSync(evidencePath, `${JSON.stringify(certification, undefined, jsonIndent)}\n`)
     } else {
       const expectedCertification = parseEvidence(readFileSync(evidencePath, "utf8"))

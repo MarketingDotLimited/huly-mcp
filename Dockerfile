@@ -6,7 +6,6 @@ ENV HUSKY=0
 
 COPY package.json pnpm-lock.yaml ./
 COPY patches ./patches
-COPY scripts/prepare-effect-tsgo.mjs ./scripts/prepare-effect-tsgo.mjs
 RUN corepack enable \
   && corepack prepare pnpm@10.29.3 --activate \
   && pnpm install --frozen-lockfile
