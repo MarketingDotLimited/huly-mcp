@@ -16,8 +16,12 @@ export const fieldNameToOptionName = (fieldName: CliSchemaFieldName): CliOptionN
     .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
     .toLowerCase()
 
-const collectPropertyRecords = (schema: unknown): Array<Record<string, unknown>> => {
+const collectPropertyRecords = (rootSchema: object, schema: unknown, depth = 0): Array<Record<string, unknown>> => {
+  if (depth > MAX_SCHEMA_REF_DEPTH) return []
   if (!isRecord(schema)) return []
+
+  const resolved = resolveLocalRef(rootSchema, schema)
+  if (resolved !== schema) return collectPropertyRecords(rootSchema, resolved, depth + 1)
 
   const records: Array<Record<string, unknown>> = []
   if (isRecord(schema.properties)) {
@@ -28,7 +32,7 @@ const collectPropertyRecords = (schema: unknown): Array<Record<string, unknown>>
     const variants = schema[variantKey]
     if (Array.isArray(variants)) {
       for (const variant of variants) {
-        records.push(...collectPropertyRecords(variant))
+        records.push(...collectPropertyRecords(rootSchema, variant, depth + 1))
       }
     }
   }
@@ -38,7 +42,7 @@ const collectPropertyRecords = (schema: unknown): Array<Record<string, unknown>>
 
 export const collectFieldSpecs = (schema: object): ReadonlyMap<CliOptionName, FieldSpec> => {
   const fields = new Map<CliOptionName, FieldSpec>()
-  for (const properties of collectPropertyRecords(schema)) {
+  for (const properties of collectPropertyRecords(schema, schema)) {
     for (const [fieldName, fieldSchema] of Object.entries(properties)) {
       const optionName = fieldNameToOptionName(fieldName)
       const existing = fields.get(optionName)
@@ -54,7 +58,7 @@ export const collectFieldSpecs = (schema: object): ReadonlyMap<CliOptionName, Fi
 const localRefName = (ref: string): string | undefined => {
   const prefix = "#/$defs/"
   if (!ref.startsWith(prefix)) return undefined
-  return decodeURIComponent(ref.slice(prefix.length))
+  return decodeURIComponent(ref.slice(prefix.length)).replaceAll("~1", "/").replaceAll("~0", "~")
 }
 
 const resolveLocalRef = (rootSchema: object, schema: unknown): unknown => {
@@ -74,21 +78,27 @@ const intersectSets = (sets: ReadonlyArray<ReadonlySet<string>>): ReadonlySet<st
   return first === undefined ? new Set() : new Set([...first].filter((name) => rest.every((set) => set.has(name))))
 }
 
-const requiredFieldNamesFor = (schema: unknown): ReadonlySet<string> => {
+const requiredFieldNamesFor = (
+  schema: unknown,
+  rootSchema: object = isRecord(schema) ? schema : {}
+): ReadonlySet<string> => {
   if (!isRecord(schema)) return new Set()
-  const required = new Set(directRequiredFieldNames(schema))
-  const allOf = Array.isArray(schema.allOf) ? schema.allOf : []
-  for (const name of allOf.flatMap((variant) => [...requiredFieldNamesFor(variant)])) required.add(name)
+  const resolved = resolveLocalRef(rootSchema, schema)
+  if (!isRecord(resolved)) return new Set()
+  const required = new Set(directRequiredFieldNames(resolved))
+  const allOf = Array.isArray(resolved.allOf) ? resolved.allOf : []
+  for (const name of allOf.flatMap((variant) => [...requiredFieldNamesFor(variant, rootSchema)])) required.add(name)
   for (const variantKey of ["anyOf", "oneOf"]) {
-    const variants = schema[variantKey]
+    const variants = resolved[variantKey]
     if (Array.isArray(variants)) {
-      for (const name of intersectSets(variants.map(requiredFieldNamesFor))) required.add(name)
+      for (const name of intersectSets(variants.map((variant) => requiredFieldNamesFor(variant, rootSchema))))
+        required.add(name)
     }
   }
   return required
 }
 
-export const collectRequiredFieldNames = (schema: object): ReadonlySet<string> => requiredFieldNamesFor(schema)
+export const collectRequiredFieldNames = (schema: object): ReadonlySet<string> => requiredFieldNamesFor(schema, schema)
 
 const directUnionAlternatives = (schema: Record<string, unknown>): ReadonlyArray<unknown> | undefined => {
   for (const variantKey of ["anyOf", "oneOf"]) {
@@ -105,7 +115,7 @@ const findFieldUnionAlternatives = (
   if (!isRecord(schema)) return undefined
   const direct = directUnionAlternatives(schema)
   if (direct !== undefined) {
-    const requiredSets = direct.map(requiredFieldNamesFor)
+    const requiredSets = direct.map((variant) => requiredFieldNamesFor(variant, schema))
     const present = requiredSets.filter((required) => required.has(fieldName)).length
     if (present > 0 && present < requiredSets.length) return requiredSets
   }
@@ -169,7 +179,6 @@ export const fieldUsesBooleanOption = (rootSchema: object, field: FieldSpec): bo
   fieldAcceptsBoolean(rootSchema, field) &&
   !fieldAcceptsString(rootSchema, field) &&
   !fieldAcceptsNumber(rootSchema, field) &&
-  !fieldAcceptsNull(rootSchema, field) &&
   !fieldAcceptsJson(rootSchema, field)
 
 const firstVariantDescription = (

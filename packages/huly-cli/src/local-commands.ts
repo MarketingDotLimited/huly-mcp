@@ -2,8 +2,8 @@ import * as os from "node:os"
 import * as readline from "node:readline/promises"
 import { Writable } from "node:stream"
 
-import { Args, Command, Options } from "@effect/cli"
 import { Console, Context, Effect, Layer, Option, Redacted, Schema } from "effect"
+import { Argument, Command, Flag } from "effect/unstable/cli"
 
 import { HulySdk } from "../../../src/huly/sdk-deps.js"
 import {
@@ -33,8 +33,8 @@ const JSON_INDENT_SPACES = 2
 const LoginRequestSchema = Schema.Struct({
   url: CliProfileSchema.fields.url,
   workspace: CliProfileSchema.fields.workspace,
-  email: Schema.NonEmptyTrimmedString,
-  password: Schema.Redacted(Schema.NonEmptyString)
+  email: Schema.Trimmed.pipe(Schema.check(Schema.isNonEmpty())),
+  password: Schema.RedactedFromValue(Schema.NonEmptyString)
 })
 type LoginRequest = Schema.Schema.Type<typeof LoginRequestSchema>
 
@@ -45,7 +45,7 @@ export interface LocalCliPorts {
   readonly store: CliProfileStore
 }
 
-export class LocalCliService extends Context.Tag("@huly-cli/LocalCliService")<LocalCliService, LocalCliPorts>() {
+export class LocalCliService extends Context.Service<LocalCliService, LocalCliPorts>()("@huly-cli/LocalCliService") {
   static readonly defaultLayer = Layer.sync(LocalCliService, defaultLocalCliPorts)
 }
 
@@ -149,7 +149,7 @@ const profileForLogin = (
     const existing = profiles.profiles[name]
     const url = yield* valueOrPrompt(existing?.url, ports, "Huly URL")
     const workspace = yield* valueOrPrompt(existing?.workspace, ports, "Huly workspace")
-    const profile = yield* Schema.decodeUnknown(CliProfileSchema)({
+    const profile = yield* Schema.decodeUnknownEffect(CliProfileSchema)({
       url,
       workspace,
       ...(existing?.defaultProject === undefined ? {} : { defaultProject: existing.defaultProject })
@@ -161,8 +161,8 @@ const profileForLogin = (
     return { name, profile }
   })
 
-const optionalText = (name: string) => Options.text(name).pipe(Options.optional)
-const jsonOption = Options.boolean("json").pipe(Options.withDescription("Print JSON output."))
+const optionalText = (name: string) => Flag.string(name).pipe(Flag.optional)
+const jsonOption = Flag.boolean("json").pipe(Flag.withDescription("Print JSON output."))
 const optionValue = <A>(value: Option.Option<A>): A | undefined => Option.getOrUndefined(value)
 
 const hasProfilePatch = (
@@ -178,7 +178,7 @@ const profilePatch = (
   defaultProject: Option.Option<string>,
   clearDefaultProject: boolean
 ): Effect.Effect<CliProfilePatch, CliRuntimeError> =>
-  Schema.decodeUnknown(CliProfilePatchSchema)({
+  Schema.decodeUnknownEffect(CliProfilePatchSchema)({
     ...Option.match(url, { onNone: () => ({}), onSome: (value) => ({ url: value }) }),
     ...Option.match(workspace, { onNone: () => ({}), onSome: (value) => ({ workspace: value }) }),
     ...(clearDefaultProject
@@ -196,7 +196,7 @@ const authLogin = Command.make("login", { profile: optionalText("profile"), json
     const target = yield* profileForLogin(ports, optionValue(profile))
     const email = yield* ports.prompt("Huly email", false)
     const password = yield* ports.prompt("Huly password", true)
-    const request = yield* Schema.decodeUnknown(LoginRequestSchema)({ ...target.profile, email, password }).pipe(
+    const request = yield* Schema.decodeUnknownEffect(LoginRequestSchema)({ ...target.profile, email, password }).pipe(
       Effect.mapError(
         () => new CliRuntimeError({ kind: "input", message: "Email or password is empty.", retryable: false })
       )
@@ -232,9 +232,9 @@ export const authCommand = Command.make("auth").pipe(
 const profileCreate = Command.make(
   "create",
   {
-    name: Args.text({ name: "name" }),
-    url: Options.text("url"),
-    workspace: Options.text("workspace"),
+    name: Argument.string("name"),
+    url: Flag.string("url"),
+    workspace: Flag.string("workspace"),
     defaultProject: optionalText("default-project"),
     json: jsonOption
   },
@@ -242,7 +242,7 @@ const profileCreate = Command.make(
     Effect.gen(function* () {
       const ports = yield* LocalCliService
       const parsedName = yield* profileName(name)
-      const profile = yield* Schema.decodeUnknown(CliProfileSchema)({
+      const profile = yield* Schema.decodeUnknownEffect(CliProfileSchema)({
         url,
         workspace,
         ...(Option.isNone(defaultProject) ? {} : { defaultProject: defaultProject.value })
@@ -271,26 +271,23 @@ const profileList = Command.make("list", { json: jsonOption }, ({ json }) =>
   })
 ).pipe(Command.withDescription("List named profiles without exposing credentials."))
 
-const profileSelect = Command.make(
-  "select",
-  { name: Args.text({ name: "name" }), json: jsonOption },
-  ({ json, name }) =>
-    Effect.gen(function* () {
-      const ports = yield* LocalCliService
-      const parsedName = yield* profileName(name)
-      yield* selectProfile(ports.store, parsedName).pipe(Effect.mapError(storeError))
-      yield* print(`Selected Huly profile '${parsedName}'.`, json)
-    })
+const profileSelect = Command.make("select", { name: Argument.string("name"), json: jsonOption }, ({ json, name }) =>
+  Effect.gen(function* () {
+    const ports = yield* LocalCliService
+    const parsedName = yield* profileName(name)
+    yield* selectProfile(ports.store, parsedName).pipe(Effect.mapError(storeError))
+    yield* print(`Selected Huly profile '${parsedName}'.`, json)
+  })
 ).pipe(Command.withDescription("Select the active profile."))
 
 const profileUpdate = Command.make(
   "update",
   {
-    name: Args.text({ name: "name" }),
+    name: Argument.string("name"),
     url: optionalText("url"),
     workspace: optionalText("workspace"),
     defaultProject: optionalText("default-project"),
-    clearDefaultProject: Options.boolean("clear-default-project"),
+    clearDefaultProject: Flag.boolean("clear-default-project"),
     json: jsonOption
   },
   ({ clearDefaultProject, defaultProject, json, name, url, workspace }) =>

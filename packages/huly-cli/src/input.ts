@@ -4,13 +4,7 @@ import { Effect, Schema } from "effect"
 
 import type { ToolDefinition } from "../../../src/mcp/tools/registry.js"
 import type { CliCommandSpec, CliOptionName } from "./catalog-types.js"
-import {
-  type CliGlobalOptions,
-  type ParsedCliCommandLine,
-  type ParsedCliOption,
-  rawOptionInlineValue,
-  rawOptionPresent
-} from "./cli-options.js"
+import { type CliGlobalOptions, type ParsedCliCommandLine } from "./cli-options.js"
 import {
   collectFieldSpecs,
   fieldAcceptsBoolean,
@@ -19,6 +13,7 @@ import {
   fieldAcceptsNumber,
   fieldAcceptsString,
   fieldNameToOptionName,
+  fieldUsesBooleanOption,
   type FieldSpec
 } from "./schema-fields.js"
 
@@ -28,6 +23,10 @@ export interface CliInvocation {
   readonly globals: CliGlobalOptions
   readonly input: Readonly<Record<string, unknown>>
 }
+
+const LONG_OPTION_PREFIX_LENGTH = 2
+const LONG_OPTION_VALUE_PREFIX_OVERHEAD = 3
+const NEGATED_OPTION_PREFIX_LENGTH = 3
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
@@ -219,61 +218,108 @@ const collectPositionals = (
     return input
   })
 
-const booleanExplicitOptionInput = (
-  option: Extract<ParsedCliOption, { readonly _tag: "BooleanFieldOption" }>,
-  raw: ReadonlyArray<string>,
-  fields: ReadonlyMap<CliOptionName, FieldSpec>
-): Effect.Effect<Record<string, unknown>, CliInputError> =>
-  Effect.gen(function* () {
-    if (!rawOptionPresent(raw, option.optionName)) return {}
-    const field = fields.get(option.optionName)
-    if (field === undefined) return {}
-    const inlineValue = rawOptionInlineValue(raw, option.optionName)
-    const value = inlineValue === undefined ? option.value : yield* parseBooleanValue(option.fieldName, inlineValue)
-    return { [option.fieldName]: value }
-  })
-
-const fieldExplicitOptionInput = (
-  option: Extract<ParsedCliOption, { readonly _tag: "FieldOption" }>,
-  rootSchema: object,
-  fields: ReadonlyMap<CliOptionName, FieldSpec>
-): Effect.Effect<Record<string, unknown>, CliInputError> => {
-  const field = fields.get(option.optionName)
-  return field === undefined
-    ? Effect.succeed({})
-    : parseFieldValue(rootSchema, field, option.value).pipe(Effect.map((value) => ({ [option.fieldName]: value })))
+interface ExplicitOptionOccurrence {
+  readonly field: FieldSpec
+  readonly kind: "base64-file" | "boolean" | "file" | "text"
+  readonly value: boolean | string
 }
 
-const explicitOptionInput = (
-  option: ParsedCliOption,
+const explicitOptionOccurrence = (
+  token: string,
+  next: string | undefined,
+  fields: ReadonlyMap<CliOptionName, FieldSpec>,
+  fileFields: ReadonlySet<string>,
+  base64Fields: ReadonlySet<string>,
+  rootSchema: object
+): ExplicitOptionOccurrence | undefined => {
+  if (!token.startsWith("--")) return undefined
+  const equalsIndex = token.indexOf("=")
+  const rawName = token.slice(LONG_OPTION_PREFIX_LENGTH, equalsIndex < 0 ? undefined : equalsIndex)
+  const negated = rawName.startsWith("no-")
+  const optionName = negated ? rawName.slice(NEGATED_OPTION_PREFIX_LENGTH) : rawName
+  const inlineValue = equalsIndex < 0 ? undefined : token.slice(equalsIndex + 1)
+  const directField = fields.get(optionName)
+  if (directField !== undefined) {
+    if (fieldUsesBooleanOption(rootSchema, directField)) {
+      return {
+        field: directField,
+        kind: "boolean",
+        value: negated ? false : (inlineValue ?? (next !== undefined && isBooleanLiteral(next) ? next : true))
+      }
+    }
+    if (negated) return undefined
+    return inlineValue === undefined && next === undefined
+      ? undefined
+      : { field: directField, kind: "text", value: inlineValue ?? next ?? "" }
+  }
+  if (negated) return undefined
+  const base64Suffix = "-base64-file"
+  const fileSuffix = "-file"
+  const suffix = optionName.endsWith(base64Suffix)
+    ? base64Suffix
+    : optionName.endsWith(fileSuffix)
+      ? fileSuffix
+      : undefined
+  if (suffix === undefined) return undefined
+  const baseName = optionName.slice(0, -suffix.length)
+  const field = fields.get(baseName)
+  const allowed = suffix === base64Suffix ? base64Fields : fileFields
+  if (field === undefined || !allowed.has(field.fieldName)) return undefined
+  const kind = suffix === base64Suffix ? "base64-file" : "file"
+  return inlineValue === undefined && next === undefined ? undefined : { field, kind, value: inlineValue ?? next ?? "" }
+}
+
+const collectExplicitOptionOccurrences = (
   raw: ReadonlyArray<string>,
   rootSchema: object,
-  fields: ReadonlyMap<CliOptionName, FieldSpec>
+  fields: ReadonlyMap<CliOptionName, FieldSpec>,
+  spec: CliCommandSpec
+): ReadonlyArray<ExplicitOptionOccurrence> => {
+  const occurrences: Array<ExplicitOptionOccurrence> = []
+  const fileFields = new Set(spec.behavior?.fileInput?.fields ?? [])
+  const base64Fields = new Set(spec.behavior?.base64FileInput?.fields ?? [])
+  for (let index = 0; index < raw.length; index += 1) {
+    const token = raw[index]
+    if (token === undefined) continue
+    const occurrence = explicitOptionOccurrence(token, raw[index + 1], fields, fileFields, base64Fields, rootSchema)
+    if (occurrence === undefined) continue
+    occurrences.push(occurrence)
+    if (!token.includes("=") && typeof occurrence.value === "string") index += 1
+  }
+  return occurrences
+}
+
+const explicitOccurrenceInput = (
+  occurrence: ExplicitOptionOccurrence,
+  rootSchema: object
 ): Effect.Effect<Record<string, unknown>, CliInputError> => {
-  switch (option._tag) {
-    case "BooleanFieldOption":
-      return booleanExplicitOptionInput(option, raw, fields)
-    case "FieldOption":
-      return fieldExplicitOptionInput(option, rootSchema, fields)
-    case "FileFieldOption":
-      return readTextFile(option.path).pipe(Effect.map((value) => ({ [option.fieldName]: value })))
-    case "Base64FileFieldOption":
-      return readBase64File(option.path).pipe(Effect.map((value) => ({ [option.fieldName]: value })))
-    case "GlobalBooleanOption":
-    case "GlobalOption":
-      return Effect.succeed({})
+  const fieldName = occurrence.field.fieldName
+  switch (occurrence.kind) {
+    case "base64-file":
+      return readBase64File(String(occurrence.value)).pipe(Effect.map((value) => ({ [fieldName]: value })))
+    case "boolean":
+      return typeof occurrence.value === "boolean"
+        ? Effect.succeed({ [fieldName]: occurrence.value })
+        : parseBooleanValue(fieldName, occurrence.value).pipe(Effect.map((value) => ({ [fieldName]: value })))
+    case "file":
+      return readTextFile(String(occurrence.value)).pipe(Effect.map((value) => ({ [fieldName]: value })))
+    case "text":
+      return parseFieldValue(rootSchema, occurrence.field, String(occurrence.value)).pipe(
+        Effect.map((value) => ({ [fieldName]: value }))
+      )
   }
 }
 
 const collectExplicitOptions = (
   parsed: ParsedCliCommandLine,
   rootSchema: object,
-  fields: ReadonlyMap<CliOptionName, FieldSpec>
+  fields: ReadonlyMap<CliOptionName, FieldSpec>,
+  spec: CliCommandSpec
 ): Effect.Effect<Record<string, unknown>, CliInputError> =>
   Effect.gen(function* () {
     const input: Record<string, unknown> = {}
-    for (const option of parsed.options) {
-      Object.assign(input, yield* explicitOptionInput(option, parsed.raw, rootSchema, fields))
+    for (const occurrence of collectExplicitOptionOccurrences(parsed.raw, rootSchema, fields, spec)) {
+      Object.assign(input, yield* explicitOccurrenceInput(occurrence, rootSchema))
     }
     return input
   })
@@ -295,18 +341,25 @@ const rawGlobalBooleanValue = (
   return parseBooleanValue(name, last.slice(last.indexOf("=") + 1))
 }
 
-const collectGlobalOptions = (
-  options: ReadonlyArray<ParsedCliOption>,
-  raw: ReadonlyArray<string>
-): Effect.Effect<CliGlobalOptions, CliInputError> =>
+const lastTextOptionValue = (raw: ReadonlyArray<string>, name: string): string | undefined => {
+  let value: string | undefined
+  for (let index = 0; index < raw.length; index += 1) {
+    const token = raw[index]
+    if (token === `--${name}`) {
+      value = raw[index + 1]
+      index += 1
+    } else if (token?.startsWith(`--${name}=`)) {
+      value = token.slice(name.length + LONG_OPTION_VALUE_PREFIX_OVERHEAD)
+    }
+  }
+  return value
+}
+
+const collectGlobalOptions = (raw: ReadonlyArray<string>): Effect.Effect<CliGlobalOptions, CliInputError> =>
   Effect.gen(function* () {
     const json = yield* rawGlobalBooleanValue(raw, "json")
     const yes = yield* rawGlobalBooleanValue(raw, "yes")
-    let output: string | undefined
-
-    for (const option of options) {
-      if (option._tag === "GlobalOption" && option.name === "output") output = option.value
-    }
+    const output = lastTextOptionValue(raw, "output")
 
     return output === undefined ? { json, yes } : { json, output, yes }
   })
@@ -319,9 +372,9 @@ export const buildCliInvocation = (
   Effect.gen(function* () {
     const fields = collectFieldSpecs(tool.inputSchema)
     const sourceInput = yield* collectSourceInput(parsed.raw)
-    const explicitInput = yield* collectExplicitOptions(parsed, tool.inputSchema, fields)
+    const explicitInput = yield* collectExplicitOptions(parsed, tool.inputSchema, fields, spec)
     const positionalInput = yield* collectPositionals(spec, parsed.positionals, tool.inputSchema, fields)
-    const globals = yield* collectGlobalOptions(parsed.options, parsed.raw)
+    const globals = yield* collectGlobalOptions(parsed.raw)
 
     return { globals, input: { ...sourceInput, ...positionalInput, ...explicitInput } }
   })

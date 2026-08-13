@@ -1,10 +1,8 @@
-import { CliConfig, Command, CommandDescriptor, HelpDoc, Usage } from "@effect/cli"
-import { stripVTControlCharacters } from "node:util"
-import { HashMap, Option } from "effect"
+import { Option } from "effect"
 
-import { buildCommandDescriptorAtPath } from "./command-tree.js"
+import { operationRegistry, resolveAnnotations } from "../../../src/mcp/tools/index.js"
 import type { CliCommandSpec } from "./catalog-types.js"
-import { cliCommandCatalog } from "./catalog.js"
+import { cliCommandCatalog, type CliToolName, isCliToolName } from "./catalog.js"
 import { CliCommandSegment, type CliCommandPath } from "./command-schema.js"
 import {
   CliCommandCount,
@@ -19,6 +17,8 @@ import {
   type CliPackageVersion
 } from "./help-schema.js"
 import { authCommand, profileCommand } from "./local-commands.js"
+import { cliFieldOptionHelpRows, cliGlobalOptionHelpRows } from "./cli-options.js"
+import { hasExplicitCliConfirmationPolicy } from "./safety-policies.js"
 
 interface HelpRow {
   readonly command: CliHelpCommandLabel
@@ -82,11 +82,18 @@ const progressiveRootRows = (): ReadonlyArray<HelpRow> => {
     command: CliHelpCommandLabel.make(`huly ${group}`),
     description: CliHelpDescription.make(`${count} ${count === 1 ? "command" : "commands"}`)
   }))
-  const localCommandRow = <Name extends string, R, E, A>(command: Command.Command<Name, R, E, A>): HelpRow => {
-    const [name] = [...Command.getNames(command)]
-    const count = HashMap.size(Command.getSubcommands(command))
+  const localCommandRow = (command: {
+    readonly name: string
+    readonly subcommands: ReadonlyArray<unknown>
+  }): HelpRow => {
+    const count = command.subcommands.reduce<number>((total, group) => {
+      if (typeof group !== "object" || group === null || !("commands" in group) || !Array.isArray(group.commands)) {
+        return total
+      }
+      return total + group.commands.length
+    }, 0)
     return {
-      command: CliHelpCommandLabel.make(`huly ${name ?? "unknown"}`),
+      command: CliHelpCommandLabel.make(`huly ${command.name}`),
       description: CliHelpDescription.make(`${count} ${count === 1 ? "command" : "commands"}`)
     }
   }
@@ -97,6 +104,9 @@ const progressiveRootRows = (): ReadonlyArray<HelpRow> => {
 const renderProgressiveRootHelp = (version: CliPackageVersion, width: CliHelpWidth): RenderedCliHelp => {
   const rows = progressiveRootRows()
   const commands = renderRows(rows, width)
+  const globalOptions = cliGlobalOptionHelpRows({ includeOutput: true, includeYes: true }).map(
+    (row) => `  ${row.syntax}  ${row.description}`
+  )
   return wrapHelp(
     CliHelpFragment.make(
       [
@@ -106,11 +116,7 @@ const renderProgressiveRootHelp = (version: CliPackageVersion, width: CliHelpWid
         "  huly [global options] <command> [options]",
         "",
         "Global options:",
-        "  --json                       Print the operation result as JSON",
-        "  --input-json <object>        Merge a JSON object into command input",
-        "  --input-file <path>          Merge a JSON file into command input",
-        "  --output <path>              Write supported binary output to a file",
-        "  --yes                        Confirm consequential commands",
+        ...globalOptions,
         "  --completions <shell>        Generate sh, bash, fish, or zsh completion",
         "",
         "Commands:",
@@ -176,17 +182,42 @@ const renderGroupHelp = (
   )
 }
 
-const plainHelpDoc = (document: HelpDoc.HelpDoc): CliHelpFragment =>
-  CliHelpFragment.make(stripVTControlCharacters(HelpDoc.toAnsiText(document)).trim())
+interface CatalogEntry {
+  readonly spec: CliCommandSpec
+  readonly toolName: CliToolName
+}
 
-const usageLines = (
-  command: CommandDescriptor.Command<unknown>,
-  path: CliCommandPath
-): ReadonlyArray<CliHelpFragment> =>
-  Usage.enumerate(CommandDescriptor.getUsage(command), CliConfig.defaultConfig).map((span) => {
-    const usage = plainHelpDoc(HelpDoc.p(span))
-    return CliHelpFragment.make(`  huly ${[...path.slice(0, LAST_ITEM_OFFSET), usage].join(" ")}`)
-  })
+const catalogEntryAtPath = (path: CliCommandPath): Option.Option<CatalogEntry> => {
+  for (const [toolName, spec] of Object.entries(cliCommandCatalog)) {
+    if (isCliToolName(toolName) && spec.path.length === path.length && startsWithPath(spec.path, path)) {
+      return Option.some({ spec, toolName })
+    }
+  }
+  return Option.none()
+}
+
+const leafUsage = (entry: CatalogEntry): CliHelpFragment =>
+  CliHelpFragment.make(
+    `  huly ${entry.spec.path.join(" ")}${entry.spec.positional.map((field) => ` <${field}>`).join("")} [options]`
+  )
+
+const leafDetails = (entry: CatalogEntry): CliHelpFragment => {
+  const operation = operationRegistry.getOperation(entry.toolName)
+  const optionRows = [
+    ...cliFieldOptionHelpRows(operation, entry.spec),
+    ...cliGlobalOptionHelpRows({
+      includeOutput: entry.spec.behavior?.fileOutput !== undefined,
+      includeYes:
+        hasExplicitCliConfirmationPolicy(entry.toolName, entry.spec) ||
+        resolveAnnotations(operation).destructiveHint === true
+    })
+  ]
+  return CliHelpFragment.make(
+    [entry.spec.description, "", "Options:", ...optionRows.map((row) => `  ${row.syntax}  ${row.description}`)].join(
+      "\n"
+    )
+  )
+}
 
 const wrapLine = (line: CliHelpLine, width: CliHelpWidth): ReadonlyArray<CliHelpLine> => {
   if (line.length <= width) return [line]
@@ -211,16 +242,9 @@ const renderLeafHelp = (
   version: CliPackageVersion,
   width: CliHelpWidth
 ): Option.Option<RenderedCliHelp> => {
-  return Option.map(buildCommandDescriptorAtPath(path), (command) => {
+  return Option.map(catalogEntryAtPath(path), (entry) => {
     const help = CliHelpFragment.make(
-      [
-        `Huly CLI ${version}`,
-        "",
-        "Usage:",
-        ...usageLines(command, path),
-        "",
-        plainHelpDoc(CommandDescriptor.getHelp(command, CliConfig.defaultConfig))
-      ].join("\n")
+      [`Huly CLI ${version}`, "", "Usage:", leafUsage(entry), "", leafDetails(entry)].join("\n")
     )
     return wrapHelp(help, width)
   })

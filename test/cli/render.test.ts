@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect"
+import { Console, Effect, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { cliCommandCatalog } from "../../packages/huly-cli/src/catalog.js"
@@ -163,18 +163,22 @@ describe("CLI rendering", () => {
 
   it("logs rendered output through the Effect console service", async () => {
     const logs: Array<unknown> = []
-    const consoleService = await Effect.runPromise(Effect.console)
+    const consoleService = await Effect.runPromise(
+      Effect.gen(function* () {
+        return yield* Console.Console
+      })
+    )
 
     await Effect.runPromise(
       renderOperationSuccess({ result: "ok", warnings: [] }, globals).pipe(
-        Effect.withConsole({
-          ...consoleService,
-          log: (value) =>
-            Effect.sync(() => {
+        Effect.provideService(
+          Console.Console,
+          Object.assign(Object.create(consoleService), {
+            log: (value: unknown) => {
               logs.push(value)
-            }),
-          unsafe: { ...consoleService.unsafe }
-        })
+            }
+          })
+        )
       )
     )
 

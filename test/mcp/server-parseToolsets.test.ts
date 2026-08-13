@@ -1,5 +1,5 @@
 import { describe, it } from "@effect/vitest"
-import { Context, Effect, Layer } from "effect"
+import { ConfigProvider, Context, Effect, Exit, Layer } from "effect"
 import { expect } from "vitest"
 import { HulyClient } from "../../src/huly/client.js"
 import { HulyStorageClient } from "../../src/huly/storage.js"
@@ -13,8 +13,8 @@ import { mockFn } from "../helpers/mock-fn.js"
 
 const resolveClientsFromLayer = (
   clientLayer: Layer.Layer<HulyClient | HulyStorageClient | WorkspaceClient>
-): (() => Promise<ClientBundle>) => {
-  let promise: Promise<ClientBundle> | null = null
+): (() => Promise<Exit.Exit<ClientBundle>>) => {
+  let promise: Promise<Exit.Exit<ClientBundle>> | null = null
   return () => {
     if (promise === null) {
       promise = Effect.runPromise(
@@ -26,20 +26,14 @@ const resolveClientsFromLayer = (
             workspaceClient: Context.get(ctx, WorkspaceClient)
           }
         })
-      )
+      ).then((bundle) => Exit.succeed(bundle))
     }
     return promise
   }
 }
 
 const buildTestServerLayer = (
-  config: {
-    transport: "stdio" | "http"
-    httpPort?: number
-    httpHost?: string
-    autoExit?: boolean
-    authMethod?: "token" | "password"
-  },
+  config: { transport: "stdio" | "http"; httpPort?: number; httpHost?: string; authMethod?: "token" | "password" },
   layers: Layer.Layer<HulyClient | HulyStorageClient | WorkspaceClient | TelemetryService>,
   writeError?: (message: string) => void
 ) =>
@@ -48,6 +42,9 @@ const buildTestServerLayer = (
     ...(writeError !== undefined && { writeError }),
     resolveClients: resolveClientsFromLayer(layers)
   }).pipe(Layer.provide(layers))
+
+const buildWithConfig = <A, E>(layer: Layer.Layer<A, E>, values: Record<string, string>) =>
+  Layer.build(layer).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(values))))
 
 describe("McpServerError", () => {
   it.effect("has correct _tag", () =>
@@ -132,30 +129,21 @@ describe("McpServerService.layer with TOOLSETS env", () => {
     TelemetryService.testLayer()
   )
 
-  it.scoped("builds successfully with no TOOLSETS env", () =>
+  it.effect("builds successfully with no TOOLSETS env", () =>
     Effect.gen(function* () {
-      delete process.env.TOOLSETS
-      delete process.env.TOOLS
-      delete process.env.HULY_TOOL_MODE
-      delete process.env.PROXY_OUTPUT_STRICT
       const serverLayer = buildTestServerLayer({ transport: "stdio" }, baseLayers)
-      yield* Layer.build(serverLayer)
+      yield* buildWithConfig(serverLayer, {})
     })
   )
 
-  it.scoped("builds successfully with valid TOOLSETS", () =>
+  it.effect("builds successfully with valid TOOLSETS", () =>
     Effect.gen(function* () {
-      process.env.TOOLSETS = "issues"
-      delete process.env.TOOLS
-      delete process.env.HULY_TOOL_MODE
-      delete process.env.PROXY_OUTPUT_STRICT
       const serverLayer = buildTestServerLayer({ transport: "stdio" }, baseLayers)
-      yield* Layer.build(serverLayer)
-      delete process.env.TOOLSETS
+      yield* buildWithConfig(serverLayer, { TOOLSETS: "issues" })
     })
   )
 
-  it.scoped("builds scoped registry from TOOLSETS and TOOLS", () => {
+  it.effect("builds scoped registry from TOOLSETS and TOOLS", () => {
     let capturedToolCount = 0
     let capturedToolsets: ReadonlyArray<string> | null = null
     const expectedRegistry = createScopedRegistry({
@@ -164,10 +152,6 @@ describe("McpServerService.layer with TOOLSETS env", () => {
       toolNames: new Set([makeToolName("list_documents")])
     })
     return Effect.gen(function* () {
-      process.env.TOOLSETS = "issues"
-      process.env.TOOLS = "list_documents"
-      delete process.env.HULY_TOOL_MODE
-      delete process.env.PROXY_OUTPUT_STRICT
       const telemetryLayer = TelemetryService.testLayer({
         sessionStart: (props) => {
           capturedToolCount = props.toolCount
@@ -182,64 +166,35 @@ describe("McpServerService.layer with TOOLSETS env", () => {
       )
 
       const serverLayer = buildTestServerLayer({ transport: "stdio" }, layers)
-      yield* Layer.build(serverLayer)
+      yield* buildWithConfig(serverLayer, { TOOLSETS: "issues", TOOLS: "list_documents" })
 
       expect(capturedToolsets).toEqual(["issues"])
       expect(capturedToolCount).toBe(expectedRegistry.definitions.length)
       expect(expectedRegistry.tools.get(makeToolName("list_documents"))).toBe(
         toolRegistry.tools.get(makeToolName("list_documents"))
       )
-      delete process.env.TOOLSETS
-      delete process.env.TOOLS
     })
   })
 
-  it.scoped("ignores unknown toolset categories and still builds", () => {
+  it.effect("ignores unknown toolset categories and still builds", () => {
     const writeError = mockFn()
     return Effect.gen(function* () {
-      process.env.TOOLSETS = "nonexistent_category"
-      delete process.env.TOOLS
-      delete process.env.HULY_TOOL_MODE
-      delete process.env.PROXY_OUTPUT_STRICT
       const serverLayer = buildTestServerLayer({ transport: "stdio" }, baseLayers, writeError)
-      yield* Layer.build(serverLayer)
+      yield* buildWithConfig(serverLayer, { TOOLSETS: "nonexistent_category" })
       expect(writeError.mock.calls).toContainEqual([expect.stringContaining("unknown toolset category")])
-      delete process.env.TOOLSETS
     })
   })
 
-  it.scoped("uses the default error writer for unknown toolset categories", () => {
-    const originalToolsets = process.env.TOOLSETS
-    const originalTools = process.env.TOOLS
-    return Effect.gen(function* () {
-      process.env.TOOLSETS = "nonexistent_category_default_writer"
-      delete process.env.TOOLS
-      delete process.env.HULY_TOOL_MODE
-      delete process.env.PROXY_OUTPUT_STRICT
+  it.effect("uses the default error writer for unknown toolset categories", () =>
+    Effect.gen(function* () {
       const serverLayer = buildTestServerLayer({ transport: "stdio" }, baseLayers)
-
-      yield* Layer.build(serverLayer)
-
-      if (originalToolsets === undefined) {
-        delete process.env.TOOLSETS
-      } else {
-        process.env.TOOLSETS = originalToolsets
-      }
-      if (originalTools === undefined) {
-        delete process.env.TOOLS
-      } else {
-        process.env.TOOLS = originalTools
-      }
+      yield* buildWithConfig(serverLayer, { TOOLSETS: "nonexistent_category_default_writer" })
     })
-  })
+  )
 
-  it.scoped("sessionStart is called with correct transport and authMethod", () => {
+  it.effect("sessionStart is called with correct transport and authMethod", () => {
     let capturedProps: unknown = null
     return Effect.gen(function* () {
-      delete process.env.TOOLSETS
-      delete process.env.TOOLS
-      delete process.env.HULY_TOOL_MODE
-      delete process.env.PROXY_OUTPUT_STRICT
       const telemetryLayer = TelemetryService.testLayer({
         sessionStart: (props) => {
           capturedProps = props
@@ -252,38 +207,26 @@ describe("McpServerService.layer with TOOLSETS env", () => {
         telemetryLayer
       )
       const serverLayer = buildTestServerLayer({ transport: "stdio", authMethod: "token" }, layers)
-      yield* Layer.build(serverLayer)
+      yield* buildWithConfig(serverLayer, {})
       expect(capturedProps).toMatchObject({ transport: "stdio", authMethod: "token" })
     })
   })
 
-  it.scoped("fails startup when HULY_TOOL_MODE is invalid", () =>
+  it.effect("fails startup when HULY_TOOL_MODE is invalid", () =>
     Effect.gen(function* () {
-      delete process.env.TOOLSETS
-      delete process.env.TOOLS
-      process.env.HULY_TOOL_MODE = "dynamic"
-      delete process.env.PROXY_OUTPUT_STRICT
-
       const serverLayer = buildTestServerLayer({ transport: "stdio" }, baseLayers)
-      const exit = yield* Effect.exit(Layer.build(serverLayer))
+      const exit = yield* Effect.exit(buildWithConfig(serverLayer, { HULY_TOOL_MODE: "dynamic" }))
 
       expect(exit._tag).toBe("Failure")
-      delete process.env.HULY_TOOL_MODE
     })
   )
 
-  it.scoped("fails startup when PROXY_OUTPUT_STRICT is invalid", () =>
+  it.effect("fails startup when PROXY_OUTPUT_STRICT is invalid", () =>
     Effect.gen(function* () {
-      delete process.env.TOOLSETS
-      delete process.env.TOOLS
-      delete process.env.HULY_TOOL_MODE
-      process.env.PROXY_OUTPUT_STRICT = "yes"
-
       const serverLayer = buildTestServerLayer({ transport: "stdio" }, baseLayers)
-      const exit = yield* Effect.exit(Layer.build(serverLayer))
+      const exit = yield* Effect.exit(buildWithConfig(serverLayer, { PROXY_OUTPUT_STRICT: "yes" }))
 
       expect(exit._tag).toBe("Failure")
-      delete process.env.PROXY_OUTPUT_STRICT
     })
   )
 })

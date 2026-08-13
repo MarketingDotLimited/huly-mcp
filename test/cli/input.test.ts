@@ -2,13 +2,13 @@ import * as fs from "node:fs/promises"
 import * as os from "node:os"
 import * as path from "node:path"
 
-import { NodeContext } from "@effect/platform-node"
+import { NodeServices } from "@effect/platform-node"
 import { Effect } from "effect"
 import { describe, expect, it } from "vitest"
 
 import type { CliCommandSpec } from "../../packages/huly-cli/src/catalog-types.js"
 import { cliCommandCatalog, type CliToolName } from "../../packages/huly-cli/src/catalog.js"
-import { parseCliCommandLine } from "../../packages/huly-cli/src/cli-options.js"
+import { CliOptionParseError, parseCliCommandLine } from "../../packages/huly-cli/src/cli-options.js"
 import { buildCliInvocation, CliInputError } from "../../packages/huly-cli/src/input.js"
 import { type McpToolName, toolRegistry } from "../../src/mcp/tools/index.js"
 
@@ -20,8 +20,8 @@ const getTool = (name: McpToolName) => {
   return tool
 }
 
-const runCliEffect = <A, E>(effect: Effect.Effect<A, E, NodeContext.NodeContext>): Promise<A> =>
-  Effect.runPromise(effect.pipe(Effect.provide(NodeContext.layer)))
+const runCliEffect = <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices>): Promise<A> =>
+  Effect.runPromise(effect.pipe(Effect.provide(NodeServices.layer)))
 
 const invoke = (name: CliToolName, raw: ReadonlyArray<string>) =>
   runCliEffect(
@@ -149,6 +149,40 @@ describe("CLI input merging", () => {
 
       expect(jsonLast.input).toEqual({ query: "from json", limit: 2 })
       expect(fileLast.input).toEqual({ query: "from file", limit: 1 })
+    } finally {
+      await fs.rm(dir, { force: true, recursive: true })
+    }
+  })
+
+  it("gives repeated explicit, boolean, file, and output flags last-occurrence precedence", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "huly-cli-occurrence-order-"))
+    const firstDescription = path.join(dir, "first.md")
+    const lastDescription = path.join(dir, "last.md")
+    await fs.writeFile(firstDescription, "first", "utf8")
+    await fs.writeFile(lastDescription, "last", "utf8")
+
+    try {
+      const scalar = await invoke("list_issues", ["--project=FIRST", "--project=LAST"])
+      const boolean = await invoke("list_issues", ["--has-assignee=true", "--has-assignee=false"])
+      const file = await invoke("update_issue", [
+        "HULY",
+        "HULY-1",
+        "--description-file",
+        firstDescription,
+        "--description",
+        "inline",
+        `--description-file=${lastDescription}`
+      ])
+      const output = await invoke("read_attachment_content", [
+        "attachment-1",
+        "--output=first.bin",
+        "--output=last.bin"
+      ])
+
+      expect(scalar.input).toEqual({ project: "LAST" })
+      expect(boolean.input).toEqual({ hasAssignee: false })
+      expect(file.input).toEqual({ project: "HULY", identifier: "HULY-1", description: "last" })
+      expect(output.globals.output).toBe("last.bin")
     } finally {
       await fs.rm(dir, { force: true, recursive: true })
     }
@@ -304,6 +338,7 @@ describe("CLI input merging", () => {
   it("rejects unknown options before tool execution", async () => {
     const error = await rejected(invoke("list_issues", ["--not-real"]))
 
+    expect(error).toBeInstanceOf(CliOptionParseError)
     expect(errorMessage(error)).toContain("not-real")
   })
 

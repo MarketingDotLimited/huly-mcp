@@ -1,9 +1,9 @@
 import * as fs from "node:fs/promises"
 import * as path from "node:path"
 
-import { Command } from "@effect/cli"
-import { NodeContext } from "@effect/platform-node"
-import { Effect, Layer, Redacted, Schema } from "effect"
+import { NodeServices } from "@effect/platform-node"
+import { Console, Effect, Layer, Redacted, Schema } from "effect"
+import { Command } from "effect/unstable/cli"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { buildRootCommand } from "../../packages/huly-cli/src/command-tree.js"
@@ -34,20 +34,24 @@ const makePorts = async (): Promise<LocalCliPorts> => {
 
 const run = async (ports: LocalCliPorts, argv: ReadonlyArray<string>): Promise<ReadonlyArray<string>> => {
   const output: Array<string> = []
-  const consoleService = await Effect.runPromise(Effect.console)
+  const consoleService = await Effect.runPromise(
+    Effect.gen(function* () {
+      return yield* Console.Console
+    })
+  )
   await Effect.runPromise(
-    Command.run(buildRootCommand(argv), { name: "Huly CLI", version: "test" })(["node", "huly", ...argv]).pipe(
+    Command.runWith(buildRootCommand(argv), { version: "test", renderErrors: false })(argv).pipe(
       Effect.provide(
-        Layer.mergeAll(NodeContext.layer, TelemetryService.testLayer(), Layer.succeed(LocalCliService, ports))
+        Layer.mergeAll(NodeServices.layer, TelemetryService.testLayer(), Layer.succeed(LocalCliService, ports))
       ),
-      Effect.withConsole({
-        ...consoleService,
-        log: (value) =>
-          Effect.sync(() => {
+      Effect.provideService(
+        Console.Console,
+        Object.assign(Object.create(consoleService), {
+          log: (value: unknown) => {
             output.push(String(value))
-          }),
-        unsafe: { ...consoleService.unsafe }
-      })
+          }
+        })
+      )
     )
   )
   return output
@@ -244,7 +248,7 @@ describe("Effect CLI local commands", () => {
 
   it("rejects contradictory authentication status payloads", async () => {
     const exit = await Effect.runPromiseExit(
-      Schema.decodeUnknown(CliAuthStatusSchema)({
+      Schema.decodeUnknownEffect(CliAuthStatusSchema)({
         authenticated: false,
         authMethod: "token",
         sources: { url: "missing", workspace: "missing", authentication: "missing" }

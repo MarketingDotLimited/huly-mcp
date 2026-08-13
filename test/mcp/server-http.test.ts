@@ -1,6 +1,6 @@
 import type http from "node:http"
 
-import { Context, Effect, Fiber, Layer } from "effect"
+import { Context, Effect, Exit, Fiber, Layer } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { sanitizeHulyRuntimeConfigFromEnv, sanitizeHulyRuntimeConfigFromHeaders } from "../../src/config/config.js"
@@ -67,89 +67,113 @@ const runningFactory = (
 ): HttpServerFactory => makeTestHttpServerFactory(listening.resolve, (message) => writes.push(message))
 
 describe("McpServerService released HTTP integration", () => {
-  it("uses request runtime config and releases a request-scoped client lease", async () => {
+  it("isolates concurrent request config, server products, and client leases", async () => {
     const listening = deferred<http.Server>()
     const writes: Array<string> = []
-    const seenWorkspaces: Array<string | undefined> = []
-    let releases = 0
-    const bundle = await clientBundle()
+    const seenRuntimeConfig: Array<{
+      readonly origin: string | undefined
+      readonly workspace: string | undefined
+      readonly tokenConfigured: boolean
+    }> = []
+    const seenLeases: Array<{
+      readonly token: string | null
+      readonly workspace: string | null
+      readonly bundle: ClientBundle
+    }> = []
+    const bothLeasesRequested = deferred<void>()
+    const releaseLeases = deferred<void>()
+    const alphaBundle = await clientBundle()
+    const betaBundle = await clientBundle()
+    const leaseCloseCounts = new Map<string, number>()
     const layer = McpServerService.layer({
       transport: "http",
       httpPort: 0,
       httpHost: "127.0.0.1",
-      resolveClients: async () => bundle,
+      resolveClients: async () => Exit.succeed(alphaBundle),
       resolveClientLeaseForHttpRequest: async (request) => {
-        seenWorkspaces.push(request.headers.get("x-huly-workspace") ?? undefined)
+        const token = request.headers.get("x-huly-token")
+        const workspace = request.headers.get("x-huly-workspace")
+        const bundle = token === "token-alpha" ? alphaBundle : betaBundle
+        seenLeases.push({ token, workspace, bundle })
+        if (seenLeases.length === 2) bothLeasesRequested.resolve()
+        await releaseLeases.promise
         return {
-          bundle,
+          bundle: Exit.succeed(bundle),
           close: () => {
-            releases++
+            if (token !== null) leaseCloseCounts.set(token, (leaseCloseCounts.get(token) ?? 0) + 1)
           }
         }
       },
       getRuntimeConfigContext: () => sanitizeHulyRuntimeConfigFromEnv(runtimeEnv),
-      getRuntimeConfigContextForHttpRequest: (request) =>
-        sanitizeHulyRuntimeConfigFromHeaders(Object.fromEntries(request.headers.entries()), runtimeEnv)
+      getRuntimeConfigContextForHttpRequest: (request) => {
+        const runtimeConfig = sanitizeHulyRuntimeConfigFromHeaders(
+          Object.fromEntries(request.headers.entries()),
+          runtimeEnv
+        )
+        seenRuntimeConfig.push({
+          origin: runtimeConfig.huly.url.origin,
+          workspace: runtimeConfig.huly.workspace.value,
+          tokenConfigured: runtimeConfig.auth.tokenConfigured
+        })
+        return runtimeConfig
+      }
     }).pipe(Layer.provide(TelemetryService.testLayer()))
     const context = await Effect.runPromise(Layer.build(layer).pipe(Effect.scoped))
     const operations = Context.get(context, McpServerService)
     const fiber = Effect.runFork(
       operations.run().pipe(Effect.provideService(HttpServerFactoryService, runningFactory(listening, writes)))
     )
+    await Effect.runPromise(operations.awaitReady())
     const server = await listening.promise
     const address = server.address()
     if (address === null || typeof address === "string") throw new Error("Expected an assigned TCP port")
 
     const endpoint = `http://127.0.0.1:${address.port}/mcp`
-    const unsupportedHeaderResponse = await fetch(endpoint, {
-      ...modernRequest("tools/call", { name: "get_huly_context", arguments: {} }),
-      headers: {
-        ...modernRequest("tools/call", { name: "get_huly_context", arguments: {} }).headers,
-        "x-huly-unsupported": "present"
-      }
-    })
-    await unsupportedHeaderResponse.text()
-    const contextResponse = await fetch(endpoint, {
-      ...modernRequest("tools/call", { name: "get_huly_context", arguments: {} }),
-      headers: {
-        ...modernRequest("tools/call", { name: "get_huly_context", arguments: {} }).headers,
-        "x-huly-url": runtimeEnv.HULY_URL,
-        "x-huly-workspace": "request-workspace",
-        "x-huly-token": runtimeEnv.HULY_TOKEN
-      }
-    })
-    await contextResponse.text()
-    const response = await fetch(endpoint, {
-      ...modernRequest("tools/call", { name: "list_projects", arguments: {} }),
-      headers: {
-        ...modernRequest("tools/call", { name: "list_projects", arguments: {} }).headers,
-        "x-huly-url": runtimeEnv.HULY_URL,
-        "x-huly-workspace": "request-workspace",
-        "x-huly-token": runtimeEnv.HULY_TOKEN
-      }
-    })
-    await response.text()
-    const isolatedResponse = await fetch(endpoint, {
-      ...modernRequest("tools/call", { name: "list_projects", arguments: {} }),
-      headers: {
-        ...modernRequest("tools/call", { name: "list_projects", arguments: {} }).headers,
-        "x-huly-url": runtimeEnv.HULY_URL,
-        "x-huly-workspace": "isolated-workspace",
-        "x-huly-token": runtimeEnv.HULY_TOKEN
-      }
-    })
-    await isolatedResponse.text()
-    await Promise.resolve()
+    const requestForIdentity = (url: string, workspace: string, token: string) =>
+      fetch(endpoint, {
+        ...modernRequest("tools/call", { name: "list_projects", arguments: {} }),
+        headers: {
+          ...modernRequest("tools/call", { name: "list_projects", arguments: {} }).headers,
+          "x-huly-url": url,
+          "x-huly-workspace": workspace,
+          "x-huly-token": token
+        }
+      })
+    const requests = Promise.all([
+      requestForIdentity("https://alpha.huly.example.com", "workspace-alpha", "token-alpha"),
+      requestForIdentity("https://beta.huly.example.com", "workspace-beta", "token-beta")
+    ])
+    await bothLeasesRequested.promise
+    expect(seenLeases.map(({ token }) => token).toSorted()).toEqual(["token-alpha", "token-beta"])
+    expect(seenLeases.find(({ token }) => token === "token-alpha")?.bundle).toBe(alphaBundle)
+    expect(seenLeases.find(({ token }) => token === "token-beta")?.bundle).toBe(betaBundle)
+    releaseLeases.resolve()
+    const [alphaResponse, betaResponse] = await requests
+    await Promise.all([alphaResponse.text(), betaResponse.text()])
 
-    expect(response.status).toBe(200)
-    expect(unsupportedHeaderResponse.status).toBe(200)
-    expect(isolatedResponse.status).toBe(200)
-    expect(seenWorkspaces).toEqual(["request-workspace", "isolated-workspace"])
-    expect(releases).toBe(2)
-
+    expect(alphaResponse.status).toBe(200)
+    expect(betaResponse.status).toBe(200)
+    expect(
+      seenRuntimeConfig.toSorted((left, right) => (left.workspace ?? "").localeCompare(right.workspace ?? ""))
+    ).toEqual([
+      { origin: "https://alpha.huly.example.com", workspace: "workspace-alpha", tokenConfigured: true },
+      { origin: "https://beta.huly.example.com", workspace: "workspace-beta", tokenConfigured: true }
+    ])
+    expect(leaseCloseCounts).toEqual(
+      new Map([
+        ["token-alpha", 1],
+        ["token-beta", 1]
+      ])
+    )
     await Effect.runPromise(operations.stop())
     await Effect.runPromise(Fiber.join(fiber))
     expect(server.listening).toBe(false)
+    expect(leaseCloseCounts).toEqual(
+      new Map([
+        ["token-alpha", 1],
+        ["token-beta", 1]
+      ])
+    )
   })
 
   it("falls back to shared clients and process runtime config when request callbacks are absent", async () => {
@@ -163,7 +187,7 @@ describe("McpServerService released HTTP integration", () => {
       httpHost: "127.0.0.1",
       resolveClients: async () => {
         sharedResolutions++
-        return bundle
+        return Exit.succeed(bundle)
       },
       getRuntimeConfigContext: () => sanitizeHulyRuntimeConfigFromEnv(runtimeEnv)
     }).pipe(Layer.provide(TelemetryService.testLayer()))
@@ -172,6 +196,7 @@ describe("McpServerService released HTTP integration", () => {
     const fiber = Effect.runFork(
       operations.run().pipe(Effect.provideService(HttpServerFactoryService, runningFactory(listening, writes)))
     )
+    await Effect.runPromise(operations.awaitReady())
     const server = await listening.promise
     const address = server.address()
     if (address === null || typeof address === "string") throw new Error("Expected an assigned TCP port")
@@ -185,7 +210,7 @@ describe("McpServerService released HTTP integration", () => {
     expect(response.status).toBe(200)
     expect(sharedResolutions).toBe(1)
 
-    process.emit("SIGINT")
+    await Effect.runPromise(operations.stop())
     await Effect.runPromise(Fiber.join(fiber))
   })
 
@@ -193,7 +218,7 @@ describe("McpServerService released HTTP integration", () => {
     const bundle = await clientBundle()
     const layer = McpServerService.layer({
       transport: "http",
-      resolveClients: async () => bundle,
+      resolveClients: async () => Exit.succeed(bundle),
       getRuntimeConfigContext: () => sanitizeHulyRuntimeConfigFromEnv(runtimeEnv)
     }).pipe(Layer.provide(TelemetryService.testLayer()))
     const context = await Effect.runPromise(Layer.build(layer).pipe(Effect.scoped))

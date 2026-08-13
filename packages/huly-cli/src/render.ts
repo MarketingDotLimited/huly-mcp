@@ -1,5 +1,4 @@
-import type { Effect } from "effect"
-import { Console, Schema } from "effect"
+import { Console, Effect, Schema } from "effect"
 
 import { SupportedAttachmentImageTypeSchema } from "../../../src/domain/schemas/attachments.js"
 import { Count } from "../../../src/domain/schemas/shared.js"
@@ -8,24 +7,30 @@ import type { ToolOperationSuccess } from "../../../src/mcp/tools/registry.js"
 import type { CliHumanRendering } from "./catalog-types.js"
 import type { CliGlobalOptions } from "./cli-options.js"
 
-const DEFAULT_RUNTIME_ERROR_KIND = "integration"
+const RuntimeErrorKind = Schema.Literals([
+  "ambiguity",
+  "authentication",
+  "authorization",
+  "conflict",
+  "input",
+  "integration",
+  "internal",
+  "lookup"
+])
+const DEFAULT_RUNTIME_ERROR_KIND: typeof RuntimeErrorKind.Type = "integration"
+const DefaultedRuntimeErrorKind = RuntimeErrorKind.pipe(
+  Schema.withDecodingDefaultType(Effect.succeed(DEFAULT_RUNTIME_ERROR_KIND)),
+  Schema.withConstructorDefault(Effect.succeed(DEFAULT_RUNTIME_ERROR_KIND))
+)
+const DefaultedRetryable = Schema.Boolean.pipe(
+  Schema.withDecodingDefaultType(Effect.succeed(false)),
+  Schema.withConstructorDefault(Effect.succeed(false))
+)
 
 export class CliRuntimeError extends Schema.TaggedError<CliRuntimeError>()("CliRuntimeError", {
   message: Schema.String,
-  kind: Schema.optionalWith(
-    Schema.Literal(
-      "ambiguity",
-      "authentication",
-      "authorization",
-      "conflict",
-      "input",
-      "integration",
-      "internal",
-      "lookup"
-    ),
-    { default: () => DEFAULT_RUNTIME_ERROR_KIND }
-  ),
-  retryable: Schema.optionalWith(Schema.Boolean, { default: () => false })
+  kind: DefaultedRuntimeErrorKind,
+  retryable: DefaultedRetryable
 }) {}
 
 const MAX_TABLE_COLUMNS = 6
@@ -217,11 +222,11 @@ const CliJsonImageWarningResultSchema = Schema.Struct({
   image: CliImageDescriptorSchema,
   warnings: Schema.NonEmptyArray(ToolWarningSchema)
 })
-export const CliJsonWrappedResultSchema = Schema.Union(
+export const CliJsonWrappedResultSchema = Schema.Union([
   CliJsonImageWarningResultSchema,
   CliJsonImageResultSchema,
   CliJsonWarningResultSchema
-)
+])
 
 const imageDescriptor = (image: NonNullable<ToolOperationSuccess["image"]>) =>
   Schema.encodeSync(CliImageDescriptorSchema)({

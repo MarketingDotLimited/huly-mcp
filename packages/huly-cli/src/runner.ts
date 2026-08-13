@@ -75,7 +75,7 @@ const resolvedConfigProvider = (configuration: ResolvedCliConfiguration): Config
       entries.set("HULY_PASSWORD", Redacted.value(configuration.auth.password))
     }
   }
-  return ConfigProvider.fromMap(entries)
+  return ConfigProvider.fromUnknown(Object.fromEntries(entries))
 }
 
 /* c8 ignore start -- production Huly storage adapter is covered by integration tests; unit tests exercise it through CliRunnerPorts. */
@@ -296,13 +296,11 @@ export const runCliTool = (
       Effect.mapError((error) => new CliRuntimeError({ kind: error.kind, message: error.message, retryable: false }))
     )
     const provider = resolvedConfigProvider(resolved)
-    yield* Effect.withConfigProvider(provider)(
-      runCliToolWithPorts(
-        defaultRunnerPorts,
-        toolName,
-        parsed,
-        resolved.defaultProject,
-        resolved.auth.method === "token" ? "token" : "password"
-      )
-    )
+    yield* runCliToolWithPorts(
+      defaultRunnerPorts,
+      toolName,
+      parsed,
+      resolved.defaultProject,
+      resolved.auth.method === "token" ? "token" : "password"
+    ).pipe(Effect.provide(ConfigProvider.layer(provider)))
   })

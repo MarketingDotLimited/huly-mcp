@@ -13,31 +13,33 @@ import {
 } from "./profile-store.js"
 
 const CliAuthStatusFields = {
-  profile: Schema.optionalWith(ProfileNameSchema, { exact: true }),
-  url: Schema.optionalWith(CliProfileSchema.fields.url, { exact: true }),
-  workspace: Schema.optionalWith(CliProfileSchema.fields.workspace, { exact: true }),
-  defaultProject: Schema.optionalWith(Schema.NonEmptyTrimmedString, { exact: true }),
+  profile: Schema.optionalKey(ProfileNameSchema),
+  url: Schema.optionalKey(CliProfileSchema.fields.url),
+  workspace: Schema.optionalKey(CliProfileSchema.fields.workspace),
+  defaultProject: Schema.optionalKey(Schema.Trimmed.pipe(Schema.check(Schema.isNonEmpty()))),
   sources: Schema.Struct({
-    url: Schema.Literal("environment", "profile", "missing"),
-    workspace: Schema.Literal("environment", "profile", "missing"),
-    authentication: Schema.Literal("environment", "profile", "missing")
+    url: Schema.Literals(["environment", "profile", "missing"]),
+    workspace: Schema.Literals(["environment", "profile", "missing"]),
+    authentication: Schema.Literals(["environment", "profile", "missing"])
   })
 }
 
-export const CliAuthStatusSchema = Schema.Union(
+export const CliAuthStatusSchema = Schema.Union([
   Schema.Struct({ ...CliAuthStatusFields, authenticated: Schema.Literal(false), authMethod: Schema.Literal("none") }),
   Schema.Struct({
     ...CliAuthStatusFields,
     authenticated: Schema.Literal(true),
-    authMethod: Schema.Literal("token", "password")
+    authMethod: Schema.Literals(["token", "password"])
   })
-)
+])
 export type CliAuthStatus = Schema.Schema.Type<typeof CliAuthStatusSchema>
 
 export const CliProfilePatchSchema = Schema.Struct({
-  defaultProject: Schema.optionalWith(Schema.Union(Schema.NonEmptyTrimmedString, Schema.Null), { exact: true }),
-  url: Schema.optionalWith(CliProfileSchema.fields.url, { exact: true }),
-  workspace: Schema.optionalWith(CliProfileSchema.fields.workspace, { exact: true })
+  defaultProject: Schema.optionalKey(
+    Schema.Union([Schema.Trimmed.pipe(Schema.check(Schema.isNonEmpty())), Schema.Null])
+  ),
+  url: Schema.optionalKey(CliProfileSchema.fields.url),
+  workspace: Schema.optionalKey(CliProfileSchema.fields.workspace)
 })
 export type CliProfilePatch = Schema.Schema.Type<typeof CliProfilePatchSchema>
 
@@ -85,7 +87,7 @@ export const updateProfile = (
     const profiles = yield* store.readProfiles()
     const current = profiles.profiles[name]
     if (current === undefined) return yield* missingProfile(name)
-    const updated = yield* Schema.decodeUnknown(CliProfileSchema)(applyProfilePatch(current, patch)).pipe(
+    const updated = yield* Schema.decodeUnknownEffect(CliProfileSchema)(applyProfilePatch(current, patch)).pipe(
       Effect.mapError(
         () => new CliProfileStoreError({ kind: "input", message: `Huly CLI profile '${name}' is invalid.` })
       )

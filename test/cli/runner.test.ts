@@ -1,4 +1,4 @@
-import { NodeContext } from "@effect/platform-node"
+import { NodeServices } from "@effect/platform-node"
 import { Effect, Layer, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 import type { ClientBundle } from "../../src/mcp/server.js"
@@ -74,7 +74,7 @@ const run = (
     }).pipe(
       Effect.provide(
         Layer.mergeAll(
-          NodeContext.layer,
+          NodeServices.layer,
           TelemetryService.testLayer({
             sessionStart: (props) => {
               observation.telemetry.push({ event: "session_start", props })
@@ -261,7 +261,7 @@ describe("CLI runner", () => {
         return { ...operation, execute: (input) => Effect.succeed({ result: input, warnings: [] }) }
       }
     }
-    const parsed = await Effect.runPromise(parse("list_issues", []).pipe(Effect.provide(NodeContext.layer)))
+    const parsed = await Effect.runPromise(parse("list_issues", []).pipe(Effect.provide(NodeServices.layer)))
 
     await Effect.runPromise(
       runCliToolWithPorts(ports, "list_issues", parsed, "HULY", "password").pipe(
@@ -274,7 +274,7 @@ describe("CLI runner", () => {
 
   it("keeps default runner preflight errors before client construction", async () => {
     const parsed = await Effect.runPromise(
-      parse("list_issues", ["--output", "issues.json"]).pipe(Effect.provide(NodeContext.layer))
+      parse("list_issues", ["--output", "issues.json"]).pipe(Effect.provide(NodeServices.layer))
     )
     const error = await rejected(
       Effect.runPromise(

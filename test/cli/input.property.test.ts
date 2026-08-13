@@ -1,4 +1,4 @@
-import { NodeContext } from "@effect/platform-node"
+import { NodeServices } from "@effect/platform-node"
 import { Effect } from "effect"
 import fc from "fast-check"
 import { describe, expect, it } from "vitest"
@@ -21,7 +21,7 @@ describe("CLI input precedence properties", () => {
             Effect.gen(function* () {
               const parsed = yield* parseCliCommandLine(operation, cliCommandCatalog.update_issue, raw)
               return yield* buildCliInvocation(operation, cliCommandCatalog.update_issue, parsed)
-            }).pipe(Effect.provide(NodeContext.layer))
+            }).pipe(Effect.provide(NodeServices.layer))
           )
 
           expect(invocation.input).toMatchObject({ project: "HULY", identifier: "HULY-1", title: explicitTitle })

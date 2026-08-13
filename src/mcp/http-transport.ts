@@ -7,7 +7,6 @@
 import { timingSafeEqual } from "node:crypto"
 import { createServer as createNodeServer } from "node:http"
 
-import { HttpApp, HttpRouter, type HttpServer, type HttpServerError } from "@effect/platform"
 import { NodeHttpServer } from "@effect/platform-node"
 import {
   createMcpHandler,
@@ -17,22 +16,26 @@ import {
   type McpServerFactory,
   originValidationResponse
 } from "@modelcontextprotocol/server"
-import type { Scope } from "effect"
-import { Context, Effect, Layer, Schema } from "effect"
+import type { Duration, Scope } from "effect"
+import { Context, Effect, Layer, Redacted, Schema } from "effect"
+import { HttpEffect, HttpRouter, type HttpServer } from "effect/unstable/http"
 import { DEFAULT_HTTP_HOST_VALUE, DEFAULT_HTTP_PORT_NUMBER } from "./http-defaults.js"
 
 const MIN_HTTP_PORT = 0
 const MAX_HTTP_PORT = 65_535
 const HTTP_UNAUTHORIZED_ERROR_CODE = -32_000
 const HTTP_UNAUTHORIZED = 401
+const DEFAULT_HTTP_SHUTDOWN_GRACE_PERIOD = "5 seconds"
 
-export const HttpPort = Schema.Number.pipe(Schema.int(), Schema.between(MIN_HTTP_PORT, MAX_HTTP_PORT)).annotations({
-  identifier: "HttpPort",
-  description: "TCP port used by the MCP HTTP server."
-})
+export const HttpPort = Schema.Int.check(
+  Schema.isBetween(
+    { minimum: MIN_HTTP_PORT, maximum: MAX_HTTP_PORT },
+    { message: `must be a whole number between ${String(MIN_HTTP_PORT)} and ${String(MAX_HTTP_PORT)}` }
+  )
+).annotate({ identifier: "HttpPort", description: "TCP port used by the MCP HTTP server." })
 export type HttpPort = Schema.Schema.Type<typeof HttpPort>
 
-export const HttpHost = Schema.NonEmptyTrimmedString.annotations({
+export const HttpHost = Schema.Trimmed.check(Schema.isNonEmpty()).annotate({
   identifier: "HttpHost",
   description: "Host interface used by the MCP HTTP server."
 })
@@ -45,7 +48,7 @@ const UnauthorizedJsonRpcResponse = Schema.Struct({
   jsonrpc: Schema.Literal("2.0"),
   error: Schema.Struct({ code: Schema.Literal(HTTP_UNAUTHORIZED_ERROR_CODE), message: Schema.Literal("Unauthorized") }),
   id: Schema.Null
-}).annotations({ identifier: "UnauthorizedJsonRpcResponse" })
+}).annotate({ identifier: "UnauthorizedJsonRpcResponse" })
 
 const UNAUTHORIZED_JSON_RPC_RESPONSE = Schema.encodeSync(UnauthorizedJsonRpcResponse)(
   UnauthorizedJsonRpcResponse.make({
@@ -62,19 +65,21 @@ const writeStderr = (message: string): void => {
 interface HttpTransportConfig {
   readonly port: HttpPort
   readonly host: HttpHost
-  readonly authToken?: string | undefined
+  readonly authToken?: Redacted.Redacted<string> | undefined
+  readonly onReady?: (() => Effect.Effect<void>) | undefined
+  readonly shutdownGracePeriod?: Duration.Input | undefined
 }
 
 export class HttpTransportError extends Schema.TaggedError<HttpTransportError>()("HttpTransportError", {
   message: Schema.String,
-  cause: Schema.optional(Schema.Defect)
+  cause: Schema.optional(Schema.Defect())
 }) {}
 
 export interface HttpServerFactory {
   readonly make: (
     port: HttpPort,
     host: HttpHost
-  ) => Effect.Effect<HttpServer.HttpServer, HttpTransportError, Scope.Scope>
+  ) => Effect.Effect<HttpServer.HttpServer["Service"], HttpTransportError, Scope.Scope>
   readonly writeError?: (message: string) => void
 }
 
@@ -136,7 +141,7 @@ const unauthorizedResponse = (): Response =>
 
 export interface MountedMcpHttpHandler {
   readonly fetch: (request: Request) => Promise<Response>
-  readonly close: () => Promise<void>
+  readonly close: Effect.Effect<void, HttpTransportError>
 }
 
 type McpServerProduct = Awaited<ReturnType<McpServerFactory>>
@@ -178,12 +183,13 @@ const createMcpServerCloseTracker = (createServer: McpServerFactory): McpServerC
 
 export const createMountedMcpHttpHandler = (
   createServer: McpServerFactory,
-  authToken?: string,
+  authToken?: Redacted.Redacted<string>,
   writeError: (message: string) => void = writeStderr,
-  host: HttpHost = DEFAULT_HTTP_HOST
+  host: HttpHost = DEFAULT_HTTP_HOST,
+  shutdownGracePeriod: Duration.Input = DEFAULT_HTTP_SHUTDOWN_GRACE_PERIOD
 ): MountedMcpHttpHandler => {
-  const reportError = (error: Error): void => {
-    writeError(`MCP HTTP handler error: ${error.message}\n`)
+  const reportError = (): void => {
+    writeError("MCP HTTP handler error\n")
   }
   const closeTracker = createMcpServerCloseTracker(createServer)
   const activeRequests = new Set<Promise<Response>>()
@@ -197,7 +203,9 @@ export const createMountedMcpHttpHandler = (
           originValidationResponse(request, localhostAllowedOrigins()))
         : undefined
       if (rejected !== undefined) return rejected
-      if (!isAuthorizedMcpRequest(request, authToken)) return unauthorizedResponse()
+      if (!isAuthorizedMcpRequest(request, authToken === undefined ? undefined : Redacted.value(authToken))) {
+        return unauthorizedResponse()
+      }
 
       const response = mcpHandler.fetch(request)
       activeRequests.add(response)
@@ -207,16 +215,30 @@ export const createMountedMcpHttpHandler = (
         activeRequests.delete(response)
       }
     },
-    close: async () => {
-      await mcpHandler.close()
-      while (activeRequests.size > 0) await Promise.allSettled([...activeRequests])
-      await closeTracker.drain()
-    }
+    close: Effect.tryPromise({
+      try: async () => {
+        await mcpHandler.close()
+        while (activeRequests.size > 0) await Promise.allSettled([...activeRequests])
+        await closeTracker.drain()
+      },
+      catch: (cause) => new HttpTransportError({ message: "MCP HTTP handler shutdown failed", cause })
+    }).pipe(
+      Effect.timeoutOrElse({
+        duration: shutdownGracePeriod,
+        orElse: () => Effect.sync(() => writeError("MCP HTTP handler shutdown timed out\n"))
+      })
+    )
   }
 }
 
-export const createMcpHttpApp = (mounted: MountedMcpHttpHandler): HttpApp.Default<HttpServerError.HttpServerError> =>
-  HttpRouter.empty.pipe(HttpRouter.all("/mcp", HttpApp.fromWebHandler(mounted.fetch)))
+export const createMcpHttpApp = (mounted: MountedMcpHttpHandler) =>
+  HttpRouter.toHttpEffect(HttpRouter.add("*", "/mcp", HttpEffect.fromWebHandler(mounted.fetch)))
+
+const formatHttpAddress = (address: HttpServer.Address): string => {
+  if (address._tag === "UnixAddress") return address.path
+  const hostname = address.hostname.includes(":") ? `[${address.hostname}]` : address.hostname
+  return `http://${hostname}:${String(address.port)}/mcp`
+}
 
 export const startHttpTransport = (
   config: HttpTransportConfig,
@@ -226,28 +248,24 @@ export const startHttpTransport = (
   Effect.gen(function* () {
     const factory = yield* HttpServerFactoryService
     const writeError = configuredWriteError ?? factory.writeError ?? writeStderr
-    const mounted = createMountedMcpHttpHandler(createServer, config.authToken, writeError, config.host)
+    const mounted = createMountedMcpHttpHandler(
+      createServer,
+      config.authToken,
+      writeError,
+      config.host,
+      config.shutdownGracePeriod
+    )
 
-    yield* Effect.addFinalizer(() => Effect.promise(() => mounted.close()))
+    yield* Effect.addFinalizer(() => Effect.ignore(mounted.close))
 
     const server = yield* factory.make(config.port, config.host)
-    yield* server.serve(createMcpHttpApp(mounted))
+    const app = yield* createMcpHttpApp(mounted)
+    yield* server.serve(app)
+    yield* config.onReady?.() ?? Effect.void
 
     yield* Effect.sync(() => {
-      writeError(`MCP HTTP server listening on http://${config.host}:${config.port}/mcp\n`)
+      writeError(`MCP HTTP server listening on ${formatHttpAddress(server.address)}\n`)
     })
 
-    yield* Effect.async<void, never>((resume) => {
-      const cleanup = () => {
-        process.off("SIGINT", shutdown)
-        process.off("SIGTERM", shutdown)
-      }
-      const shutdown = () => {
-        cleanup()
-        resume(Effect.void)
-      }
-      process.on("SIGINT", shutdown)
-      process.on("SIGTERM", shutdown)
-      return Effect.sync(cleanup)
-    })
+    yield* Effect.never
   })

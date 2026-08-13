@@ -1,12 +1,12 @@
-import { Command, type CommandDescriptor } from "@effect/cli"
-import type { NodeContext } from "@effect/platform-node"
+import type { NodeServices } from "@effect/platform-node"
 import { Effect, Option } from "effect"
+import { Command } from "effect/unstable/cli"
 
 import { operationRegistry } from "../../../src/mcp/tools/index.js"
 import type { TelemetryService } from "../../../src/telemetry/telemetry.js"
 import type { CliCommandSpec } from "./catalog-types.js"
 import { cliCommandCatalog, type CliToolName, isCliToolName } from "./catalog.js"
-import { buildCliCommandConfig, buildGlobalOptionsConfig, parseGlobalCommandLine } from "./cli-options.js"
+import { buildCliCommandConfig, buildGlobalFlagsConfig, buildGlobalOptionsConfig } from "./cli-options.js"
 import type { CliCommandPath } from "./command-schema.js"
 import type { CliInputError } from "./input.js"
 import { CliRuntimeError } from "./render.js"
@@ -20,13 +20,14 @@ interface MutableCommandNode {
   toolName: CliToolName | undefined
 }
 
+type GeneratedCommandInput = Command.Command.Config.Infer<ReturnType<typeof buildGlobalOptionsConfig>>
+
 type HulyCommand = Command.Command<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated subcommands have heterogeneous parsed config.
-  any,
-  NodeContext.NodeContext | TelemetryService | LocalCliService,
+  string,
+  GeneratedCommandInput,
+  Record<never, never>,
   CliInputError | CliRuntimeError,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generated subcommands have heterogeneous parsed config.
-  any
+  NodeServices.NodeServices | TelemetryService | LocalCliService
 >
 
 const makeNode = (name: string): MutableCommandNode => ({
@@ -71,7 +72,7 @@ const makeLeafCommand = (node: MutableCommandNode, argv: ReadonlyArray<string>):
   const spec = node.spec
   /* c8 ignore start -- buildCatalogTree assigns both fields for every leaf; this is a defensive invariant error. */
   if (toolName === undefined || spec === undefined) {
-    return Command.make(node.name, {}, () =>
+    return Command.make(node.name, buildGlobalOptionsConfig(), () =>
       Effect.fail(new CliRuntimeError({ message: `CLI command ${node.name} is missing catalog metadata.` }))
     )
   }
@@ -79,18 +80,7 @@ const makeLeafCommand = (node: MutableCommandNode, argv: ReadonlyArray<string>):
   const operation = operationRegistry.getOperation(toolName)
 
   return Command.make(node.name, buildCliCommandConfig(operation, spec), ({ options, positionals }) =>
-    Effect.gen(function* () {
-      const globalOptions = yield* parseGlobalCommandLine(argv).pipe(
-        Effect.mapError(
-          (error) => new CliRuntimeError({ message: error instanceof Error ? error.message : String(error) })
-        )
-      )
-      yield* runCliTool(toolName, {
-        options: [...globalOptions, ...options],
-        positionals,
-        raw: rawLeafArgs(argv, spec.path)
-      })
-    })
+    runCliTool(toolName, { options: Object.values(options).flat(), positionals, raw: rawLeafArgs(argv, spec.path) })
   ).pipe(Command.withDescription(spec.description))
 }
 
@@ -99,11 +89,11 @@ const makeGroupCommand = (node: MutableCommandNode, argv: ReadonlyArray<string>)
   const first = subcommands[0]
   /* c8 ignore start -- the catalog is non-empty; retained for totality if future callers build empty groups. */
   if (first === undefined) {
-    return Command.make(node.name)
+    return Command.make(node.name, buildGlobalFlagsConfig())
   }
   /* c8 ignore stop */
 
-  return Command.make(node.name, buildGlobalOptionsConfig()).pipe(
+  return Command.make(node.name, buildGlobalFlagsConfig()).pipe(
     Command.withDescription(node.name === "huly" ? "Huly CLI" : `${node.name} commands`),
     Command.withSubcommands([first, ...subcommands.slice(1)])
   )
@@ -119,18 +109,15 @@ const nodeAtPath = (node: MutableCommandNode, path: CliCommandPath): Option.Opti
   return child === undefined ? Option.none() : nodeAtPath(child, remaining)
 }
 
-export const buildCommandDescriptorAtPath = (path: CliCommandPath): Option.Option<CommandDescriptor.Command<unknown>> =>
+export const buildCommandDescriptorAtPath = (path: CliCommandPath): Option.Option<Command.Command.Any> =>
   Option.flatMap(nodeAtPath(buildCatalogTree(), path), (node) =>
-    node.toolName === undefined ? Option.none() : Option.some(makeLeafCommand(node, []).descriptor)
+    node.toolName === undefined ? Option.none() : Option.some(makeLeafCommand(node, []))
   )
 
-export const buildRootCommand = (argv: ReadonlyArray<string>): HulyCommand => {
+export const buildRootCommand = (argv: ReadonlyArray<string>) => {
   const tree = buildCatalogTree()
-  const rootCommand = Command.make(tree.name, buildGlobalOptionsConfig()).pipe(Command.withDescription("Huly CLI"))
-  const subcommands: Array<HulyCommand> = [
-    ...localCliCommands,
-    ...[...tree.children.values()].map((child) => makeCommand(child, argv))
-  ]
+  const rootCommand = Command.make(tree.name, buildGlobalFlagsConfig()).pipe(Command.withDescription("Huly CLI"))
+  const subcommands = [...localCliCommands, ...[...tree.children.values()].map((child) => makeCommand(child, argv))]
   const first = subcommands[0]
   if (first === undefined) return rootCommand
   return rootCommand.pipe(Command.withSubcommands([first, ...subcommands.slice(1)]))

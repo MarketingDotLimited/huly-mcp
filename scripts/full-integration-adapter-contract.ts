@@ -9,20 +9,23 @@ const FullIntegrationImageContentSchema = Schema.Struct({
   data: Schema.String,
   mimeType: SupportedAttachmentImageTypeSchema
 })
-const FullIntegrationContentSchema = Schema.Union(FullIntegrationTextContentSchema, FullIntegrationImageContentSchema)
+const FullIntegrationContentSchema = Schema.Union([FullIntegrationTextContentSchema, FullIntegrationImageContentSchema])
 const FullIntegrationStructuredContentSchema = Schema.Struct({
   result: Schema.Unknown,
   warnings: Schema.optional(Schema.Array(ToolWarningSchema))
 })
 const FullIntegrationSuccessSchema = Schema.Struct({
-  content: Schema.Tuple([FullIntegrationTextContentSchema], FullIntegrationContentSchema),
+  content: Schema.TupleWithRest(Schema.Tuple([FullIntegrationTextContentSchema]), [FullIntegrationContentSchema]),
   structuredContent: FullIntegrationStructuredContentSchema
 })
 const FullIntegrationErrorSchema = Schema.Struct({
-  content: Schema.Tuple(FullIntegrationTextContentSchema),
+  content: Schema.Tuple([FullIntegrationTextContentSchema]),
   isError: Schema.Literal(true)
 })
-export const FullIntegrationAdapterResultSchema = Schema.Union(FullIntegrationSuccessSchema, FullIntegrationErrorSchema)
+export const FullIntegrationAdapterResultSchema = Schema.Union([
+  FullIntegrationSuccessSchema,
+  FullIntegrationErrorSchema
+])
 export const FullIntegrationAdapterResponseSchema = Schema.Struct({
   jsonrpc: Schema.Literal("2.0"),
   id: Schema.Number,

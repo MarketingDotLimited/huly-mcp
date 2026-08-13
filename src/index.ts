@@ -8,7 +8,7 @@
 import "./polyfills.js"
 
 import { NodeRuntime } from "@effect/platform-node"
-import { Config, Effect, Exit, Layer, Option, Redacted } from "effect"
+import { Config, type Duration, Effect, Exit, Layer, Option, type Redacted } from "effect"
 
 import {
   type ConfigValidationError,
@@ -35,6 +35,7 @@ import {
 import type { ClientBundle, ClientResolver, HulyClientBundleError } from "./runtime/client-resolver.js"
 import { createHttpClientLeaseResolver } from "./runtime/http-client-leases.js"
 import { TelemetryService } from "./telemetry/telemetry.js"
+import { writeStderrLine } from "./utils/stderr.js"
 
 type AppError = ConfigValidationError | HulyClientError | StorageClientError | McpServerError | Config.ConfigError
 
@@ -65,7 +66,21 @@ const getHttpHost: Effect.Effect<HttpHost, Config.ConfigError> = Config.schema(H
 
 export const getMcpAuthToken = Config.redacted("MCP_AUTH_TOKEN").pipe(Config.option)
 
-const getAutoExit = Config.boolean("MCP_AUTO_EXIT").pipe(Config.withDefault(false))
+const DEFAULT_PROCESS_CLOSE_GRACE_PERIOD = "5 seconds"
+
+export const closeProcessClients = (
+  closeClients: () => Promise<void>,
+  gracePeriod: Duration.Input = DEFAULT_PROCESS_CLOSE_GRACE_PERIOD,
+  writeError: (message: string) => void = writeStderrLine
+): Effect.Effect<void> =>
+  Effect.tryPromise(closeClients).pipe(
+    Effect.interruptible,
+    Effect.timeoutOrElse({
+      duration: gracePeriod,
+      orElse: () => Effect.sync(() => writeError("Process-scoped Huly client cleanup timed out"))
+    }),
+    Effect.catch(() => Effect.sync(() => writeError("Process-scoped Huly client cleanup failed")))
+  )
 
 const isGlamaRegistryInspection = (): boolean => process.env["GLAMA_VERSION"] !== undefined
 
@@ -83,24 +98,23 @@ const restoreConsoleRedirect = (redirect: ConsoleRedirectHandle | undefined): Ef
 
 const webHeadersRecord = (headers: Headers): Record<string, string> => Object.fromEntries(headers.entries())
 
-const buildAppLayer = (
+export const buildAppLayer = (
   transport: McpTransportType,
   httpPort: HttpPort,
   httpHost: HttpHost,
-  mcpAuthToken: string | undefined,
-  autoExit: boolean,
+  mcpAuthToken: Redacted.Redacted<string> | undefined,
   authMethod: "token" | "password",
   resolveClients: ClientResolver,
   resolveClientLeaseForHttpRequest: (
     req: Request
-  ) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>
+  ) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>,
+  httpServerFactoryLayer: Layer.Layer<HttpServerFactoryService> = HttpServerFactoryService.defaultLayer
 ): Layer.Layer<McpServerService | HttpServerFactoryService, McpServerError, never> => {
   const mcpServerConfig = {
     transport,
     httpPort,
     httpHost,
     ...(mcpAuthToken === undefined ? {} : { mcpAuthToken }),
-    autoExit,
     authMethod,
     resolveClients,
     resolveClientLeaseForHttpRequest,
@@ -110,16 +124,14 @@ const buildAppLayer = (
   }
   const mcpServerLayer = McpServerService.layer(mcpServerConfig).pipe(Layer.provide(TelemetryService.layer))
 
-  return Layer.merge(mcpServerLayer, HttpServerFactoryService.defaultLayer)
+  return Layer.merge(mcpServerLayer, httpServerFactoryLayer)
 }
 
 const runConfiguredServer = (transport: McpTransportType): Effect.Effect<void, AppError> =>
   Effect.gen(function* () {
     const httpPort = yield* getHttpPort
     const httpHost = yield* getHttpHost
-    const mcpAuthToken =
-      transport === "http" ? Option.map(yield* getMcpAuthToken, Redacted.value).pipe(Option.getOrUndefined) : undefined
-    const autoExit = yield* getAutoExit
+    const mcpAuthToken = transport === "http" ? Option.getOrUndefined(yield* getMcpAuthToken) : undefined
     const lazyEnvs = yield* getLazyEnvs
     const authMethod: "token" | "password" = process.env["HULY_TOKEN"] ? "token" : "password"
 
@@ -144,7 +156,6 @@ const runConfiguredServer = (transport: McpTransportType): Effect.Effect<void, A
             httpPort,
             httpHost,
             mcpAuthToken,
-            autoExit,
             authMethod,
             resolveClients,
             resolveHttpClientLease
@@ -156,7 +167,7 @@ const runConfiguredServer = (transport: McpTransportType): Effect.Effect<void, A
           }).pipe(Effect.provide(appLayer), Effect.scoped)
         })
       },
-      ([, , closeClients]) => Effect.promise(closeClients)
+      ([, , closeClients]) => closeProcessClients(closeClients)
     )
   })
 

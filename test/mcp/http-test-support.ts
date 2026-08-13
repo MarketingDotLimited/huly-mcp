@@ -2,7 +2,7 @@ import * as http from "node:http"
 
 import { NodeHttpServer } from "@effect/platform-node"
 import type { McpServerFactory } from "@modelcontextprotocol/server"
-import { Effect, Exit, Scope } from "effect"
+import { Effect, Exit, Redacted, Scope } from "effect"
 
 import {
   createMcpHttpApp,
@@ -42,15 +42,20 @@ export const listenTestMcpHttpServer = async (
   writeError: (message: string) => void = () => {}
 ): Promise<TestHttpEndpoint> => {
   const scope = await Effect.runPromise(Scope.make())
-  const mounted = createMountedMcpHttpHandler(createServer, authToken, writeError)
+  const mounted = createMountedMcpHttpHandler(
+    createServer,
+    authToken === undefined ? undefined : Redacted.make(authToken),
+    writeError
+  )
   const closeScope = (): Promise<void> => Effect.runPromise(Scope.close(scope, Exit.void))
 
   try {
     const rawServer = http.createServer()
     const server = await Effect.runPromise(
-      NodeHttpServer.make(() => rawServer, { port: 0, host: "127.0.0.1" }).pipe(Scope.extend(scope))
+      NodeHttpServer.make(() => rawServer, { port: 0, host: "127.0.0.1" }).pipe(Scope.provide(scope))
     )
-    await Effect.runPromise(server.serve(createMcpHttpApp(mounted)).pipe(Scope.extend(scope)))
+    const app = await Effect.runPromise(createMcpHttpApp(mounted).pipe(Scope.provide(scope)))
+    await Effect.runPromise(server.serve(app).pipe(Scope.provide(scope)))
     const address = rawServer.address()
     if (address === null || typeof address === "string") throw new Error("Expected an assigned TCP port")
 
@@ -59,14 +64,14 @@ export const listenTestMcpHttpServer = async (
       server: rawServer,
       close: async () => {
         try {
-          await mounted.close()
+          await Effect.runPromise(mounted.close)
         } finally {
           await closeScope()
         }
       }
     }
   } catch (error) {
-    await Promise.allSettled([mounted.close(), closeScope()])
+    await Promise.allSettled([Effect.runPromise(mounted.close), closeScope()])
     throw error
   }
 }

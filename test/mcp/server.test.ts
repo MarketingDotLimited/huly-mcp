@@ -19,8 +19,8 @@ import {
 import { ProtocolError } from "@modelcontextprotocol/server"
 import type { Server } from "@modelcontextprotocol/server"
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio"
-import { HttpServer } from "@effect/platform"
-import { Context, Effect, Fiber, Layer, Schema } from "effect"
+import { ConfigProvider, Context, Deferred, Effect, Exit, Fiber, Layer, type Redacted, Schema } from "effect"
+import { HttpServer } from "effect/unstable/http"
 import { expect } from "vitest"
 import { parseJsonSchemaRecord } from "../../src/domain/schemas/json-schema.js"
 import { HulyClient, type HulyClientOperations } from "../../src/huly/client.js"
@@ -48,6 +48,8 @@ const ListResourceTemplatesRequestSchema = "resources/templates/list"
 const ListToolsRequestSchema = "tools/list"
 const ReadResourceRequestSchema = "resources/read"
 const unusedHttpServerFactory = inertHttpServerFactory("HTTP is outside this stdio test")
+const provideConfig = (values: Record<string, string>) =>
+  Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(values)))
 
 const createTestStdioTransport = (): StdioServerTransport => {
   const input = new PassThrough()
@@ -76,8 +78,8 @@ const createTestStdioTransport = (): StdioServerTransport => {
  */
 const resolveClientsFromLayer = (
   clientLayer: Layer.Layer<HulyClient | HulyStorageClient | WorkspaceClient>
-): (() => Promise<ClientBundle>) => {
-  let promise: Promise<ClientBundle> | null = null
+): (() => Promise<Exit.Exit<ClientBundle>>) => {
+  let promise: Promise<Exit.Exit<ClientBundle>> | null = null
   return () => {
     if (promise === null) {
       promise = Effect.runPromise(
@@ -89,7 +91,7 @@ const resolveClientsFromLayer = (
             workspaceClient: Context.get(ctx, WorkspaceClient)
           }
         })
-      )
+      ).then((bundle) => Exit.succeed(bundle))
     }
     return promise
   }
@@ -106,8 +108,7 @@ const buildTestServerLayer = (
     transport: "stdio" | "http"
     httpPort?: number
     httpHost?: string
-    mcpAuthToken?: string
-    autoExit?: boolean
+    mcpAuthToken?: Redacted.Redacted<string>
     authMethod?: "token" | "password"
     createServer?: (instructions?: HostedHulyMigrationInstructions) => Server
     writeError?: (message: string) => void
@@ -531,7 +532,7 @@ describe("TOOL_DEFINITIONS", () => {
 
 describe("McpServerService", () => {
   describe("layer creation", () => {
-    it.scoped("can create layer with stdio transport config", () =>
+    it.effect("can create layer with stdio transport config", () =>
       Effect.gen(function* () {
         const project = makeProject()
         const issues = [makeIssue()]
@@ -554,7 +555,7 @@ describe("McpServerService", () => {
       })
     )
 
-    it.scoped("can create layer with http transport config", () =>
+    it.effect("can create layer with http transport config", () =>
       Effect.gen(function* () {
         const project = makeProject()
         const hulyClientLayer = createMockHulyClientLayer({ projects: [project], issues: [], statuses: [] })
@@ -739,7 +740,7 @@ describe("Tool definition descriptions", () => {
 
 // --- McpServerService.layer run/stop tests ---
 
-const buildStdioService = (config?: { autoExit?: boolean; telemetryOps?: Partial<TelemetryOperations> }) => {
+const buildStdioService = (config?: { telemetryOps?: Partial<TelemetryOperations> }) => {
   const telemetryLayer = config?.telemetryOps
     ? TelemetryService.testLayer(config.telemetryOps)
     : TelemetryService.testLayer()
@@ -749,12 +750,12 @@ const buildStdioService = (config?: { autoExit?: boolean; telemetryOps?: Partial
     WorkspaceClient.testLayer({}),
     telemetryLayer
   )
-  return buildTestServerLayer({ transport: "stdio", autoExit: config?.autoExit ?? true }, layers)
+  return buildTestServerLayer({ transport: "stdio" }, layers)
 }
 
 describe("McpServerService.layer operations", () => {
   describe("stop()", () => {
-    it.scoped("stop when not running is a no-op", () =>
+    it.effect("stop when not running is a no-op", () =>
       Effect.gen(function* () {
         const serverLayer = buildStdioService()
         const ctx = yield* Layer.build(serverLayer)
@@ -764,7 +765,7 @@ describe("McpServerService.layer operations", () => {
       })
     )
 
-    it.scoped("stop when not running calls early return path", () => {
+    it.effect("stop when not running calls early return path", () => {
       let shutdownCalled = false
       return Effect.gen(function* () {
         const serverLayer = buildStdioService({
@@ -784,45 +785,51 @@ describe("McpServerService.layer operations", () => {
   })
 
   describe("run() stdio transport", () => {
-    it.scoped(
-      "run completes when stdin ends (autoExit)",
+    it.effect(
+      "run completes when stdin ends",
       () =>
         Effect.gen(function* () {
-          const serverLayer = buildStdioService({ autoExit: true })
+          const serverLayer = buildStdioService()
           const ctx = yield* Layer.build(serverLayer)
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
-          const fiber = yield* Effect.fork(
-            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
-          )
+          const fiber = yield* ops
+            .run()
+            .pipe(
+              Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory),
+              Effect.forkScoped({ startImmediately: true })
+            )
 
-          yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
+          yield* ops.awaitReady()
           process.stdin.emit("end")
           yield* Fiber.join(fiber)
         }),
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "run completes when SIGINT received",
       () =>
         Effect.gen(function* () {
-          const serverLayer = buildStdioService({ autoExit: false })
+          const serverLayer = buildStdioService()
           const ctx = yield* Layer.build(serverLayer)
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
-          const fiber = yield* Effect.fork(
-            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
-          )
+          const fiber = yield* ops
+            .run()
+            .pipe(
+              Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory),
+              Effect.forkScoped({ startImmediately: true })
+            )
 
-          yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
+          yield* ops.awaitReady()
           process.emit("SIGINT")
           yield* Fiber.join(fiber)
         }),
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "uses the default stdio transport when no factory is provided",
       () =>
         Effect.gen(function* () {
@@ -834,37 +841,42 @@ describe("McpServerService.layer operations", () => {
           )
           const serverLayer = McpServerService.layer({
             transport: "stdio",
-            autoExit: true,
             createServer: createMockServer,
             resolveClients: resolveClientsFromLayer(layers)
           }).pipe(Layer.provide(layers))
           const ctx = yield* Layer.build(serverLayer)
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
-          const fiber = yield* Effect.fork(
-            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
-          )
+          const fiber = yield* ops
+            .run()
+            .pipe(
+              Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory),
+              Effect.forkScoped({ startImmediately: true })
+            )
 
-          yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
+          yield* ops.awaitReady()
           process.stdin.emit("end")
           yield* Fiber.join(fiber)
         }),
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "run fails with already-running error on second call",
       () =>
         Effect.gen(function* () {
-          const serverLayer = buildStdioService({ autoExit: true })
+          const serverLayer = buildStdioService()
           const ctx = yield* Layer.build(serverLayer)
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
-          const fiber = yield* Effect.fork(
-            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
-          )
+          const fiber = yield* ops
+            .run()
+            .pipe(
+              Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory),
+              Effect.forkScoped({ startImmediately: true })
+            )
 
-          yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
+          yield* ops.awaitReady()
 
           const error = yield* Effect.flip(
             ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
@@ -879,9 +891,10 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped("reports SDK-managed stdio connection failures out of band", () =>
+    it.effect("reports SDK-managed stdio connection failures out of band", () =>
       Effect.gen(function* () {
         const errors: Array<string> = []
+        const errorReported = yield* Deferred.make<void>()
         const layers = Layer.mergeAll(
           HulyClient.testLayer({}),
           HulyStorageClient.testLayer({}),
@@ -891,41 +904,49 @@ describe("McpServerService.layer operations", () => {
         const serverLayer = buildTestServerLayer(
           {
             transport: "stdio",
-            autoExit: true,
             createServer: (instructions) => {
               const server = createDefaultMcpSdkServer(instructions)
               server.connect = () => Promise.reject(new Error("connection refused"))
               return server
             },
-            writeError: (message) => errors.push(message)
+            writeError: (message) => {
+              errors.push(message)
+              Effect.runSync(Deferred.succeed(errorReported, undefined))
+            }
           },
           layers
         )
         const ctx = yield* Layer.build(serverLayer)
         const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
-        const fiber = yield* Effect.fork(ops.run().pipe(Effect.provide(HttpServerFactoryService.defaultLayer)))
+        const fiber = yield* ops
+          .run()
+          .pipe(Effect.provide(HttpServerFactoryService.defaultLayer), Effect.forkScoped({ startImmediately: true }))
 
-        yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 50)))
-        expect(errors.join("")).toContain("connection refused")
+        yield* ops.awaitReady()
+        yield* Deferred.await(errorReported)
+        expect(errors).toContain("MCP stdio handler error")
         process.stdin.emit("end")
         yield* Fiber.join(fiber)
       })
     )
 
-    it.scoped(
+    it.effect(
       "run handles server close failure gracefully",
       () =>
         Effect.gen(function* () {
           mockCloseBehavior = () => Promise.reject(new Error("close failed"))
-          const serverLayer = buildStdioService({ autoExit: true })
+          const serverLayer = buildStdioService()
           const ctx = yield* Layer.build(serverLayer)
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
-          const fiber = yield* Effect.fork(
-            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
-          )
+          const fiber = yield* ops
+            .run()
+            .pipe(
+              Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory),
+              Effect.forkScoped({ startImmediately: true })
+            )
 
-          yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
+          yield* ops.awaitReady()
           process.stdin.emit("end")
 
           const result = yield* Fiber.await(fiber)
@@ -940,50 +961,54 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
-      "run cleanup removes signal listeners when fiber is interrupted (autoExit=true)",
+    it.effect(
+      "run cleanup removes signal listeners when fiber is interrupted",
       () =>
         Effect.gen(function* () {
-          const serverLayer = buildStdioService({ autoExit: true })
+          const serverLayer = buildStdioService()
           const ctx = yield* Layer.build(serverLayer)
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
-          const fiber = yield* Effect.fork(
-            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
-          )
+          const fiber = yield* ops
+            .run()
+            .pipe(
+              Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory),
+              Effect.forkScoped({ startImmediately: true })
+            )
 
-          yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
+          yield* ops.awaitReady()
           yield* Fiber.interrupt(fiber)
         }),
       { timeout: 5000 }
     )
 
-    it.scoped(
-      "run cleanup works when autoExit is false",
+    it.effect(
+      "run cleanup works after readiness",
       () =>
         Effect.gen(function* () {
-          const serverLayer = buildStdioService({ autoExit: false })
+          const serverLayer = buildStdioService()
           const ctx = yield* Layer.build(serverLayer)
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
-          const fiber = yield* Effect.fork(
-            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
-          )
+          const fiber = yield* ops
+            .run()
+            .pipe(
+              Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory),
+              Effect.forkScoped({ startImmediately: true })
+            )
 
-          yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
-          // Interrupt to trigger the cleanup/teardown with autoExit=false branch
+          yield* ops.awaitReady()
           yield* Fiber.interrupt(fiber)
         }),
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "run flushes telemetry on completion",
       () => {
         let shutdownCalled = false
         return Effect.gen(function* () {
           const serverLayer = buildStdioService({
-            autoExit: true,
             telemetryOps: {
               shutdown: async () => {
                 shutdownCalled = true
@@ -996,11 +1021,14 @@ describe("McpServerService.layer operations", () => {
           const ctx = yield* Layer.build(serverLayer)
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
-          const fiber = yield* Effect.fork(
-            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
-          )
+          const fiber = yield* ops
+            .run()
+            .pipe(
+              Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory),
+              Effect.forkScoped({ startImmediately: true })
+            )
 
-          yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
+          yield* ops.awaitReady()
           process.stdin.emit("end")
           yield* Fiber.join(fiber)
 
@@ -1012,13 +1040,12 @@ describe("McpServerService.layer operations", () => {
   })
 
   describe("stop() when running (stdio)", () => {
-    it.scoped(
+    it.effect(
       "stop when running flushes telemetry and closes server",
       () => {
         let shutdownCalled = false
         return Effect.gen(function* () {
           const serverLayer = buildStdioService({
-            autoExit: true,
             telemetryOps: {
               shutdown: async () => {
                 shutdownCalled = true
@@ -1031,25 +1058,27 @@ describe("McpServerService.layer operations", () => {
           const ctx = yield* Layer.build(serverLayer)
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
-          const fiber = yield* Effect.fork(
-            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
-          )
+          const fiber = yield* ops
+            .run()
+            .pipe(
+              Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory),
+              Effect.forkScoped({ startImmediately: true })
+            )
 
-          yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
+          yield* ops.awaitReady()
 
           yield* ops.stop()
           expect(shutdownCalled).toBe(true)
 
           // Unblock the run() fiber
           process.stdin.emit("end")
-          yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
           yield* Fiber.interrupt(fiber)
         })
       },
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "stop when running with http transport (server is null) skips close",
       () =>
         Effect.gen(function* () {
@@ -1067,7 +1096,7 @@ describe("McpServerService.layer operations", () => {
           const ctx = yield* Layer.build(serverLayer)
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
-          const mockHttpFactory: HttpServerFactoryService["Type"] = {
+          const mockHttpFactory: HttpServerFactoryService["Service"] = {
             make: (_port, host) =>
               Effect.succeed(
                 HttpServer.make({
@@ -1078,11 +1107,14 @@ describe("McpServerService.layer operations", () => {
           }
 
           // Start run() to set isRunning=true
-          const fiber = yield* Effect.fork(
-            ops.run().pipe(Effect.provideService(HttpServerFactoryService, mockHttpFactory))
-          )
+          const fiber = yield* ops
+            .run()
+            .pipe(
+              Effect.provideService(HttpServerFactoryService, mockHttpFactory),
+              Effect.forkScoped({ startImmediately: true })
+            )
 
-          yield* Effect.promise(() => new Promise((r) => setTimeout(r, 100)))
+          yield* ops.awaitReady()
 
           // Call stop while running - since transport=http, server is null
           // so the `if (server)` branch (line 274) should be false
@@ -1094,11 +1126,12 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "stop reports SDK-managed server close errors out of band",
       () =>
         Effect.gen(function* () {
           const errors: Array<string> = []
+          const serverCreated = yield* Deferred.make<void>()
           const layers = Layer.mergeAll(
             HulyClient.testLayer({}),
             HulyStorageClient.testLayer({}),
@@ -1108,10 +1141,10 @@ describe("McpServerService.layer operations", () => {
           const serverLayer = buildTestServerLayer(
             {
               transport: "stdio",
-              autoExit: true,
               createServer: (instructions) => {
                 const server = createDefaultMcpSdkServer(instructions)
                 server.close = () => Promise.reject(new Error("server close failed"))
+                Effect.runSync(Deferred.succeed(serverCreated, undefined))
                 return server
               },
               writeError: (message) => errors.push(message)
@@ -1121,18 +1154,22 @@ describe("McpServerService.layer operations", () => {
           const ctx = yield* Layer.build(serverLayer)
           const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
 
-          const fiber = yield* Effect.fork(
-            ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
-          )
+          const fiber = yield* ops
+            .run()
+            .pipe(
+              Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory),
+              Effect.forkScoped({ startImmediately: true })
+            )
 
-          yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
+          yield* ops.awaitReady()
+          yield* Deferred.await(serverCreated)
 
           yield* ops.stop()
-          expect(errors.join("")).toContain("server close failed")
+          expect(errors).toContain("MCP stdio handler error")
+          expect(errors.join("\n")).not.toContain("server close failed")
 
           // Unblock the run() fiber
           process.stdin.emit("end")
-          yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
           yield* Fiber.interrupt(fiber)
         }),
       { timeout: 5000 }
@@ -1140,7 +1177,7 @@ describe("McpServerService.layer operations", () => {
   })
 
   describe("telemetry integration", () => {
-    it.scoped("sessionStart defaults authMethod to password when not specified", () => {
+    it.effect("sessionStart defaults authMethod to password when not specified", () => {
       let capturedProps: SessionStartProps | null = null
       return Effect.gen(function* () {
         const telemetryLayer = TelemetryService.testLayer({
@@ -1161,12 +1198,9 @@ describe("McpServerService.layer operations", () => {
       })
     })
 
-    it.scoped("sessionStart includes toolsets when TOOLSETS env is set", () => {
+    it.effect("sessionStart includes toolsets when TOOLSETS env is set", () => {
       let capturedProps: SessionStartProps | null = null
       return Effect.gen(function* () {
-        const originalTools = process.env.TOOLS
-        process.env.TOOLSETS = "issues,documents"
-        delete process.env.TOOLS
         const telemetryLayer = TelemetryService.testLayer({
           sessionStart: (props) => {
             capturedProps = props
@@ -1179,19 +1213,13 @@ describe("McpServerService.layer operations", () => {
           telemetryLayer
         )
         const serverLayer = buildTestServerLayer({ transport: "stdio" }, layers)
-        yield* Layer.build(serverLayer)
+        yield* Layer.build(serverLayer).pipe(provideConfig({ TOOLSETS: "issues,documents" }))
         expect(capturedProps).not.toBeNull()
         expect(assertExists(capturedProps).toolsets).toEqual(expect.arrayContaining(["issues", "documents"]))
-        delete process.env.TOOLSETS
-        if (originalTools === undefined) {
-          delete process.env.TOOLS
-        } else {
-          process.env.TOOLS = originalTools
-        }
       })
     })
 
-    it.scoped("sessionStart toolsets is null when no TOOLSETS env", () => {
+    it.effect("sessionStart toolsets is null when no TOOLSETS env", () => {
       let capturedProps: SessionStartProps | null = null
       return Effect.gen(function* () {
         const originalTools = process.env.TOOLS
@@ -1220,7 +1248,7 @@ describe("McpServerService.layer operations", () => {
       })
     })
 
-    it.scoped("http transport stop is no-op when not running", () =>
+    it.effect("http transport stop is no-op when not running", () =>
       Effect.gen(function* () {
         const layers = Layer.mergeAll(
           HulyClient.testLayer({}),
@@ -1240,44 +1268,68 @@ describe("McpServerService.layer operations", () => {
   describe("createMcpServer request handlers", () => {
     const buildAndRun = (
       layers: Layer.Layer<HulyClient | HulyStorageClient | WorkspaceClient | TelemetryService>,
-      createServer: (instructions?: HostedHulyMigrationInstructions) => Server = createMockServer
+      createServer: (instructions?: HostedHulyMigrationInstructions) => Server = createMockServer,
+      configValues: Record<string, string> = {}
     ) =>
       Effect.gen(function* () {
-        const serverLayer = buildTestServerLayer({ transport: "stdio", autoExit: true, createServer }, layers)
-        const ctx = yield* Layer.build(serverLayer)
-        const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
-        const fiber = yield* Effect.fork(
-          ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
+        const serverCreated = yield* Deferred.make<void>()
+        const serverLayer = buildTestServerLayer(
+          {
+            transport: "stdio",
+            createServer: (instructions) => {
+              const server = createServer(instructions)
+              queueMicrotask(() => Effect.runSync(Deferred.succeed(serverCreated, undefined)))
+              return server
+            }
+          },
+          layers
         )
-        yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
+        const ctx = yield* Layer.build(serverLayer).pipe(provideConfig(configValues))
+        const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
+        const fiber = yield* ops
+          .run()
+          .pipe(
+            Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory),
+            Effect.forkScoped({ startImmediately: true })
+          )
+        yield* ops.awaitReady()
+        yield* Deferred.await(serverCreated)
         return fiber
       })
 
-    const cleanup = (fiber: Fiber.RuntimeFiber<void, McpServerError>) =>
+    const cleanup = (fiber: Fiber.Fiber<void, McpServerError>) =>
       Effect.gen(function* () {
         process.stdin.emit("end")
-        yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
         yield* Fiber.interrupt(fiber)
       })
 
     const buildAndRunWithResolveClients = (
       resolveClients: () => Promise<ClientBundle>,
-      telemetryOps: Partial<TelemetryOperations>
+      telemetryOps: Partial<TelemetryOperations>,
+      configValues: Record<string, string> = {}
     ) =>
       Effect.gen(function* () {
+        const serverCreated = yield* Deferred.make<void>()
         const serverLayer = McpServerService.layer({
           transport: "stdio",
-          autoExit: true,
-          createServer: createMockServer,
+          createServer: () => {
+            const server = createMockServer()
+            queueMicrotask(() => Effect.runSync(Deferred.succeed(serverCreated, undefined)))
+            return server
+          },
           createStdioTransport: createTestStdioTransport,
-          resolveClients
+          resolveClients: () => resolveClients().then((bundle) => Exit.succeed(bundle))
         }).pipe(Layer.provide(TelemetryService.testLayer(telemetryOps)))
-        const ctx = yield* Layer.build(serverLayer)
+        const ctx = yield* Layer.build(serverLayer).pipe(provideConfig(configValues))
         const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
-        const fiber = yield* Effect.fork(
-          ops.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory))
-        )
-        yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
+        const fiber = yield* ops
+          .run()
+          .pipe(
+            Effect.provideService(HttpServerFactoryService, unusedHttpServerFactory),
+            Effect.forkScoped({ startImmediately: true })
+          )
+        yield* ops.awaitReady()
+        yield* Deferred.await(serverCreated)
         return fiber
       })
 
@@ -1290,7 +1342,7 @@ describe("McpServerService.layer operations", () => {
       expect(getCapabilities.call(server)).toEqual({ resources: {}, tools: {} })
     })
 
-    it.scoped(
+    it.effect(
       "ListTools handler returns tool definitions",
       () =>
         Effect.gen(function* () {
@@ -1337,7 +1389,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "CallTool handles get_huly_context without resolving Huly clients",
       () =>
         Effect.gen(function* () {
@@ -1401,7 +1453,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "stdio appends the hosted-Huly warning only to the first tool result",
       () =>
         Effect.gen(function* () {
@@ -1448,7 +1500,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "stdio initialization instructions apply only to the default hosted Huly origin",
       () =>
         Effect.gen(function* () {
@@ -1480,20 +1532,17 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "get_huly_context remains visible and reports active TOOLSETS filtering",
       () =>
         Effect.gen(function* () {
           capturedHandlers.clear()
-          const originalToolsets = process.env.TOOLSETS
-          const originalTools = process.env.TOOLS
-          process.env.TOOLSETS = "issues"
-          delete process.env.TOOLS
           const fiber = yield* buildAndRunWithResolveClients(
             async () => {
               throw new Error("client resolution should be skipped")
             },
-            { firstListTools: () => {}, sessionStart: () => {}, toolCalled: () => {}, shutdown: async () => {} }
+            { firstListTools: () => {}, sessionStart: () => {}, toolCalled: () => {}, shutdown: async () => {} },
+            { TOOLSETS: "issues" }
           )
 
           const listToolsHandler = capturedHandlers.get(ListToolsRequestSchema) as
@@ -1531,22 +1580,12 @@ describe("McpServerService.layer operations", () => {
             result.structuredContent?.result?.toolsets?.totalRegisteredToolCount ?? 0
           )
 
-          if (originalToolsets === undefined) {
-            delete process.env.TOOLSETS
-          } else {
-            process.env.TOOLSETS = originalToolsets
-          }
-          if (originalTools === undefined) {
-            delete process.env.TOOLS
-          } else {
-            process.env.TOOLS = originalTools
-          }
           yield* cleanup(fiber)
         }),
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "CallTool accepts omitted arguments for get_huly_context",
       () =>
         Effect.gen(function* () {
@@ -1574,7 +1613,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "ListResourceTemplates handler returns Huly resource templates",
       () =>
         Effect.gen(function* () {
@@ -1616,7 +1655,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "ListResources handler returns concrete active project resources",
       () =>
         Effect.gen(function* () {
@@ -1662,7 +1701,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "ReadResource handler returns project JSON resource contents",
       () =>
         Effect.gen(function* () {
@@ -1697,7 +1736,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "ReadResource handler returns issue JSON resource contents",
       () =>
         Effect.gen(function* () {
@@ -1732,7 +1771,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "CallTool rejects unexpected arguments for get_huly_context",
       () =>
         Effect.gen(function* () {
@@ -1770,7 +1809,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "CallTool get_huly_context succeeds with missing Huly env in lazy mode",
       () =>
         Effect.gen(function* () {
@@ -1819,7 +1858,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "ReadResource handler rejects malformed resource URIs with JSON-RPC errors",
       () =>
         Effect.gen(function* () {
@@ -1854,7 +1893,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "ListTools handler returns client-compatible root object schemas",
       () =>
         Effect.gen(function* () {
@@ -1906,7 +1945,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "CallTool handler returns null for unknown tool",
       () =>
         Effect.gen(function* () {
@@ -1948,7 +1987,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "CallTool validates missing required arguments before resolving clients",
       () =>
         Effect.gen(function* () {
@@ -1989,7 +2028,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "CallTool validates anyOf-required arguments before resolving clients",
       () =>
         Effect.gen(function* () {
@@ -2030,7 +2069,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "CallTool validates oneOf-required arguments before resolving clients",
       () =>
         Effect.gen(function* () {
@@ -2071,7 +2110,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "CallTool handler handles known tool",
       () =>
         Effect.gen(function* () {
@@ -2115,7 +2154,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "CallTool handler accepts omitted arguments for all-optional parameter tools",
       () =>
         Effect.gen(function* () {
@@ -2146,7 +2185,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "CallTool records error telemetry for parse errors",
       () =>
         Effect.gen(function* () {
@@ -2187,7 +2226,7 @@ describe("McpServerService.layer operations", () => {
       { timeout: 5000 }
     )
 
-    it.scoped(
+    it.effect(
       "CallTool records internal error telemetry for connection errors",
       () =>
         Effect.gen(function* () {

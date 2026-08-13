@@ -4,6 +4,8 @@ The Huly CLI has full operation parity when every operation in the shared Huly o
 
 The recorded starting point for this program is 522 shared operations, 451 CLI routes, 71 explicitly ignored operations, 68 commands directly exercised by the live CLI script, and 383 per-command integration deferrals. `pnpm report-cli-parity` reports both that immutable baseline and current mechanically derived counts.
 
+The current certified contract is 522 shared operations, 522 unique native CLI routes, and 0 ignored operations. The 451/71 figures above are retained only as the historical migration baseline; they are not the live route inventory.
+
 ## Required behavior classes
 
 The generic adapter must prove these behavior classes:

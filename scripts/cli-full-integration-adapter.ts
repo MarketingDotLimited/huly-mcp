@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 
-import { Either, Schema } from "effect"
+import { Result, Schema, SchemaTransformation } from "effect"
 
 import { McpImageContentSchema } from "../src/domain/schemas/attachments.js"
 import { cliCommandCatalog, isCliToolName } from "../packages/huly-cli/src/catalog.js"
@@ -14,24 +14,28 @@ import {
   FullIntegrationAdapterResponseSchema
 } from "./full-integration-adapter-contract.js"
 
-const AdapterArgumentsSchema = Schema.Tuple(
-  Schema.NonEmptyTrimmedString.annotations({ description: "Installed packed huly executable." }),
-  Schema.NonEmptyTrimmedString.annotations({ description: "MCP tools/call JSON payload." }),
-  Schema.NonEmptyTrimmedString.annotations({ description: "Temporary image output path." })
-)
-const ToolArgumentsSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
+const NonEmptyTrimmedString = Schema.Trimmed.pipe(Schema.check(Schema.isNonEmpty()))
+const AdapterArgumentsSchema = Schema.Tuple([
+  NonEmptyTrimmedString.pipe(Schema.annotate({ description: "Installed packed huly executable." })),
+  NonEmptyTrimmedString.pipe(Schema.annotate({ description: "MCP tools/call JSON payload." })),
+  NonEmptyTrimmedString.pipe(Schema.annotate({ description: "Temporary image output path." }))
+])
+const ToolArgumentsSchema = Schema.Record(Schema.String, Schema.Unknown)
 const ToolCallRequestSchema = Schema.Struct({
   jsonrpc: Schema.Literal("2.0"),
   method: Schema.Literal("tools/call"),
-  params: Schema.Struct({ name: Schema.NonEmptyTrimmedString, arguments: ToolArgumentsSchema }),
+  params: Schema.Struct({ name: NonEmptyTrimmedString, arguments: ToolArgumentsSchema }),
   id: Schema.Number
 })
+const UnknownFromJsonSchema = Schema.String.pipe(Schema.decodeTo(Schema.Unknown, SchemaTransformation.fromJsonString()))
 
 const NODE_ARGUMENT_OFFSET = 2
 const [executable, payload, imagePath] = Schema.decodeUnknownSync(AdapterArgumentsSchema)(
   process.argv.slice(NODE_ARGUMENT_OFFSET)
 )
-const request = Schema.decodeUnknownSync(Schema.parseJson(ToolCallRequestSchema))(payload)
+const request = Schema.decodeUnknownSync(ToolCallRequestSchema)(
+  Schema.decodeUnknownSync(UnknownFromJsonSchema)(payload)
+)
 
 if (!isCliToolName(request.params.name)) {
   throw new Error(`MCP integration requested unknown CLI tool ${request.params.name}.`)
@@ -73,11 +77,11 @@ const errorResponse = (): FullIntegrationAdapterResponse => ({
 
 const successResponse = (): FullIntegrationAdapterResponse => {
   const stdout = Schema.decodeUnknownSync(Schema.String)(execution.stdout)
-  const cliOutput = Schema.decodeUnknownSync(Schema.parseJson())(stdout)
-  const wrapped = Schema.decodeUnknownEither(CliJsonWrappedResultSchema)(cliOutput)
-  const result = Either.isRight(wrapped) ? wrapped.right.result : cliOutput
-  const warnings = Either.isRight(wrapped) && "warnings" in wrapped.right ? wrapped.right.warnings : []
-  const image = Either.isRight(wrapped) && "image" in wrapped.right ? wrapped.right.image : undefined
+  const cliOutput = Schema.decodeUnknownSync(UnknownFromJsonSchema)(stdout)
+  const wrapped = Schema.decodeUnknownResult(CliJsonWrappedResultSchema)(cliOutput)
+  const result = Result.isSuccess(wrapped) ? wrapped.success.result : cliOutput
+  const warnings = Result.isSuccess(wrapped) && "warnings" in wrapped.success ? wrapped.success.warnings : []
+  const image = Result.isSuccess(wrapped) && "image" in wrapped.success ? wrapped.success.image : undefined
   const toolResponse =
     image === undefined
       ? createSuccessResponse(result, warnings)

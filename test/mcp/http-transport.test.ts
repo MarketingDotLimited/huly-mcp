@@ -1,8 +1,10 @@
 import http from "node:http"
 
+import { it as effectIt } from "@effect/vitest"
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
 import { Server } from "@modelcontextprotocol/server"
 import { Context, Effect, Exit, Fiber, Layer, Schema, Scope } from "effect"
+import { TestClock } from "effect/testing"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { createMcpServer } from "../../src/mcp/create-mcp-server.js"
@@ -19,18 +21,13 @@ import { failingHttpServerFactory, listenTestMcpHttpServer, makeTestHttpServerFa
 
 const protocolVersion = "2026-07-28"
 const legacyProtocolVersion = "2025-06-18"
-const AnyRecordSchema = Schema.Record({ key: Schema.String, value: Schema.Unknown })
+const AnyRecordSchema = Schema.Record(Schema.String, Schema.Unknown)
 const JsonRpcResponseSchema = Schema.Struct({
   jsonrpc: Schema.Literal("2.0"),
-  id: Schema.NullOr(Schema.Union(Schema.String, Schema.Number)),
-  result: Schema.optionalWith(AnyRecordSchema, { exact: true }),
-  error: Schema.optionalWith(
-    Schema.Struct({
-      code: Schema.Number,
-      message: Schema.String,
-      data: Schema.optionalWith(Schema.Unknown, { exact: true })
-    }),
-    { exact: true }
+  id: Schema.NullOr(Schema.Union([Schema.String, Schema.Number])),
+  result: Schema.optionalKey(AnyRecordSchema),
+  error: Schema.optionalKey(
+    Schema.Struct({ code: Schema.Number, message: Schema.String, data: Schema.optionalKey(Schema.Unknown) })
   )
 })
 
@@ -236,6 +233,20 @@ describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
     await endpoint.close()
   })
 
+  it("returns the JSON-RPC parse error for malformed request JSON", async () => {
+    const endpoint = await listen()
+    const response = await fetch(endpoint.baseUrl, {
+      method: "POST",
+      headers: modernHeaders("server/discover"),
+      body: "{not-json"
+    })
+    const body = await parseResponse(response)
+
+    expect(response.status).toBe(400)
+    expect(body.error?.code).toBe(-32700)
+    await endpoint.close()
+  })
+
   it("serves the 2025-06-18 initialize handshake", async () => {
     const endpoint = await listen()
     const response = await fetch(endpoint.baseUrl, {
@@ -355,7 +366,7 @@ describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
     await parseResponse(response)
     await closeStarted.promise
 
-    await expect(endpoint.close()).rejects.toThrow("legacy cleanup failed")
+    await expect(endpoint.close()).rejects.toThrow("MCP HTTP handler shutdown failed")
   })
 
   it("keeps repeated legacy product close idempotent", async () => {
@@ -420,9 +431,11 @@ describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
     await parseResponse(await fetch(endpoint.baseUrl, request))
     await parseResponse(await fetch(endpoint.baseUrl, request))
     const failure = await endpoint.close().catch((error: unknown) => error)
-    if (!(failure instanceof AggregateError)) throw new Error("Expected an AggregateError")
+    if (!(failure instanceof HttpTransportError) || !(failure.cause instanceof AggregateError)) {
+      throw new Error("Expected a transport error caused by aggregated close failures")
+    }
 
-    expect(failure.errors).toEqual([
+    expect(failure.cause.errors).toEqual([
       expect.objectContaining({ message: "legacy cleanup 1 failed" }),
       expect.objectContaining({ message: "legacy cleanup 2 failed" })
     ])
@@ -588,7 +601,7 @@ describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
       expect(response.status).toBe(200)
       await response.text()
     } finally {
-      await mounted.close()
+      await Effect.runPromise(mounted.close)
     }
   })
 
@@ -610,7 +623,7 @@ describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
       expect(response.status).toBe(200)
       await response.text()
     } finally {
-      await mounted.close()
+      await Effect.runPromise(mounted.close)
     }
   })
 
@@ -645,6 +658,7 @@ describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
     }
 
     const unauthorized = await fetch(endpoint.baseUrl, request)
+    const unauthorizedBody = await parseResponse(unauthorized)
     const authorized = await fetch(endpoint.baseUrl, {
       ...request,
       headers: { ...modernHeaders("server/discover"), authorization: "Bearer secret" }
@@ -652,9 +666,45 @@ describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
 
     expect(unauthorized.status).toBe(401)
     expect(unauthorized.headers.get("www-authenticate")).toBe("Bearer")
+    expect(unauthorizedBody).toMatchObject({ error: { code: -32000, message: "Unauthorized" }, id: null })
+    expect(JSON.stringify(unauthorizedBody)).not.toContain("secret")
     expect(authorized.status).toBe(200)
     expect(errors).toBe("")
     await endpoint.close()
+  })
+
+  it("interrupts an in-flight modern request before mounted-handler shutdown completes", async () => {
+    const requestStarted = deferred<void>()
+    const releaseRequest = deferred<void>()
+    const mounted = createMountedMcpHttpHandler(() => {
+      const server = createTestServer()
+      server.setRequestHandler("tools/list", async () => {
+        requestStarted.resolve()
+        await releaseRequest.promise
+        return { tools: [] }
+      })
+      return server
+    })
+    const request = mounted.fetch(
+      new Request("http://127.0.0.1/mcp", {
+        method: "POST",
+        headers: { ...modernHeaders("tools/list"), host: "127.0.0.1" },
+        body: JSON.stringify(modernBody("tools/list", {}))
+      })
+    )
+    await requestStarted.promise
+
+    let closed = false
+    const closing = Effect.runPromise(mounted.close).then(() => {
+      closed = true
+    })
+    await Promise.resolve()
+    expect(closed).toBe(false)
+
+    releaseRequest.resolve()
+    expect((await request).status).toBe(499)
+    await closing
+    expect(closed).toBe(true)
   })
 
   it("reports factory failures without leaking exception details into the response", async () => {
@@ -678,16 +728,68 @@ describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
     expect(response.status).toBe(500)
     expect(body.error).toMatchObject({ code: -32603, message: "Internal server error" })
     expect(JSON.stringify(body)).not.toContain("factory exploded")
-    expect(errors.join("")).toContain("factory exploded")
+    expect(errors).toEqual(["MCP HTTP handler error\n"])
+    expect(errors.join("")).not.toContain("factory exploded")
     await endpoint.close()
     startedServers.delete(endpoint.server)
   })
+
+  effectIt.effect("bounds a stuck HTTP handler shutdown and reports a static fallback", () =>
+    Effect.gen(function* () {
+      const closeStarted = deferred<void>()
+      const writes: Array<string> = []
+      const mounted = createMountedMcpHttpHandler(
+        () => {
+          const server = createTestServer()
+          server.close = () => {
+            closeStarted.resolve()
+            return new Promise<void>(() => {})
+          }
+          return server
+        },
+        undefined,
+        (message) => writes.push(message),
+        "127.0.0.1",
+        "1 second"
+      )
+      const response = yield* Effect.promise(() =>
+        mounted.fetch(
+          new Request("http://127.0.0.1/mcp", {
+            method: "POST",
+            headers: {
+              accept: "application/json, text/event-stream",
+              "content-type": "application/json",
+              host: "127.0.0.1"
+            },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              method: "initialize",
+              params: {
+                protocolVersion: legacyProtocolVersion,
+                capabilities: {},
+                clientInfo: { name: "legacy-http-client", version: "1" }
+              }
+            })
+          })
+        )
+      )
+      yield* Effect.promise(() => parseResponse(response))
+      yield* Effect.promise(() => closeStarted.promise)
+
+      const closeFiber = yield* mounted.close.pipe(Effect.forkScoped({ startImmediately: true }))
+      yield* TestClock.adjust("1 second")
+      yield* Fiber.join(closeFiber)
+
+      expect(writes).toEqual(["MCP HTTP handler shutdown timed out\n"])
+    })
+  )
 })
 
 describe("HTTP transport Effect lifecycle", () => {
-  it("closes the listening server and SDK handler after SIGTERM", { timeout: 5000 }, async () => {
+  it("closes the listening server when its owning fiber is interrupted", async () => {
     const listening = deferred<http.Server>()
-    const signalHandlersReady = deferred<void>()
+    const transportReady = deferred<void>()
     const writes: Array<string> = []
     const factory = makeTestHttpServerFactory(
       (server) => {
@@ -696,24 +798,25 @@ describe("HTTP transport Effect lifecycle", () => {
       },
       (message) => {
         writes.push(message)
-        if (message.includes("MCP HTTP server listening")) signalHandlersReady.resolve()
       }
     )
 
     const fiber = Effect.runFork(
-      startHttpTransport({ port: 0, host: "127.0.0.1" }, createTestServer).pipe(
-        Effect.scoped,
-        Effect.provideService(HttpServerFactoryService, factory)
-      )
+      startHttpTransport(
+        { port: 0, host: "127.0.0.1", onReady: () => Effect.sync(() => transportReady.resolve()) },
+        createTestServer
+      ).pipe(Effect.scoped, Effect.provideService(HttpServerFactoryService, factory))
     )
     const server = await listening.promise
-    await signalHandlersReady.promise
+    await transportReady.promise
     expect(server.listening).toBe(true)
-    process.emit("SIGTERM")
-    await Effect.runPromise(Fiber.join(fiber))
+    await Effect.runPromise(Fiber.interrupt(fiber))
 
     expect(server.listening).toBe(false)
-    expect(writes.join("")).toContain("MCP HTTP server listening")
+    expect(writes).toContainEqual(
+      expect.stringMatching(/^MCP HTTP server listening on http:\/\/127\.0\.0\.1:\d+\/mcp\n$/u)
+    )
+    expect(writes.join("")).not.toContain("http://127.0.0.1:0/mcp")
     startedServers.delete(server)
   })
 
@@ -738,7 +841,7 @@ describe("HTTP transport Effect lifecycle", () => {
     const context = await Effect.runPromise(Layer.build(HttpServerFactoryService.defaultLayer).pipe(Effect.scoped))
     const factory = Context.get(context, HttpServerFactoryService)
     const scope = await Effect.runPromise(Scope.make())
-    const server = await Effect.runPromise(factory.make(0, "127.0.0.1").pipe(Scope.extend(scope)))
+    const server = await Effect.runPromise(factory.make(0, "127.0.0.1").pipe(Scope.provide(scope)))
     factory.writeError?.("")
     if (server.address._tag !== "TcpAddress") throw new Error("Expected an assigned TCP port")
 

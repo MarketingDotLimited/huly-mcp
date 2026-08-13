@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { Command, HelpDoc, ValidationError } from "@effect/cli"
-import { NodeContext, NodeRuntime } from "@effect/platform-node"
-import { Console, Effect, Layer, Logger, LogLevel, Option } from "effect"
+import { NodeRuntime, NodeServices } from "@effect/platform-node"
+import { Console, Effect, Layer, Option } from "effect"
+import { CliError, Command } from "effect/unstable/cli"
 
 import { TelemetryService } from "../../../src/telemetry/telemetry.js"
 import { buildRootCommand } from "./command-tree.js"
@@ -16,21 +16,64 @@ declare const PKG_VERSION: unknown
 
 const cliVersion = typeof PKG_VERSION === "string" ? PKG_VERSION : "0.43.0"
 const NODE_ARGUMENT_OFFSET = 2
-const cliLoggerLayer = Logger.replace(Logger.defaultLogger, Logger.prettyLogger({ stderr: true }))
+const GLOBAL_BOOLEAN_FLAGS = new Set(["--json", "--yes"])
+const GLOBAL_TEXT_FLAGS = new Set(["--input-json", "--input-file", "--output"])
+
+const moveGlobalOptionsToLeaf = (argv: ReadonlyArray<string>): ReadonlyArray<string> => {
+  const command: Array<string> = []
+  const globals: Array<string> = []
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index]
+    if (token === undefined) continue
+    const flag = token.split("=", 1)[0]
+    const isText = flag !== undefined && GLOBAL_TEXT_FLAGS.has(flag)
+    const isBoolean = flag !== undefined && GLOBAL_BOOLEAN_FLAGS.has(flag)
+    if (!isText && !isBoolean) {
+      command.push(token)
+      continue
+    }
+    globals.push(token)
+    const next = argv[index + 1]
+    const takesFollowingValue =
+      !token.includes("=") && next !== undefined && (isText || (isBoolean && ["true", "false"].includes(next)))
+    if (takesFollowingValue) {
+      globals.push(next)
+      index += 1
+    }
+  }
+  return [...command, ...globals]
+}
 
 const makeCli = (argv: ReadonlyArray<string>) =>
-  Command.run(buildRootCommand(argv), { name: "Huly CLI", version: cliVersion })
+  Command.runWith(buildRootCommand(argv), { version: cliVersion, renderErrors: false })(moveGlobalOptionsToLeaf(argv))
 
-const runEffectCli = (argv: ReadonlyArray<string>) =>
-  Console.consoleWith((runtimeConsole) =>
-    makeCli(argv)(process.argv).pipe(
-      Console.withConsole({ ...runtimeConsole, error: () => Effect.void }),
-      Effect.mapError((error) =>
-        ValidationError.isValidationError(error)
-          ? new CliInputError({ message: HelpDoc.toAnsiText(error.error) })
-          : error
-      )
+export const runEffectCli = (argv: ReadonlyArray<string>) =>
+  Console.consoleWith((currentConsole) => {
+    const bufferedLogs: Array<ReadonlyArray<unknown>> = []
+    const bufferedConsole = Object.assign(Object.create(currentConsole), {
+      log: (...args: ReadonlyArray<unknown>) => {
+        bufferedLogs.push(args)
+      }
+    })
+    return makeCli(argv).pipe(
+      Effect.provideService(Console.Console, bufferedConsole),
+      Effect.tap(() => Effect.sync(() => bufferedLogs.forEach((args) => currentConsole.log(...args))))
     )
+  }).pipe(
+    Effect.catch((error) => {
+      if (!CliError.isCliError(error)) return Effect.fail(error)
+      if (error._tag === "ShowHelp" && error.errors.length === 0) return Effect.void
+      const message =
+        error._tag === "ShowHelp" ? error.errors.map((nested) => nested.message).join("; ") : error.message
+      const parityMessage =
+        error._tag === "ShowHelp" &&
+        error.errors.some(
+          (nested) => nested instanceof CliError.InvalidValue && nested.kind === "flag" && nested.option === "json"
+        )
+          ? "Received unknown argument for --json."
+          : message
+      return Effect.fail(new CliInputError({ message: parityMessage }))
+    })
   )
 
 const isKnownCliError = (error: unknown): error is CliInputError | CliRuntimeError =>
@@ -49,10 +92,7 @@ const main = Effect.suspend(() => {
     return yield* Option.match(help, { onNone: () => runEffectCli(argv), onSome: Console.log })
   })
 }).pipe(
-  Logger.withMinimumLogLevel(LogLevel.Warning),
-  Effect.provide(
-    Layer.mergeAll(NodeContext.layer, TelemetryService.cliLayer, LocalCliService.defaultLayer, cliLoggerLayer)
-  ),
+  Effect.provide(Layer.mergeAll(NodeServices.layer, TelemetryService.cliLayer, LocalCliService.defaultLayer)),
   (program) => runCliFailureBoundary(program, argv.includes("--json"), isKnownCliError)
 )
 
@@ -62,5 +102,5 @@ const isMainModule = (() => {
 })()
 
 if (isMainModule) {
-  NodeRuntime.runMain(main, { disablePrettyLogger: true })
+  NodeRuntime.runMain(main, { disableErrorReporting: true })
 }

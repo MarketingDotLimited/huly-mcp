@@ -87,6 +87,19 @@ describe("toDraft07JsonSchema", () => {
     expect(getProperty(schema, "value")).not.toHaveProperty("description")
   })
 
+  it("preserves authored JSON Schema constraints nested inside an optional field", () => {
+    const AuthoredChoice = Schema.String.annotate({
+      description: "A documented choice.",
+      jsonSchema: { type: "string", enum: ["one", "two"] }
+    })
+    const schema = toDraft07JsonSchema(Schema.Struct({ choice: Schema.optional(AuthoredChoice) }))
+    const choice = getProperty(schema, "choice")
+
+    expect(choice).toMatchObject({
+      anyOf: [{ type: "string", enum: ["one", "two"], description: "A documented choice." }, { type: "null" }]
+    })
+  })
+
   const SharedCode = Schema.String.annotate({ identifier: "AdapterFixtureCode", description: "Stable fixture code." })
   const InputFixture = Schema.Struct({
     code: SharedCode,

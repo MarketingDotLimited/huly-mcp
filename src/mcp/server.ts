@@ -5,7 +5,7 @@
  */
 import type { McpRequestContext, Server } from "@modelcontextprotocol/server"
 import { serveStdio, type StdioServerTransport } from "@modelcontextprotocol/server/stdio"
-import { Config, Context, Deferred, Effect, type Exit, Layer, Ref, Schema } from "effect"
+import { Config, Context, Deferred, type Duration, Effect, type Exit, Layer, type Redacted, Ref, Schema } from "effect"
 
 import { createMcpServer } from "./create-mcp-server.js"
 import type { HttpHost, HttpPort, HttpServerFactoryService, HttpTransportError } from "./http-transport.js"
@@ -40,8 +40,8 @@ interface McpServerConfigData {
   readonly transport: McpTransportType
   readonly httpPort?: HttpPort
   readonly httpHost?: HttpHost
-  readonly mcpAuthToken?: string
-  readonly autoExit?: boolean
+  readonly mcpAuthToken?: Redacted.Redacted<string>
+  readonly shutdownGracePeriod?: Duration.Input
   readonly authMethod?: "token" | "password"
 }
 
@@ -61,7 +61,7 @@ type McpServerConfig = McpServerConfigData & McpServerConfigCallbacks
 
 export class McpServerError extends Schema.TaggedError<McpServerError>()("McpServerError", {
   message: Schema.String,
-  cause: Schema.optional(Schema.Defect)
+  cause: Schema.optional(Schema.Defect())
 }) {}
 
 const defaultWriteError = (message: string): void => {
@@ -79,12 +79,16 @@ const parseToolExposureConfigEffect = (
 export interface McpServerOperations {
   readonly run: () => Effect.Effect<void, McpServerError, HttpServerFactoryService>
   readonly stop: () => Effect.Effect<void, McpServerError>
+  readonly awaitReady: () => Effect.Effect<void, McpServerError>
 }
 
 interface McpServerRunControl {
   readonly shutdown: Deferred.Deferred<void>
   readonly done: Deferred.Deferred<void>
+  readonly ready: Deferred.Deferred<void>
 }
+
+const DEFAULT_SHUTDOWN_GRACE_PERIOD = "5 seconds"
 
 export class McpServerService extends Context.Service<McpServerService, McpServerOperations>()("@hulymcp/McpServer") {
   static layer(config: McpServerConfig): Layer.Layer<McpServerService, McpServerError, TelemetryService> {
@@ -139,23 +143,43 @@ export class McpServerService extends Context.Service<McpServerService, McpServe
         })
 
         const flushTelemetry = Effect.ignore(Effect.tryPromise(() => telemetry.shutdown()))
+        const shutdownGracePeriod = config.shutdownGracePeriod ?? DEFAULT_SHUTDOWN_GRACE_PERIOD
 
-        const isRunning = yield* Ref.make(false)
+        const boundedCleanup = (label: string, cleanup: Effect.Effect<void, McpServerError>): Effect.Effect<void> =>
+          cleanup.pipe(
+            Effect.interruptible,
+            Effect.timeoutOrElse({
+              duration: shutdownGracePeriod,
+              orElse: () => Effect.sync(() => writeError(`MCP stdio ${label} timed out during shutdown`))
+            }),
+            Effect.catch(() => Effect.sync(() => writeError(`MCP stdio ${label} failed during shutdown`)))
+          )
+
+        const promiseCleanup = (label: string, cleanup: () => Promise<void>): Effect.Effect<void> =>
+          boundedCleanup(
+            label,
+            Effect.tryPromise({
+              try: cleanup,
+              catch: (cause) => new McpServerError({ message: `${label} failed`, cause })
+            })
+          )
+
         const runControlRef = yield* Ref.make<McpServerRunControl | null>(null)
 
         const operations: McpServerOperations = {
           run: () =>
             Effect.gen(function* () {
-              if (yield* Ref.get(isRunning)) {
-                return yield* new McpServerError({ message: "MCP server is already running" })
-              }
-
-              yield* Ref.set(isRunning, true)
               const control: McpServerRunControl = {
                 shutdown: yield* Deferred.make<void>(),
-                done: yield* Deferred.make<void>()
+                done: yield* Deferred.make<void>(),
+                ready: yield* Deferred.make<void>()
               }
-              yield* Ref.set(runControlRef, control)
+              const claimed = yield* Ref.modify(runControlRef, (current) =>
+                current === null ? [true, control] : [false, current]
+              )
+              if (!claimed) {
+                return yield* new McpServerError({ message: "MCP server is already running" })
+              }
 
               yield* Effect.gen(function* () {
                 if (config.transport === "stdio") {
@@ -186,40 +210,48 @@ export class McpServerService extends Context.Service<McpServerService, McpServe
                   const stdioHandle = serveStdio(createStdioServer, {
                     legacy: "serve",
                     ...(config.createStdioTransport === undefined ? {} : { transport: config.createStdioTransport() }),
-                    onerror: (error) => writeError(`MCP stdio handler error: ${error.message}`)
+                    onerror: () => writeError("MCP stdio handler error")
                   })
-                  yield* Effect.raceFirst(
-                    Effect.async<void, McpServerError>((resume) => {
+                  const processShutdown = yield* Deferred.make<void>()
+                  const awaitProcessShutdown = Effect.acquireUseRelease(
+                    Effect.sync(() => {
+                      const requestShutdown = () => {
+                        Effect.runSync(Deferred.succeed(processShutdown, undefined))
+                      }
                       const removeListeners = () => {
-                        process.off("SIGINT", cleanup)
-                        process.off("SIGTERM", cleanup)
-                        if (config.autoExit) {
-                          process.stdin.off("end", cleanup)
-                          process.stdin.off("close", cleanup)
-                        }
-                      }
-                      const cleanup = () => {
-                        removeListeners()
-                        resume(Effect.void)
+                        process.off("SIGINT", requestShutdown)
+                        process.off("SIGTERM", requestShutdown)
+                        process.stdin.off("end", requestShutdown)
+                        process.stdin.off("close", requestShutdown)
                       }
 
-                      process.on("SIGINT", cleanup)
-                      process.on("SIGTERM", cleanup)
+                      process.on("SIGINT", requestShutdown)
+                      process.on("SIGTERM", requestShutdown)
 
-                      if (config.autoExit) {
-                        process.stdin.on("end", cleanup)
-                        process.stdin.on("close", cleanup)
-                      }
+                      process.stdin.on("end", requestShutdown)
+                      process.stdin.on("close", requestShutdown)
 
-                      return Effect.sync(removeListeners)
+                      return removeListeners
                     }),
-                    Deferred.await(control.shutdown)
+                    () =>
+                      Effect.gen(function* () {
+                        yield* Deferred.succeed(control.ready, undefined)
+                        yield* Deferred.await(processShutdown)
+                      }),
+                    (removeListeners) => Effect.sync(removeListeners)
                   )
 
-                  yield* Effect.promise(() => Promise.all([...drains].map((drain) => drain())))
-                  yield* flushTelemetry
+                  const shutdownStdio = Effect.gen(function* () {
+                    yield* promiseCleanup("in-flight request drain", () =>
+                      Promise.all([...drains].map((drain) => drain())).then(() => undefined)
+                    )
+                    yield* boundedCleanup("telemetry flush", flushTelemetry)
+                    yield* promiseCleanup("wire close", () => stdioHandle.close())
+                  })
 
-                  yield* Effect.promise(() => stdioHandle.close())
+                  yield* Effect.raceFirst(awaitProcessShutdown, Deferred.await(control.shutdown)).pipe(
+                    Effect.ensuring(shutdownStdio)
+                  )
                 } else {
                   const port = config.httpPort ?? DEFAULT_HTTP_PORT
                   const host = config.httpHost ?? DEFAULT_HTTP_HOST
@@ -247,15 +279,21 @@ export class McpServerService extends Context.Service<McpServerService, McpServe
                       }),
                       hostedHulyMigrationInstructionsForOrigin(requestRuntimeConfig.huly.url.origin)
                     )
-                    attachRequestClientLifecycle(server, lifecycle, (error) => {
-                      writeError(`Request-scoped Huly client cleanup failed: ${error.message}`)
+                    attachRequestClientLifecycle(server, lifecycle, () => {
+                      writeError("Request-scoped Huly client cleanup failed")
                     })
                     return server
                   }
 
                   yield* Effect.raceFirst(
                     startHttpTransport(
-                      { port, host, authToken: config.mcpAuthToken },
+                      {
+                        port,
+                        host,
+                        authToken: config.mcpAuthToken,
+                        onReady: () => Deferred.succeed(control.ready, undefined),
+                        shutdownGracePeriod
+                      },
                       createHttpServer,
                       writeError
                     ).pipe(
@@ -272,7 +310,6 @@ export class McpServerService extends Context.Service<McpServerService, McpServe
               }).pipe(
                 Effect.ensuring(
                   Effect.gen(function* () {
-                    yield* Ref.set(isRunning, false)
                     yield* Ref.set(runControlRef, null)
                     yield* Deferred.succeed(control.done, undefined)
                   })
@@ -286,6 +323,15 @@ export class McpServerService extends Context.Service<McpServerService, McpServe
               if (control === null) return
               yield* Deferred.succeed(control.shutdown, undefined)
               yield* Deferred.await(control.done)
+            }),
+
+          awaitReady: () =>
+            Effect.gen(function* () {
+              const control = yield* Ref.get(runControlRef)
+              if (control === null) {
+                return yield* new McpServerError({ message: "MCP server is not running" })
+              }
+              yield* Deferred.await(control.ready)
             })
         }
 
@@ -295,7 +341,11 @@ export class McpServerService extends Context.Service<McpServerService, McpServe
   }
 
   static testLayer(mockOperations: Partial<McpServerOperations>): Layer.Layer<McpServerService> {
-    const defaultOps: McpServerOperations = { run: () => Effect.void, stop: () => Effect.void }
+    const defaultOps: McpServerOperations = {
+      run: () => Effect.void,
+      stop: () => Effect.void,
+      awaitReady: () => Effect.void
+    }
 
     return Layer.succeed(McpServerService, { ...defaultOps, ...mockOperations })
   }

@@ -8,11 +8,11 @@ import {
   FullIntegrationToolNamesSchema
 } from "./full-integration-inventory-contract.js"
 
-const ListIntegrationCasesArgumentsSchema = Schema.Tuple(
+const ListIntegrationCasesArgumentsSchema = Schema.Tuple([
   Schema.Literal("scripts/integration_test_full.sh"),
-  Schema.Literal("mcp", "cli"),
-  Schema.Literal("bundled-mcp", "packed-cli")
-)
+  Schema.Literals(["mcp", "cli"]),
+  Schema.Literals(["bundled-mcp", "packed-cli"])
+])
 const IntegrationSourceSchema = Schema.String
 
 const NODE_ARGUMENT_OFFSET = 2

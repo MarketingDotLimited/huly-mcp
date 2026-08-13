@@ -11,7 +11,10 @@ const NODE_ARGUMENT_OFFSET = 2
 const runnerArguments = Schema.decodeUnknownSync(Schema.Array(Schema.String))(process.argv.slice(NODE_ARGUMENT_OFFSET))
 const [rawEntry, ...forwardedArguments] = runnerArguments
 const entry = Schema.decodeUnknownSync(
-  Schema.NonEmptyTrimmedString.annotations({ message: () => "Usage: run-bundled.mjs <entry.ts> [...args]" })
+  Schema.Trimmed.pipe(
+    Schema.check(Schema.isNonEmpty()),
+    Schema.annotate({ message: () => "Usage: run-bundled.mjs <entry.ts> [...args]" })
+  )
 )(rawEntry)
 
 const directory = await mkdtemp(join(process.cwd(), ".huly-cli-script-"))

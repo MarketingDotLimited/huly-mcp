@@ -452,6 +452,124 @@ above records the settled domain-wave checkpoint, not the current whole-tree
 state. Ticket #225 remains open until the bundled comparison runs after those
 edges land.
 
+## Ticket #226 MCP stdio lifecycle checkpoint
+
+The production MCP service now exposes an explicit readiness effect and its
+concentrated lifecycle tests use scope-owned eager fibers with Deferred and the
+Effect test clock instead of detached fibers and 17 wall-clock sleeps. Stdio EOF
+is unconditional ownership loss: the removed `MCP_AUTO_EXIT` escape hatch can no
+longer keep an abandoned Codex child alive as a PID-1 orphan.
+EOF, close, SIGINT, SIGTERM, and programmatic stop share one idempotent Deferred
+shutdown path.
+
+In-flight request drain, telemetry flush, and SDK wire close each receive a
+named five-second grace period. A timeout interrupts the Effect-owned cleanup,
+continues to the next cleanup phase, and writes one sanitized diagnostic to
+stderr; rejected closes likewise omit the underlying cause so credentials
+cannot cross the process boundary. SDK handler errors use the same secret-free
+stderr policy. Produced responses are drained before wire
+close. Protocol tests retain final `2026-07-28` discovery and `2025-06-18`
+initialize/tool compatibility. A raw built-command exchange additionally proves
+a representative `get_huly_context` call, invalid-parameter rendering, response
+drain, and actual zero-code child exit after stdin EOF. The HTTP endpoint token remains `Redacted` across the
+shared bootstrap/server seam and is left for the #227 auth adapter to unwrap at
+its point of use.
+
+The focused lifecycle and bundled stdio matrix now executes after the #227
+transport import migration:
+
+```bash
+mise exec node@22.22.2 -- pnpm exec vitest run \
+  test/index.test.ts \
+  test/mcp/server.test.ts \
+  test/mcp/server-parseToolsets.test.ts \
+  test/mcp/server-stdio-lifecycle.test.ts \
+  test/mcp/stdio-transport.test.ts \
+  test/mcp/http-transport.test.ts \
+  test/mcp/server-http.test.ts
+```
+
+Result: the focused seven-file MCP/index matrix passes 37 suites and all 157 tests, including
+all 68 assertions in `test/mcp/server.test.ts`. The in-process lifecycle cases
+use the virtual Effect clock; the spawned built-artifact cases retain their
+process test bound and prove both protocol generations using unconditional EOF
+shutdown.
+
+The deterministic lifecycle matrix covers safe-default EOF, response drain,
+racing EOF/close/SIGTERM/stop idempotence, bounded stuck telemetry and wire
+close, sanitized close rejection, listener cleanup through scoped interruption,
+and the already-migrated malformed-request/single-response protocol handlers.
+The broader `server.test.ts` uses explicit Deferred registration/config-provider
+seams and passes all 68 assertions without sleeps or test mocks. Concurrent
+`run()` calls claim one atomic Ref slot, and process/request cleanup diagnostics
+are bounded and static so rejected cleanup cannot disclose secrets.
+
+## Ticket #227 HTTP transport checkpoint
+
+The HTTP endpoint now uses the exact rc.108 `HttpEffect`, effectful
+`HttpRouter`, `HttpServer`, and `NodeHttpServer` APIs. Listener acquisition is
+scoped and completes only after Node reports that the socket is listening; the
+server service's HTTP readiness signal is emitted after the router is attached.
+Port-zero startup reports the acquired address rather than `:0`. Process signal
+ownership remains in the #226 server lifecycle, while interruption of the HTTP
+transport fiber closes the router, listener, MCP products, and request-owned
+leases through scope finalizers.
+
+`MCP_AUTH_TOKEN` remains `Redacted` from bootstrap through server configuration
+and is unwrapped only inside the authorization adapter. The endpoint retains its
+single `Bearer` form, constant-time equal-length comparison, 401 response, and
+secret-free JSON/error output. Localhost Host and Origin checks, malformed JSON,
+final `2026-07-28`, legacy `2025-06-18`, sanitized factory failures, and
+idempotent/aggregated legacy close behavior remain covered.
+
+HTTP handler shutdown and its scope finalizer use the same configurable grace
+period as the server lifecycle. Timeout interrupts the Effect-owned wait,
+continues finalization, and emits one static diagnostic; arbitrary SDK or factory
+error messages are never copied to stderr. The timeout fallback is covered with
+the virtual Effect clock and a deliberately non-completing server close, without
+wall-clock sleeps.
+
+The integration suite gates two request leases concurrently before releasing
+either one, proving distinct per-request workspace identities, products, and
+exactly-once cleanup without wall-clock sleeps or test mocks. Mounted-handler
+shutdown deterministically interrupts an in-flight modern request with the SDK's
+499 response and waits for it to settle before close completes.
+
+```bash
+mise exec node@22.22.2 -- pnpm exec vitest run --maxWorkers=1 \
+  test/mcp/http-transport.test.ts \
+  test/mcp/server-http.test.ts \
+  test/index.test.ts \
+  test/mcp/server-stdio-lifecycle.test.ts \
+  test/mcp/stdio-transport.test.ts
+```
+
+Result: 5 files and 69 tests pass. `mise exec node@22.22.2 -- pnpm build:mcp`,
+focused type-aware Oxlint, formatting, and `git diff --check` also pass. The
+whole-tree TypeScript check remains red only in separately owned CLI/scripts and
+their adjacent tests; no #227 production or test path appears in its diagnostic
+output.
+
+## Ticket #228 CLI framework checkpoint
+
+The CLI framework now uses the exact rc.108 unstable `Command`, `Flag`, and
+`Argument` APIs with `NodeServices.layer`; the Effect 3 CLI compatibility
+surface is gone. Generated routing, progressive help, local profile/auth
+commands, typed error rendering, JSON/file precedence, nullable and negated
+flags, and the full-integration mirror retain their prior serialized behavior.
+The catalog remains the command source of truth at 522 shared operations, 522
+unique native routes, and zero ignored operations. The older 451-route and
+71-ignore values remain only as the immutable program baseline.
+
+The complete focused CLI checkpoint is 12 files and 133 tests passing, including
+the catalog contract, built-process failure boundary, repeated raw-occurrence
+precedence, and generated-help truthfulness cases, including boolean negation
+syntax without unsupported nullable-clear guidance. The shared JSON Schema
+adapter again preserves the authored priority enum, so the prior controlled-red
+catalog assertion is resolved. The CLI-owned and directly required adapter paths
+have no TypeScript diagnostics; broader diagnostics remain in separately owned
+migration surfaces.
+
 ## Ledger maintenance rule
 
 Every migration batch must rerun the focused surface it owns and update this

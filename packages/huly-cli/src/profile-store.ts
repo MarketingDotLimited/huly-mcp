@@ -1,54 +1,58 @@
 import * as fs from "node:fs/promises"
 import * as path from "node:path"
 
-import { Either, Effect, Redacted, Schema } from "effect"
+import { Effect, Redacted, Result, Schema } from "effect"
 
 const CONFIG_DIRECTORY_MODE = 0o700
 const CONFIG_FILE_MODE = 0o600
 const JSON_INDENT_SPACES = 2
 
-export const ProfileNameSchema = Schema.NonEmptyTrimmedString.pipe(
-  Schema.pattern(/^[A-Za-z0-9][A-Za-z0-9._-]*$/),
+const NonEmptyTrimmedString = Schema.Trimmed.pipe(Schema.check(Schema.isNonEmpty()))
+
+export const ProfileNameSchema = NonEmptyTrimmedString.pipe(
+  Schema.check(Schema.isPattern(/^[A-Za-z0-9][A-Za-z0-9._-]*$/)),
   Schema.brand("CliProfileName")
 )
 export type ProfileName = Schema.Schema.Type<typeof ProfileNameSchema>
 
 const ProfileUrlSchema = Schema.String.pipe(
-  Schema.filter(
-    (value) => {
-      try {
-        const url = new URL(value)
-        return url.protocol === "http:" || url.protocol === "https:"
-      } catch {
-        return false
-      }
-    },
-    { message: () => "Expected an http or https URL." }
+  Schema.check(
+    Schema.makeFilter(
+      (value) => {
+        try {
+          const url = new URL(value)
+          return url.protocol === "http:" || url.protocol === "https:"
+        } catch {
+          return false
+        }
+      },
+      { message: "Expected an http or https URL." }
+    )
   )
 )
 
 export const CliProfileSchema = Schema.Struct({
   url: ProfileUrlSchema,
-  workspace: Schema.NonEmptyTrimmedString,
-  defaultProject: Schema.optionalWith(Schema.NonEmptyTrimmedString, { exact: true })
+  workspace: NonEmptyTrimmedString,
+  defaultProject: Schema.optionalKey(NonEmptyTrimmedString)
 })
 export type CliProfile = Schema.Schema.Type<typeof CliProfileSchema>
 
 export const CliProfilesFileSchema = Schema.Struct({
   version: Schema.Literal(1),
-  activeProfile: Schema.optionalWith(ProfileNameSchema, { exact: true }),
-  profiles: Schema.Record({ key: ProfileNameSchema, value: CliProfileSchema })
+  activeProfile: Schema.optionalKey(ProfileNameSchema),
+  profiles: Schema.Record(ProfileNameSchema, CliProfileSchema)
 })
 export type CliProfilesFile = Schema.Schema.Type<typeof CliProfilesFileSchema>
 
 export const CliCredentialsFileSchema = Schema.Struct({
   version: Schema.Literal(1),
-  tokens: Schema.Record({ key: ProfileNameSchema, value: Schema.Redacted(Schema.NonEmptyTrimmedString) })
+  tokens: Schema.Record(ProfileNameSchema, Schema.RedactedFromValue(NonEmptyTrimmedString))
 })
 export type CliCredentialsFile = Schema.Schema.Type<typeof CliCredentialsFileSchema>
 
 export class CliProfileStoreError extends Schema.TaggedError<CliProfileStoreError>()("CliProfileStoreError", {
-  kind: Schema.Literal("input", "integration"),
+  kind: Schema.Literals(["input", "integration"]),
   message: Schema.String
 }) {}
 
@@ -65,11 +69,11 @@ export interface CliProfilePaths {
 const emptyProfiles = (): CliProfilesFile => ({ version: 1, profiles: {} })
 const emptyCredentials = (): CliCredentialsFile => ({ version: 1, tokens: {} })
 
-const nodeErrorSchema = Schema.Struct({ code: Schema.optionalWith(Schema.String, { exact: true }) })
+const nodeErrorSchema = Schema.Struct({ code: Schema.optionalKey(Schema.String) })
 
 const isMissingFile = (error: unknown): boolean => {
-  const decoded = Schema.decodeUnknownEither(nodeErrorSchema)(error)
-  return Either.isRight(decoded) && decoded.right.code === "ENOENT"
+  const decoded = Schema.decodeUnknownResult(nodeErrorSchema)(error)
+  return Result.isSuccess(decoded) && decoded.success.code === "ENOENT"
 }
 
 const configBaseDirectory = (
@@ -98,13 +102,13 @@ export const cliProfilePaths = (
 const parseFile = <A, I>(
   filePath: string,
   text: string,
-  schema: Schema.Schema<A, I>
+  schema: Schema.Codec<A, I>
 ): Effect.Effect<A, CliProfileStoreError> =>
   Effect.try({
     try: (): unknown => JSON.parse(text),
     catch: () => new CliProfileStoreError({ kind: "input", message: `Malformed JSON in ${filePath}.` })
   }).pipe(
-    Effect.flatMap(Schema.decodeUnknown(schema)),
+    Effect.flatMap(Schema.decodeUnknownEffect(schema)),
     Effect.mapError((error) =>
       error instanceof CliProfileStoreError
         ? error
@@ -114,7 +118,7 @@ const parseFile = <A, I>(
 
 const readFile = <A, I>(
   filePath: string,
-  schema: Schema.Schema<A, I>,
+  schema: Schema.Codec<A, I>,
   whenMissing: () => A
 ): Effect.Effect<A, CliProfileStoreError> =>
   Effect.tryPromise({
@@ -122,7 +126,7 @@ const readFile = <A, I>(
     catch: (error) => new CliFileReadError({ missing: isMissingFile(error) })
   }).pipe(
     Effect.flatMap((text) => parseFile(filePath, text, schema)),
-    Effect.catchAll((error) =>
+    Effect.catch((error) =>
       error instanceof CliFileReadError && error.missing
         ? Effect.succeed(whenMissing())
         : error instanceof CliProfileStoreError
@@ -134,12 +138,12 @@ const readFile = <A, I>(
 const writeFile = <A, I>(
   paths: CliProfilePaths,
   filePath: string,
-  schema: Schema.Schema<A, I>,
+  schema: Schema.Codec<A, I>,
   value: A
 ): Effect.Effect<void, CliProfileStoreError> =>
   Effect.gen(function* () {
     const writeError = () => new CliProfileStoreError({ kind: "integration", message: `Cannot write ${filePath}.` })
-    const encoded = yield* Schema.encode(schema)(value).pipe(Effect.mapError(writeError))
+    const encoded = yield* Schema.encodeEffect(schema)(value).pipe(Effect.mapError(writeError))
     yield* Effect.tryPromise({
       try: async () => {
         await fs.mkdir(paths.directory, { recursive: true, mode: CONFIG_DIRECTORY_MODE })
@@ -188,16 +192,16 @@ export const makeCliProfileStore = (paths: CliProfilePaths): CliProfileStore => 
   writeProfiles: (profiles) => writeFile(paths, paths.profiles, CliProfilesFileSchema, profiles)
 })
 
-export const CliConnectionAuthMethodSchema = Schema.Literal("token", "password")
+export const CliConnectionAuthMethodSchema = Schema.Literals(["token", "password"])
 export type CliConnectionAuthMethod = Schema.Schema.Type<typeof CliConnectionAuthMethodSchema>
 
-const ResolvedCliAuthSchema = Schema.Union(
+const ResolvedCliAuthSchema = Schema.Union([
   Schema.Struct({ method: Schema.Literal("none") }),
-  Schema.Struct({ method: Schema.Literal("token"), token: Schema.Redacted(Schema.NonEmptyTrimmedString) }),
+  Schema.Struct({ method: Schema.Literal("token"), token: Schema.Redacted(NonEmptyTrimmedString) }),
   Schema.Struct({
     method: Schema.Literal("password"),
     credentialState: Schema.Literal("email-only"),
-    email: Schema.NonEmptyTrimmedString
+    email: NonEmptyTrimmedString
   }),
   Schema.Struct({
     method: Schema.Literal("password"),
@@ -207,19 +211,19 @@ const ResolvedCliAuthSchema = Schema.Union(
   Schema.Struct({
     method: Schema.Literal("password"),
     credentialState: Schema.Literal("complete"),
-    email: Schema.NonEmptyTrimmedString,
+    email: NonEmptyTrimmedString,
     password: Schema.Redacted(Schema.NonEmptyString)
   })
-)
+])
 export type ResolvedCliAuth = Schema.Schema.Type<typeof ResolvedCliAuthSchema>
 
 export const ResolvedCliConfigurationSchema = Schema.Struct({
   auth: ResolvedCliAuthSchema,
-  url: Schema.optionalWith(ProfileUrlSchema, { exact: true }),
-  workspace: Schema.optionalWith(Schema.NonEmptyTrimmedString, { exact: true }),
-  connectionTimeout: Schema.optionalWith(Schema.NonEmptyTrimmedString, { exact: true }),
-  defaultProject: Schema.optionalWith(Schema.NonEmptyTrimmedString, { exact: true }),
-  profile: Schema.optionalWith(ProfileNameSchema, { exact: true })
+  url: Schema.optionalKey(ProfileUrlSchema),
+  workspace: Schema.optionalKey(NonEmptyTrimmedString),
+  connectionTimeout: Schema.optionalKey(NonEmptyTrimmedString),
+  defaultProject: Schema.optionalKey(NonEmptyTrimmedString),
+  profile: Schema.optionalKey(ProfileNameSchema)
 })
 export type ResolvedCliConfiguration = Schema.Schema.Type<typeof ResolvedCliConfigurationSchema>
 
@@ -273,7 +277,7 @@ const resolvedConfiguration = (
   credentials: CliCredentialsFile,
   environment: NodeJS.ProcessEnv
 ): Effect.Effect<ResolvedCliConfiguration, CliProfileStoreError> => {
-  return Schema.validate(ResolvedCliConfigurationSchema)({
+  return Schema.decodeUnknownEffect(ResolvedCliConfigurationSchema)({
     auth: resolvedAuth(environment, tokenForProfile(name, credentials)),
     ...resolvedEndpointFields(environment, profile),
     ...resolvedProfileFields(name, profile)
@@ -297,4 +301,4 @@ export const resolveCliConfiguration = (
   })
 
 export const storedToken = (value: string): Redacted.Redacted<string> => Redacted.make(value)
-export const parseProfileName = Schema.decodeUnknown(ProfileNameSchema)
+export const parseProfileName = Schema.decodeUnknownEffect(ProfileNameSchema)

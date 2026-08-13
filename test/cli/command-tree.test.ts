@@ -1,10 +1,10 @@
-import { Command } from "@effect/cli"
-import { NodeContext } from "@effect/platform-node"
+import { NodeServices } from "@effect/platform-node"
 import { stripVTControlCharacters } from "node:util"
 import { Effect, Layer, Option, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
-import { buildCommandDescriptorAtPath, buildRootCommand } from "../../packages/huly-cli/src/command-tree.js"
+import { buildCommandDescriptorAtPath } from "../../packages/huly-cli/src/command-tree.js"
+import { runEffectCli } from "../../packages/huly-cli/src/index.js"
 import { LocalCliService } from "../../packages/huly-cli/src/local-commands.js"
 import { renderCliHelp } from "../../packages/huly-cli/src/help.js"
 import { CliCommandPath } from "../../packages/huly-cli/src/command-schema.js"
@@ -13,8 +13,8 @@ import { TelemetryService } from "../../src/telemetry/telemetry.js"
 
 const runCommand = (argv: ReadonlyArray<string>): Promise<void> =>
   Effect.runPromise(
-    Command.run(buildRootCommand(argv), { name: "Huly CLI", version: "test" })(["node", "huly", ...argv]).pipe(
-      Effect.provide(Layer.mergeAll(NodeContext.layer, TelemetryService.testLayer(), LocalCliService.defaultLayer))
+    runEffectCli(argv).pipe(
+      Effect.provide(Layer.mergeAll(NodeServices.layer, TelemetryService.testLayer(), LocalCliService.defaultLayer))
     )
   )
 
@@ -39,11 +39,14 @@ const renderedHelp = (argv: ReadonlyArray<string>, terminalColumns: unknown = 80
 describe("CLI command tree", () => {
   it("renders progressive root help within the requested terminal width", () => {
     const help = renderedHelp(["--help"], 40)
+    const booleanHelp = renderedHelp(["--help"], 120)
 
     expect(help).toBeDefined()
     expect(help).toContain("huly issues")
     expect(help).toContain("huly auth")
     expect(help).toContain("huly profile")
+    expect(booleanHelp).toContain("--json[=true|false], --no-json")
+    expect(booleanHelp).toContain("--yes[=true|false], --no-yes")
     expect(help).toContain("1 command")
     expect(help).not.toContain("issues labels add")
     expect(help.split("\n").every((line) => line.length <= 40)).toBe(true)
@@ -72,8 +75,31 @@ describe("CLI command tree", () => {
     expect(help).toContain("<project>")
     expect(help).toContain("<identifier>")
     expect(help).toContain("--json")
+    expect(help).toContain("--json[=true|false], --no-json")
+    expect(help).not.toContain("--project <value>")
+    expect(help).not.toContain("--identifier <value>")
+    expect(help).not.toContain("--output")
     expect(stripVTControlCharacters(help)).toBe(help)
     expect(help.split("\n").every((line) => line.length <= 88)).toBe(true)
+  })
+
+  it("renders schema descriptions and only behavior-supported file options", () => {
+    const updateHelp = renderedHelp(["issues", "update", "--help"], 120)
+    const attachmentHelp = renderedHelp(["attachments", "add-to-issue", "--help"], 120)
+    const listHelp = renderedHelp(["issues", "list", "--help"], 120)
+
+    expect(updateHelp).toContain("--title <value>")
+    expect(updateHelp).toContain("New issue title")
+    expect(updateHelp).toContain("--description-file <path>")
+    expect(updateHelp).not.toContain("--output")
+    expect(attachmentHelp).toContain("--data-base64-file <path>")
+    const booleanSyntax = "--has-assignee[=true|false], --no-has-assignee"
+    const booleanStart = listHelp.indexOf(booleanSyntax)
+    const nextOption = listHelp.indexOf("\n  --", booleanStart + booleanSyntax.length)
+    const booleanSection = listHelp.slice(booleanStart, nextOption)
+    expect(booleanStart).toBeGreaterThanOrEqual(0)
+    expect(booleanSection).toContain("Filter by assignee presence")
+    expect(booleanSection).not.toContain("Pass null to clear the field")
   })
 
   it("parses help requests at the process boundary", () => {

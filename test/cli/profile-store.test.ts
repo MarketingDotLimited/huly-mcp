@@ -51,7 +51,7 @@ describe("CLI profile store", () => {
 
   it("rejects a password auth state that contains no credential", async () => {
     const exit = await Effect.runPromiseExit(
-      Schema.decodeUnknown(ResolvedCliConfigurationSchema)({ auth: { method: "password" } })
+      Schema.decodeUnknownEffect(ResolvedCliConfigurationSchema)({ auth: { method: "password" } })
     )
 
     expect(exit.toString()).toContain("credentialState")
@@ -126,7 +126,7 @@ describe("CLI profile store", () => {
 
   it("reports the URL refinement message at the schema boundary", async () => {
     const exit = await Effect.runPromiseExit(
-      Schema.decodeUnknown(CliProfileSchema)({ url: "::", workspace: "workspace" })
+      Schema.decodeUnknownEffect(CliProfileSchema)({ url: "::", workspace: "workspace" })
     )
 
     expect(exit.toString()).toContain("Expected an http or https URL")

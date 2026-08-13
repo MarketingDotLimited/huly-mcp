@@ -110,15 +110,23 @@ const astDescription = (ast: SchemaAST.AST): string | undefined => {
   return undefined
 }
 
+const astAuthoredJsonSchema = (ast: SchemaAST.AST): JsonSchemaObject | undefined => {
+  const annotation = ast.context?.annotations?.jsonSchema ?? ast.annotations?.jsonSchema
+  return parseJsonObject(annotation)
+}
+
 const restoreAstPropertyDescriptions = (ast: SchemaAST.AST, jsonSchema: Schema.Json): Schema.Json => {
   const record = parseJsonObject(jsonSchema)
   if (record === undefined) return jsonSchema
 
-  if (SchemaAST.isUnion(ast) && Array.isArray(record.anyOf)) {
+  const authored = astAuthoredJsonSchema(ast)
+  const restoredRecord = authored === undefined ? record : { ...record, ...authored }
+
+  if (SchemaAST.isUnion(ast) && Array.isArray(restoredRecord.anyOf)) {
     const members = ast.types.filter((member) => !SchemaAST.isUndefined(member))
-    const anyOf = Schema.decodeUnknownSync(JsonArraySchema)(record.anyOf)
+    const anyOf = Schema.decodeUnknownSync(JsonArraySchema)(restoredRecord.anyOf)
     return {
-      ...record,
+      ...restoredRecord,
       anyOf: anyOf.map((member, index) => {
         const astMember = members[index]
         return astMember === undefined ? member : restoreAstPropertyDescriptions(astMember, member)
@@ -127,11 +135,11 @@ const restoreAstPropertyDescriptions = (ast: SchemaAST.AST, jsonSchema: Schema.J
   }
 
   if (SchemaAST.isObjects(ast)) {
-    const properties = record.properties === undefined ? undefined : parseJsonObject(record.properties)
-    if (properties === undefined) return record
+    const properties = restoredRecord.properties === undefined ? undefined : parseJsonObject(restoredRecord.properties)
+    if (properties === undefined) return restoredRecord
     const signatures = new Map(ast.propertySignatures.map((signature) => [signature.name, signature.type]))
     return {
-      ...record,
+      ...restoredRecord,
       properties: Object.fromEntries(
         Object.entries(properties).map(([key, property]) => {
           const propertyAst = signatures.get(key)
@@ -152,14 +160,14 @@ const restoreAstPropertyDescriptions = (ast: SchemaAST.AST, jsonSchema: Schema.J
     }
   }
 
-  if (SchemaAST.isArrays(ast) && record.items !== undefined) {
+  if (SchemaAST.isArrays(ast) && restoredRecord.items !== undefined) {
     const elementAst = ast.rest[0] ?? ast.elements[0]
     return elementAst === undefined
-      ? record
-      : { ...record, items: restoreAstPropertyDescriptions(elementAst, record.items) }
+      ? restoredRecord
+      : { ...restoredRecord, items: restoreAstPropertyDescriptions(elementAst, restoredRecord.items) }
   }
 
-  return record
+  return restoredRecord
 }
 
 /**

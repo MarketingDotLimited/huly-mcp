@@ -93,6 +93,29 @@ describe("CLI failure process boundary", () => {
     expect(parseCliFailure(result.stderr)).toMatchObject({ code: "INVALID_INPUT", retryable: false })
   })
 
+  it("routes explicit generated field flags through the built CLI before rendering one JSON failure", async () => {
+    const result = await runCli([
+      "issues",
+      "list",
+      "--project",
+      "HULY",
+      "--title-search",
+      "bug",
+      "--output",
+      "out.json",
+      "--json"
+    ])
+
+    expect(result.exitCode).toBe(2)
+    expect(result.stdout).toBe("")
+    expect(result.stderr.trim().split("\n")).toHaveLength(1)
+    expect(parseCliFailure(result.stderr)).toMatchObject({
+      code: "INVALID_INPUT",
+      message: "issues list does not support --output.",
+      retryable: false
+    })
+  })
+
   it("sanitizes an Effect defect at the process boundary", async () => {
     const result = await runFailureBoundary("defect")
 

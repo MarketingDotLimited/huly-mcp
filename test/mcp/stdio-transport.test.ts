@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process"
+import { execFileSync, spawn } from "node:child_process"
 import { resolve } from "node:path"
 import { PassThrough } from "node:stream"
 
@@ -15,19 +15,15 @@ const builtServerPath = resolve(process.cwd(), "dist/index.cjs")
 const SPAWNED_PROCESS_TEST_TIMEOUT_MS = 15_000
 const JsonRpcResponseSchema = Schema.Struct({
   jsonrpc: Schema.Literal("2.0"),
-  id: Schema.NullOr(Schema.Union(Schema.String, Schema.Number)),
-  result: Schema.optionalWith(Schema.Record({ key: Schema.String, value: Schema.Unknown }), { exact: true }),
-  error: Schema.optionalWith(
-    Schema.Struct({
-      code: Schema.Number,
-      message: Schema.String,
-      data: Schema.optionalWith(Schema.Unknown, { exact: true })
-    }),
-    { exact: true }
+  id: Schema.NullOr(Schema.Union([Schema.String, Schema.Number])),
+  result: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
+  error: Schema.optionalKey(
+    Schema.Struct({ code: Schema.Number, message: Schema.String, data: Schema.optionalKey(Schema.Unknown) })
   )
 })
 type JsonRpcResponse = Schema.Schema.Type<typeof JsonRpcResponseSchema>
 type JsonRpcMessage = Parameters<Transport["send"]>[0]
+const parseJsonRpcResponse = Schema.decodeUnknownSync(Schema.fromJsonString(JsonRpcResponseSchema))
 
 const createTestServer = (): Server => {
   const server = new Server(
@@ -50,7 +46,7 @@ const exchange = async (message: Record<string, unknown>): Promise<JsonRpcRespon
       const newline = buffered.indexOf("\n")
       if (newline < 0) return
       try {
-        resolve(Schema.decodeUnknownSync(JsonRpcResponseSchema)(JSON.parse(buffered.slice(0, newline))))
+        resolve(parseJsonRpcResponse(buffered.slice(0, newline)))
       } catch (error) {
         reject(error)
       }
@@ -141,7 +137,7 @@ describe("MCP 2026-07-28 stdio transport with 2025 compatibility", () => {
       const transport = new StdioClientTransport({
         command: process.execPath,
         args: [builtServerPath],
-        env: { ...getDefaultEnvironment(), LAZY_ENVS: "true", MCP_AUTO_EXIT: "true" },
+        env: { ...getDefaultEnvironment(), LAZY_ENVS: "true" },
         stderr: "pipe"
       })
       const client = new Client(
@@ -159,6 +155,54 @@ describe("MCP 2026-07-28 stdio transport with 2025 compatibility", () => {
       } finally {
         await transport.close()
       }
+    }
+  )
+
+  it(
+    "drains successful and invalid tool calls before the built command exits on EOF",
+    { timeout: SPAWNED_PROCESS_TEST_TIMEOUT_MS },
+    async () => {
+      const child = spawn(process.execPath, [builtServerPath], {
+        cwd: process.cwd(),
+        env: { ...getDefaultEnvironment(), LAZY_ENVS: "true" },
+        stdio: ["pipe", "pipe", "pipe"]
+      })
+      let stdout = ""
+      let stderr = ""
+      child.stdout.setEncoding("utf8")
+      child.stderr.setEncoding("utf8")
+      child.stdout.on("data", (chunk: string) => {
+        stdout += chunk
+      })
+      child.stderr.on("data", (chunk: string) => {
+        stderr += chunk
+      })
+      const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolveExit, reject) => {
+        child.once("error", reject)
+        child.once("close", (code, signal) => resolveExit({ code, signal }))
+      })
+      const request = (id: number, method: string, params: Record<string, unknown>) =>
+        JSON.stringify({ jsonrpc: "2.0", id, method, params: { ...params, _meta: meta } })
+
+      child.stdin.end(
+        `${request(1, "server/discover", {})}\n${request(2, "tools/call", {
+          name: "get_huly_context",
+          arguments: {}
+        })}\n${request(3, "tools/call", { name: "get_issue", arguments: {} })}\n`
+      )
+
+      const exit = await exited
+      const responses = stdout
+        .split("\n")
+        .filter((line) => line.length > 0)
+        .map((line) => parseJsonRpcResponse(line))
+      const byId = new Map(responses.map((response) => [response.id, response]))
+
+      expect(exit).toEqual({ code: 0, signal: null })
+      expect(byId.get(1)?.result).toBeDefined()
+      expect(byId.get(2)?.result).toMatchObject({ structuredContent: { result: { transport: { type: "stdio" } } } })
+      expect(byId.get(3)?.result).toMatchObject({ isError: true })
+      expect(stderr).not.toContain("FiberFailure")
     }
   )
 
@@ -208,7 +252,7 @@ describe("MCP 2026-07-28 stdio transport with 2025 compatibility", () => {
       const transport = new StdioClientTransport({
         command: process.execPath,
         args: [builtServerPath],
-        env: { ...getDefaultEnvironment(), LAZY_ENVS: "true", MCP_AUTO_EXIT: "true" },
+        env: { ...getDefaultEnvironment(), LAZY_ENVS: "true" },
         stderr: "pipe"
       })
       const client = new Client(
@@ -234,7 +278,7 @@ describe("MCP 2026-07-28 stdio transport with 2025 compatibility", () => {
       const transport = new StdioClientTransport({
         command: process.execPath,
         args: [builtServerPath],
-        env: { ...getDefaultEnvironment(), LAZY_ENVS: "true", MCP_AUTO_EXIT: "true" },
+        env: { ...getDefaultEnvironment(), LAZY_ENVS: "true" },
         stderr: "pipe"
       })
       try {
