@@ -111,7 +111,7 @@ Manual setup for the second group-DM participant:
    printf '%s\n%s\n' \
    '{"jsonrpc":"2.0","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":1}' \
    '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_workspace_members","arguments":{},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":2}' \
-     | HULY_TOOL_MODE=native MCP_AUTO_EXIT=true node dist/index.cjs 2>/dev/null | grep '"id":2'
+     | HULY_TOOL_MODE=native node dist/index.cjs 2>/dev/null | grep '"id":2'
    ```
 
 5. Confirm `list_employees` shows the owner plus two non-self employees with
@@ -194,12 +194,12 @@ INTEGRATION_TRANSPORT=http \
 ```bash
 printf '{"jsonrpc":"2.0","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":1}
 {"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_projects","arguments":{},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":2}
-' | HULY_TOOL_MODE=native MCP_AUTO_EXIT=true node dist/index.cjs 2>&1 | grep '"id":2'
+' | HULY_TOOL_MODE=native node dist/index.cjs 2>&1 | grep '"id":2'
 ```
 
 Expected: JSON with `"projects": [...]`
 
-**Note**: `MCP_AUTO_EXIT=true` makes the server exit when stdin closes (testing only).
+**Note**: The stdio server exits whenever stdin closes; no lifecycle environment flag is required.
 
 ## API-token certification preparation
 
@@ -262,7 +262,7 @@ printf '%s\n' \
 '{"jsonrpc":"2.0","method":"resources/templates/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":2}' \
 '{"jsonrpc":"2.0","method":"resources/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":3}' \
 '{"jsonrpc":"2.0","method":"resources/read","params":{"uri":"huly://projects/HULY","_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":4}' \
-  | MCP_AUTO_EXIT=true node dist/index.cjs 2>/dev/null | grep -E '"id":[234]'
+  | node dist/index.cjs 2>/dev/null | grep -E '"id":[234]'
 ```
 
 For HTTP header mode, send the same JSON-RPC methods to `/mcp` with `x-huly-url`, `x-huly-workspace`, and `x-huly-token` headers. Resource reads use the same request-scoped header config as tool calls.
@@ -382,15 +382,15 @@ Key response fields used by the test script for entity IDs:
 | send_channel_message | `.id` |
 | add_thread_reply | `.id` |
 
-## MCP_AUTO_EXIT and In-Flight Request Draining
+## Stdio EOF and In-Flight Request Draining
 
-`MCP_AUTO_EXIT=true` causes the server to exit when stdin closes. The server **drains in-flight tool calls before shutting down** — i.e., if a tool handler is mid-execution when stdin closes, the server waits (up to 30s) for it to complete and write its response before proceeding with shutdown.
+The stdio server always exits when stdin closes; `MCP_AUTO_EXIT` is no longer needed and cannot disable connection ownership. The server **drains in-flight tool calls before shutting down**: if a tool handler is mid-execution when stdin closes, it gets up to five seconds to complete and write its response. Wire and resource cleanup share the remainder of one ten-second global deadline.
 
 This matters for operations that make HTTP round-trips to Huly's collaborator service (e.g., `edit_document` with content changes calls `updateMarkup`). Without draining, the stdin-close event would race against the HTTP call, and the response would be lost even though the mutation succeeded on the server.
 
 **For script authors**: the standard `printf '%s\n%s\n' | node` pattern works correctly for all tools, including slow ones. No need for `sleep` workarounds.
 
-**Implementation**: `src/mcp/server.ts` — `createMcpServer` tracks in-flight requests with a counter. The `cleanup` handler (stdin close / SIGINT / SIGTERM) calls `drainInflight()` before resuming the shutdown fiber.
+**Implementation**: `src/mcp/server.ts` routes stdin EOF/close, SIGINT/SIGTERM, and programmatic stop through one idempotent shutdown coordinator. New requests are rejected after quiescing, and request completion notifications release the drain without polling timers.
 
 ## Eventual Consistency
 
@@ -398,9 +398,9 @@ Huly REST API is eventually consistent. Reads immediately after writes may retur
 
 ```bash
 # Update, then wait, then read in separate connections
-printf '...update...' | MCP_AUTO_EXIT=true node dist/index.cjs
+printf '...update...' | node dist/index.cjs
 sleep 2
-printf '...get...' | MCP_AUTO_EXIT=true node dist/index.cjs
+printf '...get...' | node dist/index.cjs
 ```
 
 ## Individual Tool Test Pattern
@@ -410,7 +410,7 @@ META='"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelc
 
 printf '%s\n' \
   "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"TOOL_NAME\",\"arguments\":ARGS,$META},\"id\":2}" \
-  | HULY_TOOL_MODE=native MCP_AUTO_EXIT=true node dist/index.cjs 2>/dev/null | grep '"id":2'
+  | HULY_TOOL_MODE=native node dist/index.cjs 2>/dev/null | grep '"id":2'
 ```
 
 ## Checking Results
