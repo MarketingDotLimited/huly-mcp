@@ -56,18 +56,25 @@ jobs:
         run: |
           mkdir -p .package-smoke
           npm_config_ignore_scripts=true pnpm pack --pack-destination .package-smoke
+          tarball="$(realpath "$(ls .package-smoke/*.tgz | head -n 1)")"
+          version="$(node -p "require('./package.json').version")"
+          node scripts/run-bundled.mjs scripts/certify-packed-artifact.ts "$tarball" mcp "$version"
 
       - name: Install and discover packed package
         run: |
           set -euo pipefail
 
+          repo_root="$PWD"
           tarball="$(realpath "$(ls .package-smoke/*.tgz | head -n 1)")"
           expected_version="$(node -p "require('./package.json').version")"
           smoke_dir="$(mktemp -d)"
 
           cd "$smoke_dir"
           printf '{"private":true,"type":"module"}\n' > package.json
-          pnpm add "$tarball"
+          pnpm add --no-optional "$tarball"
+          npm ls --all --json > resolved-dependencies.json
+          node "$repo_root/scripts/run-bundled.mjs" "$repo_root/scripts/certify-installed-dependencies.ts" \
+            resolved-dependencies.json @firfi/huly-mcp
 
           node <<'NODE'
           const { readFileSync } = require("node:fs")
@@ -80,71 +87,27 @@ jobs:
           }
           NODE
 
-          if ! printf '%s\n' '{"jsonrpc":"2.0","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"package-smoke","version":"1.0.0"}}},"id":1}' \
-            | env LAZY_ENVS=true MCP_AUTO_EXIT=true timeout 10 pnpm exec huly-mcp > stdout.log 2> stderr.log; then
-            echo "::group::stdout"
-            cat stdout.log
-            echo "::endgroup::"
-            echo "::group::stderr"
-            cat stderr.log
-            echo "::endgroup::"
-            exit 1
-          fi
-
-          node - "$expected_version" <<'NODE'
-          const { readFileSync } = require("node:fs")
-
-          const expectedVersion = process.argv[2]
-          const stdout = readFileSync("stdout.log", "utf8").trim()
-          const response = JSON.parse(stdout)
-          const serverInfo = response.result?._meta?.["io.modelcontextprotocol/serverInfo"]
-
-          if (serverInfo?.name !== "huly-mcp") {
-            throw new Error(`Unexpected server name: ${serverInfo?.name}`)
-          }
-
-          if (serverInfo?.version !== expectedVersion) {
-            throw new Error(`Unexpected server version: ${serverInfo?.version}; expected ${expectedVersion}`)
-          }
-          NODE
+          timeout 20 node "$repo_root/scripts/run-bundled.mjs" "$repo_root/scripts/smoke-packed-mcp.ts" \
+            "$(pwd)/node_modules/.bin/huly-mcp" "$expected_version"
 
           npm_smoke_dir="$(mktemp -d)"
           cd "$npm_smoke_dir"
           printf '{"private":true,"type":"module"}\n' > package.json
-          npm install "$tarball"
+          npm install --omit=optional "$tarball"
+          npm ls --all --json > resolved-dependencies.json
+          node "$repo_root/scripts/run-bundled.mjs" "$repo_root/scripts/certify-installed-dependencies.ts" \
+            resolved-dependencies.json @firfi/huly-mcp
 
-          if ! printf '%s\n' '{"jsonrpc":"2.0","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"package-smoke-npm","version":"1.0.0"}}},"id":1}' \
-            | env LAZY_ENVS=true MCP_AUTO_EXIT=true timeout 10 ./node_modules/.bin/huly-mcp > stdout.log 2> stderr.log; then
-            echo "::group::npm stdout"
-            cat stdout.log
-            echo "::endgroup::"
-            echo "::group::npm stderr"
-            cat stderr.log
-            echo "::endgroup::"
-            exit 1
-          fi
-
-          node - "$expected_version" <<'NODE'
-          const { readFileSync } = require("node:fs")
-
-          const expectedVersion = process.argv[2]
-          const stdout = readFileSync("stdout.log", "utf8").trim()
-          const response = JSON.parse(stdout)
-          const serverInfo = response.result?._meta?.["io.modelcontextprotocol/serverInfo"]
-
-          if (serverInfo?.name !== "huly-mcp") {
-            throw new Error(`Unexpected npm server name: ${serverInfo?.name}`)
-          }
-
-          if (serverInfo?.version !== expectedVersion) {
-            throw new Error(`Unexpected npm server version: ${serverInfo?.version}; expected ${expectedVersion}`)
-          }
-          NODE
+          timeout 20 node "$repo_root/scripts/run-bundled.mjs" "$repo_root/scripts/smoke-packed-mcp.ts" \
+            "$(pwd)/node_modules/.bin/huly-mcp" "$expected_version"
 
       - name: Pack CLI package
         run: |
           mkdir -p .package-smoke-cli
           npm_config_ignore_scripts=true pnpm --dir packages/huly-cli pack --pack-destination ../../.package-smoke-cli
+          tarball="$(realpath "$(ls .package-smoke-cli/*.tgz | head -n 1)")"
+          version="$(node -p "require('./packages/huly-cli/package.json').version")"
+          node scripts/run-bundled.mjs scripts/certify-packed-artifact.ts "$tarball" cli "$version"
 
       - name: Install and inspect packed CLI package
         run: |
@@ -157,7 +120,10 @@ jobs:
 
           cd "$smoke_dir"
           printf '{"private":true,"type":"module"}\n' > package.json
-          pnpm add "$tarball"
+          pnpm add --no-optional "$tarball"
+          npm ls --all --json > resolved-dependencies.json
+          node "$repo_root/scripts/run-bundled.mjs" "$repo_root/scripts/certify-installed-dependencies.ts" \
+            resolved-dependencies.json @firfi/huly-cli
 
           node - "$expected_version" <<'NODE'
           const { readFileSync } = require("node:fs")
@@ -183,7 +149,10 @@ jobs:
           npm_smoke_dir="$(mktemp -d)"
           cd "$npm_smoke_dir"
           printf '{"private":true,"type":"module"}\n' > package.json
-          npm install "$tarball"
+          npm install --omit=optional "$tarball"
+          npm ls --all --json > resolved-dependencies.json
+          node "$repo_root/scripts/run-bundled.mjs" "$repo_root/scripts/certify-installed-dependencies.ts" \
+            resolved-dependencies.json @firfi/huly-cli
 
           ./node_modules/.bin/huly --help > help.log
           grep -q "Huly CLI" help.log
@@ -204,7 +173,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24.x
+          node-version: 24.15.0
 
       - name: Build Docker image
         run: docker build -t huly-mcp:package-smoke .

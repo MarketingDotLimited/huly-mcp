@@ -1,4 +1,4 @@
-FROM node:20-bookworm-slim AS build
+FROM node:24.15.0-bookworm-slim AS build
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ COPY . .
 RUN pnpm build \
   && rm -rf node_modules
 
-FROM node:20-bookworm-slim
+FROM node:24.15.0-bookworm-slim
 
 WORKDIR /app
 

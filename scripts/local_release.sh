@@ -142,6 +142,12 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 1
 fi
 
+node_version="$(node -p 'process.versions.node')"
+if [[ "$node_version" != "22.22.2" && "$node_version" != "24.15.0" ]]; then
+  echo "Refusing production release under Node $node_version; expected 22.22.2 or 24.15.0." >&2
+  exit 1
+fi
+
 # Release builds bundle dependencies from the project checkout. A clean clone may
 # not have node_modules yet, so make the one-command release path self-contained.
 CI=true pnpm install --frozen-lockfile --prod=false

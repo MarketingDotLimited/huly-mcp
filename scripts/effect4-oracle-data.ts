@@ -174,4 +174,4 @@ export const captureEffect4Oracle = async (): Promise<BehavioralOracle> => {
   })
 }
 
-export const renderEffect4Oracle = async (): Promise<string> => canonicalJson(await captureEffect4Oracle())
+export const renderEffect4Oracle = (oracle: BehavioralOracle): string => canonicalJson(oracle)

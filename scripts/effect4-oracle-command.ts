@@ -1,6 +1,6 @@
 import { Schema } from "effect"
 
-import { renderEffect4Oracle } from "./effect4-oracle-data.js"
+import { captureEffect4Oracle, renderEffect4Oracle } from "./effect4-oracle-data.js"
 import { verifyEffect4Oracle, writeEffect4Oracle } from "./effect4-oracle-io.js"
 
 const COMMAND_ARGUMENT_INDEX = 2
@@ -10,7 +10,7 @@ const OracleCommand = Schema.Literals(["capture", "verify"]).annotate({
 
 const main = async (): Promise<void> => {
   const command = Schema.decodeUnknownSync(OracleCommand)(process.argv[COMMAND_ARGUMENT_INDEX])
-  const content = await renderEffect4Oracle()
+  const content = renderEffect4Oracle(await captureEffect4Oracle())
   const oraclePath =
     command === "capture"
       ? await writeEffect4Oracle(process.cwd(), content)

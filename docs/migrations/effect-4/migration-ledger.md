@@ -630,13 +630,48 @@ boundaries, circular dependencies, complexity, registry metadata/schema, the
 reviewed bundled oracle, CLI integration inventory, generated README and Agent
 Skill, packed-skill byte parity, and package closure; then runs type-aware lint,
 formatting, duplication detection, and coverage. The final test run passes 283
-files and all 4,243 tests. Coverage is 99.61% statements, 99.01% branches,
+files and all 4,244 tests. Coverage is 99.61% statements, 99.01% branches,
 99.35% functions, and 99.66% lines, with the configured 99% thresholds unchanged.
 
 Active instructions now direct Effect work to the installed declarations and
 the pinned v4 source. The v3 snapshot remains explicitly archival parity
 evidence and is no longer provisioned, verified, or presented as implementation
 guidance.
+
+## Ticket #231 clean-consumer artifact certification
+
+Both packed artifacts pass the complete clean-consumer matrix on exact Node
+22.22.2 and 24.15.0 with both pnpm 10.29.3 and npm. Every matrix cell installs
+the local tarballs into a new project, resolves the complete dependency graph,
+and runs the executable rather than the workspace build. The MCP executable
+proves embedded discovery version, a successful `get_huly_context` call, an
+invalid `get_issue` call, drained EOF shutdown, and deterministic SIGTERM exit.
+The CLI proves its embedded version, all 54 root groups and 522 catalog routes,
+representative help, structured-input precedence, and exact human/JSON failure
+streams and statuses.
+
+The schema-owned tarball verifier checks manifest identity and supported-engine
+range, executable mode `0755`, bundle/file closure, and absence of Effect 3
+imports. The MCP archive contains four files and has the reviewed nonlocal
+composition of five AJV runtime helpers plus `ws`; the CLI archive contains
+seven files and has the exact one-member external set `ws`. Optional native
+accelerators are not required: clean installs on both supported Node lines
+resolve and start through their portable fallbacks.
+
+The final packed MCP measures 8,253,902 raw bundle bytes, 1,561,887 gzip bytes,
+1,598,836 tarball bytes, and 8,406,554 unpacked bytes. Against the immutable
+Effect 3 bundle baseline this is a 2.17% raw and 2.22% gzip decrease. CLI
+baseline/current size evidence and deltas remain generated and verified in
+`cli-artifact-size.json`; MCP measurements and closure are likewise frozen in
+`mcp-artifact-certification.json`, and package-smoke rejects stale evidence. The larger CLI decrease is the removal of the Effect 3
+CLI runtime and compatibility layer. CI and package-smoke use the same exact
+22.22.2/24.15.0 matrix as both package manifests, while the Docker and registry
+publication paths intentionally use the exact supported 24.15.0 release line.
+
+The final aggregate gate passes 289 files and all 4,271 tests after the remote
+stdio lifecycle merge and artifact-certification coverage were integrated.
+Coverage is 99.57% statements, 99.01% branches, 99.25% functions, and 99.61%
+lines, with the configured 99% thresholds unchanged.
 
 ## Closed-ledger maintenance rule
 

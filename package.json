@@ -52,6 +52,7 @@
     "verify-cli-skill": "node scripts/run-bundled.mjs scripts/update-cli-skill.ts --check",
     "verify-cli-skill-package": "node scripts/run-bundled.mjs scripts/verify-cli-skill-package.ts",
     "verify-cli-package-closure": "node scripts/run-bundled.mjs scripts/verify-cli-package-closure.ts",
+    "certify-packed-artifact": "node scripts/run-bundled.mjs scripts/certify-packed-artifact.ts",
     "report-cli-artifact-size": "node scripts/run-bundled.mjs scripts/report-cli-artifact-size.ts",
     "update-cli-artifact-size": "node scripts/run-bundled.mjs scripts/report-cli-artifact-size.ts --write",
     "verify-registry-metadata": "node scripts/sync-registry-metadata.mjs --check",

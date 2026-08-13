@@ -3,7 +3,7 @@ import * as fs from "node:fs/promises"
 import { Schema } from "effect"
 
 import { canonicalJson } from "./effect4-oracle-canonical.js"
-import { renderEffect4Oracle } from "./effect4-oracle-data.js"
+import { captureEffect4Oracle, renderEffect4Oracle } from "./effect4-oracle-data.js"
 import { compareOracleValues } from "./effect4-oracle-delta.js"
 import { EFFECT4_ORACLE_PATH } from "./effect4-oracle-io.js"
 import { createOracleDeltaAuditReport } from "./effect4-oracle-review.js"
@@ -36,6 +36,6 @@ export const runEffect4OracleDeltaReportCommand = (
 
 void runEffect4OracleDeltaReportCommand(process.env["VITEST"], {
   readBaseline: readEffect4OracleBaseline,
-  renderCurrent: renderEffect4Oracle,
+  renderCurrent: async () => renderEffect4Oracle(await captureEffect4Oracle()),
   write: writeEffect4OracleDeltaReport
 })

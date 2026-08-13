@@ -145,7 +145,7 @@ describe("Effect 4 behavioral oracle", () => {
     expect(() =>
       requireOracleDiscoveries({ ...oracle.bundledProcesses, stdio: { ...oracle.bundledProcesses.stdio, native: [] } })
     ).toThrow("both native and proxy")
-    expect(await renderEffect4Oracle()).toContain('"formatVersion": 1')
+    expect(renderEffect4Oracle(oracle)).toContain('"formatVersion": 1')
   }, 60_000)
 
   it("terminates and reaps an oracle subprocess after its deadline", async () => {
