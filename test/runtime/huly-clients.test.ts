@@ -1,5 +1,6 @@
-import { Cause, Deferred, Effect, Exit, Layer } from "effect"
-import { describe, expect, it } from "vitest"
+import { it } from "@effect/vitest"
+import { Cause, Deferred, Effect, Exit, Fiber, Layer } from "effect"
+import { describe, expect } from "vitest"
 
 import { HulyClient } from "../../src/huly/client.js"
 import { HulyConnectionError, HulyUnavailableError } from "../../src/huly/errors-base.js"
@@ -14,24 +15,25 @@ const clientLayer = Layer.merge(
 )
 
 describe("shared Huly client runtime", () => {
-  it("builds scoped client bundles from supplied layers", async () => {
-    const scoped = await Effect.runPromise(buildScopedClientBundle(clientLayer))
+  it("builds scoped client bundles and closes them exactly once", async () => {
+    let releases = 0
+    const trackedLayer = clientLayer.pipe(Layer.tap(() => Effect.addFinalizer(() => Effect.sync(() => releases++))))
+    const scoped = await Effect.runPromise(buildScopedClientBundle(trackedLayer))
 
-    try {
-      expect(scoped.bundle.storageClient.getFileUrl("blob-1")).toContain("blob-1")
-      if (scoped.bundle.workspaceClient === undefined) {
-        throw new Error("Expected workspace client in scoped bundle")
-      }
-      if (scoped.bundle.storageClient.downloadFile === undefined) {
-        throw new Error("Expected storage client download support")
-      }
-      expect(await Effect.runPromise(scoped.bundle.storageClient.downloadFile("blob-1"))).toEqual(
-        Buffer.from("test file blob-1")
-      )
-      expect(await Effect.runPromise(scoped.bundle.workspaceClient.getUserWorkspaces())).toEqual([])
-    } finally {
-      await scoped.close()
+    expect(scoped.bundle.storageClient.getFileUrl("blob-1")).toContain("blob-1")
+    if (scoped.bundle.workspaceClient === undefined) {
+      throw new Error("Expected workspace client in scoped bundle")
     }
+    if (scoped.bundle.storageClient.downloadFile === undefined) {
+      throw new Error("Expected storage client download support")
+    }
+    expect(await Effect.runPromise(scoped.bundle.storageClient.downloadFile("blob-1"))).toEqual(
+      Buffer.from("test file blob-1")
+    )
+    expect(await Effect.runPromise(scoped.bundle.workspaceClient.getUserWorkspaces())).toEqual([])
+
+    await Promise.all([scoped.close(), scoped.close()])
+    expect(releases).toBe(1)
   })
 
   it("memoizes one acquisition and closes its owned scope exactly once", async () => {
@@ -41,7 +43,7 @@ describe("shared Huly client runtime", () => {
       acquisitions += 1
       return clientLayer.pipe(Layer.tap(() => Effect.addFinalizer(() => Effect.sync(() => releases++))))
     })
-    const [resolve, , close] = createClientResolver(trackedLayer)
+    const { close, resolve } = createClientResolver(trackedLayer)
 
     const first = await resolve()
     const second = await resolve()
@@ -50,26 +52,23 @@ describe("shared Huly client runtime", () => {
     expect(Exit.isSuccess(first)).toBe(true)
     expect(acquisitions).toBe(1)
 
-    await close()
-    await close()
+    await Promise.all([close(), close()])
     expect(releases).toBe(1)
     expect(Exit.isFailure(await resolve())).toBe(true)
   })
 
-  it("supports externally owned primed bundles without closing them", async () => {
-    const scoped = await Effect.runPromise(buildScopedClientBundle(clientLayer))
-    const [resolve, prime, close] = createClientResolver(clientLayer)
-    await prime(scoped.bundle)
+  it("takes ownership of a primed scoped bundle", async () => {
+    let releases = 0
+    const trackedLayer = clientLayer.pipe(Layer.tap(() => Effect.addFinalizer(() => Effect.sync(() => releases++))))
+    const scoped = await Effect.runPromise(buildScopedClientBundle(trackedLayer))
+    const { close, prime, resolve } = createClientResolver(clientLayer)
+    await prime(scoped)
 
-    try {
-      const primed = await resolve()
-      expect(Exit.isSuccess(primed) && primed.value).toBe(scoped.bundle)
-      await close()
+    const primed = await resolve()
+    expect(Exit.isSuccess(primed) && primed.value).toBe(scoped.bundle)
 
-      expect(scoped.bundle.storageClient.getFileUrl("still-open")).toContain("still-open")
-    } finally {
-      await scoped.close()
-    }
+    await close()
+    expect(releases).toBe(1)
   })
 
   it("evicts a mixed acquisition containing unavailability so a later call can recover", async () => {
@@ -89,7 +88,7 @@ describe("shared Huly client runtime", () => {
             )
           )
     )
-    const [resolve, , close] = createClientResolver(recoverableLayer)
+    const { close, resolve } = createClientResolver(recoverableLayer)
 
     try {
       expect(Exit.isFailure(await resolve())).toBe(true)
@@ -106,19 +105,15 @@ describe("shared Huly client runtime", () => {
       failureKind: "refused"
     })
     const failingLayer = clientLayer.pipe(Layer.tap(() => Effect.fail(unavailable)))
-    const [resolve, prime, close] = createClientResolver(failingLayer)
+    const { close, prime, resolve } = createClientResolver(failingLayer)
     const scoped = await Effect.runPromise(buildScopedClientBundle(clientLayer))
     const failedAcquisition = resolve()
-    await prime(scoped.bundle)
+    await prime(scoped)
 
-    try {
-      expect(Exit.isFailure(await failedAcquisition)).toBe(true)
-      const primed = await resolve()
-      expect(Exit.isSuccess(primed) && primed.value).toBe(scoped.bundle)
-    } finally {
-      await close()
-      await scoped.close()
-    }
+    expect(Exit.isFailure(await failedAcquisition)).toBe(true)
+    const primed = await resolve()
+    expect(Exit.isSuccess(primed) && primed.value).toBe(scoped.bundle)
+    await close()
   })
 
   it("keeps non-unavailable failures cached", async () => {
@@ -127,7 +122,7 @@ describe("shared Huly client runtime", () => {
       acquisitions += 1
       return clientLayer.pipe(Layer.tap(() => Effect.fail(new HulyConnectionError({ message: "stable failure" }))))
     })
-    const [resolve, , close] = createClientResolver(failingLayer)
+    const { close, resolve } = createClientResolver(failingLayer)
 
     const first = await resolve()
     const second = await resolve()
@@ -150,7 +145,7 @@ describe("shared Huly client runtime", () => {
         Layer.tap(() => Effect.failCause(Cause.combine(Cause.fail(unavailable), Cause.die("token=secret"))))
       )
     })
-    const [resolve, , close] = createClientResolver(failingLayer)
+    const { close, resolve } = createClientResolver(failingLayer)
 
     const first = await resolve()
     const second = await resolve()
@@ -172,7 +167,7 @@ describe("shared Huly client runtime", () => {
         )
       )
     )
-    const [resolve, , close] = createClientResolver(pendingLayer)
+    const { close, resolve } = createClientResolver(pendingLayer)
     const pendingResolution = resolve()
 
     await Effect.runPromise(Deferred.await(started))
@@ -194,20 +189,51 @@ describe("shared Huly client runtime", () => {
       )
     )
     const scoped = await Effect.runPromise(buildScopedClientBundle(clientLayer))
-    const [resolve, prime, close] = createClientResolver(pendingLayer)
+    const { close, prime, resolve } = createClientResolver(pendingLayer)
     const pendingResolution = resolve()
 
-    try {
-      await Effect.runPromise(Deferred.await(started))
-      await prime(scoped.bundle)
+    await Effect.runPromise(Deferred.await(started))
+    await prime(scoped)
 
-      expect(await Effect.runPromise(Deferred.await(interrupted))).toBeUndefined()
-      expect(Exit.isFailure(await pendingResolution)).toBe(true)
-      const primed = await resolve()
-      expect(Exit.isSuccess(primed) && primed.value).toBe(scoped.bundle)
-    } finally {
-      await close()
-      await scoped.close()
-    }
+    expect(await Effect.runPromise(Deferred.await(interrupted))).toBeUndefined()
+    expect(Exit.isFailure(await pendingResolution)).toBe(true)
+    const primed = await resolve()
+    expect(Exit.isSuccess(primed) && primed.value).toBe(scoped.bundle)
+    await close()
   })
+
+  it("rejects priming after process-scoped clients close", async () => {
+    const scoped = await Effect.runPromise(buildScopedClientBundle(clientLayer))
+    const { close, prime } = createClientResolver(clientLayer)
+
+    await close()
+
+    await expect(prime(scoped)).rejects.toThrow("Cannot prime closed process-scoped Huly clients")
+    await scoped.close()
+  })
+
+  it.effect("releases an acquired scope when startup is interrupted", () =>
+    Effect.gen(function* () {
+      const started = yield* Deferred.make<void>()
+      const released = yield* Deferred.make<void>()
+      const continueStartup = yield* Deferred.make<void>()
+      const startupLayer = Layer.merge(
+        clientLayer,
+        Layer.effectDiscard(
+          Effect.acquireRelease(Effect.void, () => Deferred.succeed(released, undefined)).pipe(
+            Effect.andThen(Deferred.succeed(started, undefined)),
+            Effect.andThen(Deferred.await(continueStartup))
+          )
+        )
+      )
+      const acquisition = yield* buildScopedClientBundle(startupLayer).pipe(
+        Effect.forkChild({ startImmediately: true })
+      )
+
+      yield* Deferred.await(started)
+      yield* Fiber.interrupt(acquisition)
+
+      expect(yield* Deferred.isDone(released)).toBe(true)
+    })
+  )
 })

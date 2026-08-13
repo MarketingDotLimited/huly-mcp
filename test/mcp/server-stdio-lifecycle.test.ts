@@ -1,8 +1,9 @@
 import { PassThrough } from "node:stream"
 
 import { describe, it } from "@effect/vitest"
+import { Server } from "@modelcontextprotocol/server"
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio"
-import { Context, Deferred, Effect, Exit, Fiber, Layer } from "effect"
+import { Context, Deferred, Effect, Exit, Fiber, Latch, Layer } from "effect"
 import { TestClock } from "effect/testing"
 import { expect } from "vitest"
 
@@ -12,7 +13,8 @@ import { HulyStorageClient } from "../../src/huly/storage.js"
 import { WorkspaceClient } from "../../src/huly/workspace-client.js"
 import { HttpServerFactoryService } from "../../src/mcp/http-transport.js"
 import { createDefaultMcpSdkServer } from "../../src/mcp/sdk-server.js"
-import { McpServerService } from "../../src/mcp/server.js"
+import { type ClientBundle, McpServerService } from "../../src/mcp/server.js"
+import type { StdioProcessPort, StdioShutdownHandlers } from "../../src/mcp/stdio-shutdown.js"
 import { TelemetryService } from "../../src/telemetry/telemetry.js"
 import { inertHttpServerFactory } from "./http-test-support.js"
 
@@ -49,6 +51,7 @@ class CloseProbeTransport extends StdioServerTransport {
 const buildOperations = Effect.fn("buildOperations")(function* (options: {
   readonly transport: StdioServerTransport
   readonly errors?: Array<string>
+  readonly stdioProcess?: StdioProcessPort
   readonly telemetryShutdown?: () => Promise<void>
 }) {
   const bundle = yield* makeClientBundle()
@@ -58,6 +61,7 @@ const buildOperations = Effect.fn("buildOperations")(function* (options: {
     resolveClients: async () => Exit.succeed(bundle),
     createServer: createDefaultMcpSdkServer,
     createStdioTransport: () => options.transport,
+    ...(options.stdioProcess === undefined ? {} : { stdioProcess: options.stdioProcess }),
     writeError: (message) => options.errors?.push(message),
     getRuntimeConfigContext: () => sanitizeHulyRuntimeConfigFromEnv(runtimeEnv)
   }).pipe(
@@ -144,35 +148,40 @@ describe("McpServerService released stdio lifecycle", () => {
     })
   )
 
-  it.effect("bounds a stuck wire close with the Effect clock", () =>
+  it.effect("forces exit when a stuck wire close reaches the global deadline", () =>
     Effect.gen(function* () {
       const errors: Array<string> = []
+      const stdioProcess = new RecordingStdioProcess()
       const closeStarted = yield* Deferred.make<void>()
       const transport = new CloseProbeTransport(new PassThrough(), new PassThrough(), () => {
         Effect.runSync(Deferred.succeed(closeStarted, undefined))
         return new Promise(() => {})
       })
-      const operations = yield* buildOperations({ transport, errors })
+      const operations = yield* buildOperations({ transport, errors, stdioProcess })
       const fiber = yield* runServer(operations)
 
-      process.stdin.emit("end")
+      yield* Effect.promise(() => stdioProcess.awaitListening())
+      stdioProcess.emitEof()
       yield* Deferred.await(closeStarted)
-      yield* TestClock.adjust("5 seconds")
+      yield* TestClock.adjust("10 seconds")
       yield* Fiber.join(fiber)
 
-      expect(errors).toEqual(["MCP stdio wire close timed out during shutdown"])
+      expect(errors).toEqual(["Huly MCP stdio shutdown exceeded 10 seconds; forcing process exit"])
+      expect(stdioProcess.forcedExitCodes).toEqual([1])
       expect(transport.closeCount).toBe(1)
     })
   )
 
-  it.effect("bounds telemetry shutdown before closing the wire", () =>
+  it.effect("forces exit when telemetry shutdown reaches the global deadline", () =>
     Effect.gen(function* () {
       const errors: Array<string> = []
+      const stdioProcess = new RecordingStdioProcess()
       const telemetryStarted = yield* Deferred.make<void>()
       const transport = new CloseProbeTransport(new PassThrough(), new PassThrough(), async () => {})
       const operations = yield* buildOperations({
         transport,
         errors,
+        stdioProcess,
         telemetryShutdown: () => {
           Effect.runSync(Deferred.succeed(telemetryStarted, undefined))
           return new Promise(() => {})
@@ -180,12 +189,14 @@ describe("McpServerService released stdio lifecycle", () => {
       })
       const fiber = yield* runServer(operations)
 
-      process.emit("SIGTERM")
+      yield* Effect.promise(() => stdioProcess.awaitListening())
+      stdioProcess.emitSigterm()
       yield* Deferred.await(telemetryStarted)
-      yield* TestClock.adjust("5 seconds")
+      yield* TestClock.adjust("10 seconds")
       yield* Fiber.join(fiber)
 
-      expect(errors).toEqual(["MCP stdio telemetry flush timed out during shutdown"])
+      expect(errors).toEqual(["Huly MCP stdio shutdown exceeded 10 seconds; forcing process exit"])
+      expect(stdioProcess.forcedExitCodes).toEqual([1])
       expect(transport.closeCount).toBe(1)
     })
   )
@@ -204,6 +215,224 @@ describe("McpServerService released stdio lifecycle", () => {
 
       expect(errors).toEqual(["MCP stdio handler error"])
       expect(errors.join(" ")).not.toContain("secret-token")
+    })
+  )
+
+  class RecordingStdioProcess implements StdioProcessPort {
+    private handlers: StdioShutdownHandlers | null = null
+    private readonly waiters = new Set<() => void>()
+    readonly forcedExitCodes: Array<1> = []
+    listenerRegistrations = 0
+
+    listen(handlers: StdioShutdownHandlers): () => void {
+      this.handlers = handlers
+      this.listenerRegistrations++
+      for (const resolve of this.waiters) resolve()
+      this.waiters.clear()
+      return () => {
+        if (this.handlers === handlers) this.handlers = null
+      }
+    }
+
+    forceExit(code: 1): void {
+      this.forcedExitCodes.push(code)
+    }
+
+    awaitListening(): Promise<void> {
+      return this.handlers === null ? new Promise((resolve) => this.waiters.add(resolve)) : Promise.resolve()
+    }
+
+    emitEof(): void {
+      this.handlers?.stdinEof()
+    }
+
+    emitSigterm(): void {
+      this.handlers?.sigterm()
+    }
+  }
+
+  class CountingCloseTransport extends StdioServerTransport {
+    closes = 0
+
+    override close(): Promise<void> {
+      this.closes++
+      return super.close()
+    }
+  }
+
+  class CountingSdkServer extends Server {
+    closes = 0
+
+    constructor() {
+      super({ name: "shutdown-test", version: "1.0.0" }, { capabilities: { resources: {}, tools: {} } })
+    }
+
+    override close(): Promise<void> {
+      this.closes++
+      return super.close()
+    }
+  }
+
+  it("treats EOF as unconditional ownership loss and coalesces a racing signal", async () => {
+    const input = new PassThrough()
+    const output = new PassThrough()
+    const transport = new CountingCloseTransport(input, output)
+    const stdioProcess = new RecordingStdioProcess()
+    const bundle = await Effect.runPromise(makeClientBundle().pipe(Effect.scoped))
+    let telemetryCloses = 0
+    let clientCloses = 0
+    const sdkServers: Array<CountingSdkServer> = []
+    const sdkCreatedState = { resolve: () => {} }
+    const sdkCreated = new Promise<void>((resolve) => {
+      sdkCreatedState.resolve = resolve
+    })
+    const layer = McpServerService.layer({
+      transport: "stdio",
+      resolveClients: async () => Exit.succeed(bundle),
+      closeClients: async () => {
+        clientCloses++
+      },
+      createServer: () => {
+        const server = new CountingSdkServer()
+        sdkServers.push(server)
+        sdkCreatedState.resolve()
+        return server
+      },
+      createStdioTransport: () => transport,
+      stdioProcess,
+      getRuntimeConfigContext: () => sanitizeHulyRuntimeConfigFromEnv(runtimeEnv)
+    }).pipe(
+      Layer.provide(
+        TelemetryService.testLayer({
+          shutdown: async () => {
+            telemetryCloses++
+          }
+        })
+      )
+    )
+    const context = await Effect.runPromise(Layer.build(layer).pipe(Effect.scoped))
+    const operations = Context.get(context, McpServerService)
+    const fiber = Effect.runFork(
+      operations.run().pipe(Effect.provideService(HttpServerFactoryService, unusedHttpFactory))
+    )
+
+    await stdioProcess.awaitListening()
+    input.write(
+      `${JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "server/discover",
+        params: {
+          _meta: {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": {}
+          }
+        }
+      })}\n`
+    )
+    await sdkCreated
+    stdioProcess.emitEof()
+    stdioProcess.emitSigterm()
+    await Effect.runPromise(Fiber.join(fiber))
+
+    expect(transport.closes).toBe(1)
+    expect(sdkServers).toHaveLength(1)
+    expect(sdkServers[0]?.closes).toBe(1)
+    expect(telemetryCloses).toBe(1)
+    expect(clientCloses).toBe(1)
+    expect(stdioProcess.forcedExitCodes).toEqual([])
+  })
+
+  it.effect("forces one exit when a top-level external close exceeds the global deadline", () =>
+    Effect.gen(function* () {
+      const stdioProcess = new RecordingStdioProcess()
+      const errors: Array<string> = []
+      const bundle = yield* makeClientBundle()
+      const neverCloses = new Promise<void>(() => {})
+      const layer = McpServerService.layer({
+        transport: "stdio",
+        resolveClients: async () => Exit.succeed(bundle),
+        closeClients: () => neverCloses,
+        createServer: createDefaultMcpSdkServer,
+        createStdioTransport: () => new StdioServerTransport(new PassThrough(), new PassThrough()),
+        stdioProcess,
+        writeError: (message) => errors.push(message),
+        getRuntimeConfigContext: () => sanitizeHulyRuntimeConfigFromEnv(runtimeEnv)
+      }).pipe(Layer.provide(TelemetryService.testLayer()))
+      const context = yield* Layer.build(layer)
+      const operations = Context.get(context, McpServerService)
+      const fiber = yield* operations
+        .run()
+        .pipe(
+          Effect.provideService(HttpServerFactoryService, unusedHttpFactory),
+          Effect.forkScoped({ startImmediately: true })
+        )
+
+      yield* Effect.promise(() => stdioProcess.awaitListening())
+      yield* Effect.sync(() => stdioProcess.emitEof())
+      yield* TestClock.adjust("10 seconds")
+      yield* Fiber.join(fiber)
+
+      expect(stdioProcess.forcedExitCodes).toEqual([1])
+      expect(errors).toEqual(["Huly MCP stdio shutdown exceeded 10 seconds; forcing process exit"])
+    })
+  )
+
+  it.effect("abandons an accepted request after its allowance and still completes before the global deadline", () =>
+    Effect.gen(function* () {
+      const input = new PassThrough()
+      const output = new PassThrough()
+      const stdioProcess = new RecordingStdioProcess()
+      const requestStarted = yield* Latch.make(false)
+      const neverResolves = new Promise<Exit.Exit<ClientBundle, never>>(() => {})
+      const errors: Array<string> = []
+      const layer = McpServerService.layer({
+        transport: "stdio",
+        resolveClients: () => {
+          Effect.runSync(requestStarted.open)
+          return neverResolves
+        },
+        createServer: createDefaultMcpSdkServer,
+        createStdioTransport: () => new StdioServerTransport(input, output),
+        stdioProcess,
+        writeError: (message) => errors.push(message),
+        getRuntimeConfigContext: () => sanitizeHulyRuntimeConfigFromEnv(runtimeEnv)
+      }).pipe(Layer.provide(TelemetryService.testLayer()))
+      const context = yield* Layer.build(layer)
+      const operations = Context.get(context, McpServerService)
+      const fiber = yield* operations
+        .run()
+        .pipe(
+          Effect.provideService(HttpServerFactoryService, unusedHttpFactory),
+          Effect.forkScoped({ startImmediately: true })
+        )
+
+      yield* Effect.promise(() => stdioProcess.awaitListening())
+      yield* Effect.sync(() => {
+        input.write(
+          `${JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "initialize",
+            params: {
+              protocolVersion: "2025-06-18",
+              capabilities: {},
+              clientInfo: { name: "shutdown-test", version: "1.0.0" }
+            }
+          })}\n`
+        )
+        input.write(
+          `${JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "list_projects", arguments: {} } })}\n`
+        )
+      })
+      yield* requestStarted.await
+      yield* Effect.sync(() => stdioProcess.emitEof())
+      yield* Effect.yieldNow
+      yield* TestClock.adjust("10 seconds")
+      yield* Fiber.join(fiber)
+
+      expect(stdioProcess.forcedExitCodes).toEqual([])
+      expect(errors).not.toContain("Huly MCP stdio shutdown exceeded 10 seconds; forcing process exit")
     })
   )
 })

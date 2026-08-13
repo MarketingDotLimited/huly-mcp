@@ -1,4 +1,4 @@
-import { type Cause, Context, Effect, Exit, Layer, Scope } from "effect"
+import { type Cause, Context, Effect, Exit, Fiber, Layer, Scope } from "effect"
 
 import { HulyConfigService } from "../config/config.js"
 import { HulyClient } from "../huly/client.js"
@@ -16,6 +16,27 @@ export type CombinedClientLayer = Layer.Layer<
   never
 >
 
+export interface ScopedClientBundle {
+  readonly bundle: ClientBundle
+  readonly close: () => Promise<void>
+}
+
+export interface ProcessClientResolver {
+  readonly resolve: ClientResolver
+  readonly prime: (scoped: ScopedClientBundle) => Promise<void>
+  readonly close: () => Promise<void>
+}
+
+interface ClientAcquisition {
+  readonly result: Promise<Exit.Exit<ScopedClientBundle, HulyClientBundleError>>
+  readonly close: () => Promise<void>
+}
+
+interface ActiveClientAcquisition {
+  readonly acquisition: ClientAcquisition
+  readonly clients: Promise<Exit.Exit<ClientBundle, HulyClientBundleError>>
+}
+
 /**
  * Build the combined client layer (not yet evaluated — deferred until first use).
  */
@@ -31,28 +52,33 @@ export const buildCombinedClientLayer = (): CombinedClientLayer => {
   return Layer.merge(Layer.merge(hulyClientLayer, storageClientLayer), workspaceClientLayer)
 }
 
+const makeScopeClose = (scope: Scope.Closeable): (() => Promise<void>) => {
+  const state: { promise: Promise<void> | undefined } = { promise: undefined }
+  return () => {
+    state.promise ??= Effect.runPromise(Scope.close(scope, Exit.void))
+    return state.promise
+  }
+}
+
 export const buildScopedClientBundle = (
   combinedClientLayer: CombinedClientLayer
-): Effect.Effect<{ readonly bundle: ClientBundle; readonly close: () => Promise<void> }, HulyClientBundleError> =>
-  Effect.gen(function* () {
-    const scope = yield* Scope.make()
-    let closePromise: Promise<void> | undefined
-    const close = (): Promise<void> => {
-      closePromise ??= Effect.runPromise(Scope.close(scope, Exit.void))
-      return closePromise
-    }
-    const ctx = yield* Layer.buildWithScope(combinedClientLayer, scope).pipe(
-      Effect.tapCause((cause) => Scope.close(scope, Exit.failCause(cause)))
-    )
-    return {
-      bundle: {
-        hulyClient: Context.get(ctx, HulyClient),
-        storageClient: Context.get(ctx, HulyStorageClient),
-        workspaceClient: Context.get(ctx, WorkspaceClient)
-      },
-      close
-    }
-  })
+): Effect.Effect<ScopedClientBundle, HulyClientBundleError> =>
+  Effect.uninterruptibleMask((restore) =>
+    Effect.gen(function* () {
+      const scope = yield* Scope.make()
+      const ctx = yield* restore(Layer.buildWithScope(combinedClientLayer, scope)).pipe(
+        Effect.onExit((exit) => (Exit.isFailure(exit) ? Scope.close(scope, exit) : Effect.void))
+      )
+      return {
+        bundle: {
+          hulyClient: Context.get(ctx, HulyClient),
+          storageClient: Context.get(ctx, HulyStorageClient),
+          workspaceClient: Context.get(ctx, WorkspaceClient)
+        },
+        close: makeScopeClose(scope)
+      }
+    })
+  )
 
 export const isRecoverableClientUnavailableCause = (cause: Cause.Cause<HulyClientBundleError>): boolean =>
   findRecoverableCauseFailure(
@@ -60,77 +86,81 @@ export const isRecoverableClientUnavailableCause = (cause: Cause.Cause<HulyClien
     (failure): failure is HulyUnavailableError => failure instanceof HulyUnavailableError
   ) !== undefined
 
-/**
- * Create a memoized client resolver that builds layers on first call
- * and keeps the scope alive for the process lifetime.
- * Returns [resolver, prime, close]. The close handle releases any bundle owned
- * by this resolver; prime replaces owned state with an externally owned bundle.
- */
-export const createClientResolver = (
-  combinedClientLayer: CombinedClientLayer
-): readonly [resolve: ClientResolver, prime: (bundle: ClientBundle) => Promise<void>, close: () => Promise<void>] => {
-  let clientsPromise: Promise<Exit.Exit<ClientBundle, HulyClientBundleError>> | null = null
-  let ownedAcquisition: {
-    readonly abort: () => void
-    readonly promise: Promise<
-      Exit.Exit<{ readonly bundle: ClientBundle; readonly close: () => Promise<void> }, HulyClientBundleError>
-    >
-  } | null = null
-  let resolverClosed = false
-  let resolverClosePromise: Promise<void> | undefined
-
-  const releaseAcquisition = async (acquisition: NonNullable<typeof ownedAcquisition>): Promise<void> => {
-    acquisition.abort()
-    const exit = await acquisition.promise
-    if (Exit.isSuccess(exit)) await exit.value.close()
+const startClientAcquisition = (combinedClientLayer: CombinedClientLayer): ClientAcquisition => {
+  const fiber = Effect.runFork(buildScopedClientBundle(combinedClientLayer))
+  const result = Effect.runPromise(Fiber.await(fiber))
+  const state: { closePromise: Promise<void> | undefined } = { closePromise: undefined }
+  const close = (): Promise<void> => {
+    state.closePromise ??= Effect.runPromise(Fiber.interrupt(fiber)).then(() =>
+      result.then((exit) => (Exit.isSuccess(exit) ? exit.value.close() : Promise.resolve()))
+    )
+    return state.closePromise
   }
+  return { result, close }
+}
 
-  const resolve = (): Promise<Exit.Exit<ClientBundle, HulyClientBundleError>> => {
-    if (resolverClosed) {
-      return Promise.resolve(Exit.die(new Error("Process-scoped Huly clients are already closed")))
-    }
-    if (clientsPromise === null) {
-      const controller = new AbortController()
-      const acquisition = Effect.runPromiseExit(buildScopedClientBundle(combinedClientLayer), {
-        signal: controller.signal
-      })
-      const currentAcquisition = { abort: () => controller.abort(), promise: acquisition }
-      const resolvedClients = acquisition.then((exit) =>
-        Exit.isSuccess(exit) ? Exit.succeed(exit.value.bundle) : Exit.failCause(exit.cause)
-      )
-      ownedAcquisition = currentAcquisition
-      clientsPromise = resolvedClients
-      void acquisition.then((exit) => {
-        if (
-          Exit.isFailure(exit) &&
-          isRecoverableClientUnavailableCause(exit.cause) &&
-          clientsPromise === resolvedClients
-        ) {
-          clientsPromise = null
-          if (ownedAcquisition === currentAcquisition) ownedAcquisition = null
+const acquiredClients = (acquisition: ClientAcquisition): Promise<Exit.Exit<ClientBundle, HulyClientBundleError>> =>
+  acquisition.result.then((exit) =>
+    Exit.isSuccess(exit) ? Exit.succeed(exit.value.bundle) : Exit.failCause(exit.cause)
+  )
+
+const primedAcquisition = (scoped: ScopedClientBundle): ClientAcquisition => ({
+  result: Promise.resolve(Exit.succeed(scoped)),
+  close: scoped.close
+})
+
+/**
+ * Create a memoized client resolver that builds layers on first call and keeps
+ * the active scope alive for the process lifetime. Priming transfers ownership
+ * of an already acquired scoped bundle to the resolver.
+ */
+export const createClientResolver = (combinedClientLayer: CombinedClientLayer): ProcessClientResolver => {
+  const state: {
+    active: ActiveClientAcquisition | undefined
+    closePromise: Promise<void> | undefined
+    closed: boolean
+  } = { active: undefined, closePromise: undefined, closed: false }
+  const acquisitions = new Set<ClientAcquisition>()
+
+  const resolve: ClientResolver = () => {
+    if (state.closed) return Promise.resolve(Exit.die(new Error("Process-scoped Huly clients are closed")))
+    if (state.active === undefined) {
+      const acquisition = startClientAcquisition(combinedClientLayer)
+      const active = { acquisition, clients: acquiredClients(acquisition) }
+      acquisitions.add(acquisition)
+      state.active = active
+      void acquisition.result.then((exit) => {
+        if (Exit.isFailure(exit) && isRecoverableClientUnavailableCause(exit.cause) && state.active === active) {
+          state.active = undefined
+          acquisitions.delete(acquisition)
         }
       })
     }
-    return clientsPromise
+    return state.active.clients
   }
 
-  const prime = async (bundle: ClientBundle): Promise<void> => {
-    if (resolverClosed) return
-    const previouslyOwned = ownedAcquisition
-    ownedAcquisition = null
-    clientsPromise = Promise.resolve(Exit.succeed(bundle))
-    if (previouslyOwned !== null) await releaseAcquisition(previouslyOwned)
+  const prime = async (scoped: ScopedClientBundle): Promise<void> => {
+    if (state.closed) throw new Error("Cannot prime closed process-scoped Huly clients")
+    const previous = state.active?.acquisition
+    const acquisition = primedAcquisition(scoped)
+    acquisitions.add(acquisition)
+    state.active = { acquisition, clients: acquiredClients(acquisition) }
+    if (previous !== undefined) {
+      acquisitions.delete(previous)
+      await previous.close()
+    }
   }
 
   const close = (): Promise<void> => {
-    if (resolverClosePromise !== undefined) return resolverClosePromise
-    resolverClosed = true
-    const owned = ownedAcquisition
-    ownedAcquisition = null
-    clientsPromise = null
-    resolverClosePromise = owned === null ? Promise.resolve() : releaseAcquisition(owned)
-    return resolverClosePromise
+    state.closed = true
+    if (state.closePromise === undefined) {
+      const owned = [...acquisitions]
+      acquisitions.clear()
+      state.active = undefined
+      state.closePromise = Promise.all(owned.map((acquisition) => acquisition.close())).then(() => {})
+    }
+    return state.closePromise
   }
 
-  return [resolve, prime, close] as const
+  return { resolve, prime, close }
 }

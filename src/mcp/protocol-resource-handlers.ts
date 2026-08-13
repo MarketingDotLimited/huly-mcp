@@ -10,6 +10,8 @@ import type { ClientResolver, HulyClientBundleError } from "../runtime/client-re
 import { classifyCause, findRecoverableCauseFailure } from "../runtime/cause-exit.js"
 import { clientResolutionCauseMessage, clientResolutionErrorMessage } from "./error-mapping.js"
 import { listResources, readHulyResource } from "./resources.js"
+import type { RequestAdmission, RequestLease } from "./request-admission.js"
+import { McpErrorCode, SERVER_SHUTTING_DOWN_MESSAGE } from "./tool-responses.js"
 
 interface ResourceReadRequest {
   readonly params: ReadResourceRequestParams
@@ -17,8 +19,13 @@ interface ResourceReadRequest {
 
 interface ResourceHandlerInput {
   readonly resolveClients: ClientResolver
-  readonly enter: () => void
-  readonly leave: () => void
+  readonly admission: RequestAdmission
+}
+
+const enterOrThrow = (admission: RequestAdmission): RequestLease => {
+  const lease = admission.enter()
+  if (lease !== null) return lease
+  throw new ProtocolError(McpErrorCode.InternalError, SERVER_SHUTTING_DOWN_MESSAGE)
 }
 
 const withResourceWarnings = (result: ReadResourceResult, warnings: ReadonlyArray<ToolWarning>): ReadResourceResult =>
@@ -77,7 +84,7 @@ export const createResourceProtocolHandlers = (
   readonly readResource: (request: ResourceReadRequest) => Promise<ReadResourceResult>
 } => {
   const listResourcesHandler = async (): Promise<ListResourcesResult> => {
-    input.enter()
+    const lease = enterOrThrow(input.admission)
     try {
       const clientExit = await resolveResourceClients(input.resolveClients, "Unable to list Huly resources.")
       if (Exit.isFailure(clientExit)) {
@@ -92,12 +99,12 @@ export const createResourceProtocolHandlers = (
       if (Exit.isSuccess(resourceList)) return resourceList.value
       return throwResourceListError(resourceList.cause)
     } finally {
-      input.leave()
+      lease.release()
     }
   }
 
   const readResource = async (request: ResourceReadRequest): Promise<ReadResourceResult> => {
-    input.enter()
+    const lease = enterOrThrow(input.admission)
     try {
       const { uri } = request.params
       const clientExit = await resolveResourceClients(input.resolveClients, `Unable to read resource "${uri}".`)
@@ -114,7 +121,7 @@ export const createResourceProtocolHandlers = (
       if (Exit.isSuccess(resourceRead)) return withResourceWarnings(resourceRead.value, warnings)
       return throwResourceReadError(uri, resourceRead.cause)
     } finally {
-      input.leave()
+      lease.release()
     }
   }
 

@@ -7,7 +7,7 @@ import type { McpRequestContext, Server } from "@modelcontextprotocol/server"
 import { serveStdio, type StdioServerTransport } from "@modelcontextprotocol/server/stdio"
 import { Config, Context, Deferred, type Duration, Effect, type Exit, Layer, type Redacted, Ref, Schema } from "effect"
 
-import { createMcpServer } from "./create-mcp-server.js"
+import { createMcpServer, type McpServerLifecycle } from "./create-mcp-server.js"
 import type { HttpHost, HttpPort, HttpServerFactoryService, HttpTransportError } from "./http-transport.js"
 import { DEFAULT_HTTP_HOST, DEFAULT_HTTP_PORT, startHttpTransport } from "./http-transport.js"
 import { buildHulyContext, type ToolExposureContext } from "./huly-context-tool.js"
@@ -17,6 +17,15 @@ import {
   createRequestClientLifecycle,
   type RequestClientLease
 } from "./request-client-lifecycle.js"
+import {
+  executeBoundedStdioShutdown,
+  liveStdioProcessPort,
+  makeStdioShutdownCoordinator,
+  type StdioProcessPort,
+  type StdioShutdownCoordinator,
+  type StdioShutdownReason,
+  type StdioShutdownResources
+} from "./stdio-shutdown.js"
 
 import { type SanitizedHulyRuntimeConfigContext, sanitizeHulyRuntimeConfigFromEnv } from "../config/config.js"
 import type { GetHulyContextResult } from "../domain/schemas/index.js"
@@ -54,6 +63,8 @@ interface McpServerConfigCallbacks {
   readonly getRuntimeConfigContextForHttpRequest?: (req: Request) => SanitizedHulyRuntimeConfigContext
   readonly createServer?: (instructions?: HostedHulyMigrationInstructions) => Server
   readonly createStdioTransport?: () => StdioServerTransport
+  readonly closeClients?: () => Promise<void>
+  readonly stdioProcess?: StdioProcessPort
   readonly writeError?: (message: string) => void
 }
 
@@ -89,6 +100,44 @@ interface McpServerRunControl {
 }
 
 const DEFAULT_SHUTDOWN_GRACE_PERIOD = "5 seconds"
+
+const requestShutdown = (coordinator: StdioShutdownCoordinator, reason: StdioShutdownReason): void => {
+  Effect.runSync(coordinator.request(reason))
+}
+
+const awaitStdioLifecycleEvent = (
+  coordinator: StdioShutdownCoordinator,
+  stdioProcess: StdioProcessPort
+): Effect.Effect<void> =>
+  Effect.callback<void>((resume) => {
+    const listenerState = { remove: () => {} }
+    const request = (reason: StdioShutdownReason) => {
+      listenerState.remove()
+      requestShutdown(coordinator, reason)
+      resume(Effect.void)
+    }
+    listenerState.remove = stdioProcess.listen({
+      stdinEof: () => request("stdin-eof"),
+      stdinClose: () => request("stdin-close"),
+      sigint: () => request("sigint"),
+      sigterm: () => request("sigterm")
+    })
+    return Effect.sync(() => listenerState.remove())
+  })
+
+const drainStdioRequests = (lifecycles: ReadonlySet<McpServerLifecycle>): Effect.Effect<void, unknown> =>
+  Effect.tryPromise({
+    try: () => Promise.all([...lifecycles].map((lifecycle) => lifecycle.quiesce())).then(() => {}),
+    catch: (cause) => new McpServerError({ message: "in-flight request drain failed", cause })
+  })
+
+const optionalPromiseCleanup = (cleanup: (() => Promise<void>) | undefined): Effect.Effect<void, unknown> =>
+  cleanup === undefined
+    ? Effect.void
+    : Effect.tryPromise({
+        try: cleanup,
+        catch: (cause) => new McpServerError({ message: "client cleanup failed", cause })
+      })
 
 export class McpServerService extends Context.Service<McpServerService, McpServerOperations>()("@hulymcp/McpServer") {
   static layer(config: McpServerConfig): Layer.Layer<McpServerService, McpServerError, TelemetryService> {
@@ -145,25 +194,6 @@ export class McpServerService extends Context.Service<McpServerService, McpServe
         const flushTelemetry = Effect.ignore(Effect.tryPromise(() => telemetry.shutdown()))
         const shutdownGracePeriod = config.shutdownGracePeriod ?? DEFAULT_SHUTDOWN_GRACE_PERIOD
 
-        const boundedCleanup = (label: string, cleanup: Effect.Effect<void, McpServerError>): Effect.Effect<void> =>
-          cleanup.pipe(
-            Effect.interruptible,
-            Effect.timeoutOrElse({
-              duration: shutdownGracePeriod,
-              orElse: () => Effect.sync(() => writeError(`MCP stdio ${label} timed out during shutdown`))
-            }),
-            Effect.catch(() => Effect.sync(() => writeError(`MCP stdio ${label} failed during shutdown`)))
-          )
-
-        const promiseCleanup = (label: string, cleanup: () => Promise<void>): Effect.Effect<void> =>
-          boundedCleanup(
-            label,
-            Effect.tryPromise({
-              try: cleanup,
-              catch: (cause) => new McpServerError({ message: `${label} failed`, cause })
-            })
-          )
-
         const runControlRef = yield* Ref.make<McpServerRunControl | null>(null)
 
         const operations: McpServerOperations = {
@@ -184,9 +214,12 @@ export class McpServerService extends Context.Service<McpServerService, McpServe
               yield* Effect.gen(function* () {
                 if (config.transport === "stdio") {
                   const stdioRuntimeConfig = getRuntimeConfigContext()
-                  const drains = new Set<() => Promise<void>>()
+                  const lifecycles = new Set<McpServerLifecycle>()
+                  const coordinator = yield* makeStdioShutdownCoordinator(() => {
+                    for (const lifecycle of lifecycles) void lifecycle.quiesce()
+                  })
                   const createStdioServer = () => {
-                    const [server, drainInflight] = createMcpServer(
+                    const [server, lifecycle] = createMcpServer(
                       config.resolveClients,
                       telemetry,
                       registries,
@@ -199,12 +232,7 @@ export class McpServerService extends Context.Service<McpServerService, McpServe
                       }),
                       hostedHulyMigrationInstructionsForOrigin(stdioRuntimeConfig.huly.url.origin)
                     )
-                    drains.add(drainInflight)
-                    const previousOnClose = server.onclose
-                    server.onclose = () => {
-                      drains.delete(drainInflight)
-                      previousOnClose?.()
-                    }
+                    lifecycles.add(lifecycle)
                     return server
                   }
                   const stdioHandle = serveStdio(createStdioServer, {
@@ -212,45 +240,33 @@ export class McpServerService extends Context.Service<McpServerService, McpServe
                     ...(config.createStdioTransport === undefined ? {} : { transport: config.createStdioTransport() }),
                     onerror: () => writeError("MCP stdio handler error")
                   })
-                  const processShutdown = yield* Deferred.make<void>()
-                  const awaitProcessShutdown = Effect.acquireUseRelease(
-                    Effect.sync(() => {
-                      const requestShutdown = () => {
-                        Effect.runSync(Deferred.succeed(processShutdown, undefined))
-                      }
-                      const removeListeners = () => {
-                        process.off("SIGINT", requestShutdown)
-                        process.off("SIGTERM", requestShutdown)
-                        process.stdin.off("end", requestShutdown)
-                        process.stdin.off("close", requestShutdown)
-                      }
-
-                      process.on("SIGINT", requestShutdown)
-                      process.on("SIGTERM", requestShutdown)
-
-                      process.stdin.on("end", requestShutdown)
-                      process.stdin.on("close", requestShutdown)
-
-                      return removeListeners
+                  const stdioProcess = config.stdioProcess ?? liveStdioProcessPort
+                  const shutdownResources: StdioShutdownResources = {
+                    drain: drainStdioRequests(lifecycles),
+                    closeWire: Effect.tryPromise({
+                      try: () => stdioHandle.close(),
+                      catch: (cause) => new McpServerError({ message: "wire close failed", cause })
                     }),
-                    () =>
-                      Effect.gen(function* () {
-                        yield* Deferred.succeed(control.ready, undefined)
-                        yield* Deferred.await(processShutdown)
-                      }),
-                    (removeListeners) => Effect.sync(removeListeners)
+                    closeTelemetry: Effect.tryPromise({
+                      try: () => telemetry.shutdown(),
+                      catch: (cause) => new McpServerError({ message: "telemetry close failed", cause })
+                    }),
+                    closeClients: optionalPromiseCleanup(config.closeClients),
+                    forceExit: (code) => Effect.sync(() => stdioProcess.forceExit(code)),
+                    writeDiagnostic: (message) => Effect.sync(() => writeError(message))
+                  }
+                  const awaitStop = Deferred.await(control.shutdown).pipe(
+                    Effect.tap(() => coordinator.request("stop")),
+                    Effect.asVoid
                   )
 
-                  const shutdownStdio = Effect.gen(function* () {
-                    yield* promiseCleanup("in-flight request drain", () =>
-                      Promise.all([...drains].map((drain) => drain())).then(() => undefined)
+                  yield* Deferred.succeed(control.ready, undefined)
+                  yield* Effect.raceFirst(awaitStdioLifecycleEvent(coordinator, stdioProcess), awaitStop).pipe(
+                    Effect.ensuring(
+                      coordinator
+                        .request("runtime-interruption")
+                        .pipe(Effect.andThen(executeBoundedStdioShutdown(coordinator, shutdownResources)))
                     )
-                    yield* boundedCleanup("telemetry flush", flushTelemetry)
-                    yield* promiseCleanup("wire close", () => stdioHandle.close())
-                  })
-
-                  yield* Effect.raceFirst(awaitProcessShutdown, Deferred.await(control.shutdown)).pipe(
-                    Effect.ensuring(shutdownStdio)
                   )
                 } else {
                   const port = config.httpPort ?? DEFAULT_HTTP_PORT

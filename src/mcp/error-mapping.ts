@@ -35,6 +35,7 @@ export {
   appendToolWarnings,
   createImageSuccessResponse,
   createInvalidParamsError,
+  createServerShuttingDownError,
   createSuccessResponse,
   createUnknownToolError,
   McpErrorCode,

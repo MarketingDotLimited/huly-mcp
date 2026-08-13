@@ -108,7 +108,8 @@ export const buildAppLayer = (
   resolveClientLeaseForHttpRequest: (
     req: Request
   ) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>,
-  httpServerFactoryLayer: Layer.Layer<HttpServerFactoryService> = HttpServerFactoryService.defaultLayer
+  httpServerFactoryLayer: Layer.Layer<HttpServerFactoryService> = HttpServerFactoryService.defaultLayer,
+  closeClients?: () => Promise<void>
 ): Layer.Layer<McpServerService | HttpServerFactoryService, McpServerError, never> => {
   const mcpServerConfig = {
     transport,
@@ -117,6 +118,7 @@ export const buildAppLayer = (
     ...(mcpAuthToken === undefined ? {} : { mcpAuthToken }),
     authMethod,
     resolveClients,
+    ...(closeClients === undefined ? {} : { closeClients }),
     resolveClientLeaseForHttpRequest,
     getRuntimeConfigContext: () => sanitizeHulyRuntimeConfigFromEnv(process.env),
     getRuntimeConfigContextForHttpRequest: (req: Request) =>
@@ -138,7 +140,7 @@ const runConfiguredServer = (transport: McpTransportType): Effect.Effect<void, A
     const combinedClientLayer = buildCombinedClientLayer()
     yield* Effect.acquireUseRelease(
       Effect.sync(() => createClientResolver(combinedClientLayer)),
-      ([resolveClients]) => {
+      ({ close: closeClients, resolve: resolveClients }) => {
         const resolveHttpClientLease = createHttpClientLeaseResolver(combinedClientLayer, resolveClients)
         return Effect.gen(function* () {
           if (!lazyEnvs && transport === "stdio") {
@@ -158,7 +160,9 @@ const runConfiguredServer = (transport: McpTransportType): Effect.Effect<void, A
             mcpAuthToken,
             authMethod,
             resolveClients,
-            resolveHttpClientLease
+            resolveHttpClientLease,
+            HttpServerFactoryService.defaultLayer,
+            closeClients
           )
 
           yield* Effect.gen(function* () {
@@ -167,7 +171,7 @@ const runConfiguredServer = (transport: McpTransportType): Effect.Effect<void, A
           }).pipe(Effect.provide(appLayer), Effect.scoped)
         })
       },
-      ([, , closeClients]) => closeProcessClients(closeClients)
+      ({ close }) => closeProcessClients(close)
     )
   })
 
