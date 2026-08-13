@@ -13,6 +13,14 @@ describe("installed dependency graph certification", () => {
     expect(certifyInstalledDependencyGraph(graph, "@firfi/huly-mcp")).toContain("ws")
   })
 
+  it("accepts pnpm's array-shaped production dependency report", () => {
+    const graph = JSON.stringify([{ name: "@firfi/huly-cli", dependencies: { ws: { name: "ws" } } }])
+
+    expect(certifyInstalledDependencyGraph(graph, "@firfi/huly-cli")).toEqual(
+      expect.arrayContaining(["@firfi/huly-cli", "ws"])
+    )
+  })
+
   it("rejects external Effect packages and missing package roots", () => {
     expect(() =>
       certifyInstalledDependencyGraph(

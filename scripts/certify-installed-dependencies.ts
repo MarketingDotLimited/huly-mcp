@@ -12,10 +12,12 @@ const parsePackageNames = Schema.decodeUnknownSync(Schema.Array(PackageNameSchem
 // Recursive Schema.suspend needs an explicit fixed-point shape; the schema below
 // remains the sole parser for this npm boundary and constrains that shape.
 interface DependencyNode {
+  readonly name?: string
   readonly dependencies?: Readonly<Record<string, DependencyNode>>
 }
 
 const DependencyNodeSchema: Schema.Codec<DependencyNode> = Schema.Struct({
+  name: Schema.optionalKey(PackageNameSchema),
   dependencies: Schema.optionalKey(
     Schema.Record(
       Schema.String,
@@ -23,9 +25,11 @@ const DependencyNodeSchema: Schema.Codec<DependencyNode> = Schema.Struct({
     )
   )
 })
-const DependencyGraphSchema = Schema.fromJsonString(DependencyNodeSchema)
+const DependencyGraphSchema: Schema.Codec<DependencyNode | ReadonlyArray<DependencyNode>, string> =
+  Schema.fromJsonString(Schema.Union([DependencyNodeSchema, Schema.Array(DependencyNodeSchema)]))
 
 const collectPackageNames = (value: DependencyNode, names: Set<string>): void => {
+  if (value.name !== undefined) names.add(value.name)
   if (value.dependencies === undefined) return
   for (const [name, dependency] of Object.entries(value.dependencies)) {
     names.add(Schema.decodeUnknownSync(PackageNameSchema)(name))
@@ -36,7 +40,11 @@ const collectPackageNames = (value: DependencyNode, names: Set<string>): void =>
 export const certifyInstalledDependencyGraph = (graphJson: string, expectedPackage: string): ReadonlyArray<string> => {
   const graph = Schema.decodeUnknownSync(DependencyGraphSchema)(graphJson)
   const names = new Set<string>()
-  collectPackageNames(graph, names)
+  if (Schema.is(DependencyNodeSchema)(graph)) {
+    collectPackageNames(graph, names)
+  } else {
+    for (const root of graph) collectPackageNames(root, names)
+  }
   const parsedNames = parsePackageNames([...names].sort())
   if (!names.has(expectedPackage)) throw new Error(`Resolved graph does not contain ${expectedPackage}.`)
   if (!names.has("ws")) throw new Error("Resolved graph does not contain the required ws runtime dependency.")

@@ -72,7 +72,7 @@ jobs:
           cd "$smoke_dir"
           printf '{"private":true,"type":"module"}\n' > package.json
           pnpm add --no-optional "$tarball"
-          npm ls --all --json > resolved-dependencies.json
+          pnpm list --prod --no-optional --json --depth Infinity > resolved-dependencies.json
           node "$repo_root/scripts/run-bundled.mjs" "$repo_root/scripts/certify-installed-dependencies.ts" \
             resolved-dependencies.json @firfi/huly-mcp
 
@@ -121,7 +121,7 @@ jobs:
           cd "$smoke_dir"
           printf '{"private":true,"type":"module"}\n' > package.json
           pnpm add --no-optional "$tarball"
-          npm ls --all --json > resolved-dependencies.json
+          pnpm list --prod --no-optional --json --depth Infinity > resolved-dependencies.json
           node "$repo_root/scripts/run-bundled.mjs" "$repo_root/scripts/certify-installed-dependencies.ts" \
             resolved-dependencies.json @firfi/huly-cli
 
