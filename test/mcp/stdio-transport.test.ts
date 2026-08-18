@@ -31,7 +31,7 @@ describe("Effect AI stdio protocol", () => {
             protocols: [McpProtocol.v2025_06_18]
           }).pipe(Layer.provide(stdioLayer))
         )
-        yield* Effect.never
+        return yield* Effect.never
       }).pipe(Effect.scoped, Effect.forkScoped)
 
       const send = (message: unknown) =>
