@@ -17,12 +17,12 @@ written to this report or test logs.
 
 | Surface | Result | Certified behavior |
 | --- | --- | --- |
-| Native stdio MCP | 1,095 passed, 0 failed, 27 skipped | Full lifecycle matrix, invalid-input paths, cleanup, response drain, and EOF shutdown |
-| Native HTTP with environment credentials | 1,091 passed, 0 failed, 31 skipped | Effect AI `2025-06-18` initialize/session lifecycle through the real HTTP listener |
-| Native HTTP with request headers | 1,091 passed, 0 failed, 31 skipped | Request-scoped URL, workspace, and redacted token configuration with full cleanup |
+| Native stdio MCP | 1,091 passed, 0 failed, 28 skipped | Full lifecycle matrix, invalid-input paths, cleanup, response drain, and EOF shutdown |
+| Native HTTP with environment credentials | 1,087 passed, 0 failed, 32 skipped | Effect AI `2025-06-18` initialize/session lifecycle through the real HTTP listener |
+| Native HTTP with request headers | Passed | Active API-token certification covered stdio and HTTP core-rest, account, storage-file, and collaborator-markup surfaces with full cleanup and no secret disclosure |
 | Tool exposure and scope | Passed | Request-local client classification, auto/native/proxy selection, category/tool pins, strict proxy output, and invalid pins |
 | Packed CLI focused | 123 passed, 0 failed | Parsing, typed failures and exits, confirmation, structured and binary output, and disposable-resource cleanup |
-| Packed CLI full mirror | 1,095 passed, 0 failed, 27 skipped | The clean-installed CLI catalog executes the same live lifecycle program and cleanup assertions |
+| Packed CLI full mirror | 1,091 passed, 0 failed, 28 skipped | The clean-installed CLI catalog executes the same live lifecycle program and cleanup assertions |
 
 The skipped cases are intentionally non-destructive or require optional local
 fixture state documented in `INTEGRATION_TESTING.md`; they are not failures or
@@ -79,8 +79,8 @@ mise exec node@22.22.2 -- pnpm check-all
 ```
 
 It passed on the final tree after this report and the integration-driven fixes:
-854 files produced zero strict Effect diagnostics, all 289 test files and 4,278
-tests passed, and coverage was 99.57% statements, 99.01% branches, 99.25%
-functions, and 99.61% lines. The gate retains the existing TypeScript 7, strict Effect diagnostics,
+864 files produced zero strict Effect diagnostics, all 291 test files and 4,140
+tests passed, and coverage was 99.53% statements, 99.00% branches, 99.09%
+functions, and 99.57% lines. The gate retains the existing TypeScript 7, strict Effect diagnostics,
 circular-dependency, complexity, schema-boundary, no-mocks, duplication, and 99%
 coverage requirements.

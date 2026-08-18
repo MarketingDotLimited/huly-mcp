@@ -257,7 +257,10 @@ containing PR #10624. The harness does not mint, decode, revoke, print, or persi
 
 ## Resource Read Smoke Tests
 
-MCP Resources are read-only JSON context. `resources/list` is intentionally empty in v1; discover templates with `resources/templates/list`.
+MCP Resources are read-only JSON context. `resources/list` returns the concrete
+projects found by bounded startup discovery when Huly configuration is
+available; it safely returns an empty list when discovery is unavailable.
+Discover the three URI templates with `resources/templates/list`.
 
 ```bash
 printf '%s\n' \
@@ -275,10 +278,11 @@ For HTTP header mode, initialize `/mcp` first, save `Mcp-Session-Id`, and send t
 
 **Coverage**: 800+ tool calls across 22 domains. Self-cleaning: all created entities are deleted at the end of each section. Tools that would leak data (no delete counterpart) are skipped.
 
-**Last verified**: 2026-08-13 — native stdio passed 1095, failed 0, and skipped 27;
-HTTP environment and request-header modes each passed 1091, failed 0, and skipped
-31 (of 1122 total per surface). The focused packed CLI passed all 123 labeled
-checks, and its full mirror passed 1095, failed 0, and skipped 27 of 1122.
+**Last verified**: 2026-08-17 — native stdio passed 1091, failed 0, and skipped
+28; HTTP with environment credentials passed 1087, failed 0, and skipped 32.
+The request-header API-token harness passed its stdio and HTTP service-surface
+matrix with clean cleanup and no secret disclosure. The focused packed CLI
+checks passed, and its full mirror passed 1091, failed 0, and skipped 28.
 
 ### How to Run
 
