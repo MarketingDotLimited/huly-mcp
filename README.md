@@ -21,7 +21,21 @@ Huly MCP and Huly CLI are maintained together in this monorepo and derive from t
 
 ## Installation
 
-Requires Node.js 22.19.0 or later.
+### Node.js requirement
+
+Huly MCP requires **Node.js 22.19.0 or later**. MCP clients do not provide a Node.js runtime: `node`, `npx`,
+and the `#!/usr/bin/env node` package executable resolve Node.js from the environment in which the MCP client
+runs. Check that environment before installation:
+
+```bash
+node --version
+```
+
+If an MCP client starts Huly MCP with an older runtime, Huly MCP initializes a diagnostic-only MCP surface instead
+of loading the incompatible application. Its server instructions and `get_huly_startup_diagnostic` tool report the
+detected executable and required version, and the same `unsupported Node.js runtime` diagnostic is written to
+stderr. Upgrade Node.js or configure the MCP server command to use the absolute path of a compatible Node.js
+executable, then restart the MCP server. Huly operations remain unavailable until the runtime is upgraded.
 
 The standard configuration works with most MCP clients:
 

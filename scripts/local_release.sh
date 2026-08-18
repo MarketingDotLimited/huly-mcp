@@ -71,14 +71,17 @@ stage_if_exists() {
 
 build_mcp_package() {
   local package_version="$1"
+  local node_engine_requirement
+  node_engine_requirement="$(node -p "require('./package.json').engines.node")"
 
-  pnpm dlx "esbuild@$ESBUILD_VERSION" src/index.ts \
+  pnpm dlx "esbuild@$ESBUILD_VERSION" src/launcher.ts \
     --bundle \
     --platform=node \
     --format=cjs \
     --outfile=dist/index.cjs \
     --external:ws \
-    "--define:PKG_VERSION=\"$package_version\""
+    "--define:PKG_VERSION=\"$package_version\"" \
+    "--define:NODE_ENGINE_REQUIREMENT=\"$node_engine_requirement\""
   pnpm verify-version
 }
 

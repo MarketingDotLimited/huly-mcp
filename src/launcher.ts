@@ -1,0 +1,19 @@
+#!/usr/bin/env node
+
+import { isUnsupportedNodeRuntime, parseUnsupportedNodeMcpConfig } from "./unsupported-node-mcp.js"
+import { startUnsupportedNodeMcp } from "./unsupported-node-mcp-stdio.js"
+
+const nodeEngineRequirement = NODE_ENGINE_REQUIREMENT
+const unsupportedRuntime = isUnsupportedNodeRuntime(process.versions.node, nodeEngineRequirement)
+
+if (unsupportedRuntime) {
+  const config = parseUnsupportedNodeMcpConfig({
+    detectedNodeVersion: process.versions.node,
+    executable: process.execPath,
+    requiredNodeVersion: nodeEngineRequirement,
+    serverVersion: PKG_VERSION
+  })
+  startUnsupportedNodeMcp(config)
+} else {
+  void import("./index.js")
+}
