@@ -223,20 +223,45 @@ const formatHttpAddress = (address: HttpServer.Address): string => {
 
 const errorMessage = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause)
 
+const boundedShutdownStep = (
+  effect: Effect.Effect<void>,
+  gracePeriod: Duration.Input,
+  timeoutMessage: string,
+  failurePrefix: string,
+  writeError: (message: string) => void
+): Effect.Effect<void> =>
+  effect.pipe(
+    Effect.timeoutOrElse({
+      duration: gracePeriod,
+      orElse: () => Effect.sync(() => writeError(`${timeoutMessage}\n`))
+    }),
+    Effect.catch((cause) => Effect.sync(() => writeError(`${failurePrefix}: ${errorMessage(cause)}\n`)))
+  )
+
 const closeTransportScope = (
   scope: Scope.Scope,
   gracePeriod: Duration.Input,
   writeError: (message: string) => void,
   onShutdown: (() => Effect.Effect<void>) | undefined
 ): Effect.Effect<void> =>
-  (onShutdown?.() ?? Effect.void).pipe(
-    Effect.catch((cause) => Effect.sync(() => writeError(`MCP HTTP server drain failed: ${errorMessage(cause)}\n`))),
-    Effect.andThen(Scope.close(scope, Exit.void)),
-    Effect.timeoutOrElse({
-      duration: gracePeriod,
-      orElse: () => Effect.sync(() => writeError("MCP HTTP server shutdown timed out\n"))
-    }),
-    Effect.catch((cause) => Effect.sync(() => writeError(`MCP HTTP server shutdown failed: ${errorMessage(cause)}\n`)))
+  boundedShutdownStep(
+    onShutdown?.() ?? Effect.void,
+    gracePeriod,
+    "MCP HTTP server drain timed out",
+    "MCP HTTP server drain failed",
+    writeError
+  ).pipe(
+    // Always close the listener scope, even when application-level draining
+    // reaches its deadline.
+    Effect.andThen(
+      boundedShutdownStep(
+        Scope.close(scope, Exit.void),
+        gracePeriod,
+        "MCP HTTP server shutdown timed out",
+        "MCP HTTP server shutdown failed",
+        writeError
+      )
+    )
   )
 
 const transportMiddleware = (config: HttpTransportConfig): HttpMiddlewareModule.HttpMiddleware => {

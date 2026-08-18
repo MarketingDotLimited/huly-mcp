@@ -83,13 +83,11 @@ const spawnServer = (environment: Readonly<NodeJS.ProcessEnv> = {}): SpawnedServ
     `${JSON.stringify({
       jsonrpc: "2.0",
       id: 1,
-      method: "server/discover",
+      method: "initialize",
       params: {
-        _meta: {
-          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-          "io.modelcontextprotocol/clientCapabilities": {},
-          "io.modelcontextprotocol/clientInfo": { name: PAYLOAD_MARKER, version: "1.0.0" }
-        }
+        protocolVersion: "2025-06-18",
+        capabilities: {},
+        clientInfo: { name: PAYLOAD_MARKER, version: "1.0.0" }
       }
     })}\n`
   )
@@ -143,7 +141,7 @@ describe("built stdio process lifecycle", () => {
   it("exits successfully and removes its PID on stdin EOF without MCP_AUTO_EXIT", async () => {
     const server = spawnServer()
     try {
-      await withBound(server.firstLine, "stdio discovery")
+      await withBound(server.firstLine, "stdio initialize")
       server.child.stdin.end()
       const result = await withBound(server.exit, "EOF shutdown")
 
@@ -159,7 +157,7 @@ describe("built stdio process lifecycle", () => {
   it("runs bounded cleanup and removes its PID on SIGTERM", async () => {
     const server = spawnServer()
     try {
-      await withBound(server.firstLine, "stdio discovery")
+      await withBound(server.firstLine, "stdio initialize")
       server.child.kill("SIGTERM")
       const result = await withBound(server.exit, "SIGTERM shutdown")
 
@@ -175,7 +173,7 @@ describe("built stdio process lifecycle", () => {
   it("coalesces racing EOF and SIGTERM without leaving a PID", async () => {
     const server = spawnServer()
     try {
-      await withBound(server.firstLine, "stdio discovery")
+      await withBound(server.firstLine, "stdio initialize")
       server.child.stdin.end()
       server.child.kill("SIGTERM")
       const result = await withBound(server.exit, "racing shutdown")
@@ -193,7 +191,7 @@ describe("built stdio process lifecycle", () => {
   it("delivers a response admitted immediately before EOF", async () => {
     const server = spawnServer()
     try {
-      await withBound(server.firstLine, "stdio discovery")
+      await withBound(server.firstLine, "stdio initialize")
       const response = server.responseLine(2)
       server.child.stdin.end(
         `${JSON.stringify({
@@ -227,7 +225,7 @@ describe("built stdio process lifecycle", () => {
     const server = spawnServer({ HULY_URL: `http://127.0.0.1:${address.port}` })
 
     try {
-      await withBound(server.firstLine, "stdio discovery")
+      await withBound(server.firstLine, "stdio initialize")
       server.child.stdin.write(
         `${JSON.stringify({
           jsonrpc: "2.0",

@@ -132,8 +132,9 @@ const awaitStdioLifecycleEvent = (
     const listenerState = { remove: () => {} }
     const request = (reason: StdioShutdownReason) => {
       listenerState.remove()
-      requestShutdown(coordinator, reason)
-      resume(Effect.void)
+      // Let the stdio protocol fiber consume bytes delivered immediately
+      // before the stream's `end` event before quiescing request admission.
+      resume(Effect.yieldNow.pipe(Effect.andThen(Effect.sync(() => requestShutdown(coordinator, reason)))))
     }
     listenerState.remove = stdioProcess.listen({
       stdinEof: () => request("stdin-eof"),
