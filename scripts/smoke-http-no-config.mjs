@@ -5,12 +5,7 @@ import { setTimeout as delay } from "node:timers/promises"
 
 const REQUEST_TIMEOUT_MS = 10_000
 const READY_TIMEOUT_MS = 15_000
-const PROTOCOL_VERSION = "2026-07-28"
-const CLIENT_META = {
-  "io.modelcontextprotocol/protocolVersion": PROTOCOL_VERSION,
-  "io.modelcontextprotocol/clientCapabilities": {},
-  "io.modelcontextprotocol/clientInfo": { name: "http-no-config-smoke", version: "1.0.0" }
-}
+const PROTOCOL_VERSION = "2025-06-18"
 
 const removeHulyEnv = (env) => {
   const clean = { ...env }
@@ -52,24 +47,15 @@ const parseMcpResponse = (text) => {
   return JSON.parse(data ?? text)
 }
 
-const postJsonRpc = async (endpoint, payload) => {
-  const name = payload.method === "tools/call"
-    ? payload.params?.name
-    : payload.method === "resources/read"
-      ? payload.params?.uri
-      : undefined
-  const requestPayload = {
-    ...payload,
-    params: { ...payload.params, _meta: CLIENT_META }
-  }
+const postJsonRpc = async (endpoint, payload, session) => {
+  const requestPayload = payload
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "content-type": "application/json",
       "accept": "application/json, text/event-stream",
       "mcp-protocol-version": PROTOCOL_VERSION,
-      "mcp-method": payload.method,
-      ...(name === undefined ? {} : { "mcp-name": name })
+      ...(session?.id === undefined ? {} : { "mcp-session-id": session.id })
     },
     body: JSON.stringify(requestPayload),
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
@@ -78,7 +64,12 @@ const postJsonRpc = async (endpoint, payload) => {
   if (!response.ok) {
     throw new Error(`HTTP ${response.status} from ${endpoint}: ${text}`)
   }
-  return parseMcpResponse(text)
+  return {
+    body: parseMcpResponse(text),
+    protocolVersion: response.headers.get("mcp-protocol-version") ?? PROTOCOL_VERSION,
+    sessionId: response.headers.get("mcp-session-id") ?? session?.id,
+    status: response.status
+  }
 }
 
 const assertNoError = (label, response) => {
@@ -128,18 +119,25 @@ const startLocalServer = async (envOverrides = {}) => {
   }
 }
 
-const waitForDiscovery = async (endpoint, serverLogs) => {
+const initializeSession = async (endpoint, serverLogs) => {
   const deadline = Date.now() + READY_TIMEOUT_MS
   let lastError
   while (Date.now() < deadline) {
     try {
       const response = await postJsonRpc(endpoint, {
         jsonrpc: "2.0",
-        method: "server/discover",
-        params: {},
-        id: 1
-      })
-      assertNoError("server/discover", response)
+        id: 1,
+        method: "initialize",
+        params: {
+          capabilities: {},
+          clientInfo: { name: "http-no-config-smoke", version: "1.0.0" },
+          protocolVersion: PROTOCOL_VERSION
+        }
+      }, undefined)
+      assertNoError("initialize", response.body)
+      if (response.sessionId === undefined || response.sessionId === "") {
+        throw new Error("initialize did not return Mcp-Session-Id")
+      }
       return response
     } catch (error) {
       lastError = error
@@ -155,19 +153,34 @@ const waitForDiscovery = async (endpoint, serverLogs) => {
 }
 
 const runProbe = async (endpoint, serverLogs, label) => {
-  await waitForDiscovery(endpoint, serverLogs)
+  const initialized = await initializeSession(endpoint, serverLogs)
+  const session = { id: initialized.sessionId }
+  const notificationResponse = await fetch(endpoint, {
+    body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized", params: {} }),
+    headers: {
+      accept: "application/json, text/event-stream",
+      "content-type": "application/json",
+      "mcp-protocol-version": initialized.protocolVersion,
+      "mcp-session-id": session.id
+    },
+    method: "POST",
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+  })
+  if (notificationResponse.status !== 202 && notificationResponse.status !== 200) {
+    throw new Error(`notifications/initialized returned HTTP ${notificationResponse.status}`)
+  }
 
   const resources = await postJsonRpc(endpoint, {
     jsonrpc: "2.0",
     method: "resources/list",
     id: 2
-  })
-  assertNoError("resources/list", resources)
-  if (!Array.isArray(resources.result?.resources)) {
-    throw new Error(`resources/list did not return a resources array: ${JSON.stringify(resources)}`)
+  }, session)
+  assertNoError("resources/list", resources.body)
+  if (!Array.isArray(resources.body.result?.resources)) {
+    throw new Error(`resources/list did not return a resources array: ${JSON.stringify(resources.body)}`)
   }
-  if (resources.result.resources.length !== 0) {
-    throw new Error(`expected no-config resources/list to return [], got ${JSON.stringify(resources.result)}`)
+  if (resources.body.result.resources.length !== 0) {
+    throw new Error(`expected no-config resources/list to return [], got ${JSON.stringify(resources.body.result)}`)
   }
 
   console.log(`HTTP no-config MCP smoke passed at ${endpoint}${label === undefined ? "" : ` (${label})`}`)

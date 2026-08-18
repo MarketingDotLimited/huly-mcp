@@ -28,6 +28,8 @@ HTTP_SERVER_PID=""
 HTTP_SERVER_STDOUT=""
 HTTP_SERVER_STDERR=""
 HTTP_CURL_CONFIG=""
+HTTP_SESSION_ID=""
+HTTP_PROTOCOL_VERSION="2025-06-18"
 GENERIC_ASSOCIATION_CLEANUP_IDS=""
 DRIVE_CLEANUP_ITEMS=""
 DRIVE_CLEANUP_DRIVES=""
@@ -132,7 +134,9 @@ if [ "$INTEGRATION_TRANSPORT" = "http" ] && [ "$INTEGRATION_HTTP_CONFIG" = "head
   exit 1
 fi
 
-MCP_2026_META='{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"hulymcp-integration","version":"1.0"},"io.modelcontextprotocol/clientCapabilities":{}}'
+MCP_PROTOCOL_VERSION="2025-06-18"
+MCP_INITIALIZE='{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"hulymcp-integration","version":"1.0"}},"id":1}'
+MCP_INITIALIZED='{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
 PROJECT="HULY"
 RUN_ID="$(date +%s)-$$"
 PASSED=0
@@ -156,6 +160,8 @@ cleanup_http_transport() {
   if [ -n "$HTTP_CURL_CONFIG" ]; then
     rm -f "$HTTP_CURL_CONFIG"
   fi
+  HTTP_SESSION_ID=""
+  HTTP_PROTOCOL_VERSION="$MCP_PROTOCOL_VERSION"
 }
 
 cleanup_generic_associations() {
@@ -609,7 +615,7 @@ restart_http_transport_if_needed() {
   fi
   echo "Restarting HTTP integration transport ($reason)"
   cleanup_http_transport
-  start_http_transport
+  start_http_transport && initialize_http_session
 }
 
 extract_http_json_response() {
@@ -623,32 +629,61 @@ extract_http_json_response() {
   fi
 }
 
+initialize_http_session() {
+  local headers_file body_file status response_payload session_id negotiated
+  headers_file="$(mktemp)"
+  body_file="$(mktemp)"
+  status=$(curl -sS --max-time "$TOOL_TIMEOUT" --config "$HTTP_CURL_CONFIG" --request POST \
+    --header "MCP-Protocol-Version: $MCP_PROTOCOL_VERSION" \
+    --data "$MCP_INITIALIZE" \
+    --dump-header "$headers_file" --output "$body_file" --write-out '%{http_code}' \
+    "$HTTP_ENDPOINT" 2>/dev/null) || status=""
+  response_payload=$(cat "$body_file")
+  session_id=$(awk 'tolower($1) == "mcp-session-id:" { print $2 }' "$headers_file" | tail -n 1 | tr -d '\r')
+  negotiated=$(extract_http_json_response "$response_payload" | jq -r '.result.protocolVersion // empty' 2>/dev/null)
+  rm -f "$headers_file" "$body_file"
+  if [ "$status" != "200" ] || [ -z "$session_id" ] || [ -z "$negotiated" ]; then
+    echo "ERROR: MCP HTTP initialize failed (status=${status:-unknown}, session=${session_id:-missing}, protocol=${negotiated:-missing})" >&2
+    return 1
+  fi
+  HTTP_SESSION_ID="$session_id"
+  HTTP_PROTOCOL_VERSION="$negotiated"
+  status=$(curl -sS --max-time "$TOOL_TIMEOUT" --config "$HTTP_CURL_CONFIG" --request POST \
+    --header "MCP-Protocol-Version: $HTTP_PROTOCOL_VERSION" \
+    --header "MCP-Session-Id: $HTTP_SESSION_ID" \
+    --data "$MCP_INITIALIZED" --output /dev/null --write-out '%{http_code}' \
+    "$HTTP_ENDPOINT" 2>/dev/null) || status=""
+  if [ "$status" != "202" ] && [ "$status" != "200" ]; then
+    echo "ERROR: MCP HTTP notifications/initialized failed with status ${status:-unknown}" >&2
+    return 1
+  fi
+}
+
 call_tool_stdio() {
   local payload="$1"
   local request_payload
-  request_payload=$(printf '%s\n' "$payload" | jq -c --argjson meta "$MCP_2026_META" '.params = ((.params // {}) + {"_meta": $meta})')
-  printf '%s\n' "$request_payload" | timeout "$TOOL_TIMEOUT" env MCP_AUTO_EXIT=true node dist/index.cjs 2>/dev/null | grep '"id":2'
+  local request_id
+  request_payload=$(printf '%s\n' "$payload" | jq -c '.')
+  request_id=$(printf '%s\n' "$request_payload" | jq -r '.id')
+  printf '%s\n%s\n%s\n' "$MCP_INITIALIZE" "$MCP_INITIALIZED" "$request_payload" \
+    | timeout "$TOOL_TIMEOUT" env MCP_AUTO_EXIT=true node dist/index.cjs 2>/dev/null \
+    | grep "\"id\":$request_id"
 }
 
 call_tool_http() {
   local payload="$1"
   local response
   local request_payload="$payload"
-  local method
+  local request_id
   local curl_args=(-sS --max-time "$TOOL_TIMEOUT" --config "$HTTP_CURL_CONFIG" --request POST)
-  method=$(printf '%s\n' "$request_payload" | jq -r '.method')
-  local name
-  request_payload=$(printf '%s\n' "$payload" | jq -c --argjson meta "$MCP_2026_META" '.params = ((.params // {}) + {"_meta": $meta})')
-  name=$(printf '%s\n' "$request_payload" | jq -r 'if .method == "tools/call" then .params.name elif .method == "resources/read" then .params.uri else empty end')
+  request_payload=$(printf '%s\n' "$payload" | jq -c '.')
+  request_id=$(printf '%s\n' "$request_payload" | jq -r '.id')
   curl_args+=(
-    --header "MCP-Protocol-Version: 2026-07-28"
-    --header "Mcp-Method: $method"
+    --header "MCP-Protocol-Version: $HTTP_PROTOCOL_VERSION"
+    --header "MCP-Session-Id: $HTTP_SESSION_ID"
   )
-  if [ -n "$name" ]; then
-    curl_args+=(--header "Mcp-Name: $name")
-  fi
   response=$(curl "${curl_args[@]}" --data "$request_payload" "$HTTP_ENDPOINT" 2>/dev/null)
-  extract_http_json_response "$response" | grep '"id":2'
+  extract_http_json_response "$response" | grep "\"id\":$request_id"
 }
 
 call_tool_cli() {
@@ -672,6 +707,7 @@ call_tool() {
 
 if [ "$INTEGRATION_SURFACE" = "mcp" ] && [ "$INTEGRATION_TRANSPORT" = "http" ]; then
   start_http_transport || exit 1
+  initialize_http_session || exit 1
 fi
 
 run_test() {
@@ -843,21 +879,15 @@ verify_http_tool_discovery() {
   local response
   local json
   local request_payload
-  request_payload=$(jq -cn --argjson meta "$MCP_2026_META" \
-    '{"jsonrpc":"2.0","method":"tools/list","params":{"_meta":$meta},"id":1}')
-  response=$(curl -sS --max-time "$TOOL_TIMEOUT" --config "$HTTP_CURL_CONFIG" --request POST \
-    --header "MCP-Protocol-Version: 2026-07-28" \
-    --header "Mcp-Method: tools/list" \
-    --data "$request_payload" \
-    "$HTTP_ENDPOINT" 2>/dev/null)
-  json=$(extract_http_json_response "$response")
+  request_payload='{"jsonrpc":"2.0","method":"tools/list","params":{},"id":1}'
+  json=$(call_tool_http "$request_payload")
   if printf '%s\n' "$json" | jq -e '.result.tools | length > 0' >/dev/null 2>&1; then
-    echo "PASS: MCP 2026-07-28 HTTP tools/list"
+    echo "PASS: MCP 2025-06-18 HTTP session tools/list"
     PASSED=$((PASSED + 1))
     return 0
   fi
 
-  fail_test "MCP 2026-07-28 HTTP tools/list" "no tool catalog returned"
+  fail_test "MCP 2025-06-18 HTTP session tools/list" "no tool catalog returned"
 }
 
 # Like run_capture but does NOT count toward PASS/FAIL — used only for extracting data

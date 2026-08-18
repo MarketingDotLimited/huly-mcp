@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.dearlordylord/huly-mcp",
   "title": "Huly MCP",
-  "description": "Huly MCP: feature-complete MCP server for Huly integration",
+  "description": "Huly MCP: feature-complete Huly integration over Effect AI MCP 2025-06-18",
   "websiteUrl": "https://huly-mcp.dearlordylord.com",
   "icons": [
     {
@@ -89,6 +89,34 @@
           "isRequired": false,
           "format": "string",
           "isSecret": false
+        },
+        {
+          "name": "MCP_TRANSPORT",
+          "description": "Transport: stdio (default) or HTTP. HTTP clients must initialize and retain the returned MCP session.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "MCP_HTTP_HOST",
+          "description": "HTTP listener host when MCP_TRANSPORT=http.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "MCP_HTTP_PORT",
+          "description": "HTTP listener port when MCP_TRANSPORT=http.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "MCP_AUTH_TOKEN",
+          "description": "Optional bearer token protecting the HTTP /mcp endpoint; it is not a Huly API token.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": true
         }
       ]
     }

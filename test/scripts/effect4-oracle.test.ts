@@ -44,8 +44,11 @@ describe("Effect 4 behavioral oracle", () => {
           }
         },
         stdio: {
-          legacy: expect.arrayContaining([expect.objectContaining({ id: 1 }), expect.objectContaining({ id: 2 })]),
           native: expect.arrayContaining([expect.objectContaining({ id: 2 }), expect.objectContaining({ id: 7 })]),
+          proxy: expect.any(Array)
+        },
+        http: {
+          native: expect.arrayContaining([expect.objectContaining({ id: 1 }), expect.objectContaining({ id: 2 })]),
           proxy: expect.any(Array)
         }
       },
@@ -88,9 +91,7 @@ describe("Effect 4 behavioral oracle", () => {
     expect(JSON.stringify(nativeDiscovery)).toContain('"version":"<package-version>"')
     const resourceList = oracle.bundledProcesses.stdio.native.find((response) => response.id === 7)
     expect(resourceList?.result).toMatchObject({ resources: [] })
-    const legacyInitialize = oracle.bundledProcesses.stdio.legacy.find((response) => response.id === 1)
-    expect(legacyInitialize?.result).toMatchObject({ protocolVersion: "2025-06-18" })
-    expect(JSON.stringify(legacyInitialize)).toContain('"version":"<package-version>"')
+    expect(nativeDiscovery?.result).toMatchObject({ protocolVersion: "2025-06-18" })
     const constraintKeywords = new Set(
       oracle.registry.authoredConstraints.flatMap(({ constraints }) =>
         constraints.map(({ path }) => path.at(-1)).filter((part): part is string => typeof part === "string")
@@ -138,7 +139,8 @@ describe("Effect 4 behavioral oracle", () => {
     expect(oracle.registry.authoredConstraints).toHaveLength(522)
     expect(oracle.bundledProcesses.stdio.native).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))
     expect(oracle.bundledProcesses.stdio.proxy).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))
-    expect(oracle.bundledProcesses.stdio.legacy).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))
+    expect(oracle.bundledProcesses.http.native).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))
+    expect(oracle.bundledProcesses.http.proxy).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))
     expect(oracle.cli.input.explicitLast.input).toMatchObject({ limit: 3, query: "positional query" })
     expect(oracle.cli.errors.json.decoded.code).toBe("INVALID_INPUT")
     expect(requireOracleDiscoveries(oracle.bundledProcesses)).toMatchObject({ native: { id: 2 }, proxy: { id: 2 } })
@@ -146,7 +148,7 @@ describe("Effect 4 behavioral oracle", () => {
       requireOracleDiscoveries({ ...oracle.bundledProcesses, stdio: { ...oracle.bundledProcesses.stdio, native: [] } })
     ).toThrow("both native and proxy")
     expect(renderEffect4Oracle(oracle)).toContain('"formatVersion": 1')
-  }, 60_000)
+  }, 120_000)
 
   it("terminates and reaps an oracle subprocess after its deadline", async () => {
     await expect(

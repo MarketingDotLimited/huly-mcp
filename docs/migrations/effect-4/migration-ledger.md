@@ -467,14 +467,15 @@ continues to the next cleanup phase, and writes one sanitized diagnostic to
 stderr; rejected closes likewise omit the underlying cause so credentials
 cannot cross the process boundary. SDK handler errors use the same secret-free
 stderr policy. Produced responses are drained before wire
-close. Protocol tests retain final `2026-07-28` discovery and `2025-06-18`
-initialize/tool compatibility. A raw built-command exchange additionally proves
-a representative `get_huly_context` call, invalid-parameter rendering, response
-drain, and actual zero-code child exit after stdin EOF. The HTTP endpoint token remains `Redacted` across the
+close. Protocol tests now target Effect AI's MCP `2025-06-18` initialize and
+session contract. A raw built-command exchange additionally proves a
+representative `get_huly_context` call, invalid-parameter rendering, response
+drain, and actual zero-code child exit after stdin EOF; the packed certification
+also performs a real HTTP initialize/session exchange. The HTTP endpoint token remains `Redacted` across the
 shared bootstrap/server seam and is left for the #227 auth adapter to unwrap at
 its point of use.
 
-The focused lifecycle and bundled stdio matrix now executes after the #227
+The focused lifecycle and bundled stdio/HTTP matrix now executes after the #227
 transport import migration:
 
 ```bash
@@ -488,8 +489,8 @@ mise exec node@22.22.2 -- pnpm exec vitest run \
   test/mcp/server-http.test.ts
 ```
 
-Result: the focused seven-file MCP/index matrix passes 37 suites and all 157 tests, including
-all 68 assertions in `test/mcp/server.test.ts`. The in-process lifecycle cases
+Result: the focused MCP/index matrix passes its lifecycle and protocol tests, including
+the HTTP initialize/session exchange and built artifact smoke. The in-process lifecycle cases
 use the virtual Effect clock; the spawned built-artifact cases retain their
 process test bound and prove both protocol generations using unconditional EOF
 shutdown.
@@ -518,7 +519,7 @@ leases through scope finalizers.
 and is unwrapped only inside the authorization adapter. The endpoint retains its
 single `Bearer` form, constant-time equal-length comparison, 401 response, and
 secret-free JSON/error output. Localhost Host and Origin checks, malformed JSON,
-final `2026-07-28`, legacy `2025-06-18`, sanitized factory failures, and
+MCP `2025-06-18` initialize/session negotiation, sanitized factory failures, and
 idempotent/aggregated legacy close behavior remain covered.
 
 HTTP handler shutdown and its scope finalizer use the same configurable grace
@@ -569,27 +570,23 @@ catalog assertion is resolved. The CLI-owned and directly required adapter paths
 have no TypeScript diagnostics; broader diagnostics remain in separately owned
 migration surfaces.
 
-## Ticket #225 final bundled oracle certification
+## Ticket #225 current bundled oracle certification
 
-The immutable Effect 3 behavioral baseline was compared to a separately rendered
-Effect 4 corpus after the #227 HTTP and #228 CLI build edges landed. The baseline
-was not regenerated. The comparison found exactly 21,086 structural deltas:
-12,754 Draft-07 structural dialect changes, 4,894 schema-metadata changes, 3,428
-authored-constraint projection changes, 6 richer CLI JSON parse diagnostics, and
-4 concise CLI help-renderer changes.
+The direct Effect AI cutover replaced the old SDK/discovery fixture. The tracked
+oracle now captures freshly built stdio and stateful HTTP exchanges using MCP
+`2025-06-18`, including initialize/initialized lifecycle, sessions, tools,
+resources, protocol errors, and native/proxy surfaces. Obsolete 2026
+discovery/stateless responses are not retained.
 
-Each category records an exact count and SHA-256 of its sorted exact delta identities
-in `behavioral-oracle-delta-review.json`, avoiding duplication of baseline/current
-values. The verifier rejects unclassified paths, changed exact sets, stale or
-duplicate categories, and corpus hash drift.
-The complete classification, immutable baseline hash, reviewed current-corpus
-hash, and verification commands are recorded in
-`behavioral-oracle-delta-review.md`.
+The compact review certificate has no legacy delta categories. The verifier
+rejects drift in canonical bytes, response shape, registry inventory, or the
+reviewed current-corpus hash. The wire-level evidence and commands are recorded
+in `behavioral-oracle-delta-review.md`.
 
-`mise exec node@22.22.2 -- pnpm verify:effect4-oracle:built` passes against the
-full bundled MCP and CLI corpus. Strict Ajv Draft-07 compilation remains green
-for all 524 native and 6 proxy tool schemas; the registry remains 522 ordered,
-unique operations and the authored-constraint corpus retains all 522 tools.
+`mise exec node@22.22.2 -- pnpm verify:effect4-oracle:built` verifies the
+canonical current corpus. Strict Ajv Draft-07 compilation remains green for all
+524 native and 6 proxy tool schemas; the registry remains 522 ordered, unique
+operations and the authored-constraint corpus retains all 522 tools.
 
 ## Ticket #229 packed CLI and generated documentation checkpoint
 
@@ -689,22 +686,22 @@ The live matrix found and repaired four boundary defects. Planner scheduling now
 projects Huly's mixin-backed employee fields before Schema decoding, preserving
 the active-employee invariant without requiring the SDK proxy fields to be own
 properties. Modern MCP exposure now reads client identity from the validated
-per-request metadata envelope and uses the connection accessor only for legacy
-fallback. CLI operator diagnostics now use stderr rather than corrupting JSON
-stdout, and CLI client cleanup has a five-second bound with static diagnostics so
-a stuck SDK close cannot hide a completed operation. Targeted real-HTTP
-authentication checks return 401 for missing and incorrect bearer credentials
-and 200 for the configured credential. Disposable resources are cleaned by the
-lifecycle harness, and stdio/HTTP shutdown remains owned and bounded by the
-certified lifecycle implementation.
+`initialize` payload and retains it in the Effect AI session. CLI operator
+diagnostics now use stderr rather than corrupting JSON stdout, and CLI client
+cleanup has a five-second bound with static diagnostics so a stuck SDK close
+cannot hide a completed operation. Targeted real-HTTP authentication checks
+return 401 for missing and incorrect bearer credentials and 200 for the
+configured credential. Disposable resources are cleaned by the lifecycle
+harness, and stdio/HTTP shutdown remains owned and bounded by the certified
+lifecycle implementation.
 
-The final parity report is `final-parity-report.md`. It links the unchanged
-Effect 3 baseline to the reviewed 21,086-delta certificate and the #225, #229,
-and #231 schema, CLI, artifact, and clean-consumer evidence. The archival
-decision is explicit: `.reference/effect-v3.22.1` remains historical parity
-provenance only; setup does not provision or verify it, it is outside the active
-lookup order, and no `.reference/effect` alias exists. Active guidance names the
-installed rc.108 declarations, installed `AGENTS.md`, and pinned v4 source.
+The final parity report is `final-parity-report.md`. It links the current
+Effect AI corpus to the #225, #229, and #231 schema, CLI, artifact, and
+clean-consumer evidence. The archival decision is explicit:
+`.reference/effect-v3.22.1` remains historical parity provenance only; setup does
+not provision or verify it, it is outside the active lookup order, and no
+`.reference/effect` alias exists. Active guidance names the installed rc.108
+declarations, installed `AGENTS.md`, and pinned v4 source.
 
 Both published packages receive a patch Changesets entry. The final supported
 Node 22 release-candidate command is:

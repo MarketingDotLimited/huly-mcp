@@ -27,16 +27,23 @@ export const verifyEffect4Oracle = async (root: string, actual: string): Promise
   const decodeJson = Schema.decodeUnknownSync(Schema.fromJsonString(JsonValueSchema))
   const deltas = compareOracleValues(decodeJson(expected), decodeJson(actual))
   const review = Schema.decodeUnknownSync(Schema.fromJsonString(OracleDeltaReviewSchema))(reviewJson)
-  try {
-    verifyReviewedOracleDeltas(expected, actual, deltas, review)
-  } catch (cause) {
-    const report = createOracleDeltaReport(deltas, [])
-    const sample = report.unexpected.slice(0, DELTA_ERROR_SAMPLE_SIZE).map(formatOracleDelta).join("\n")
-    throw new Error(
-      `Effect 4 behavioral oracle differs from ${EFFECT4_ORACLE_PATH}.` +
-        `${sample === "" ? "" : `\nDelta sample:\n${sample}`}`,
-      { cause }
-    )
+  const verify = (reviewedDeltas: typeof deltas): void => {
+    try {
+      verifyReviewedOracleDeltas(expected, actual, reviewedDeltas, review)
+    } catch (cause) {
+      const report = createOracleDeltaReport(reviewedDeltas, [])
+      const sample = report.unexpected.slice(0, DELTA_ERROR_SAMPLE_SIZE).map(formatOracleDelta).join("\n")
+      throw new Error(
+        `Effect 4 behavioral oracle differs from ${EFFECT4_ORACLE_PATH}.` +
+          `${sample === "" ? "" : `\nDelta sample:\n${sample}`}`,
+        { cause }
+      )
+    }
   }
+  if (expected === actual) {
+    verify([])
+    return oraclePath
+  }
+  verify(deltas)
   return oraclePath
 }

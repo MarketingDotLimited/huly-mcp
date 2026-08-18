@@ -1,18 +1,22 @@
-# Effect 3 baseline certification
+# Effect AI MCP certification baseline
 
 Date: 2026-08-12
 Baseline commit: `ffdb965a66f635eabbba65e51f061606b13b49cb`
 
-This document is the sanitized certification ledger for the Effect 3 behavior
-that the Effect 4 migration must preserve. It contains no Huly URL, workspace,
-account, token, password, request header, or response payload from local Huly.
+This document is the sanitized certification ledger for the direct Effect AI
+MCP cutover. It contains no Huly URL, workspace, account, token, password,
+request header, or response payload from local Huly. The former Effect 3 oracle
+is archival provenance; it is not a supported wire contract.
 
 ## Deterministic behavioral oracle
 
 The tracked `behavioral-oracle.json` is generated from freshly built artifacts by
 `pnpm capture:effect4-oracle` and checked byte-for-byte by
 `pnpm verify:effect4-oracle`, which rebuilds both artifacts before comparing.
-Object keys are canonicalized while observable array order is retained.
+Object keys are canonicalized while observable array order is retained. MCP
+captures use real Effect AI `2025-06-18` initialize/initialized exchanges over
+stdio and HTTP; HTTP captures retain the returned session and negotiated
+protocol header behavior.
 
 | Captured surface | Baseline result |
 | --- | ---: |
@@ -26,11 +30,10 @@ Object keys are canonicalized while observable array order is retained.
 | Proxy MCP tools | 4 |
 | Resource templates | 3 |
 
-The bundled stdio `tools/list` result is the sole complete schema oracle. For every
-public tool it retains the name, description, annotations, input schema, and output
-schema exactly as a client receives them. Compact internal inventories retain only
-tool ordering, categories, and built-in/proxy names, avoiding a second contract
-against Effect 3's private schema representation. A supplemental compact corpus
+The bundled stdio and HTTP `tools/list` results are complete schema oracles. For
+every public tool they retain the name, description, annotations, input schema,
+and output schema exactly as a client receives them. Compact internal inventories
+retain only tool ordering, categories, and built-in/proxy names. A supplemental compact corpus
 retains only the paths and values of authored raw `oneOf`, `anyOf`, `not`, and
 boolean-valued JSON Schema constraints, associated with their tool names. This
 catches constraints that the public compatibility projection intentionally removes
@@ -39,8 +42,9 @@ template discovery, representative invalid MCP requests, all CLI route metadata,
 root/group/leaf help, structured-input precedence and ordering, and
 human/JSON/internal CLI failures with exit statuses.
 
-Known package-version locations in MCP response metadata and CLI help are replaced
-with `<package-version>` so a release bump is not treated as behavioral drift.
+Known package-version locations in the MCP initialize `serverInfo` and CLI help
+are replaced with `<package-version>` so a release bump is not treated as
+behavioral drift.
 Separate artifact checks assert that each freshly built bundle embeds the version
 from its own package manifest.
 
@@ -70,13 +74,13 @@ requiring local Huly must use the container URL rewrite documented in
 
 | Verification | Result | Sanitized evidence |
 | --- | --- | --- |
-| `pnpm verify:effect4-oracle` | pass | Canonical tracked bytes match a fresh capture. |
+| `pnpm verify:effect4-oracle` | pass | Canonical tracked bytes match a fresh built stdio/HTTP capture. |
 | `pnpm check-all` | pass | Final release-candidate aggregate passed: strict Effect diagnostics checked 854 files with zero errors or warnings; 515 dependency files had no cycles; all 289 test files and 4,278 tests passed; coverage was 99.57% statements, 99.01% branches, 99.25% functions, and 99.61% lines. |
 | MCP bundle composition and embedded version | pass | The immutable Effect 3 baseline is 8,436,736 raw / 1,597,327 gzip bytes. The certified Effect 4 artifact is 8,253,902 raw / 1,561,887 gzip bytes (-2.17% / -2.22%), with executable mode `0755` and the reviewed AJV-runtime-plus-`ws` nonlocal composition. |
 | CLI bundle composition, embedded version, and dependency closure | pass | Schema-decoded baseline/current byte counts and absolute/percentage deltas are generated and verified in `cli-artifact-size.json`; the decrease follows removal of the Effect 3 CLI runtime and compatibility surface. `ws` remains the exact one-member external set. |
 | Packed CLI smoke behavior | pass | A freshly packed and installed CLI reported `huly v0.48.1`, exposed 54 root commands and all 522 catalog routes, and passed representative help, confirmation, structured explicit-field precedence, exact text/JSON error streams, and exit-status checks. Packed Agent Skill files were byte-identical to their generated sources. |
 | Node 22/24 clean consumers | pass | Fresh pnpm and npm projects on exact Node 22.22.2 and 24.15.0 installed both tarballs, resolved their complete dependency graphs, and passed MCP discovery/call/invalid/shutdown plus CLI version/help/structured-input/error certification. |
-| Built stdio discovery and protocol behavior | pass | Final 2026-07-28 discovery and legacy 2025-06-18 initialize/tools-list exchanges captured; native mode exposed 524 tools, proxy mode exposed 6 tools, and 3 resource templates were listed. The deterministic no-config resource list returned 0 resources. Missing arguments, extra arguments on a no-argument builtin, and unknown-tool responses were captured from the wire. |
+| Built stdio/HTTP protocol behavior | pass | The certification harness captures real Effect AI MCP `2025-06-18` initialize/initialized exchanges over stdio and HTTP. HTTP captures the returned `Mcp-Session-Id` and echoes the negotiated protocol header; obsolete discovery/stateless fixtures are absent. |
 | Built CLI help, input errors, and global-flag placement | pass | Root/group/leaf help and human/JSON failures were captured with exit/stdout/stderr. `--json` before and after a deep command both produced the same structured failure class and exit status. |
 | HTTP discovery, authentication modes, and lifecycle | pass | Environment-config and request-header/token HTTP each completed cleanup with 1,091 passed, 0 failed, and 31 skipped of 1,122. Missing and incorrect MCP bearer credentials returned 401; the configured credential returned 200. The header run also exercised bounded listener restarts after direct fixture writes. |
 | Native/proxy tool-scope matrix | pass | The complete matrix passed: request-local `codex-cli` identity classified as `codex`, exact `claude-code` selected native mode, explicit overrides and scoped category/tool pins held, strict proxy allow-listing held, and invalid pins stayed empty. |

@@ -54,9 +54,9 @@ Several ecosystems solve large MCP/API surfaces by exposing a small model-facing
 - **Anthropic "Code execution with MCP"**: presents MCP servers as a generated filesystem of code modules (one file per tool) that the agent explores on demand, instead of loading tool definitions into context. Anthropic reports a workflow dropping from ~150K to ~2K tokens (98.7%). The pattern also keeps large intermediate tool *results* out of context — a dimension the meta-tool proxy approaches here do not address — at the cost of requiring a code sandbox.
 - **Notion MCP (hosted, 18 tools)**: ships exactly the recommended shape — tool scoping plus `search_tools` / `execute_tool` meta-tools for runtime discovery.
 
-### SDK Support (v1.25.3)
+### Historical SDK Support (v1.25.3)
 
-The installed `@modelcontextprotocol/sdk` v1.25.3 has **full support** for dynamic tool management:
+Before the Effect AI migration, `@modelcontextprotocol/sdk` v1.25.3 provided dynamic tool management through:
 - `server.sendToolListChanged()` — sends notification to client
 - `McpServer.registerTool()` / `RegisteredTool.remove()` — add/remove tools at runtime
 - `RegisteredTool.enable()` / `.disable()` — show/hide tools from `tools/list`
@@ -160,7 +160,11 @@ Initial auto-selection rule should be conservative:
 | `opencode*` | `proxy` | Treat as eager unless/until opencode advertises client-side tool search |
 | unknown / missing clientInfo | `proxy` | Avoid exposing a 470-tool, ~170K-token surface by default |
 
-For protocol versions with an initialize handshake, read `params.clientInfo` from `initialize`. The SDK stores this as `server.getClientVersion()` after initialization. For the 2026 stateless HTTP path, read `_meta["io.modelcontextprotocol/clientInfo"]` on each request; the current dispatcher already validates that this field exists.
+Read `params.clientInfo` from the MCP `initialize` request and retain the
+resolved exposure mode for the initialized session. Effect AI owns the same
+session state for stdio and HTTP; HTTP callers identify the session with the
+returned `Mcp-Session-Id`. There is no stateless 2026 request path or per-call
+`_meta["io.modelcontextprotocol/clientInfo"]` fallback.
 
 This logic should live in a dedicated typesafe module, not inline string checks:
 
@@ -290,7 +294,9 @@ In the recommended static proxy mode, there is no session tool state: `tools/lis
 
 In optional `tools/list_changed` mode, tools enabled by `search_tools` accumulate during a session — once enabled, a tool stays enabled for the rest of the connection. This avoids the LLM losing access to tools it already discovered, but it must only be used for clients proven to re-list and expose newly enabled tools to the model.
 
-For HTTP transport, prefer the static proxy mode. Stateless or cache-oriented clients are a bad fit for connection-local tool state.
+For HTTP transport, prefer the static proxy mode. Cache-oriented clients must still
+retain the returned `Mcp-Session-Id` and negotiated `MCP-Protocol-Version`; a
+request without that session cannot address connection-local tool state.
 
 ### LLM Interaction Flow
 
@@ -376,7 +382,11 @@ const CATEGORY_DESCRIPTIONS: Record<string, string> = {
 
 4. **Approach D.** Given client and cache behavior, should `tools/list_changed` be deferred entirely, or offered only behind an explicit experimental config?
 
-5. **HTTP transport.** Stateless and cache-oriented clients are a bad fit for connection-local tool state. HTTP should use `clientInfo` from request `_meta` for `auto`, and should not rely on session-local `tools/list_changed`.
+5. **HTTP transport.** HTTP clients must initialize once, retain the returned
+   `Mcp-Session-Id`, send `notifications/initialized`, and echo the negotiated
+   `MCP-Protocol-Version` on later requests. `clientInfo` for `auto` comes from
+   the initialize payload, not request `_meta`; session-local `tools/list_changed`
+   remains optional and should not be assumed by clients.
 
 ## References
 

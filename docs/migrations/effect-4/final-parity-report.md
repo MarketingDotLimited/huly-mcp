@@ -18,7 +18,7 @@ written to this report or test logs.
 | Surface | Result | Certified behavior |
 | --- | --- | --- |
 | Native stdio MCP | 1,095 passed, 0 failed, 27 skipped | Full lifecycle matrix, invalid-input paths, cleanup, response drain, and EOF shutdown |
-| Native HTTP with environment credentials | 1,091 passed, 0 failed, 31 skipped | Modern protocol discovery and the full lifecycle matrix through the real HTTP listener |
+| Native HTTP with environment credentials | 1,091 passed, 0 failed, 31 skipped | Effect AI `2025-06-18` initialize/session lifecycle through the real HTTP listener |
 | Native HTTP with request headers | 1,091 passed, 0 failed, 31 skipped | Request-scoped URL, workspace, and redacted token configuration with full cleanup |
 | Tool exposure and scope | Passed | Request-local client classification, auto/native/proxy selection, category/tool pins, strict proxy output, and invalid pins |
 | Packed CLI focused | 123 passed, 0 failed | Parsing, typed failures and exits, confirmation, structured and binary output, and disposable-resource cleanup |
@@ -37,23 +37,21 @@ Four live-only defects were repaired during certification:
   plain schema-owned boundary before decoding, so a readable inherited `active`
   field is accepted without weakening the active-employee check.
 - Modern MCP tool exposure now reads client identity from the validated
-  request-local metadata envelope. The deprecated connection accessor remains
-  only as the legacy fallback.
+  `initialize` payload and retains it in the Effect AI session.
 - CLI operator diagnostics are routed to stderr, preserving stdout as a clean
   JSON/data boundary while agent-visible warnings remain in the result envelope.
 - CLI Huly-client cleanup is bounded by a five-second grace period with static,
   secret-free diagnostics, so a completed operation is not hidden by a stuck SDK
   close promise.
 
-## Effect 3 oracle and artifact parity
+## Effect AI oracle and artifact parity
 
-The immutable Effect 3 oracle was not regenerated. The final Effect 4 corpus is
-verified by the compact reviewed certificate described in
-`behavioral-oracle-delta-review.md`: 21,086 exact differences are divided into
-12,754 Draft-07 structural dialect changes, 4,894 schema-metadata changes, 3,428
-authored-constraint projections, 6 richer CLI JSON diagnostics, and 4 concise
-CLI help changes. Counts, current/baseline hashes, and sorted delta-set hashes
-reject unreviewed, changed, duplicate, or stale classifications.
+The former Effect 3/SDK wire fixture is archival and was removed from the active
+certificate. The current corpus is verified by the compact reviewed certificate
+described in `behavioral-oracle-delta-review.md`: it contains real built
+`2025-06-18` stdio and HTTP initialize/session exchanges, native/proxy tool
+surfaces, resources, protocol errors, and CLI behavior. The certificate has no
+legacy delta categories; any future byte or schema drift is rejected.
 
 The certified registry remains 522 ordered unique operations. Strict Ajv
 Draft-07 compilation passes for all 524 native and 6 proxy schemas. Discovery,

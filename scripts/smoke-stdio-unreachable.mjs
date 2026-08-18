@@ -1,14 +1,25 @@
 import { spawn } from "node:child_process"
 
 const request = (id, method, params) => JSON.stringify({ jsonrpc: "2.0", method, params, id })
-const meta = {
-  "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-  "io.modelcontextprotocol/clientCapabilities": {},
-  "io.modelcontextprotocol/clientInfo": { name: "unreachable-smoke", version: "1.0" }
-}
+const initialize = JSON.stringify({
+  jsonrpc: "2.0",
+  id: 1,
+  method: "initialize",
+  params: {
+    capabilities: {},
+    clientInfo: { name: "unreachable-smoke", version: "1.0" },
+    protocolVersion: "2025-06-18"
+  }
+})
+const initialized = JSON.stringify({
+  jsonrpc: "2.0",
+  method: "notifications/initialized",
+  params: {}
+})
 const input = [
-  request(1, "server/discover", { _meta: meta }),
-  request(2, "tools/call", { name: "list_projects", arguments: {}, _meta: meta })
+  initialize,
+  initialized,
+  request(2, "tools/call", { name: "list_projects", arguments: {} })
 ].join("\n") + "\n"
 
 const child = spawn(process.execPath, ["dist/index.cjs"], {
@@ -24,9 +35,18 @@ const child = spawn(process.execPath, ["dist/index.cjs"], {
 })
 let stdout = ""
 let stderr = ""
-child.stdout.on("data", chunk => { stdout += chunk })
+let stdinClosed = false
+const closeStdinAfterResponse = () => {
+  if (stdinClosed || !stdout.includes('"id":2')) return
+  stdinClosed = true
+  child.stdin.end()
+}
+child.stdout.on("data", chunk => {
+  stdout += chunk
+  closeStdinAfterResponse()
+})
 child.stderr.on("data", chunk => { stderr += chunk })
-child.stdin.end(input)
+child.stdin.write(input)
 
 const exitCode = await new Promise((resolve, reject) => {
   const timeout = setTimeout(() => {
