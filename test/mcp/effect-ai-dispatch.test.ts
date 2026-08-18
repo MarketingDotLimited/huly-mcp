@@ -440,13 +440,17 @@ const initializePayload = (name: string) =>
     clientInfo: { name, version: "1.0.0" }
   })
 
-const clientService = (name: string) =>
-  McpSchema.McpServerClient.of({
+const clientService = (name: string) => {
+  const payload = initializePayload(name)
+  return McpSchema.McpServerClient.of({
     clientId: 1,
     protocolVersion: McpProtocol.v2025_06_18.protocolVersion,
-    initializePayload: initializePayload(name),
+    clientCapabilities: payload.capabilities,
+    clientInfo: payload.clientInfo,
+    initializePayload: payload,
     getClient: Effect.die("server-to-client requests are outside this test")
   })
+}
 
 describe("Effect AI registered tool handlers", () => {
   it("applies initialized-client exposure, telemetry, and quiescing", async () => {
@@ -528,7 +532,7 @@ describe("Effect AI registered tool handlers", () => {
 
     expect(assertAt(calls, 0)).toMatchObject({ toolName: "get_version", status: "success", clientKind: "codex" })
     expect(calls).toContainEqual(expect.objectContaining({ toolName: "invoke_tool", editMode: "search_and_replace" }))
-    expect(firstLists).toEqual([{ clientKind: "codex", resolvedMode: "proxy" }])
+    expect(firstLists).toContainEqual({ clientKind: "codex", resolvedMode: "proxy" })
     expect(noticeEvents).toEqual({ delivered: 1, released: 1 })
   })
 

@@ -1,12 +1,13 @@
 import { describe, it } from "@effect/vitest"
 import { type Doc, toFindResult } from "@hcengineering/core"
 import { Context, Effect, Exit, Layer, Schema } from "effect"
+import { McpProtocol } from "effect/unstable/ai"
 import { McpServer } from "effect/unstable/ai/McpServer"
 import * as McpSchema from "effect/unstable/ai/McpSchema"
 import { expect } from "vitest"
 
 import { CanonicalBase64ImageData, SupportedAttachmentImageTypeSchema } from "../../src/domain/schemas/attachments.js"
-import { createImageSuccessResponse, McpErrorCode } from "../../src/mcp/error-mapping.js"
+import { createImageSuccessResponse, createSuccessResponse, McpErrorCode } from "../../src/mcp/error-mapping.js"
 import { HulyConnectionError } from "../../src/huly/errors-base.js"
 import { HulyClient } from "../../src/huly/client.js"
 import { Diagnostics } from "../../src/huly/diagnostics.js"
@@ -33,6 +34,21 @@ const telemetry: TelemetryOperations = {
   toolCalled: () => {},
   shutdown: async () => {}
 }
+
+const initializePayload = Schema.decodeUnknownSync(McpSchema.Initialize.payloadSchema)({
+  protocolVersion: "2025-06-18",
+  capabilities: {},
+  clientInfo: { name: "effect-ai-registry-test", version: "1.0.0" }
+})
+
+const legacyClient = McpSchema.McpServerClient.of({
+  clientId: 1,
+  protocolVersion: McpProtocol.v2025_06_18.protocolVersion,
+  clientCapabilities: initializePayload.capabilities,
+  clientInfo: initializePayload.clientInfo,
+  initializePayload,
+  getClient: Effect.die("server-to-client requests are outside this test")
+})
 
 const successfulResolver = async () => {
   const services = await Effect.runPromise(
@@ -113,6 +129,13 @@ describe("Effect AI MCP registry adapter", () => {
       { type: "image", data: imageData, mimeType: "image/png" }
     ])
     expect(encoded.structuredContent).toEqual(response.structuredContent)
+  })
+
+  it("canonicalizes structured success content to the JSON wire value", () => {
+    const response = createSuccessResponse({ present: "value", absent: undefined })
+
+    expect(response.content[0].text).toBe(JSON.stringify({ present: "value" }))
+    expect(response.structuredContent).toEqual({ result: { present: "value" } })
   })
 
   it("keeps Huly error metadata on an Effect MCP tool result", () => {
@@ -342,7 +365,9 @@ describe("Effect AI MCP registry adapter", () => {
           })
       })
       const server = yield* McpServer
-      const result = yield* server.findResource("huly://projects/TEST/issues/1")
+      const result = yield* server
+        .findResource("huly://projects/TEST/issues/1")
+        .pipe(Effect.provideService(McpSchema.McpServerClient, legacyClient))
       expect(result.contents).toHaveLength(1)
       expect(result._meta).toHaveProperty("warnings")
     }).pipe(Effect.provide(McpServer.layer))
@@ -386,7 +411,9 @@ describe("Effect AI MCP registry adapter", () => {
         readResource: () => Effect.succeed("plain resource")
       })
       const server = yield* McpServer
-      const result = yield* server.findResource("huly://projects/TEST")
+      const result = yield* server
+        .findResource("huly://projects/TEST")
+        .pipe(Effect.provideService(McpSchema.McpServerClient, legacyClient))
       expect(result.contents).toEqual([])
     }).pipe(Effect.provide(McpServer.layer))
   )

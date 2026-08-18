@@ -1,0 +1,187 @@
+diff --git a/packages/effect/src/unstable/ai/McpSchema.ts b/packages/effect/src/unstable/ai/McpSchema.ts
+index 78f5404..8f2f509 100644
+--- a/packages/effect/src/unstable/ai/McpSchema.ts
++++ b/packages/effect/src/unstable/ai/McpSchema.ts
+@@ -1529,11 +1529,7 @@ export class ToolAnnotations extends Schema.Opaque<ToolAnnotations>()(Schema.Str
+  * @category tools
+  * @since 4.0.0
+  */
+-export type ToolJsonSchema = Schema.JsonObject & {
+-  readonly type: "object"
+-  readonly properties?: Readonly<Record<string, Schema.JsonObject>> | undefined
+-  readonly required?: ReadonlyArray<string> | undefined
+-}
++export type ToolJsonSchema = Schema.JsonObject
+ 
+ /**
+  * Schema for {@link ToolJsonSchema}.
+@@ -1541,14 +1537,7 @@ export type ToolJsonSchema = Schema.JsonObject & {
+  * @category tools
+  * @since 4.0.0
+  */
+-export const ToolJsonSchema: Schema.Codec<ToolJsonSchema> = Schema.StructWithRest(
+-  Schema.Struct({
+-    type: Schema.Literal("object"),
+-    properties: optional(Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Json))),
+-    required: optional(Schema.Array(Schema.String))
+-  }),
+-  [Schema.Record(Schema.String, Schema.Json)]
+-)
++export const ToolJsonSchema: Schema.Codec<ToolJsonSchema> = Schema.Record(Schema.String, Schema.Json)
+ 
+ /**
+  * JSON Schema used by MCP tool outputs.
+diff --git a/packages/effect/src/unstable/ai/internal/mcpCore.ts b/packages/effect/src/unstable/ai/internal/mcpCore.ts
+index eaeeea4..9200889 100644
+--- a/packages/effect/src/unstable/ai/internal/mcpCore.ts
++++ b/packages/effect/src/unstable/ai/internal/mcpCore.ts
+@@ -158,6 +158,10 @@ export interface Tools {
+     call: typeof McpSchema.CallTool.payloadSchema.Type,
+     invocation: McpInvocation
+   ) => Effect.Effect<OperationOutcome<McpSchema.CallToolResult>, ToolError>
++  readonly callRegistered: (
++    call: typeof McpSchema.CallTool.payloadSchema.Type,
++    invocation: McpInvocation
++  ) => Effect.Effect<OperationOutcome<McpSchema.CallToolResult>, ToolError>
+ }
+ 
+ /** @internal */
+@@ -375,6 +379,13 @@ export const make: Effect.Effect<McpCore> = Effect.sync(() => {
+           return new ToolNotFound({ name: call.name })
+         }
+         return registration.handle(call, invocation)
++      }),
++    callRegistered: (call, invocation) =>
++      Effect.suspend((): Effect.Effect<OperationOutcome<McpSchema.CallToolResult>, ToolError> => {
++        const registration = registrations.get(call.name)
++        return registration === undefined
++          ? new ToolNotFound({ name: call.name })
++          : registration.handle(call, invocation)
+       })
+   }
+ 
+diff --git a/packages/effect/src/unstable/ai/internal/mcpProtocol.ts b/packages/effect/src/unstable/ai/internal/mcpProtocol.ts
+index 258b3cb..2acdc5d 100644
+--- a/packages/effect/src/unstable/ai/internal/mcpProtocol.ts
++++ b/packages/effect/src/unstable/ai/internal/mcpProtocol.ts
+@@ -90,7 +90,7 @@ export interface LifecycleRuntime {
+ }
+ 
+ /** @internal */
+-export class ProtocolError extends Data.TaggedError("ProtocolError")<{
++export class ProtocolError extends Data.TaggedError("InvalidParams")<{
+   readonly code: number
+   readonly message: string
+   readonly data?: unknown
+diff --git a/packages/effect/src/unstable/ai/internal/mcpProtocol/v2024_11_05.ts b/packages/effect/src/unstable/ai/internal/mcpProtocol/v2024_11_05.ts
+index d029f5d..df471cc 100644
+--- a/packages/effect/src/unstable/ai/internal/mcpProtocol/v2024_11_05.ts
++++ b/packages/effect/src/unstable/ai/internal/mcpProtocol/v2024_11_05.ts
+@@ -242,7 +242,7 @@ export const protocol = McpProtocol.make({
+                 McpSchema.Tool.make({
+                   name: tool.name,
+                   description: tool.description,
+-                  inputSchema: tool.inputSchema
++                  inputSchema: { ...tool.inputSchema, type: "object" }
+                 })
+               )
+             })
+diff --git a/packages/effect/src/unstable/ai/internal/mcpProtocol/v2025_03_26.ts b/packages/effect/src/unstable/ai/internal/mcpProtocol/v2025_03_26.ts
+index 7296d5f..b116834 100644
+--- a/packages/effect/src/unstable/ai/internal/mcpProtocol/v2025_03_26.ts
++++ b/packages/effect/src/unstable/ai/internal/mcpProtocol/v2025_03_26.ts
+@@ -264,7 +264,7 @@ export const protocol = McpProtocol.make({
+             McpSchema.Tool.make({
+               name: tool.name,
+               description: tool.description,
+-              inputSchema: tool.inputSchema,
++              inputSchema: { ...tool.inputSchema, type: "object" },
+               annotations: tool.title === undefined && tool.annotations === undefined
+                 ? undefined
+                 : McpSchema.ToolAnnotations.make({
+diff --git a/packages/effect/src/unstable/ai/internal/mcpProtocol/v2025_06_18.ts b/packages/effect/src/unstable/ai/internal/mcpProtocol/v2025_06_18.ts
+index 5e307ca..8722d46 100644
+--- a/packages/effect/src/unstable/ai/internal/mcpProtocol/v2025_06_18.ts
++++ b/packages/effect/src/unstable/ai/internal/mcpProtocol/v2025_06_18.ts
+@@ -240,19 +240,19 @@ export const protocol = McpProtocol.make({
+           tools: tools.map((tool) =>
+             McpSchema.Tool.make({
+               name: tool.name,
+-              title: tool.title,
+               description: tool.description,
+               inputSchema: tool.inputSchema,
+               outputSchema: isToolOutputSchema(tool.outputSchema)
+                 ? tool.outputSchema
+                 : undefined,
+-              annotations: tool.annotations === undefined
++              annotations: tool.annotations === undefined && tool.title === undefined
+                 ? undefined
+                 : McpSchema.ToolAnnotations.make({
+-                  readOnlyHint: tool.annotations.readOnlyHint,
+-                  destructiveHint: tool.annotations.destructiveHint,
+-                  idempotentHint: tool.annotations.idempotentHint,
+-                  openWorldHint: tool.annotations.openWorldHint
++                  title: tool.title ?? tool.annotations?.title,
++                  readOnlyHint: tool.annotations?.readOnlyHint,
++                  destructiveHint: tool.annotations?.destructiveHint,
++                  idempotentHint: tool.annotations?.idempotentHint,
++                  openWorldHint: tool.annotations?.openWorldHint
+                 }),
+               _meta: tool._meta
+             })
+@@ -261,7 +261,7 @@ export const protocol = McpProtocol.make({
+       }),
+       "tools/call": Effect.fnUntraced(function*(call) {
+         const request = yield* PublicMcpSchema.McpServerClient
+-        const result = yield* core.tools.call(
++        const result = yield* core.tools.callRegistered(
+           { ...call, arguments: call.arguments ?? {} },
+           McpProtocol.invocationFromClient(request)
+         ).pipe(
+diff --git a/packages/effect/src/unstable/ai/internal/mcpProtocol/v2026_07_28.ts b/packages/effect/src/unstable/ai/internal/mcpProtocol/v2026_07_28.ts
+index f64bd7e..8dbd0f9 100644
+--- a/packages/effect/src/unstable/ai/internal/mcpProtocol/v2026_07_28.ts
++++ b/packages/effect/src/unstable/ai/internal/mcpProtocol/v2026_07_28.ts
+@@ -137,7 +137,15 @@ const projectResourceTemplate = (resourceTemplate: PublicMcpSchema.ResourceTempl
+ const projectPrompt = (prompt: PublicMcpSchema.Prompt) =>
+   McpProtocol.transcode(PublicMcpSchema.Prompt, McpSchema.Prompt, prompt)
+ 
+-const projectTool = (tool: PublicMcpSchema.Tool) => McpProtocol.transcode(PublicMcpSchema.Tool, McpSchema.Tool, tool)
++const projectToolInputSchema = (inputSchema: PublicMcpSchema.ToolJsonSchema): Schema.JsonObject => ({
++  ...inputSchema,
++  type: "object"
++})
++const projectTool = (tool: PublicMcpSchema.Tool) =>
++  McpProtocol.transcode(PublicMcpSchema.Tool, McpSchema.Tool, new PublicMcpSchema.Tool({
++    ...tool,
++    inputSchema: projectToolInputSchema(tool.inputSchema)
++  }))
+ 
+ const privateStaleCache = {
+   ttlMs: 0,
+diff --git a/packages/effect/src/unstable/ai/internal/mcpSchema/v2024_11_05.ts b/packages/effect/src/unstable/ai/internal/mcpSchema/v2024_11_05.ts
+index 43d0bb0..40fe69d 100644
+--- a/packages/effect/src/unstable/ai/internal/mcpSchema/v2024_11_05.ts
++++ b/packages/effect/src/unstable/ai/internal/mcpSchema/v2024_11_05.ts
+@@ -92,6 +92,7 @@ export const ServerCapabilities = Schema.Struct({
+ })
+ 
+ export const McpError = Schema.Struct({
++  _tag: optional(Schema.String),
+   code: Schema.Int,
+   message: Schema.String,
+   data: optional(Schema.Any)
+diff --git a/packages/effect/src/unstable/ai/internal/mcpSchema/v2025_06_18.ts b/packages/effect/src/unstable/ai/internal/mcpSchema/v2025_06_18.ts
+index 1d064bc..9f4245e 100644
+--- a/packages/effect/src/unstable/ai/internal/mcpSchema/v2025_06_18.ts
++++ b/packages/effect/src/unstable/ai/internal/mcpSchema/v2025_06_18.ts
+@@ -159,7 +159,7 @@ export const Tool = Schema.Struct({
+   name: Schema.String,
+   title: optional(Schema.String),
+   description: optional(Schema.String),
+-  inputSchema: ToolJsonSchema,
++  inputSchema: JsonObject,
+   outputSchema: optional(ToolJsonSchema),
+   annotations: optional(Previous.ToolAnnotations),
+   _meta: Meta
+

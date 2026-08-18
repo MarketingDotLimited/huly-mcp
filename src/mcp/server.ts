@@ -186,7 +186,11 @@ const registryDrain = (quiesce: () => Promise<void>): Effect.Effect<void, McpSer
     catch: (cause) => new McpServerError({ message: "in-flight request drain failed", cause })
   })
 
-const protocolOptions = { name: "huly-mcp", version: VERSION, protocols: [McpProtocol.v2025_06_18] as const }
+const protocolOptions = {
+  name: "huly-mcp",
+  version: VERSION,
+  protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_06_18] as const
+}
 
 /**
  * Effect AI's stdio protocol interrupts its build fiber when the input stream

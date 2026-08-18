@@ -1,12 +1,19 @@
 import { spawn } from "node:child_process"
 
-import { Schema } from "effect"
+import { Result, Schema } from "effect"
 
 import { type OracleProcessResult, OracleProcessResultSchema } from "./effect4-oracle-schema.js"
 
 const PROCESS_TIMEOUT_MILLISECONDS = 15_000
 const PROCESS_TERMINATION_GRACE_MILLISECONDS = 1_000
 const PROCESS_EXIT_SIGNALLED = -1
+const OracleJsonRpcResponseEnvelopeSchema = Schema.Struct({
+  id: Schema.Union([Schema.String, Schema.Number]),
+  jsonrpc: Schema.Literal("2.0")
+})
+const decodeOracleResponseLine = Schema.decodeUnknownResult(Schema.fromJsonString(OracleJsonRpcResponseEnvelopeSchema))
+
+const isOracleResponseLine = (line: string): boolean => Result.isSuccess(decodeOracleResponseLine(line))
 
 export const runOracleProcess = (
   executable: string,
@@ -36,7 +43,7 @@ export const runOracleProcess = (
       stdoutLineBuffer += chunk.toString("utf8")
       const lines = stdoutLineBuffer.split("\n")
       stdoutLineBuffer = lines.pop() ?? ""
-      stdoutResponseLineCount += lines.filter((line) => line.includes('"id"')).length
+      stdoutResponseLineCount += lines.filter(isOracleResponseLine).length
       if (stdoutResponseLineCount < closeStdinAfterStdoutLines) return
       stdinClosed = true
       child.stdin.end()

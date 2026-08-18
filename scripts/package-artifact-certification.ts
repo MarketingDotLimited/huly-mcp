@@ -115,10 +115,10 @@ export const certifyPackedArtifact = async (
     throw new Error(`Packed manifest does not match ${expected.name}@${expected.version}.`)
   }
   const bundle = bundleEntry.body.toString("utf8")
-  if (!bundle.includes("effect@4.0.0-rc.108/node_modules/effect/")) {
-    throw new Error("Packed bundle does not contain the certified Effect 4.0.0-rc.108 cohort marker.")
+  if (!/effect@4\.0\.0-rc\.109(?:\/|_patch_hash=[a-f\d]+\/)node_modules\/effect\//u.test(bundle)) {
+    throw new Error("Packed bundle does not contain the certified Effect 4.0.0-rc.109 cohort marker.")
   }
-  if (/effect@(?!4\.0\.0-rc\.108(?:\/|_))[0-9]|require\("effect\//u.test(bundle)) {
+  if (/effect@(?!4\.0\.0-rc\.109(?:\/|_))[0-9]|require\("effect\//u.test(bundle)) {
     throw new Error("Packed bundle contains an unresolved Effect 3 dependency or import.")
   }
   const external = externalModules(bundle)

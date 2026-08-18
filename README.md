@@ -232,11 +232,11 @@ MCP_TRANSPORT=http MCP_HTTP_PORT=8080 MCP_HTTP_HOST=0.0.0.0 npx -y @firfi/huly-m
 
 ### HTTP MCP Protocol Support
 
-Both transports implement MCP `2025-06-18` through Effect AI. Every connection begins with an `initialize` request containing `protocolVersion`, `capabilities`, and `clientInfo`, followed by the `notifications/initialized` notification. `server/discover`, MCP `2026-07-28`, stateless HTTP calls, `Mcp-Method`, `Mcp-Name`, and per-request protocol metadata are not supported.
+Both transports implement MCP `2026-07-28` and `2025-06-18` through Effect AI. Modern requests are self-contained: they carry protocol version, capabilities, and optional client identity in `_meta`; HTTP additionally requires `MCP-Protocol-Version`, `Mcp-Method`, and method-specific `Mcp-Name` routing headers. `server/discover` is available but is not a prerequisite for later modern calls.
 
-Stdio keeps the initialized session on one NDJSON stream. HTTP uses one JSON-RPC message per POST with `Content-Type: application/json` and `Accept: application/json, text/event-stream`. The initialize response returns `Mcp-Session-Id` and the negotiated `MCP-Protocol-Version`; subsequent requests must echo both headers. HTTP sessions are process-local and end when the server restarts. Huly credentials are configured separately through env vars or supported `x-huly-*` headers.
+Legacy clients retain the `2025-06-18` lifecycle: send `initialize`, then `notifications/initialized`. Stdio keeps that initialized session on one NDJSON stream. HTTP returns `Mcp-Session-Id` from initialization, and subsequent legacy requests must echo it with the negotiated `MCP-Protocol-Version`. Modern HTTP requests do not create or return a protocol session. Huly credentials are configured separately through env vars or supported `x-huly-*` headers.
 
-This is a breaking direct migration to Effect AI's MCP contract. Clients or scripts that used `server/discover`, sent 2026 request envelopes, or issued stateless HTTP calls must perform the initialize/session exchange before requesting tools or resources. See [ADR-0004](docs/adr/0004-effect-ai-mcp-transport.md) for the decision and accepted wire-level changes.
+The dual-era contract and temporary upstream-source pin are recorded in [ADR-0005](docs/adr/0005-effect-ai-dual-era-mcp.md). HTTP concrete resource discovery remains disabled because its process-global registry cannot safely contain identifiers discovered with request-scoped Huly credentials; resource templates and request-scoped reads remain available.
 
 For hosted or tunneled HTTP deployments, you can require an MCP endpoint bearer token:
 

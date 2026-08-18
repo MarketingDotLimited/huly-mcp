@@ -27,7 +27,7 @@ const expected =
     ? {
         binName: "huly-mcp",
         expectedEntries: ["package/LICENSE", "package/README.md", "package/dist/index.cjs", "package/package.json"],
-        expectedExternalModules: ["ws"],
+        expectedExternalModules: ["@opentelemetry/api", "ws"],
         name: "@firfi/huly-mcp",
         version
       }

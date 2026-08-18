@@ -127,16 +127,7 @@ const ContactChannelLocatorFieldsSchema = Schema.Struct({
       description: "Existing channel value to pair with provider when channelId is not used."
     })
   )
-}).pipe(
-  Schema.check(
-    Schema.makeFilter((params) =>
-      params.provider !== undefined && params.value !== undefined
-        ? validateEmailChannelValue(params.provider, params.value)
-        : undefined
-    )
-  ),
-  Schema.check(Schema.makeFilter(validateChannelLocator))
-)
+})
 
 export const AddPersonChannelParamsSchema = ChannelProviderValueSchema.pipe(
   Schema.fieldsAssign({

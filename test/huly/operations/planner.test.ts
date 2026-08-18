@@ -395,6 +395,13 @@ const createLayer = (config: TestConfig) => {
       const filtered = q.name === undefined ? persons : persons.filter((p) => p.name === q.name)
       return Effect.succeed(toFindResult(filtered as Array<Doc>))
     }
+    if (_class === contact.class.SocialIdentity) {
+      const filtered = socialIdentities.filter(
+        (identity) =>
+          (q.type === undefined || identity.type === q.type) && (q.value === undefined || identity.value === q.value)
+      )
+      return Effect.succeed(toFindResult<Doc>(filtered))
+    }
     if (_class === contact.class.Channel) return Effect.succeed(toFindResult([] as Array<Doc>))
     if (_class === calendar.class.Calendar) {
       const filtered = calendars.filter(
@@ -1005,13 +1012,14 @@ describe("planner operations", () => {
 
       yield* updateTodo({
         locator: { todoId: todoId("todo-1") },
-        owner: "Jane Developer",
+        owner: "jane@example.test",
         description: "Updated body"
       }).pipe(
         Effect.provide(
           createLayer({
             todos: [makeTodo({ description: "markup-ref" })],
             persons: [makePerson()],
+            socialIdentities: [makeSocialIdentity()],
             employees: [makeEmployee()],
             captures
           })
@@ -1178,7 +1186,7 @@ describe("planner operations", () => {
       }).pipe(
         Effect.provide(
           createLayer({
-            todos: [makeTodo({ description: "markup-ref" })],
+            todos: [makeTodo({ description: "markup-ref", visibility: "public" })],
             employees: [makeEmployee()],
             socialIdentities: [socialIdentity],
             calendars: [personalCalendar],
@@ -1196,7 +1204,7 @@ describe("planner operations", () => {
       expect(captures.addCollection?.attributes.calendar).toBe(personalCalendar._id)
       expect(captures.addCollection?.attributes.participants).toEqual([socialIdentity.attachedTo])
       expect(captures.addCollection?.attributes.user).toBe(socialIdentity._id)
-      expect(captures.addCollection?.attributes.visibility).toBe("freeBusy")
+      expect(captures.addCollection?.attributes.visibility).toBe("public")
       expect(captures.addCollection?.attributes.blockTime).toBe(true)
       expect(captures.addCollection?.attributes.eventId).toEqual(expect.any(String))
       expect(captures.addCollection?.attributes.eventId).not.toBe("")

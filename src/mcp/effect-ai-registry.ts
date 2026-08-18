@@ -67,8 +67,10 @@ export interface EffectMcpRegistry {
   readonly quiesce: () => Promise<void>
 }
 
-type InitializePayload = typeof McpSchema.Initialize.payloadSchema.Type
 type EffectCallToolResult = typeof McpSchema.CallToolResult.Type
+// Internal view of Effect's decoded request profile. This value is not
+// serialized or parsed by Huly, so the dated Effect protocol schema owns it.
+type McpExposureProfile = { readonly clientInfo?: McpSchema.Implementation | undefined }
 
 const defaultToolAnnotations = (tool: ToolDefinition): McpSchema.ToolAnnotations => {
   const annotations = resolveAnnotations(tool)
@@ -81,8 +83,8 @@ const defaultToolAnnotations = (tool: ToolDefinition): McpSchema.ToolAnnotations
   }
 }
 
-const clientInfoFromInitialize = (payload: InitializePayload): McpClientInfoLike | undefined =>
-  parseMcpClientInfo({ name: payload.clientInfo.name })
+const clientInfoFromProfile = (profile: McpExposureProfile): McpClientInfoLike | undefined =>
+  profile.clientInfo === undefined ? undefined : parseMcpClientInfo({ name: profile.clientInfo.name })
 
 export { toEffectCallToolResult }
 
@@ -92,14 +94,15 @@ const responseStatus = (response: McpToolResponse): "error" | "success" =>
 const responseOutputBytes = (response: McpToolResponse): number =>
   response.content.reduce((sum, entry) => sum + entry.text.length, 0)
 
-const toolDefinition = (definition: ToolDefinition): McpSchema.Tool =>
-  new McpSchema.Tool({
+const toolDefinition = (definition: ToolDefinition): McpSchema.Tool => {
+  return new McpSchema.Tool({
     name: definition.name,
     description: definition.description,
-    inputSchema: definition.inputSchema,
+    inputSchema: McpSchema.ToolJsonSchema.make(definition.inputSchema),
     outputSchema: definition.outputSchema,
     annotations: defaultToolAnnotations(definition)
   })
+}
 
 const builtinToolDefinitions = [versionToolDefinition, getHulyContextToolDefinition] as const
 
@@ -111,7 +114,7 @@ const asToolDefinition = (definition: (typeof builtinToolDefinitions)[number]): 
   category: makeToolCategory("builtin")
 })
 
-const contextForVisibility = (enabledWhen: (payload: InitializePayload) => boolean): Context.Context<never> =>
+const contextForVisibility = (enabledWhen: (profile: McpExposureProfile) => boolean): Context.Context<never> =>
   Context.add(Context.empty(), McpSchema.EnabledWhen, enabledWhen)
 
 export const effectMcpFirstListVisibility =
@@ -119,9 +122,9 @@ export const effectMcpFirstListVisibility =
     options: EffectMcpRegistryOptions,
     registries: ProtocolToolRegistries,
     exposureOptions: ProtocolExposureOptions
-  ): ((payload: InitializePayload) => boolean) =>
-  (payload) => {
-    const exposure = initializeExposure(registries, exposureOptions, payload)
+  ): ((profile: McpExposureProfile) => boolean) =>
+  (profile) => {
+    const exposure = initializeExposure(registries, exposureOptions, profile)
     options.telemetry.firstListTools({
       clientKind: exposure.context.clientKind,
       resolvedMode: exposure.context.resolvedMode
@@ -132,38 +135,38 @@ export const effectMcpFirstListVisibility =
 const initializeExposure = (
   registries: ProtocolToolRegistries,
   options: ProtocolExposureOptions,
-  payload: InitializePayload
-) => resolveProtocolExposure(registries, { ...options, currentClientInfo: () => clientInfoFromInitialize(payload) })
+  profile: McpExposureProfile
+) => resolveProtocolExposure(registries, { ...options, currentClientInfo: () => clientInfoFromProfile(profile) })
 
-/** Deterministic initialized-client visibility rules used by Effect AI's registry filter. */
-export const effectMcpBuiltinVisible = (_payload: InitializePayload): boolean => true
+/** Deterministic request-profile visibility rules used by Effect AI's registry filter. */
+export const effectMcpBuiltinVisible = (_profile: McpExposureProfile): boolean => true
 
 export const effectMcpProxyVisible = (
   registries: ProtocolToolRegistries,
   options: ProtocolExposureOptions,
-  payload: InitializePayload
-): boolean => initializeExposure(registries, options, payload).context.resolvedMode === "proxy"
+  profile: McpExposureProfile
+): boolean => initializeExposure(registries, options, profile).context.resolvedMode === "proxy"
 
 export const effectMcpNativeVisible = (
   registries: ProtocolToolRegistries,
   options: ProtocolExposureOptions,
   definition: ToolDefinition,
-  payload: InitializePayload
-): boolean => initializeExposure(registries, options, payload).visibleNativeRegistry.tools.has(definition.name)
+  profile: McpExposureProfile
+): boolean => initializeExposure(registries, options, profile).visibleNativeRegistry.tools.has(definition.name)
 
 export const effectMcpProxyVisibility =
-  (registries: ProtocolToolRegistries, options: ProtocolExposureOptions): ((payload: InitializePayload) => boolean) =>
-  (payload) =>
-    effectMcpProxyVisible(registries, options, payload)
+  (registries: ProtocolToolRegistries, options: ProtocolExposureOptions): ((profile: McpExposureProfile) => boolean) =>
+  (profile) =>
+    effectMcpProxyVisible(registries, options, profile)
 
 export const effectMcpNativeVisibility =
   (
     registries: ProtocolToolRegistries,
     options: ProtocolExposureOptions,
     definition: ToolDefinition
-  ): ((payload: InitializePayload) => boolean) =>
-  (payload) =>
-    effectMcpNativeVisible(registries, options, definition, payload)
+  ): ((profile: McpExposureProfile) => boolean) =>
+  (profile) =>
+    effectMcpNativeVisible(registries, options, definition, profile)
 
 const makeToolHandler = (
   options: EffectMcpRegistryOptions,
@@ -177,17 +180,17 @@ const makeToolHandler = (
 ) => Effect.Effect<
   EffectCallToolResult,
   McpSchema.InternalError | McpSchema.InvalidParams,
-  McpSchema.McpServerClient
+  McpSchema.McpRequestContext
 >) => {
-  const handler = (args: unknown): Effect.Effect<EffectCallToolResult, never, McpSchema.McpServerClient> =>
+  const handler = (args: unknown): Effect.Effect<EffectCallToolResult, never, McpSchema.McpRequestContext> =>
     Effect.acquireUseRelease(
       Effect.sync(() => admission.enter()),
       (lease) => {
         if (lease === null) return Effect.succeed(toEffectCallToolResult(createServerShuttingDownError()))
         return Effect.gen(function* () {
           const start = yield* Clock.currentTimeMillis
-          const client = yield* McpSchema.McpServerClient
-          const exposure = initializeExposure(registries, exposureOptions, client.initializePayload)
+          const request = yield* McpSchema.McpRequestContext
+          const exposure = initializeExposure(registries, exposureOptions, request)
           const resolver = yield* requestScopedResolver(options.resolveClients)
           const call = dispatchEffectMcpTool(options, exposure, definition, args, fetchLatestVersion, resolver)
           const editMode = effectMcpEditMode(String(definition.name), args)
@@ -243,7 +246,7 @@ const registerTool = (
   registries: ProtocolToolRegistries,
   exposureOptions: ProtocolExposureOptions,
   definition: ToolDefinition,
-  visibility: (payload: InitializePayload) => boolean,
+  visibility: (profile: McpExposureProfile) => boolean,
   admission: RequestAdmission,
   fetchLatestVersion: () => Promise<string>
 ): Effect.Effect<void> =>

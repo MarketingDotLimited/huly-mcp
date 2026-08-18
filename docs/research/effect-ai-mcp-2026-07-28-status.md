@@ -6,6 +6,41 @@
 `effect@4.0.0-rc.108` package, current upstream Effect source, and the official
 Model Context Protocol specification.
 
+**Disposition:** the executive decision on 2026-08-18 removes the degraded
+Effect migration from `master` by restoring the exact pre-migration tree and
+keeps further Effect work isolated on a dedicated branch/worktree. That branch
+pins the selected upstream implementation by commit, configures both
+`2026-07-28` and `2025-06-18`, and must pass the recovery verification below
+before it is considered merge-ready. The critical classification in this
+report explains the rejected single-era state; it is not a claim that restored
+`master` still has the degradation.
+
+## Recovery implementation status
+
+The isolated recovery branch now implements the selected path and is prepared
+for a future merge. The branch configures both `2026-07-28` and `2025-06-18`,
+records the selected Effect source commit and patch digest, and retains the
+legacy behavioral oracle.
+
+Verification on 2026-08-18 produced these results:
+
+- 276 dated upstream adapter conformance tests passed and 9 were skipped,
+  including all 117 modern adapter tests.
+- A live modern stdio client negotiated `2026-07-28` against local Huly, listed
+  524 native tools, and completed `get_huly_context` and `list_projects` calls.
+- The full local Huly integration suite passed 1,091 cases, failed 0, and
+  skipped 28.
+- `pnpm check-all` passed 4,148 tests with all coverage thresholds above 99%.
+- Packed MCP and CLI artifacts passed dependency and smoke certification.
+- Modern HTTP tests cover stateless discovery, tools, resource templates,
+  result/cache metadata, and request-scoped client lease isolation.
+
+These results satisfy the executable Huly recovery boundary. Multi-round-trip
+requests and subscriptions pass the dated adapter conformance suite, but no
+Huly business operation currently uses those protocol capabilities. HTTP
+concrete `resources/list` remains intentionally disabled for the credential
+isolation reason documented below.
+
 ## Finding
 
 The removal of MCP `2026-07-28` from Huly MCP is a **critical feature
@@ -63,7 +98,7 @@ evidence that no degradation occurred.
 | Latest released Effect `rc.110` | Adds adapters through `2025-11-25`, but not `2026-07-28` | A released Effect upgrade does not yet restore the current protocol |
 | Upstream Effect `main` at `ff98f0b` | Supports `2024-11-05`, `2025-03-26`, `2025-06-18`, and `2025-11-25` | Upstream default branch remains legacy-only |
 | Effect issue #7024 | Open | Upstream tracks the missing modern era as unfinished work |
-| Effect PR #7265 | Open and not released; required approval gate was waiting | A recovery implementation exists, but is not yet a consumable released dependency |
+| Upstream development branch | Open and not released; required approval gate was waiting | A recovery implementation exists, but is not yet a consumable released dependency |
 
 Primary Effect sources:
 
@@ -71,7 +106,7 @@ Primary Effect sources:
 - [Latest released Effect `rc.110`](https://github.com/Effect-TS/effect/releases/tag/effect%404.0.0-rc.110)
 - [Current upstream protocol exports at commit `ff98f0b`](https://github.com/Effect-TS/effect/blob/ff98f0b0e2beb331209e37e42095d8d6e8e0b6c2/packages/effect/src/unstable/ai/McpProtocol.ts)
 - [Effect issue #7024](https://github.com/Effect-TS/effect/issues/7024)
-- [Effect PR #7265](https://github.com/Effect-TS/effect/pull/7265)
+- [Selected upstream implementation commit](https://github.com/lloydrichards/open_effect/commit/ebcfcb45cb9ae1c1b9725598caa27ec2e8747657)
 
 ## What issue #235 changed
 
@@ -464,7 +499,7 @@ added `v2025_11_25`. Current exports cover four legacy versions through
 The latest release therefore improves legacy coverage, but it does not restore
 the modern protocol era.
 
-### Open implementation: issue #7024 and PR #7265
+### Open implementation: issue #7024 and its development branch
 
 Effect
 [#7024](https://github.com/Effect-TS/effect/issues/7024) explicitly tracks a
@@ -480,8 +515,9 @@ include:
 - JSON Schema 2020-12 and unrestricted JSON structured content.
 - Mixed-era conformance.
 
-PR
-[#7265](https://github.com/Effect-TS/effect/pull/7265) implements that design.
+The selected
+[upstream implementation commit](https://github.com/lloydrichards/open_effect/commit/ebcfcb45cb9ae1c1b9725598caa27ec2e8747657)
+implements that design.
 At the status date it was open, not released, and had no approving review. Its
 required approval gate was waiting, while build, type, lint, and platform test
 checks were successful.
@@ -520,7 +556,7 @@ edge.
 
 Required work:
 
-1. Track Effect issue #7024 and PR #7265 to merge and release.
+1. Track Effect issue #7024 and the selected upstream implementation to merge and release.
 2. Upgrade from `rc.108` to the first release that exports
    `McpProtocol.v2026_07_28`.
 3. Configure a dual-era server where practical, with `2026-07-28` plus the
@@ -545,7 +581,7 @@ Drawbacks:
 - A direct jump from `rc.108` includes unrelated Effect changes and needs full
   recertification.
 
-### Option B — help complete and validate Effect PR #7265
+### Option B — help complete and validate the upstream implementation
 
 The project can contribute review, Huly integration cases, and external MCP
 conformance evidence upstream while waiting for a release.
@@ -637,16 +673,20 @@ Drawbacks:
 - Delayed recovery can make later migration harder as modern extensions become
   common.
 
-## Recommendation
+## Historical recommendation for the rejected single-era state
+
+This section records the release recommendation made before the executive
+recovery decision. It applies to the rejected `2025-06-18`-only build, not to
+the isolated dual-era recovery branch described at the start of this report.
 
 Treat restoration of `2026-07-28` as a **release-blocking** compatibility work
 item, not routine backlog. Do not npm-publish until the release owner records a
 decision to restore modern support, delay publication, or accept a clearly
 labelled legacy-only release.
 
-1. Do not publish a general compatibility claim for the current Effect build.
+1. Do not publish a general compatibility claim for the rejected single-era build.
    State `MCP 2025-06-18 only` and document that modern-only clients fail.
-2. Track Effect PR #7265 daily until it merges or is replaced. Contribute Huly
+2. Track the upstream implementation daily until it merges or is replaced. Contribute Huly
    integration and mixed-era tests if upstream accepts them.
 3. Prepare an upgrade branch against the PR or first release. Do not ship the
    unreleased commit without a separate risk decision.
@@ -683,8 +723,10 @@ A recovery is complete only when the built and packed Huly MCP artifact proves:
 - Successful Effect PR checks do not prove complete official MCP conformance.
   The upstream author reports focused tests and continuing external
   conformance work.
-- This review did not execute the open Effect PR against Huly MCP. Compatibility
-  effort estimates are therefore directional.
+- The initial research did not execute the selected Effect source against Huly.
+  The later recovery implementation did so; its results are recorded in
+  “Recovery implementation status” and ADR-0005. Estimates for future upstream
+  rebases remain directional.
 - The official specification establishes protocol requirements. It does not
   guarantee that every client is modern-only or dual-era.
 - No evidence shows that existing Huly tool operations failed under certified
@@ -714,7 +756,7 @@ A recovery is complete only when the built and packed Huly MCP artifact proves:
 - [Multi-protocol foundation commit](https://github.com/Effect-TS/effect/commit/0a532e503f165fdea485a5343fc2f420917e8376)
 - [`2025-11-25` adapter commit](https://github.com/Effect-TS/effect/commit/6eebd0a618308a91f95947bae6e0fb206ae3939d)
 - [Effect issue #7024](https://github.com/Effect-TS/effect/issues/7024)
-- [Effect PR #7265](https://github.com/Effect-TS/effect/pull/7265)
+- [Selected upstream implementation commit](https://github.com/lloydrichards/open_effect/commit/ebcfcb45cb9ae1c1b9725598caa27ec2e8747657)
 
 ### Huly MCP
 

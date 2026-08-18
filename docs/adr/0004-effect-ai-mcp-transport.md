@@ -1,6 +1,6 @@
 # ADR-0004: Effect AI MCP transport and protocol cutover
 
-- Status: accepted
+- Status: superseded by ADR-0005
 - Date: 2026-08-17
 - Decision owners: Huly MCP maintainers
 

@@ -165,6 +165,25 @@ describe("Effect 4 behavioral oracle", () => {
     ).rejects.toThrow("timed out and was terminated")
   })
 
+  it("closes subprocess stdin only after complete JSON-RPC response lines", async () => {
+    const script = [
+      "process.stdin.resume()",
+      "let responseWritten = false",
+      "process.stdin.on('end', () => process.exit(responseWritten ? 0 : 7))",
+      `process.stdout.write('${JSON.stringify({ jsonrpc: "2.0", method: "notifications/tools/list_changed", params: { schema: { id: "nested" } } })}\\n')`,
+      "setTimeout(() => {",
+      "  responseWritten = true",
+      `  process.stdout.write('${JSON.stringify({ jsonrpc: "2.0", id: 1, result: {} })}\\n')`,
+      "}, 25)"
+    ].join(";")
+
+    await expect(runOracleProcess(process.execPath, ["-e", script], {}, "request\n", 1_000, 1)).resolves.toMatchObject({
+      exitCode: 0,
+      stderr: "",
+      stdout: expect.stringContaining('"id":1')
+    })
+  })
+
   it("writes and verifies exact canonical bytes", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "effect4-oracle-io-"))
     try {

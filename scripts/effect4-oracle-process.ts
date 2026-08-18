@@ -3,7 +3,7 @@ import { spawn, type ChildProcess } from "node:child_process"
 import { createServer } from "node:net"
 import { setTimeout as delay } from "node:timers/promises"
 
-import { Clock, Effect, Schema } from "effect"
+import { Schema } from "effect"
 
 import {
   type BundledProcesses,
@@ -30,7 +30,6 @@ const SERVER_INFO_META_KEY = "io.modelcontextprotocol/serverInfo"
 const STDIO_RESPONSE_COUNT = 7
 const HTTP_STOP_TIMEOUT_MILLISECONDS = 2_000
 const HTTP_STARTUP_TIMEOUT_MILLISECONDS = 15_000
-const HTTP_POLL_INTERVAL_MILLISECONDS = 100
 const PackageManifestSchema = Schema.Struct({ version: Schema.String })
 const OracleJsonRpcNotificationSchema = Schema.Struct({
   jsonrpc: Schema.Literal("2.0"),
@@ -139,24 +138,33 @@ const closeHttpProcess = async (child: ChildProcess): Promise<void> => {
   ])
 }
 
-const waitForHttpProcess = async (endpoint: string, child: ChildProcess): Promise<void> => {
-  const currentTimeMillis = (): Promise<number> => Effect.runPromise(Clock.currentTimeMillis)
-  const deadline = (await currentTimeMillis()) + HTTP_STARTUP_TIMEOUT_MILLISECONDS
-  while ((await currentTimeMillis()) < deadline) {
-    if (child.exitCode !== null || child.signalCode !== null) throw new Error("Bundled MCP HTTP process exited early.")
-    try {
-      await fetch(endpoint, {
-        body: "{}",
-        headers: { accept: "application/json, text/event-stream", "content-type": "application/json" },
-        method: "POST"
-      })
-      return
-    } catch {
-      await delay(HTTP_POLL_INTERVAL_MILLISECONDS)
+const waitForHttpProcess = (child: ChildProcess): Promise<void> =>
+  new Promise((resolve, reject) => {
+    let settled = false
+    const finish = (error?: Error): void => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      child.stderr?.off("data", onStderr)
+      child.off("error", onError)
+      child.off("exit", onExit)
+      if (error === undefined) resolve()
+      else reject(error)
     }
-  }
-  throw new Error("Bundled MCP HTTP process did not become reachable.")
-}
+    const onStderr = (chunk: Buffer): void => {
+      if (chunk.toString("utf8").includes("MCP HTTP server listening")) finish()
+    }
+    const onError = (error: Error): void => finish(error)
+    const onExit = (code: number | null, signal: NodeJS.Signals | null): void =>
+      finish(new Error(`Bundled MCP HTTP process exited during startup (${signal ?? `exit ${code ?? "unknown"}`}).`))
+    const timeout = setTimeout(
+      () => finish(new Error("Bundled MCP HTTP process did not become ready.")),
+      HTTP_STARTUP_TIMEOUT_MILLISECONDS
+    )
+    child.stderr?.on("data", onStderr)
+    child.once("error", onError)
+    child.once("exit", onExit)
+  })
 
 const captureHttpMode = async (mode: "native" | "proxy"): Promise<ReadonlyArray<OracleJsonRpcResponse>> => {
   const port = await freePort()
@@ -174,7 +182,7 @@ const captureHttpMode = async (mode: "native" | "proxy"): Promise<ReadonlyArray<
   child.stderr.resume()
   try {
     const endpoint = `http://127.0.0.1:${port}/mcp`
-    await waitForHttpProcess(endpoint, child)
+    await waitForHttpProcess(child)
     const client = await openMcpHttpClient({ endpoint }, "effect-migration-oracle")
     const initialize: JsonRpcResponse = { id: 1, jsonrpc: "2.0", result: client.initialize }
     const responses = [

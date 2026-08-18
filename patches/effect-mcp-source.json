@@ -1,0 +1,15 @@
+{
+  "repository": "https://github.com/lloydrichards/open_effect.git",
+  "branch": "feat/v2026-07-28",
+  "commit": "ebcfcb45cb9ae1c1b9725598caa27ec2e8747657",
+  "basePackage": "effect@4.0.0-rc.109",
+  "patch": "patches/effect@4.0.0-rc.109.patch",
+  "patchSha256": "cee4cc6ff9a18f3595c86fe47adf659c1563a8bf43cd9793f3b9ace0bebae2d6",
+  "compatibilityOverlayPatch": "patches/effect-mcp-compatibility-overlay.patch",
+  "compatibilityOverlaySha256": "865b8534be9c1ad9da954e79c07d7640698c1f191bdcdc4efe69501fe9288fbb",
+  "compatibilityOverlay": [
+    "preserve historical tool schema and annotation projection for stateful adapters",
+    "retain registered legacy tool-call behavior while modern calls enforce request visibility",
+    "project canonical tool schemas to the modern object-root contract at the dated adapter boundary"
+  ]
+}
