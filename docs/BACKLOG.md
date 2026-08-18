@@ -4,7 +4,7 @@ The backlog is driven by SDK parity and the project principle that this server s
 
 ## Highest-Value Additions For Coding Agents
 
-- Generic space follow-ups: role/permission definition writes, generic space creation, and module-specific wrappers above the shared space foundation. Generic space metadata, member/owner mutations, and typed-space role member mutations are covered by the shared spaces tools.
+- Generic space follow-ups: role/permission definition writes, generic space creation, and module-specific wrappers above the shared space foundation.
 - Core schema/admin follow-ups: guarded attribute/enum writes, role/permission definition writes, generic space creation, global space admins, and module-specific wrappers above the shared space foundation.
 - Drive follow-ups: drive create/update/delete, item move/rename/delete, adding new versions to existing files, permissions, and comments/activity.
 - Team planner/reporting: team agendas, workload/capacity summaries, visibility-aware free/busy views, document action items, and planner automation diagnostics.
@@ -14,7 +14,6 @@ The backlog is driven by SDK parity and the project principle that this server s
 
 ## Planned Feature Surfaces
 
-- Implemented foundation: generic space discovery and safe existing-space administration are covered by `spaces` tools for listing/getting spaces, listing/getting space types, reading permissions, updating common metadata, adding/removing members, and replacing owners.
 - Controlled Documents / TraceX documents: controlled spaces/projects, controlled document CRUD, quality/technical docs, co-authors/reviewers/approvers, e-signature workflows, release/effective-date metadata, change control, training linkage, controlled-document comments, and snapshots/history.
 - Products and product versions: product spaces, members, descriptions, attachments, versions, version state transitions, and change-control links.
 - Trainings, questions, and assessments: training revisions, releases, requests, due dates, max attempts, question banks, answer options, correct-answer data, submissions, scoring, and reporting.

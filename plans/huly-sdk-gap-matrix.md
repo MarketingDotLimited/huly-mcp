@@ -90,12 +90,9 @@ Current high-level MCP categories:
 
 ## Highest-Value Additions For LLM Agents
 
-1. **Common clear-field contract for update tools (implemented)**: Huly `DocumentUpdate<T>` supports `$unset`, but existing domain tools used a mix of field-specific clearing semantics: `null` for some optional relationships/dates/text, empty string for some descriptions/topics, and markup-specific empty references for rich descriptions. Update tools now use a shared LLM-facing contract where `null` means "clear/unset this field" for clearable fields, while backend operations map that intent to field-specific Huly-safe representations such as `""`, `null` markup refs, `$unset`, or `0`. Custom-field clearing remains separate because its safe backend representation depends on dynamic field metadata and storage owner.
-
-   Required fields such as `update_milestone.targetDate` and required category refs such as `update_tag.category` are intentionally not clearable without a separate SDK-backed design.
-2. **Generic space/member/role foundation follow-ups**: role/permission definition writes, generic space creation, and module-specific wrappers are still separate work. Generic space discovery, space type/permission reads, safe metadata updates, member mutations, owner replacement, and typed-space role member mutations are implemented under `spaces`.
-3. **Core schema/admin follow-ups**: guarded attribute/enum writes, role/permission definition writes, generic space creation, global space admins, and module-specific wrappers above the shared space foundation.
-4. **Drive follow-ups**: create/update/delete drives, item move/rename/delete, adding new versions to existing files, comments/activity, and permissions/members.
+1. **Generic space/member/role foundation follow-ups**: role/permission definition writes, generic space creation, and module-specific wrappers.
+2. **Core schema/admin follow-ups**: guarded attribute/enum writes, role/permission definition writes, generic space creation, global space admins, and module-specific wrappers above the shared space foundation.
+3. **Drive follow-ups**: create/update/delete drives, item move/rename/delete, adding new versions to existing files, comments/activity, and permissions/members.
 
 ## Calendar, Schedule, And Virtual Office Omissions
 
@@ -104,9 +101,9 @@ Current high-level MCP categories:
 - Meeting schedule room writes and raw love mixins: omitted as direct MCP inputs because callers should not need Huly mixin mechanics. Unlock condition: a room-aware calendar schedule write contract with integration coverage proving the backend accepts the mixin mutation.
 - Transcripts and recordings as first-class artifacts: omitted because `MeetingMinutes` only exposes collection counts for transcription/messages/attachments in the current model declarations. Unlock condition: a stable read path for transcript/recording records and storage URLs.
 - Latest SDK package upgrade: still blocked. `@hcengineering/love@0.7.0` is pinned because it publishes declarations that match the current SDK line; newer `0.7.423` tarballs were not adopted in this slice due missing/unsuitable declaration publication evidence captured in `plans/hcengineering-types-publication-evidence.md`.
-5. **Recruiting**: strongly modeled, currently absent, and requires first-class resolvers for vacancies/talents/applications.
-6. **Controlled documents + trainings**: broad TraceX surface with many modeled objects; likely larger implementation but clearly represented in dev libs.
-7. **Tag-backed module wrappers**: generic tags now exist, but recruiting skills and similar module concepts still need LLM-first object resolvers.
+4. **Recruiting**: strongly modeled, currently absent, and requires first-class resolvers for vacancies/talents/applications.
+5. **Controlled documents + trainings**: broad TraceX surface with many modeled objects; likely larger implementation but clearly represented in dev libs.
+6. **Tag-backed module wrappers**: generic tags now exist, but recruiting skills and similar module concepts still need LLM-first object resolvers.
 
 ## Notes
 
