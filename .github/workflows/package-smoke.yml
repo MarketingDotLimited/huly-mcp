@@ -11,6 +11,57 @@ permissions:
   contents: read
 
 jobs:
+  unsupported-node-diagnostic:
+    name: Unsupported Node diagnostic
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.3
+          run_install: false
+
+      - name: Setup supported Node.js for build
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.15.0
+          cache: pnpm
+
+      - name: Install dependencies and build MCP package
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build:mcp
+
+      - name: Setup unsupported Node.js for startup check
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.20.1
+
+      - name: Expose unsupported Node.js through diagnostic MCP
+        run: |
+          printf '%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"unsupported-node-certification","version":"1.0.0"}}}' \
+            '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
+            '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_huly_startup_diagnostic","arguments":{}}}' \
+            | node dist/index.cjs \
+              >/tmp/huly-mcp-unsupported-node.stdout \
+              2>/tmp/huly-mcp-unsupported-node.stderr
+
+          grep -F "Huly MCP startup failed: unsupported Node.js runtime." /tmp/huly-mcp-unsupported-node.stderr
+          grep -F '"instructions":"Huly MCP startup failed: unsupported Node.js runtime.' \
+            /tmp/huly-mcp-unsupported-node.stdout
+          grep -F '"name":"get_huly_startup_diagnostic"' /tmp/huly-mcp-unsupported-node.stdout
+          grep -F '"isError":true' /tmp/huly-mcp-unsupported-node.stdout
+          grep -F "Detected 20.20.1" /tmp/huly-mcp-unsupported-node.stdout
+          grep -F "required >=22.19.0" /tmp/huly-mcp-unsupported-node.stdout
+          grep -F "configure this MCP server's command to a compatible Node.js executable" \
+            /tmp/huly-mcp-unsupported-node.stdout
+
   packed-package:
     name: Packed package (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
