@@ -9,8 +9,12 @@ responses, protocol errors, and native/proxy surfaces.
 ## Reviewed corpus identity
 
 - Current corpus SHA-256:
-  `b631edfbf0328f75ad602e0810492c3bece26dceb35f6517affc03fdeef21073`
+  `48da0bfa5019c7421e1b8bc11038d6280bcc9fcc11818eaa3383703af4e51047`
 - Exact deltas against the reviewed current corpus: 0
+
+This recapture also certifies that protocol input is admitted only after the
+complete native/proxy tool registry and resource templates are registered; the
+earlier partial-startup snapshot is intentionally superseded.
 
 The compact JSON review certificate intentionally has no legacy SDK delta
 categories. The previous 2026 discovery/stateless fixtures were removed as

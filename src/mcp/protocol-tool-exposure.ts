@@ -54,13 +54,7 @@ export interface ListedTool {
   readonly annotations?: ToolAnnotations
 }
 
-type JsonValue =
-  | null
-  | boolean
-  | number
-  | string
-  | ReadonlyArray<JsonValue>
-  | { readonly [key: string]: JsonValue }
+type JsonValue = null | boolean | number | string | ReadonlyArray<JsonValue> | { readonly [key: string]: JsonValue }
 
 interface ListedToolSource {
   readonly name: string

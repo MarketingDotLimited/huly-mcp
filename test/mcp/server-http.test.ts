@@ -13,11 +13,7 @@ import { McpServerService } from "../../src/mcp/server.js"
 import { TelemetryService } from "../../src/telemetry/telemetry.js"
 import { makeTestHttpServerFactory } from "./http-test-support.js"
 
-const runtimeEnv = {
-  HULY_URL: "https://huly.example.com",
-  HULY_WORKSPACE: "workspace",
-  HULY_TOKEN: "test-token"
-}
+const runtimeEnv = { HULY_URL: "https://huly.example.com", HULY_WORKSPACE: "workspace", HULY_TOKEN: "test-token" }
 
 const deferred = <A>(): { readonly promise: Promise<A>; readonly resolve: (value: A) => void } => {
   let resolvePromise: ((value: A) => void) | undefined
@@ -28,11 +24,7 @@ const deferred = <A>(): { readonly promise: Promise<A>; readonly resolve: (value
 }
 
 const clientBundle = async (): Promise<ClientBundle> => {
-  const layer = Layer.mergeAll(
-    HulyClient.testLayer({}),
-    HulyStorageClient.testLayer({}),
-    WorkspaceClient.testLayer({})
-  )
+  const layer = Layer.mergeAll(HulyClient.testLayer({}), HulyStorageClient.testLayer({}), WorkspaceClient.testLayer({}))
   const context = await Effect.runPromise(Layer.build(layer).pipe(Effect.scoped))
   return {
     hulyClient: Context.get(context, HulyClient),
@@ -60,45 +52,90 @@ const initializeRequest = (authorization?: string): RequestInit => ({
   })
 })
 
-const InitializeResponse = Schema.Struct({
-  result: Schema.Struct({
-    protocolVersion: Schema.String
+const toolCallRequest = (authorization: string, sessionId: string): RequestInit => ({
+  method: "POST",
+  headers: {
+    accept: "application/json, text/event-stream",
+    authorization,
+    "content-type": "application/json",
+    "mcp-protocol-version": "2025-06-18",
+    "mcp-session-id": sessionId
+  },
+  body: JSON.stringify({
+    jsonrpc: "2.0",
+    id: 2,
+    method: "tools/call",
+    params: { name: "list_projects", arguments: {} }
   })
 })
+
+const InitializeResponse = Schema.Struct({ result: Schema.Struct({ protocolVersion: Schema.String }) })
 
 const buildServer = async (options: {
   readonly listening: ReturnType<typeof deferred<http.Server>>
   readonly resolveClients: () => Promise<Exit.Exit<ClientBundle>>
   readonly authToken?: string
+  readonly useDefaults?: boolean
+  readonly requestRuntimeConfig?: boolean
+  readonly runtimeConfigFallback?: boolean
 }) => {
   const layer = McpServerService.layer({
     transport: "http",
-    httpPort: 0,
-    httpHost: "127.0.0.1",
+    ...(options.useDefaults === true ? {} : { httpPort: 0, httpHost: "127.0.0.1" }),
     resolveClients: options.resolveClients,
     ...(options.authToken === undefined ? {} : { mcpAuthToken: Redacted.make(options.authToken) }),
-    getRuntimeConfigContext: () => sanitizeHulyRuntimeConfigFromEnv(runtimeEnv)
+    ...(options.runtimeConfigFallback === true
+      ? {}
+      : options.requestRuntimeConfig === true
+        ? { getRuntimeConfigContextForHttpRequest: () => sanitizeHulyRuntimeConfigFromEnv(runtimeEnv) }
+        : { getRuntimeConfigContext: () => sanitizeHulyRuntimeConfigFromEnv(runtimeEnv) })
   }).pipe(Layer.provide(TelemetryService.testLayer()))
   const context = await Effect.runPromise(Layer.build(layer).pipe(Effect.scoped))
   const operations = Context.get(context, McpServerService)
   const writes: Array<string> = []
-  const factory = makeTestHttpServerFactory(options.listening.resolve, (message) => writes.push(message))
-  const fiber = Effect.runFork(
-    operations.run().pipe(Effect.provideService(HttpServerFactoryService, factory))
+  const factory = makeTestHttpServerFactory(
+    options.listening.resolve,
+    (message) => writes.push(message),
+    options.useDefaults === true ? 0 : undefined
   )
+  const fiber = Effect.runFork(operations.run().pipe(Effect.provideService(HttpServerFactoryService, factory)))
   await Effect.runPromise(operations.awaitReady())
   return { fiber, operations, writes }
 }
 
 describe("McpServerService Effect HTTP lifecycle", () => {
+  it("uses sanitized process configuration when no runtime callback is supplied", async () => {
+    const listening = deferred<http.Server>()
+    const bundle = await clientBundle()
+    const server = await buildServer({
+      listening,
+      resolveClients: async () => Exit.succeed(bundle),
+      runtimeConfigFallback: true
+    })
+    const rawServer = await listening.promise
+    const address = rawServer.address()
+    if (address === null || typeof address === "string") throw new Error("Expected a TCP address")
+    const response = await fetch(`http://127.0.0.1:${String(address.port)}/mcp`, initializeRequest())
+    expect(response.status).toBe(200)
+
+    await Effect.runPromise(server.operations.stop())
+    await Effect.runPromise(Fiber.join(server.fiber))
+  })
+
   it("keeps HTTP running when stdin emits EOF", async () => {
     const listening = deferred<http.Server>()
     const bundle = await clientBundle()
     const server = await buildServer({
       listening,
-      resolveClients: async () => Exit.succeed(bundle)
+      resolveClients: async () => Exit.succeed(bundle),
+      useDefaults: true,
+      requestRuntimeConfig: true
     })
     const rawServer = await listening.promise
+    const address = rawServer.address()
+    if (address === null || typeof address === "string") throw new Error("Expected a TCP address")
+    const response = await fetch(`http://127.0.0.1:${String(address.port)}/mcp`, initializeRequest())
+    expect(response.status).toBe(200)
 
     process.stdin.emit("end")
     await Promise.resolve()
@@ -126,8 +163,13 @@ describe("McpServerService Effect HTTP lifecycle", () => {
     expect(unauthorized.status).toBe(401)
     const authorized = await fetch(endpoint, initializeRequest("Bearer server-secret"))
     expect(authorized.status).toBe(200)
+    const sessionId = authorized.headers.get("mcp-session-id")
+    if (sessionId === null) throw new Error("Expected initialize to return an MCP session id")
     const response = Schema.decodeUnknownSync(InitializeResponse)(await authorized.json())
     expect(response.result.protocolVersion).toBe("2025-06-18")
+    const toolCall = await fetch(endpoint, toolCallRequest("Bearer server-secret", sessionId))
+    expect(toolCall.status).toBe(200)
+    expect(await toolCall.text()).toContain('"id":2')
 
     await Effect.runPromise(server.operations.stop())
     await Effect.runPromise(Fiber.join(server.fiber))

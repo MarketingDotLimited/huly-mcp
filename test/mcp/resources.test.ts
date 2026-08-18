@@ -157,12 +157,8 @@ const createClientLayer = (config?: {
 const readJson = (text: string): unknown => JSON.parse(text)
 
 const textContent = (
-  content:
-    | typeof McpSchema.TextResourceContents.Type
-    | typeof McpSchema.BlobResourceContents.Type
-    | undefined
-): string =>
-  content !== undefined && "text" in content ? content.text : ""
+  content: typeof McpSchema.TextResourceContents.Type | typeof McpSchema.BlobResourceContents.Type | undefined
+): string => (content !== undefined && "text" in content ? content.text : "")
 
 describe("MCP resources", () => {
   it("advertises the conservative Huly resource templates", () => {

@@ -27,14 +27,7 @@ const expected =
     ? {
         binName: "huly-mcp",
         expectedEntries: ["package/LICENSE", "package/README.md", "package/dist/index.cjs", "package/package.json"],
-        expectedExternalModules: [
-          "ajv-formats/dist/formats",
-          "ajv/dist/runtime/equal",
-          "ajv/dist/runtime/ucs2length",
-          "ajv/dist/runtime/uri",
-          "ajv/dist/runtime/validation_error",
-          "ws"
-        ],
+        expectedExternalModules: ["ws"],
         name: "@firfi/huly-mcp",
         version
       }

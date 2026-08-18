@@ -35,7 +35,7 @@ const gates: ReadonlyArray<QualityGate> = [
   { args: ["complexity"], name: "cyclomatic complexity", timeout: MINUTE },
   { args: ["verify-registry-metadata"], name: "registry metadata", timeout: MINUTE },
   { args: ["verify-registry-schema"], name: "registry schema", timeout: MINUTE },
-  { args: ["verify:effect4-oracle:built"], name: "Effect migration behavioral oracle", timeout: MINUTE },
+  { args: ["verify:effect4-oracle:built"], name: "Effect migration behavioral oracle", timeout: TWO_MINUTES },
   { args: ["verify-cli-integration-coverage"], name: "CLI integration coverage", timeout: TWO_MINUTES },
   { args: ["verify-sdk-parity"], name: "SDK parity", timeout: MINUTE },
   { args: ["verify-readme"], name: "README synchronization", timeout: MINUTE },

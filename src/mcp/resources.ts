@@ -230,11 +230,15 @@ const mapListErrorToMcp = (error: HulyDomainError | Schema.SchemaError): McpSche
   /* v8 ignore stop */
 
   if (error._tag === "HulyAuthError") {
-    return internalError("Authentication error while listing Huly resources. Check Huly credentials or request headers.")
+    return internalError(
+      "Authentication error while listing Huly resources. Check Huly credentials or request headers."
+    )
   }
 
   if (error._tag === "HulyConnectionError") {
-    return internalError("Connection error while listing Huly resources. Verify Huly URL, workspace, and network connectivity.")
+    return internalError(
+      "Connection error while listing Huly resources. Verify Huly URL, workspace, and network connectivity."
+    )
   }
 
   // defensive: listProjects can only surface a connection or auth client error (HulyClientError =
@@ -339,8 +343,6 @@ export const readHulyResource = (
     try: () => parseHulyResourceUri(uri),
     /* v8 ignore start -- defensive: parseHulyResourceUri only ever throws InvalidParams, so the else branch is unreachable */
     catch: (e) =>
-      e instanceof McpSchema.InvalidParams
-        ? e
-        : invalidParams(`Invalid Huly resource URI "${uri}". ${expectedFormats}`)
+      e instanceof McpSchema.InvalidParams ? e : invalidParams(`Invalid Huly resource URI "${uri}". ${expectedFormats}`)
     /* v8 ignore stop */
   }).pipe(Effect.flatMap(readParsedHulyResource))

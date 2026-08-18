@@ -7,7 +7,11 @@ import { HulyConnectionError } from "../../src/huly/errors.js"
 import { HulyStorageClient } from "../../src/huly/storage.js"
 import { WorkspaceClient } from "../../src/huly/workspace-client.js"
 import { buildScopedClientBundle } from "../../src/runtime/huly-clients.js"
-import { createHttpClientLeaseResolver } from "../../src/runtime/http-client-leases.js"
+import {
+  createClientLeaseResolver,
+  createHttpClientLeaseResolver,
+  createPrimingClientLeaseResolver
+} from "../../src/runtime/http-client-leases.js"
 
 const baseClientLayer = Layer.merge(
   Layer.merge(HulyClient.testLayer({}), HulyStorageClient.testLayer({})),
@@ -20,6 +24,80 @@ const requestWithConfig = (workspace: string, token: string): Request =>
   })
 
 describe("HTTP client lease resolution", () => {
+  it("owns and interrupts isolated resource-discovery leases", async () => {
+    const resolveLease = createClientLeaseResolver(baseClientLayer)
+    const lease = await resolveLease(new AbortController().signal)
+    expect(Exit.isSuccess(lease.bundle)).toBe(true)
+    await lease.close()
+
+    const pendingLayer = baseClientLayer.pipe(Layer.tap(() => Effect.never))
+    const pendingResolver = createClientLeaseResolver(pendingLayer)
+    const cancellation = new AbortController()
+    const pending = pendingResolver(cancellation.signal)
+    cancellation.abort()
+    await expect(pending).rejects.toThrow("resource discovery client acquisition was interrupted")
+
+    const failedLayer = Layer.merge(
+      Layer.merge(
+        Layer.effect(HulyClient, Effect.fail(new HulyConnectionError({ message: "isolated client failed" }))),
+        HulyStorageClient.testLayer({})
+      ),
+      WorkspaceClient.testLayer({})
+    )
+    const failed = await createClientLeaseResolver(failedLayer)(new AbortController().signal)
+    expect(Exit.isFailure(failed.bundle)).toBe(true)
+    await failed.close()
+  })
+
+  it("transfers a successful discovery lease to the process resolver", async () => {
+    let releases = 0
+    let closePrimed: (() => Promise<void>) | undefined
+    const trackedLayer = baseClientLayer.pipe(Layer.tap(() => Effect.addFinalizer(() => Effect.sync(() => releases++))))
+    const resolveLease = createPrimingClientLeaseResolver(trackedLayer, async (scoped) => {
+      closePrimed = scoped.close
+    })
+
+    const lease = await resolveLease(new AbortController().signal)
+
+    expect(Exit.isSuccess(lease.bundle)).toBe(true)
+    await lease.close()
+    expect(releases).toBe(0)
+    expect(closePrimed).toBeDefined()
+    await closePrimed?.()
+    expect(releases).toBe(1)
+  })
+
+  it("releases discovery leases when process priming fails", async () => {
+    let releases = 0
+    const trackedLayer = baseClientLayer.pipe(Layer.tap(() => Effect.addFinalizer(() => Effect.sync(() => releases++))))
+    const resolveLease = createPrimingClientLeaseResolver(trackedLayer, async () => {
+      throw new Error("prime failed")
+    })
+
+    await expect(resolveLease(new AbortController().signal)).rejects.toThrow("prime failed")
+    expect(releases).toBe(1)
+  })
+
+  it("preserves typed acquisition failures without priming", async () => {
+    let primed = false
+    const failedLayer = Layer.merge(
+      Layer.merge(
+        Layer.effect(HulyClient, Effect.fail(new HulyConnectionError({ message: "prime acquisition failed" }))),
+        HulyStorageClient.testLayer({})
+      ),
+      WorkspaceClient.testLayer({})
+    )
+    const resolveLease = createPrimingClientLeaseResolver(failedLayer, async () => {
+      primed = true
+    })
+
+    const lease = await resolveLease(new AbortController().signal)
+
+    expect(Exit.isFailure(lease.bundle)).toBe(true)
+    expect(primed).toBe(false)
+    await lease.close()
+  })
+
   it("isolates header configuration and releases each request-owned bundle", async () => {
     const acquisitions: Array<{ readonly workspace: string; readonly expectedToken: boolean }> = []
     let releases = 0

@@ -13,7 +13,6 @@ export interface McpRequestContext {
   readonly resolveClients: ClientResolver
 }
 
-export class McpRequestContextService extends Context.Service<
-  McpRequestContextService,
-  McpRequestContext
->()("@hulymcp/McpRequestContext") {}
+export class McpRequestContextService extends Context.Service<McpRequestContextService, McpRequestContext>()(
+  "@hulymcp/McpRequestContext"
+) {}

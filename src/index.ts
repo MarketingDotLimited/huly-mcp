@@ -33,7 +33,7 @@ import {
   isRecoverableClientUnavailableCause
 } from "./runtime/huly-clients.js"
 import type { ClientBundle, ClientResolver, HulyClientBundleError } from "./runtime/client-resolver.js"
-import { createHttpClientLeaseResolver } from "./runtime/http-client-leases.js"
+import { createHttpClientLeaseResolver, createPrimingClientLeaseResolver } from "./runtime/http-client-leases.js"
 import { TelemetryService } from "./telemetry/telemetry.js"
 import { writeStderrLine } from "./utils/stderr.js"
 
@@ -109,7 +109,10 @@ export const buildAppLayer = (
     req: Request
   ) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>,
   httpServerFactoryLayer: Layer.Layer<HttpServerFactoryService> = HttpServerFactoryService.defaultLayer,
-  closeClients?: () => Promise<void>
+  closeClients?: () => Promise<void>,
+  resolveClientLeaseForResourceDiscovery?: (
+    signal: AbortSignal
+  ) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>
 ): Layer.Layer<McpServerService | HttpServerFactoryService, McpServerError, never> => {
   const mcpServerConfig = {
     transport,
@@ -120,6 +123,7 @@ export const buildAppLayer = (
     resolveClients,
     ...(closeClients === undefined ? {} : { closeClients }),
     resolveClientLeaseForHttpRequest,
+    ...(resolveClientLeaseForResourceDiscovery === undefined ? {} : { resolveClientLeaseForResourceDiscovery }),
     getRuntimeConfigContext: () => sanitizeHulyRuntimeConfigFromEnv(process.env),
     getRuntimeConfigContextForHttpRequest: (req: Request) =>
       sanitizeHulyRuntimeConfigFromHeaders(webHeadersRecord(req.headers), process.env)
@@ -140,8 +144,9 @@ const runConfiguredServer = (transport: McpTransportType): Effect.Effect<void, A
     const combinedClientLayer = buildCombinedClientLayer()
     yield* Effect.acquireUseRelease(
       Effect.sync(() => createClientResolver(combinedClientLayer)),
-      ({ close: closeClients, resolve: resolveClients }) => {
+      ({ close: closeClients, prime: primeClients, resolve: resolveClients }) => {
         const resolveHttpClientLease = createHttpClientLeaseResolver(combinedClientLayer, resolveClients)
+        const resolveResourceClientLease = createPrimingClientLeaseResolver(combinedClientLayer, primeClients)
         return Effect.gen(function* () {
           if (!lazyEnvs && transport === "stdio") {
             // Eager init uses the same process-owned resolver as subsequent tool calls.
@@ -162,7 +167,8 @@ const runConfiguredServer = (transport: McpTransportType): Effect.Effect<void, A
             resolveClients,
             resolveHttpClientLease,
             HttpServerFactoryService.defaultLayer,
-            closeClients
+            closeClients,
+            resolveResourceClientLease
           )
 
           yield* Effect.gen(function* () {

@@ -144,9 +144,8 @@ export const requireOracleDiscoveries = (bundledProcesses: BundledProcesses) => 
   return { native, proxy }
 }
 
-export const captureEffect4Oracle = async (): Promise<BehavioralOracle> => {
-  validateCurrentDraft07Corpora()
-  const bundledProcesses = await captureBundledProcessOracle()
+/** Assemble the deterministic oracle around already-captured built-process evidence. */
+export const assembleEffect4Oracle = async (bundledProcesses: BundledProcesses): Promise<BehavioralOracle> => {
   const { native: nativeDiscovery, proxy: proxyDiscovery } = requireOracleDiscoveries(bundledProcesses)
   validateDraft07DiscoveryResult(nativeDiscovery.result)
   validateDraft07DiscoveryResult(proxyDiscovery.result)
@@ -172,6 +171,11 @@ export const captureEffect4Oracle = async (): Promise<BehavioralOracle> => {
       failureContract: CLI_FAILURE_CONTRACT
     }
   })
+}
+
+export const captureEffect4Oracle = async (): Promise<BehavioralOracle> => {
+  validateCurrentDraft07Corpora()
+  return assembleEffect4Oracle(await captureBundledProcessOracle())
 }
 
 export const renderEffect4Oracle = (oracle: BehavioralOracle): string => canonicalJson(oracle)

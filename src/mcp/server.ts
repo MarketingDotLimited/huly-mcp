@@ -29,7 +29,8 @@ import { type SanitizedHulyRuntimeConfigContext, sanitizeHulyRuntimeConfigFromEn
 import type { GetHulyContextResult } from "../domain/schemas/index.js"
 import type { ClientBundle, ClientResolver, HulyClientBundleError } from "../runtime/client-resolver.js"
 import { VERSION } from "../version.js"
-import { makeEffectMcpRegistry } from "./effect-ai-registry.js"
+import { makeEffectMcpRegistry, type EffectMcpRegistry } from "./effect-ai-registry.js"
+import { requestScopedRuntimeConfig } from "./effect-ai-request.js"
 import {
   DEFAULT_HTTP_HOST,
   DEFAULT_HTTP_PORT,
@@ -52,11 +53,9 @@ import {
   type StdioShutdownReason,
   type StdioShutdownResources
 } from "./stdio-shutdown.js"
-import { TelemetryService } from "../telemetry/telemetry.js"
+import { TelemetryService, type TelemetryOperations } from "../telemetry/telemetry.js"
 import { writeStderrLine } from "../utils/stderr.js"
-import {
-  createHostedHulyMigrationNoticeProvider
-} from "./tool-call-notices.js"
+import { createHostedHulyMigrationNoticeProvider } from "./tool-call-notices.js"
 import { parseToolExposureConfig, type ToolExposureConfig } from "./tool-mode.js"
 import { resolveToolScope } from "./tool-scope.js"
 import { createScopedRegistry, toolRegistry } from "./tools/index.js"
@@ -76,6 +75,9 @@ interface McpServerConfigData {
 
 interface McpServerConfigCallbacks {
   readonly resolveClients: ClientResolver
+  readonly resolveClientLeaseForResourceDiscovery?: (
+    signal: AbortSignal
+  ) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>
   readonly resolveClientLeaseForHttpRequest?: (
     req: Request
   ) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>
@@ -87,6 +89,18 @@ interface McpServerConfigCallbacks {
 }
 
 type McpServerConfig = McpServerConfigData & McpServerConfigCallbacks
+
+const resourceDiscoveryRegistryOptions = (
+  config: McpServerConfig
+): {
+  readonly discoverConcreteResources: boolean
+  readonly resolveResourceClientLease?: NonNullable<McpServerConfigCallbacks["resolveClientLeaseForResourceDiscovery"]>
+} => ({
+  discoverConcreteResources: true,
+  ...(config.resolveClientLeaseForResourceDiscovery === undefined
+    ? {}
+    : { resolveResourceClientLease: config.resolveClientLeaseForResourceDiscovery })
+})
 
 export class McpServerError extends Schema.TaggedError<McpServerError>()("McpServerError", {
   message: Schema.String,
@@ -119,6 +133,7 @@ interface McpServerRunControl {
 }
 
 const DEFAULT_SHUTDOWN_GRACE_PERIOD = "5 seconds"
+const STDIO_EOF_DISPATCH_GRACE = "250 millis"
 
 const requestShutdown = (coordinator: StdioShutdownCoordinator, reason: StdioShutdownReason): void => {
   Effect.runSync(coordinator.request(reason))
@@ -126,7 +141,8 @@ const requestShutdown = (coordinator: StdioShutdownCoordinator, reason: StdioShu
 
 const awaitStdioLifecycleEvent = (
   coordinator: StdioShutdownCoordinator,
-  stdioProcess: StdioProcessPort
+  stdioProcess: StdioProcessPort,
+  inputDrained: Deferred.Deferred<void>
 ): Effect.Effect<void> =>
   Effect.callback<void>((resume) => {
     const listenerState = { remove: () => {} }
@@ -134,7 +150,17 @@ const awaitStdioLifecycleEvent = (
       listenerState.remove()
       // Let the stdio protocol fiber consume bytes delivered immediately
       // before the stream's `end` event before quiescing request admission.
-      resume(Effect.yieldNow.pipe(Effect.andThen(Effect.sync(() => requestShutdown(coordinator, reason)))))
+      const awaitInput = reason === "stdin-eof" || reason === "stdin-close" ? Deferred.await(inputDrained) : Effect.void
+      const awaitDispatch =
+        (reason === "stdin-eof" || reason === "stdin-close") && stdioProcess === liveStdioProcessPort
+          ? Effect.sleep(STDIO_EOF_DISPATCH_GRACE)
+          : Effect.void
+      resume(
+        awaitInput.pipe(
+          Effect.andThen(awaitDispatch),
+          Effect.andThen(Effect.sync(() => requestShutdown(coordinator, reason)))
+        )
+      )
     }
     listenerState.remove = stdioProcess.listen({
       stdinEof: () => request("stdin-eof"),
@@ -159,11 +185,7 @@ const registryDrain = (quiesce: () => Promise<void>): Effect.Effect<void, McpSer
     catch: (cause) => new McpServerError({ message: "in-flight request drain failed", cause })
   })
 
-const protocolOptions = {
-  name: "huly-mcp",
-  version: VERSION,
-  protocols: [McpProtocol.v2025_06_18] as const
-}
+const protocolOptions = { name: "huly-mcp", version: VERSION, protocols: [McpProtocol.v2025_06_18] as const }
 
 /**
  * Effect AI's stdio protocol interrupts its build fiber when the input stream
@@ -171,20 +193,24 @@ const protocolOptions = {
  * keep the protocol input alive long enough for already-admitted responses to
  * flush before the transport scope is closed.
  */
-const nodeStdioLayer = Layer.effect(
-  Stdio.Stdio,
-  Effect.gen(function*() {
-    const stdio = yield* Stdio.Stdio
-    return Stdio.make({
-      args: stdio.args,
-      stdinIsTerminal: stdio.stdinIsTerminal,
-      stdoutIsTerminal: stdio.stdoutIsTerminal,
-      stdout: (options) => stdio.stdout(options),
-      stderr: (options) => stdio.stderr(options),
-      stdin: Stream.concat(stdio.stdin, Stream.never)
-    })
-  }).pipe(Effect.provide(NodeStdio.layer))
-)
+const nodeStdioLayer = (registrationReady: Deferred.Deferred<void>, inputDrained: Deferred.Deferred<void>) =>
+  Layer.effect(
+    Stdio.Stdio,
+    Effect.gen(function* () {
+      const stdio = yield* Stdio.Stdio
+      const registeredStdin = Stream.unwrap(Deferred.await(registrationReady).pipe(Effect.as(stdio.stdin))).pipe(
+        Stream.ensuring(Deferred.succeed(inputDrained, undefined))
+      )
+      return Stdio.make({
+        args: stdio.args,
+        stdinIsTerminal: stdio.stdinIsTerminal,
+        stdoutIsTerminal: stdio.stdoutIsTerminal,
+        stdout: (options) => stdio.stdout(options),
+        stderr: (options) => stdio.stderr(options),
+        stdin: Stream.concat(registeredStdin, Stream.never)
+      })
+    }).pipe(Effect.provide(NodeStdio.layer))
+  )
 
 const webRequestFromHttpRequest = (request: HttpServerRequestModule.HttpServerRequest): Request => {
   const headers = new Headers()
@@ -193,58 +219,117 @@ const webRequestFromHttpRequest = (request: HttpServerRequestModule.HttpServerRe
   return new Request(url, { method: request.method, headers })
 }
 
-const requestContextMiddleware = (config: McpServerConfig): HttpMiddlewareModule.HttpMiddleware => (httpEffect) =>
-  Effect.gen(function*() {
-    const request = yield* HttpServerRequestModule.HttpServerRequest
-    const webRequest = webRequestFromHttpRequest(request)
-    const runtimeConfig =
-      config.getRuntimeConfigContextForHttpRequest?.(webRequest) ??
-      config.getRuntimeConfigContext?.() ??
-      sanitizeHulyRuntimeConfigFromEnv(process.env)
-    const resolveLease =
-      config.resolveClientLeaseForHttpRequest ??
-      ((_request: Request) =>
-        config.resolveClients().then((bundle) => ({
-          bundle,
-          close: () => {}
-        })))
-    const lifecycle = createRequestClientLifecycle(() => resolveLease(webRequest))
-    const requestContext = McpRequestContextService.of({
-      runtimeConfig,
-      resolveClients: lifecycle.resolve
+const requestContextMiddleware =
+  (config: McpServerConfig): HttpMiddlewareModule.HttpMiddleware =>
+  (httpEffect) =>
+    Effect.gen(function* () {
+      const request = yield* HttpServerRequestModule.HttpServerRequest
+      const webRequest = webRequestFromHttpRequest(request)
+      const runtimeConfig =
+        config.getRuntimeConfigContextForHttpRequest?.(webRequest) ??
+        config.getRuntimeConfigContext?.() ??
+        sanitizeHulyRuntimeConfigFromEnv(process.env)
+      const resolveLease =
+        config.resolveClientLeaseForHttpRequest ??
+        ((_request: Request) => config.resolveClients().then((bundle) => ({ bundle, close: () => {} })))
+      const lifecycle = createRequestClientLifecycle(() => resolveLease(webRequest))
+      const requestContext = McpRequestContextService.of({ runtimeConfig, resolveClients: lifecycle.resolve })
+      return yield* Effect.acquireUseRelease(
+        Effect.succeed(requestContext),
+        (context) => Effect.provideService(httpEffect, McpRequestContextService, context),
+        () => Effect.promise(lifecycle.close).pipe(Effect.ignore)
+      )
     })
-    return yield* Effect.acquireUseRelease(
-      Effect.succeed(requestContext),
-      (context) => Effect.provideService(httpEffect, McpRequestContextService, context),
-      () => Effect.promise(lifecycle.close).pipe(Effect.ignore)
+
+const buildStdioLayer = (
+  registration: Effect.Effect<void, never, McpServer.McpServer>,
+  registrationReady: Deferred.Deferred<void>,
+  inputDrained: Deferred.Deferred<void>
+): Layer.Layer<never, never, never> =>
+  Layer.effectDiscard(
+    registration.pipe(Effect.andThen(Deferred.succeed(registrationReady, undefined)), Effect.asVoid)
+  ).pipe(
+    Layer.provide(McpServer.layerStdio(protocolOptions).pipe(Layer.orDie)),
+    Layer.provide(nodeStdioLayer(registrationReady, inputDrained))
+  )
+
+const buildHttpLayer = (registryLayer: Layer.Layer<never, never, McpServer.McpServer>) =>
+  registryLayer.pipe(Layer.provide(McpServer.layerHttp({ ...protocolOptions, path: "/mcp" }).pipe(Layer.orDie)))
+
+const runStdioTransport = (
+  config: McpServerConfig,
+  registry: EffectMcpRegistry,
+  control: McpServerRunControl,
+  telemetry: TelemetryOperations,
+  writeError: (message: string) => void
+): Effect.Effect<void, McpServerError> =>
+  Effect.gen(function* () {
+    const transportScope = yield* Scope.make()
+    const registrationReady = yield* Deferred.make<void>()
+    const inputDrained = yield* Deferred.make<void>()
+    const coordinator = yield* makeStdioShutdownCoordinator(() => {
+      void registry.quiesce()
+    })
+    const stdioProcess = config.stdioProcess ?? liveStdioProcessPort
+    if (stdioProcess !== liveStdioProcessPort) yield* Deferred.succeed(inputDrained, undefined)
+    const stdioLifecycleFiber = yield* awaitStdioLifecycleEvent(coordinator, stdioProcess, inputDrained).pipe(
+      Effect.forkIn(transportScope, { startImmediately: true })
+    )
+    const shutdownResources: StdioShutdownResources = {
+      drain: registryDrain(registry.quiesce),
+      closeWire: Scope.close(transportScope, Exit.void),
+      closeTelemetry: Effect.tryPromise({
+        try: () => telemetry.shutdown(),
+        catch: (cause) => new McpServerError({ message: "telemetry close failed", cause })
+      }),
+      closeClients: optionalPromiseCleanup(config.closeClients),
+      forceExit: (code) => Effect.sync(() => stdioProcess.forceExit(code)),
+      writeDiagnostic: (message) => Effect.sync(() => writeError(message))
+    }
+    const stdioLayerFiber = yield* Layer.buildWithScope(
+      buildStdioLayer(registry.registration, registrationReady, inputDrained),
+      transportScope
+    ).pipe(Effect.forkIn(transportScope, { startImmediately: true }))
+    yield* Fiber.join(stdioLayerFiber)
+    yield* Deferred.succeed(control.ready, undefined)
+    yield* Effect.raceFirst(Fiber.join(stdioLifecycleFiber), Deferred.await(control.shutdown)).pipe(
+      Effect.ensuring(
+        coordinator
+          .request("runtime-interruption")
+          .pipe(Effect.andThen(executeBoundedStdioShutdown(coordinator, shutdownResources)))
+      )
     )
   })
 
-const buildStdioLayer = (
-  registryLayer: Layer.Layer<never, never, McpServer.McpServer>
-): Layer.Layer<never, never, never> =>
-  registryLayer.pipe(
-    Layer.provide(McpServer.layerStdio(protocolOptions).pipe(Layer.orDie)),
-    Layer.provide(nodeStdioLayer)
+const runHttpTransport = (
+  config: McpServerConfig,
+  registry: EffectMcpRegistry,
+  control: McpServerRunControl,
+  writeError: (message: string) => void
+): Effect.Effect<void, McpServerError, HttpServerFactoryService> => {
+  const host = config.httpHost ?? DEFAULT_HTTP_HOST
+  const port = config.httpPort ?? DEFAULT_HTTP_PORT
+  const appLayer = buildHttpLayer(registry.layer)
+  const httpConfig: HttpTransportConfig = {
+    host,
+    port,
+    ...(config.mcpAuthToken === undefined ? {} : { authToken: config.mcpAuthToken }),
+    middleware: requestContextMiddleware(config),
+    shutdown: Deferred.await(control.shutdown),
+    onReady: () => Deferred.succeed(control.ready, undefined),
+    onShutdown: () => Effect.ignore(registryDrain(registry.quiesce)),
+    shutdownGracePeriod: config.shutdownGracePeriod ?? DEFAULT_SHUTDOWN_GRACE_PERIOD
+  }
+  return startHttpTransport(httpConfig, appLayer, writeError).pipe(
+    Effect.mapError((error: HttpTransportError) => new McpServerError({ message: error.message, cause: error.cause }))
   )
-
-const buildHttpLayer = (
-  registryLayer: Layer.Layer<never, never, McpServer.McpServer>
-) =>
-  registryLayer.pipe(
-    Layer.provide(
-      McpServer.layerHttp({
-        ...protocolOptions,
-        path: "/mcp"
-      }).pipe(Layer.orDie)
-    )
-  )
+}
 
 export class McpServerService extends Context.Service<McpServerService, McpServerOperations>()("@hulymcp/McpServer") {
   static layer(config: McpServerConfig): Layer.Layer<McpServerService, McpServerError, TelemetryService> {
     return Layer.effect(
       McpServerService,
-      Effect.gen(function*() {
+      Effect.gen(function* () {
         const telemetry = yield* TelemetryService
         const writeError = config.writeError ?? defaultWriteError
         const toolsetsRaw = yield* Effect.orElseSucceed(Config.string("TOOLSETS"), () => "")
@@ -290,7 +375,7 @@ export class McpServerService extends Context.Service<McpServerService, McpServe
 
         const operations: McpServerOperations = {
           run: () =>
-            Effect.gen(function*() {
+            Effect.gen(function* () {
               const control: McpServerRunControl = {
                 shutdown: yield* Deferred.make<void>(),
                 done: yield* Deferred.make<void>(),
@@ -301,13 +386,17 @@ export class McpServerService extends Context.Service<McpServerService, McpServe
               )
               if (!claimed) return yield* new McpServerError({ message: "MCP server is already running" })
 
-              yield* Effect.gen(function*() {
+              yield* Effect.gen(function* () {
                 const runtimeConfig = getRuntimeConfigContext()
                 const registry = makeEffectMcpRegistry({
                   resolveClients: config.resolveClients,
+                  ...resourceDiscoveryRegistryOptions(config),
                   telemetry,
                   registry: registries,
-                  getHulyContext: (exposure) => getHulyContext(runtimeConfig, exposure),
+                  getHulyContext: (exposure) =>
+                    requestScopedRuntimeConfig(runtimeConfig).pipe(
+                      Effect.map((requestRuntimeConfig) => getHulyContext(requestRuntimeConfig, exposure))
+                    ),
                   exposureOptions: { exposureConfig, toolScopeFilteringActive: toolScope.filteringActive },
                   toolCallNoticeProvider: createHostedHulyMigrationNoticeProvider({
                     delivery: config.transport === "http" ? "always" : "once",
@@ -315,80 +404,29 @@ export class McpServerService extends Context.Service<McpServerService, McpServe
                   })
                 })
 
-                if (config.transport === "stdio") {
-                  const transportScope = yield* Scope.make()
-                  const coordinator = yield* makeStdioShutdownCoordinator(() => {
-                    void registry.quiesce()
-                  })
-                  const stdioProcess = config.stdioProcess ?? liveStdioProcessPort
-                  const stdioLifecycleFiber = yield* awaitStdioLifecycleEvent(coordinator, stdioProcess).pipe(
-                    Effect.forkIn(transportScope, { startImmediately: true })
+                yield* config.transport === "stdio"
+                  ? runStdioTransport(config, registry, control, telemetry, writeError)
+                  : runHttpTransport(config, registry, control, writeError)
+              })
+                .pipe(
+                  Effect.ensuring(
+                    Effect.gen(function* () {
+                      yield* Ref.set(runControlRef, null)
+                      yield* Deferred.succeed(control.done, undefined)
+                    })
                   )
-                  const shutdownResources: StdioShutdownResources = {
-                    drain: registryDrain(registry.quiesce),
-                    closeWire: Scope.close(transportScope, Exit.void),
-                    closeTelemetry: Effect.tryPromise({
-                      try: () => telemetry.shutdown(),
-                      catch: (cause) => new McpServerError({ message: "telemetry close failed", cause })
-                    }),
-                    closeClients: optionalPromiseCleanup(config.closeClients),
-                    forceExit: (code) => Effect.sync(() => stdioProcess.forceExit(code)),
-                    writeDiagnostic: (message) => Effect.sync(() => writeError(message))
-                  }
-                  const stdioLayerFiber = yield* Layer.buildWithScope(
-                    buildStdioLayer(registry.layer),
-                    transportScope
-                  ).pipe(Effect.forkIn(transportScope, { startImmediately: true }))
-                  yield* Fiber.join(stdioLayerFiber)
-                  yield* Deferred.succeed(control.ready, undefined)
-                  yield* Effect.raceFirst(
-                    Fiber.join(stdioLifecycleFiber),
-                    Deferred.await(control.shutdown)
-                  ).pipe(
-                    Effect.ensuring(
-                      coordinator
-                        .request("runtime-interruption")
-                        .pipe(Effect.andThen(executeBoundedStdioShutdown(coordinator, shutdownResources)))
-                    )
-                  )
-                } else {
-                  const host = config.httpHost ?? DEFAULT_HTTP_HOST
-                  const port = config.httpPort ?? DEFAULT_HTTP_PORT
-                  const appLayer = buildHttpLayer(registry.layer)
-                  const httpConfig: HttpTransportConfig = {
-                    host,
-                    port,
-                    ...(config.mcpAuthToken === undefined ? {} : { authToken: config.mcpAuthToken }),
-                    middleware: requestContextMiddleware(config),
-                    shutdown: Deferred.await(control.shutdown),
-                    onReady: () => Deferred.succeed(control.ready, undefined),
-                    onShutdown: () => Effect.ignore(registryDrain(registry.quiesce)),
-                    shutdownGracePeriod: config.shutdownGracePeriod ?? DEFAULT_SHUTDOWN_GRACE_PERIOD
-                  }
-                  yield* startHttpTransport(httpConfig, appLayer, writeError).pipe(
-                    Effect.mapError((error: HttpTransportError) =>
-                      new McpServerError({ message: error.message, cause: error.cause })
-                    )
-                  )
-                }
-              }).pipe(
-                Effect.ensuring(
-                  Effect.gen(function*() {
-                    yield* Ref.set(runControlRef, null)
-                    yield* Deferred.succeed(control.done, undefined)
-                  })
                 )
-              ).pipe(Effect.asVoid)
+                .pipe(Effect.asVoid)
             }),
           stop: () =>
-            Effect.gen(function*() {
+            Effect.gen(function* () {
               const control = yield* Ref.get(runControlRef)
               if (control === null) return
               yield* Deferred.succeed(control.shutdown, undefined)
               yield* Deferred.await(control.done)
             }),
           awaitReady: () =>
-            Effect.gen(function*() {
+            Effect.gen(function* () {
               const control = yield* Ref.get(runControlRef)
               if (control === null) return yield* new McpServerError({ message: "MCP server is not running" })
               yield* Deferred.await(control.ready)

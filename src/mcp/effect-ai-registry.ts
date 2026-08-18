@@ -7,26 +7,19 @@
  * registration effect.  This keeps request-scoped client acquisition in the
  * caller's closure while making protocol dispatch Effect-native.
  */
-import { Clock, Context, Effect, Layer } from "effect"
+import { Clock, Context, Effect, type Exit, Layer } from "effect"
 import { McpServer } from "effect/unstable/ai/McpServer"
 import * as McpSchema from "effect/unstable/ai/McpSchema"
 
 import type { GetHulyContextResult } from "../domain/schemas/index.js"
 import { HulyError } from "../huly/errors-base.js"
-import type { ClientResolver } from "../runtime/client-resolver.js"
+import type { ClientBundle, ClientResolver, HulyClientBundleError } from "../runtime/client-resolver.js"
 import type { TelemetryOperations } from "../telemetry/telemetry.js"
 import type { McpToolResponse } from "./error-mapping.js"
-import {
-  appendToolWarnings,
-  createServerShuttingDownError,
-  mapDomainErrorToMcp
-} from "./error-mapping.js"
-import {
-  getHulyContextToolDefinition,
-  type ToolExposureContext,
-  versionToolDefinition
-} from "./huly-context-tool.js"
+import { appendToolWarnings, createServerShuttingDownError, mapDomainErrorToMcp } from "./error-mapping.js"
+import { getHulyContextToolDefinition, type ToolExposureContext, versionToolDefinition } from "./huly-context-tool.js"
 import { createRequestAdmission, type RequestAdmission } from "./request-admission.js"
+import type { RequestClientLease } from "./request-client-lifecycle.js"
 import { requestScopedResolver } from "./effect-ai-request.js"
 import {
   defaultExposureOptions,
@@ -43,16 +36,20 @@ import { makeToolCategory, resolveAnnotations } from "./tools/registry.js"
 import type { ToolDefinition } from "./tools/registry.js"
 import type { McpClientInfoLike } from "./tool-mode.js"
 import { parseMcpClientInfo } from "./tool-mode.js"
-import { registerEffectMcpResourceTemplates } from "./effect-ai-resources.js"
+import { registerEffectMcpResources } from "./effect-ai-resources.js"
 import { toEffectCallToolResult } from "./effect-ai-content.js"
 import { dispatchEffectMcpTool, fetchLatestNpmVersion } from "./effect-ai-dispatch.js"
 
 /** Inputs needed to build a transport-independent Effect MCP registry. */
 export interface EffectMcpRegistryOptions {
   readonly resolveClients: ClientResolver
+  readonly resolveResourceClientLease?: (
+    signal: AbortSignal
+  ) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>
+  readonly discoverConcreteResources?: boolean
   readonly telemetry: TelemetryOperations
   readonly registry: ToolRegistry | ProtocolToolRegistries
-  readonly getHulyContext: (toolExposure: ToolExposureContext) => GetHulyContextResult
+  readonly getHulyContext: (toolExposure: ToolExposureContext) => Effect.Effect<GetHulyContextResult>
   readonly exposureOptions?: Partial<ProtocolExposureOptions>
   readonly toolCallNoticeProvider?: ToolCallNoticeProvider
   readonly fetchLatestVersion?: () => Promise<string>
@@ -76,11 +73,11 @@ type EffectCallToolResult = typeof McpSchema.CallToolResult.Type
 const defaultToolAnnotations = (tool: ToolDefinition): McpSchema.ToolAnnotations => {
   const annotations = resolveAnnotations(tool)
   return {
-    ...(annotations.title === undefined ? {} : { title: annotations.title }),
-    readOnlyHint: annotations.readOnlyHint ?? false,
-    destructiveHint: annotations.destructiveHint ?? true,
-    idempotentHint: annotations.idempotentHint ?? false,
-    openWorldHint: annotations.openWorldHint ?? true
+    title: annotations.title,
+    readOnlyHint: annotations.readOnlyHint,
+    destructiveHint: annotations.destructiveHint,
+    idempotentHint: annotations.idempotentHint,
+    openWorldHint: annotations.openWorldHint
   }
 }
 
@@ -106,9 +103,7 @@ const toolDefinition = (definition: ToolDefinition): McpSchema.Tool =>
 
 const builtinToolDefinitions = [versionToolDefinition, getHulyContextToolDefinition] as const
 
-const asToolDefinition = (
-  definition: (typeof builtinToolDefinitions)[number]
-): ToolDefinition => ({
+const asToolDefinition = (definition: (typeof builtinToolDefinitions)[number]): ToolDefinition => ({
   name: definition.name,
   description: definition.description,
   inputSchema: definition.inputSchema,
@@ -116,19 +111,44 @@ const asToolDefinition = (
   category: makeToolCategory("builtin")
 })
 
-const contextForVisibility = (
-  enabledWhen: (payload: InitializePayload) => boolean
-): Context.Context<never> => Context.add(Context.empty(), McpSchema.EnabledWhen, enabledWhen)
+const contextForVisibility = (enabledWhen: (payload: InitializePayload) => boolean): Context.Context<never> =>
+  Context.add(Context.empty(), McpSchema.EnabledWhen, enabledWhen)
 
 const initializeExposure = (
   registries: ProtocolToolRegistries,
   options: ProtocolExposureOptions,
   payload: InitializePayload
-) =>
-  resolveProtocolExposure(registries, {
-    ...options,
-    currentClientInfo: () => clientInfoFromInitialize(payload)
-  })
+) => resolveProtocolExposure(registries, { ...options, currentClientInfo: () => clientInfoFromInitialize(payload) })
+
+/** Deterministic initialized-client visibility rules used by Effect AI's registry filter. */
+export const effectMcpBuiltinVisible = (_payload: InitializePayload): boolean => true
+
+export const effectMcpProxyVisible = (
+  registries: ProtocolToolRegistries,
+  options: ProtocolExposureOptions,
+  payload: InitializePayload
+): boolean => initializeExposure(registries, options, payload).context.resolvedMode === "proxy"
+
+export const effectMcpNativeVisible = (
+  registries: ProtocolToolRegistries,
+  options: ProtocolExposureOptions,
+  definition: ToolDefinition,
+  payload: InitializePayload
+): boolean => initializeExposure(registries, options, payload).visibleNativeRegistry.tools.has(definition.name)
+
+export const effectMcpProxyVisibility =
+  (registries: ProtocolToolRegistries, options: ProtocolExposureOptions): ((payload: InitializePayload) => boolean) =>
+  (payload) =>
+    effectMcpProxyVisible(registries, options, payload)
+
+export const effectMcpNativeVisibility =
+  (
+    registries: ProtocolToolRegistries,
+    options: ProtocolExposureOptions,
+    definition: ToolDefinition
+  ): ((payload: InitializePayload) => boolean) =>
+  (payload) =>
+    effectMcpNativeVisible(registries, options, definition, payload)
 
 const makeToolHandler = (
   options: EffectMcpRegistryOptions,
@@ -137,7 +157,13 @@ const makeToolHandler = (
   definition: ToolDefinition,
   admission: RequestAdmission,
   fetchLatestVersion: () => Promise<string>
-): ((args: unknown) => Effect.Effect<EffectCallToolResult, McpSchema.InternalError | McpSchema.InvalidParams, McpSchema.McpServerClient>) => {
+): ((
+  args: unknown
+) => Effect.Effect<
+  EffectCallToolResult,
+  McpSchema.InternalError | McpSchema.InvalidParams,
+  McpSchema.McpServerClient
+>) => {
   const handler = (args: unknown): Effect.Effect<EffectCallToolResult, never, McpSchema.McpServerClient> =>
     Effect.acquireUseRelease(
       Effect.sync(() => admission.enter()),
@@ -226,7 +252,7 @@ const registerAll = (
         registries,
         exposureOptions,
         asToolDefinition(definition),
-        () => true,
+        effectMcpBuiltinVisible,
         admission,
         fetchLatestVersion
       )
@@ -238,7 +264,7 @@ const registerAll = (
         registries,
         exposureOptions,
         definition,
-        (payload) => initializeExposure(registries, exposureOptions, payload).context.resolvedMode === "proxy",
+        effectMcpProxyVisibility(registries, exposureOptions),
         admission,
         fetchLatestVersion
       )
@@ -250,12 +276,19 @@ const registerAll = (
         registries,
         exposureOptions,
         definition,
-        (payload) => initializeExposure(registries, exposureOptions, payload).visibleNativeRegistry.tools.has(definition.name),
+        effectMcpNativeVisibility(registries, exposureOptions, definition),
         admission,
         fetchLatestVersion
       )
     }
-    yield* registerEffectMcpResourceTemplates(options.resolveClients, admission)
+    yield* registerEffectMcpResources(options.resolveClients, admission, {
+      ...(options.resolveResourceClientLease === undefined
+        ? {}
+        : { leaseResolver: options.resolveResourceClientLease }),
+      ...(options.discoverConcreteResources === undefined
+        ? {}
+        : { discoverConcreteResources: options.discoverConcreteResources })
+    })
   })
 
 const resolveExposureOptions = (options: EffectMcpRegistryOptions): ProtocolExposureOptions => {
@@ -276,15 +309,9 @@ export const makeEffectMcpRegistry = (options: EffectMcpRegistryOptions): Effect
   const fetchLatestVersion = options.fetchLatestVersion ?? fetchLatestNpmVersion
   const registration = registerAll(options, registries, exposureOptions, admission, fetchLatestVersion)
 
-  return {
-    registration,
-    layer: Layer.effectDiscard(registration),
-    admission,
-    quiesce: admission.quiesce
-  }
+  return { registration, layer: Layer.effectDiscard(registration), admission, quiesce: admission.quiesce }
 }
 
 /** Convenience alias for callers that only need a registration effect. */
-export const registerEffectMcpRegistry = (
-  options: EffectMcpRegistryOptions
-): Effect.Effect<void, never, McpServer> => makeEffectMcpRegistry(options).registration
+export const registerEffectMcpRegistry = (options: EffectMcpRegistryOptions): Effect.Effect<void, never, McpServer> =>
+  makeEffectMcpRegistry(options).registration

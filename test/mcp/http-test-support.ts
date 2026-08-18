@@ -6,17 +6,19 @@ import { Effect } from "effect"
 import {
   httpServeError,
   HttpTransportError,
-  type HttpServerFactory,
+  type HttpPort,
+  type HttpServerFactory
 } from "../../src/mcp/http-transport.js"
 
 export const makeTestHttpServerFactory = (
   onListening: (server: http.Server) => void,
-  writeError?: (message: string) => void
+  writeError?: (message: string) => void,
+  portOverride?: HttpPort
 ): HttpServerFactory => ({
   make: (port, host, gracefulShutdownTimeout) => {
     const rawServer = http.createServer()
     return NodeHttpServer.make(() => rawServer, {
-      port,
+      port: portOverride ?? port,
       host,
       ...(gracefulShutdownTimeout === undefined ? {} : { gracefulShutdownTimeout })
     }).pipe(

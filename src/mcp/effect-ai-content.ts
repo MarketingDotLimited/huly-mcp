@@ -15,9 +15,7 @@ const imageContent = (content: McpImageContent) => ({
   mimeType: content.mimeType
 })
 
-const errorMetadata = (
-  response: Extract<McpToolResponse, { readonly isError: true }>
-): Record<string, unknown> => ({
+const errorMetadata = (response: Extract<McpToolResponse, { readonly isError: true }>): Record<string, unknown> => ({
   errorCode: response._meta?.errorCode ?? INTERNAL_ERROR_CODE,
   ...(response._meta?.errorTag === undefined ? {} : { errorTag: response._meta.errorTag })
 })
@@ -32,11 +30,7 @@ export const toEffectCallToolResult = (response: McpToolResponse): EffectCallToo
   if (image !== undefined) content.push(imageContent(image))
 
   return response.isError === true
-    ? new McpSchema.CallToolResult({
-        content,
-        isError: true,
-        _meta: errorMetadata(response)
-      })
+    ? new McpSchema.CallToolResult({ content, isError: true, _meta: errorMetadata(response) })
     : new McpSchema.CallToolResult({
         content,
         ...(response.structuredContent === undefined ? {} : { structuredContent: response.structuredContent })

@@ -354,9 +354,9 @@ export const executeRegisteredOperation = (
   storageClient: HulyStorageClient["Service"],
   workspaceClient?: WorkspaceClientOperations
 ): Effect.Effect<McpToolResponse, never> =>
-  operation.execute(args, hulyClient, storageClient, workspaceClient).pipe(
-    Effect.match({ onFailure: operationFailureToMcp, onSuccess: operationSuccessToMcp })
-  )
+  operation
+    .execute(args, hulyClient, storageClient, workspaceClient)
+    .pipe(Effect.match({ onFailure: operationFailureToMcp, onSuccess: operationSuccessToMcp }))
 
 const defineProvidedTool = <const Name extends string, P, Svc, S extends ResultSchema>(
   spec: ToolSpec<Name, S>,

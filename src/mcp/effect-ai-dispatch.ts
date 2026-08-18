@@ -2,8 +2,9 @@ import { Effect, Exit, Schema } from "effect"
 
 import { type GetHulyContextResult, GetHulyContextResultSchema } from "../domain/schemas/index.js"
 import { HulyError } from "../huly/errors-base.js"
-import type { ClientBundle, ClientResolver } from "../runtime/client-resolver.js"
+import { type ClientBundle, type ClientResolver, resolveClientBundleAbortably } from "../runtime/client-resolver.js"
 import { VERSION } from "../version.js"
+import { EffectMcpBoundaryError } from "./effect-ai-boundary-error.js"
 import type { McpToolResponse } from "./error-mapping.js"
 import {
   createSuccessResponse,
@@ -51,25 +52,24 @@ export const fetchLatestNpmVersion = async (fetchImpl: typeof fetch = fetch): Pr
 }
 
 export interface EffectMcpDispatchOptions {
-  readonly getHulyContext: (toolExposure: ToolExposureContext) => GetHulyContextResult
+  readonly getHulyContext: (toolExposure: ToolExposureContext) => Effect.Effect<GetHulyContextResult>
 }
 
-const errorResponse = (message: string, errorCode: "invalid" | "internal"): McpToolResponse =>
-  errorCode === "invalid"
-    ? { content: [{ type: "text", text: message }], isError: true, _meta: { errorCode: -32602 } }
-    : { content: [{ type: "text", text: message }], isError: true, _meta: { errorCode: -32603 } }
+const invalidArgumentsResponse = (message: string): McpToolResponse => ({
+  content: [{ type: "text", text: message }],
+  isError: true,
+  _meta: { errorCode: -32602 }
+})
 
 const parseToolArguments = (tool: ToolDefinition, args: unknown): McpToolResponse | undefined => {
   if (isNoArgumentTool(tool) && !isEmptyArgumentsObject(args)) {
-    return errorResponse(
-      `Invalid parameters for ${tool.name}: this tool does not accept arguments. Pass {} or omit arguments.`,
-      "invalid"
+    return invalidArgumentsResponse(
+      `Invalid parameters for ${tool.name}: this tool does not accept arguments. Pass {} or omit arguments.`
     )
   }
   if (args === undefined && requiresArgumentsObject(tool)) {
-    return errorResponse(
-      `Invalid parameters for ${tool.name}: missing arguments object. Pass an arguments object; use {} when you want defaults for optional parameters.`,
-      "invalid"
+    return invalidArgumentsResponse(
+      `Invalid parameters for ${tool.name}: missing arguments object. Pass an arguments object; use {} when you want defaults for optional parameters.`
     )
   }
   return undefined
@@ -78,9 +78,10 @@ const parseToolArguments = (tool: ToolDefinition, args: unknown): McpToolRespons
 const clientResolutionEffect = (
   resolveClients: ClientResolver
 ): Effect.Effect<Exit.Exit<ClientBundle, unknown>, never> =>
-  Effect.tryPromise({ try: resolveClients, catch: (cause) => cause }).pipe(
-    Effect.match({ onFailure: (cause) => Exit.fail(cause), onSuccess: (result) => result })
-  )
+  Effect.tryPromise({
+    try: (signal) => resolveClientBundleAbortably(resolveClients, signal),
+    catch: (cause) => new EffectMcpBoundaryError({ cause })
+  }).pipe(Effect.match({ onFailure: (error) => Exit.fail(error.cause), onSuccess: (result) => result }))
 
 const callVersionTool = (
   args: unknown,
@@ -88,14 +89,14 @@ const callVersionTool = (
 ): Effect.Effect<McpToolResponse, never> =>
   Effect.gen(function* () {
     if (!isEmptyArgumentsObject(args)) {
-      return errorResponse(
-        `Invalid parameters for ${VERSION_TOOL_NAME}: this tool does not accept arguments. Pass {} or omit arguments.`,
-        "invalid"
+      return invalidArgumentsResponse(
+        `Invalid parameters for ${VERSION_TOOL_NAME}: this tool does not accept arguments. Pass {} or omit arguments.`
       )
     }
-    const latest = yield* Effect.tryPromise({ try: fetchLatestVersion, catch: (cause) => cause }).pipe(
-      Effect.match({ onFailure: () => NPM_UNKNOWN_VERSION, onSuccess: (value) => value })
-    )
+    const latest = yield* Effect.tryPromise({
+      try: fetchLatestVersion,
+      catch: (cause) => new EffectMcpBoundaryError({ cause })
+    }).pipe(Effect.match({ onFailure: () => NPM_UNKNOWN_VERSION, onSuccess: (value) => value }))
     const result = Schema.decodeUnknownResult(VersionToolResultSchema)({ current: VERSION, latest })
     if (result._tag === "Success") return createSuccessResponse(result.success)
     return mapDomainErrorToMcp(new HulyError({ message: "Failed to build version result" }))
@@ -106,17 +107,14 @@ const callHulyContextTool = (
   options: EffectMcpDispatchOptions,
   exposure: ReturnType<typeof resolveProtocolExposure>
 ): Effect.Effect<McpToolResponse, never> =>
-  Effect.sync(() => {
+  Effect.gen(function* () {
     if (!isEmptyArgumentsObject(args)) {
-      return errorResponse(
-        `Invalid parameters for ${GET_HULY_CONTEXT_TOOL_NAME}: this tool does not accept arguments. Pass {} or omit arguments.`,
-        "invalid"
+      return invalidArgumentsResponse(
+        `Invalid parameters for ${GET_HULY_CONTEXT_TOOL_NAME}: this tool does not accept arguments. Pass {} or omit arguments.`
       )
     }
-    const result = Schema.decodeUnknownResult(GetHulyContextResultSchema)(options.getHulyContext(exposure.context))
-    return result._tag === "Success"
-      ? createSuccessResponse(result.success)
-      : mapDomainErrorToMcp(new HulyError({ message: "Failed to build Huly context" }))
+    const context = yield* options.getHulyContext(exposure.context)
+    return createSuccessResponse(GetHulyContextResultSchema.make(context))
   })
 
 const callProxyWithClients = (
@@ -140,12 +138,9 @@ const callProxyWithClients = (
             ...(clients.value.workspaceClient === undefined ? {} : { workspaceClient: clients.value.workspaceClient })
           }
         }),
-      catch: (cause) => cause
+      catch: (cause) => new EffectMcpBoundaryError({ cause })
     }).pipe(
-      Effect.match({
-        onFailure: (cause) => mapClientResolutionErrorToMcp(cause),
-        onSuccess: (value) => value
-      })
+      Effect.match({ onFailure: (error) => mapClientResolutionErrorToMcp(error.cause), onSuccess: (value) => value })
     )
   })
 
@@ -157,14 +152,8 @@ const callProxyTool = (
 ): Effect.Effect<McpToolResponse, never> => {
   if (exposure.context.resolvedMode !== "proxy") return Effect.succeed(createUnknownToolError(name))
   if (name === "invoke_tool") return callProxyWithClients(name, args, exposure, resolveClients)
-  return Effect.tryPromise({
-    try: () => handleProxyToolCall({ toolName: name, args, proxyCandidateRegistry: exposure.proxyCandidateRegistry }),
-    catch: (cause) => cause
-  }).pipe(
-    Effect.match({
-      onFailure: () => createUnknownToolError(name),
-      onSuccess: (value) => value
-    })
+  return Effect.promise(() =>
+    handleProxyToolCall({ toolName: name, args, proxyCandidateRegistry: exposure.proxyCandidateRegistry })
   )
 }
 

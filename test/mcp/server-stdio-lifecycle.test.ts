@@ -1,5 +1,6 @@
 import { describe, it } from "@effect/vitest"
 import { Context, Effect, Exit, Fiber, Layer } from "effect"
+import { TestClock } from "effect/testing"
 import { expect } from "vitest"
 
 import { sanitizeHulyRuntimeConfigFromEnv } from "../../src/config/config.js"
@@ -11,11 +12,7 @@ import type { StdioProcessPort, StdioShutdownHandlers } from "../../src/mcp/stdi
 import { TelemetryService } from "../../src/telemetry/telemetry.js"
 import { inertHttpServerFactory } from "./http-test-support.js"
 
-const runtimeEnv = {
-  HULY_URL: "https://huly.example.com",
-  HULY_WORKSPACE: "workspace",
-  HULY_TOKEN: "test-token"
-}
+const runtimeEnv = { HULY_URL: "https://huly.example.com", HULY_WORKSPACE: "workspace", HULY_TOKEN: "test-token" }
 
 class RecordingStdioProcess implements StdioProcessPort {
   private handlers: StdioShutdownHandlers | undefined
@@ -41,14 +38,9 @@ class RecordingStdioProcess implements StdioProcessPort {
   }
 }
 
-const makeBundle = Effect.fn("makeBundle")(function*() {
-  const context = yield* Layer.build(
-    Layer.mergeAll(HulyClient.testLayer({}), HulyStorageClient.testLayer({}))
-  )
-  return {
-    hulyClient: Context.get(context, HulyClient),
-    storageClient: Context.get(context, HulyStorageClient)
-  }
+const makeBundle = Effect.fn("makeBundle")(function* () {
+  const context = yield* Layer.build(Layer.mergeAll(HulyClient.testLayer({}), HulyStorageClient.testLayer({})))
+  return { hulyClient: Context.get(context, HulyClient), storageClient: Context.get(context, HulyStorageClient) }
 })
 
 const buildOperations = Effect.fn("buildOperations")(function* (stdioProcess: StdioProcessPort) {
@@ -76,7 +68,7 @@ const runReady = Effect.fn("runReady")(function* (operations: McpServerService["
 
 describe("McpServerService Effect stdio lifecycle", () => {
   it.effect("stops cleanly through the owner operation", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const process = new RecordingStdioProcess()
       const operations = yield* buildOperations(process)
       const fiber = yield* runReady(operations)
@@ -85,41 +77,49 @@ describe("McpServerService Effect stdio lifecycle", () => {
       yield* Fiber.join(fiber)
 
       expect(process.forcedExitCodes).toEqual([])
-    }))
+    })
+  )
 
   it.effect("treats EOF as ownership loss and completes successfully", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const process = new RecordingStdioProcess()
       const operations = yield* buildOperations(process)
       const fiber = yield* runReady(operations)
 
       process.emitEof()
+      yield* Effect.yieldNow
+      yield* TestClock.adjust("250 millis")
       yield* Fiber.join(fiber)
 
       expect(process.forcedExitCodes).toEqual([])
-    }))
+    })
+  )
 
   it.effect("coalesces signal and EOF requests", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const process = new RecordingStdioProcess()
       const operations = yield* buildOperations(process)
       const fiber = yield* runReady(operations)
 
       process.emitEof()
       process.emitSigterm()
+      yield* Effect.yieldNow
+      yield* TestClock.adjust("250 millis")
       yield* operations.stop()
       yield* Fiber.join(fiber)
 
       expect(process.forcedExitCodes).toEqual([])
-    }))
+    })
+  )
 
   it.effect("reports awaitReady before startup as a typed error", () =>
-    Effect.gen(function*() {
+    Effect.gen(function* () {
       const process = new RecordingStdioProcess()
       const operations = yield* buildOperations(process)
       const error = yield* operations.awaitReady().pipe(Effect.flip)
 
       expect(error._tag).toBe("McpServerError")
       expect(error.message).toBe("MCP server is not running")
-    }))
+    })
+  )
 })

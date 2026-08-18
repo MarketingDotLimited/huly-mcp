@@ -27,7 +27,7 @@ const TextContentBoundary = Schema.Struct({ type: Schema.Literal("text"), text: 
 export const CertificationConnectionConfigSchema = Schema.Struct({
   url: UrlString,
   workspace: WorkspaceName,
-  token: Schema.Redacted(NonEmptyString)
+  token: Schema.RedactedFromValue(NonEmptyString)
 })
 export type CertificationConnectionConfig = Schema.Schema.Type<typeof CertificationConnectionConfigSchema>
 

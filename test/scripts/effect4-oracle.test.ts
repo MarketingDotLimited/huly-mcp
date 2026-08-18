@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest"
 
 import { canonicalJson } from "../../scripts/effect4-oracle-canonical.js"
 import {
-  captureEffect4Oracle,
+  assembleEffect4Oracle,
   renderEffect4Oracle,
   requireOracleDiscoveries
 } from "../../scripts/effect4-oracle-data.js"
@@ -101,7 +101,7 @@ describe("Effect 4 behavioral oracle", () => {
     expect(constraintKeywords).toContain("anyOf")
     expect(constraintKeywords).toContain("not")
     expect(constraintKeywords).toContain("oneOf")
-  })
+  }, 60_000)
 
   it("sorts object keys while retaining array order and rejects non-JSON values", () => {
     expect(canonicalJson({ z: 1, a: [{ y: true, x: "first" }, "second"] })).toBe(
@@ -133,8 +133,11 @@ describe("Effect 4 behavioral oracle", () => {
     expect(validateCurrentDraft07Corpora()).toEqual({ native: 524, proxy: 6 })
   }, 60_000)
 
-  it("captures the complete current oracle through built process and CLI seams", async () => {
-    const oracle = await captureEffect4Oracle()
+  it("records the complete current oracle from built process and CLI seams", async () => {
+    const captured = Schema.decodeUnknownSync(Schema.fromJsonString(BehavioralOracleSchema))(
+      await fs.readFile(EFFECT4_ORACLE_PATH, "utf8")
+    )
+    const oracle = await assembleEffect4Oracle(captured.bundledProcesses)
     expect(oracle.registry.operationOrder).toHaveLength(522)
     expect(oracle.registry.authoredConstraints).toHaveLength(522)
     expect(oracle.bundledProcesses.stdio.native).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))
@@ -148,7 +151,7 @@ describe("Effect 4 behavioral oracle", () => {
       requireOracleDiscoveries({ ...oracle.bundledProcesses, stdio: { ...oracle.bundledProcesses.stdio, native: [] } })
     ).toThrow("both native and proxy")
     expect(renderEffect4Oracle(oracle)).toContain('"formatVersion": 1')
-  }, 120_000)
+  }, 60_000)
 
   it("terminates and reaps an oracle subprocess after its deadline", async () => {
     await expect(

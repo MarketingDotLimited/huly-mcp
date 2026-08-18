@@ -40,25 +40,21 @@ const MCP_HTTP_TEST_PORT = "9090"
 const provideConfig = (values: Record<string, string>) =>
   Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(values)))
 
-const discoveryRequest = (authorization?: string): RequestInit => ({
+const initializeRequest = (authorization?: string): RequestInit => ({
   method: "POST",
   headers: {
     accept: "application/json, text/event-stream",
     "content-type": "application/json",
-    "mcp-protocol-version": "2026-07-28",
-    "mcp-method": "server/discover",
     ...(authorization === undefined ? {} : { authorization })
   },
   body: JSON.stringify({
     jsonrpc: "2.0",
     id: 1,
-    method: "server/discover",
+    method: "initialize",
     params: {
-      _meta: {
-        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
-        "io.modelcontextprotocol/clientCapabilities": {},
-        "io.modelcontextprotocol/clientInfo": { name: "index-auth-test", version: "1.0.0" }
-      }
+      protocolVersion: "2025-06-18",
+      capabilities: {},
+      clientInfo: { name: "index-auth-test", version: "1.0.0" }
     }
   })
 })
@@ -217,9 +213,9 @@ describe("Main Entry Point", () => {
           const endpoint = `http://127.0.0.1:${address.port}/mcp`
 
           yield* Effect.gen(function* () {
-            const rejected = yield* Effect.promise(() => fetch(endpoint, discoveryRequest()))
+            const rejected = yield* Effect.promise(() => fetch(endpoint, initializeRequest()))
             const accepted = yield* Effect.promise(() =>
-              fetch(endpoint, discoveryRequest("Bearer mcp-endpoint-secret"))
+              fetch(endpoint, initializeRequest("Bearer mcp-endpoint-secret"))
             )
             yield* Effect.promise(() => Promise.all([rejected.text(), accepted.text()]))
 
