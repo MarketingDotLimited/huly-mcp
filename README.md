@@ -311,7 +311,10 @@ The server exposes read-only MCP Resources as JSON context for clients that supp
 | `huly://projects/{project}/issues/{issue}` | `huly-project-issue` | Read full details for a Huly issue by project identifier and issue number, for example huly://projects/HULY/issues/123. | `application/json` |
 <!-- resources:end -->
 
-`resources/list` returns concrete active project resources. Issue resources are template-based: use `resources/templates/list` to discover supported issue URI templates, then read a known issue URI.
+In process-scoped stdio, `resources/list` returns concrete active project
+resources. HTTP keeps that process-global list empty to avoid exposing one
+request-scoped workspace to another; use `resources/templates/list` and read a
+known project or issue URI with the current request's Huly headers.
 
 ## Backlog
 
