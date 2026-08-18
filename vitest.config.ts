@@ -21,6 +21,10 @@ export default defineConfig({
         'src/domain/schemas.ts',
         'src/domain/schemas/index.ts',
         'src/index.ts',
+        // The dependency-light process shells are exercised as a built executable under Node 20 by package-smoke;
+        // protocol parsing/routing and version decisions remain in the unit coverage gate.
+        'src/launcher.ts',
+        'src/unsupported-node-mcp-stdio.ts',
         'src/polyfills.ts',
         'src/version.ts',
         // Cross-platform process-tree control is an imperative quality-harness adapter. Dedicated tests cover
