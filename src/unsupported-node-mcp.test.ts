@@ -40,6 +40,7 @@ describe("unsupported Node MCP", () => {
     expect(() => parseUnsupportedNodeMcpConfig({ ...config, executable: "" })).toThrow()
     expect(() => parseUnsupportedNodeMcpConfig({ ...config, detectedNodeVersion: "twenty" })).toThrow()
     expect(() => parseUnsupportedNodeMcpConfig({ ...config, requiredNodeVersion: "^22.19.0" })).toThrow()
+    expect(() => parseUnsupportedNodeMcpConfig({ ...config, detectedNodeVersion: "23.0.0" })).toThrow()
   })
 
   it.each([

@@ -1,7 +1,8 @@
 import { Result, Schema } from "effect"
 
+const minimumRequirementPrefix = ">="
 const nodeVersionPattern = /^\d{1,9}\.\d{1,9}\.\d{1,9}$/u
-const nodeRequirementPattern = /^>=\d{1,9}\.\d{1,9}\.\d{1,9}$/u
+const nodeRequirementPattern = new RegExp(`^${minimumRequirementPrefix}\\d{1,9}\\.\\d{1,9}\\.\\d{1,9}$`, "u")
 const NodeVersionTextSchema = Schema.String.check(Schema.isPattern(nodeVersionPattern)).pipe(
   Schema.brand("NodeVersionText")
 )
@@ -43,7 +44,53 @@ const JsonRpcRequestSchema = Schema.Struct({
 })
 const InitializeParamsSchema = Schema.Struct({ protocolVersion: Schema.NonEmptyString })
 const ToolCallParamsSchema = Schema.Struct({ name: Schema.String })
-const JsonRpcSuccessSchema = Schema.Struct({ jsonrpc: Schema.Literal("2.0"), id: JsonRpcIdSchema, result: Schema.Json })
+const EmptyObjectSchema = Schema.Struct({}).check(Schema.isMaxProperties(0))
+const DiagnosticToolSchema = Schema.Struct({
+  name: Schema.Literal(diagnosticToolName),
+  description: Schema.NonEmptyString,
+  inputSchema: Schema.Struct({
+    additionalProperties: Schema.Literal(false),
+    properties: EmptyObjectSchema,
+    type: Schema.Literal("object")
+  }),
+  annotations: Schema.Struct({
+    destructiveHint: Schema.Literal(false),
+    idempotentHint: Schema.Literal(true),
+    openWorldHint: Schema.Literal(false),
+    readOnlyHint: Schema.Literal(true)
+  })
+})
+const InitializeResultSchema = Schema.Struct({
+  capabilities: Schema.Struct({ tools: Schema.Struct({ listChanged: Schema.Literal(false) }) }),
+  instructions: Schema.NonEmptyString,
+  protocolVersion: Schema.NonEmptyString,
+  serverInfo: Schema.Struct({ name: Schema.Literal("huly-mcp"), version: Schema.NonEmptyString })
+})
+const PingResultSchema = EmptyObjectSchema
+const ToolsListResultSchema = Schema.Struct({ tools: Schema.Tuple([DiagnosticToolSchema]) })
+const DiagnosticToolResultSchema = Schema.Struct({
+  content: Schema.Tuple([Schema.Struct({ text: Schema.NonEmptyString, type: Schema.Literal("text") })]),
+  isError: Schema.Literal(true),
+  structuredContent: Schema.Struct({
+    error: Schema.Struct({
+      code: Schema.Literal("UNSUPPORTED_NODE_RUNTIME"),
+      detectedNodeVersion: NodeVersionTextSchema,
+      executable: Schema.NonEmptyString,
+      requiredNodeVersion: NodeRequirementTextSchema
+    })
+  })
+})
+const JsonRpcResultSchema = Schema.Union([
+  InitializeResultSchema,
+  PingResultSchema,
+  ToolsListResultSchema,
+  DiagnosticToolResultSchema
+])
+const JsonRpcSuccessSchema = Schema.Struct({
+  jsonrpc: Schema.Literal("2.0"),
+  id: JsonRpcIdSchema,
+  result: JsonRpcResultSchema
+})
 const JsonRpcErrorSchema = Schema.Struct({
   jsonrpc: Schema.Literal("2.0"),
   id: Schema.Union([JsonRpcIdSchema, Schema.Null]),
@@ -55,17 +102,17 @@ type JsonRpcId = Schema.Schema.Type<typeof JsonRpcIdSchema>
 type JsonRpcErrorCode = Schema.Schema.Type<typeof JsonRpcErrorCodeSchema>
 type JsonRpcRequest = Schema.Schema.Type<typeof JsonRpcRequestSchema>
 type JsonRpcResponse = Schema.Schema.Type<typeof JsonRpcResponseSchema>
-type JsonRpcResult = Schema.Schema.Type<typeof Schema.Json>
+type JsonRpcResult = Schema.Schema.Type<typeof JsonRpcResultSchema>
 
 const parseRequest = Schema.decodeUnknownResult(Schema.fromJsonString(JsonRpcRequestSchema))
 const parseInitializeParams = Schema.decodeUnknownResult(InitializeParamsSchema)
 const parseToolCallParams = Schema.decodeUnknownResult(ToolCallParamsSchema)
 const encodeResponse = Schema.encodeSync(Schema.fromJsonString(JsonRpcResponseSchema))
 
-export const parseUnsupportedNodeMcpConfig = Schema.decodeUnknownSync(UnsupportedNodeMcpConfigSchema)
+const parseUnsupportedNodeMcpConfigBoundary = Schema.decodeUnknownSync(UnsupportedNodeMcpConfigSchema)
 
 export const renderUnsupportedNodeDiagnostic = (config: UnsupportedNodeMcpConfig): string => {
-  const minimumVersion = config.requiredNodeVersion.replace(/^>=/u, "")
+  const minimumVersion = config.requiredNodeVersion.slice(minimumRequirementPrefix.length)
   return (
     `Huly MCP startup failed: unsupported Node.js runtime. Detected ${config.detectedNodeVersion} at ${config.executable}; ` +
     `required ${config.requiredNodeVersion}. MCP hosts use the Node.js executable resolved by their configured ` +
@@ -87,16 +134,24 @@ const parseSemanticVersion = (value: NodeVersionText): SemanticVersion => {
   })
 }
 
-export const isUnsupportedNodeRuntime = (actual: string, requirement: string): boolean => {
+export const isUnsupportedNodeRuntime = (actual: unknown, requirement: unknown): boolean => {
   const actualText = parseNodeVersionText(actual)
   const requirementText = parseNodeRequirementText(requirement)
   if (Result.isFailure(actualText) || Result.isFailure(requirementText)) return true
-  const minimumText = parseMinimumNodeVersionText(requirementText.success.slice(">=".length))
+  const minimumText = parseMinimumNodeVersionText(requirementText.success.slice(minimumRequirementPrefix.length))
   const actualVersion = parseSemanticVersion(actualText.success)
   const minimumVersion = parseSemanticVersion(minimumText)
   if (actualVersion.major !== minimumVersion.major) return actualVersion.major < minimumVersion.major
   if (actualVersion.minor !== minimumVersion.minor) return actualVersion.minor < minimumVersion.minor
   return actualVersion.patch < minimumVersion.patch
+}
+
+export const parseUnsupportedNodeMcpConfig = (input: unknown): UnsupportedNodeMcpConfig => {
+  const config = parseUnsupportedNodeMcpConfigBoundary(input)
+  if (!isUnsupportedNodeRuntime(config.detectedNodeVersion, config.requiredNodeVersion)) {
+    throw new Error("Unsupported Node MCP configuration requires an unsupported detected runtime")
+  }
+  return config
 }
 
 const success = (id: JsonRpcId, result: JsonRpcResult): JsonRpcResponse => ({ id, jsonrpc: "2.0", result })
