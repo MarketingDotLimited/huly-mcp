@@ -1,5 +1,3 @@
-import type { Server } from "@modelcontextprotocol/server"
-
 import type { ClientBundle } from "../runtime/client-resolver.js"
 
 export interface RequestClientLease<A = ClientBundle> {
@@ -11,8 +9,6 @@ export interface RequestClientLifecycle<A = ClientBundle> {
   readonly resolve: () => Promise<A>
   readonly close: () => Promise<void>
 }
-
-export type RequestClientCleanupErrorHandler = (error: Error) => void
 
 /**
  * Lazily acquires at most one request-scoped Huly client bundle and releases it
@@ -55,55 +51,4 @@ export const createRequestClientLifecycle = <A>(
   }
 
   return { resolve, close }
-}
-
-/**
- * Binds request-client cleanup to the SDK-owned server lifecycle while
- * preserving any pre-existing close observer.
- */
-export const attachRequestClientLifecycle = <A>(
-  server: Server,
-  lifecycle: RequestClientLifecycle<A>,
-  onCleanupError: RequestClientCleanupErrorHandler
-): void => {
-  const previousOnClose = server.onclose
-  const originalClose = server.close.bind(server)
-  let serverClosePromise: Promise<void> | undefined
-  let wrapperCloseInProgress = false
-  let cleanupErrorReported = false
-  const reportCleanupError = (error: unknown): void => {
-    if (cleanupErrorReported) return
-    cleanupErrorReported = true
-    onCleanupError(error instanceof Error ? error : new Error(String(error)))
-  }
-
-  server.onclose = () => {
-    if (!wrapperCloseInProgress) void lifecycle.close().catch(reportCleanupError)
-    previousOnClose?.()
-  }
-  server.close = () => {
-    if (serverClosePromise !== undefined) return serverClosePromise
-    wrapperCloseInProgress = true
-    serverClosePromise = (async () => {
-      const closeOriginal = async (): Promise<void> => {
-        try {
-          await originalClose()
-        } finally {
-          wrapperCloseInProgress = false
-        }
-      }
-      const [serverResult] = await Promise.allSettled([closeOriginal()])
-      const [lifecycleResult] = await Promise.allSettled([lifecycle.close()])
-      if (lifecycleResult.status === "rejected") reportCleanupError(lifecycleResult.reason)
-      if (serverResult.status === "rejected" && lifecycleResult.status === "rejected") {
-        throw new AggregateError(
-          [serverResult.reason, lifecycleResult.reason],
-          "MCP server and request-client cleanup both failed"
-        )
-      }
-      if (serverResult.status === "rejected") throw serverResult.reason
-      if (lifecycleResult.status === "rejected") throw lifecycleResult.reason
-    })()
-    return serverClosePromise
-  }
 }

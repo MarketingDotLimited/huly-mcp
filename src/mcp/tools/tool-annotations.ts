@@ -1,4 +1,4 @@
-import type { ToolAnnotations } from "@modelcontextprotocol/server"
+import type { ToolAnnotations } from "./registry.js"
 
 interface AnnotatedTool {
   readonly name: string
