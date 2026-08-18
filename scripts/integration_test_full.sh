@@ -1378,8 +1378,13 @@ if [ "$INTEGRATION_SURFACE" = "mcp" ]; then
   RESOURCE_LIST_JSON=""
   if run_result_to_var RESOURCE_LIST_JSON "resources/list(projects)" \
     '{"jsonrpc":"2.0","method":"resources/list","id":2}'; then
-    assert_json_field_equals "resources/list includes project($PROJECT)" "$RESOURCE_LIST_JSON" \
-      ".resources[]? | select(.uri == \"huly://projects/$PROJECT\") | .name" "$PROJECT"
+    if [ "$INTEGRATION_TRANSPORT" = "http" ]; then
+      assert_json_field_equals "HTTP resources/list is session-safe and template-only" "$RESOURCE_LIST_JSON" \
+        ".resources | length" "0"
+    else
+      assert_json_field_equals "resources/list includes project($PROJECT)" "$RESOURCE_LIST_JSON" \
+        ".resources[]? | select(.uri == \"huly://projects/$PROJECT\") | .name" "$PROJECT"
+    fi
   fi
   run_test "resources/read project($PROJECT)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"resources/read\",\"params\":{\"uri\":\"huly://projects/$PROJECT\"},\"id\":2}"

@@ -43,6 +43,14 @@ schemas where representable, rich content, resource handlers, authentication,
 sanitized configuration, request-scoped Huly cleanup, and shutdown guarantees
 remain required.
 
+Concrete resource discovery is process-scoped and therefore enabled only for
+stdio. Effect AI's HTTP resource registry is process-global, while Huly HTTP
+credentials and workspaces are request-scoped; registering one request's
+project URIs globally could disclose another workspace's identifiers. HTTP
+therefore exposes the three resource templates, keeps `resources/list` empty,
+and resolves every `resources/read` through the current request's sanitized
+configuration and scoped client lease.
+
 Certification drives the real built artifact over both transports. The wire
 client used by certification is deliberately small and dependency-free: it
 implements NDJSON response matching and HTTP session headers directly, while

@@ -45,23 +45,40 @@ export const createHttpClientLeaseResolver =
   (
     combinedClientLayer: CombinedClientLayer,
     resolveEnvClients: ClientResolver
-  ): ((request: Request) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>) =>
-  async (request) => {
-    const providerExit = await Effect.runPromiseExit(hulyConfigProviderFromHeaders(webHeadersRecord(request.headers)))
+  ): ((
+    request: Request,
+    signal: AbortSignal
+  ) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>) =>
+  async (request, signal) => {
+    const providerExit = await awaitAbortably(
+      Effect.runPromiseExit(hulyConfigProviderFromHeaders(webHeadersRecord(request.headers)), { signal }),
+      signal,
+      "Huly HTTP configuration parsing was interrupted"
+    )
     if (Exit.isFailure(providerExit)) {
       return { bundle: Exit.failCause(providerExit.cause), close: () => {} }
     }
 
     const configProvider = providerExit.value
     if (configProvider === undefined) {
-      return resolveEnvClients().then((bundle) => ({ bundle, close: () => {} }))
+      const bundle = await awaitAbortably(
+        resolveEnvClients(),
+        signal,
+        "Huly HTTP process client acquisition was interrupted"
+      )
+      return { bundle, close: () => {} }
     }
 
-    const clientExit = await Effect.runPromiseExit(
-      buildScopedClientBundle(combinedClientLayer).pipe(
-        Effect.provideService(ConfigProvider.ConfigProvider, configProvider),
-        Effect.map(({ bundle, close }) => ({ bundle: Exit.succeed(bundle), close }))
-      )
+    const clientExit = await awaitAbortably(
+      Effect.runPromiseExit(
+        buildScopedClientBundle(combinedClientLayer).pipe(
+          Effect.provideService(ConfigProvider.ConfigProvider, configProvider),
+          Effect.map(({ bundle, close }) => ({ bundle: Exit.succeed(bundle), close }))
+        ),
+        { signal }
+      ),
+      signal,
+      "Huly HTTP request client acquisition was interrupted"
     )
     return Exit.isSuccess(clientExit) ? clientExit.value : { bundle: Exit.failCause(clientExit.cause), close: () => {} }
   }

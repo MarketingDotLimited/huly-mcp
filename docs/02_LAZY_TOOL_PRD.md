@@ -329,6 +329,10 @@ Optional dynamic flow:
 
 ### `tools/list_changed` Integration (Optional)
 
+The following is a historical SDK-era sketch. The Effect AI cutover removed
+the low-level SDK `Server` and `protocol-handlers.ts`; a future dynamic-list
+feature must use an Effect AI-supported notification hook rather than this API.
+
 ```typescript
 // In search_tools handler:
 const matches = searchTools(query, domainTools)
@@ -344,7 +348,8 @@ const visibleTools = allTools.filter(t =>
 )
 ```
 
-The `Server` instance (low-level API currently used in `server.ts`) exposes `sendToolListChanged()` directly.
+The removed SDK `Server` exposed `sendToolListChanged()` directly; the current
+Effect AI server does not use that API.
 
 ## Implementation Surface
 
@@ -355,7 +360,7 @@ The `Server` instance (low-level API currently used in `server.ts`) exposes `sen
 | `src/mcp/server.ts` | Build the shared tool scope once at startup; pass native/proxy registry views into protocol handlers; include scope data in telemetry/context |
 | `src/mcp/huly-context-tool.ts` | Replace category-only `parseToolsets` summary with scope summary including requested/enabled/ignored toolsets and tools |
 | `src/mcp/tools/index.ts` | Add registry builders that filter by category union and exact tool names, while preserving the full registry for proxy non-strict mode |
-| `src/mcp/protocol-handlers.ts` | Use the native visible registry for direct `tools/list`/native `tools/call`; later, route proxy meta-tools through the proxy candidate registry |
+| `src/mcp/effect-ai-registry.ts` | Apply initialized-client visibility to native/proxy registrations and route calls through the shared Effect AI dispatch adapter |
 | `src/mcp/tools/meta.ts` (new, proxy phase) | `list_tool_categories`, `search_tools`, `get_tool_schema`, and `invoke_tool` definitions plus search logic and category descriptions |
 | `src/domain/schemas/meta.ts` (new, proxy phase) | Schemas for meta-tool inputs and outputs |
 

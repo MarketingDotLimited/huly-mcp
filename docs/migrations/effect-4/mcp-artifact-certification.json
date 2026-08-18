@@ -1,13 +1,13 @@
 {
-  "archiveBytes": 1642098,
-  "bundleBytes": 8711988,
-  "bundleGzipBytes": 1604161,
+  "archiveBytes": 1642483,
+  "bundleBytes": 8713463,
+  "bundleGzipBytes": 1604520,
   "entryCount": 4,
   "executableMode": 493,
   "externalModules": [
     "ws"
   ],
   "name": "@firfi/huly-mcp",
-  "unpackedBytes": 8866152,
+  "unpackedBytes": 8867627,
   "version": "0.49.5"
 }

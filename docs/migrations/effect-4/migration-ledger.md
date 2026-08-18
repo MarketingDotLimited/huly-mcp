@@ -4,6 +4,11 @@ Date: 2026-08-12
 Target cohort: `4.0.0-rc.108`
 Capture runtime: Node `22.22.2` (with the supported-line checks noted below on Node `24.15.0`)
 
+All checkpoint counts and artifact measurements below are historical snapshots
+from the dated migration run. Current release evidence lives in
+`final-parity-report.md`, the behavioral-oracle review, and the artifact
+certification JSON files.
+
 This document preserves the exhaustive, reproducible failure history captured
 immediately after replacing the Effect 3 dependency graph. That controlled-red
 interval is closed: the final checkpoint below records the complete green gate.

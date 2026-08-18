@@ -106,7 +106,8 @@ export const buildAppLayer = (
   authMethod: "token" | "password",
   resolveClients: ClientResolver,
   resolveClientLeaseForHttpRequest: (
-    req: Request
+    req: Request,
+    signal: AbortSignal
   ) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>,
   httpServerFactoryLayer: Layer.Layer<HttpServerFactoryService> = HttpServerFactoryService.defaultLayer,
   closeClients?: () => Promise<void>,

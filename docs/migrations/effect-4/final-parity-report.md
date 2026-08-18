@@ -79,7 +79,7 @@ mise exec node@22.22.2 -- pnpm check-all
 ```
 
 It passed on the final tree after this report and the integration-driven fixes:
-864 files produced zero strict Effect diagnostics, all 291 test files and 4,140
+864 files produced zero strict Effect diagnostics, all 291 test files and 4,143
 tests passed, and coverage was 99.53% statements, 99.00% branches, 99.09%
 functions, and 99.57% lines. The gate retains the existing TypeScript 7, strict Effect diagnostics,
 circular-dependency, complexity, schema-boundary, no-mocks, duplication, and 99%

@@ -79,7 +79,8 @@ interface McpServerConfigCallbacks {
     signal: AbortSignal
   ) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>
   readonly resolveClientLeaseForHttpRequest?: (
-    req: Request
+    req: Request,
+    signal: AbortSignal
   ) => Promise<RequestClientLease<Exit.Exit<ClientBundle, HulyClientBundleError>>>
   readonly getRuntimeConfigContext?: () => SanitizedHulyRuntimeConfigContext
   readonly getRuntimeConfigContextForHttpRequest?: (req: Request) => SanitizedHulyRuntimeConfigContext
@@ -96,8 +97,8 @@ const resourceDiscoveryRegistryOptions = (
   readonly discoverConcreteResources: boolean
   readonly resolveResourceClientLease?: NonNullable<McpServerConfigCallbacks["resolveClientLeaseForResourceDiscovery"]>
 } => ({
-  discoverConcreteResources: true,
-  ...(config.resolveClientLeaseForResourceDiscovery === undefined
+  discoverConcreteResources: config.transport === "stdio",
+  ...(config.transport === "http" || config.resolveClientLeaseForResourceDiscovery === undefined
     ? {}
     : { resolveResourceClientLease: config.resolveClientLeaseForResourceDiscovery })
 })
@@ -231,8 +232,9 @@ const requestContextMiddleware =
         sanitizeHulyRuntimeConfigFromEnv(process.env)
       const resolveLease =
         config.resolveClientLeaseForHttpRequest ??
-        ((_request: Request) => config.resolveClients().then((bundle) => ({ bundle, close: () => {} })))
-      const lifecycle = createRequestClientLifecycle(() => resolveLease(webRequest))
+        ((_request: Request, _signal: AbortSignal) =>
+          config.resolveClients().then((bundle) => ({ bundle, close: () => {} })))
+      const lifecycle = createRequestClientLifecycle((signal) => resolveLease(webRequest, signal))
       const requestContext = McpRequestContextService.of({ runtimeConfig, resolveClients: lifecycle.resolve })
       return yield* Effect.acquireUseRelease(
         Effect.succeed(requestContext),

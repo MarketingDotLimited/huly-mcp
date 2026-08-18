@@ -19,9 +19,15 @@ import {
   createSuccessResponse,
   type McpToolResponse
 } from "../../src/mcp/error-mapping.js"
-import { dispatchEffectMcpTool, fetchLatestNpmVersion } from "../../src/mcp/effect-ai-dispatch.js"
+import {
+  deriveEditMode,
+  dispatchEffectMcpTool,
+  effectMcpEditMode,
+  fetchLatestNpmVersion
+} from "../../src/mcp/effect-ai-dispatch.js"
 import {
   effectMcpBuiltinVisible,
+  effectMcpFirstListVisibility,
   effectMcpNativeVisibility,
   effectMcpNativeVisible,
   effectMcpProxyVisibility,
@@ -143,6 +149,22 @@ const dispatch = (
   )
 
 describe("Effect AI MCP dispatch", () => {
+  it("derives native and proxy document edit telemetry modes", () => {
+    expect(deriveEditMode("edit_document", { old_text: "before", new_text: "after" })).toBe("search_and_replace")
+    expect(deriveEditMode("edit_document", { content: "replacement" })).toBe("full_replace")
+    expect(deriveEditMode("edit_document", { title: "Renamed" })).toBe("title_only")
+    expect(deriveEditMode("edit_document", "not an arguments object")).toBeUndefined()
+    expect(
+      effectMcpEditMode("invoke_tool", {
+        toolName: "edit_document",
+        arguments: { old_text: "before", new_text: "after" }
+      })
+    ).toBe("search_and_replace")
+    expect(effectMcpEditMode("invoke_tool", { toolName: "missing tool" })).toBeUndefined()
+    expect(effectMcpEditMode("invoke_tool", "not an arguments object")).toBeUndefined()
+    expect(effectMcpEditMode("list_projects", {})).toBeUndefined()
+  })
+
   it("normalizes unavailable and malformed npm latest-version responses", async () => {
     await expect(fetchLatestNpmVersion(async () => new Response(JSON.stringify({ version: 7 })))).resolves.toBe(
       "unknown"
@@ -429,13 +451,14 @@ const clientService = (name: string) =>
 describe("Effect AI registered tool handlers", () => {
   it("applies initialized-client exposure, telemetry, and quiescing", async () => {
     const calls: Array<ToolCalledProps> = []
+    const firstLists: Array<unknown> = []
     const noticeEvents = { delivered: 0, released: 0 }
     let noticeClaimed = false
     const adapter = makeEffectMcpRegistry({
       resolveClients: failedResolver,
       telemetry: {
         sessionStart: () => {},
-        firstListTools: () => {},
+        firstListTools: (props) => firstLists.push(props),
         toolCalled: (props) => calls.push(props),
         shutdown: async () => {}
       },
@@ -462,6 +485,23 @@ describe("Effect AI registered tool handlers", () => {
         Effect.gen(function* () {
           yield* adapter.registration
           const server = yield* McpServer
+          expect(
+            effectMcpFirstListVisibility(
+              {
+                resolveClients: failedResolver,
+                telemetry: {
+                  sessionStart: () => {},
+                  firstListTools: (props) => firstLists.push(props),
+                  toolCalled: () => {},
+                  shutdown: async () => {}
+                },
+                registry: toolRegistry,
+                getHulyContext: (exposure) => Effect.succeed(contextResult(exposure))
+              },
+              protocols,
+              proxyOptions
+            )(initializePayload("codex-cli"))
+          ).toBe(true)
           const version = yield* server
             .callTool({ name: "get_version", arguments: {} })
             .pipe(Effect.provideService(McpSchema.McpServerClient, clientService("codex-cli")))
@@ -471,6 +511,12 @@ describe("Effect AI registered tool handlers", () => {
             .pipe(Effect.provideService(McpSchema.McpServerClient, clientService("codex-cli")))
           expect(versionWithoutArguments.isError).not.toBe(true)
           expect(server.tools.some(({ tool }) => tool.name === "invoke_tool")).toBe(true)
+          yield* server
+            .callTool({
+              name: "invoke_tool",
+              arguments: { toolName: "edit_document", arguments: { old_text: "before", new_text: "after" } }
+            })
+            .pipe(Effect.provideService(McpSchema.McpServerClient, clientService("codex-cli")))
           yield* Effect.promise(adapter.quiesce)
           const stopped = yield* server
             .callTool({ name: "get_version", arguments: {} })
@@ -481,6 +527,8 @@ describe("Effect AI registered tool handlers", () => {
     )
 
     expect(assertAt(calls, 0)).toMatchObject({ toolName: "get_version", status: "success", clientKind: "codex" })
+    expect(calls).toContainEqual(expect.objectContaining({ toolName: "invoke_tool", editMode: "search_and_replace" }))
+    expect(firstLists).toEqual([{ clientKind: "codex", resolvedMode: "proxy" }])
     expect(noticeEvents).toEqual({ delivered: 1, released: 1 })
   })
 

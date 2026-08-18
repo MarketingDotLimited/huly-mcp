@@ -38,7 +38,7 @@ import type { McpClientInfoLike } from "./tool-mode.js"
 import { parseMcpClientInfo } from "./tool-mode.js"
 import { registerEffectMcpResources } from "./effect-ai-resources.js"
 import { toEffectCallToolResult } from "./effect-ai-content.js"
-import { dispatchEffectMcpTool, fetchLatestNpmVersion } from "./effect-ai-dispatch.js"
+import { dispatchEffectMcpTool, effectMcpEditMode, fetchLatestNpmVersion } from "./effect-ai-dispatch.js"
 
 /** Inputs needed to build a transport-independent Effect MCP registry. */
 export interface EffectMcpRegistryOptions {
@@ -114,6 +114,21 @@ const asToolDefinition = (definition: (typeof builtinToolDefinitions)[number]): 
 const contextForVisibility = (enabledWhen: (payload: InitializePayload) => boolean): Context.Context<never> =>
   Context.add(Context.empty(), McpSchema.EnabledWhen, enabledWhen)
 
+export const effectMcpFirstListVisibility =
+  (
+    options: EffectMcpRegistryOptions,
+    registries: ProtocolToolRegistries,
+    exposureOptions: ProtocolExposureOptions
+  ): ((payload: InitializePayload) => boolean) =>
+  (payload) => {
+    const exposure = initializeExposure(registries, exposureOptions, payload)
+    options.telemetry.firstListTools({
+      clientKind: exposure.context.clientKind,
+      resolvedMode: exposure.context.resolvedMode
+    })
+    return true
+  }
+
 const initializeExposure = (
   registries: ProtocolToolRegistries,
   options: ProtocolExposureOptions,
@@ -175,6 +190,7 @@ const makeToolHandler = (
           const exposure = initializeExposure(registries, exposureOptions, client.initializePayload)
           const resolver = yield* requestScopedResolver(options.resolveClients)
           const call = dispatchEffectMcpTool(options, exposure, definition, args, fetchLatestVersion, resolver)
+          const editMode = effectMcpEditMode(String(definition.name), args)
           const response = yield* Effect.acquireUseRelease(
             Effect.sync(() => (options.toolCallNoticeProvider ?? noToolCallNoticeProvider).claim()),
             (noticeClaim) =>
@@ -208,7 +224,8 @@ const makeToolHandler = (
               errorTag: response._meta?.errorTag,
               durationMs: end - start,
               inputBytes: JSON.stringify(args ?? {}).length,
-              outputBytes: responseOutputBytes(response)
+              outputBytes: responseOutputBytes(response),
+              ...(editMode === undefined ? {} : { editMode })
             })
           })
           return toEffectCallToolResult(response)
@@ -245,14 +262,14 @@ const registerAll = (
 ): Effect.Effect<void, never, McpServer> =>
   Effect.gen(function* () {
     const server = yield* McpServer
-    for (const definition of builtinToolDefinitions) {
+    for (const [index, definition] of builtinToolDefinitions.entries()) {
       yield* registerTool(
         server,
         options,
         registries,
         exposureOptions,
         asToolDefinition(definition),
-        effectMcpBuiltinVisible,
+        index === 0 ? effectMcpFirstListVisibility(options, registries, exposureOptions) : effectMcpBuiltinVisible,
         admission,
         fetchLatestVersion
       )

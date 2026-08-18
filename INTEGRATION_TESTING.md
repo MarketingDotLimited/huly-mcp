@@ -247,20 +247,24 @@ supplied token, retained diagnostics are immediately sanitized, and the summary 
 artifacts checked plus whether the secret was detected. A detected secret or uncertain result fails the command
 without printing the credential.
 
-**Last verified**: 2026-08-10 — the active legacy-token phase passed all four service surfaces over stdio and
-request-scoped HTTP, each transport reported `Confirmed` with `cleanup=cleaned` for its issue, attachment, and
-document, and all 77 captured artifacts were checked with `secretDetected=false`.
+**Last verified**: 2026-08-17 — the active API-token phase passed all four
+service surfaces over stdio and request-scoped HTTP. Both transports reported
+`Confirmed` with `cleanup=cleaned` for their disposable issue, attachment, and
+document; all 25 captured artifacts were checked with
+`secretDetected=false`.
 
-This harness certifies only that the preparation works with the legacy-token flow. Personal API-token
-compatibility remains **uncertified** until #205–#208 are completed against a published Huly Platform release
-containing PR #10624. The harness does not mint, decode, revoke, print, or persist tokens.
+The harness does not mint, decode, revoke, print, or persist tokens. Revocation
+still requires the explicit operator-driven phase described above.
 
 ## Resource Read Smoke Tests
 
-MCP Resources are read-only JSON context. `resources/list` returns the concrete
-projects found by bounded startup discovery when Huly configuration is
-available; it safely returns an empty list when discovery is unavailable.
-Discover the three URI templates with `resources/templates/list`.
+MCP Resources are read-only JSON context. In process-scoped stdio,
+`resources/list` returns the concrete projects found by bounded startup
+discovery when Huly configuration is available. HTTP deliberately keeps the
+concrete list empty because Effect AI's registry is process-global while Huly
+credentials are request-scoped; use `resources/templates/list` and
+request-scoped `resources/read` there. The three URI templates are always
+available.
 
 ```bash
 printf '%s\n' \

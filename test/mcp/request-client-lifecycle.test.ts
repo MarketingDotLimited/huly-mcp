@@ -72,6 +72,22 @@ describe("request-scoped Huly client lifecycle", () => {
     expect(released).toBe(1)
   })
 
+  it("aborts an in-flight acquisition when the request closes", async () => {
+    let acquisitionSignal: AbortSignal | undefined
+    const lifecycle = createRequestClientLifecycle<symbol>((signal) => {
+      acquisitionSignal = signal
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(new Error("acquisition interrupted")), { once: true })
+      })
+    })
+
+    const resolving = lifecycle.resolve()
+    await lifecycle.close()
+
+    expect(acquisitionSignal?.aborted).toBe(true)
+    await expect(resolving).rejects.toThrow("acquisition interrupted")
+  })
+
   it("surfaces asynchronous lease cleanup failures", async () => {
     const lifecycle = createRequestClientLifecycle(async () => ({
       bundle,

@@ -15,15 +15,16 @@ export interface RequestClientLifecycle<A = ClientBundle> {
  * exactly once. Closing an unused lifecycle is intentionally a no-op.
  */
 export const createRequestClientLifecycle = <A>(
-  acquire: () => Promise<RequestClientLease<A>>
+  acquire: (signal: AbortSignal) => Promise<RequestClientLease<A>>
 ): RequestClientLifecycle<A> => {
+  const acquisitionAbort = new AbortController()
   let leasePromise: Promise<RequestClientLease<A>> | undefined
   let closed = false
   let closePromise: Promise<void> | undefined
 
   const resolve = async (): Promise<A> => {
     if (closed) throw new Error("Request-scoped Huly clients are already closed")
-    leasePromise ??= acquire()
+    leasePromise ??= acquire(acquisitionAbort.signal)
     const lease = await leasePromise
     if (closed) {
       await closePromise
@@ -35,6 +36,7 @@ export const createRequestClientLifecycle = <A>(
   const close = (): Promise<void> => {
     if (closePromise !== undefined) return closePromise
     closed = true
+    acquisitionAbort.abort()
     const pending = leasePromise
     closePromise =
       pending === undefined

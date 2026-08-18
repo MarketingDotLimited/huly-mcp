@@ -20,7 +20,7 @@ import {
   VersionToolResultSchema
 } from "./huly-context-tool.js"
 import type { ProtocolToolRegistries, resolveProtocolExposure } from "./protocol-tool-exposure.js"
-import { handleProxyToolCall, isProxyToolName } from "./proxy-tools.js"
+import { handleProxyToolCall, INVOKE_TOOL_TOOL_NAME, InvokeToolParamsSchema, isProxyToolName } from "./proxy-tools.js"
 import type { ToolDefinition, ToolName } from "./tools/registry.js"
 import {
   executeRegisteredOperation,
@@ -53,6 +53,20 @@ export const fetchLatestNpmVersion = async (fetchImpl: typeof fetch = fetch): Pr
 
 export interface EffectMcpDispatchOptions {
   readonly getHulyContext: (toolExposure: ToolExposureContext) => Effect.Effect<GetHulyContextResult>
+}
+
+export const deriveEditMode = (name: string, args: unknown): string | undefined => {
+  if (name !== "edit_document" || args === undefined) return undefined
+  if (typeof args !== "object" || args === null || Array.isArray(args)) return undefined
+  if ("old_text" in args) return "search_and_replace"
+  if ("content" in args) return "full_replace"
+  return "title_only"
+}
+
+export const effectMcpEditMode = (name: string, args: unknown): string | undefined => {
+  if (name !== INVOKE_TOOL_TOOL_NAME) return deriveEditMode(name, args)
+  const decoded = Schema.decodeUnknownResult(InvokeToolParamsSchema)(args)
+  return decoded._tag === "Success" ? deriveEditMode(decoded.success.toolName, decoded.success.arguments) : undefined
 }
 
 const invalidArgumentsResponse = (message: string): McpToolResponse => ({

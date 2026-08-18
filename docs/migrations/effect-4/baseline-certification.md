@@ -3,6 +3,11 @@
 Date: 2026-08-12
 Baseline commit: `ffdb965a66f635eabbba65e51f061606b13b49cb`
 
+This is an immutable August 12 baseline snapshot; its counts and artifact
+composition are historical evidence, not current release claims. See
+`final-parity-report.md` and `mcp-artifact-certification.json` for the final
+certified tree.
+
 This document is the sanitized certification ledger for the direct Effect AI
 MCP cutover. It contains no Huly URL, workspace, account, token, password,
 request header, or response payload from local Huly. The former Effect 3 oracle
