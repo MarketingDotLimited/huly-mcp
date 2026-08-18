@@ -1,3 +1,4 @@
+import type { ToolAnnotations } from "@modelcontextprotocol/server"
 import { Schema } from "effect"
 import * as fc from "fast-check"
 import { describe, expect, it } from "vitest"
@@ -16,7 +17,6 @@ import {
   makeToolName,
   requiresArgumentsObject,
   resolveAnnotations,
-  type ToolAnnotations,
   type ToolDefinition
 } from "../../src/mcp/tools/registry.js"
 import { propertyTestParameters } from "../helpers/property.js"

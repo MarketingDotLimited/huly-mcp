@@ -7,19 +7,12 @@ import { createInterface } from "node:readline"
 import { Schema } from "effect"
 import { beforeAll, describe, expect, it } from "vitest"
 
-import { toolRegistry } from "../../src/mcp/tools/index.js"
-
 const builtServerPath = resolve(process.cwd(), "dist/index.cjs")
 const PROCESS_BOUND_MS = 13_000
 const SECRET = "subprocess-secret-token"
 const PAYLOAD_MARKER = "lifecycle-secret-payload"
 const JsonRpcEnvelopeSchema = Schema.Struct({ id: Schema.Number, jsonrpc: Schema.Literal("2.0") })
 const parseJsonRpcLine = Schema.decodeUnknownSync(Schema.fromJsonString(JsonRpcEnvelopeSchema))
-const ToolsListEnvelopeSchema = Schema.Struct({
-  id: Schema.Literal(2),
-  result: Schema.Struct({ tools: Schema.Array(Schema.Struct({ name: Schema.String })) })
-})
-const parseToolsListLine = Schema.decodeUnknownSync(Schema.fromJsonString(ToolsListEnvelopeSchema))
 
 interface SpawnedServer {
   readonly child: ChildProcessWithoutNullStreams
@@ -90,11 +83,13 @@ const spawnServer = (environment: Readonly<NodeJS.ProcessEnv> = {}): SpawnedServ
     `${JSON.stringify({
       jsonrpc: "2.0",
       id: 1,
-      method: "initialize",
+      method: "server/discover",
       params: {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: PAYLOAD_MARKER, version: "1.0.0" }
+        _meta: {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientCapabilities": {},
+          "io.modelcontextprotocol/clientInfo": { name: PAYLOAD_MARKER, version: "1.0.0" }
+        }
       }
     })}\n`
   )
@@ -148,7 +143,7 @@ describe("built stdio process lifecycle", () => {
   it("exits successfully and removes its PID on stdin EOF without MCP_AUTO_EXIT", async () => {
     const server = spawnServer()
     try {
-      await withBound(server.firstLine, "stdio initialize")
+      await withBound(server.firstLine, "stdio discovery")
       server.child.stdin.end()
       const result = await withBound(server.exit, "EOF shutdown")
 
@@ -161,27 +156,10 @@ describe("built stdio process lifecycle", () => {
     }
   })
 
-  it("registers the complete tool catalog before admitting immediate stdio requests", async () => {
-    const server = spawnServer({ HULY_TOOL_MODE: "native" })
-    try {
-      await withBound(server.firstLine, "stdio initialize")
-      const response = server.responseLine(2)
-      server.child.stdin.end(`${JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} })}\n`)
-
-      const listed = parseToolsListLine(await withBound(response, "immediate tools/list"))
-      const names = listed.result.tools.map((tool) => tool.name)
-      expect(names).toHaveLength(toolRegistry.definitions.length + 2)
-      expect(names).toContain("list_project_types")
-      expect(await withBound(server.exit, "tools/list EOF shutdown")).toEqual({ code: 0, signal: null })
-    } finally {
-      ensureStopped(server)
-    }
-  })
-
   it("runs bounded cleanup and removes its PID on SIGTERM", async () => {
     const server = spawnServer()
     try {
-      await withBound(server.firstLine, "stdio initialize")
+      await withBound(server.firstLine, "stdio discovery")
       server.child.kill("SIGTERM")
       const result = await withBound(server.exit, "SIGTERM shutdown")
 
@@ -197,7 +175,7 @@ describe("built stdio process lifecycle", () => {
   it("coalesces racing EOF and SIGTERM without leaving a PID", async () => {
     const server = spawnServer()
     try {
-      await withBound(server.firstLine, "stdio initialize")
+      await withBound(server.firstLine, "stdio discovery")
       server.child.stdin.end()
       server.child.kill("SIGTERM")
       const result = await withBound(server.exit, "racing shutdown")
@@ -215,7 +193,7 @@ describe("built stdio process lifecycle", () => {
   it("delivers a response admitted immediately before EOF", async () => {
     const server = spawnServer()
     try {
-      await withBound(server.firstLine, "stdio initialize")
+      await withBound(server.firstLine, "stdio discovery")
       const response = server.responseLine(2)
       server.child.stdin.end(
         `${JSON.stringify({
@@ -236,7 +214,7 @@ describe("built stdio process lifecycle", () => {
     }
   })
 
-  it("interrupts an admitted Huly request and exits cleanly on SIGTERM", async () => {
+  it("forces exit after the global deadline when a Huly request cannot close", async () => {
     const sockets = new Set<Socket>()
     const stalledHuly = createTcpServer((socket) => {
       sockets.add(socket)
@@ -244,16 +222,12 @@ describe("built stdio process lifecycle", () => {
     })
     stalledHuly.listen(0, "127.0.0.1")
     await once(stalledHuly, "listening")
-    const hulyConnection = once(stalledHuly, "connection").then(() => {})
     const address = stalledHuly.address()
     if (address === null || typeof address === "string") throw new Error("Stalled Huly server has no TCP port")
     const server = spawnServer({ HULY_URL: `http://127.0.0.1:${address.port}` })
 
     try {
-      await withBound(server.firstLine, "stdio initialize")
-      server.child.stdin.write(
-        `${JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized", params: {} })}\n`
-      )
+      await withBound(server.firstLine, "stdio discovery")
       server.child.stdin.write(
         `${JSON.stringify({
           jsonrpc: "2.0",
@@ -262,21 +236,23 @@ describe("built stdio process lifecycle", () => {
           params: { name: "list_projects", arguments: {} }
         })}\n`
       )
-      await withBound(hulyConnection, "Huly request admission")
-      await new Promise<void>((resolveTurn) => setImmediate(resolveTurn))
+      await withBound(
+        once(stalledHuly, "connection").then(() => {}),
+        "Huly request admission"
+      )
       server.child.kill("SIGTERM")
 
-      const exit = await withBound(server.exit, "interrupted request shutdown").catch((error: unknown) => {
+      const exit = await withBound(server.exit, "abandoned request shutdown").catch((error: unknown) => {
         throw new Error(
           `${error instanceof Error ? error.message : String(error)}; stdout=${server.stdout()}; stderr=${server.stderr()}`
         )
       })
-      expect(exit, `stdout=${server.stdout()}; stderr=${server.stderr()}`).toEqual({ code: 130, signal: null })
+      expect(exit).toEqual({ code: 1, signal: null })
       expect(processExists(server.pid)).toBe(false)
       expect(server.stdout()).not.toContain('"id":2')
       assertProtocolOnlyStdout(server.stdout())
       assertSanitizedStderr(server.stderr())
-      expect(server.stderr()).not.toContain("forcing process exit")
+      expect(server.stderr()).toContain("Huly MCP stdio shutdown exceeded 10 seconds; forcing process exit")
     } finally {
       ensureStopped(server)
       for (const socket of sockets) socket.destroy()

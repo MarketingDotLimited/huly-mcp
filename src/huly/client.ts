@@ -41,7 +41,6 @@ import {
 import { absurd, Context, Effect, Layer, Redacted, Schedule } from "effect"
 
 import { type Auth, HulyConfigService } from "../config/config.js"
-import { awaitAbortably } from "../utils/abortable-promise.js"
 import {
   type HulyConditionalWriteResult,
   type HulyTransactionScope,
@@ -120,12 +119,12 @@ const withConnectionRetry = <A>(attempt: Effect.Effect<A, ConnectionError>): Eff
  * maps errors to HulyAuthError/HulyConnectionError, and applies connection retry.
  */
 export const connectWithRetry = <A>(
-  connect: (signal: AbortSignal) => Promise<A>,
+  connect: () => Promise<A>,
   endpointUrl: string
 ): Effect.Effect<A, ConnectionError> =>
   withConnectionRetry(
     Effect.tryPromise({
-      try: (signal) => awaitAbortably(connect(signal), signal, "Huly connection was interrupted"),
+      try: connect,
       catch: (e) => {
         if (isAuthError(e)) {
           return new HulyAuthError({ message: "Credentials or workspace authorization failed" })

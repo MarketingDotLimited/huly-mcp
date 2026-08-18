@@ -3,8 +3,9 @@
  *
  * @module
  */
+import { ProtocolError, ProtocolErrorCode } from "@modelcontextprotocol/server"
+import type { ListResourcesResult, ListResourceTemplatesResult, ReadResourceResult } from "@modelcontextprotocol/server"
 import { Effect, Schema } from "effect"
-import * as McpSchema from "effect/unstable/ai/McpSchema"
 
 import {
   type Issue,
@@ -23,15 +24,6 @@ import type { HulyDomainError } from "../huly/errors.js"
 import { getIssue } from "../huly/operations/issues.js"
 import { getProject, listProjects } from "../huly/operations/projects.js"
 import { formatParseError } from "./error-mapping.js"
-
-type ListResourcesResult = typeof McpSchema.ListResourcesResult.Type
-type ListResourceTemplatesResult = typeof McpSchema.ListResourceTemplatesResult.Type
-type ReadResourceResult = typeof McpSchema.ReadResourceResult.Type
-type ResourceError = McpSchema.InvalidParams | McpSchema.InternalError
-
-const invalidParams = (message: string, data?: unknown): McpSchema.InvalidParams =>
-  new McpSchema.InvalidParams({ message, ...(data === undefined ? {} : { data }) })
-const internalError = (message: string): McpSchema.InternalError => new McpSchema.InternalError({ message })
 
 export const HULY_RESOURCE_MIME_TYPE = "application/json"
 
@@ -92,8 +84,11 @@ const expectedFormats =
 
 const EXPLICIT_ISSUE_URI_SEGMENTS = 3
 
-const invalidResourceUri = (uri: string, message: string): McpSchema.InvalidParams =>
-  invalidParams(`Invalid Huly resource URI "${uri}": ${message} ${expectedFormats}`)
+const invalidResourceUri = (uri: string, message: string): ProtocolError =>
+  new ProtocolError(
+    ProtocolErrorCode.InvalidParams,
+    `Invalid Huly resource URI "${uri}": ${message} ${expectedFormats}`
+  )
 
 const decodePathSegment = (uri: string, value: string): string => {
   try {
@@ -103,7 +98,7 @@ const decodePathSegment = (uri: string, value: string): string => {
     }
     return decoded
   } catch (e) {
-    if (e instanceof McpSchema.InvalidParams) throw e
+    if (e instanceof ProtocolError) throw e
     throw invalidResourceUri(uri, "Resource URI contains an invalid percent-encoded path segment.")
   }
 }
@@ -220,23 +215,28 @@ const projectSummaryResource = (project: ProjectSummary): ListResourcesResult["r
   mimeType: HULY_RESOURCE_MIME_TYPE
 })
 
-const mapListErrorToMcp = (error: HulyDomainError | Schema.SchemaError): McpSchema.InternalError => {
+const mapListErrorToMcp = (error: HulyDomainError | Schema.SchemaError): ProtocolError => {
   // defensive: listResources passes hardcoded valid params, so the parse channel never yields a
   // SchemaError at runtime — but the union type keeps this branch for type-completeness.
   /* v8 ignore start */
   if (Schema.isSchemaError(error)) {
-    return internalError(`Failed to list Huly resources: ${formatParseError(error)}.`)
+    return new ProtocolError(
+      ProtocolErrorCode.InternalError,
+      `Failed to list Huly resources: ${formatParseError(error)}.`
+    )
   }
   /* v8 ignore stop */
 
   if (error._tag === "HulyAuthError") {
-    return internalError(
+    return new ProtocolError(
+      ProtocolErrorCode.InternalError,
       "Authentication error while listing Huly resources. Check Huly credentials or request headers."
     )
   }
 
   if (error._tag === "HulyConnectionError") {
-    return internalError(
+    return new ProtocolError(
+      ProtocolErrorCode.InternalError,
       "Connection error while listing Huly resources. Verify Huly URL, workspace, and network connectivity."
     )
   }
@@ -244,10 +244,10 @@ const mapListErrorToMcp = (error: HulyDomainError | Schema.SchemaError): McpSche
   // defensive: listProjects can only surface a connection or auth client error (HulyClientError =
   // ConnectionError) plus parse errors, all handled above, so the generic fallback is unreachable.
   /* v8 ignore next */
-  return internalError("Failed to list Huly resources.")
+  return new ProtocolError(ProtocolErrorCode.InternalError, "Failed to list Huly resources.")
 }
 
-export const listResources = (): Effect.Effect<ListResourcesResult, McpSchema.InternalError, HulyClient> =>
+export const listResources = (): Effect.Effect<ListResourcesResult, ProtocolError, HulyClient> =>
   parseListProjectsParams({ includeArchived: false, limit: MAX_LIMIT }).pipe(
     Effect.flatMap(listProjects),
     Effect.map((result) => ({ resources: result.projects.map(projectSummaryResource) })),
@@ -259,27 +259,32 @@ export const listResourceTemplates = (): ListResourceTemplatesResult => ({ resou
 const isNotFoundError = (error: HulyDomainError): boolean =>
   error._tag === "ProjectNotFoundError" || error._tag === "IssueNotFoundError"
 
-const mapReadErrorToMcp = (uri: string, error: HulyDomainError | Schema.SchemaError): ResourceError => {
+const mapReadErrorToMcp = (uri: string, error: HulyDomainError | Schema.SchemaError): ProtocolError => {
   // defensive: readParsedHulyResource passes pre-validated params, so the parse channel never yields
   // a SchemaError at runtime — but the union type keeps this branch for type-completeness.
   /* v8 ignore start */
   if (Schema.isSchemaError(error)) {
-    return invalidParams(`Invalid Huly resource URI "${uri}": ${formatParseError(error)}. ${expectedFormats}`)
+    return new ProtocolError(
+      ProtocolErrorCode.InvalidParams,
+      `Invalid Huly resource URI "${uri}": ${formatParseError(error)}. ${expectedFormats}`
+    )
   }
   /* v8 ignore stop */
 
   if (isNotFoundError(error)) {
-    return invalidParams("Resource not found", { uri })
+    return new ProtocolError(ProtocolErrorCode.InvalidParams, "Resource not found", { uri })
   }
 
   if (error._tag === "HulyAuthError") {
-    return internalError(
+    return new ProtocolError(
+      ProtocolErrorCode.InternalError,
       `Authentication error while reading Huly resource "${uri}". Check Huly credentials or request headers.`
     )
   }
 
   if (error._tag === "HulyConnectionError") {
-    return internalError(
+    return new ProtocolError(
+      ProtocolErrorCode.InternalError,
       `Connection error while reading Huly resource "${uri}". Verify Huly URL, workspace, and network connectivity.`
     )
   }
@@ -287,7 +292,7 @@ const mapReadErrorToMcp = (uri: string, error: HulyDomainError | Schema.SchemaEr
   // defensive: getProject/getIssue surface only not-found, connection, or auth errors (all handled
   // above) plus parse errors, so the generic fallback is unreachable.
   /* v8 ignore next */
-  return internalError(`Failed to read Huly resource "${uri}".`)
+  return new ProtocolError(ProtocolErrorCode.InternalError, `Failed to read Huly resource "${uri}".`)
 }
 
 const projectJsonText = (value: ProjectResourceEnvelope): string =>
@@ -308,13 +313,13 @@ const issueReadResult = (uri: string, issue: Issue): ReadResourceResult => ({
 // below; this exhaustiveness guard is unreachable at runtime.
 /* v8 ignore start */
 const absurdResource = (_resource: never): never => {
-  throw internalError("Unsupported Huly resource type.")
+  throw new ProtocolError(ProtocolErrorCode.InternalError, "Unsupported Huly resource type.")
 }
 /* v8 ignore stop */
 
 const readParsedHulyResource = (
   resource: HulyResource
-): Effect.Effect<ReadResourceResult, ResourceError, HulyClient | Diagnostics> => {
+): Effect.Effect<ReadResourceResult, ProtocolError, HulyClient | Diagnostics> => {
   switch (resource._tag) {
     case "project":
       return parseGetProjectParams({ project: resource.project }).pipe(
@@ -338,11 +343,13 @@ const readParsedHulyResource = (
 
 export const readHulyResource = (
   uri: string
-): Effect.Effect<ReadResourceResult, ResourceError, HulyClient | Diagnostics> =>
+): Effect.Effect<ReadResourceResult, ProtocolError, HulyClient | Diagnostics> =>
   Effect.try({
     try: () => parseHulyResourceUri(uri),
-    /* v8 ignore start -- defensive: parseHulyResourceUri only ever throws InvalidParams, so the else branch is unreachable */
+    /* v8 ignore start -- defensive: parseHulyResourceUri only ever throws ProtocolError, so the else branch is unreachable */
     catch: (e) =>
-      e instanceof McpSchema.InvalidParams ? e : invalidParams(`Invalid Huly resource URI "${uri}". ${expectedFormats}`)
+      e instanceof ProtocolError
+        ? e
+        : new ProtocolError(ProtocolErrorCode.InvalidParams, `Invalid Huly resource URI "${uri}". ${expectedFormats}`)
     /* v8 ignore stop */
   }).pipe(Effect.flatMap(readParsedHulyResource))

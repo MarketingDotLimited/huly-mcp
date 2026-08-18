@@ -1,13 +1,18 @@
 {
-  "archiveBytes": 1642483,
-  "bundleBytes": 8713463,
-  "bundleGzipBytes": 1604520,
+  "archiveBytes": 1759279,
+  "bundleBytes": 9372432,
+  "bundleGzipBytes": 1721630,
   "entryCount": 4,
   "executableMode": 493,
   "externalModules": [
+    "ajv-formats/dist/formats",
+    "ajv/dist/runtime/equal",
+    "ajv/dist/runtime/ucs2length",
+    "ajv/dist/runtime/uri",
+    "ajv/dist/runtime/validation_error",
     "ws"
   ],
   "name": "@firfi/huly-mcp",
-  "unpackedBytes": 8867627,
+  "unpackedBytes": 9526104,
   "version": "0.49.5"
 }

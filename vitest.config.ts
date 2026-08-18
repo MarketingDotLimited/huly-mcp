@@ -33,12 +33,6 @@ export default defineConfig({
         // Oracle subprocess control is an imperative capture adapter. A dedicated test proves bounded
         // SIGTERM-to-SIGKILL escalation and reaping; public process output remains in the checked oracle.
         'scripts/effect4-oracle-process-runner.ts',
-        // Built MCP oracle transport orchestration is exercised by the checked live oracle before coverage.
-        // Its stdio/HTTP child-process timing is intentionally kept outside the parallel coverage worker pool.
-        'scripts/effect4-oracle-process.ts',
-        // Released-client wire orchestration is certified against packed stdio and HTTP artifacts; focused
-        // unit tests retain coverage for its boundary codecs without instrumenting spawned transport clients.
-        'scripts/mcp-wire-client.ts',
         // Certification process wiring is an imperative shell over the tested workflow and secret ledger;
         // live local-Huly runs provide transport evidence for the built stdio and HTTP adapters.
         'scripts/api-token-certification-adapter.ts',

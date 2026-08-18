@@ -1,11 +1,9 @@
-import type { ToolAnnotations } from "./registry.js"
+import type { ToolAnnotations } from "@modelcontextprotocol/server"
 
 interface AnnotatedTool {
   readonly name: string
   readonly annotations?: ToolAnnotations
 }
-
-type ResolvedToolAnnotations = Required<ToolAnnotations>
 
 const deriveTitle = (name: string): string =>
   name
@@ -38,7 +36,7 @@ const DELETE_PREFIXES = ["delete_"]
 const matchesPrefix = (name: string, prefixes: ReadonlyArray<string>): boolean =>
   prefixes.some((prefix) => name.startsWith(prefix))
 
-const deriveAnnotations = (name: string): ResolvedToolAnnotations => {
+const deriveAnnotations = (name: string): ToolAnnotations => {
   const title = deriveTitle(name)
 
   if (matchesPrefix(name, READ_PREFIXES)) {
@@ -56,16 +54,7 @@ const deriveAnnotations = (name: string): ResolvedToolAnnotations => {
   return { title, readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false }
 }
 
-const authoredOrDerived = <A>(authored: A | undefined, derived: A): A => authored ?? derived
-
-export const resolveAnnotations = (tool: AnnotatedTool): ResolvedToolAnnotations => {
-  const derived = deriveAnnotations(tool.name)
-  const authored: ToolAnnotations = tool.annotations ?? {}
-  return {
-    title: authoredOrDerived(authored.title, derived.title),
-    readOnlyHint: authoredOrDerived(authored.readOnlyHint, derived.readOnlyHint),
-    destructiveHint: authoredOrDerived(authored.destructiveHint, derived.destructiveHint),
-    idempotentHint: authoredOrDerived(authored.idempotentHint, derived.idempotentHint),
-    openWorldHint: authoredOrDerived(authored.openWorldHint, derived.openWorldHint)
-  }
-}
+export const resolveAnnotations = (tool: AnnotatedTool): ToolAnnotations => ({
+  ...deriveAnnotations(tool.name),
+  ...tool.annotations
+})

@@ -27,8 +27,7 @@ elif [ "$HULY_TOOL_MODE" != "native" ]; then
   exit 1
 fi
 
-MCP_INITIALIZE='{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"benchmark","version":"1.0"}},"id":1}'
-MCP_INITIALIZED='{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
+MCP_META='{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"benchmark","version":"1.0"}}'
 TOOL_TIMEOUT=30
 TS="benchmark-edit"
 
@@ -39,12 +38,8 @@ ERRORS=""
 call_tool() {
   local payload="$1"
   local request_payload
-  local request_id
-  request_payload=$(printf '%s\n' "$payload" | jq -c '.')
-  request_id=$(printf '%s\n' "$request_payload" | jq -r '.id')
-  printf '%s\n%s\n%s\n' "$MCP_INITIALIZE" "$MCP_INITIALIZED" "$request_payload" \
-    | timeout "$TOOL_TIMEOUT" env MCP_AUTO_EXIT=true node dist/index.cjs 2>/dev/null \
-    | grep "\"id\":$request_id"
+  request_payload=$(printf '%s\n' "$payload" | jq -c --argjson meta "$MCP_META" '.params = ((.params // {}) + {"_meta": $meta})')
+  printf '%s\n' "$request_payload" | timeout "$TOOL_TIMEOUT" env MCP_AUTO_EXIT=true node dist/index.cjs 2>/dev/null | grep '"id":2'
 }
 
 run_capture() {

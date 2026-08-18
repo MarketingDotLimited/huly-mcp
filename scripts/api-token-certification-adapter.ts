@@ -1,7 +1,9 @@
 import { spawn, type ChildProcess } from "node:child_process"
 import { resolve } from "node:path"
 
-import { Effect, Redacted, Schema } from "effect"
+import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client"
+import { getDefaultEnvironment, StdioClientTransport } from "@modelcontextprotocol/client/stdio"
+import { Redacted, Schema } from "effect"
 
 import { NonEmptyString, UrlString, WorkspaceName } from "../src/domain/schemas/shared.js"
 import {
@@ -11,10 +13,10 @@ import {
 } from "./api-token-certification-workflow.js"
 import type { ManagedCertificationPort } from "./api-token-certification-orchestration.js"
 import { type CertificationCaptureLedger, redactCertificationSecret } from "./api-token-certification-security.js"
-import { openMcpHttpClient, openMcpStdioClient, type McpHttpClient, type McpStdioClient } from "./mcp-wire-client.js"
 
 const TOOL_TIMEOUT_MILLISECONDS = 30_000
 const STARTUP_TIMEOUT_MILLISECONDS = 10_000
+const PROTOCOL_VERSION = "2026-07-28"
 const MAXIMUM_TCP_PORT = 65_535
 
 const ToolResultBoundary = Schema.Struct({
@@ -27,7 +29,7 @@ const TextContentBoundary = Schema.Struct({ type: Schema.Literal("text"), text: 
 export const CertificationConnectionConfigSchema = Schema.Struct({
   url: UrlString,
   workspace: WorkspaceName,
-  token: Schema.RedactedFromValue(NonEmptyString)
+  token: Schema.Redacted(NonEmptyString)
 })
 export type CertificationConnectionConfig = Schema.Schema.Type<typeof CertificationConnectionConfigSchema>
 
@@ -72,29 +74,18 @@ const toCallResult = (
 }
 
 const makeClientPort = (
-  client: McpHttpClient | McpStdioClient,
+  client: Client,
   ledger: CertificationCaptureLedger,
   token: Redacted.Redacted<string>
 ): CertificationPort => ({
   call: async (request: CertificationCall) => {
     try {
-      const response = await Effect.runPromise(
-        Effect.tryPromise(() =>
-          client.request({
-            id: request.tool,
-            jsonrpc: "2.0",
-            method: "tools/call",
-            params: { arguments: request.arguments, name: request.tool }
-          })
-        ).pipe(Effect.timeout(TOOL_TIMEOUT_MILLISECONDS))
+      const result = await client.callTool(
+        { name: request.tool, arguments: request.arguments },
+        { timeout: TOOL_TIMEOUT_MILLISECONDS, maxTotalTimeout: TOOL_TIMEOUT_MILLISECONDS }
       )
-      ledger.inspect(JSON.stringify(response))
-      if (response.error !== undefined || response.result === undefined) {
-        const message = response.error === undefined ? "MCP tool returned no result." : JSON.stringify(response.error)
-        ledger.observe("tool-error", message)
-        return { _tag: "Failure", message: redactCertificationSecret(message, token) }
-      }
-      return toCallResult(response.result, ledger, token)
+      ledger.inspect(JSON.stringify(result) ?? "")
+      return toCallResult(result, ledger, token)
     } catch (error) {
       const rawMessage = errorText(error)
       ledger.observe("transport-error", rawMessage)
@@ -106,25 +97,32 @@ const makeClientPort = (
   }
 })
 
+const makeClient = (): Client =>
+  new Client(
+    { name: "hulymcp-api-token-certification", version: "1.0.0" },
+    { versionNegotiation: { mode: { pin: PROTOCOL_VERSION } } }
+  )
+
 export const connectStdioCertificationPort = async (
   config: CertificationConnectionConfig,
   ledger: CertificationCaptureLedger
 ): Promise<ManagedCertificationPort> => {
-  const client = await openMcpStdioClient(
-    {
-      args: [resolve(process.cwd(), "dist/index.cjs")],
-      command: process.execPath,
-      env: {
-        HULY_URL: config.url,
-        HULY_WORKSPACE: config.workspace,
-        HULY_TOKEN: Redacted.value(config.token),
-        HULY_TOOL_MODE: "native",
-        MCP_AUTO_EXIT: "true"
-      },
-      onStderr: (text) => ledger.observe("stdio-stderr", text)
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [resolve(process.cwd(), "dist/index.cjs")],
+    env: {
+      ...getDefaultEnvironment(),
+      HULY_URL: config.url,
+      HULY_WORKSPACE: config.workspace,
+      HULY_TOKEN: Redacted.value(config.token),
+      HULY_TOOL_MODE: "native",
+      MCP_AUTO_EXIT: "true"
     },
-    "hulymcp-api-token-certification"
-  )
+    stderr: "pipe"
+  })
+  transport.stderr?.on("data", (chunk: Buffer) => ledger.observe("stdio-stderr", chunk.toString("utf8")))
+  const client = makeClient()
+  await client.connect(transport)
   return { port: makeClientPort(client, ledger, config.token), close: () => client.close() }
 }
 
@@ -188,17 +186,17 @@ export const connectHttpCertificationPort = async (
   })
   try {
     await waitForHttpServer(child, ledger)
-    const client = await openMcpHttpClient(
-      {
-        endpoint: `http://127.0.0.1:${port}/mcp`,
+    const client = makeClient()
+    const transport = new StreamableHTTPClientTransport(new URL(`http://127.0.0.1:${port}/mcp`), {
+      requestInit: {
         headers: {
-          "x-huly-token": Redacted.value(config.token),
           "x-huly-url": config.url,
-          "x-huly-workspace": config.workspace
+          "x-huly-workspace": config.workspace,
+          "x-huly-token": Redacted.value(config.token)
         }
-      },
-      "hulymcp-api-token-certification"
-    )
+      }
+    })
+    await client.connect(transport)
     return {
       port: makeClientPort(client, ledger, config.token),
       close: async () => {

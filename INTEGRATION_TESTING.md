@@ -109,9 +109,8 @@ Manual setup for the second group-DM participant:
    ```bash
    set -a && source .env.local && set +a
    printf '%s\n%s\n' \
-   '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}' \
-   '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}' \
-   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_workspace_members","arguments":{}},"id":2}' \
+   '{"jsonrpc":"2.0","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":1}' \
+   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_workspace_members","arguments":{},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":2}' \
      | HULY_TOOL_MODE=native node dist/index.cjs 2>/dev/null | grep '"id":2'
    ```
 
@@ -174,7 +173,7 @@ HULY_URL="${HULY_URL/localhost/host.docker.internal}" \
   bash scripts/integration_test_full.sh
 ```
 
-This starts `node dist/index.cjs` with `MCP_TRANSPORT=http`, performs one MCP `2025-06-18` initialize exchange, retains the returned `Mcp-Session-Id`, and sends every tool call with that session and negotiated `MCP-Protocol-Version` header. The same initialize/initialized exchange is used for each built stdio process. The old `server/discover` and 2026 stateless request envelopes are intentionally not supported.
+This starts `node dist/index.cjs` with `MCP_TRANSPORT=http` and lets the server resolve Huly credentials from process environment variables. The suite sends the released MCP `2026-07-28` request envelope and required HTTP headers. Both transports also retain SDK-owned MCP `2025-06-18` compatibility, covered by focused transport tests rather than a separate integration-harness mode.
 
 To test hosted URL header configuration, provide a Huly API token and run the same suite with credentials sent as request headers:
 
@@ -193,10 +192,8 @@ INTEGRATION_TRANSPORT=http \
 ## Quick Smoke Test
 
 ```bash
-printf '%s\n' \
-'{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}' \
-'{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}' \
-'{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_projects","arguments":{}},"id":2}' \
+printf '{"jsonrpc":"2.0","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":1}
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_projects","arguments":{},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":2}
 ' | HULY_TOOL_MODE=native node dist/index.cjs 2>&1 | grep '"id":2'
 ```
 
@@ -247,46 +244,37 @@ supplied token, retained diagnostics are immediately sanitized, and the summary 
 artifacts checked plus whether the secret was detected. A detected secret or uncertain result fails the command
 without printing the credential.
 
-**Last verified**: 2026-08-17 — the active API-token phase passed all four
-service surfaces over stdio and request-scoped HTTP. Both transports reported
-`Confirmed` with `cleanup=cleaned` for their disposable issue, attachment, and
-document; all 25 captured artifacts were checked with
-`secretDetected=false`.
+**Last verified**: 2026-08-10 — the active legacy-token phase passed all four service surfaces over stdio and
+request-scoped HTTP, each transport reported `Confirmed` with `cleanup=cleaned` for its issue, attachment, and
+document, and all 77 captured artifacts were checked with `secretDetected=false`.
 
-The harness does not mint, decode, revoke, print, or persist tokens. Revocation
-still requires the explicit operator-driven phase described above.
+This harness certifies only that the preparation works with the legacy-token flow. Personal API-token
+compatibility remains **uncertified** until #205–#208 are completed against a published Huly Platform release
+containing PR #10624. The harness does not mint, decode, revoke, print, or persist tokens.
 
 ## Resource Read Smoke Tests
 
-MCP Resources are read-only JSON context. In process-scoped stdio,
-`resources/list` returns the concrete projects found by bounded startup
-discovery when Huly configuration is available. HTTP deliberately keeps the
-concrete list empty because Effect AI's registry is process-global while Huly
-credentials are request-scoped; use `resources/templates/list` and
-request-scoped `resources/read` there. The three URI templates are always
-available.
+MCP Resources are read-only JSON context. `resources/list` is intentionally empty in v1; discover templates with `resources/templates/list`.
 
 ```bash
 printf '%s\n' \
-'{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}' \
-'{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}' \
-'{"jsonrpc":"2.0","method":"resources/templates/list","params":{},"id":2}' \
-'{"jsonrpc":"2.0","method":"resources/list","params":{},"id":3}' \
-'{"jsonrpc":"2.0","method":"resources/read","params":{"uri":"huly://projects/HULY"},"id":4}' \
+'{"jsonrpc":"2.0","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":1}' \
+'{"jsonrpc":"2.0","method":"resources/templates/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":2}' \
+'{"jsonrpc":"2.0","method":"resources/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":3}' \
+'{"jsonrpc":"2.0","method":"resources/read","params":{"uri":"huly://projects/HULY","_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}},"id":4}' \
   | node dist/index.cjs 2>/dev/null | grep -E '"id":[234]'
 ```
 
-For HTTP header mode, initialize `/mcp` first, save `Mcp-Session-Id`, and send the same JSON-RPC methods with `MCP-Protocol-Version`, `Mcp-Session-Id`, and the `x-huly-url`, `x-huly-workspace`, and `x-huly-token` headers. Resource reads use the same session and request-scoped header config as tool calls.
+For HTTP header mode, send the same JSON-RPC methods to `/mcp` with `x-huly-url`, `x-huly-workspace`, and `x-huly-token` headers. Resource reads use the same request-scoped header config as tool calls.
 
 ## Full Integration Test Suite
 
 **Coverage**: 800+ tool calls across 22 domains. Self-cleaning: all created entities are deleted at the end of each section. Tools that would leak data (no delete counterpart) are skipped.
 
-**Last verified**: 2026-08-17 — native stdio passed 1091, failed 0, and skipped
-28; HTTP with environment credentials passed 1087, failed 0, and skipped 32.
-The request-header API-token harness passed its stdio and HTTP service-surface
-matrix with clean cleanup and no secret disclosure. The focused packed CLI
-checks passed, and its full mirror passed 1091, failed 0, and skipped 28.
+**Last verified**: 2026-08-13 — native stdio passed 1095, failed 0, and skipped 27;
+HTTP environment and request-header modes each passed 1091, failed 0, and skipped
+31 (of 1122 total per surface). The focused packed CLI passed all 123 labeled
+checks, and its full mirror passed 1095, failed 0, and skipped 27 of 1122.
 
 ### How to Run
 
@@ -421,10 +409,10 @@ printf '...get...' | node dist/index.cjs
 ## Individual Tool Test Pattern
 
 ```bash
+META='"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":"test","version":"1.0"}}'
+
 printf '%s\n' \
-  '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}' \
-  '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}' \
-  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"TOOL_NAME\",\"arguments\":ARGS},\"id\":2}" \
+  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"TOOL_NAME\",\"arguments\":ARGS,$META},\"id\":2}" \
   | HULY_TOOL_MODE=native node dist/index.cjs 2>/dev/null | grep '"id":2'
 ```
 

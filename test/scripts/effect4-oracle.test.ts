@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest"
 
 import { canonicalJson } from "../../scripts/effect4-oracle-canonical.js"
 import {
-  assembleEffect4Oracle,
+  captureEffect4Oracle,
   renderEffect4Oracle,
   requireOracleDiscoveries
 } from "../../scripts/effect4-oracle-data.js"
@@ -44,11 +44,8 @@ describe("Effect 4 behavioral oracle", () => {
           }
         },
         stdio: {
+          legacy: expect.arrayContaining([expect.objectContaining({ id: 1 }), expect.objectContaining({ id: 2 })]),
           native: expect.arrayContaining([expect.objectContaining({ id: 2 }), expect.objectContaining({ id: 7 })]),
-          proxy: expect.any(Array)
-        },
-        http: {
-          native: expect.arrayContaining([expect.objectContaining({ id: 1 }), expect.objectContaining({ id: 2 })]),
           proxy: expect.any(Array)
         }
       },
@@ -91,7 +88,9 @@ describe("Effect 4 behavioral oracle", () => {
     expect(JSON.stringify(nativeDiscovery)).toContain('"version":"<package-version>"')
     const resourceList = oracle.bundledProcesses.stdio.native.find((response) => response.id === 7)
     expect(resourceList?.result).toMatchObject({ resources: [] })
-    expect(nativeDiscovery?.result).toMatchObject({ protocolVersion: "2025-06-18" })
+    const legacyInitialize = oracle.bundledProcesses.stdio.legacy.find((response) => response.id === 1)
+    expect(legacyInitialize?.result).toMatchObject({ protocolVersion: "2025-06-18" })
+    expect(JSON.stringify(legacyInitialize)).toContain('"version":"<package-version>"')
     const constraintKeywords = new Set(
       oracle.registry.authoredConstraints.flatMap(({ constraints }) =>
         constraints.map(({ path }) => path.at(-1)).filter((part): part is string => typeof part === "string")
@@ -101,7 +100,7 @@ describe("Effect 4 behavioral oracle", () => {
     expect(constraintKeywords).toContain("anyOf")
     expect(constraintKeywords).toContain("not")
     expect(constraintKeywords).toContain("oneOf")
-  }, 60_000)
+  })
 
   it("sorts object keys while retaining array order and rejects non-JSON values", () => {
     expect(canonicalJson({ z: 1, a: [{ y: true, x: "first" }, "second"] })).toBe(
@@ -133,17 +132,13 @@ describe("Effect 4 behavioral oracle", () => {
     expect(validateCurrentDraft07Corpora()).toEqual({ native: 524, proxy: 6 })
   }, 60_000)
 
-  it("records the complete current oracle from built process and CLI seams", async () => {
-    const captured = Schema.decodeUnknownSync(Schema.fromJsonString(BehavioralOracleSchema))(
-      await fs.readFile(EFFECT4_ORACLE_PATH, "utf8")
-    )
-    const oracle = await assembleEffect4Oracle(captured.bundledProcesses)
+  it("captures the complete current oracle through built process and CLI seams", async () => {
+    const oracle = await captureEffect4Oracle()
     expect(oracle.registry.operationOrder).toHaveLength(522)
     expect(oracle.registry.authoredConstraints).toHaveLength(522)
     expect(oracle.bundledProcesses.stdio.native).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))
     expect(oracle.bundledProcesses.stdio.proxy).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))
-    expect(oracle.bundledProcesses.http.native).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))
-    expect(oracle.bundledProcesses.http.proxy).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))
+    expect(oracle.bundledProcesses.stdio.legacy).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))
     expect(oracle.cli.input.explicitLast.input).toMatchObject({ limit: 3, query: "positional query" })
     expect(oracle.cli.errors.json.decoded.code).toBe("INVALID_INPUT")
     expect(requireOracleDiscoveries(oracle.bundledProcesses)).toMatchObject({ native: { id: 2 }, proxy: { id: 2 } })

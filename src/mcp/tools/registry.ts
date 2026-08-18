@@ -1,4 +1,5 @@
 import { Effect, Exit, Result, Schema } from "effect"
+import type { ToolAnnotations } from "@modelcontextprotocol/server"
 import type { ToolWarning } from "../../domain/schemas/tool-warnings.js"
 import { HulyClient } from "../../huly/client.js"
 import { Diagnostics, makeDiagnosticsScope } from "../../huly/diagnostics.js"
@@ -26,15 +27,6 @@ import {
 export type { OperationFailureDescription, OperationFailureKind, ToolOperationFailure } from "./operation-failure.js"
 export { describeOperationFailure, formatOperationFailure } from "./operation-failure.js"
 export { resolveAnnotations } from "./tool-annotations.js"
-
-/** Huly-owned annotation hints, normalized by each protocol adapter. */
-export interface ToolAnnotations {
-  readonly title?: string
-  readonly readOnlyHint?: boolean
-  readonly destructiveHint?: boolean
-  readonly idempotentHint?: boolean
-  readonly openWorldHint?: boolean
-}
 
 const ToolMetadataText = Schema.Trimmed.pipe(Schema.check(Schema.isNonEmpty()))
 
@@ -315,7 +307,7 @@ const createOperationExecutor =
         : { result: output, warnings, image: presentation.image }
     })
 
-export const operationFailureToMcp = (failure: ToolOperationFailure): McpToolResponse => {
+const operationFailureToMcp = (failure: ToolOperationFailure): McpToolResponse => {
   switch (failure._tag) {
     case "ToolDomainFailure":
       return mapDomainCauseToMcp(failure.cause, failure.warnings)
@@ -331,7 +323,7 @@ export const operationFailureToMcp = (failure: ToolOperationFailure): McpToolRes
   }
 }
 
-export const operationSuccessToMcp = (success: ToolOperationSuccess): McpToolResponse =>
+const operationSuccessToMcp = (success: ToolOperationSuccess): McpToolResponse =>
   success.image === undefined
     ? createSuccessResponse(success.result, success.warnings)
     : createImageSuccessResponse(success.result, success.image, success.warnings)
@@ -345,18 +337,6 @@ const createHandler =
         .pipe(Effect.match({ onFailure: operationFailureToMcp, onSuccess: operationSuccessToMcp }))
     )
   }
-
-/** Executes a registered operation at the Effect MCP boundary. */
-export const executeRegisteredOperation = (
-  operation: RegisteredOperation,
-  args: unknown,
-  hulyClient: HulyClient["Service"],
-  storageClient: HulyStorageClient["Service"],
-  workspaceClient?: WorkspaceClientOperations
-): Effect.Effect<McpToolResponse, never> =>
-  operation
-    .execute(args, hulyClient, storageClient, workspaceClient)
-    .pipe(Effect.match({ onFailure: operationFailureToMcp, onSuccess: operationSuccessToMcp }))
 
 const defineProvidedTool = <const Name extends string, P, Svc, S extends ResultSchema>(
   spec: ToolSpec<Name, S>,

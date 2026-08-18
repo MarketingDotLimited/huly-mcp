@@ -232,11 +232,7 @@ MCP_TRANSPORT=http MCP_HTTP_PORT=8080 MCP_HTTP_HOST=0.0.0.0 npx -y @firfi/huly-m
 
 ### HTTP MCP Protocol Support
 
-Both transports implement MCP `2025-06-18` through Effect AI. Every connection begins with an `initialize` request containing `protocolVersion`, `capabilities`, and `clientInfo`, followed by the `notifications/initialized` notification. `server/discover`, MCP `2026-07-28`, stateless HTTP calls, `Mcp-Method`, `Mcp-Name`, and per-request protocol metadata are not supported.
-
-Stdio keeps the initialized session on one NDJSON stream. HTTP uses one JSON-RPC message per POST with `Content-Type: application/json` and `Accept: application/json, text/event-stream`. The initialize response returns `Mcp-Session-Id` and the negotiated `MCP-Protocol-Version`; subsequent requests must echo both headers. HTTP sessions are process-local and end when the server restarts. Huly credentials are configured separately through env vars or supported `x-huly-*` headers.
-
-This is a breaking direct migration to Effect AI's MCP contract. Clients or scripts that used `server/discover`, sent 2026 request envelopes, or issued stateless HTTP calls must perform the initialize/session exchange before requesting tools or resources. See [ADR-0004](docs/adr/0004-effect-ai-mcp-transport.md) for the decision and accepted wire-level changes.
+Both stdio and HTTP implement the released MCP `2026-07-28` interface and retain SDK-owned compatibility for MCP `2025-06-18` clients. Stdio pins each connection to the protocol era selected by its opening exchange; HTTP serves legacy requests statelessly. Modern HTTP requires one JSON-RPC message per POST, `Accept: application/json, text/event-stream`, `MCP-Protocol-Version: 2026-07-28`, `Mcp-Method`, method-specific `Mcp-Name`, and per-request `_meta.io.modelcontextprotocol/*` client metadata. Huly credentials are configured separately through env vars or supported `x-huly-*` headers.
 
 For hosted or tunneled HTTP deployments, you can require an MCP endpoint bearer token:
 
@@ -311,10 +307,7 @@ The server exposes read-only MCP Resources as JSON context for clients that supp
 | `huly://projects/{project}/issues/{issue}` | `huly-project-issue` | Read full details for a Huly issue by project identifier and issue number, for example huly://projects/HULY/issues/123. | `application/json` |
 <!-- resources:end -->
 
-In process-scoped stdio, `resources/list` returns concrete active project
-resources. HTTP keeps that process-global list empty to avoid exposing one
-request-scoped workspace to another; use `resources/templates/list` and read a
-known project or issue URI with the current request's Huly headers.
+`resources/list` returns concrete active project resources. Issue resources are template-based: use `resources/templates/list` to discover supported issue URI templates, then read a known issue URI.
 
 ## Backlog
 

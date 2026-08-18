@@ -13,16 +13,12 @@ export const runOracleProcess = (
   args: ReadonlyArray<string>,
   env: Readonly<Record<string, string>>,
   stdin = "",
-  timeoutMilliseconds = PROCESS_TIMEOUT_MILLISECONDS,
-  closeStdinAfterStdoutLines?: number
+  timeoutMilliseconds = PROCESS_TIMEOUT_MILLISECONDS
 ): Promise<OracleProcessResult> =>
   new Promise((resolve, reject) => {
     const child = spawn(executable, args, { cwd: process.cwd(), env, stdio: ["pipe", "pipe", "pipe"] })
     const stdout: Array<Buffer> = []
     const stderr: Array<Buffer> = []
-    let stdoutLineBuffer = ""
-    let stdoutResponseLineCount = 0
-    let stdinClosed = false
     let timedOut = false
     let forceKillTimeout: ReturnType<typeof setTimeout> | undefined
     const timeout = setTimeout(() => {
@@ -30,17 +26,7 @@ export const runOracleProcess = (
       child.kill("SIGTERM")
       forceKillTimeout = setTimeout(() => child.kill("SIGKILL"), PROCESS_TERMINATION_GRACE_MILLISECONDS)
     }, timeoutMilliseconds)
-    child.stdout.on("data", (chunk: Buffer) => {
-      stdout.push(chunk)
-      if (closeStdinAfterStdoutLines === undefined || stdinClosed) return
-      stdoutLineBuffer += chunk.toString("utf8")
-      const lines = stdoutLineBuffer.split("\n")
-      stdoutLineBuffer = lines.pop() ?? ""
-      stdoutResponseLineCount += lines.filter((line) => line.includes('"id"')).length
-      if (stdoutResponseLineCount < closeStdinAfterStdoutLines) return
-      stdinClosed = true
-      child.stdin.end()
-    })
+    child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk))
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk))
     child.on("error", (error) => {
       clearTimeout(timeout)
@@ -62,10 +48,5 @@ export const runOracleProcess = (
         })
       )
     })
-    if (closeStdinAfterStdoutLines === undefined) {
-      stdinClosed = true
-      child.stdin.end(stdin)
-    } else {
-      child.stdin.write(stdin)
-    }
+    child.stdin.end(stdin)
   })

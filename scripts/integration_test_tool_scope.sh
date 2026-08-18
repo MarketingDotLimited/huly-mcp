@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Tool-scope integration matrix for initialized stdio MCP sessions.
+# Tool-scope integration matrix for stdio MCP discovery.
 # Usage: set -a && source .env.local && set +a && pnpm integration:tool-scope
 
 if ! command -v jq >/dev/null 2>&1; then
@@ -36,17 +36,16 @@ run_case() {
   client_json="$(json_string "$client_name")"
 
   cat >"$input_file" <<EOF
-{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":$client_json,"version":"1.0"}},"id":1}
-{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}
-{"jsonrpc":"2.0","method":"tools/list","params":{},"id":2}
-{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_huly_context","arguments":{}},"id":3}
-{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_projects","arguments":{}},"id":4}
-{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_teamspaces","arguments":{}},"id":5}
-{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_tools","arguments":{"query":"list projects"}},"id":6}
-{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_tool_schema","arguments":{"toolName":"list_projects"}},"id":7}
-{"jsonrpc":"2.0","method":"tools/call","params":{"name":"invoke_tool","arguments":{"toolName":"list_projects","arguments":{}}},"id":8}
-{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_tool_schema","arguments":{"toolName":"list_teamspaces"}},"id":9}
-{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_tools","arguments":{"query":"teamspaces"}},"id":10}
+{"jsonrpc":"2.0","method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":$client_json,"version":"1.0"}}},"id":1}
+{"jsonrpc":"2.0","method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":$client_json,"version":"1.0"}}},"id":2}
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_huly_context","arguments":{},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":$client_json,"version":"1.0"}}},"id":3}
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_projects","arguments":{},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":$client_json,"version":"1.0"}}},"id":4}
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_teamspaces","arguments":{},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":$client_json,"version":"1.0"}}},"id":5}
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_tools","arguments":{"query":"list projects"},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":$client_json,"version":"1.0"}}},"id":6}
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_tool_schema","arguments":{"toolName":"list_projects"},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":$client_json,"version":"1.0"}}},"id":7}
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"invoke_tool","arguments":{"toolName":"list_projects","arguments":{}},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":$client_json,"version":"1.0"}}},"id":8}
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_tool_schema","arguments":{"toolName":"list_teamspaces"},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":$client_json,"version":"1.0"}}},"id":9}
+{"jsonrpc":"2.0","method":"tools/call","params":{"name":"search_tools","arguments":{"query":"teamspaces"},"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{},"io.modelcontextprotocol/clientInfo":{"name":$client_json,"version":"1.0"}}},"id":10}
 EOF
 
   (

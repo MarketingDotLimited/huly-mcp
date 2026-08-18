@@ -1,3 +1,4 @@
+import type { ToolAnnotations } from "@modelcontextprotocol/server"
 import { Result, Schema } from "effect"
 
 import { Count } from "../domain/schemas/index.js"
@@ -28,7 +29,6 @@ import {
   createToolDefinition,
   makeToolCategory,
   ToolCategory,
-  type ToolAnnotations,
   type ToolDefinition,
   ToolDescription,
   ToolName

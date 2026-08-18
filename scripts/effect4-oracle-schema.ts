@@ -18,7 +18,7 @@ export const OracleProcessResultSchema = Schema.Struct({
 export type OracleProcessResult = Schema.Schema.Type<typeof OracleProcessResultSchema>
 
 export const OracleMethodSchema = Schema.Literals([
-  "initialize",
+  "server/discover",
   "tools/list",
   "resources/list",
   "resources/templates/list",
@@ -27,10 +27,9 @@ export const OracleMethodSchema = Schema.Literals([
 export type OracleMethod = Schema.Schema.Type<typeof OracleMethodSchema>
 
 export const OracleJsonRpcResponseSchema = Schema.Struct({
-  error: Schema.optionalKey(JsonValueSchema),
   id: Schema.Union([Schema.String, Schema.Number]),
   jsonrpc: Schema.Literal("2.0"),
-  result: Schema.optionalKey(JsonValueSchema)
+  result: JsonValueSchema
 })
 export type OracleJsonRpcResponse = Schema.Schema.Type<typeof OracleJsonRpcResponseSchema>
 
@@ -51,15 +50,14 @@ const CliProcessFixturesSchema = Schema.Struct({
   jsonErrorAfterDeepCommand: OracleProcessResultSchema,
   jsonErrorBeforeDeepCommand: OracleProcessResultSchema
 })
-const McpProcessFixturesSchema = Schema.Struct({
-  native: Schema.Array(OracleJsonRpcResponseSchema),
-  proxy: Schema.Array(OracleJsonRpcResponseSchema)
-})
 export const BundledProcessesSchema = Schema.Struct({
   artifacts: Schema.Struct({ cli: ArtifactVersionCheckSchema, mcp: ArtifactVersionCheckSchema }),
   cli: CliProcessFixturesSchema,
-  http: McpProcessFixturesSchema,
-  stdio: McpProcessFixturesSchema
+  stdio: Schema.Struct({
+    legacy: Schema.Array(OracleJsonRpcResponseSchema),
+    native: Schema.Array(OracleJsonRpcResponseSchema),
+    proxy: Schema.Array(OracleJsonRpcResponseSchema)
+  })
 })
 export type BundledProcesses = Schema.Schema.Type<typeof BundledProcessesSchema>
 

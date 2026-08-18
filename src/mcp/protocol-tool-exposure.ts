@@ -1,3 +1,4 @@
+import type { JSONValue, ListToolsResult } from "@modelcontextprotocol/server"
 import { Schema } from "effect"
 import type { ToolExposureContext } from "./huly-context-tool.js"
 import { toClientCompatibleInputSchema } from "./input-schema-compat.js"
@@ -11,7 +12,7 @@ import {
 } from "./tool-mode.js"
 import type { ToolRegistry } from "./tools/index.js"
 import { resolveAnnotations } from "./tools/index.js"
-import type { RegisteredTool, ToolAnnotations } from "./tools/registry.js"
+import type { RegisteredTool } from "./tools/registry.js"
 
 export interface ProtocolToolRegistries {
   readonly fullRegistry: ToolRegistry
@@ -39,22 +40,8 @@ interface ProtocolObjectSchemaSource {
   readonly [key: string]: unknown
 }
 
-export interface ProtocolObjectSchema {
-  readonly type: "object"
-  readonly properties?: Record<string, JsonValue>
-  readonly required?: ReadonlyArray<string>
-  readonly [key: string]: JsonValue | undefined
-}
-
-export interface ListedTool {
-  readonly name: string
-  readonly description: string
-  readonly inputSchema: ProtocolObjectSchema
-  readonly outputSchema?: ProtocolObjectSchema
-  readonly annotations?: ToolAnnotations
-}
-
-type JsonValue = null | boolean | number | string | ReadonlyArray<JsonValue> | { readonly [key: string]: JsonValue }
+type ProtocolObjectSchema = ListToolsResult["tools"][number]["inputSchema"]
+type ListedTool = ListToolsResult["tools"][number]
 
 interface ListedToolSource {
   readonly name: string
@@ -73,7 +60,7 @@ const emptyToolRegistry: ToolRegistry = {
   handleToolCall: async () => null
 }
 
-const isJsonValue = (value: unknown): value is JsonValue => {
+const isJsonValue = (value: unknown): value is JSONValue => {
   if (value === null || typeof value === "string" || typeof value === "boolean") return true
   if (typeof value === "number") return Number.isFinite(value)
   if (Array.isArray(value)) return value.every(isJsonValue)
@@ -89,10 +76,10 @@ const isProtocolObjectSchema = (value: unknown): value is ProtocolObjectSchema =
   "type" in value &&
   value.type === "object"
 
-const protocolProperties = (properties: Record<string, unknown> | undefined): Record<string, JsonValue> | undefined => {
+const protocolProperties = (properties: Record<string, unknown> | undefined): Record<string, JSONValue> | undefined => {
   if (properties === undefined) return undefined
   return Object.fromEntries(
-    Object.entries(properties).map(([name, value]): [string, JsonValue] => {
+    Object.entries(properties).map(([name, value]): [string, JSONValue] => {
       if (
         typeof value !== "boolean" &&
         !(isJsonValue(value) && typeof value === "object" && value !== null && !Array.isArray(value))
