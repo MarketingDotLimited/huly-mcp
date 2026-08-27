@@ -39,7 +39,7 @@ import {
 } from "../../domain/schemas/inventory-media.js"
 import { parseDeleteInventoryProductParams } from "../../domain/schemas/inventory.js"
 import { HulyClient, type HulyClientOperations } from "../client.js"
-import { HulyConnectionError, InventoryMutationUnsupportedError, InventoryNotEmptyError } from "../errors.js"
+import { HulyDataInvalidError, InventoryMutationUnsupportedError, InventoryNotEmptyError } from "../errors.js"
 import { activity, attachment, chunter, inventory } from "../huly-plugins.js"
 import { HulyStorageClient, type HulyStorageOperations } from "../storage.js"
 import {
@@ -723,8 +723,7 @@ describe("inventory product media operations", () => {
 
       const error = yield* Effect.flip(listInventoryProductComments(params).pipe(Effect.provide(makeLayer(state))))
 
-      expect(error).toBeInstanceOf(HulyConnectionError)
-      expect(error.message).toContain("Inventory product comments response failed schema validation")
+      expect(error).toBeInstanceOf(HulyDataInvalidError)
     })
   )
 

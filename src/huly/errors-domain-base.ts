@@ -3,6 +3,7 @@ import { Schema } from "effect"
 import {
   HulyAuthError,
   HulyConnectionError,
+  HulyDataInvalidError,
   HulyError,
   HulyModelMetadataError,
   HulyUnavailableError,
@@ -13,6 +14,7 @@ export const HulyDomainBaseError = Schema.Union([
   HulyError,
   NoUpdateFieldsError,
   HulyConnectionError,
+  HulyDataInvalidError,
   HulyUnavailableError,
   HulyAuthError,
   HulyModelMetadataError

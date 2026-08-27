@@ -41,7 +41,7 @@ import { isSingle } from "../../utils/assertions.js"
 import { normalizeForComparison } from "../../utils/normalize.js"
 import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
 import type { Diagnostics } from "../diagnostics.js"
-import { HulyConnectionError, HulyError } from "../errors.js"
+import { HulyDataInvalidError, HulyError } from "../errors.js"
 import { core, task, tracker } from "../huly-plugins.js"
 import { listTotal } from "./counts.js"
 import {
@@ -55,7 +55,7 @@ import {
 import { hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
-type TaskManagementError = HulyClientError | HulyConnectionError | HulyError
+type TaskManagementError = HulyClientError | HulyDataInvalidError | HulyError
 
 const STATUS_CATEGORY_BY_SDK_KEY = {
   UnStarted: { value: "UnStarted", ref: StatusCategoryBySdkKey.UnStarted, name: "UnStarted" },
@@ -103,15 +103,11 @@ const encodeOrConnectionError = <S extends Schema.Constraint>(
   schema: S,
   value: S["Type"],
   operation: string
-): Effect.Effect<S["Type"], HulyConnectionError, S["EncodingServices"]> =>
+): Effect.Effect<S["Type"], HulyDataInvalidError, S["EncodingServices"]> =>
   Schema.encodeEffect(schema)(value).pipe(
     Effect.as(value),
     Effect.mapError(
-      (parseError) =>
-        new HulyConnectionError({
-          message: `${operation} response failed schema validation: ${parseError.message}`,
-          cause: parseError
-        })
+      (parseError) => new HulyDataInvalidError({ operation, entity: "task-management response", cause: parseError })
     )
   )
 
@@ -167,12 +163,13 @@ const getTaskTypesByProjectType = (
     .findAll<TaskType>(task.class.TaskType, hulyQuery<TaskType>({ parent: projectTypeId }))
     .pipe(Effect.map((result) => [...result]))
 
-const parseRecoveredStatusMetadata = (status: unknown): Effect.Effect<StatusMetadata, HulyConnectionError> =>
+const parseRecoveredStatusMetadata = (status: unknown): Effect.Effect<StatusMetadata, HulyDataInvalidError> =>
   Schema.decodeUnknownEffect(StatusMetadataSchema)(status).pipe(
     Effect.mapError(
       (parseError) =>
-        new HulyConnectionError({
-          message: `Recovered workflow status metadata failed schema validation: ${parseError.message}`,
+        new HulyDataInvalidError({
+          operation: "recoverWorkflowStatusMetadata",
+          entity: "workflow status metadata",
           cause: parseError
         })
     )
@@ -181,7 +178,7 @@ const parseRecoveredStatusMetadata = (status: unknown): Effect.Effect<StatusMeta
 const getRecoverableStatusesByName = (
   client: HulyClientOperations,
   name: string
-): Effect.Effect<ReadonlyArray<StatusMetadata>, HulyConnectionError> =>
+): Effect.Effect<ReadonlyArray<StatusMetadata>, HulyDataInvalidError> =>
   Effect.gen(function* () {
     const rows = yield* client
       .findAll<Status>(core.class.Status, hulyQuery<Status>({ ofAttribute: tracker.attribute.IssueStatus }))

@@ -19,7 +19,7 @@ import {
   type Count as CountType
 } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
-import { HulyConnectionError } from "../errors.js"
+import { HulyDataInvalidError } from "../errors.js"
 import { chunter } from "../huly-plugins.js"
 import { markdownToMarkupString, optionalMarkupToMarkdown } from "./markup.js"
 import { clampLimit, findResultTotal, hulyQuery } from "./query-helpers.js"
@@ -48,27 +48,16 @@ const attachedToClassQuery = (
   return classes.length === 1 ? target.attachedToClass : { $in: [...classes] }
 }
 
-const toComment = (client: HulyClient["Service"], message: ChatMessage) => ({
-  id: message._id,
-  body: optionalMarkupToMarkdown(message.message, client.markupUrlConfig, ""),
-  authorId: message.modifiedBy,
-  createdOn: message.createdOn,
-  modifiedOn: message.modifiedOn,
-  editedOn: message.editedOn
-})
 const parseComments = Schema.decodeUnknownEffect(Schema.Array(CommentSchema))
 
 const decodeComments = (
   context: string,
-  comments: ReadonlyArray<ReturnType<typeof toComment>>
-): Effect.Effect<ReadonlyArray<Comment>, HulyConnectionError> =>
+  comments: ReadonlyArray<unknown>
+): Effect.Effect<ReadonlyArray<Comment>, HulyDataInvalidError> =>
   parseComments(comments).pipe(
     Effect.mapError(
       (parseError) =>
-        new HulyConnectionError({
-          message: `${context} comments response failed schema validation: ${parseError.message}`,
-          cause: parseError
-        })
+        new HulyDataInvalidError({ operation: `list${context}Comments`, entity: "comment", cause: parseError })
     )
   )
 
@@ -76,7 +65,7 @@ export const listAttachedCommentsPage = (
   target: AttachedCommentTarget,
   limit?: number,
   context = "Attached"
-): Effect.Effect<AttachedCommentsPage, HulyClientError | HulyConnectionError> =>
+): Effect.Effect<AttachedCommentsPage, HulyClientError | HulyDataInvalidError> =>
   Effect.gen(function* () {
     const messages = yield* target.client.findAll<ChatMessage>(
       chunter.class.ChatMessage,
@@ -88,10 +77,22 @@ export const listAttachedCommentsPage = (
       }),
       { limit: clampLimit(limit), sort: { createdOn: SortingOrder.Ascending }, total: true }
     )
-    const comments = yield* decodeComments(
-      context,
-      messages.map((message) => toComment(target.client, message))
+    const projected = yield* Effect.forEach(messages, (message) =>
+      optionalMarkupToMarkdown(message.message, target.client.markupUrlConfig, "", {
+        operation: `list${context}Comments`,
+        entity: "comment body"
+      }).pipe(
+        Effect.map((body) => ({
+          id: message._id,
+          body,
+          authorId: message.modifiedBy,
+          createdOn: message.createdOn,
+          modifiedOn: message.modifiedOn,
+          editedOn: message.editedOn
+        }))
+      )
     )
+    const comments = yield* decodeComments(context, projected)
     return { comments: [...comments], total: Count.make(findResultTotal(messages)) }
   })
 

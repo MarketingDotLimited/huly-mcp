@@ -9,7 +9,7 @@ import {
   type ProjectIdentifier
 } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
-import { HulyConnectionError, MilestoneIdentifierAmbiguousError, MilestoneNotFoundError } from "../errors.js"
+import { HulyDataInvalidError, MilestoneIdentifierAmbiguousError, MilestoneNotFoundError } from "../errors.js"
 import { tracker } from "../huly-plugins.js"
 import { hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
@@ -31,14 +31,11 @@ const findMilestoneById = (
     hulyQuery<HulyMilestone>({ space: project._id, _id: toRef<HulyMilestone>(identifier) })
   )
 
-const parseMilestoneRef = (milestone: HulyMilestone): Effect.Effect<IssueMilestoneRef, HulyConnectionError> =>
+const parseMilestoneRef = (milestone: HulyMilestone): Effect.Effect<IssueMilestoneRef, HulyDataInvalidError> =>
   parseIssueMilestoneRef({ id: milestone._id, label: milestone.label }).pipe(
     Effect.mapError(
       (cause) =>
-        new HulyConnectionError({
-          message: "Huly returned malformed milestone metadata while resolving an issue filter.",
-          cause
-        })
+        new HulyDataInvalidError({ operation: "resolveIssueFilterMilestone", entity: "milestone metadata", cause })
     )
   )
 
@@ -49,7 +46,7 @@ export const resolveIssueFilterMilestone = (
   projectIdentifier: ProjectIdentifier
 ): Effect.Effect<
   HulyMilestone,
-  HulyClientError | HulyConnectionError | MilestoneIdentifierAmbiguousError | MilestoneNotFoundError
+  HulyClientError | HulyDataInvalidError | MilestoneIdentifierAmbiguousError | MilestoneNotFoundError
 > =>
   Effect.gen(function* () {
     const idMatch = yield* findMilestoneById(client, project, identifier)

@@ -708,7 +708,7 @@ describe("process operations branch coverage", () => {
         listProcesses({}).pipe(Effect.provide(createLayer({ processes: [makeProcess({ name: "" })] })))
       )
       expect(result._tag).toBe("Failure")
-      if (result._tag === "Failure") expect(result.failure._tag).toBe("HulyConnectionError")
+      if (result._tag === "Failure") expect(result.failure._tag).toBe("HulyDataInvalidError")
     })
   )
 

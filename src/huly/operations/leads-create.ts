@@ -44,7 +44,7 @@ import { HulyClient, type HulyClientError } from "../client.js"
 import type { Diagnostics } from "../diagnostics.js"
 import {
   FunnelNotFoundError,
-  HulyConnectionError,
+  HulyDataInvalidError,
   HulyError,
   type OrganizationIdentifierAmbiguousError,
   type OrganizationNotFoundError,
@@ -250,18 +250,22 @@ const resolveWorkflow = (
   client: HulyClient["Service"],
   funnel: HulyFunnel,
   params: CreateLeadParams
-): Effect.Effect<LeadWorkflow, HulyClientError | HulyConnectionError | HulyError, Diagnostics> =>
+): Effect.Effect<LeadWorkflow, HulyClientError | HulyDataInvalidError | HulyError, Diagnostics> =>
   Effect.gen(function* () {
     if (funnel.type === undefined) {
-      return yield* new HulyConnectionError({ message: `Funnel '${funnel._id}' is missing its ProjectType reference` })
+      return yield* new HulyDataInvalidError({
+        operation: "createLead",
+        entity: `funnel '${funnel._id}' ProjectType reference`
+      })
     }
     const projectType = yield* client.findOne<ProjectType>(
       task.class.ProjectType,
       hulyQuery<ProjectType>({ _id: funnel.type })
     )
     if (projectType === undefined) {
-      return yield* new HulyConnectionError({
-        message: `Funnel '${funnel._id}' references missing ProjectType '${funnel.type}'`
+      return yield* new HulyDataInvalidError({
+        operation: "createLead",
+        entity: `funnel '${funnel._id}' missing ProjectType '${funnel.type}'`
       })
     }
     const taskTypes = yield* client.findAll<TaskType>(
@@ -316,14 +320,14 @@ const applyCustomerMixin = (
 
 const resolveLeadSequence = (
   client: HulyClient["Service"]
-): Effect.Effect<Sequence, HulyClientError | HulyConnectionError> =>
+): Effect.Effect<Sequence, HulyClientError | HulyDataInvalidError> =>
   Effect.gen(function* () {
     const sequence = yield* client.findOne<Sequence>(
       core.class.Sequence,
       hulyQuery<Sequence>({ attachedTo: leadClassIds.class.Lead })
     )
     if (sequence === undefined) {
-      return yield* new HulyConnectionError({ message: "Huly Lead sequence is missing" })
+      return yield* new HulyDataInvalidError({ operation: "createLead", entity: "Lead sequence" })
     }
     return sequence
   })
@@ -331,7 +335,7 @@ const resolveLeadSequence = (
 const incrementLeadSequence = (
   client: HulyClient["Service"],
   sequence: Sequence
-): Effect.Effect<LeadSequenceNumber, HulyClientError | HulyConnectionError> =>
+): Effect.Effect<LeadSequenceNumber, HulyClientError | HulyDataInvalidError> =>
   Effect.gen(function* () {
     const update: DocumentUpdate<Sequence> = { $inc: { sequence: 1 } }
     const result = yield* client.updateDoc(core.class.Sequence, sequence.space, sequence._id, update, true)
@@ -339,7 +343,7 @@ const incrementLeadSequence = (
       Effect.map((decoded) => decoded.object.sequence),
       Effect.mapError(
         (cause) =>
-          new HulyConnectionError({ message: "Huly Lead sequence increment did not return a positive integer", cause })
+          new HulyDataInvalidError({ operation: "createLead", entity: "Lead sequence increment result", cause })
       )
     )
   })
@@ -353,7 +357,7 @@ const markupRefAsBlobRef = (value: MarkupRef): MarkupBlobRef => {
 type CreateLeadError =
   | HulyClientError
   | FunnelNotFoundError
-  | HulyConnectionError
+  | HulyDataInvalidError
   | HulyError
   | OrganizationIdentifierAmbiguousError
   | OrganizationNotFoundError

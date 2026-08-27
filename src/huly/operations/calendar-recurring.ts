@@ -28,7 +28,7 @@ import { CalendarEventTitle, DEFAULT_EVENT_ALL_DAY } from "../../domain/schemas/
 import { Email, EventId, PersonId, Timestamp, TimeZoneId } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type { CalendarNotAccessibleError, PersonIdentifierAmbiguousError, PersonNotFoundError } from "../errors.js"
-import { HulyConnectionError, RecurringEventNotFoundError } from "../errors.js"
+import { HulyDataInvalidError, RecurringEventNotFoundError } from "../errors.js"
 import { calendar, core } from "../huly-plugins.js"
 import {
   buildParticipants,
@@ -43,7 +43,7 @@ import { hulyNonEmptyTextOrFallback } from "./non-empty-text.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
-type ListRecurringEventsError = HulyClientError | HulyConnectionError
+type ListRecurringEventsError = HulyClientError | HulyDataInvalidError
 type CreateRecurringEventError =
   | HulyClientError
   | CalendarNotAccessibleError
@@ -64,14 +64,11 @@ const recurringEventTitle = (title: string): CalendarEventTitle =>
 const eventInstanceTitle = (title: string): CalendarEventTitle =>
   hulyNonEmptyTextOrFallback(CalendarEventTitle, title, UNTITLED_EVENT_INSTANCE)
 
-const hulyRuleToRule = (rule: HulyRecurringRule): Effect.Effect<RecurringRule, HulyConnectionError> =>
+const hulyRuleToRule = (rule: HulyRecurringRule): Effect.Effect<RecurringRule, HulyDataInvalidError> =>
   Schema.decodeUnknownEffect(RecurringRuleSchema)(rule).pipe(
     Effect.mapError(
       (parseError) =>
-        new HulyConnectionError({
-          message: `Recurring event rule failed schema validation: ${parseError.message}`,
-          cause: parseError
-        })
+        new HulyDataInvalidError({ operation: "readRecurringEvent", entity: "recurring event rule", cause: parseError })
     )
   )
 

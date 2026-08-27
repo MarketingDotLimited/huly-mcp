@@ -13,7 +13,7 @@ import { TodoTitle, type TodoVisibility } from "../../domain/schemas/planner.js"
 import { CalendarId, EventId, PersonId, Timestamp, type TodoId, WorkSlotId } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import {
-  HulyConnectionError,
+  HulyDataInvalidError,
   PlannerSchedulingPrerequisiteError,
   type PlannerSchedulingPrerequisiteError as PlannerSchedulingPrerequisiteFailure
 } from "../errors.js"
@@ -70,7 +70,7 @@ interface WorkSlotCreationResult {
   readonly slotId: WorkSlotId
 }
 
-type PlannerWorkSlotError = HulyClientError | PlannerSchedulingPrerequisiteFailure
+type PlannerWorkSlotError = HulyClientError | HulyDataInvalidError | PlannerSchedulingPrerequisiteFailure
 
 const missingPrerequisite = (
   prerequisite: PlannerSchedulingPrerequisiteFailure["prerequisite"]
@@ -137,14 +137,11 @@ const resolvePlannerSchedulingContext = Effect.fn("PlannerScheduling.resolveCont
 const plannerVisibility = (visibility: TodoVisibility): HulyVisibility =>
   visibility === "public" ? "public" : "freeBusy"
 
-const parseWorkSlotData = (value: unknown): Effect.Effect<PlannerWorkSlotData, HulyConnectionError> =>
+const parseWorkSlotData = (value: unknown): Effect.Effect<PlannerWorkSlotData, HulyDataInvalidError> =>
   Schema.decodeUnknownEffect(PlannerWorkSlotDataSchema)(value).pipe(
     Effect.mapError(
       (parseError) =>
-        new HulyConnectionError({
-          message: `Planner work slot payload failed schema validation: ${parseError.message}`,
-          cause: parseError
-        })
+        new HulyDataInvalidError({ operation: "readPlannerWorkSlot", entity: "planner work slot", cause: parseError })
     )
   )
 

@@ -29,11 +29,55 @@ const markupWithInlineComment = JSON.stringify({
     }
   ]
 })
+const readContext = { operation: "testMarkup", entity: "test markup" }
 
 describe("markupToMarkdownString", () => {
+  it.effect("reads MarkupContent payloads in markup, html, and markdown formats", () =>
+    Effect.gen(function* () {
+      const serialized = JSON.stringify({
+        type: MarkupNodeType.doc,
+        content: [{ type: MarkupNodeType.paragraph, content: [{ type: MarkupNodeType.text, text: "stored markup" }] }]
+      })
+
+      expect(
+        (yield* markupToMarkdownString(
+          { content: serialized, kind: "markup" },
+          testMarkupUrlConfig,
+          readContext
+        )).trim()
+      ).toBe("stored markup")
+      expect(
+        (yield* markupToMarkdownString(
+          { content: "<p>stored html</p>", kind: "html" },
+          testMarkupUrlConfig,
+          readContext
+        )).trim()
+      ).toBe("stored html")
+      expect(
+        yield* markupToMarkdownString(
+          { content: "# Stored markdown", kind: "markdown" },
+          testMarkupUrlConfig,
+          readContext
+        )
+      ).toBe("# Stored markdown")
+    })
+  )
+
+  it.effect("rejects malformed rich-text payloads as invalid Huly data", () =>
+    Effect.gen(function* () {
+      const error = yield* Effect.flip(
+        markupToMarkdownString({ content: "text", kind: "unsupported" }, testMarkupUrlConfig, readContext)
+      )
+
+      expect(error._tag).toBe("HulyDataInvalidError")
+      expect(error.operation).toBe("testMarkup")
+      expect(error.entity).toBe("test markup")
+    })
+  )
+
   it.effect("serializes text with inline-comment marks without exposing thread metadata", () =>
-    Effect.sync(function () {
-      const markdown = markupToMarkdownString(markupWithInlineComment, testMarkupUrlConfig)
+    Effect.gen(function* () {
+      const markdown = yield* markupToMarkdownString(markupWithInlineComment, testMarkupUrlConfig, readContext)
 
       expect(markdown.trim()).toBe("highlighted text")
       expect(markdown).not.toContain(INLINE_COMMENT_MARK_TYPE)
@@ -42,7 +86,7 @@ describe("markupToMarkdownString", () => {
   )
 
   it.effect("serializes existing Huly reference nodes as browse links", () =>
-    Effect.sync(function () {
+    Effect.gen(function* () {
       const referenceMarkup = JSON.stringify({
         type: MarkupNodeType.doc,
         content: [
@@ -60,7 +104,7 @@ describe("markupToMarkdownString", () => {
         ]
       })
 
-      const markdown = markupToMarkdownString(referenceMarkup, testMarkupUrlConfig)
+      const markdown = yield* markupToMarkdownString(referenceMarkup, testMarkupUrlConfig, readContext)
 
       expect(markdown).toContain("[Test Document](")
       expect(markdown).toContain("_class=document%3Aclass%3ADocument")
@@ -285,22 +329,22 @@ describe("markdownToMarkupString", () => {
 
 describe("optionalMarkupToMarkdown", () => {
   it.effect("returns the fallback when markup is null", () =>
-    Effect.sync(function () {
+    Effect.gen(function* () {
       // A `fallback` of undefined is coerced to "" by the default parameter.
-      expect(optionalMarkupToMarkdown(null, testMarkupUrlConfig)).toBe("")
-      expect(optionalMarkupToMarkdown(null, testMarkupUrlConfig, undefined)).toBe("")
+      expect(yield* optionalMarkupToMarkdown(null, testMarkupUrlConfig, undefined, readContext)).toBe("")
     })
   )
 
   it.effect("returns the fallback when markup is undefined", () =>
-    Effect.sync(function () {
-      expect(optionalMarkupToMarkdown(undefined, testMarkupUrlConfig, "none")).toBe("none")
+    Effect.gen(function* () {
+      expect(yield* optionalMarkupToMarkdown(undefined, testMarkupUrlConfig, "none", readContext)).toBe("none")
     })
   )
 
   it.effect("serializes the markup when present", () =>
-    Effect.sync(function () {
-      expect(optionalMarkupToMarkdown(markupWithInlineComment, testMarkupUrlConfig).trim()).toBe("highlighted text")
+    Effect.gen(function* () {
+      const markdown = yield* optionalMarkupToMarkdown(markupWithInlineComment, testMarkupUrlConfig, "", readContext)
+      expect(markdown.trim()).toBe("highlighted text")
     })
   )
 })

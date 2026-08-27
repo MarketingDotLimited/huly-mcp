@@ -58,7 +58,7 @@ import type {
   PersonNotAnEmployeeError,
   PersonNotFoundError
 } from "../errors.js"
-import { HulyConnectionError, ScheduleNotFoundError } from "../errors.js"
+import { HulyDataInvalidError, ScheduleNotFoundError } from "../errors.js"
 import { calendar, love } from "../huly-plugins.js"
 import { buildParticipants, resolveCalendarRef } from "./calendar-shared.js"
 import { hulyNonEmptyTextOrFallback } from "./non-empty-text.js"
@@ -69,10 +69,11 @@ import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
 type ListSchedulesError =
   | HulyClientError
+  | HulyDataInvalidError
   | PersonIdentifierAmbiguousError
   | PersonNotFoundError
   | PersonNotAnEmployeeError
-type GetScheduleError = HulyClientError | ScheduleNotFoundError
+type GetScheduleError = HulyClientError | HulyDataInvalidError | ScheduleNotFoundError
 type CreateScheduleError =
   | HulyClientError
   | CalendarNotAccessibleError
@@ -81,6 +82,7 @@ type CreateScheduleError =
   | PersonNotAnEmployeeError
 type UpdateScheduleError =
   | HulyClientError
+  | HulyDataInvalidError
   | CalendarNotAccessibleError
   | NoUpdateFieldsError
   | ScheduleNotFoundError
@@ -136,8 +138,9 @@ const parseHulyScheduleAvailability = (availability: unknown) =>
     Effect.map(hulyAvailabilityToSchedule),
     Effect.mapError(
       (parseError) =>
-        new HulyConnectionError({
-          message: `Calendar schedule availability failed schema validation: ${parseError.message}`,
+        new HulyDataInvalidError({
+          operation: "readCalendarSchedule",
+          entity: "calendar schedule availability",
           cause: parseError
         })
     )
@@ -201,7 +204,7 @@ const scheduleDetails = (
   schedule: HulySchedule,
   owner: Participant,
   rooms: ReadonlyMap<string, RoomReference>
-): Effect.Effect<ScheduleDetails, HulyClientError> =>
+): Effect.Effect<ScheduleDetails, HulyClientError | HulyDataInvalidError> =>
   Effect.map(parseHulyScheduleAvailability(schedule.availability), (availability) => ({
     ...summarizeSchedule(schedule, owner, rooms),
     description: optionalDescription(schedule.description),

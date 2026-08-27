@@ -39,6 +39,18 @@ export class HulyConnectionError extends Schema.TaggedError<HulyConnectionError>
   cause: Schema.optional(Schema.Defect())
 }) {}
 
+/** Huly returned persisted or runtime data that does not satisfy its expected boundary contract. */
+export class HulyDataInvalidError extends Schema.TaggedError<HulyDataInvalidError>()("HulyDataInvalidError", {
+  operation: Schema.String,
+  entity: Schema.String,
+  cause: Schema.optional(Schema.Defect())
+}) {
+  override get message(): string {
+    const details = this.cause instanceof Error ? ` Details: ${this.cause.message}` : ""
+    return `${this.operation} received invalid ${this.entity} data from Huly. Repair the affected stored data or update the integration that wrote it before retrying.${details}`
+  }
+}
+
 /** A sanitized connection failure that permits safe, actionable MCP guidance. */
 export class HulyUnavailableError extends Schema.TaggedError<HulyUnavailableError>()("HulyUnavailableError", {
   endpointOrigin: HulyEndpointOriginSchema,

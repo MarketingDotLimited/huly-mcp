@@ -31,7 +31,7 @@ import { ProjectIdentifier, StatusName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type { Diagnostics } from "../diagnostics.js"
 import type { NoUpdateFieldsError, ProjectNotFoundError } from "../errors.js"
-import { HulyConnectionError } from "../errors.js"
+import { HulyDataInvalidError } from "../errors.js"
 import { tracker } from "../huly-plugins.js"
 import { listTotal } from "./counts.js"
 import { findProject, findProjectWithStatuses } from "./issues-shared.js"
@@ -39,8 +39,8 @@ import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
-type ListProjectsError = HulyClientError | HulyConnectionError
-type GetProjectError = ProjectNotFoundError | HulyClientError | HulyConnectionError
+type ListProjectsError = HulyClientError | HulyDataInvalidError
+type GetProjectError = ProjectNotFoundError | HulyClientError | HulyDataInvalidError
 type CreateProjectError = HulyClientError
 type UpdateProjectError = ProjectNotFoundError | NoUpdateFieldsError | HulyClientError
 type DeleteProjectError = ProjectNotFoundError | HulyClientError
@@ -75,11 +75,7 @@ export const listProjects = (
       }))
     ).pipe(
       Effect.mapError(
-        (parseError) =>
-          new HulyConnectionError({
-            message: `listProjects response failed schema validation: ${parseError.message}`,
-            cause: parseError
-          })
+        (parseError) => new HulyDataInvalidError({ operation: "listProjects", entity: "project", cause: parseError })
       )
     )
 
@@ -103,16 +99,12 @@ export const getProject = (
       statuses: statuses.map((s) => s.name)
     }).pipe(
       Effect.mapError(
-        (parseError) =>
-          new HulyConnectionError({
-            message: `getProject response failed schema validation: ${parseError.message}`,
-            cause: parseError
-          })
+        (parseError) => new HulyDataInvalidError({ operation: "getProject", entity: "project", cause: parseError })
       )
     )
   })
 
-type ListStatusesError = ProjectNotFoundError | HulyClientError | HulyConnectionError
+type ListStatusesError = ProjectNotFoundError | HulyClientError | HulyDataInvalidError
 
 export const listStatuses = (
   params: ListStatusesParams

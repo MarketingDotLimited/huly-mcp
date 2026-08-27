@@ -28,7 +28,7 @@ import { CommentId, Count } from "../../domain/schemas/shared.js"
 import { HulyClient } from "../client.js"
 import { drive, type DriveSpace, type File } from "../drive-sdk.js"
 import { DriveFileCommentNotFoundError } from "../errors-drive.js"
-import { HulyConnectionError } from "../errors.js"
+import { HulyDataInvalidError } from "../errors.js"
 import { activity, chunter } from "../huly-plugins.js"
 import type { HulyStorageClient } from "../storage.js"
 import { toActivityMessages } from "./activity-shared.js"
@@ -89,24 +89,13 @@ const findDriveFileComment = (
     return comment
   })
 
-const toComment = (client: HulyClient["Service"], message: ChatMessage) => ({
-  id: message._id,
-  body: optionalMarkupToMarkdown(message.message, client.markupUrlConfig, ""),
-  authorId: message.modifiedBy,
-  createdOn: message.createdOn,
-  modifiedOn: message.modifiedOn,
-  editedOn: message.editedOn
-})
 const parseComments = Schema.decodeUnknownEffect(Schema.Array(CommentSchema))
 
-const decodeComments = (comments: ReadonlyArray<ReturnType<typeof toComment>>) =>
+const decodeComments = (comments: ReadonlyArray<unknown>) =>
   parseComments(comments).pipe(
     Effect.mapError(
       (parseError) =>
-        new HulyConnectionError({
-          message: `Drive file comments response failed schema validation: ${parseError.message}`,
-          cause: parseError
-        })
+        new HulyDataInvalidError({ operation: "listDriveFileComments", entity: "comment", cause: parseError })
     )
   )
 
@@ -123,7 +112,22 @@ export const listDriveFileComments = (
       }),
       { limit: clampLimit(params.limit), sort: { createdOn: SortingOrder.Ascending } }
     )
-    const comments = yield* decodeComments(messages.map((message) => toComment(target.client, message)))
+    const projected = yield* Effect.forEach(messages, (message) =>
+      optionalMarkupToMarkdown(message.message, target.client.markupUrlConfig, "", {
+        operation: "listDriveFileComments",
+        entity: "comment body"
+      }).pipe(
+        Effect.map((body) => ({
+          id: message._id,
+          body,
+          authorId: message.modifiedBy,
+          createdOn: message.createdOn,
+          modifiedOn: message.modifiedOn,
+          editedOn: message.editedOn
+        }))
+      )
+    )
+    const comments = yield* decodeComments(projected)
 
     return {
       file: yield* toDriveItemSummary(target.file, target.driveSpace, pathForItem(target.file), target.client),

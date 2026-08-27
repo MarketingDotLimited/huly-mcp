@@ -37,7 +37,7 @@ import { normalizeForComparison } from "../../utils/normalize.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type { Diagnostics } from "../diagnostics.js"
 import { FunnelNotFoundError, LeadNotFoundError } from "../errors-leads.js"
-import { HulyConnectionError, InvalidStatusError } from "../errors.js"
+import { HulyDataInvalidError, InvalidStatusError } from "../errors.js"
 import { contact, task } from "../huly-plugins.js"
 import { leadClassIds } from "../lead-plugin.js"
 import { findPersonByEmailOrName } from "./contacts-shared.js"
@@ -142,11 +142,11 @@ const findFunnel = (
 const getFunnelStatuses = (
   client: HulyClient["Service"],
   funnel: HulyFunnel
-): Effect.Effect<ReadonlyArray<StatusInfo>, HulyClientError | HulyConnectionError, Diagnostics> =>
+): Effect.Effect<ReadonlyArray<StatusInfo>, HulyClientError | HulyDataInvalidError, Diagnostics> =>
   Effect.gen(function* () {
     if (funnel.type === undefined) {
       return yield* Effect.fail(
-        new HulyConnectionError({ message: `Funnel '${funnel._id}' is missing its ProjectType reference` })
+        new HulyDataInvalidError({ operation: "readFunnel", entity: `funnel '${funnel._id}' ProjectType reference` })
       )
     }
 
@@ -157,14 +157,14 @@ const getFunnelStatuses = (
 
     if (projectType?.statuses === undefined) {
       return yield* Effect.fail(
-        new HulyConnectionError({ message: `Funnel '${funnel._id}' references a ProjectType without statuses` })
+        new HulyDataInvalidError({ operation: "readFunnel", entity: `funnel '${funnel._id}' ProjectType statuses` })
       )
     }
 
     const statusRefs = uniqueStatusRefs(projectType.statuses.map((status) => status._id))
     if (statusRefs.length === 0) {
       return yield* Effect.fail(
-        new HulyConnectionError({ message: `Funnel '${funnel._id}' ProjectType has no statuses` })
+        new HulyDataInvalidError({ operation: "readFunnel", entity: `funnel '${funnel._id}' ProjectType statuses` })
       )
     }
 
@@ -175,13 +175,14 @@ const getFunnelStatuses = (
 const resolveStatusName = (
   statuses: ReadonlyArray<StatusInfo>,
   statusId: Ref<Status>
-): Effect.Effect<StatusName, HulyConnectionError> => {
+): Effect.Effect<StatusName, HulyDataInvalidError> => {
   const statusDoc = statuses.find((status) => status._id === statusId)
   return statusDoc !== undefined
     ? Effect.succeed(StatusName.make(statusDoc.name))
     : Effect.fail(
-        new HulyConnectionError({
-          message: `Lead references status '${statusId}', but that status is not defined on the funnel ProjectType`
+        new HulyDataInvalidError({
+          operation: "readLead",
+          entity: `lead status '${statusId}' not defined on the funnel ProjectType`
         })
       )
 }
@@ -241,7 +242,7 @@ export const listFunnels = (
     return { funnels: summaries, total: listTotal(funnels.total) }
   })
 
-type ListLeadsError = HulyClientError | HulyConnectionError | FunnelNotFoundError | InvalidStatusError
+type ListLeadsError = HulyClientError | HulyDataInvalidError | FunnelNotFoundError | InvalidStatusError
 
 export const listLeads = (
   params: ListLeadsParams
@@ -306,18 +307,14 @@ export const listLeads = (
     const parseLeadSummaries = Schema.decodeUnknownEffect(Schema.Array(LeadSummarySchema))
     const validated = yield* parseLeadSummaries(rawSummaries).pipe(
       Effect.mapError(
-        (parseError) =>
-          new HulyConnectionError({
-            message: `listLeads response failed schema validation: ${parseError.message}`,
-            cause: parseError
-          })
+        (parseError) => new HulyDataInvalidError({ operation: "listLeads", entity: "lead", cause: parseError })
       )
     )
 
     return [...validated]
   })
 
-type GetLeadError = HulyClientError | HulyConnectionError | FunnelNotFoundError | LeadNotFoundError
+type GetLeadError = HulyClientError | HulyDataInvalidError | FunnelNotFoundError | LeadNotFoundError
 
 export const getLead = (params: GetLeadParams): Effect.Effect<LeadDetail, GetLeadError, HulyClient | Diagnostics> =>
   Effect.gen(function* () {
@@ -367,11 +364,7 @@ export const getLead = (params: GetLeadParams): Effect.Effect<LeadDetail, GetLea
       createdOn: lead.createdOn
     }).pipe(
       Effect.mapError(
-        (parseError) =>
-          new HulyConnectionError({
-            message: `getLead response failed schema validation: ${parseError.message}`,
-            cause: parseError
-          })
+        (parseError) => new HulyDataInvalidError({ operation: "getLead", entity: "lead", cause: parseError })
       )
     )
   })

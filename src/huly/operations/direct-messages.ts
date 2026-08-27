@@ -36,7 +36,12 @@ import type {
 } from "../../domain/schemas/direct-messages.js"
 import { ChannelId, type DirectMessageIdentifier, MessageId, type PersonRefInput } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
-import type { PersonIdentifierAmbiguousError, PersonNotAnEmployeeError, PersonNotFoundError } from "../errors.js"
+import type {
+  HulyDataInvalidError,
+  PersonIdentifierAmbiguousError,
+  PersonNotAnEmployeeError,
+  PersonNotFoundError
+} from "../errors.js"
 import { CannotDirectMessageSelfError, MessageNotFoundError } from "../errors.js"
 import { buildSocialIdToPersonNameMap } from "./channels.js"
 import { resolveEmployeeAccountUuid } from "./contacts-shared.js"
@@ -58,7 +63,7 @@ export { findDirectMessage } from "./direct-message-shared.js"
 
 // --- Error Types ---
 
-type ListDmMessagesError = FindDirectMessageError
+type ListDmMessagesError = FindDirectMessageError | HulyDataInvalidError
 
 type SendDmMessageError = FindDirectMessageError
 
@@ -124,19 +129,24 @@ export const listDirectMessageMessages = (
 
     const socialIdToName = yield* buildSocialIdToPersonNameMap(client, uniqueSocialIds)
 
-    const summaries: Array<MessageSummary> = messages.map((msg) => {
+    const summaries: Array<MessageSummary> = yield* Effect.forEach(messages, (msg) => {
       const senderName = socialIdToName.get(msg.modifiedBy)
-      return {
-        id: MessageId.make(msg._id),
-        body: markupToMarkdownString(msg.message, markupUrlConfig),
-        sender: senderName,
-        senderId: msg.modifiedBy,
-        createdOn: msg.createdOn,
-        modifiedOn: msg.modifiedOn,
-        editedOn: msg.editedOn,
-        replies: optionalCount(msg.replies),
-        attachments: optionalCount(msg.attachments)
-      }
+      return markupToMarkdownString(msg.message, markupUrlConfig, {
+        operation: "listDirectMessageMessages",
+        entity: "message body"
+      }).pipe(
+        Effect.map((body) => ({
+          id: MessageId.make(msg._id),
+          body,
+          sender: senderName,
+          senderId: msg.modifiedBy,
+          createdOn: msg.createdOn,
+          modifiedOn: msg.modifiedOn,
+          editedOn: msg.editedOn,
+          replies: optionalCount(msg.replies),
+          attachments: optionalCount(msg.attachments)
+        }))
+      )
     })
 
     return { messages: summaries, total: listTotal(total) }

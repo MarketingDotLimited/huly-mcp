@@ -19,7 +19,7 @@ import { CardId as CardIdSchema, Count, Timestamp } from "../../domain/schemas/s
 import { CardVersionMetadataDegradedWarningCode } from "../../domain/schemas/tool-warnings.js"
 import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
 import { Diagnostics } from "../diagnostics.js"
-import { CardNotFoundError, CardSpaceNotFoundError, HulyConnectionError, HulyError } from "../errors.js"
+import { CardNotFoundError, CardSpaceNotFoundError, HulyDataInvalidError, HulyError } from "../errors.js"
 import { cardPlugin } from "../huly-plugins.js"
 import type {
   CardVersionMetadataField,
@@ -239,13 +239,14 @@ const entryFromProjection = (card: CardHistoryProjection): CardVersionEntry => {
   }
 }
 
-const toEntry = (card: unknown): Effect.Effect<CardVersionEntry, HulyConnectionError> =>
+const toEntry = (card: unknown): Effect.Effect<CardVersionEntry, HulyDataInvalidError> =>
   Schema.decodeUnknownEffect(CardHistoryProjectionSchema)(card).pipe(
     Effect.map(entryFromProjection),
     Effect.mapError(
       (parseError) =>
-        new HulyConnectionError({
-          message: `Huly card version history row failed schema validation: ${parseError.message}`,
+        new HulyDataInvalidError({
+          operation: "getCardVersionHistory",
+          entity: "card version history row",
           cause: parseError
         })
     )
@@ -281,7 +282,7 @@ const resolveHistoryCard = (
   space: Ref<HulyCardSpace>,
   identifier: CardIdentifier,
   cardSpaceIdentifier: ListCardVersionsParams["cardSpace"]
-): Effect.Effect<CardVersionEntry, HulyClientError | CardNotFoundError | HulyError> =>
+): Effect.Effect<CardVersionEntry, HulyClientError | CardNotFoundError | HulyDataInvalidError | HulyError> =>
   Effect.gen(function* () {
     const idMatches = yield* client.findAll<HulyCard>(
       cardPlugin.class.Card,
@@ -324,7 +325,7 @@ const fetchHistory = (
   client: HulyClientOperations,
   space: Ref<HulyCardSpace>,
   resolved: CardVersionEntry
-): Effect.Effect<ReadonlyArray<CardVersionEntry>, HulyClientError | HulyError> => {
+): Effect.Effect<ReadonlyArray<CardVersionEntry>, HulyClientError | HulyDataInvalidError | HulyError> => {
   const chainId = cardVersionChainIdFromState(resolved.versionState)
   if (chainId === undefined) {
     return resolved.versionState._tag === "Degraded"
@@ -358,7 +359,7 @@ export const listCardVersions = (
   params: ListCardVersionsParams
 ): Effect.Effect<
   ListCardVersionsResult,
-  HulyClientError | CardNotFoundError | CardSpaceNotFoundError | HulyError,
+  HulyClientError | CardNotFoundError | CardSpaceNotFoundError | HulyDataInvalidError | HulyError,
   HulyClient | Diagnostics
 > =>
   Effect.gen(function* () {

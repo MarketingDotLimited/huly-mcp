@@ -48,7 +48,7 @@ import {
 import { isExistent, isNonEmpty } from "../../utils/assertions.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type { IssueNotFoundError } from "../errors.js"
-import { HulyConnectionError, ProjectNotFoundError } from "../errors.js"
+import { HulyDataInvalidError, ProjectNotFoundError } from "../errors.js"
 import { findProject, findProjectAndIssue, zeroAsUnset } from "./issues-shared.js"
 import { parsePrimarySocialIdentityProjection } from "./primary-social-identity.js"
 import { clampLimit, hulyQuery, withLookup } from "./query-helpers.js"
@@ -63,7 +63,7 @@ const refAsPersonId = (ref: Ref<Doc>): CorePersonId => ref as unknown as CorePer
 
 const toTimeReportDate = (date: HulyTimeSpendReport["date"]) => (date === null ? null : Timestamp.make(date))
 
-type LogTimeError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
+type LogTimeError = HulyClientError | HulyDataInvalidError | ProjectNotFoundError | IssueNotFoundError
 type GetTimeReportError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
 type ListTimeSpendReportsError = HulyClientError | ProjectNotFoundError
 type GetDetailedTimeReportError = HulyClientError | ProjectNotFoundError
@@ -175,8 +175,9 @@ export const logTime = (params: LogTimeParams): Effect.Effect<LogTimeResult, Log
             (yield* parsePrimarySocialIdentityProjection(socialIdentity).pipe(
               Effect.mapError(
                 (parseError) =>
-                  new HulyConnectionError({
-                    message: `Authenticated social identity failed schema validation: ${parseError.message}`,
+                  new HulyDataInvalidError({
+                    operation: "logTime",
+                    entity: "authenticated social identity",
                     cause: parseError
                   })
               )

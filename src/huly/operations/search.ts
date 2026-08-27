@@ -14,13 +14,13 @@ import {
   UNKNOWN_SEARCH_TOTAL
 } from "../../domain/schemas.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import { HulyConnectionError } from "../errors.js"
+import { HulyDataInvalidError } from "../errors.js"
 import { listTotal } from "./counts.js"
 import { clampLimit } from "./query-helpers.js"
 
 export const fulltextSearch = (
   params: FulltextSearchParams
-): Effect.Effect<FulltextSearchResult, HulyClientError, HulyClient> =>
+): Effect.Effect<FulltextSearchResult, HulyClientError | HulyDataInvalidError, HulyClient> =>
   Effect.gen(function* () {
     const client = yield* HulyClient
 
@@ -31,10 +31,7 @@ export const fulltextSearch = (
     const results = yield* parseSearchResult(raw).pipe(
       Effect.mapError(
         (parseError) =>
-          new HulyConnectionError({
-            message: `searchFulltext response failed schema validation: ${parseError.message}`,
-            cause: parseError
-          })
+          new HulyDataInvalidError({ operation: "searchFulltext", entity: "search result", cause: parseError })
       )
     )
 

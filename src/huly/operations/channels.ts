@@ -39,7 +39,7 @@ import type {
 import { UPDATE_CHANNEL_FIELDS } from "../../domain/schemas/channels.js"
 import { AccountUuid, ChannelId, ChannelName, Count, MessageId, PersonName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import type { ChannelNotFoundError, NoUpdateFieldsError } from "../errors.js"
+import type { ChannelNotFoundError, HulyDataInvalidError, NoUpdateFieldsError } from "../errors.js"
 import { findChannel } from "./channels-shared.js"
 import { listTotal, optionalCount } from "./counts.js"
 import { markdownToMarkupString, markupToMarkdownString } from "./markup.js"
@@ -79,7 +79,7 @@ type UpdateChannelError = HulyClientError | NoUpdateFieldsError | ChannelNotFoun
 
 type DeleteChannelError = HulyClientError | ChannelNotFoundError
 
-type ListChannelMessagesError = HulyClientError | ChannelNotFoundError
+type ListChannelMessagesError = HulyClientError | ChannelNotFoundError | HulyDataInvalidError
 
 type SendChannelMessageError = HulyClientError | ChannelNotFoundError
 
@@ -349,19 +349,24 @@ export const listChannelMessages = (
 
     const socialIdToName = yield* buildSocialIdToPersonNameMap(client, uniqueSocialIds)
 
-    const summaries: Array<MessageSummary> = messages.map((msg) => {
+    const summaries: Array<MessageSummary> = yield* Effect.forEach(messages, (msg) => {
       const senderName = socialIdToName.get(msg.modifiedBy)
-      return {
-        id: MessageId.make(msg._id),
-        body: markupToMarkdownString(msg.message, markupUrlConfig),
-        sender: senderName,
-        senderId: msg.modifiedBy,
-        createdOn: msg.createdOn,
-        modifiedOn: msg.modifiedOn,
-        editedOn: msg.editedOn,
-        replies: optionalCount(msg.replies),
-        attachments: optionalCount(msg.attachments)
-      }
+      return markupToMarkdownString(msg.message, markupUrlConfig, {
+        operation: "listChannelMessages",
+        entity: "message body"
+      }).pipe(
+        Effect.map((body) => ({
+          id: MessageId.make(msg._id),
+          body,
+          sender: senderName,
+          senderId: msg.modifiedBy,
+          createdOn: msg.createdOn,
+          modifiedOn: msg.modifiedOn,
+          editedOn: msg.editedOn,
+          replies: optionalCount(msg.replies),
+          attachments: optionalCount(msg.attachments)
+        }))
+      )
     })
 
     return { messages: summaries, total: listTotal(total) }

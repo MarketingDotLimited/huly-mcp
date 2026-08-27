@@ -28,6 +28,7 @@ import { normalizeForComparison } from "../../utils/normalize.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type { Diagnostics } from "../diagnostics.js"
 import type {
+  HulyDataInvalidError,
   OrganizationIdentifierAmbiguousError,
   OrganizationNotFoundError,
   PersonIdentifierAmbiguousError,
@@ -71,6 +72,7 @@ const reviewUiEmptyCalendar = "" as Ref<Calendar>
 
 type ReviewReadError =
   | HulyClientError
+  | HulyDataInvalidError
   | PersonIdentifierAmbiguousError
   | PersonNotFoundError
   | RecruitingApplicantIdentifierAmbiguousError

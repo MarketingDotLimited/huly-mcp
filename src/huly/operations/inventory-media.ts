@@ -51,6 +51,7 @@ import type {
   FileTooLargeError,
   InvalidContentTypeError,
   InvalidFileDataError,
+  HulyDataInvalidError,
   NoUpdateFieldsError
 } from "../errors.js"
 import { InventoryMutationUnsupportedError, InventoryProductCommentNotFoundError } from "../errors.js"
@@ -91,7 +92,11 @@ type InventoryProductMediaUpdateError = InventoryProductMediaReadError | NoUpdat
 
 type InventoryProductMediaDeleteError = InventoryProductMediaReadError | InventoryMutationUnsupportedError
 
-type InventoryProductCommentError = InventoryError | HulyClientError | InventoryProductCommentNotFoundError
+type InventoryProductCommentError =
+  | InventoryError
+  | HulyClientError
+  | HulyDataInvalidError
+  | InventoryProductCommentNotFoundError
 
 interface ResolvedProductTarget {
   readonly client: HulyClient["Service"]

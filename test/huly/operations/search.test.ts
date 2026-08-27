@@ -8,7 +8,7 @@ import {
   UNKNOWN_SEARCH_TOTAL
 } from "../../../src/domain/schemas/search.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
-import { HulyConnectionError } from "../../../src/huly/errors.js"
+import { HulyDataInvalidError } from "../../../src/huly/errors.js"
 import { fulltextSearch } from "../../../src/huly/operations/search.js"
 import { assertAt } from "../../../src/utils/assertions.js"
 
@@ -168,8 +168,7 @@ describe("fulltextSearch", () => {
 
       const error = yield* fulltextSearch({ query: "test" }).pipe(Effect.provide(testLayer), Effect.flip)
 
-      expect(error).toBeInstanceOf(HulyConnectionError)
-      expect(error.message).toContain("searchFulltext response failed schema validation")
+      expect(error).toBeInstanceOf(HulyDataInvalidError)
     })
   )
 })

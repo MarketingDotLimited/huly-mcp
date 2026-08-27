@@ -63,6 +63,7 @@ import type { HulyClient, HulyClientError } from "../client.js"
 import type { Diagnostics } from "../diagnostics.js"
 import type {
   HulyConnectionError,
+  HulyDataInvalidError,
   HulyError,
   InvalidStatusError,
   IssueNotFoundError,
@@ -93,13 +94,14 @@ const NOT_FOUND_INDEX = -1
 
 type ListIssueTemplatesError = HulyClientError | ProjectNotFoundError
 
-type GetIssueTemplateError = HulyClientError | ProjectNotFoundError | IssueTemplateNotFoundError
+type GetIssueTemplateError = HulyClientError | HulyDataInvalidError | ProjectNotFoundError | IssueTemplateNotFoundError
 
 type CreateIssueTemplateError = HulyClientError | ProjectNotFoundError | PersonNotFoundError | ComponentNotFoundError
 
 type CreateIssueFromTemplateError =
   | HulyClientError
   | HulyConnectionError
+  | HulyDataInvalidError
   | HulyError
   | ProjectNotFoundError
   | IssueNotFoundError
@@ -195,7 +197,7 @@ const resolveTemplateReferenceLabels = (
 
 const templateChildProjection = (
   child: HulyIssueTemplateChild,
-  markupUrlConfig: MarkupUrlConfig,
+  description: string | undefined,
   labels: Effect.Success<ReturnType<typeof resolveTemplateReferenceLabels>>
 ): IssueTemplateChild => {
   const rawEstimation = zeroAsUnset(NonNegativeNumber.make(child.estimation))
@@ -204,7 +206,7 @@ const templateChildProjection = (
     id: IssueTemplateChildId.make(child.id),
     title: child.title,
     priority: priorityToString(child.priority),
-    ...(child.description ? { description: optionalMarkupToMarkdown(child.description, markupUrlConfig, "") } : {}),
+    ...(description === undefined ? {} : { description }),
     ...(labels.assigneeName === undefined ? {} : { assignee: PersonName.make(labels.assigneeName) }),
     ...(labels.componentLabel === undefined ? {} : { component: ComponentLabel.make(labels.componentLabel) }),
     ...(estimation === undefined ? {} : { estimation })
@@ -219,10 +221,16 @@ const resolveChild = (
   client: HulyClient["Service"],
   markupUrlConfig: MarkupUrlConfig,
   child: HulyIssueTemplateChild
-): Effect.Effect<IssueTemplateChild, HulyClientError> =>
+): Effect.Effect<IssueTemplateChild, HulyClientError | HulyDataInvalidError> =>
   Effect.gen(function* () {
     const labels = yield* resolveTemplateReferenceLabels(client, child.assignee, child.component)
-    return templateChildProjection(child, markupUrlConfig, labels)
+    const description = child.description
+      ? yield* optionalMarkupToMarkdown(child.description, markupUrlConfig, "", {
+          operation: "getIssueTemplate",
+          entity: "issue template child description"
+        })
+      : undefined
+    return templateChildProjection(child, description, labels)
   })
 
 /**
@@ -312,6 +320,10 @@ export const getIssueTemplate = (
     const markupUrlConfig = client.markupUrlConfig
 
     const labels = yield* resolveTemplateReferenceLabels(client, template.assignee, template.component)
+    const description = yield* optionalMarkupToMarkdown(template.description, markupUrlConfig, "", {
+      operation: "getIssueTemplate",
+      entity: "issue template description"
+    })
 
     const resolvedChildren: Array<IssueTemplateChild> = []
     for (const child of template.children) {
@@ -321,7 +333,7 @@ export const getIssueTemplate = (
     const result: IssueTemplate = {
       id: IssueTemplateId.make(template._id),
       title: template.title,
-      description: optionalMarkupToMarkdown(template.description, markupUrlConfig, ""),
+      description,
       priority: priorityToString(template.priority),
       assignee: labels.assigneeName !== undefined ? PersonName.make(labels.assigneeName) : undefined,
       component: labels.componentLabel !== undefined ? ComponentLabel.make(labels.componentLabel) : undefined,
@@ -418,15 +430,20 @@ const templateChildCreateParams = (
   params: CreateIssueFromTemplateParams,
   child: HulyIssueTemplateChild,
   markupUrlConfig: MarkupUrlConfig
-): CreateIssueParams => {
-  const description = optionalMarkupToMarkdown(child.description, markupUrlConfig, undefined)
-  return {
-    project: params.project,
-    title: child.title,
-    priority: priorityToString(child.priority),
-    ...(description === undefined ? {} : { description })
-  }
-}
+) =>
+  optionalMarkupToMarkdown(child.description, markupUrlConfig, undefined, {
+    operation: "createIssueFromTemplate",
+    entity: "issue template child description"
+  }).pipe(
+    Effect.map(
+      (description): CreateIssueParams => ({
+        project: params.project,
+        title: child.title,
+        priority: priorityToString(child.priority),
+        ...(description === undefined ? {} : { description })
+      })
+    )
+  )
 
 const templateChildUpdate = (child: HulyIssueTemplateChild): DocumentUpdate<HulyIssue> => ({
   ...(child.assignee === null ? {} : { assignee: child.assignee }),
@@ -451,7 +468,8 @@ const createTemplateChildIssues = (
       parents: []
     }
     for (const child of template.children) {
-      const childResult = yield* createIssue(templateChildCreateParams(params, child, markupUrlConfig))
+      const childParams = yield* templateChildCreateParams(params, child, markupUrlConfig)
+      const childResult = yield* createIssue(childParams)
       yield* attachIssueChild(
         client,
         project._id,
@@ -476,7 +494,12 @@ export const createIssueFromTemplate = (
     const markupUrlConfig = client.markupUrlConfig
 
     const title = params.title ?? template.title
-    const description = params.description ?? optionalMarkupToMarkdown(template.description, markupUrlConfig, undefined)
+    const description =
+      params.description ??
+      (yield* optionalMarkupToMarkdown(template.description, markupUrlConfig, undefined, {
+        operation: "createIssueFromTemplate",
+        entity: "issue template description"
+      }))
     const priority = params.priority ?? priorityToString(template.priority)
 
     const assignee = yield* resolveIssueFromTemplateAssignee(client, params, template)

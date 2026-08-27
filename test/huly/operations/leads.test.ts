@@ -614,8 +614,7 @@ describe("Lead status resolution failures", () => {
           withDiagnostics
         )
       )
-      expect(error._tag).toBe("HulyConnectionError")
-      expect(error.message).toContain("missing its ProjectType")
+      expect(error._tag).toBe("HulyDataInvalidError")
     })
   )
 
@@ -627,8 +626,7 @@ describe("Lead status resolution failures", () => {
           withDiagnostics
         )
       )
-      expect(error._tag).toBe("HulyConnectionError")
-      expect(error.message).toContain("no statuses")
+      expect(error._tag).toBe("HulyDataInvalidError")
     })
   )
 
@@ -657,8 +655,7 @@ describe("Lead status resolution failures", () => {
           withDiagnostics
         )
       )
-      expect(error._tag).toBe("HulyConnectionError")
-      expect(error.message).toContain("without statuses")
+      expect(error._tag).toBe("HulyDataInvalidError")
     })
   )
 
@@ -671,7 +668,7 @@ describe("Lead status resolution failures", () => {
           withDiagnostics
         )
       )
-      expect(error._tag).toBe("HulyConnectionError")
+      expect(error._tag).toBe("HulyDataInvalidError")
       expect(error.message).toContain("not defined on the funnel ProjectType")
     })
   )
@@ -685,8 +682,7 @@ describe("Lead status resolution failures", () => {
           withDiagnostics
         )
       )
-      expect(error._tag).toBe("HulyConnectionError")
-      expect(error.message).toContain("listLeads response failed schema validation")
+      expect(error._tag).toBe("HulyDataInvalidError")
     })
   )
 })
@@ -780,8 +776,7 @@ describe("getLead branch coverage", () => {
           withDiagnostics
         )
       )
-      expect(error._tag).toBe("HulyConnectionError")
-      expect(error.message).toContain("getLead response failed schema validation")
+      expect(error._tag).toBe("HulyDataInvalidError")
     })
   )
 })

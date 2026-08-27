@@ -253,8 +253,7 @@ describe("listProjects", () => {
 
         const error = yield* Effect.flip(listProjects({}).pipe(Effect.provide(testLayer), withDiagnostics))
 
-        expect(error._tag).toBe("HulyConnectionError")
-        expect(error.message).toContain("listProjects response failed schema validation")
+        expect(error._tag).toBe("HulyDataInvalidError")
       })
     )
 
@@ -636,8 +635,7 @@ describe("getProject", () => {
         getProject({ project: projectIdentifier("HULY") }).pipe(Effect.provide(testLayer), withDiagnostics)
       )
 
-      expect(error._tag).toBe("HulyConnectionError")
-      expect(error.message).toContain("getProject response failed schema validation")
+      expect(error._tag).toBe("HulyDataInvalidError")
     })
   )
 

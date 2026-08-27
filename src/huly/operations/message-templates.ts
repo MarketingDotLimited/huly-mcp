@@ -24,6 +24,7 @@ import { MessageTemplateMarkdown, TemplateFieldId } from "../../domain/schemas/m
 import { Count } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import { Diagnostics } from "../diagnostics.js"
+import type { HulyDataInvalidError } from "../errors.js"
 import { templates } from "../huly-plugins.js"
 import {
   categoryMapFor,
@@ -47,9 +48,9 @@ import {
 import { clampLimit, hulyQuery, type StrictDocumentQuery } from "./query-helpers.js"
 
 type ListMessageTemplateCategoriesError = HulyClientError
-type ListMessageTemplatesError = ResolveCategoryError
-type GetMessageTemplateError = ResolveTemplateError
-type RenderMessageTemplateError = ResolveTemplateError
+type ListMessageTemplatesError = ResolveCategoryError | HulyDataInvalidError
+type GetMessageTemplateError = ResolveTemplateError | HulyDataInvalidError
+type RenderMessageTemplateError = ResolveTemplateError | HulyDataInvalidError
 type ListMessageTemplateFieldsError = ResolveFieldCategoryError
 
 interface RenderedTemplateMessage {
@@ -167,7 +168,7 @@ export const listMessageTemplates = (
       "template IDs as titles"
     )
 
-    return found.map((template) => templateSummaryFor(template, client, categories))
+    return yield* Effect.forEach(found, (template) => templateSummaryFor(template, client, categories))
   })
 
 export const getMessageTemplate = (
@@ -185,7 +186,7 @@ export const getMessageTemplate = (
       "template IDs as titles"
     )
 
-    return templateDetailFor(template, client, categories)
+    return yield* templateDetailFor(template, client, categories)
   })
 
 export const renderMessageTemplate = (
@@ -203,7 +204,7 @@ export const renderMessageTemplate = (
       "template IDs as titles"
     )
 
-    const detail = templateDetailFor(template, client, categories)
+    const detail = yield* templateDetailFor(template, client, categories)
 
     return { ...detail, ...renderTemplateMessage(detail.message, detail.placeholderFieldIds, params.values ?? []) }
   })

@@ -4,7 +4,7 @@ import type { Ref, Status } from "@hcengineering/core"
 import type { ProjectType, TaskType } from "@hcengineering/task"
 import { Effect } from "effect"
 
-import type { BoardCardDetail, BoardCardRef } from "../../domain/schemas.js"
+import type { BoardCardRef } from "../../domain/schemas.js"
 import { isNonEmpty, isSingle } from "../../utils/assertions.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import type { Diagnostics } from "../diagnostics.js"
@@ -127,7 +127,7 @@ export const cardDetailWithMetadata = (
   resolvedBoard: HulyBoard,
   metadata: BoardCardMetadata,
   card: HulyBoardCard
-): BoardCardDetail =>
+) =>
   boardCardDetail(
     resolvedBoard,
     card,
