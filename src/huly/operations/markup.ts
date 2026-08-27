@@ -8,6 +8,7 @@
  */
 import type { Markup } from "@hcengineering/core"
 import type { MarkupMark, MarkupNode } from "@hcengineering/text"
+import { Effect, Schema } from "effect"
 
 import {
   DocId,
@@ -20,7 +21,8 @@ import {
   UrlString as UrlStringSchema
 } from "../../domain/schemas/shared.js"
 import { markdownToMarkup, markupToMarkdown } from "../huly-text-markdown.js"
-import { jsonToMarkup, MarkupMarkType, MarkupNodeType, markupToJSON } from "../huly-text.js"
+import { htmlToJSON, jsonToMarkup, MarkupMarkType, MarkupNodeType, markupToJSON } from "../huly-text.js"
+import { HulyDataInvalidError } from "../errors.js"
 import { isMarkdownSerializableMark } from "./inline-comment-mark.js"
 
 // SDK: jsonToMarkup return type doesn't match Markup; cast contained here.
@@ -30,6 +32,21 @@ export interface MarkupUrlConfig {
   readonly refUrl: UrlString
   readonly imageUrl: UrlString
 }
+
+export interface MarkupReadContext {
+  readonly operation: string
+  readonly entity: string
+}
+
+export const MarkupContentPayloadSchema = Schema.Struct({
+  content: Schema.String,
+  kind: Schema.Literals(["markup", "html", "markdown"])
+})
+
+export const MarkupReadPayloadSchema = Schema.Union([Schema.String, MarkupContentPayloadSchema])
+export type MarkupReadPayload = Schema.Schema.Type<typeof MarkupReadPayloadSchema>
+
+const parseMarkupReadPayload = Schema.decodeUnknownEffect(MarkupReadPayloadSchema)
 
 interface MarkdownWithHulyLinksResult {
   readonly markup: Markup
@@ -143,10 +160,40 @@ export const markupNodeToMarkdownString = (
   serialize: MarkupNodeToMarkdown = markupToMarkdown
 ): string => serialize(sanitizeNodeForMarkdown(node), urls)
 
-export const markupToMarkdownString = (markup: Markup, urls: MarkupUrlConfig): string => {
+const serializedMarkupToMarkdownString = (markup: Markup, urls: MarkupUrlConfig): string => {
   const json = markupToJSON(markup)
   return markupNodeToMarkdownString(json, urls)
 }
+
+const renderMarkupReadPayload = (payload: MarkupReadPayload, urls: MarkupUrlConfig): string => {
+  if (typeof payload === "string") return serializedMarkupToMarkdownString(payload, urls)
+  switch (payload.kind) {
+    case "markdown":
+      return payload.content
+    case "html":
+      return markupNodeToMarkdownString(htmlToJSON(payload.content), urls)
+    case "markup":
+      return serializedMarkupToMarkdownString(payload.content, urls)
+  }
+}
+
+const invalidMarkupData = (context: MarkupReadContext, cause: unknown): HulyDataInvalidError =>
+  new HulyDataInvalidError({ operation: context.operation, entity: context.entity, cause })
+
+export const markupToMarkdownString = (
+  markup: unknown,
+  urls: MarkupUrlConfig,
+  context: MarkupReadContext
+): Effect.Effect<string, HulyDataInvalidError> =>
+  parseMarkupReadPayload(markup).pipe(
+    Effect.mapError((cause) => invalidMarkupData(context, cause)),
+    Effect.flatMap((payload) =>
+      Effect.try({
+        try: () => renderMarkupReadPayload(payload, urls),
+        catch: (cause) => invalidMarkupData(context, cause)
+      })
+    )
+  )
 
 export const markdownToMarkupString = (markdown: string, urls: MarkupUrlConfig): Markup => {
   return markdownToMarkupStringWithHulyLinks(markdown, urls).markup
@@ -288,19 +335,25 @@ export const optionalMarkdownToMarkup = (
 ): Markup => (md && md.trim() !== "" ? markdownToMarkupString(md, urls) : fallback)
 
 export function optionalMarkupToMarkdown(
-  markup: Markup | undefined | null,
+  markup: unknown,
   urls: MarkupUrlConfig,
-  fallback: undefined
-): string | undefined
+  fallback: undefined,
+  context: MarkupReadContext
+): Effect.Effect<string | undefined, HulyDataInvalidError>
 export function optionalMarkupToMarkdown(
-  markup: Markup | undefined | null,
+  markup: unknown,
   urls: MarkupUrlConfig,
-  fallback?: string
-): string
+  fallback: string | undefined,
+  context: MarkupReadContext
+): Effect.Effect<string, HulyDataInvalidError>
 export function optionalMarkupToMarkdown(
-  markup: Markup | undefined | null,
+  markup: unknown,
   urls: MarkupUrlConfig,
-  fallback: string | undefined = ""
-): string | undefined {
-  return markup === null || markup === undefined ? fallback : markupToMarkdownString(markup, urls)
+  fallback: string | undefined,
+  context: MarkupReadContext
+): Effect.Effect<string | undefined, HulyDataInvalidError> {
+  const resolvedFallback = fallback === undefined ? "" : fallback
+  return markup === null || markup === undefined
+    ? Effect.succeed(resolvedFallback)
+    : markupToMarkdownString(markup, urls, context)
 }

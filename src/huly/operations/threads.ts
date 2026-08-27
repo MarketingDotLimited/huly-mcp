@@ -26,7 +26,13 @@ import type {
 } from "../../domain/schemas/channels.js"
 import { ChannelId, MessageId, ThreadReplyId } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
-import type { ChannelNotFoundError, HulyError, MessageNotFoundError, ThreadReplyNotFoundError } from "../errors.js"
+import type {
+  ChannelNotFoundError,
+  HulyDataInvalidError,
+  HulyError,
+  MessageNotFoundError,
+  ThreadReplyNotFoundError
+} from "../errors.js"
 import { findChannelMessage } from "./channel-messages-shared.js"
 import { buildSocialIdToPersonNameMap } from "./channels.js"
 import { listTotal, optionalCount } from "./counts.js"
@@ -38,7 +44,7 @@ import { chunter } from "../huly-plugins.js"
 
 // --- Error Types ---
 
-type ListThreadRepliesError = HulyClientError | ChannelNotFoundError | MessageNotFoundError
+type ListThreadRepliesError = HulyClientError | ChannelNotFoundError | MessageNotFoundError | HulyDataInvalidError
 
 type AddThreadReplyError = HulyClientError | ChannelNotFoundError | MessageNotFoundError
 
@@ -77,18 +83,23 @@ export const listThreadReplies = (
 
     const socialIdToName = yield* buildSocialIdToPersonNameMap(client, uniqueSocialIds)
 
-    const threadMessages: Array<ThreadMessage> = replies.map((msg) => {
+    const threadMessages: Array<ThreadMessage> = yield* Effect.forEach(replies, (msg) => {
       const senderName = socialIdToName.get(msg.modifiedBy)
-      return {
-        id: ThreadReplyId.make(msg._id),
-        body: markupToMarkdownString(msg.message, markupUrlConfig),
-        sender: senderName,
-        senderId: msg.modifiedBy,
-        createdOn: msg.createdOn,
-        modifiedOn: msg.modifiedOn,
-        editedOn: msg.editedOn,
-        attachments: optionalCount(msg.attachments)
-      }
+      return markupToMarkdownString(msg.message, markupUrlConfig, {
+        operation: "listThreadReplies",
+        entity: "thread reply body"
+      }).pipe(
+        Effect.map((body) => ({
+          id: ThreadReplyId.make(msg._id),
+          body,
+          sender: senderName,
+          senderId: msg.modifiedBy,
+          createdOn: msg.createdOn,
+          modifiedOn: msg.modifiedOn,
+          editedOn: msg.editedOn,
+          attachments: optionalCount(msg.attachments)
+        }))
+      )
     })
 
     return { replies: threadMessages, total: listTotal(total) }

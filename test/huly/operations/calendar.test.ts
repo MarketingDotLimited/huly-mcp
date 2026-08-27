@@ -1059,7 +1059,7 @@ describe("listRecurringEvents", () => {
         )
       )
 
-      expect(error._tag).toBe("HulyConnectionError")
+      expect(error._tag).toBe("HulyDataInvalidError")
     })
   )
 })

@@ -22,7 +22,12 @@ import type {
 } from "../../domain/schemas/documents.js"
 import type { PersonName } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
-import type { DocumentContentCorruptedError, DocumentNotFoundError, TeamspaceNotFoundError } from "../errors.js"
+import type {
+  DocumentContentCorruptedError,
+  DocumentNotFoundError,
+  HulyDataInvalidError,
+  TeamspaceNotFoundError
+} from "../errors.js"
 import { chunter } from "../huly-plugins.js"
 import { buildSocialIdToPersonNameMap } from "./channels.js"
 import { listTotal } from "./counts.js"
@@ -61,6 +66,7 @@ export const extractInlineComments = (root: MarkupNode): ReadonlyArray<Extracted
 
 type ListInlineCommentsError =
   | HulyClientError
+  | HulyDataInvalidError
   | TeamspaceNotFoundError
   | DocumentNotFoundError
   | DocumentContentCorruptedError
@@ -116,22 +122,31 @@ export const listInlineComments = (
       nameMap = yield* buildSocialIdToPersonNameMap(client, senderIds)
     }
 
-    const comments: Array<InlineCommentThread> = extracted.map((comment) => {
-      const thread: InlineCommentThread = { threadId: comment.threadId, text: comment.textFragments.join("") }
+    const comments: Array<InlineCommentThread> = yield* Effect.forEach(extracted, (comment) =>
+      Effect.gen(function* () {
+        const thread: InlineCommentThread = { threadId: comment.threadId, text: comment.textFragments.join("") }
 
-      if (params.includeReplies) {
-        const threadReplies = threadRepliesMap.get(comment.threadId) ?? []
-        const replies: Array<InlineCommentReply> = threadReplies.map((r) => ({
-          id: r._id,
-          body: optionalMarkupToMarkdown(r.message, markupUrlConfig, ""),
-          sender: r.createdBy !== undefined ? nameMap.get(r.createdBy) : undefined,
-          createdOn: r.createdOn
-        }))
-        return { ...thread, replies }
-      }
+        if (params.includeReplies) {
+          const threadReplies = threadRepliesMap.get(comment.threadId) ?? []
+          const replies: Array<InlineCommentReply> = yield* Effect.forEach(threadReplies, (r) =>
+            optionalMarkupToMarkdown(r.message, markupUrlConfig, "", {
+              operation: "listInlineComments",
+              entity: "inline comment reply body"
+            }).pipe(
+              Effect.map((body) => ({
+                id: r._id,
+                body,
+                sender: r.createdBy !== undefined ? nameMap.get(r.createdBy) : undefined,
+                createdOn: r.createdOn
+              }))
+            )
+          )
+          return { ...thread, replies }
+        }
 
-      return thread
-    })
+        return thread
+      })
+    )
 
     return { comments, total: listTotal(comments.length) }
   })

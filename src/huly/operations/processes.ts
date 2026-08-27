@@ -36,7 +36,7 @@ import { isSingle } from "../../utils/assertions.js"
 import { normalizeForComparison } from "../../utils/normalize.js"
 import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
 import {
-  HulyConnectionError,
+  HulyDataInvalidError,
   ProcessCardIdentifierAmbiguousError,
   ProcessCardNotFoundError,
   ProcessExecutionNotCancellableError,
@@ -62,7 +62,7 @@ import { toRef } from "./sdk-boundary.js"
 
 type ProcessOperationError =
   | HulyClientError
-  | HulyConnectionError
+  | HulyDataInvalidError
   | ProcessNotFoundError
   | ProcessIdentifierAmbiguousError
   | ProcessMasterTagNotFoundError
@@ -95,15 +95,11 @@ const encodeOrConnectionError = <S extends Schema.Constraint>(
   schema: S,
   value: S["Type"],
   operation: string
-): Effect.Effect<S["Type"], HulyConnectionError, S["EncodingServices"]> =>
+): Effect.Effect<S["Type"], HulyDataInvalidError, S["EncodingServices"]> =>
   Schema.encodeEffect(schema)(value).pipe(
     Effect.as(value),
     Effect.mapError(
-      (parseError) =>
-        new HulyConnectionError({
-          message: `${operation} response failed schema validation: ${parseError.message}`,
-          cause: parseError
-        })
+      (parseError) => new HulyDataInvalidError({ operation, entity: "process response", cause: parseError })
     )
   )
 

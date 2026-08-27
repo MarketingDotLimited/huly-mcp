@@ -1,5 +1,6 @@
 import type { Board as HulyBoard, Card as HulyBoardCard } from "@hcengineering/board"
 import type { ProjectType } from "@hcengineering/task"
+import { Effect } from "effect"
 
 import type {
   BoardCardCoverInput,
@@ -73,15 +74,23 @@ export const boardCardDetail = (
   assigneeName: string | undefined,
   memberNames: ReadonlyArray<string>,
   urls: HulyClient["Service"]["markupUrlConfig"]
-): BoardCardDetail => ({
-  ...boardCardSummary(resolvedBoard, card, statusName, taskTypeName, assigneeName),
-  description: optionalMarkupToMarkdown(card.description, urls, undefined),
-  members: memberNames.map((name) => PersonName.make(name)),
-  location: card.location || undefined,
-  cover: coverOrUndefined(card.cover),
-  startDate: card.startDate ?? undefined,
-  createdOn: card.createdOn
-})
+) =>
+  optionalMarkupToMarkdown(card.description, urls, undefined, {
+    operation: "getBoardCard",
+    entity: "board card description"
+  }).pipe(
+    Effect.map(
+      (description): BoardCardDetail => ({
+        ...boardCardSummary(resolvedBoard, card, statusName, taskTypeName, assigneeName),
+        description,
+        members: memberNames.map((name) => PersonName.make(name)),
+        location: card.location || undefined,
+        cover: coverOrUndefined(card.cover),
+        startDate: card.startDate ?? undefined,
+        createdOn: card.createdOn
+      })
+    )
+  )
 
 export const descriptionFromMarkdown = (
   markdown: string | undefined,

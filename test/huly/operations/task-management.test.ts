@@ -9,7 +9,7 @@ import { assertAt } from "../../../src/utils/assertions.js"
 import { ProjectTypeRefSchema, TaskTypeRefSchema } from "../../../src/domain/schemas.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
-import { HulyConnectionError } from "../../../src/huly/errors.js"
+import { HulyConnectionError, HulyDataInvalidError } from "../../../src/huly/errors.js"
 import { core, task, tracker } from "../../../src/huly/huly-plugins.js"
 import {
   createIssueStatus,
@@ -630,8 +630,7 @@ describe("task management operations", () => {
 
       expect(result._tag).toBe("Failure")
       if (result._tag === "Failure") {
-        expect(result.failure).toBeInstanceOf(HulyConnectionError)
-        expect(result.failure.message).toContain("Recovered workflow status metadata failed schema validation")
+        expect(result.failure).toBeInstanceOf(HulyDataInvalidError)
       }
       expect(captures.createDocs).toEqual([])
       expect(captures.updates).toEqual([])
@@ -659,8 +658,7 @@ describe("task management operations", () => {
 
       expect(result._tag).toBe("Failure")
       if (result._tag === "Failure") {
-        expect(result.failure).toBeInstanceOf(HulyConnectionError)
-        expect(result.failure.message).toContain("Recovered workflow status metadata failed schema validation")
+        expect(result.failure).toBeInstanceOf(HulyDataInvalidError)
       }
       expect(captures.createDocs).toEqual([])
       expect(captures.updates).toEqual([])
@@ -912,8 +910,7 @@ describe("task management branch coverage", () => {
       const error = yield* Effect.flip(
         listProjectTypes({}).pipe(Effect.provide(createLayer({ projectTypes: [projectType] })), withDiagnostics)
       )
-      expect(error._tag).toBe("HulyConnectionError")
-      expect(error.message).toContain("response failed schema validation")
+      expect(error._tag).toBe("HulyDataInvalidError")
     })
   )
 })

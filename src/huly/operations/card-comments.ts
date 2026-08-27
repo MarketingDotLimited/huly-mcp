@@ -17,6 +17,7 @@ import {
   type CardNotFoundError,
   type CardSpaceNotFoundError,
   type HulyConnectionError,
+  type HulyDataInvalidError,
   type HulyError
 } from "../errors.js"
 import { cardPlugin } from "../huly-plugins.js"
@@ -29,7 +30,7 @@ import {
 } from "./attached-comments.js"
 import { findCardSpaceAndCard } from "./cards.js"
 
-type CardCommentError = HulyClientError | HulyError | CardSpaceNotFoundError | CardNotFoundError
+type CardCommentError = HulyClientError | HulyError | HulyDataInvalidError | CardSpaceNotFoundError | CardNotFoundError
 
 interface CardCommentTarget extends AttachedCommentTarget {
   readonly cardIdentifier: CardIdentifier

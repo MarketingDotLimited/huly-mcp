@@ -22,10 +22,10 @@ import {
 import { ExternalChannelRuntimeUnsupportedWarningCode } from "../../domain/schemas/tool-warnings.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import { Diagnostics } from "../diagnostics.js"
-import { HulyError, TelegramChannelIdentifierAmbiguousError } from "../errors.js"
+import { HulyError, type HulyDataInvalidError, TelegramChannelIdentifierAmbiguousError } from "../errors.js"
 import { contact, core, gmail, telegram } from "../huly-plugins.js"
 import { hulyQuery } from "./query-helpers.js"
-import { markupToMarkdownString, type MarkupUrlConfig } from "./markup.js"
+import { MarkupReadPayloadSchema, markupToMarkdownString, type MarkupUrlConfig } from "./markup.js"
 import type { MetadataClassDoc } from "./sdk-discovery-mappers.js"
 import { toClassRef, toRef } from "./sdk-boundary.js"
 
@@ -47,14 +47,18 @@ type TelegramChannelProjection = Schema.Schema.Type<typeof TelegramChannelProjec
 
 const TelegramMessageProjectionSchema = Schema.Struct({
   _id: MessageId,
-  content: Schema.String,
+  content: MarkupReadPayloadSchema,
   incoming: Schema.Boolean,
   sendOn: Timestamp,
   attachments: Schema.optional(Count)
 })
 type TelegramMessageProjection = Schema.Schema.Type<typeof TelegramMessageProjectionSchema>
 
-type ExternalChannelMessagesError = HulyClientError | HulyError | TelegramChannelIdentifierAmbiguousError
+type ExternalChannelMessagesError =
+  | HulyClientError
+  | HulyError
+  | HulyDataInvalidError
+  | TelegramChannelIdentifierAmbiguousError
 type TelegramUnsupportedResult = Extract<
   ListExternalChannelMessagesResult,
   { readonly supported: false; readonly provider: "telegram" }
@@ -142,16 +146,21 @@ const resolveTelegramChannel = (
     return matches[0] === undefined ? undefined : yield* parseTelegramChannel(matches[0])
   })
 
-const toTelegramMessageResult = (
-  message: TelegramMessageProjection,
-  markupUrlConfig: MarkupUrlConfig
-): TelegramExternalChannelMessage => ({
-  id: message._id,
-  contentMarkdown: markupToMarkdownString(message.content, markupUrlConfig),
-  direction: message.incoming ? "incoming" : "outgoing",
-  sentOn: message.sendOn,
-  ...(message.attachments === undefined ? {} : { attachmentCount: message.attachments })
-})
+const toTelegramMessageResult = (message: TelegramMessageProjection, markupUrlConfig: MarkupUrlConfig) =>
+  markupToMarkdownString(message.content, markupUrlConfig, {
+    operation: "listExternalChannelMessages",
+    entity: "Telegram message content"
+  }).pipe(
+    Effect.map(
+      (contentMarkdown): TelegramExternalChannelMessage => ({
+        id: message._id,
+        contentMarkdown,
+        direction: message.incoming ? "incoming" : "outgoing",
+        sentOn: message.sendOn,
+        ...(message.attachments === undefined ? {} : { attachmentCount: message.attachments })
+      })
+    )
+  )
 
 const listTelegramMessages = (
   client: HulyClient["Service"],
@@ -190,7 +199,7 @@ const listTelegramMessages = (
       provider: "telegram",
       channel: resultChannel,
       limit,
-      messages: messages.map((message) => toTelegramMessageResult(message, client.markupUrlConfig))
+      messages: yield* Effect.forEach(messages, (message) => toTelegramMessageResult(message, client.markupUrlConfig))
     }
   })
 

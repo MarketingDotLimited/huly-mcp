@@ -93,15 +93,13 @@ export const toActivityMessage = (
     const markdownBody =
       message === undefined || message === null
         ? undefined
-        : yield* Effect.try({
-            try: () => ActivityMarkdown.make(markupToMarkdownString(message, markupUrlConfig)),
-            catch: (cause) =>
-              invalidRecord(
-                `message markup could not be converted to Markdown: ${
-                  cause instanceof Error ? cause.message : "unsupported markup"
-                }`
-              )
-          })
+        : yield* markupToMarkdownString(message, markupUrlConfig, {
+            operation,
+            entity: `activity record ${recordIndex} message`
+          }).pipe(
+            Effect.map((markdown) => ActivityMarkdown.make(markdown)),
+            Effect.mapError((cause) => invalidRecord(cause.message))
+          )
     const isReference = msg._class === ObjectClassName.make(activity.class.ActivityReference)
     const isDocUpdate = msg._class === ObjectClassName.make(activity.class.DocUpdateMessage)
 

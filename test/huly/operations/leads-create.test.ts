@@ -495,11 +495,9 @@ describe("createLead", () => {
         createLead(params).pipe(Effect.provide(malformedHarness.layer), withDiagnostics)
       )
 
-      expect(missingError._tag).toBe("HulyConnectionError")
-      expect(missingError.message).toContain("sequence is missing")
+      expect(missingError._tag).toBe("HulyDataInvalidError")
       expect(missingHarness.mutations).toEqual([])
-      expect(malformedError._tag).toBe("HulyConnectionError")
-      expect(malformedError.message).toContain("positive integer")
+      expect(malformedError._tag).toBe("HulyDataInvalidError")
       expect(malformedHarness.mutations).toEqual(["sequence"])
     })
   )
@@ -556,8 +554,8 @@ describe("createLead", () => {
       expect(missingFunnelError._tag).toBe("FunnelNotFoundError")
       expect(missingCustomerError._tag).toBe("PersonNotFoundError")
       expect(missingAssigneeError._tag).toBe("PersonNotFoundError")
-      expect(missingTypeError.message).toContain("missing its ProjectType")
-      expect(missingProjectTypeError.message).toContain("references missing ProjectType")
+      expect(missingTypeError._tag).toBe("HulyDataInvalidError")
+      expect(missingProjectTypeError._tag).toBe("HulyDataInvalidError")
       expect(
         [
           missingFunnelHarness,

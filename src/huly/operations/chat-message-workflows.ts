@@ -18,7 +18,8 @@ import { HulyClient, type HulyClientError } from "../client.js"
 import type {
   ChannelNotFoundError,
   DirectMessageIdentifierAmbiguousError,
-  DirectMessageNotFoundError
+  DirectMessageNotFoundError,
+  HulyDataInvalidError
 } from "../errors.js"
 import { MessageNotFoundError } from "../errors.js"
 import { chunter } from "../huly-plugins.js"
@@ -33,6 +34,7 @@ type ChatMessageWorkflowError =
   | ChannelNotFoundError
   | DirectMessageIdentifierAmbiguousError
   | DirectMessageNotFoundError
+  | HulyDataInvalidError
   | MessageNotFoundError
 
 const findLocatedMessage = (
@@ -87,22 +89,38 @@ export const setChatMessagePinned = (
     }
   })
 
-const toPinnedMessage = (message: ChatMessage, client: HulyClient["Service"]): PinnedChatMessage => ({
-  kind: "message",
-  id: MessageId.make(message._id),
-  body: markupToMarkdownString(message.message, client.markupUrlConfig),
-  senderId: PersonId.make(message.modifiedBy),
-  ...(message.createdOn === undefined ? {} : { createdOn: Timestamp.make(message.createdOn) })
-})
+const toPinnedMessage = (message: ChatMessage, client: HulyClient["Service"]) =>
+  markupToMarkdownString(message.message, client.markupUrlConfig, {
+    operation: "listPinnedChatMessages",
+    entity: "pinned message body"
+  }).pipe(
+    Effect.map(
+      (body): PinnedChatMessage => ({
+        kind: "message",
+        id: MessageId.make(message._id),
+        body,
+        senderId: PersonId.make(message.modifiedBy),
+        ...(message.createdOn === undefined ? {} : { createdOn: Timestamp.make(message.createdOn) })
+      })
+    )
+  )
 
-const toPinnedReply = (reply: HulyThreadMessage, client: HulyClient["Service"]): PinnedChatMessage => ({
-  kind: "thread_reply",
-  id: MessageId.make(reply._id),
-  parentMessageId: MessageId.make(reply.attachedTo),
-  body: markupToMarkdownString(reply.message, client.markupUrlConfig),
-  senderId: PersonId.make(reply.modifiedBy),
-  ...(reply.createdOn === undefined ? {} : { createdOn: Timestamp.make(reply.createdOn) })
-})
+const toPinnedReply = (reply: HulyThreadMessage, client: HulyClient["Service"]) =>
+  markupToMarkdownString(reply.message, client.markupUrlConfig, {
+    operation: "listPinnedChatMessages",
+    entity: "pinned thread reply body"
+  }).pipe(
+    Effect.map(
+      (body): PinnedChatMessage => ({
+        kind: "thread_reply",
+        id: MessageId.make(reply._id),
+        parentMessageId: MessageId.make(reply.attachedTo),
+        body,
+        senderId: PersonId.make(reply.modifiedBy),
+        ...(reply.createdOn === undefined ? {} : { createdOn: Timestamp.make(reply.createdOn) })
+      })
+    )
+  )
 
 const newestFirst = (left: PinnedChatMessage, right: PinnedChatMessage): number =>
   (right.createdOn ?? 0) - (left.createdOn ?? 0)
@@ -129,8 +147,8 @@ export const listPinnedChatMessages = (
       { limit, sort: { createdOn: SortingOrder.Descending } }
     )
     const pinnedMessages = [
-      ...messages.map((message) => toPinnedMessage(message, client)),
-      ...replies.map((reply) => toPinnedReply(reply, client))
+      ...(yield* Effect.forEach(messages, (message) => toPinnedMessage(message, client))),
+      ...(yield* Effect.forEach(replies, (reply) => toPinnedReply(reply, client)))
     ]
       .sort(newestFirst)
       .slice(0, limit)

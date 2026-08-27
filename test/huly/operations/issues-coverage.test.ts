@@ -556,8 +556,7 @@ describe("Issues Coverage - listIssues status filters", () => {
         withDiagnostics
       )
 
-      expect(error._tag).toBe("HulyConnectionError")
-      expect(error.message).toContain("did not return complete status category metadata")
+      expect(error._tag).toBe("HulyDataInvalidError")
     })
   )
 

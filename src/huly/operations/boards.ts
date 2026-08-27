@@ -203,7 +203,7 @@ export const getBoardCard = (
     const { board: resolvedBoard, client } = yield* resolveBoardFromContext(params.board, { includeArchived: true })
     const card = yield* resolveBoardCard(client, resolvedBoard, params.card)
     const metadata = yield* loadBoardCardMetadata(client, resolvedBoard, [card])
-    return cardDetailWithMetadata(client, resolvedBoard, metadata, card)
+    return yield* cardDetailWithMetadata(client, resolvedBoard, metadata, card)
   })
 
 export const createBoardCard = (

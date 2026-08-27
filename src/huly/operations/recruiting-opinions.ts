@@ -27,6 +27,7 @@ import { assertAt } from "../../utils/assertions.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type { Diagnostics } from "../diagnostics.js"
 import type {
+  HulyDataInvalidError,
   RecruitingModelMissingError,
   RecruitingOpinionIdentifierAmbiguousError,
   RecruitingOpinionNotFoundError,
@@ -56,6 +57,7 @@ const UNTITLED_OPINION_VALUE = RecruitingOpinionValue.make("Untitled opinion")
 
 type OpinionReadError =
   | HulyClientError
+  | HulyDataInvalidError
   | RecruitingModelMissingError
   | RecruitingOpinionIdentifierAmbiguousError
   | RecruitingOpinionNotFoundError
@@ -116,9 +118,12 @@ const opinionDetail = (
   client: HulyClient["Service"],
   opinion: Opinion,
   review: Review
-): Effect.Effect<OpinionDetail, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
+): Effect.Effect<OpinionDetail, HulyClientError | HulyDataInvalidError | RecruitingModelMissingError, Diagnostics> =>
   Effect.gen(function* () {
-    const description = optionalMarkupToMarkdown(opinion.description, client.markupUrlConfig, undefined)
+    const description = yield* optionalMarkupToMarkdown(opinion.description, client.markupUrlConfig, undefined, {
+      operation: "getRecruitingOpinion",
+      entity: "opinion description"
+    })
     const comments = optionalCount(opinion.comments)
     const attachments = optionalCount(opinion.attachments)
     return {

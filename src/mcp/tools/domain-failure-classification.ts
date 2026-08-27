@@ -113,6 +113,7 @@ const DOMAIN_FAILURE_KIND_BY_TAG = {
   HulyAuthError: "authentication",
   HulyClassNotFoundError: "lookup",
   HulyConnectionError: "integration",
+  HulyDataInvalidError: "integration",
   HulyEnumAmbiguousError: "ambiguity",
   HulyEnumInUseError: "conflict",
   HulyEnumNameConflictError: "conflict",

@@ -16,6 +16,7 @@ import { Count, Timestamp } from "../../domain/schemas/shared.js"
 import { normalizeForComparison } from "../../utils/normalize.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type {
+  HulyDataInvalidError,
   PersonIdentifierAmbiguousError,
   PersonNotFoundError,
   RecruitingApplicantMatchNotFoundError,
@@ -36,6 +37,7 @@ import { toRef } from "./sdk-boundary.js"
 
 type MatchReadError =
   | HulyClientError
+  | HulyDataInvalidError
   | PersonIdentifierAmbiguousError
   | PersonNotFoundError
   | RecruitingApplicantMatchNotFoundError
@@ -73,10 +75,13 @@ const toMatchRef = (
 const toMatchDetail = (
   client: HulyClient["Service"],
   match: ApplicantMatch
-): Effect.Effect<ApplicantMatchDetail, HulyClientError | RecruitingModelMissingError> =>
+): Effect.Effect<ApplicantMatchDetail, HulyClientError | HulyDataInvalidError | RecruitingModelMissingError> =>
   Effect.gen(function* () {
     const ref = yield* toMatchRef(client, match)
-    const response = optionalMarkupToMarkdown(match.response, client.markupUrlConfig, undefined)
+    const response = yield* optionalMarkupToMarkdown(match.response, client.markupUrlConfig, undefined, {
+      operation: "getRecruitingMatch",
+      entity: "match response"
+    })
     return {
       ...ref,
       ...(match.summary === "" ? {} : { summary: match.summary }),

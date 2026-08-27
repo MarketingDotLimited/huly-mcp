@@ -14,7 +14,7 @@ import type { AddCommentResult, DeleteCommentResult, UpdateCommentResult } from 
 import { CommentId, IssueIdentifier } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import type { IssueNotFoundError, ProjectNotFoundError } from "../errors.js"
-import { CommentNotFoundError, HulyConnectionError } from "../errors.js"
+import { CommentNotFoundError, HulyDataInvalidError } from "../errors.js"
 import { findProjectAndIssue as findProjectAndIssueShared } from "./issues-shared.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
@@ -22,7 +22,7 @@ import { toRef } from "./sdk-boundary.js"
 import { chunter, tracker } from "../huly-plugins.js"
 import { markdownToMarkupString, optionalMarkupToMarkdown } from "./markup.js"
 
-type ListCommentsError = HulyClientError | HulyConnectionError | ProjectNotFoundError | IssueNotFoundError
+type ListCommentsError = HulyClientError | HulyDataInvalidError | ProjectNotFoundError | IssueNotFoundError
 
 type AddCommentError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
 
@@ -84,22 +84,24 @@ export const listComments = (
     )
 
     // Schema decoding returns a readonly array; the Huly operation contract requires a mutable array.
-    const validated = yield* parseComments(
-      messages.map((msg) => ({
-        id: msg._id,
-        body: optionalMarkupToMarkdown(msg.message, markupUrlConfig, ""),
-        authorId: msg.modifiedBy,
-        createdOn: msg.createdOn,
-        modifiedOn: msg.modifiedOn,
-        editedOn: msg.editedOn
-      }))
-    ).pipe(
+    const comments = yield* Effect.forEach(messages, (msg) =>
+      optionalMarkupToMarkdown(msg.message, markupUrlConfig, "", {
+        operation: "listComments",
+        entity: "comment body"
+      }).pipe(
+        Effect.map((body) => ({
+          id: msg._id,
+          body,
+          authorId: msg.modifiedBy,
+          createdOn: msg.createdOn,
+          modifiedOn: msg.modifiedOn,
+          editedOn: msg.editedOn
+        }))
+      )
+    )
+    const validated = yield* parseComments(comments).pipe(
       Effect.mapError(
-        (parseError) =>
-          new HulyConnectionError({
-            message: `listComments response failed schema validation: ${parseError.message}`,
-            cause: parseError
-          })
+        (parseError) => new HulyDataInvalidError({ operation: "listComments", entity: "comment", cause: parseError })
       )
     )
 

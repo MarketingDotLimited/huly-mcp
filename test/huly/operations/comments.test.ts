@@ -257,6 +257,23 @@ describe("listComments", () => {
       })
     )
 
+    it.effect("reads comments stored as MarkupContent objects", () =>
+      Effect.gen(function* () {
+        const project = makeProject({ identifier: "TEST" })
+        const issue = makeIssue({ identifier: "TEST-1", number: 1 })
+        const message = makeChatMessage({ attachedTo: issue._id })
+        Reflect.set(message, "message", { content: "Object-backed comment", kind: "markdown" })
+        const testLayer = createTestLayerWithMocks({ projects: [project], issues: [issue], messages: [message] })
+
+        const result = yield* listComments({
+          project: projectIdentifier("TEST"),
+          issueIdentifier: issueIdentifier("TEST-1")
+        }).pipe(Effect.provide(testLayer))
+
+        expect(assertAt(result, 0).body).toBe("Object-backed comment")
+      })
+    )
+
     it.effect("transforms message to comment format", () =>
       Effect.gen(function* () {
         const project = makeProject({ identifier: "TEST" })

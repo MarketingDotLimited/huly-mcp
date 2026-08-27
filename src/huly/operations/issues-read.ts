@@ -27,7 +27,7 @@ import type {
   PersonIdentifierAmbiguousError,
   ProjectNotFoundError
 } from "../errors.js"
-import { HulyConnectionError, IssueNotFoundError } from "../errors.js"
+import { HulyDataInvalidError, IssueNotFoundError } from "../errors.js"
 import { contact, tracker } from "../huly-plugins.js"
 import { findComponentByIdOrLabel } from "./components.js"
 import { findPersonByEmailOrName, findPersonByIdOrExactEmailOrName } from "./contacts-shared.js"
@@ -48,7 +48,7 @@ import { clampLimit, escapeLikeWildcards, hulyQuery, type StrictDocumentQuery, w
 
 type ListIssuesError =
   | HulyClientError
-  | HulyConnectionError
+  | HulyDataInvalidError
   | ProjectNotFoundError
   | IssueNotFoundError
   | InvalidStatusError
@@ -57,7 +57,7 @@ type ListIssuesError =
   | MilestoneIdentifierAmbiguousError
   | PersonIdentifierAmbiguousError
 
-type GetIssueError = HulyClientError | HulyConnectionError | ProjectNotFoundError | IssueNotFoundError
+type GetIssueError = HulyClientError | HulyDataInvalidError | ProjectNotFoundError | IssueNotFoundError
 
 type IssueWithLookup = WithLookup<HulyIssue> & { $lookup?: { assignee?: Person } }
 
@@ -73,11 +73,12 @@ const requireKnownStatusCategories = (
   statuses: ReadonlyArray<WorkflowStatus>,
   category: IssueStatusCategoryFilter,
   project: ProjectIdentifier
-): Effect.Effect<void, HulyConnectionError> =>
+): Effect.Effect<void, HulyDataInvalidError> =>
   hasUnknownStatusCategory(statuses)
     ? Effect.fail(
-        new HulyConnectionError({
-          message: `Cannot filter project '${project}' issues by status category '${category}' because Huly did not return complete status category metadata. Use an exact status name instead.`
+        new HulyDataInvalidError({
+          operation: "listIssues",
+          entity: `status category metadata for project '${project}' and category '${category}'`
         })
       )
     : Effect.void
@@ -369,11 +370,7 @@ export const listIssues = (
     const parseIssueSummaries = Schema.decodeUnknownEffect(Schema.Array(IssueSummarySchema))
     const validated = yield* parseIssueSummaries(rawSummaries).pipe(
       Effect.mapError(
-        (parseError) =>
-          new HulyConnectionError({
-            message: `listIssues response failed schema validation: ${parseError.message}`,
-            cause: parseError
-          })
+        (parseError) => new HulyDataInvalidError({ operation: "listIssues", entity: "issue", cause: parseError })
       )
     )
 
@@ -417,11 +414,7 @@ export const getIssue = (params: GetIssueParams): Effect.Effect<Issue, GetIssueE
     )
     return yield* parseIssue(projected).pipe(
       Effect.mapError(
-        (parseError) =>
-          new HulyConnectionError({
-            message: `getIssue response failed schema validation: ${parseError.message}`,
-            cause: parseError
-          })
+        (parseError) => new HulyDataInvalidError({ operation: "getIssue", entity: "issue", cause: parseError })
       )
     )
   })

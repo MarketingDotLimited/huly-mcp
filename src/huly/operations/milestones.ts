@@ -30,6 +30,7 @@ import {
 } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import type {
+  HulyDataInvalidError,
   IssueNotFoundError,
   MilestoneNotFoundError,
   NoUpdateFieldsError,
@@ -47,7 +48,7 @@ import { renderMarkdownPreservingNativeReferences } from "./native-reference-mar
 
 type ListMilestonesError = HulyClientError | ProjectNotFoundError
 
-type GetMilestoneError = HulyClientError | ProjectNotFoundError | MilestoneNotFoundError
+type GetMilestoneError = HulyClientError | HulyDataInvalidError | ProjectNotFoundError | MilestoneNotFoundError
 
 type CreateMilestoneError = HulyClientError | ProjectNotFoundError
 
@@ -118,11 +119,15 @@ export const getMilestone = (params: GetMilestoneParams): Effect.Effect<Mileston
   Effect.gen(function* () {
     const { client, milestone } = yield* findProjectAndMilestone(params)
     const markupUrlConfig = client.markupUrlConfig
+    const description = yield* optionalMarkupToMarkdown(milestone.description, markupUrlConfig, "", {
+      operation: "getMilestone",
+      entity: "milestone description"
+    })
 
     const result: Milestone = {
       id: MilestoneId.make(milestone._id),
       label: MilestoneLabel.make(milestone.label),
-      description: optionalMarkupToMarkdown(milestone.description, markupUrlConfig, ""),
+      description,
       status: milestoneStatusToString(milestone.status),
       targetDate: Timestamp.make(milestone.targetDate),
       project: params.project,

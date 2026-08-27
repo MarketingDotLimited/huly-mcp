@@ -14,6 +14,7 @@ import type {
   BoardArchivedCardDeleteError,
   BoardCardIdentifierAmbiguousError,
   BoardCardNotFoundError,
+  HulyDataInvalidError,
   NoUpdateFieldsError,
   PersonIdentifierAmbiguousError
 } from "../errors.js"
@@ -61,7 +62,7 @@ type BoardRemoveCollectionError = BoardMutationUnsupportedError
 
 export type BoardReadError = BoardResolverError | BoardModelError
 export type BoardWriteError = BoardReadError | NoUpdateFieldsError
-export type BoardCardReadError = BoardReadError | BoardCardResolverError
+export type BoardCardReadError = BoardReadError | BoardCardResolverError | HulyDataInvalidError
 export type BoardCardWriteError =
   | BoardCardReadError
   | BoardEmployeeError

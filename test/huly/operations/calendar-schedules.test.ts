@@ -270,7 +270,7 @@ describe("calendar schedules", () => {
         )
       )
 
-      expect(error._tag).toBe("HulyConnectionError")
+      expect(error._tag).toBe("HulyDataInvalidError")
     })
   )
 
@@ -284,7 +284,7 @@ describe("calendar schedules", () => {
         )
       )
 
-      expect(error._tag).toBe("HulyConnectionError")
+      expect(error._tag).toBe("HulyDataInvalidError")
     })
   )
 

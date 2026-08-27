@@ -12,6 +12,7 @@ import { DocId, PersonId, PersonName, Timestamp } from "../../domain/schemas/sha
 import { RecruitingReviewMetadataDegradedWarningCode } from "../../domain/schemas/tool-warnings.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import { Diagnostics } from "../diagnostics.js"
+import type { HulyDataInvalidError } from "../errors.js"
 import { RecruitingModelMissingError } from "../errors.js"
 import { contact } from "../huly-plugins.js"
 import { recruitIds } from "../recruit-plugin.js"
@@ -169,10 +170,13 @@ const reviewParticipants = (
 export const reviewDetail = (
   client: HulyClient["Service"],
   review: Review
-): Effect.Effect<ReviewDetail, HulyClientError | RecruitingModelMissingError, Diagnostics> =>
+): Effect.Effect<ReviewDetail, HulyClientError | HulyDataInvalidError | RecruitingModelMissingError, Diagnostics> =>
   Effect.gen(function* () {
     const refProjection = yield* reviewRefProjectionFromDoc(client, review)
-    const description = optionalMarkupToMarkdown(review.description, client.markupUrlConfig, undefined)
+    const description = yield* optionalMarkupToMarkdown(review.description, client.markupUrlConfig, undefined, {
+      operation: "getRecruitingReview",
+      entity: "review description"
+    })
     const application =
       review.application === undefined
         ? undefined

@@ -32,7 +32,13 @@ import { UPDATE_COMPONENT_FIELDS } from "../../domain/schemas/components.js"
 import { ComponentId, ComponentLabel, IssueIdentifier, PersonName, Timestamp } from "../../domain/schemas/shared.js"
 import { isExistent } from "../../utils/assertions.js"
 import type { HulyClient, HulyClientError, HulyClientOperations } from "../client.js"
-import type { HulyConnectionError, IssueNotFoundError, NoUpdateFieldsError, ProjectNotFoundError } from "../errors.js"
+import type {
+  HulyConnectionError,
+  HulyDataInvalidError,
+  IssueNotFoundError,
+  NoUpdateFieldsError,
+  ProjectNotFoundError
+} from "../errors.js"
 import { ComponentNotFoundError, PersonNotFoundError } from "../errors.js"
 import { clearTextAsEmptyString } from "./clear-field-updates.js"
 import { findPersonByEmailOrName } from "./contacts-shared.js"
@@ -45,7 +51,7 @@ import { optionalMarkdownToMarkup, optionalMarkupToMarkdown } from "./markup.js"
 
 type ListComponentsError = HulyClientError | ProjectNotFoundError
 
-type GetComponentError = HulyClientError | ProjectNotFoundError | ComponentNotFoundError
+type GetComponentError = HulyClientError | HulyDataInvalidError | ProjectNotFoundError | ComponentNotFoundError
 
 type CreateComponentError = HulyClientError | ProjectNotFoundError | PersonNotFoundError
 
@@ -143,11 +149,15 @@ export const getComponent = (params: GetComponentParams): Effect.Effect<Componen
       component.lead !== null
         ? (yield* client.findOne<Person>(contact.class.Person, { _id: component.lead }))?.name
         : undefined
+    const description = yield* optionalMarkupToMarkdown(component.description, markupUrlConfig, undefined, {
+      operation: "getComponent",
+      entity: "component description"
+    })
 
     const result: Component = {
       id: ComponentId.make(component._id),
       label: ComponentLabel.make(component.label),
-      description: optionalMarkupToMarkdown(component.description, markupUrlConfig, undefined),
+      description,
       lead: leadName !== undefined ? PersonName.make(leadName) : undefined,
       project: params.project,
       modifiedOn: Timestamp.make(component.modifiedOn),

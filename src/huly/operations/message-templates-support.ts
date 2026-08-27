@@ -134,8 +134,11 @@ const placeholderFieldIds = (markdown: string): Array<TemplateFieldId> => {
   return ids.map((id) => TemplateFieldId.make(id))
 }
 
-const markdownForTemplate = (template: HulyMessageTemplate, client: HulyClient["Service"]): MessageTemplateMarkdown =>
-  MessageTemplateMarkdown.make(markupToMarkdownString(template.message, client.markupUrlConfig))
+const markdownForTemplate = (template: HulyMessageTemplate, client: HulyClient["Service"]) =>
+  markupToMarkdownString(template.message, client.markupUrlConfig, {
+    operation: "readMessageTemplate",
+    entity: "message template body"
+  }).pipe(Effect.map((markdown) => MessageTemplateMarkdown.make(markdown)))
 
 export const searchLike = (search: string | undefined): { readonly $like: string } | undefined => {
   const trimmed = search?.trim() ?? ""
@@ -249,27 +252,28 @@ export const templateSummaryFor = (
   template: HulyMessageTemplate,
   client: HulyClient["Service"],
   categories: ReadonlyMap<Ref<HulyTemplateCategory>, MessageTemplateCategoryRef>
-): MessageTemplateSummary => {
-  const message = markdownForTemplate(template, client)
-
-  return {
-    id: MessageTemplateId.make(template._id),
-    title: templateTitleFor(template),
-    category: categoryRefFromMap(template.space, categories),
-    placeholderFieldIds: placeholderFieldIds(message),
-    ...timestampsFor(template)
-  }
-}
+) =>
+  markdownForTemplate(template, client).pipe(
+    Effect.map(
+      (message): MessageTemplateSummary => ({
+        id: MessageTemplateId.make(template._id),
+        title: templateTitleFor(template),
+        category: categoryRefFromMap(template.space, categories),
+        placeholderFieldIds: placeholderFieldIds(message),
+        ...timestampsFor(template)
+      })
+    )
+  )
 
 export const templateDetailFor = (
   template: HulyMessageTemplate,
   client: HulyClient["Service"],
   categories: ReadonlyMap<Ref<HulyTemplateCategory>, MessageTemplateCategoryRef>
-): MessageTemplate => {
-  const message = markdownForTemplate(template, client)
-
-  return { ...templateSummaryFor(template, client, categories), message }
-}
+) =>
+  Effect.all({
+    summary: templateSummaryFor(template, client, categories),
+    message: markdownForTemplate(template, client)
+  }).pipe(Effect.map(({ message, summary }): MessageTemplate => ({ ...summary, message })))
 
 export const resolveTemplate = (
   client: HulyClient["Service"],

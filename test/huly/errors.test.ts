@@ -1199,6 +1199,8 @@ describe("Huly Errors", () => {
               return `storage-config:${error.field}`
             case "HulyConnectionError":
               return "connection"
+            case "HulyDataInvalidError":
+              return `data-invalid:${error.operation}:${error.entity}`
             case "HulyUnavailableError":
               return "unavailable"
             case "HulyAuthError":
