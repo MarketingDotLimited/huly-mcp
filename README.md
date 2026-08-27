@@ -209,6 +209,18 @@ The `@latest` tag asks the package runner for the newest version. Some MCP clien
 | **Pi** | Run `/mcp reconnect huly`, then `/reload` if the registered direct-tool surface changed |
 | **npx (manual)** | `npx -y @firfi/huly-mcp@latest` — the `-y` flag auto-confirms install prompts |
 
+## Maintainer Production Release
+
+Publish from a clean, current `master` checkout with the preferred certified Node.js runtime:
+
+```bash
+mise exec node@24.15.0 -- pnpm local-release
+```
+
+Use this exact command even when a newer Node.js version is active on the host. The release build accepts only the
+exact Node.js versions certified by CI; this is intentionally narrower than the package's runtime requirement. See
+the [production release guide](docs/NPM_PRODUCTION_RELEASE.md) for preflight checks, rerun behavior, and verification.
+
 ## HTTP Transport
 
 By default, the server uses stdio transport. For HTTP transport:

@@ -148,6 +148,8 @@ fi
 node_version="$(node -p 'process.versions.node')"
 if [[ "$node_version" != "22.22.2" && "$node_version" != "24.15.0" ]]; then
   echo "Refusing production release under Node $node_version; expected 22.22.2 or 24.15.0." >&2
+  echo "Run the release with the preferred certified runtime:" >&2
+  echo "  mise exec node@24.15.0 -- pnpm local-release" >&2
   exit 1
 fi
 

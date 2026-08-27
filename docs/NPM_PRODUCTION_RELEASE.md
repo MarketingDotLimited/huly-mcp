@@ -61,7 +61,11 @@ Run `pnpm check-all` and the local Huly integration suites before starting the p
 
 ## Rerunning After A Failed Release
 
-`pnpm local-release` is intended to be rerunnable. If it created the changeset release commit and then failed during build, verification, publish, push, or GitHub release creation, fix the underlying problem and run the same command again from clean `master`.
+The certified release command is intended to be rerunnable. If it created the changeset release commit and then failed during build, verification, publish, push, or GitHub release creation, fix the underlying problem and run the exact same command again from clean `master`:
+
+```bash
+mise exec node@24.15.0 -- pnpm local-release
+```
 
 The rerun recomputes local package versions against npm:
 
