@@ -1,5 +1,14 @@
 # @firfi/huly-mcp
 
+## 0.49.6
+
+### Patch Changes
+
+- 5d499f1: Report the detected executable and required Node.js version when an MCP host starts Huly MCP with an unsupported
+  runtime.
+- 38a93b8: Read string and structured Huly rich-text payloads consistently across comments, chat, templates, boards, and other
+  rich-text readers, and report malformed stored payloads as integration-data failures instead of connection failures.
+
 ## 0.49.5
 
 ### Patch Changes
