@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.49.7
+
+### Patch Changes
+
+- 4207d2b: Preserve safe operation and HTTP status diagnostics for Huly connection failures without exposing raw SDK error details.
+
 ## 0.49.6
 
 ### Patch Changes
