@@ -521,14 +521,25 @@ describe("Error Mapping to MCP", () => {
         })
       )
 
-      it.effect("maps HulyConnectionError with errorTag", () =>
+      it.effect("maps HulyConnectionError with errorTag and keeps the underlying cause", () =>
         Effect.sync(function () {
-          const error = new HulyConnectionError({ message: "Network timeout" })
+          const error = new HulyConnectionError({ message: "updateMarkup failed: Error: HTTP error 502" })
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InternalError)
           expect(response._meta.errorTag).toBe("HulyConnectionError")
+          expect(assertAt(response.content, 0).text).toBe(
+            "Connection error while communicating with Huly: updateMarkup failed: Error: HTTP error 502. Verify HULY_URL, workspace, and network connectivity before retrying."
+          )
+        })
+      )
+
+      it.effect("maps HulyConnectionError without a message to guidance alone", () =>
+        Effect.sync(function () {
+          const error = new HulyConnectionError({ message: "  " })
+          const response = mapDomainErrorToMcp(error)
+
           expect(assertAt(response.content, 0).text).toBe(
             "Connection error while communicating with Huly. Verify HULY_URL, workspace, and network connectivity before retrying."
           )
