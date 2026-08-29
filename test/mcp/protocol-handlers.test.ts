@@ -12,8 +12,13 @@ import { assertAt } from "../../src/utils/assertions.js"
  */
 import type { Class, Doc, FindResult, PersonId, Ref, Space, Status, WithLookup } from "@hcengineering/core"
 import { toFindResult } from "@hcengineering/core"
-import type { ProjectType } from "@hcengineering/task"
-import { type Project as HulyProject, TimeReportDayType } from "@hcengineering/tracker"
+import type { ProjectType, TaskType } from "@hcengineering/task"
+import {
+  type Issue as HulyIssue,
+  IssuePriority,
+  type Project as HulyProject,
+  TimeReportDayType
+} from "@hcengineering/tracker"
 import { ProtocolError, ProtocolErrorCode } from "@modelcontextprotocol/server"
 import { Context, Effect, Exit, Layer, Option, Schema } from "effect"
 import { describe, expect, it } from "vitest"
@@ -24,7 +29,7 @@ import { CanonicalBase64ImageData } from "../../src/domain/schemas/attachments.j
 import { type GetHulyContextResult, GetHulyContextResultSchema } from "../../src/domain/schemas/index.js"
 import { HulyClient, type HulyClientOperations } from "../../src/huly/client.js"
 import { Diagnostics } from "../../src/huly/diagnostics.js"
-import { HulyConnectionError } from "../../src/huly/errors.js"
+import { HulyConnectionError, makeOperationConnectionError } from "../../src/huly/errors.js"
 import { task, tracker } from "../../src/huly/huly-plugins.js"
 import { HulyStorageClient } from "../../src/huly/storage.js"
 import { HOSTED_HULY_MIGRATION_WARNING } from "../../src/huly/unavailable-diagnostics.js"
@@ -419,6 +424,54 @@ const projectWithTypeLookupFixture = (statusId: Ref<Status>, projectType: Projec
     $lookup: { type: projectType }
   }) as unknown as ProjectWithTypeLookup
 
+const issueWithDescriptionFixture = (): HulyIssue => ({
+  _id: "issue-1" as Ref<HulyIssue>,
+  _class: tracker.class.Issue,
+  space: "project-1" as Ref<HulyProject>,
+  identifier: "TEST-1",
+  title: "Test Issue",
+  description: "existing-markup-ref" as HulyIssue["description"],
+  status: "plainstatus" as Ref<Status>,
+  priority: IssuePriority.Medium,
+  assignee: null,
+  kind: "task-type-1" as Ref<TaskType>,
+  number: 1,
+  dueDate: null,
+  rank: "0|aaa",
+  attachedTo: "no-parent" as Ref<HulyIssue>,
+  attachedToClass: tracker.class.Issue,
+  collection: "subIssues",
+  component: null,
+  subIssues: 0,
+  parents: [],
+  estimation: 0,
+  remainingTime: 0,
+  reportedTime: 0,
+  reports: 0,
+  childInfo: [],
+  modifiedBy: "user-1" as PersonId,
+  modifiedOn: 0,
+  createdBy: "user-1" as PersonId,
+  createdOn: 0
+})
+
+const buildUpdateIssueFailureClients = (): ClientResolver => {
+  const statusId = "plainstatus" as Ref<Status>
+  const project = projectWithTypeLookupFixture(statusId, projectTypeFixture(statusId))
+  const issue = issueWithDescriptionFixture()
+  const findOne = ((_class: Ref<Class<Doc>>) =>
+    Effect.succeed(_class === tracker.class.Project ? project : issue)) as HulyClientOperations["findOne"]
+  const updateMarkup: HulyClientOperations["updateMarkup"] = () =>
+    Effect.fail(
+      makeOperationConnectionError(
+        "updateMarkup",
+        new Error("HTTP error 502 from https://user:password@example.test/path?token=secret")
+      )
+    )
+
+  return buildStubClients({ findOne, updateMarkup })
+}
+
 const buildResourceWarningClients = (): ClientResolver => {
   const statusId = "plainstatus" as Ref<Status>
   const projectType = projectTypeFixture(statusId)
@@ -440,7 +493,14 @@ const rejectingResolveClients: ClientResolver = () => Promise.reject(new Error("
 const rejectingSensitiveResolveClients: ClientResolver = () => Promise.reject(new Error("token=secret"))
 const rejectingResolveClientsWithString: ClientResolver = () => Promise.reject("client init boom")
 const failedClientResolution: ClientResolver = () =>
-  Promise.resolve(Exit.fail(new HulyConnectionError({ message: "token=secret" })))
+  Promise.resolve(
+    Exit.fail(
+      makeOperationConnectionError(
+        "updateMarkup",
+        new Error("HTTP error 502 from https://user:password@example.test/path?token=secret")
+      )
+    )
+  )
 const configValidationError = (): ConfigValidationError =>
   new ConfigValidationError({ message: "Configuration error: Expected HULY_URL to exist", field: "HULY_URL" })
 const rejectingDirectConfigResolveClients: ClientResolver = () => Promise.reject(configValidationError())
@@ -1024,6 +1084,36 @@ describe("createMcpProtocolHandlers — tool dispatch", () => {
     expect(assertAt(probe.toolCalled, 0)).toMatchObject({ toolName: "list_projects", status: "success" })
   })
 
+  it("returns safe collaborator diagnostics when update_issue description fails", async () => {
+    const probe = createTelemetryProbe()
+    const handlers = createMcpProtocolHandlers(
+      buildUpdateIssueFailureClients(),
+      probe.telemetry,
+      toolRegistry,
+      unusedGetHulyContext
+    )
+
+    const response = await handlers.callTool({
+      params: {
+        name: "update_issue",
+        arguments: { project: "TEST", identifier: "TEST-1", description: "Updated description" }
+      }
+    })
+
+    expect(response.isError).toBe(true)
+    expect(firstText(response.content)).toBe(
+      "Connection error while communicating with Huly: updateMarkup failed with HTTP 502. Verify HULY_URL, workspace, and network connectivity before retrying."
+    )
+    expect(JSON.stringify(response)).not.toContain("example.test")
+    expect(JSON.stringify(response)).not.toContain("password")
+    expect(JSON.stringify(response)).not.toContain("token=secret")
+    expect(assertAt(probe.toolCalled, 0)).toMatchObject({
+      toolName: "update_issue",
+      status: "error",
+      errorTag: "HulyConnectionError"
+    })
+  })
+
   it("carries diagnostics warnings through the MCP callTool response", async () => {
     const probe = createTelemetryProbe()
     const handlers = createMcpProtocolHandlers(
@@ -1080,7 +1170,13 @@ describe("createMcpProtocolHandlers — tool dispatch", () => {
     const response = await handlers.callTool({ params: { name: "list_projects", arguments: {} } })
 
     expect(response.isError).toBe(true)
-    expect(firstText(response.content)).toContain("Connection error while communicating with Huly")
+    expect(firstText(response.content)).toBe(
+      "Connection error while communicating with Huly. Verify HULY_URL, workspace, and network connectivity before retrying."
+    )
+    expect(JSON.stringify(response)).not.toContain("updateMarkup")
+    expect(JSON.stringify(response)).not.toContain("HTTP 502")
+    expect(JSON.stringify(response)).not.toContain("example.test")
+    expect(JSON.stringify(response)).not.toContain("password")
     expect(JSON.stringify(response)).not.toContain("token=secret")
   })
 

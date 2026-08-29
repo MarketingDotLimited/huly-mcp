@@ -1515,7 +1515,9 @@ describe("HulyClient.layer (live layer with mocked externals)", () => {
 
     it.effect("wraps errors in HulyConnectionError", () =>
       Effect.gen(function* () {
-        mockUpdateMarkup.mockRejectedValue(new Error("update failed"))
+        mockUpdateMarkup.mockRejectedValue(
+          new Error("HTTP error 502 from https://user:password@example.test/path?token=secret")
+        )
 
         const client = yield* HulyClient.pipe(Effect.provide(liveClientLayer))
         const error = yield* Effect.flip(
@@ -1523,7 +1525,13 @@ describe("HulyClient.layer (live layer with mocked externals)", () => {
         )
 
         expect(error._tag).toBe("HulyConnectionError")
-        expect(error.message).toContain("updateMarkup failed")
+        if (!(error instanceof HulyConnectionError)) throw new Error("Expected HulyConnectionError")
+        expect(error.message).toBe("updateMarkup failed with HTTP 502")
+        expect(error.diagnostic).toEqual({ operation: "updateMarkup", httpStatus: 502 })
+        expect(error.cause).toBeUndefined()
+        expect(JSON.stringify(error)).not.toContain("example.test")
+        expect(JSON.stringify(error)).not.toContain("password")
+        expect(JSON.stringify(error)).not.toContain("token=secret")
       })
     )
   })
