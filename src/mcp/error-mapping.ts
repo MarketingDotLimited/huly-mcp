@@ -253,15 +253,16 @@ const INTERNAL_ERROR_PREFIX: Partial<Record<HulyDomainError["_tag"], string>> = 
 const CONNECTION_ERROR_GUIDANCE = "Verify HULY_URL, workspace, and network connectivity before retrying."
 
 /**
- * Connection failures reach the caller through this single message, so the underlying cause has to
- * survive: markup operations (issue descriptions, comments) run against the collaborator service
- * rather than the transactor, and without the cause an HTTP 502 there is indistinguishable from a
- * misconfigured HULY_URL.
+ * Markup operations (issue descriptions, comments) run against the collaborator service rather
+ * than the transactor. Preserve only their schema-owned operation and HTTP status diagnostics;
+ * arbitrary SDK exception text can contain credentials, URLs, headers, or response bodies.
  */
-const hulyConnectionMessage = (error: HulyConnectionError): string =>
-  error.message.trim() === ""
+const hulyConnectionMessage = (error: HulyConnectionError): string => {
+  const diagnostic = error.diagnostic
+  return diagnostic === undefined
     ? `Connection error while communicating with Huly. ${CONNECTION_ERROR_GUIDANCE}`
-    : `Connection error while communicating with Huly: ${error.message}. ${CONNECTION_ERROR_GUIDANCE}`
+    : `Connection error while communicating with Huly: ${diagnostic.operation} failed${diagnostic.httpStatus === undefined ? "" : ` with HTTP ${diagnostic.httpStatus}`}. ${CONNECTION_ERROR_GUIDANCE}`
+}
 
 const hulyUnavailableMessage = (error: HulyUnavailableError): string => {
   const failureGuidance =

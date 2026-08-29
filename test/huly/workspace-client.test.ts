@@ -343,14 +343,15 @@ describe("WorkspaceClient.layer (real layer)", () => {
   describe("error handling (withClient)", () => {
     it.effect("wraps operation rejection as HulyConnectionError", () =>
       Effect.gen(function* () {
-        mockGetWorkspaceMembers.mockRejectedValue(new Error("network failure"))
+        mockGetWorkspaceMembers.mockRejectedValue(new Error("network failure token=secret"))
 
         const client = yield* WorkspaceClient
         const error = yield* Effect.flip(client.getWorkspaceMembers())
 
         expect(error._tag).toBe("HulyConnectionError")
-        expect(error.message).toContain("Failed to get workspace members")
-        expect(error.message).toContain("network failure")
+        expect(error.message).toBe("getWorkspaceMembers failed")
+        expect(error).toMatchObject({ diagnostic: { operation: "getWorkspaceMembers" } })
+        expect(JSON.stringify(error)).not.toContain("token=secret")
       }).pipe(Effect.provide(liveLayer))
     )
 
@@ -362,7 +363,7 @@ describe("WorkspaceClient.layer (real layer)", () => {
         const error = yield* Effect.flip(client.getPersonInfo("p1" as PersonUuid))
 
         expect(error._tag).toBe("HulyConnectionError")
-        expect(error.message).toContain("Failed to get person info")
+        expect(error.message).toContain("getPersonInfo failed")
       }).pipe(Effect.provide(liveLayer))
     )
 
@@ -374,7 +375,7 @@ describe("WorkspaceClient.layer (real layer)", () => {
         const error = yield* Effect.flip(client.updateWorkspaceRole("acc", AccountRole.User))
 
         expect(error._tag).toBe("HulyConnectionError")
-        expect(error.message).toContain("Failed to update workspace role")
+        expect(error.message).toContain("updateWorkspaceRole failed")
       }).pipe(Effect.provide(liveLayer))
     )
 
@@ -386,7 +387,7 @@ describe("WorkspaceClient.layer (real layer)", () => {
         const error = yield* Effect.flip(client.getWorkspaceInfo())
 
         expect(error._tag).toBe("HulyConnectionError")
-        expect(error.message).toContain("Failed to get workspace info")
+        expect(error.message).toContain("getWorkspaceInfo failed")
       }).pipe(Effect.provide(liveLayer))
     )
 
@@ -398,7 +399,7 @@ describe("WorkspaceClient.layer (real layer)", () => {
         const error = yield* Effect.flip(client.getUserWorkspaces())
 
         expect(error._tag).toBe("HulyConnectionError")
-        expect(error.message).toContain("Failed to get user workspaces")
+        expect(error.message).toContain("getUserWorkspaces failed")
       }).pipe(Effect.provide(liveLayer))
     )
 
@@ -410,7 +411,7 @@ describe("WorkspaceClient.layer (real layer)", () => {
         const error = yield* Effect.flip(client.createWorkspace("new"))
 
         expect(error._tag).toBe("HulyConnectionError")
-        expect(error.message).toContain("Failed to create workspace")
+        expect(error.message).toContain("createWorkspace failed")
       }).pipe(Effect.provide(liveLayer))
     )
 
@@ -422,7 +423,7 @@ describe("WorkspaceClient.layer (real layer)", () => {
         const error = yield* Effect.flip(client.deleteWorkspace())
 
         expect(error._tag).toBe("HulyConnectionError")
-        expect(error.message).toContain("Failed to delete workspace")
+        expect(error.message).toContain("deleteWorkspace failed")
       }).pipe(Effect.provide(liveLayer))
     )
 
@@ -434,7 +435,7 @@ describe("WorkspaceClient.layer (real layer)", () => {
         const error = yield* Effect.flip(client.getUserProfile())
 
         expect(error._tag).toBe("HulyConnectionError")
-        expect(error.message).toContain("Failed to get user profile")
+        expect(error.message).toContain("getUserProfile failed")
       }).pipe(Effect.provide(liveLayer))
     )
 
@@ -446,7 +447,7 @@ describe("WorkspaceClient.layer (real layer)", () => {
         const error = yield* Effect.flip(client.setMyProfile({}))
 
         expect(error._tag).toBe("HulyConnectionError")
-        expect(error.message).toContain("Failed to set my profile")
+        expect(error.message).toContain("setMyProfile failed")
       }).pipe(Effect.provide(liveLayer))
     )
 
@@ -458,7 +459,7 @@ describe("WorkspaceClient.layer (real layer)", () => {
         const error = yield* Effect.flip(client.createAccessLink(AccountRole.Guest))
 
         expect(error._tag).toBe("HulyConnectionError")
-        expect(error.message).toContain("Failed to create access link")
+        expect(error.message).toContain("createAccessLink failed")
       }).pipe(Effect.provide(liveLayer))
     )
 
@@ -470,7 +471,7 @@ describe("WorkspaceClient.layer (real layer)", () => {
         const error = yield* Effect.flip(client.updateAllowReadOnlyGuests(true))
 
         expect(error._tag).toBe("HulyConnectionError")
-        expect(error.message).toContain("Failed to update read-only guest setting")
+        expect(error.message).toContain("updateAllowReadOnlyGuests failed")
       }).pipe(Effect.provide(liveLayer))
     )
 
@@ -482,7 +483,7 @@ describe("WorkspaceClient.layer (real layer)", () => {
         const error = yield* Effect.flip(client.updateAllowGuestSignUp(false))
 
         expect(error._tag).toBe("HulyConnectionError")
-        expect(error.message).toContain("Failed to update guest sign-up setting")
+        expect(error.message).toContain("updateAllowGuestSignUp failed")
       }).pipe(Effect.provide(liveLayer))
     )
 
@@ -494,7 +495,7 @@ describe("WorkspaceClient.layer (real layer)", () => {
         const error = yield* Effect.flip(client.getRegionInfo())
 
         expect(error._tag).toBe("HulyConnectionError")
-        expect(error.message).toContain("Failed to get region info")
+        expect(error.message).toContain("getRegionInfo failed")
       }).pipe(Effect.provide(liveLayer))
     )
   })

@@ -34,10 +34,79 @@ export class NoUpdateFieldsError extends Schema.TaggedError<NoUpdateFieldsError>
 /**
  * Connection error - network/transport failures.
  */
+export const HulyConnectionOperation = Schema.Literals([
+  "findAll",
+  "findOne",
+  "findAllInModel",
+  "createDoc",
+  "conditionalCreateDoc",
+  "updateDoc",
+  "conditionalUpdateDoc",
+  "addCollection",
+  "updateCollection",
+  "removeCollection",
+  "removeDoc",
+  "conditionalRemoveDoc",
+  "createMixin",
+  "updateMixin",
+  "uploadMarkup",
+  "fetchMarkup",
+  "updateMarkup",
+  "searchFulltext",
+  "getWorkspaceMembers",
+  "getPersonInfo",
+  "updateWorkspaceRole",
+  "getWorkspaceInfo",
+  "getUserWorkspaces",
+  "createWorkspace",
+  "deleteWorkspace",
+  "getUserProfile",
+  "setMyProfile",
+  "createAccessLink",
+  "updateAllowReadOnlyGuests",
+  "updateAllowGuestSignUp",
+  "getRegionInfo"
+])
+export type HulyConnectionOperation = Schema.Schema.Type<typeof HulyConnectionOperation>
+
+export const HulyHttpStatus = Schema.Int.check(Schema.isBetween({ minimum: 100, maximum: 599 })).pipe(
+  Schema.brand("HulyHttpStatus")
+)
+export type HulyHttpStatus = Schema.Schema.Type<typeof HulyHttpStatus>
+
+export const HulyConnectionDiagnostic = Schema.Struct({
+  operation: HulyConnectionOperation,
+  httpStatus: Schema.optionalKey(HulyHttpStatus)
+})
+export type HulyConnectionDiagnostic = Schema.Schema.Type<typeof HulyConnectionDiagnostic>
+
 export class HulyConnectionError extends Schema.TaggedError<HulyConnectionError>()("HulyConnectionError", {
   message: Schema.String,
-  cause: Schema.optional(Schema.Defect())
+  cause: Schema.optional(Schema.Defect()),
+  diagnostic: Schema.optionalKey(HulyConnectionDiagnostic)
 }) {}
+
+const HTTP_ERROR_STATUS_PATTERN = /\bHTTP(?: error)?\s+(?<status>[1-5]\d{2})\b/i
+
+const hulyHttpStatusFromCause = (cause: unknown): HulyHttpStatus | undefined => {
+  if (!(cause instanceof Error)) return undefined
+  const statusText = HTTP_ERROR_STATUS_PATTERN.exec(cause.message)?.groups?.status
+  if (statusText === undefined) return undefined
+  return HulyHttpStatus.make(Number(statusText))
+}
+
+/** Convert an untrusted SDK rejection into caller-safe operation diagnostics. */
+export const makeOperationConnectionError = (
+  operation: HulyConnectionOperation,
+  cause: unknown
+): HulyConnectionError => {
+  const httpStatus = hulyHttpStatusFromCause(cause)
+  const message = `${operation} failed${httpStatus === undefined ? "" : ` with HTTP ${httpStatus}`}`
+  return new HulyConnectionError({
+    message,
+    diagnostic: { operation, ...(httpStatus === undefined ? {} : { httpStatus }) }
+  })
+}
 
 /** Huly returned persisted or runtime data that does not satisfy its expected boundary contract. */
 export class HulyDataInvalidError extends Schema.TaggedError<HulyDataInvalidError>()("HulyDataInvalidError", {

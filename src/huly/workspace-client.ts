@@ -34,7 +34,7 @@ import { Context, Effect, Layer } from "effect"
 import { HulyConfigService } from "../config/config.js"
 import type { SpaceId } from "../domain/schemas/shared.js"
 import { authToOptions, type ConnectionConfig, type ConnectionError, connectWithRetry } from "./client.js"
-import { HulyConnectionError } from "./errors-base.js"
+import { type HulyConnectionOperation, makeOperationConnectionError } from "./errors-base.js"
 import { HulySdk, type HulySdkDependencies } from "./sdk-deps.js"
 
 export type WorkspaceClientError = ConnectionError
@@ -105,12 +105,9 @@ export class WorkspaceClient extends Context.Service<WorkspaceClient, WorkspaceC
 
       const withClient = <A>(
         op: (client: AccountClient) => Promise<A>,
-        errorMsg: string
+        operation: HulyConnectionOperation
       ): Effect.Effect<A, WorkspaceClientError> =>
-        Effect.tryPromise({
-          try: () => op(client),
-          catch: (e) => new HulyConnectionError({ message: `${errorMsg}: ${String(e)}`, cause: e })
-        })
+        Effect.tryPromise({ try: () => op(client), catch: (error) => makeOperationConnectionError(operation, error) })
 
       type AccountClientAccessLinkOptions = NonNullable<Parameters<AccountClient["createAccessLink"]>[1]>
 
@@ -135,31 +132,24 @@ export class WorkspaceClient extends Context.Service<WorkspaceClient, WorkspaceC
           : { ...accessLinkIdentityOptions(options), ...accessLinkTimingOptions(options) }
 
       const operations: WorkspaceClientOperations = {
-        getWorkspaceMembers: () => withClient((c) => c.getWorkspaceMembers(), "Failed to get workspace members"),
-        getPersonInfo: (account) => withClient((c) => c.getPersonInfo(account), "Failed to get person info"),
+        getWorkspaceMembers: () => withClient((c) => c.getWorkspaceMembers(), "getWorkspaceMembers"),
+        getPersonInfo: (account) => withClient((c) => c.getPersonInfo(account), "getPersonInfo"),
         updateWorkspaceRole: (account, role) =>
-          withClient((c) => c.updateWorkspaceRole(account, role), "Failed to update workspace role"),
+          withClient((c) => c.updateWorkspaceRole(account, role), "updateWorkspaceRole"),
         getWorkspaceInfo: (updateLastVisit) =>
-          withClient((c) => c.getWorkspaceInfo(updateLastVisit), "Failed to get workspace info"),
-        getUserWorkspaces: () => withClient((c) => c.getUserWorkspaces(), "Failed to get user workspaces"),
-        createWorkspace: (name, region) =>
-          withClient((c) => c.createWorkspace(name, region), "Failed to create workspace"),
-        deleteWorkspace: () => withClient((c) => c.deleteWorkspace(), "Failed to delete workspace"),
-        getUserProfile: (personUuid) => withClient((c) => c.getUserProfile(personUuid), "Failed to get user profile"),
-        setMyProfile: (profile) => withClient((c) => c.setMyProfile(profile), "Failed to set my profile"),
+          withClient((c) => c.getWorkspaceInfo(updateLastVisit), "getWorkspaceInfo"),
+        getUserWorkspaces: () => withClient((c) => c.getUserWorkspaces(), "getUserWorkspaces"),
+        createWorkspace: (name, region) => withClient((c) => c.createWorkspace(name, region), "createWorkspace"),
+        deleteWorkspace: () => withClient((c) => c.deleteWorkspace(), "deleteWorkspace"),
+        getUserProfile: (personUuid) => withClient((c) => c.getUserProfile(personUuid), "getUserProfile"),
+        setMyProfile: (profile) => withClient((c) => c.setMyProfile(profile), "setMyProfile"),
         createAccessLink: (role, options) =>
-          withClient(
-            (c) => c.createAccessLink(role, toAccountClientAccessLinkOptions(options)),
-            "Failed to create access link"
-          ),
+          withClient((c) => c.createAccessLink(role, toAccountClientAccessLinkOptions(options)), "createAccessLink"),
         updateAllowReadOnlyGuests: (readOnlyGuestsAllowed) =>
-          withClient(
-            (c) => c.updateAllowReadOnlyGuests(readOnlyGuestsAllowed),
-            "Failed to update read-only guest setting"
-          ),
+          withClient((c) => c.updateAllowReadOnlyGuests(readOnlyGuestsAllowed), "updateAllowReadOnlyGuests"),
         updateAllowGuestSignUp: (guestSignUpAllowed) =>
-          withClient((c) => c.updateAllowGuestSignUp(guestSignUpAllowed), "Failed to update guest sign-up setting"),
-        getRegionInfo: () => withClient((c) => c.getRegionInfo(), "Failed to get region info")
+          withClient((c) => c.updateAllowGuestSignUp(guestSignUpAllowed), "updateAllowGuestSignUp"),
+        getRegionInfo: () => withClient((c) => c.getRegionInfo(), "getRegionInfo")
       }
 
       return operations

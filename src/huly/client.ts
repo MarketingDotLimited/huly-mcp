@@ -48,7 +48,13 @@ import {
   WorkspaceUrlSlug
 } from "../domain/schemas/shared.js"
 import { concatLink } from "../utils/url.js"
-import { HulyAuthError, HulyConnectionError, HulyUnavailableError } from "./errors-base.js"
+import {
+  HulyAuthError,
+  type HulyConnectionOperation,
+  type HulyConnectionError,
+  HulyUnavailableError,
+  makeOperationConnectionError
+} from "./errors-base.js"
 import { PlatformError } from "./huly-platform.js"
 import {
   markdownInputUrlConfig,
@@ -353,12 +359,9 @@ export class HulyClient extends Context.Service<HulyClient, HulyClientOperations
 
         const withClient = <A>(
           op: (client: TxOperations) => Promise<A>,
-          errorMsg: string
+          operation: HulyConnectionOperation
         ): Effect.Effect<A, HulyClientError> =>
-          Effect.tryPromise({
-            try: () => op(client),
-            catch: (e) => new HulyConnectionError({ message: `${errorMsg}: ${String(e)}`, cause: e })
-          })
+          Effect.tryPromise({ try: () => op(client), catch: (error) => makeOperationConnectionError(operation, error) })
 
         const operations: HulyClientOperations = {
           getAccountUuid: () => accountUuid,
@@ -368,19 +371,19 @@ export class HulyClient extends Context.Service<HulyClient, HulyClientOperations
           markupUrlConfig,
 
           findAll: <T extends Doc>(_class: Ref<Class<T>>, query: DocumentQuery<T>, options?: FindOptions<T>) =>
-            withClient((client) => client.findAll(_class, query, options), "findAll failed"),
+            withClient((client) => client.findAll(_class, query, options), "findAll"),
 
           findOne: <T extends Doc>(_class: Ref<Class<T>>, query: DocumentQuery<T>, options?: FindOptions<T>) =>
-            withClient((client) => client.findOne(_class, query, options), "findOne failed"),
+            withClient((client) => client.findOne(_class, query, options), "findOne"),
 
           findAllInModel: <T extends Doc>(_class: Ref<Class<T>>, query: DocumentQuery<T>, options?: FindOptions<T>) =>
             withClient(
               (client) => Promise.resolve(client.getModel().findAllSync(_class, query, options)),
-              "findAllInModel failed"
+              "findAllInModel"
             ),
 
           createDoc: <T extends Doc>(_class: Ref<Class<T>>, space: Ref<Space>, attributes: Data<T>, id?: Ref<T>) =>
-            withClient((client) => client.createDoc(_class, space, attributes, id), "createDoc failed"),
+            withClient((client) => client.createDoc(_class, space, attributes, id), "createDoc"),
 
           createDocIfNotMatched: <T extends Doc, M extends Doc>(
             _class: Ref<Class<T>>,
@@ -396,7 +399,7 @@ export class HulyClient extends Context.Service<HulyClient, HulyClientOperations
               apply.notMatch(matchClass, matchQuery)
               await apply.createDoc(_class, space, attributes, id)
               return (await apply.commit()).result ? "applied" : "condition-not-met"
-            }, "conditional createDoc failed"),
+            }, "conditionalCreateDoc"),
 
           updateDoc: <T extends Doc>(
             _class: Ref<Class<T>>,
@@ -404,7 +407,7 @@ export class HulyClient extends Context.Service<HulyClient, HulyClientOperations
             objectId: Ref<T>,
             ops: DocumentUpdate<T>,
             retrieve?: boolean
-          ) => withClient((client) => client.updateDoc(_class, space, objectId, ops, retrieve), "updateDoc failed"),
+          ) => withClient((client) => client.updateDoc(_class, space, objectId, ops, retrieve), "updateDoc"),
 
           updateDocIfMatched: <T extends Doc>(
             _class: Ref<Class<T>>,
@@ -419,7 +422,7 @@ export class HulyClient extends Context.Service<HulyClient, HulyClientOperations
               apply.match(_class, matchQuery)
               await apply.updateDoc(_class, space, objectId, operations)
               return (await apply.commit()).result ? "applied" : "condition-not-met"
-            }, "conditional updateDoc failed"),
+            }, "conditionalUpdateDoc"),
 
           addCollection: <T extends Doc, P extends AttachedDoc>(
             _class: Ref<Class<P>>,
@@ -432,7 +435,7 @@ export class HulyClient extends Context.Service<HulyClient, HulyClientOperations
           ) =>
             withClient(
               (client) => client.addCollection(_class, space, attachedTo, attachedToClass, collection, attributes, id),
-              "addCollection failed"
+              "addCollection"
             ),
 
           updateCollection: <T extends Doc, P extends AttachedDoc>(
@@ -457,7 +460,7 @@ export class HulyClient extends Context.Service<HulyClient, HulyClientOperations
                   operations,
                   retrieve
                 ),
-              "updateCollection failed"
+              "updateCollection"
             ),
 
           removeCollection: <T extends Doc, P extends AttachedDoc>(
@@ -470,11 +473,11 @@ export class HulyClient extends Context.Service<HulyClient, HulyClientOperations
           ) =>
             withClient(
               (client) => client.removeCollection(_class, space, objectId, attachedTo, attachedToClass, collection),
-              "removeCollection failed"
+              "removeCollection"
             ),
 
           removeDoc: <T extends Doc>(_class: Ref<Class<T>>, space: Ref<Space>, objectId: Ref<T>) =>
-            withClient((client) => client.removeDoc(_class, space, objectId), "removeDoc failed"),
+            withClient((client) => client.removeDoc(_class, space, objectId), "removeDoc"),
 
           removeDocIfMatched: <T extends Doc>(
             _class: Ref<Class<T>>,
@@ -488,7 +491,7 @@ export class HulyClient extends Context.Service<HulyClient, HulyClientOperations
               apply.match(_class, matchQuery)
               await apply.removeDoc(_class, space, objectId)
               return (await apply.commit()).result ? "applied" : "condition-not-met"
-            }, "conditional removeDoc failed"),
+            }, "conditionalRemoveDoc"),
 
           createMixin: <D extends Doc, M extends D>(
             objectId: Ref<D>,
@@ -499,7 +502,7 @@ export class HulyClient extends Context.Service<HulyClient, HulyClientOperations
           ) =>
             withClient(
               (client) => client.createMixin(objectId, objectClass, objectSpace, mixin, attributes),
-              "createMixin failed"
+              "createMixin"
             ),
 
           updateMixin: <D extends Doc, M extends D>(
@@ -511,29 +514,29 @@ export class HulyClient extends Context.Service<HulyClient, HulyClientOperations
           ) =>
             withClient(
               (client) => client.updateMixin(objectId, objectClass, objectSpace, mixin, attributes),
-              "updateMixin failed"
+              "updateMixin"
             ),
 
           uploadMarkup: (objectClass, objectId, objectAttr, markup, format) =>
             Effect.tryPromise({
               try: () => markupOps.uploadMarkup(objectClass, objectId, objectAttr, markup, format),
-              catch: (e) => new HulyConnectionError({ message: `uploadMarkup failed: ${String(e)}`, cause: e })
+              catch: (error) => makeOperationConnectionError("uploadMarkup", error)
             }),
 
           fetchMarkup: (objectClass, objectId, objectAttr, id, format) =>
             Effect.tryPromise({
               try: () => markupOps.fetchMarkup(objectClass, objectId, objectAttr, id, format),
-              catch: (e) => new HulyConnectionError({ message: `fetchMarkup failed: ${String(e)}`, cause: e })
+              catch: (error) => makeOperationConnectionError("fetchMarkup", error)
             }),
 
           updateMarkup: (objectClass, objectId, objectAttr, markup, format) =>
             Effect.tryPromise({
               try: () => markupOps.updateMarkup(objectClass, objectId, objectAttr, markup, format),
-              catch: (e) => new HulyConnectionError({ message: `updateMarkup failed: ${String(e)}`, cause: e })
+              catch: (error) => makeOperationConnectionError("updateMarkup", error)
             }),
 
           searchFulltext: (query, options) =>
-            withClient((client) => client.searchFulltext(query, options), "searchFulltext failed")
+            withClient((client) => client.searchFulltext(query, options), "searchFulltext")
         }
 
         return operations

@@ -31,7 +31,12 @@ import { beforeEach, expect } from "vitest"
 import { HulyConfigService } from "../../src/config/config.js"
 import { HulyTransactionScope } from "../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../../src/huly/client.js"
-import { HulyAuthError, HulyConnectionError, HulyUnavailableError } from "../../src/huly/errors.js"
+import {
+  HulyAuthError,
+  HulyConnectionError,
+  HulyUnavailableError,
+  makeOperationConnectionError
+} from "../../src/huly/errors.js"
 import { INLINE_COMMENT_MARK_TYPE } from "../../src/huly/operations/inline-comment-mark.js"
 import { MARKDOWN_INPUT_REF_URL } from "../../src/huly/operations/markup.js"
 import { toClassRef, toRef } from "../../src/huly/operations/sdk-boundary.js"
@@ -641,6 +646,16 @@ describe("Connection error classification", () => {
         expect(error.cause).toBe(cause)
       })
     )
+
+    it.effect("drops non-Error operation rejection details", () =>
+      Effect.sync(function () {
+        const error = makeOperationConnectionError("findAll", "token=secret")
+
+        expect(error.message).toBe("findAll failed")
+        expect(error.diagnostic).toEqual({ operation: "findAll" })
+        expect(JSON.stringify(error)).not.toContain("token=secret")
+      })
+    )
   })
 
   describe("HulyAuthError", () => {
@@ -714,14 +729,15 @@ describe("HulyClient.layer (live layer with mocked externals)", () => {
 
     it.effect("wraps errors in HulyConnectionError", () =>
       Effect.gen(function* () {
-        mockFindAll.mockRejectedValue(new Error("network failure"))
+        mockFindAll.mockRejectedValue(new Error("network failure token=secret"))
 
         const client = yield* HulyClient.pipe(Effect.provide(liveClientLayer))
         const error = yield* Effect.flip(client.findAll("c" as DocRef<Class<TestDoc>>, {} as DocumentQuery<TestDoc>))
 
         expect(error._tag).toBe("HulyConnectionError")
-        expect(error.message).toContain("findAll failed")
-        expect(error.message).toContain("network failure")
+        expect(error.message).toBe("findAll failed")
+        expect(error).toMatchObject({ diagnostic: { operation: "findAll" } })
+        expect(JSON.stringify(error)).not.toContain("token=secret")
       })
     )
   })
@@ -785,7 +801,8 @@ describe("HulyClient.layer (live layer with mocked externals)", () => {
 
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toContain("findAllInModel failed")
-        expect(error.message).toContain("model query failure")
+        expect(error).toMatchObject({ diagnostic: { operation: "findAllInModel" } })
+        expect(error.message).not.toContain("model query failure")
       })
     )
   })
