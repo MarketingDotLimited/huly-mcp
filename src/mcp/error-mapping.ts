@@ -247,9 +247,21 @@ const INVALID_PARAMS_TAGS: ReadonlySet<HulyDomainError["_tag"]> = new Set<HulyDo
 const INTERNAL_ERROR_PREFIX: Partial<Record<HulyDomainError["_tag"], string>> = {
   FileUploadError: "File upload error",
   HulyStorageConfigError: "Storage configuration error",
-  HulyConnectionError: "Connection error",
   HulyAuthError: "Authentication error"
 }
+
+const CONNECTION_ERROR_GUIDANCE = "Verify HULY_URL, workspace, and network connectivity before retrying."
+
+/**
+ * Connection failures reach the caller through this single message, so the underlying cause has to
+ * survive: markup operations (issue descriptions, comments) run against the collaborator service
+ * rather than the transactor, and without the cause an HTTP 502 there is indistinguishable from a
+ * misconfigured HULY_URL.
+ */
+const hulyConnectionMessage = (error: HulyConnectionError): string =>
+  error.message.trim() === ""
+    ? `Connection error while communicating with Huly. ${CONNECTION_ERROR_GUIDANCE}`
+    : `Connection error while communicating with Huly: ${error.message}. ${CONNECTION_ERROR_GUIDANCE}`
 
 const hulyUnavailableMessage = (error: HulyUnavailableError): string => {
   const failureGuidance =
@@ -272,12 +284,7 @@ export const mapDomainErrorToMcp = (
     return createErrorResponse(hulyUnavailableMessage(error), McpErrorCode.InternalError, error._tag, warnings)
   }
   if (error instanceof HulyConnectionError) {
-    return createErrorResponse(
-      "Connection error while communicating with Huly. Verify HULY_URL, workspace, and network connectivity before retrying.",
-      McpErrorCode.InternalError,
-      error._tag,
-      warnings
-    )
+    return createErrorResponse(hulyConnectionMessage(error), McpErrorCode.InternalError, error._tag, warnings)
   }
   if (INVALID_PARAMS_TAGS.has(error._tag)) {
     return createErrorResponse(error.message, McpErrorCode.InvalidParams, error._tag, warnings)
@@ -289,28 +296,34 @@ export const mapDomainErrorToMcp = (
 
 export const domainErrorMessage = (error: HulyDomainError): string => mapDomainErrorToMcp(error).content[0].text
 
-const isClientResolutionError = (
-  value: unknown
-): value is HulyUnavailableError | HulyConnectionError | HulyAuthError | HulyStorageConfigError =>
+type ClientResolutionError = HulyUnavailableError | HulyConnectionError | HulyAuthError | HulyStorageConfigError
+
+const isClientResolutionError = (value: unknown): value is ClientResolutionError =>
   value instanceof HulyUnavailableError ||
   value instanceof HulyConnectionError ||
   value instanceof HulyAuthError ||
   value instanceof HulyStorageConfigError
 
-const clientResolutionFailure = (
-  error: unknown
-): HulyUnavailableError | HulyConnectionError | HulyAuthError | HulyStorageConfigError | undefined => {
+const clientResolutionFailure = (error: unknown): ClientResolutionError | undefined => {
   if (isClientResolutionError(error)) return error
   if (!Cause.isCause(error)) return undefined
   return findRecoverableCauseFailure(error, isClientResolutionError)
 }
+
+/**
+ * Client resolution happens while credentials and endpoint URLs are still in play, so a connection
+ * failure raised there is reported without its message; operation-time connection failures keep
+ * theirs through mapDomainErrorToMcp.
+ */
+const redactResolutionDetail = (failure: ClientResolutionError): ClientResolutionError =>
+  failure instanceof HulyConnectionError ? new HulyConnectionError({ message: "" }) : failure
 
 /** Safely preserve known, schema-owned resolver errors and hide all other rejection details. */
 export const mapClientResolutionErrorToMcp = (error: unknown): McpErrorResponseWithMeta => {
   const failure = clientResolutionFailure(error)
   return failure === undefined
     ? mapDomainErrorToMcp(new HulyError({ message: "Failed to initialize Huly clients" }))
-    : mapDomainErrorToMcp(failure)
+    : mapDomainErrorToMcp(redactResolutionDetail(failure))
 }
 
 export const mapClientResolutionCauseToMcp = (cause: Cause.Cause<unknown>): McpErrorResponseWithMeta =>
