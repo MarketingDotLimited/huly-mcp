@@ -84,7 +84,8 @@ import {
   TagIdentifierAmbiguousError,
   TagNotFoundError,
   TelegramChannelIdentifierAmbiguousError,
-  WorkbenchApplicationAliasAmbiguousError
+  WorkbenchApplicationAliasAmbiguousError,
+  makeOperationConnectionError
 } from "../../src/huly/errors.js"
 import { normalizeHulyOrigin } from "../../src/huly/unavailable-diagnostics.js"
 import {
@@ -521,28 +522,36 @@ describe("Error Mapping to MCP", () => {
         })
       )
 
-      it.effect("maps HulyConnectionError with errorTag and keeps the underlying cause", () =>
+      it.effect("maps only schema-owned connection diagnostics", () =>
         Effect.sync(function () {
-          const error = new HulyConnectionError({ message: "updateMarkup failed: Error: HTTP error 502" })
+          const error = makeOperationConnectionError(
+            "updateMarkup",
+            new Error("HTTP error 502 from https://user:password@example.test/path?token=secret")
+          )
           const response = mapDomainErrorToMcp(error)
 
           expect(response.isError).toBe(true)
           expect(response._meta.errorCode).toBe(McpErrorCode.InternalError)
           expect(response._meta.errorTag).toBe("HulyConnectionError")
           expect(assertAt(response.content, 0).text).toBe(
-            "Connection error while communicating with Huly: updateMarkup failed: Error: HTTP error 502. Verify HULY_URL, workspace, and network connectivity before retrying."
+            "Connection error while communicating with Huly: updateMarkup failed with HTTP 502. Verify HULY_URL, workspace, and network connectivity before retrying."
           )
+          expect(error.message).toBe("updateMarkup failed with HTTP 502")
+          expect(error.cause).toBeUndefined()
+          expect(JSON.stringify(response)).not.toContain("password")
+          expect(JSON.stringify(response)).not.toContain("token=secret")
         })
       )
 
-      it.effect("maps HulyConnectionError without a message to guidance alone", () =>
+      it.effect("does not expose an arbitrary connection error message", () =>
         Effect.sync(function () {
-          const error = new HulyConnectionError({ message: "  " })
+          const error = new HulyConnectionError({ message: "token=secret" })
           const response = mapDomainErrorToMcp(error)
 
           expect(assertAt(response.content, 0).text).toBe(
             "Connection error while communicating with Huly. Verify HULY_URL, workspace, and network connectivity before retrying."
           )
+          expect(JSON.stringify(response)).not.toContain("token=secret")
         })
       )
 
