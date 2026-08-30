@@ -1,5 +1,19 @@
 import type { SocialIdentity } from "@hcengineering/contact"
-import type { AccountUuid, Class, Doc, Mixin, PersonId as HulyPersonId, PersonUuid, Ref, Tx } from "@hcengineering/core"
+import type {
+  AccountUuid,
+  Class,
+  Data,
+  Doc,
+  DocumentQuery,
+  DocumentUpdate,
+  Mixin,
+  MixinData,
+  MixinUpdate,
+  PersonId as HulyPersonId,
+  PersonUuid,
+  Ref,
+  Tx
+} from "@hcengineering/core"
 import { Effect } from "effect"
 
 import type { NonEmptyString } from "../../domain/schemas/shared.js"
@@ -25,6 +39,23 @@ export const toMixinRef = <T extends Doc>(id: string | Ref<Mixin<T>>): Ref<Mixin
 // deliberately exposed as open payloads at the MCP boundary.
 // eslint-disable-next-line no-restricted-syntax -- centralized SDK boundary for opaque Huly Tx payloads
 export const toTx = (payload: unknown): Tx => payload as Tx
+
+// Generic guarded administration validates these JSON objects against live Huly model metadata
+// before this final SDK boundary conversion.
+// eslint-disable-next-line no-restricted-syntax -- dynamic schema-validated document data boundary
+export const toDocData = (payload: unknown): Data<Doc> => payload as Data<Doc>
+
+// eslint-disable-next-line no-restricted-syntax -- dynamic schema-validated document update boundary
+export const toDocumentUpdate = (payload: unknown): DocumentUpdate<Doc> => payload as DocumentUpdate<Doc>
+
+// eslint-disable-next-line no-restricted-syntax -- dynamic schema-validated mixin data boundary
+export const toMixinData = (payload: unknown): MixinData<Doc, Doc> => payload as MixinData<Doc, Doc>
+
+// eslint-disable-next-line no-restricted-syntax -- dynamic schema-validated mixin update boundary
+export const toMixinUpdate = (payload: unknown): MixinUpdate<Doc, Doc> => payload as MixinUpdate<Doc, Doc>
+
+// eslint-disable-next-line no-restricted-syntax -- dynamic schema-validated query boundary
+export const toDocumentQuery = (payload: unknown): DocumentQuery<Doc> => payload as DocumentQuery<Doc>
 
 // Brands are erased at runtime; the domain value and SDK AccountUuid are both
 // non-empty strings, so this is the final boundary conversion into the SDK type.

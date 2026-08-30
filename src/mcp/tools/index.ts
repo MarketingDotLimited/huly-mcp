@@ -19,6 +19,9 @@ import { documentSnapshotTools } from "./document-snapshots.js"
 import { documentTools } from "./documents.js"
 import { driveTools } from "./drive.js"
 import { genericAssociationTools } from "./generic-associations.js"
+import { guardedActionTools } from "./guarded-actions.js"
+import { hrTools } from "./hr.js"
+import { hrRequestTools } from "./hr-requests.js"
 import { inventoryMediaTools } from "./inventory-media.js"
 import { inventoryTools } from "./inventory.js"
 import { issueTools } from "./issues.js"
@@ -120,7 +123,10 @@ export const allTools = [
   ...workbenchTools,
   ...taskManagementTools,
   ...testManagementCoreTools,
-  ...testManagementPlansTools
+  ...testManagementPlansTools,
+  ...guardedActionTools,
+  ...hrTools,
+  ...hrRequestTools
 ] as const satisfies ReadonlyArray<RegisteredTool>
 
 export type McpToolName = (typeof allTools)[number]["name"]

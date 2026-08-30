@@ -10,6 +10,30 @@
 
 **Huly MCP** is a feature-complete MCP server for [Huly](https://huly.io/) integration. Published on npm as [`@firfi/huly-mcp`](https://www.npmjs.com/package/@firfi/huly-mcp).
 
+## Marketing Dot Limited full-access fork
+
+This repository is the maintained [`MarketingDotLimited/huly-mcp`](https://github.com/MarketingDotLimited/huly-mcp) fork used by `https://os-mcp.marketing.limited/mcp`. It retains the upstream package name for compatibility and adds first-class Huly HR operations plus a guarded escape hatch for model classes that do not yet have a purpose-built tool.
+
+The HR surface covers department hierarchy CRUD, exact membership reconciliation, staff listing, employee department and position assignment, request types and request CRUD, public holidays, schedules, and summary reports. The added tool names are:
+
+```text
+list_departments                 get_department
+create_department               update_department
+delete_department               reconcile_department_members
+list_staff                      set_employee_department
+set_employee_position           list_hr_request_types
+list_hr_requests                get_hr_request
+create_hr_request               update_hr_request
+delete_hr_request               list_public_holidays
+create_public_holiday           update_public_holiday
+delete_public_holiday           get_hr_schedule
+get_hr_summary_report
+```
+
+For unsupported business classes, `find_huly_documents`, `prepare_huly_action`, and `execute_huly_action` provide schema-validated access. Raw actions reject model, transaction, account, integration, and other protected classes/spaces. Every generic mutation requires a five-minute, account-bound, single-use preview token, checks `modifiedOn` for drift, and writes an append-only JSONL audit record. Destructive and high-impact registered tools use the equivalent `prepare_tool_action` / `execute_tool_action` flow. If the audit log cannot be written, execution fails closed.
+
+Production should set `HULY_AUDIT_LOG_PATH` to a persistent volume. The published container is available as `ghcr.io/marketingdotlimited/huly-mcp:0.50.0-mdl.1`; pin a version tag rather than a moving tag.
+
 > [!IMPORTANT]
 > **Hosted Huly is shutting down.** Huly's upstream README says shutdown is expected July 20. If you use `https://huly.app`, [export and migrate your data](https://github.com/hcengineering/platform/blob/develop/README.md) as soon as possible. See the [backup and restore guide](https://github.com/hcengineering/platform/blob/develop/docs/guides/backup-restore.en.md) and [self-hosting repository](https://github.com/hcengineering/huly-selfhost). Self-hosted deployments are not affected.
 
@@ -58,7 +82,7 @@ The standard configuration works with most MCP clients:
 
 ## Tool Exposure Defaults
 
-By default (`HULY_TOOL_MODE=auto`), Huly MCP optimizes for current MCP clients by avoiding a 470-tool eager list. Exact `claude-code` sessions receive native Huly tools. Codex, Cursor, Windsurf, Copilot, OpenCode, Claude AI/Desktop-style clients, and unknown clients receive a small proxy surface: `list_tool_categories`, `search_tools`, `get_tool_schema`, and `invoke_tool`.
+By default (`HULY_TOOL_MODE=auto`), Huly MCP optimizes for current MCP clients by avoiding a 546-tool eager list. Exact `claude-code` sessions receive native Huly tools. Codex, Cursor, Windsurf, Copilot, OpenCode, Claude AI/Desktop-style clients, and unknown clients receive a small proxy surface: `list_tool_categories`, `search_tools`, `get_tool_schema`, `invoke_tool`, `prepare_tool_action`, and `execute_tool_action`.
 
 Exact native tool names still dispatch when a client calls them directly, but many clients only call tools returned by `tools/list`. Set `HULY_TOOL_MODE=native` to make every Huly tool appear first-class, or use `TOOLSETS` / `TOOLS` to pin frequently used native tools while keeping proxy discovery available.
 
@@ -339,8 +363,10 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `search_tools` | Searches the current proxy-visible Huly tool catalog by tool name, category, description, and parameter names. Returns exact tool names plus required and optional parameter names for single-call follow-up with get_tool_schema or invoke_tool. |
 | `get_tool_schema` | Returns the exact input and output schema for one proxy-visible Huly tool. Use this before invoke_tool when you are not certain about required argument names or result shape. |
 | `invoke_tool` | Invokes one proxy-visible Huly tool by exact name with its arguments. This tool can call read or write Huly operations; check get_tool_schema and the target tool annotations when safety matters. |
+| `prepare_tool_action` | Preview and bind the exact arguments for a destructive or high-impact registered Huly tool. Performs no mutation and returns a five-minute single-use token. |
+| `execute_tool_action` | Execute exactly one destructive or high-impact registered Huly tool previously previewed with prepare_tool_action. Tokens expire after five minutes and cannot be replayed. |
 
-**`TOOLSETS` categories:** `projects`, `issues`, `comments`, `milestones`, `documents`, `storage`, `attachments`, `contacts`, `channels`, `calendar`, `time tracking`, `search`, `associations`, `activity`, `notifications`, `workspace`, `approvals`, `boards`, `cards`, `collaborators`, `custom-fields`, `drive`, `inventory`, `labels`, `leads`, `mail`, `templates`, `model-administration`, `planner`, `preferences`, `processes`, `recruiting`, `sdk-discovery`, `security-administration`, `sequence-administration`, `spaces`, `support`, `tag-categories`, `tags`, `task-management`, `test-management`, `user-statuses`, `views`, `virtual-office`, `workbench`, `workflow-statuses`
+**`TOOLSETS` categories:** `projects`, `issues`, `comments`, `milestones`, `documents`, `storage`, `attachments`, `contacts`, `channels`, `calendar`, `time tracking`, `search`, `associations`, `activity`, `notifications`, `workspace`, `approvals`, `boards`, `cards`, `collaborators`, `custom-fields`, `drive`, `guarded-administration`, `hr`, `inventory`, `labels`, `leads`, `mail`, `templates`, `model-administration`, `planner`, `preferences`, `processes`, `recruiting`, `sdk-discovery`, `security-administration`, `sequence-administration`, `spaces`, `support`, `tag-categories`, `tags`, `task-management`, `test-management`, `user-statuses`, `views`, `virtual-office`, `workbench`, `workflow-statuses`
 
 ### Projects
 
@@ -751,6 +777,40 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `delete_drive_item` | Permanently delete a Drive item, meaning a file or folder. Files are deleted with their version records. Folders must be empty; non-empty folders fail with child count and child summaries. This is permanent deletion, not archive or trash. |
 | `list_drive_file_versions` | List versions for a Drive file resolved by file id or file path. Marks the current version and includes blob id, size, MIME type, lastModified, and download URL. |
 | `restore_drive_file_version` | Restore an existing Drive file version by version id or numeric version. Idempotent when the requested version is already current and does not increment the file version counter. |
+
+### Guarded-Administration
+
+| Tool | Description |
+|------|-------------|
+| `find_huly_documents` | Run a bounded read-only query against an exact non-system Huly class. Class and field metadata are validated against the live workspace model. |
+| `prepare_huly_action` | Validate and preview a generic create, update, mixin, or remove action against live Huly metadata. Returns a five-minute single-use approval token and performs no Huly mutation. |
+| `execute_huly_action` | Execute exactly one previously previewed Huly action using its unexpired single-use approval token. Tokens fail after document drift, account mismatch, expiry, or replay. |
+
+### Hr
+
+| Tool | Description |
+|------|-------------|
+| `list_hr_request_types` | List the HR leave, PTO, remote-work, sickness, and overtime request types installed in Huly. |
+| `list_hr_requests` | List HR requests, optionally filtered by employee, department, or overlapping date range. Descriptions are returned as markdown. |
+| `get_hr_request` | Get one HR request by its Huly document ID, returning calendar dates and a markdown description. |
+| `create_hr_request` | Create a leave, PTO, sickness, remote-work, or overtime request for an assigned employee. The department is inferred from Staff.department. |
+| `update_hr_request` | Update dates, type, or markdown description on an existing Huly HR request. |
+| `delete_hr_request` | Permanently delete an HR request. This action cannot be undone. |
+| `list_public_holidays` | List Huly public holidays by department and date range, optionally including holidays inherited from ancestor departments. |
+| `create_public_holiday` | Idempotently create a real Huly PublicHoliday for one department and calendar date. |
+| `update_public_holiday` | Update a Huly PublicHoliday title, description, calendar date, or department. |
+| `delete_public_holiday` | Permanently delete a Huly PublicHoliday. This action cannot be undone. |
+| `get_hr_schedule` | Return HR requests and applicable public holidays for a date range and optional department. |
+| `get_hr_summary_report` | Summarize HR request counts and calendar days by department and request type, plus applicable public holidays. |
+| `list_departments` | List the Huly HR department hierarchy with direct and inherited members, managers, team leads, and stable hierarchy paths. |
+| `get_department` | Get one Huly HR department by ID, exact unique name, or slash-separated hierarchy path. |
+| `create_department` | Create a real Huly HR Department under Organization or another department. Team lead and managers must resolve to active employees. |
+| `update_department` | Update a real Huly HR Department. Rejects hierarchy cycles, ambiguous employee locators, inactive managers/leads, and sibling name conflicts. |
+| `delete_department` | Delete a non-root Huly HR Department only when it has no members and no child departments. This action cannot be undone. |
+| `reconcile_department_members` | Rebuild each Department.members array from staff primary assignments, including membership in every ancestor department. Supports dry-run. |
+| `list_staff` | List active or inactive Huly employees with their real HR primary department and official contact position; unassigned employees remain visible. |
+| `set_employee_department` | Idempotently set an active employee's primary HR department and reconcile direct plus inherited Department.members arrays. |
+| `set_employee_position` | Idempotently set an active employee's official position on contact.mixin.Employee. Pass null or an empty string to clear it. |
 
 ### Inventory
 

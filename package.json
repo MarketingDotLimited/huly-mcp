@@ -1,8 +1,8 @@
 {
   "name": "@firfi/huly-mcp",
-  "version": "0.49.7",
-  "description": "Huly MCP: feature-complete MCP server for Huly integration",
-  "mcpName": "io.github.dearlordylord/huly-mcp",
+  "version": "0.50.0-mdl.1",
+  "description": "Huly MCP with complete HR operations and guarded administrative access",
+  "mcpName": "io.github.marketingdotlimited/huly-mcp",
   "type": "module",
   "main": "./dist/index.cjs",
   "files": [
@@ -13,12 +13,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dearlordylord/huly-mcp.git"
+    "url": "git+https://github.com/MarketingDotLimited/huly-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/dearlordylord/huly-mcp/issues"
+    "url": "https://github.com/MarketingDotLimited/huly-mcp/issues"
   },
-  "homepage": "https://huly-mcp.dearlordylord.com",
+  "homepage": "https://github.com/MarketingDotLimited/huly-mcp",
   "scripts": {
     "prepare": "husky",
     "start": "node dist/index.cjs",
@@ -90,7 +90,7 @@
   "engines": {
     "node": ">=22.19.0"
   },
-  "author": "dearlordylord",
+  "author": "dearlordylord and Marketing Dot Limited",
   "license": "MIT",
   "dependencies": {
     "@hcengineering/activity": "0.7.0",
@@ -103,6 +103,7 @@
     "@hcengineering/core": "0.7.26",
     "@hcengineering/document": "0.7.0",
     "@hcengineering/gmail": "0.7.0",
+    "@hcengineering/hr": "0.7.0",
     "@hcengineering/inventory": "0.7.0",
     "@hcengineering/love": "0.7.0",
     "@hcengineering/mail": "0.7.0",

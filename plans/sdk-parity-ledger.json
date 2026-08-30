@@ -194,6 +194,19 @@
       ]
     },
     {
+      "package": "@hcengineering/hr",
+      "status": "covered",
+      "matrixLocation": "Human Resources",
+      "rationale": "First-class HR tools cover department hierarchy and membership, employee department and position assignments, request type discovery and request CRUD, public holiday CRUD, schedules, and summary reports. TzDate values are exposed as validated ISO dates with explicit timezone conversion.",
+      "exports": [
+        "Department",
+        "PublicHoliday",
+        "Request",
+        "RequestType",
+        "TzDate"
+      ]
+    },
+    {
       "package": "@hcengineering/card",
       "status": "covered",
       "matrixLocation": "`@hcengineering/card` package row",

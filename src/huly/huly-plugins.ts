@@ -26,6 +26,7 @@ export const documentPlugin = load("@hcengineering/document")
 const gmailModule = load("@hcengineering/gmail") as typeof import("@hcengineering/gmail")
 export const gmail: typeof import("@hcengineering/gmail").default = gmailModule.default
 export const inventory = load("@hcengineering/inventory").default as typeof import("@hcengineering/inventory").default
+export const hr = load("@hcengineering/hr").default as typeof import("@hcengineering/hr").default
 export const love = load("@hcengineering/love").default as typeof import("@hcengineering/love").default
 export const mail = load("@hcengineering/mail").default as typeof import("@hcengineering/mail").default
 export const notification = load("@hcengineering/notification")

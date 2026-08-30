@@ -1,9 +1,9 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.dearlordylord/huly-mcp",
+  "name": "io.github.marketingdotlimited/huly-mcp",
   "title": "Huly MCP",
   "description": "Huly MCP: feature-complete MCP server for Huly integration",
-  "websiteUrl": "https://huly-mcp.dearlordylord.com",
+  "websiteUrl": "https://github.com/MarketingDotLimited/huly-mcp",
   "icons": [
     {
       "src": "https://huly-mcp.dearlordylord.com/icon.svg",
@@ -14,15 +14,15 @@
     }
   ],
   "repository": {
-    "url": "https://github.com/dearlordylord/huly-mcp",
+    "url": "https://github.com/MarketingDotLimited/huly-mcp",
     "source": "github"
   },
-  "version": "0.49.7",
+  "version": "0.50.0-mdl.1",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@firfi/huly-mcp",
-      "version": "0.49.7",
+      "version": "0.50.0-mdl.1",
       "transport": {
         "type": "stdio"
       },

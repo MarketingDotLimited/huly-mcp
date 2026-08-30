@@ -170,6 +170,103 @@ export const cliCommandCatalog = {
   get_milestone: { path: ["milestones", "get"], positional: [], description: "Get a milestone" },
   list_components: { path: ["components", "list"], positional: [], description: "List components" },
   get_component: { path: ["components", "get"], positional: [], description: "Get a component" },
+  list_departments: { path: ["hr", "departments", "list"], positional: [], description: "List HR departments" },
+  get_department: {
+    path: ["hr", "departments", "get"],
+    positional: ["department"],
+    description: "Get an HR department"
+  },
+  create_department: {
+    path: ["hr", "departments", "create"],
+    positional: ["name"],
+    description: "Create an HR department"
+  },
+  update_department: {
+    path: ["hr", "departments", "update"],
+    positional: ["department"],
+    description: "Update an HR department"
+  },
+  delete_department: {
+    path: ["hr", "departments", "delete"],
+    positional: ["department"],
+    description: "Delete an empty HR department",
+    behavior: { confirmation: { type: "requires-yes", message: "hr departments delete requires --yes." } }
+  },
+  reconcile_department_members: {
+    path: ["hr", "departments", "reconcile"],
+    positional: [],
+    description: "Replace HR department memberships",
+    behavior: { confirmation: { type: "requires-yes", message: "hr departments reconcile requires --yes." } }
+  },
+  list_staff: { path: ["hr", "staff", "list"], positional: [], description: "List HR staff" },
+  set_employee_department: {
+    path: ["hr", "staff", "set-department"],
+    positional: ["employee", "department"],
+    description: "Set an employee HR department"
+  },
+  set_employee_position: {
+    path: ["hr", "staff", "set-position"],
+    positional: ["employee", "position"],
+    description: "Set an employee position"
+  },
+  list_hr_request_types: {
+    path: ["hr", "request-types", "list"],
+    positional: [],
+    description: "List HR request types"
+  },
+  list_hr_requests: { path: ["hr", "requests", "list"], positional: [], description: "List HR requests" },
+  get_hr_request: { path: ["hr", "requests", "get"], positional: ["requestId"], description: "Get an HR request" },
+  create_hr_request: { path: ["hr", "requests", "create"], positional: [], description: "Create an HR request" },
+  update_hr_request: {
+    path: ["hr", "requests", "update"],
+    positional: ["requestId"],
+    description: "Update an HR request"
+  },
+  delete_hr_request: {
+    path: ["hr", "requests", "delete"],
+    positional: ["requestId"],
+    description: "Delete an HR request",
+    behavior: { confirmation: { type: "requires-yes", message: "hr requests delete requires --yes." } }
+  },
+  list_public_holidays: { path: ["hr", "holidays", "list"], positional: [], description: "List public holidays" },
+  create_public_holiday: {
+    path: ["hr", "holidays", "create"],
+    positional: ["title", "date", "department"],
+    description: "Create a public holiday"
+  },
+  update_public_holiday: {
+    path: ["hr", "holidays", "update"],
+    positional: ["holidayId"],
+    description: "Update a public holiday"
+  },
+  delete_public_holiday: {
+    path: ["hr", "holidays", "delete"],
+    positional: ["holidayId"],
+    description: "Delete a public holiday",
+    behavior: { confirmation: { type: "requires-yes", message: "hr holidays delete requires --yes." } }
+  },
+  get_hr_schedule: { path: ["hr", "reports", "schedule"], positional: [], description: "Get an HR schedule" },
+  get_hr_summary_report: {
+    path: ["hr", "reports", "summary"],
+    positional: [],
+    description: "Get an HR summary report"
+  },
+  find_huly_documents: {
+    path: ["admin", "documents", "find"],
+    positional: ["class"],
+    description: "Search Huly documents by class"
+  },
+  prepare_huly_action: {
+    path: ["admin", "actions", "prepare"],
+    positional: [],
+    description: "Preview a guarded Huly action"
+  },
+  execute_huly_action: {
+    path: ["admin", "actions", "execute"],
+    positional: ["approvalToken"],
+    description: "Run a prepared Huly action",
+    behavior: { confirmation: { type: "requires-yes", message: "admin actions execute requires --yes." } }
+  },
   fulltext_search: { path: ["search"], positional: ["query"], description: "Search Huly" },
   ...readOnlyCliCommandCatalog,
   ...mutationCliCommandCatalog,

@@ -20,7 +20,7 @@ export type CliIntegrationCoverageDecision =
       readonly type: "representative"
     }
 
-export const CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS = 522
+export const CLI_COVERAGE_REVIEWED_REGISTRY_OPERATIONS = 546
 export const CLI_COVERAGE_REVIEWED_ROOT_COMMANDS = 54
 export const CLI_COVERAGE_REVIEWED_LOCAL_COMMANDS = 7
 
@@ -39,6 +39,8 @@ export const CLI_REVIEWED_COVERAGE_CATEGORIES = [
   "custom-fields",
   "documents",
   "drive",
+  "guarded-administration",
+  "hr",
   "inventory",
   "issues",
   "labels",

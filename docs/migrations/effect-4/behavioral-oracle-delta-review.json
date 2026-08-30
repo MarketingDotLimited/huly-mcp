@@ -17,10 +17,17 @@
     },
     {
       "category": "authored-constraints",
-      "count": 3428,
-      "deltaSetSha256": "7ef10e257d365c7b850a38b906a271f26318f848228992806426ec1eeafec4fd",
+      "count": 3452,
+      "deltaSetSha256": "afd1c61d0237bd2d1a060264cb2182d7e11fb7dc7b9bcdb2d943da244ca5d943",
       "issue": "#225",
-      "rationale": "Reviewed authored-constraint projection: the same 522 ordered tools remain represented and strict Draft-07/runtime agreement passes."
+      "rationale": "Reviewed authored-constraint projection for the ordered tool corpus; strict Draft-07/runtime agreement passes."
+    },
+    {
+      "category": "tool-inventory",
+      "count": 3271,
+      "deltaSetSha256": "d65f23946fae8d0852cb8e324c74cbc8211f24c3dad16ea9349b5a89ba35359e",
+      "issue": "#225",
+      "rationale": "Reviewed additions to the native, proxy, CLI, and bundled-process tool inventories."
     },
     {
       "category": "cli-json-diagnostic",
@@ -32,11 +39,11 @@
     {
       "category": "cli-help",
       "count": 4,
-      "deltaSetSha256": "753af7b643f82ef61da69ec085f6ead23e244f8cf726b6f690acb7041e8535ea",
+      "deltaSetSha256": "bfbdd55f819ed6c98a62f959bf43703eafaff3d796eb99822e0d057451fd3cd3",
       "issue": "#228",
-      "rationale": "Reviewed concise Effect 4 CLI help rendering; route inventory and order are unchanged."
+      "rationale": "Reviewed concise Effect 4 CLI help rendering; existing route order is preserved and new routes are added."
     }
   ],
   "formatVersion": 1,
-  "reviewedCurrentSha256": "3dcaac8a240371853f2b50f304ea3478aac23b29b24bd18db82ae7d73769fa6d"
+  "reviewedCurrentSha256": "7823cc1ead0bac553a448afe240b28dbb2cee5efadb9f9687ccc4f832448f9ad"
 }

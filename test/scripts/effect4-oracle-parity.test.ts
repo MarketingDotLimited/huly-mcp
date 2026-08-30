@@ -156,6 +156,7 @@ describe("Effect 4 oracle structural parity", () => {
       { _tag: "Added", path: "/registry/authoredConstraints/0/constraints/0", after: true },
       { _tag: "Changed", path: "/registry/tools/0/inputSchema/description", before: "old", after: "new" },
       { _tag: "Changed", path: "/registry/tools/0/outputSchema/type", before: "string", after: "number" },
+      { _tag: "Added", path: "/registry/rawOrder/522", after: "create_department" },
       { _tag: "Changed", path: "/bundledProcesses/cli/rootHelp/stdout", before: "old", after: "new" },
       { _tag: "Changed", path: "/cli/errors/json/message", before: "old", after: "new" }
     ] as const
@@ -163,6 +164,7 @@ describe("Effect 4 oracle structural parity", () => {
       "authored-constraints",
       "schema-metadata",
       "draft07-structure",
+      "tool-inventory",
       "cli-help",
       "cli-json-diagnostic"
     ])
@@ -179,6 +181,7 @@ describe("Effect 4 oracle structural parity", () => {
       { category: "draft07-structure", issue: "#225" },
       { category: "schema-metadata", issue: "#225" },
       { category: "authored-constraints", issue: "#225" },
+      { category: "tool-inventory", issue: "#225" },
       { category: "cli-json-diagnostic", issue: "#228" },
       { category: "cli-help", issue: "#228" }
     ])
@@ -334,7 +337,7 @@ describe("Effect 4 oracle Draft-07 validation", () => {
   const RuntimeFixtureJsonSchema = toDraft07JsonSchema(RuntimeFixture)
 
   it("compiles the complete current native and proxy corpora without CLI imports", () => {
-    expect(validateCurrentDraft07Corpora()).toEqual({ native: 524, proxy: 6 })
+    expect(validateCurrentDraft07Corpora()).toEqual({ native: 548, proxy: 8 })
   }, 60_000)
 
   it("compiles complete tool documents and rejects duplicate names or dialect leaks", () => {

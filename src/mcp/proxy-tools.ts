@@ -2,8 +2,6 @@ import type { ToolAnnotations } from "@modelcontextprotocol/server"
 import { Result, Schema } from "effect"
 
 import { Count } from "../domain/schemas/index.js"
-import type { HulyStorageClient } from "../huly/storage.js"
-import type { WorkspaceClientOperations } from "../huly/workspace-client.js"
 import {
   createImageSuccessResponse,
   createInvalidParamsError,
@@ -23,6 +21,17 @@ import {
   ToolSearchQuery
 } from "./proxy-tool-catalog.js"
 import { createToolOutputSchema } from "./tool-output-schema.js"
+import {
+  destructiveProxyAnnotations,
+  ExecutedToolActionResultSchema,
+  executeRegisteredToolAction,
+  executeToolActionInputSchema,
+  prepareRegisteredToolAction,
+  PrepareToolActionResultSchema,
+  prepareToolActionInputSchema,
+  requiresTwoStepApproval,
+  type ToolApprovalClients
+} from "./proxy-tool-approvals.js"
 import type { ToolRegistry } from "./tools/index.js"
 import { resolveAnnotations } from "./tools/index.js"
 import {
@@ -40,13 +49,17 @@ const LIST_TOOL_CATEGORIES_TOOL_NAME = ToolName.make("list_tool_categories")
 const SEARCH_TOOLS_TOOL_NAME = ToolName.make("search_tools")
 const GET_TOOL_SCHEMA_TOOL_NAME = ToolName.make("get_tool_schema")
 export const INVOKE_TOOL_TOOL_NAME = ToolName.make("invoke_tool")
+const PREPARE_TOOL_ACTION_TOOL_NAME = ToolName.make("prepare_tool_action")
+const EXECUTE_TOOL_ACTION_TOOL_NAME = ToolName.make("execute_tool_action")
 const PROXY_TOOL_CATEGORY = makeToolCategory("proxy")
 
 export const PROXY_TOOL_NAMES: ReadonlyArray<ToolName> = [
   LIST_TOOL_CATEGORIES_TOOL_NAME,
   SEARCH_TOOLS_TOOL_NAME,
   GET_TOOL_SCHEMA_TOOL_NAME,
-  INVOKE_TOOL_TOOL_NAME
+  INVOKE_TOOL_TOOL_NAME,
+  PREPARE_TOOL_ACTION_TOOL_NAME,
+  EXECUTE_TOOL_ACTION_TOOL_NAME
 ]
 
 const EmptyProxyParamsSchema = Schema.Record(Schema.String, Schema.Never)
@@ -193,7 +206,7 @@ export const proxyToolDefinitions: ReadonlyArray<ToolDefinition> = [
     description:
       "Invokes one proxy-visible Huly tool by exact name with its arguments. This tool can call read or write Huly operations; check get_tool_schema and the target tool annotations when safety matters.",
     inputSchema: invokeToolInputSchema,
-    outputSchema: createToolOutputSchema(InvokeToolResultSchema),
+    outputSchema: createToolOutputSchema(ExecutedToolActionResultSchema),
     category: PROXY_TOOL_CATEGORY,
     annotations: {
       title: "Invoke Tool",
@@ -202,6 +215,24 @@ export const proxyToolDefinitions: ReadonlyArray<ToolDefinition> = [
       idempotentHint: false,
       openWorldHint: false
     }
+  }),
+  createToolDefinition({
+    name: PREPARE_TOOL_ACTION_TOOL_NAME,
+    description:
+      "Preview and bind the exact arguments for a destructive or high-impact registered Huly tool. Performs no mutation and returns a five-minute single-use token.",
+    inputSchema: prepareToolActionInputSchema,
+    outputSchema: createToolOutputSchema(PrepareToolActionResultSchema),
+    category: PROXY_TOOL_CATEGORY,
+    annotations: readOnlyProxyAnnotations("Prepare Tool Action")
+  }),
+  createToolDefinition({
+    name: EXECUTE_TOOL_ACTION_TOOL_NAME,
+    description:
+      "Execute exactly one destructive or high-impact registered Huly tool previously previewed with prepare_tool_action. Tokens expire after five minutes and cannot be replayed.",
+    inputSchema: executeToolActionInputSchema,
+    outputSchema: createToolOutputSchema(InvokeToolResultSchema),
+    category: PROXY_TOOL_CATEGORY,
+    annotations: destructiveProxyAnnotations
   })
 ]
 
@@ -261,11 +292,7 @@ const getToolSchema = (registry: ToolRegistry, args: unknown): McpToolResponse =
   })
 }
 
-interface InvokeToolClients {
-  readonly hulyClient: Parameters<ToolRegistry["handleToolCall"]>[2]
-  readonly storageClient: HulyStorageClient["Service"]
-  readonly workspaceClient?: WorkspaceClientOperations
-}
+type InvokeToolClients = ToolApprovalClients
 
 const DeferredToolArgumentsJsonSchema = Schema.fromJsonString(Schema.Unknown)
 
@@ -304,6 +331,13 @@ const invokeTool = async (
   const params = decoded.params
 
   if (!registry.tools.has(params.toolName)) return createUnknownToolError(params.toolName)
+  const target = registry.tools.get(params.toolName)
+  if (target !== undefined && requiresTwoStepApproval(target)) {
+    return createInvalidParamsError(
+      `Tool '${params.toolName}' requires two-step approval. Call prepare_tool_action with this exact toolName and arguments, then execute_tool_action with the returned token.`,
+      "ApprovalRequired"
+    )
+  }
 
   const response = await registry.handleToolCall(
     params.toolName,
@@ -322,6 +356,7 @@ interface ProxyToolCallInput {
   readonly args: unknown
   readonly proxyCandidateRegistry: ToolRegistry
   readonly clients?: InvokeToolClients
+  readonly currentTimeMillis?: number
 }
 
 const listProxyCategories = (registry: ToolRegistry, args: unknown): McpToolResponse => {
@@ -338,6 +373,14 @@ const invokeProxyTool = (input: ProxyToolCallInput): Promise<McpToolResponse> =>
   return invokeTool(input.proxyCandidateRegistry, input.args, input.clients)
 }
 
+const approvalInput = (input: ProxyToolCallInput, toolName: ToolName) => ({
+  toolName,
+  args: input.args,
+  registry: input.proxyCandidateRegistry,
+  ...(input.clients === undefined ? {} : { clients: input.clients }),
+  ...(input.currentTimeMillis === undefined ? {} : { currentTimeMillis: input.currentTimeMillis })
+})
+
 export const handleProxyToolCall = async (input: ProxyToolCallInput): Promise<McpToolResponse> => {
   switch (input.toolName) {
     case LIST_TOOL_CATEGORIES_TOOL_NAME:
@@ -348,6 +391,10 @@ export const handleProxyToolCall = async (input: ProxyToolCallInput): Promise<Mc
       return getToolSchema(input.proxyCandidateRegistry, input.args)
     case INVOKE_TOOL_TOOL_NAME:
       return invokeProxyTool(input)
+    case PREPARE_TOOL_ACTION_TOOL_NAME:
+      return prepareRegisteredToolAction(approvalInput(input, PREPARE_TOOL_ACTION_TOOL_NAME))
+    case EXECUTE_TOOL_ACTION_TOOL_NAME:
+      return executeRegisteredToolAction(approvalInput(input, EXECUTE_TOOL_ACTION_TOOL_NAME))
     default:
       return createUnknownToolError(input.toolName)
   }

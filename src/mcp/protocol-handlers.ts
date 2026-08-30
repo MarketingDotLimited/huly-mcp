@@ -17,6 +17,7 @@ import type { McpToolResponse } from "./error-mapping.js"
 import type { McpWireResponse } from "./tool-responses.js"
 import {
   appendToolWarnings,
+  createInvalidParamsError,
   createServerShuttingDownError,
   createSuccessResponse,
   createUnknownToolError,
@@ -51,6 +52,7 @@ import {
   isProxyToolName,
   proxyToolDefinitions
 } from "./proxy-tools.js"
+import { requiresTwoStepApproval } from "./proxy-tool-approvals.js"
 import { listResourceTemplates } from "./resources.js"
 import { noToolCallNoticeProvider, type ToolCallNoticeProvider } from "./tool-call-notices.js"
 import type { ToolRegistry } from "./tools/index.js"
@@ -61,7 +63,8 @@ import {
   isEmptyArgumentsObject,
   isNoArgumentTool,
   parseToolName,
-  requiresArgumentsObject
+  requiresArgumentsObject,
+  type ToolDefinition
 } from "./tools/registry.js"
 
 interface ToolCallRequest {
@@ -118,6 +121,14 @@ export interface NowClock {
 }
 
 export const liveNowClock: NowClock = { currentTimeMillis: () => Effect.runSync(Clock.currentTimeMillis) }
+
+const nativeApprovalError = (tool: ToolDefinition, name: string): McpToolResponse | undefined =>
+  requiresTwoStepApproval(tool) && name !== "execute_huly_action"
+    ? createInvalidParamsError(
+        `Tool '${name}' requires two-step approval. In proxy mode call prepare_tool_action with this exact toolName and arguments, then execute_tool_action with the returned token.`,
+        "ApprovalRequired"
+      )
+    : undefined
 
 /**
  * Fetch the latest published npm version. The `fetch` implementation is injected
@@ -347,6 +358,7 @@ export const createMcpProtocolHandlers = (
           toolName,
           args,
           proxyCandidateRegistry: exposure.proxyCandidateRegistry,
+          currentTimeMillis: clock.currentTimeMillis(),
           ...(clientResolution?._tag === "Success" ? { clients: proxyClients(clientResolution.clients) } : {})
         })
         const responseWithNotice = withClaimedNotice(response)
@@ -372,9 +384,10 @@ export const createMcpProtocolHandlers = (
         const nativeCallRegistry = selectNativeCallRegistry(exposure, hulyToolName)
         const tool = nativeCallRegistry.tools.get(hulyToolName)
         if (tool === undefined) return returnError(createUnknownToolError(name))
-
         const argumentError = nativeArgumentError(tool, args)
         if (argumentError !== undefined) return returnError(argumentError)
+        const approvalError = nativeApprovalError(tool, hulyToolName)
+        if (approvalError !== undefined) return returnError(approvalError)
 
         const editMode = deriveEditMode(hulyToolName, args)
         const clientResolution = await resolveClientBundle(resolveClients)

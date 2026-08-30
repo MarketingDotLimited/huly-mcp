@@ -1022,7 +1022,14 @@ describe("createMcpProtocolHandlers — get_huly_context tool", () => {
         configuredMode: "proxy",
         resolvedMode: "proxy",
         clientKind: "codex",
-        proxyToolNames: ["list_tool_categories", "search_tools", "get_tool_schema", "invoke_tool"]
+        proxyToolNames: [
+          "list_tool_categories",
+          "search_tools",
+          "get_tool_schema",
+          "invoke_tool",
+          "prepare_tool_action",
+          "execute_tool_action"
+        ]
       }
     })
   })
@@ -1294,7 +1301,9 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
       "list_tool_categories",
       "search_tools",
       "get_tool_schema",
-      "invoke_tool"
+      "invoke_tool",
+      "prepare_tool_action",
+      "execute_tool_action"
     ])
     expect(names).not.toContain("list_projects")
   })

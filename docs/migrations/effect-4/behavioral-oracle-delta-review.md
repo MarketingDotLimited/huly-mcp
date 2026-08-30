@@ -10,11 +10,11 @@ the baseline was not regenerated.
 - Effect 3 baseline SHA-256:
   `02bb5e4bf2fdb0e4dd30f980810bd0fe70d5c91482c309b4621264c373d6adac`
 - Reviewed Effect 4 corpus SHA-256:
-  `3dcaac8a240371853f2b50f304ea3478aac23b29b24bd18db82ae7d73769fa6d`
-- Exact structural deltas: 21,086
-- Added: 8,837
-- Changed: 2,146
-- Removed: 10,103
+  `7823cc1ead0bac553a448afe240b28dbb2cee5efadb9f9687ccc4f832448f9ad`
+- Exact structural deltas: 24,381
+- Added: 9,368
+- Changed: 4,499
+- Removed: 10,514
 
 Each category records its exact delta count and the SHA-256 of its sorted exact
 delta identities. The compact `behavioral-oracle-delta-review.json` certificate
@@ -26,9 +26,10 @@ stale categories, duplicate categories, and corpus hash drift.
 
 | Count | Classification | Evidence |
 | ---: | --- | --- |
-| 12,754 | Draft-07 structural dialect | Effect 4 refs, definitions, optional/null unions, refinements, and composition wrappers. All 524 native and 6 proxy schemas compile under strict Ajv Draft-07. |
+| 12,754 | Draft-07 structural dialect | Effect 4 refs, definitions, optional/null unions, refinements, and composition wrappers. All 548 native and 8 proxy schemas compile under strict Ajv Draft-07. |
 | 4,894 | Schema metadata | Authored descriptions restored by the central adapter and obsolete Effect 3 generator-default titles/descriptions removed. |
-| 3,428 | Authored-constraint projection | The same 522 ordered tools remain represented; generated ref/composition paths changed. Manual cross-field constraints remain in the corpus and representative runtime/Ajv agreement passes. |
+| 3,452 | Authored-constraint projection | All 546 ordered native tools remain represented; generated ref/composition paths changed. Manual cross-field constraints remain in the corpus and representative runtime/Ajv agreement passes. |
+| 3,271 | Tool inventory | The HR, guarded-administration, and approval tools are reviewed across native/proxy discovery, CLI routing, and bundled-process fixtures. Existing native ordering is preserved and the new native tools are appended. |
 | 6 | CLI JSON parse diagnostics | Effect 4 adds deterministic line/column context; code, hint, retryability, and exit status are unchanged. |
 | 4 | CLI help rendering | The Effect 4 CLI renderer intentionally uses concise help. Route inventory and ordering remain unchanged. |
 
@@ -50,6 +51,6 @@ mise exec node@22.22.2 -- pnpm exec vitest run \
   test/scripts/effect4-oracle-parity.test.ts
 ```
 
-The full verifier re-renders the current bundled corpus and matches all 21,086
+The full verifier re-renders the current bundled corpus and matches all 24,381
 exact entries. Any future semantic or structural drift is unexpected; an
 accepted entry that stops occurring is stale and also fails verification.

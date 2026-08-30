@@ -12,6 +12,7 @@ const ReviewCategorySchema = Schema.Literals([
   "draft07-structure",
   "schema-metadata",
   "authored-constraints",
+  "tool-inventory",
   "cli-json-diagnostic",
   "cli-help"
 ])
@@ -48,6 +49,14 @@ export const oracleDeltaReviewCategory = (delta: OracleDelta): ReviewCategory | 
   if (delta.path.includes("/help/") || delta.path.endsWith("Help/stdout")) return "cli-help"
   if (delta.path.includes("/cli/") && delta.path.endsWith("stderr")) return "cli-json-diagnostic"
   if (delta.path.startsWith("/cli/errors/") && delta.path.endsWith("/message")) return "cli-json-diagnostic"
+  if (
+    delta.path.startsWith("/bundledProcesses/stdio/") ||
+    delta.path.startsWith("/registry/") ||
+    delta.path.startsWith("/cli/routes/") ||
+    delta.path.startsWith("/cli/parity/")
+  ) {
+    return "tool-inventory"
+  }
   return undefined
 }
 
@@ -58,6 +67,7 @@ const REVIEW_CATEGORY_ORDER: ReadonlyArray<ReviewCategory> = [
   "draft07-structure",
   "schema-metadata",
   "authored-constraints",
+  "tool-inventory",
   "cli-json-diagnostic",
   "cli-help"
 ]
@@ -80,7 +90,12 @@ const categoryMetadata = (category: ReviewCategory): { readonly issue: string; r
       return {
         issue: "#225",
         rationale:
-          "Reviewed authored-constraint projection: the same 522 ordered tools remain represented and strict Draft-07/runtime agreement passes."
+          "Reviewed authored-constraint projection for the ordered tool corpus; strict Draft-07/runtime agreement passes."
+      }
+    case "tool-inventory":
+      return {
+        issue: "#225",
+        rationale: "Reviewed additions to the native, proxy, CLI, and bundled-process tool inventories."
       }
     case "cli-json-diagnostic":
       return {
@@ -91,7 +106,8 @@ const categoryMetadata = (category: ReviewCategory): { readonly issue: string; r
     case "cli-help":
       return {
         issue: "#228",
-        rationale: "Reviewed concise Effect 4 CLI help rendering; route inventory and order are unchanged."
+        rationale:
+          "Reviewed concise Effect 4 CLI help rendering; existing route order is preserved and new routes are added."
       }
   }
 }
@@ -172,12 +188,16 @@ export const createOracleDeltaAuditReport = (
     const index = authoredConstraintIndex(delta)
     const baselineName = baseline.registry.authoredConstraints[index]?.toolName
     const currentName = current.registry.authoredConstraints[index]?.toolName
-    if (baselineName === undefined || currentName === undefined || baselineName !== currentName) {
+    if (baselineName !== undefined && currentName !== undefined && baselineName !== currentName) {
       throw new Error(`Cannot associate authored-constraint delta ${delta.path} with one stable tool.`)
     }
-    const entries = byTool.get(currentName) ?? []
+    const toolName = currentName ?? baselineName
+    if (toolName === undefined) {
+      throw new Error(`Cannot associate authored-constraint delta ${delta.path} with a stable tool.`)
+    }
+    const entries = byTool.get(toolName) ?? []
     entries.push(delta)
-    byTool.set(currentName, entries)
+    byTool.set(toolName, entries)
   }
   return Schema.decodeUnknownSync(OracleDeltaAuditReportSchema)({
     certificate: createOracleDeltaReview(baselineJson, currentJson, deltas),
