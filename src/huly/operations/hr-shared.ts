@@ -47,13 +47,15 @@ const normalizedPath = (value: string): string =>
     .filter((part) => part !== "")
     .join("/")
 
+const normalizedDepartmentName = (value: string): string => value.trim()
+
 export const departmentPath = (department: Department, graph: DepartmentGraph): string => {
   const names: Array<string> = []
   const visited = new Set<Ref<Department>>()
   let current: Department | undefined = department
   while (current !== undefined && !visited.has(current._id)) {
     visited.add(current._id)
-    names.unshift(current.name)
+    names.unshift(normalizedDepartmentName(current.name))
     current = current.parent === undefined ? undefined : graph.byId.get(current.parent)
   }
   return names.join("/")
@@ -73,7 +75,8 @@ export const resolveDepartment = (graph: DepartmentGraph, identifier: string): E
     return Effect.fail(new HulyError({ message: `Department path '${identifier}' is ambiguous` }))
   }
 
-  const byName = graph.departments.filter((department) => department.name === identifier)
+  const requestedName = normalizedDepartmentName(identifier)
+  const byName = graph.departments.filter((department) => normalizedDepartmentName(department.name) === requestedName)
   const nameMatch = byName[0]
   if (byName.length === 1 && nameMatch !== undefined) return Effect.succeed(nameMatch)
   if (byName.length > 1) {
@@ -167,7 +170,7 @@ export const departmentSummary = (
   directMembers: ReadonlyMap<Ref<Department>, Array<Ref<Employee>>>
 ): DepartmentSummary => ({
   id: NonEmptyString.make(department._id),
-  name: NonEmptyString.make(department.name),
+  name: NonEmptyString.make(normalizedDepartmentName(department.name)),
   description: department.description,
   ...(department.parent === undefined ? {} : { parentId: NonEmptyString.make(department.parent) }),
   path: NonEmptyString.make(departmentPath(department, graph)),
@@ -178,14 +181,17 @@ export const departmentSummary = (
   modifiedOn: department.modifiedOn
 })
 
-export const staffSummary = (employee: Employee, email?: string, department?: Ref<Department>): StaffSummary => ({
-  employeeId: NonEmptyString.make(employee._id),
-  name: PersonName.make(employee.name),
-  ...(email === undefined ? {} : { email: NonEmptyString.make(email) }),
-  active: employee.active,
-  ...(department === undefined ? {} : { departmentId: NonEmptyString.make(department) }),
-  ...(employee.position == null ? {} : { position: employee.position })
-})
+export const staffSummary = (employee: Employee, email?: string, department?: Ref<Department>): StaffSummary => {
+  const position = employee.position?.trim()
+  return {
+    employeeId: NonEmptyString.make(employee._id),
+    name: PersonName.make(employee.name),
+    ...(email === undefined ? {} : { email: NonEmptyString.make(email) }),
+    active: employee.active,
+    ...(department === undefined ? {} : { departmentId: NonEmptyString.make(department) }),
+    ...(position == null || position === "" ? {} : { position })
+  }
+}
 
 export const summarizeStaff = (
   client: HulyClient["Service"],

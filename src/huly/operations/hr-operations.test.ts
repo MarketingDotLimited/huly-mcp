@@ -326,6 +326,7 @@ describe("HR date operations", () => {
 describe("HR departments and staff", () => {
   it("lists, resolves, summarizes, and aggregates a hierarchy", async () => {
     const state = initialState()
+    at(state.departments, 1).name = "Operations "
     at(state.departments, 1).members = ["alice" as Ref<Employee>]
     const listed = await run(listDepartments({ includeRoot: false }), state)
     expect(listed.departments.map((item) => item.path)).toEqual([
@@ -337,6 +338,7 @@ describe("HR departments and staff", () => {
     ).toEqual(["alice"])
     const graph = { departments: state.departments, byId: new Map(state.departments.map((item) => [item._id, item])) }
     expect(departmentPath(at(state.departments, 2), graph)).toBe("Organization/Operations/Content")
+    expect((await run(getDepartment({ department: "Operations" }), state)).name).toBe("Operations")
     expect(directMembersByDepartment(state.staff).get("content" as Ref<Department>)).toEqual(["alice"])
     expect(
       aggregateMembersByDepartment(graph, [{ employeeId: "alice", department: "content" as Ref<Department> }]).get(
@@ -352,6 +354,8 @@ describe("HR departments and staff", () => {
     const bobSummary = staffSummary(at(state.employees, 1))
     expect(bobSummary.employeeId).toBe("bob")
     expect(bobSummary.position).toBeUndefined()
+    expect(staffSummary(employee("trimmed", "Trimmed", true, " Director ")).position).toBe("Director")
+    expect(staffSummary(employee("empty-position", "Empty", true, " ")).position).toBeUndefined()
     expect(
       aggregateMembersByDepartment(graph, [{ employeeId: "orphan", department: "unknown" as Ref<Department> }]).get(
         hr.ids.Head

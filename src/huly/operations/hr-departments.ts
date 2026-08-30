@@ -47,7 +47,8 @@ const uniqueSiblingName = (
   except?: Ref<Department>
 ): Effect.Effect<void, HulyError> => {
   const conflict = departments.find(
-    (candidate) => candidate._id !== except && candidate.name === name && (candidate.parent ?? hr.ids.Head) === parent
+    (candidate) =>
+      candidate._id !== except && candidate.name.trim() === name.trim() && (candidate.parent ?? hr.ids.Head) === parent
   )
   return conflict === undefined
     ? Effect.void
@@ -174,7 +175,7 @@ export const createDepartment = (
       managers
     }
     const existing = graph.departments.find(
-      (candidate) => candidate.name === params.name && (candidate.parent ?? hr.ids.Head) === parent._id
+      (candidate) => candidate.name.trim() === params.name && (candidate.parent ?? hr.ids.Head) === parent._id
     )
     if (existing !== undefined) {
       if (hasSameDepartmentConfiguration(existing, attributes)) {
@@ -214,7 +215,12 @@ export const updateDepartment = (
     const graph = yield* loadDepartmentGraph(client)
     const department = yield* resolveDepartment(graph, params.department)
     const parent = yield* resolveUpdatedParent(graph, department, params.parent)
-    yield* uniqueSiblingName(graph.departments, params.name ?? department.name, parent ?? hr.ids.Head, department._id)
+    yield* uniqueSiblingName(
+      graph.departments,
+      params.name ?? department.name.trim(),
+      parent ?? hr.ids.Head,
+      department._id
+    )
 
     const teamLead = yield* resolveUpdatedTeamLead(client, department, params.teamLead)
     const managers =
