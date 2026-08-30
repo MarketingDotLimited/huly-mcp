@@ -195,10 +195,12 @@ const layerFor = (state: HrState): ReturnType<typeof HulyClient.testLayer> => {
       typeof Reflect.get(query, "_id") === "object" ? Reflect.get(Reflect.get(query, "_id"), "$in") : undefined
     const departmentId = Reflect.get(query, "department")
     const date = Reflect.get(query, "date")
+    const active = Reflect.get(query, "active")
     if (id !== undefined) docs = docs.filter((item) => String(item._id) === id)
     if (name !== undefined) docs = docs.filter((item) => Reflect.get(item, "name") === name)
     if (Array.isArray(ids)) docs = docs.filter((item) => ids.includes(item._id))
     if (typeof departmentId === "string") docs = docs.filter((item) => Reflect.get(item, "department") === departmentId)
+    if (typeof active === "boolean") docs = docs.filter((item) => Reflect.get(item, "active") === active)
     if (typeof date === "object" && date !== null) {
       docs = docs.filter((item) => JSON.stringify(Reflect.get(item, "date")) === JSON.stringify(date))
     }

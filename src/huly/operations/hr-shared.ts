@@ -95,15 +95,24 @@ export const resolveEmployee = (
   Effect.gen(function* () {
     const person = yield* findPersonByIdOrExactEmailOrName(client, identifier)
     if (person === undefined) return yield* new PersonNotFoundError({ identifier })
-    const employee = yield* client.findOne<Employee>(
+    const activeEmployees = yield* client.findAll<Employee>(
       contact.mixin.Employee,
-      hulyQuery<Employee>({ _id: toRef<Employee>(person._id) })
+      hulyQuery<Employee>({ _id: toRef<Employee>(person._id), active: true }),
+      { limit: 1 }
     )
-    if (employee === undefined) return yield* new PersonNotAnEmployeeError({ identifier })
-    if (requireActive && !employee.active) {
+    const activeEmployee = activeEmployees[0]
+    if (activeEmployee !== undefined) return activeEmployee
+    const inactiveEmployees = yield* client.findAll<Employee>(
+      contact.mixin.Employee,
+      hulyQuery<Employee>({ _id: toRef<Employee>(person._id), active: false }),
+      { limit: 1 }
+    )
+    const inactiveEmployee = inactiveEmployees[0]
+    if (inactiveEmployee === undefined) return yield* new PersonNotAnEmployeeError({ identifier })
+    if (requireActive) {
       return yield* new HulyError({ message: `Employee '${identifier}' is inactive` })
     }
-    return employee
+    return inactiveEmployee
   })
 
 export const resolveEmployeeIds = (
