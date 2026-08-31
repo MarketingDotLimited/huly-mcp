@@ -3,6 +3,8 @@ import { SortingOrder } from "@hcengineering/core"
 import { Array as Arr, Effect, Result, Option } from "effect"
 
 import type {
+  DescribeHulyPackageViabilityParams,
+  DescribeHulyPackageViabilityResult,
   GetHulyClassParams,
   GetHulyClassResult,
   ListHulyAttributesParams,
@@ -41,6 +43,16 @@ import {
 type SdkDiscoveryError = HulyClientError | HulyClassNotFoundError
 
 const MAX_ANCESTOR_DEPTH = 32
+const packageWriteGuidance = NonEmptyString.make(
+  "Read-only viability only. Do not create board, inventory, or products write tools from this report; first add declared SDK dependencies, typed class discovery, and focused tests."
+)
+const packageViabilityGuidance = NonEmptyString.make(
+  "Use this report to decide whether package-backed issue #101 discovery work is viable. It does not prove workspace installation and it is not write authorization."
+)
+const missingPublishedTypesReason = (packageName: "@hcengineering/board" | "@hcengineering/inventory") =>
+  NonEmptyString.make(
+    `${packageName} is published at 0.7.423, but the published tarball declares types/index.d.ts without shipping a types directory. Under this repo's strict NodeNext TypeScript build, that is not a typed SDK surface, so the package must not be declared or used for discovery yet.`
+  )
 
 // Huly plugin constants are compatible with Ref<Class<MetadataClassDoc>> at runtime; the SDK type is narrower.
 // eslint-disable-next-line no-restricted-syntax -- SDK boundary cast for class model queries
@@ -222,6 +234,46 @@ const attributesForClasses = (
         hulyQuery<AnyAttribute>({ attributeOf: { $in: classIds.map(toRef<Class<Obj>>) } }),
         { sort: { name: SortingOrder.Ascending } }
       )
+
+export const describeHulyPackageViability = (
+  _params: DescribeHulyPackageViabilityParams
+): Effect.Effect<DescribeHulyPackageViabilityResult> =>
+  Effect.succeed({
+    packages: [
+      {
+        packageName: "@hcengineering/board",
+        requestedVersion: NonEmptyString.make("0.7.423"),
+        publishStatus: "published",
+        dependencyStatus: "not_declared",
+        mcpStatus: "incompatible",
+        usableClassesOrOperations: [],
+        blockedReason: missingPublishedTypesReason("@hcengineering/board"),
+        writeGuidance: packageWriteGuidance
+      },
+      {
+        packageName: "@hcengineering/inventory",
+        requestedVersion: NonEmptyString.make("0.7.423"),
+        publishStatus: "published",
+        dependencyStatus: "not_declared",
+        mcpStatus: "incompatible",
+        usableClassesOrOperations: [],
+        blockedReason: missingPublishedTypesReason("@hcengineering/inventory"),
+        writeGuidance: packageWriteGuidance
+      },
+      {
+        packageName: "@hcengineering/products",
+        publishStatus: "not_published",
+        dependencyStatus: "not_declared",
+        mcpStatus: "blocked",
+        usableClassesOrOperations: [],
+        blockedReason: NonEmptyString.make(
+          "@hcengineering/products is not published, so agents must not plan implementation against package imports, class constants, or operations from that package."
+        ),
+        writeGuidance: packageWriteGuidance
+      }
+    ],
+    guidance: packageViabilityGuidance
+  })
 
 export const listHulyClasses = (
   params: ListHulyClassesParams

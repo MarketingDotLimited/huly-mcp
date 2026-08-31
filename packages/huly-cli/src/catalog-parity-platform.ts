@@ -44,6 +44,11 @@ export const parityPlatformCliCommandCatalog = {
     positional: ["spaceType"],
     description: "Describe a Huly space type's model capabilities"
   },
+  describe_huly_package_viability: {
+    path: ["model", "packages", "viability"],
+    positional: [],
+    description: "Describe Huly SDK package viability"
+  },
   get_huly_class: {
     path: ["model", "classes", "get"],
     positional: ["class"],

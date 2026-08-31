@@ -88,6 +88,7 @@ describe("sdkDiscoveryTools", () => {
         "get_huly_class",
         "list_huly_attributes",
         "list_huly_enums",
+        "describe_huly_package_viability",
         "list_huly_plugin_configurations",
         "list_huly_domain_index_configurations",
         "list_huly_sequences",

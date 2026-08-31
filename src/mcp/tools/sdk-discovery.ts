@@ -13,6 +13,8 @@ import {
   parseListHulySequencesParams
 } from "../../domain/schemas/sdk-discovery-configurations.js"
 import {
+  describeHulyPackageViabilityParamsJsonSchema,
+  DescribeHulyPackageViabilityResultSchema,
   getHulyClassParamsJsonSchema,
   GetHulyClassResultSchema,
   listHulyAttributesParamsJsonSchema,
@@ -21,6 +23,7 @@ import {
   ListHulyClassesResultSchema,
   listHulyEnumsParamsJsonSchema,
   ListHulyEnumsResultSchema,
+  parseDescribeHulyPackageViabilityParams,
   parseGetHulyClassParams,
   parseListHulyAttributesParams,
   parseListHulyClassesParams,
@@ -33,6 +36,7 @@ import {
   listHulySequences
 } from "../../huly/operations/sdk-discovery-configurations.js"
 import {
+  describeHulyPackageViability,
   getHulyClass,
   listHulyAttributes,
   listHulyClasses,
@@ -88,6 +92,18 @@ export const sdkDiscoveryTools = [
     },
     parseListHulyEnumsParams,
     listHulyEnums
+  ),
+  defineTool(
+    {
+      name: "describe_huly_package_viability",
+      description:
+        "Read static issue #101 viability for @hcengineering/board, @hcengineering/inventory, and @hcengineering/products without authorizing package-backed writes.",
+      category: CATEGORY,
+      inputSchema: describeHulyPackageViabilityParamsJsonSchema,
+      resultSchema: DescribeHulyPackageViabilityResultSchema
+    },
+    parseDescribeHulyPackageViabilityParams,
+    describeHulyPackageViability
   ),
   defineTool(
     {

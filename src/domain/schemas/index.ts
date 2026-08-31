@@ -308,6 +308,11 @@ export {
 } from "./spaces-administration.js"
 
 export {
+  type DescribeHulyPackageViabilityParams,
+  describeHulyPackageViabilityParamsJsonSchema,
+  DescribeHulyPackageViabilityParamsSchema,
+  type DescribeHulyPackageViabilityResult,
+  DescribeHulyPackageViabilityResultSchema,
   type GetHulyClassParams,
   getHulyClassParamsJsonSchema,
   GetHulyClassParamsSchema,
@@ -327,6 +332,7 @@ export {
   HulyClassToolHintSchema,
   type HulyEnumSummary,
   HulyEnumSummarySchema,
+  HulyPackageViabilitySchema,
   HulyModelSearch,
   type HulySdkClassifierKind,
   HulySdkClassifierKindSchema,
@@ -346,6 +352,7 @@ export {
   type ListHulyEnumsResult,
   ListHulyEnumsResultSchema,
   parseGetHulyClassParams,
+  parseDescribeHulyPackageViabilityParams,
   parseListHulyAttributesParams,
   parseListHulyClassesParams,
   parseListHulyEnumsParams
