@@ -3,15 +3,15 @@
   "categories": [
     {
       "category": "draft07-structure",
-      "count": 12774,
-      "deltaSetSha256": "7d31a90d8d37248d57608a15d394e55ab5d8b12ce30a51b8a276be96ec00aefb",
+      "count": 12790,
+      "deltaSetSha256": "37c680b04a0f1ac4fc48ca4465eb13d27b2057a879d78f15587a9b9af9351f5a",
       "issue": "#225",
       "rationale": "Reviewed Effect 4 Draft-07 structural dialect: refs, definitions, optional/null unions, refinements, and composition wrappers."
     },
     {
       "category": "schema-metadata",
-      "count": 4894,
-      "deltaSetSha256": "0fecd4efc0fe1c325a1d53476f9d1161723e62f67c7c41f5ede3de15d6cfa144",
+      "count": 4886,
+      "deltaSetSha256": "6afc16fabf320fad5dfd615210a2dfbcd0454e6e46e6f56615c7608b8771741f",
       "issue": "#225",
       "rationale": "Reviewed schema metadata migration: authored descriptions are preserved and legacy generator-default metadata is replaced."
     },
@@ -24,8 +24,8 @@
     },
     {
       "category": "tool-inventory",
-      "count": 3271,
-      "deltaSetSha256": "d65f23946fae8d0852cb8e324c74cbc8211f24c3dad16ea9349b5a89ba35359e",
+      "count": 3273,
+      "deltaSetSha256": "05843c31204417c017914f8735a4e013691668559db17436cf59dc9c162208ef",
       "issue": "#225",
       "rationale": "Reviewed additions to the native, proxy, CLI, and bundled-process tool inventories."
     },
@@ -45,5 +45,5 @@
     }
   ],
   "formatVersion": 1,
-  "reviewedCurrentSha256": "c9fa1afaf4cf1c3a680406dd8dc84230b9abd56797a1ddee06ae24e3559fc514"
+  "reviewedCurrentSha256": "0667202e3cd5c5e4189c3318133b4602a12bc839fcecb338abeb9a3651535dc4"
 }

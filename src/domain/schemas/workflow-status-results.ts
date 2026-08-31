@@ -45,7 +45,7 @@ export const GenericStatusCategorySummarySchema = Schema.Struct({
   ofAttribute: WorkflowAttributeSummarySchema,
   icon: WorkflowIconSchema,
   color: WorkflowColorSchema,
-  defaultStatus: WorkflowStatusRefSchema,
+  defaultStatus: Schema.optional(WorkflowStatusRefSchema),
   order: Integer,
   statusCount: Count
 })

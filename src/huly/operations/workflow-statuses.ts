@@ -1,4 +1,4 @@
-import { Effect, Result } from "effect"
+import { Effect } from "effect"
 
 import { Count } from "../../domain/schemas/shared.js"
 import { StatusMetadataUnresolvedWarningCode } from "../../domain/schemas/tool-warnings.js"
@@ -60,7 +60,7 @@ export const getWorkflowStatus = (
 
 export const listStatusCategories = (
   params: ListStatusCategoriesParams
-): Effect.Effect<ListStatusCategoriesResult, HulyClientError | WorkflowResolverError, HulyClient | Diagnostics> =>
+): Effect.Effect<ListStatusCategoriesResult, WorkflowReadError, HulyClient | Diagnostics> =>
   Effect.gen(function* () {
     const client = yield* HulyClient
     const diagnostics = yield* Diagnostics
@@ -71,15 +71,14 @@ export const listStatusCategories = (
       .slice(0, clampLimit(params.limit))
     const categories: Array<GenericStatusCategorySummary> = []
     for (const category of matching) {
-      const summary = yield* statusCategorySummary(model, category).pipe(Effect.result)
-      if (Result.isSuccess(summary)) {
-        categories.push(summary.success)
-        continue
+      const summary = yield* statusCategorySummary(model, category)
+      categories.push(summary)
+      if (summary.defaultStatus === undefined) {
+        yield* diagnostics.warnAgent({
+          code: StatusMetadataUnresolvedWarningCode,
+          message: `Status category '${category.label}' (${category._id}) has no unambiguous default status '${category.defaultStatusName}' for attribute ${category.ofAttribute}.`
+        })
       }
-      yield* diagnostics.warnAgent({
-        code: StatusMetadataUnresolvedWarningCode,
-        message: `Skipped status category '${category.label}' (${category._id}) because its ${summary.failure.relationship} '${summary.failure.target}' could not be resolved.`
-      })
     }
     return { categories, total: Count.make(categories.length) }
   })

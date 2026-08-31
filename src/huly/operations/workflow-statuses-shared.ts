@@ -238,20 +238,20 @@ export const statusCategorySummary = (
         status.ofAttribute === category.ofAttribute &&
         normalized(status.name) === normalized(category.defaultStatusName)
     )
-    if (defaultStatus === undefined) {
-      return yield* new WorkflowRelationshipInvalidError({
-        entityId: String(category._id),
-        relationship: "default status",
-        target: category.defaultStatusName
-      })
-    }
     const summary = {
       categoryId: StatusCategoryId.make(category._id),
       label: category.label,
       ofAttribute,
       icon: category.icon,
       color: workflowColor(category.color),
-      defaultStatus: { statusId: WorkflowStatusId.make(defaultStatus._id), name: StatusName.make(defaultStatus.name) },
+      ...(defaultStatus === undefined
+        ? {}
+        : {
+            defaultStatus: {
+              statusId: WorkflowStatusId.make(defaultStatus._id),
+              name: StatusName.make(defaultStatus.name)
+            }
+          }),
       order: Integer.make(category.order),
       statusCount: Count.make(statuses.length)
     } satisfies GenericStatusCategorySummary

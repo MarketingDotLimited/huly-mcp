@@ -255,7 +255,7 @@ describe("generic workflow status reads", () => {
     })
   )
 
-  it.effect("skips malformed categories and warns instead of failing the entire list", () =>
+  it.effect("returns malformed categories with an unresolved-default warning", () =>
     Effect.gen(function* () {
       const diagnostics = yield* makeDiagnosticsScope
       const result = yield* listStatusCategories({}).pipe(
@@ -272,12 +272,15 @@ describe("generic workflow status reads", () => {
       )
       const warnings = yield* diagnostics.drainWarnings
 
-      expect(result.categories.map((category) => category.categoryId)).not.toContain("category-invalid-default")
+      expect(result.categories.map((category) => category.categoryId)).toContain("category-invalid-default")
+      expect(
+        result.categories.find((category) => category.categoryId === "category-invalid-default")?.defaultStatus
+      ).toBeUndefined()
       expect(warnings).toEqual([
         {
           code: "status_metadata_unresolved",
           message:
-            "Skipped status category 'Invalid' (category-invalid-default) because its default status 'Missing' could not be resolved."
+            "Status category 'Invalid' (category-invalid-default) has no unambiguous default status 'Missing' for attribute tracker:attribute:IssueStatus."
         }
       ])
     })
@@ -382,7 +385,7 @@ describe("generic workflow status reads", () => {
         "WorkflowRelationshipInvalidError"
       )
       expect(Result.isFailure(invalidCategory) && invalidCategory.failure._tag).toBe("WorkflowRelationshipInvalidError")
-      expect(Result.isFailure(invalidDefault) && invalidDefault.failure._tag).toBe("WorkflowRelationshipInvalidError")
+      expect(Result.isSuccess(invalidDefault) && invalidDefault.success.defaultStatus).toBeUndefined()
     })
   )
 
@@ -585,7 +588,7 @@ describe("generic workflow status writes", () => {
       }).pipe(Effect.provide(createStatusMutationLayer(fixtures, capture)))
 
       expect(result.category.label).toBe("Doing")
-      expect(result.category.defaultStatus.statusId).toBe("status-done")
+      expect(result.category.defaultStatus?.statusId).toBe("status-done")
       expect(result.category.statusCount).toBe(1)
       expect(capture.updateOperations).toEqual({ label: "Doing", defaultStatusName: "Done", order: 8 })
     })

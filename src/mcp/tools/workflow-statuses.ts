@@ -118,7 +118,7 @@ export const workflowStatusTools = [
     {
       name: "list_status_categories",
       description:
-        "List generic Huly StatusCategory records, optionally filtered by status attribute ID or exact name. Returns each category's resolved attribute, default status, and number of statuses that reference it.",
+        "List generic Huly StatusCategory records, optionally filtered by status attribute ID or exact name. Returns each category's resolved attribute, default status when unambiguous, and number of statuses that reference it.",
       category: CATEGORY,
       inputSchema: listStatusCategoriesParamsJsonSchema,
       resultSchema: ListStatusCategoriesResultSchema
@@ -130,7 +130,7 @@ export const workflowStatusTools = [
     {
       name: "get_status_category",
       description:
-        "Get one generic Huly StatusCategory by ID or exact case-insensitive label. Pass ofAttribute when a label exists for multiple status attributes; ambiguous labels are rejected with matching IDs.",
+        "Get one generic Huly StatusCategory by ID or exact case-insensitive label. Pass ofAttribute when a label exists for multiple status attributes; ambiguous labels are rejected with matching IDs. Shared categories may omit defaultStatus when no single status ID is unambiguous.",
       category: CATEGORY,
       inputSchema: getStatusCategoryParamsJsonSchema,
       resultSchema: GenericStatusCategorySummarySchema
