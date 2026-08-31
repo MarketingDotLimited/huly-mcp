@@ -32,7 +32,7 @@ get_hr_summary_report
 
 For unsupported business classes, `find_huly_documents`, `prepare_huly_action`, and `execute_huly_action` provide schema-validated access. Raw actions reject model, transaction, account, integration, and other protected classes/spaces. Every generic mutation requires a five-minute, account-bound, single-use preview token, checks `modifiedOn` for drift, and writes an append-only JSONL audit record. Destructive and high-impact registered tools use the equivalent `prepare_tool_action` / `execute_tool_action` flow. If the audit log cannot be written, execution fails closed.
 
-Production should set `HULY_AUDIT_LOG_PATH` to a persistent volume. The published container is available as `ghcr.io/marketingdotlimited/huly-mcp:0.50.0-mdl.10`; pin a version tag rather than a moving tag.
+Production should set `HULY_AUDIT_LOG_PATH` to a persistent volume. The published container is available as `ghcr.io/marketingdotlimited/huly-mcp:0.50.0-mdl.11`; pin a version tag rather than a moving tag.
 
 > [!IMPORTANT]
 > **Hosted Huly is shutting down.** Huly's upstream README says shutdown is expected July 20. If you use `https://huly.app`, [export and migrate your data](https://github.com/hcengineering/platform/blob/develop/README.md) as soon as possible. See the [backup and restore guide](https://github.com/hcengineering/platform/blob/develop/docs/guides/backup-restore.en.md) and [self-hosting repository](https://github.com/hcengineering/huly-selfhost). Self-hosted deployments are not affected.
@@ -365,8 +365,8 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `invoke_read_tool` | Invokes one read-only Huly tool by exact name with its arguments. The server rejects any target whose resolved annotations are not read-only, so this executor cannot perform Huly writes. |
 | `invoke_write_tool` | Invokes one write-capable Huly tool by exact name with its arguments. Read-only targets are rejected. Destructive or high-impact targets still require prepare_tool_action and execute_tool_action. |
 | `invoke_tool` | Legacy compatibility executor for read or write Huly operations. Prefer invoke_read_tool for enforced reads and invoke_write_tool for writes. |
-| `prepare_tool_action` | Preview and bind the exact arguments for a destructive or high-impact registered Huly tool. Performs no mutation and returns a five-minute single-use token. |
-| `execute_tool_action` | Execute exactly one destructive or high-impact registered Huly tool previously previewed with prepare_tool_action. Tokens expire after five minutes and cannot be replayed. |
+| `prepare_tool_action` | Previews and binds the exact arguments for a destructive or high-impact Huly tool. Performs no mutation and returns a five-minute single-use approval ID together with the inspectable tool name and arguments required by execute_tool_action. |
+| `execute_tool_action` | Executes exactly one destructive or high-impact Huly action previously previewed with prepare_tool_action. Pass the returned approvalId, toolName, and exact arguments so the action and target remain inspectable before confirmation. Approval IDs expire after five minutes and cannot be replayed. |
 
 **`TOOLSETS` categories:** `projects`, `issues`, `comments`, `milestones`, `documents`, `storage`, `attachments`, `contacts`, `channels`, `calendar`, `time tracking`, `search`, `associations`, `activity`, `notifications`, `workspace`, `approvals`, `boards`, `cards`, `collaborators`, `custom-fields`, `drive`, `guarded-administration`, `hr`, `inventory`, `labels`, `leads`, `mail`, `templates`, `model-administration`, `planner`, `preferences`, `processes`, `recruiting`, `sdk-discovery`, `security-administration`, `sequence-administration`, `spaces`, `support`, `tag-categories`, `tags`, `task-management`, `test-management`, `user-statuses`, `views`, `virtual-office`, `workbench`, `workflow-statuses`
 

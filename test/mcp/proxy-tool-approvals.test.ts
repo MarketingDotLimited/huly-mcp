@@ -41,6 +41,10 @@ const registry = (
 
 const result = (response: Awaited<ReturnType<typeof prepareRegisteredToolAction>>) =>
   input<Record<string, unknown>>(response.structuredContent?.result)
+const executionArgs = (response: Awaited<ReturnType<typeof prepareRegisteredToolAction>>) => {
+  const prepared = result(response)
+  return { approvalId: prepared.approvalId, toolName: prepared.toolName, arguments: prepared.arguments }
+}
 
 afterEach(() => vi.unstubAllEnvs())
 
@@ -85,7 +89,7 @@ describe("registered tool approvals", () => {
     const executed = await executeRegisteredToolAction(
       input({
         toolName: "execute_tool_action",
-        args: { approvalToken: result(first).approvalToken },
+        args: executionArgs(first),
         registry: target,
         clients: clients(),
         currentTimeMillis: 1_001
@@ -95,7 +99,7 @@ describe("registered tool approvals", () => {
     const replay = await executeRegisteredToolAction(
       input({
         toolName: "execute_tool_action",
-        args: { approvalToken: result(first).approvalToken },
+        args: executionArgs(first),
         registry: target,
         clients: clients(),
         currentTimeMillis: 1_002
@@ -125,7 +129,7 @@ describe("registered tool approvals", () => {
     await executeRegisteredToolAction(
       input({
         toolName: "execute_tool_action",
-        args: { approvalToken: result(prepared).approvalToken },
+        args: executionArgs(prepared),
         registry: target,
         clients: clients(),
         currentTimeMillis: 2_001
@@ -144,7 +148,7 @@ describe("registered tool approvals", () => {
     await executeRegisteredToolAction(
       input({
         toolName: "execute_tool_action",
-        args: { approvalToken: result(invalidJson).approvalToken },
+        args: executionArgs(invalidJson),
         registry: target,
         clients: clients(),
         currentTimeMillis: 2_101
@@ -161,6 +165,53 @@ describe("registered tool approvals", () => {
       })
     )
     expect(result(arrayArgs).argumentsHash).toMatch(/^[0-9a-f]{64}$/)
+  })
+
+  it("requires inspectable execution details to match the prepared action", async () => {
+    let calls = 0
+    const target = registry(definition(), createSuccessResponse({ deleted: true }), () => {
+      calls += 1
+    })
+    const changedArguments = await prepareRegisteredToolAction(
+      input({
+        toolName: "prepare_tool_action",
+        args: { toolName: "delete_widget", arguments: { id: "one" } },
+        registry: target,
+        clients: clients(),
+        currentTimeMillis: 1
+      })
+    )
+    const argumentsMismatch = await executeRegisteredToolAction(
+      input({
+        toolName: "execute_tool_action",
+        args: { ...executionArgs(changedArguments), arguments: { id: "two" } },
+        registry: target,
+        clients: clients(),
+        currentTimeMillis: 2
+      })
+    )
+    expect(argumentsMismatch).toMatchObject({ isError: true, _meta: { errorTag: "ApprovalMismatch" } })
+
+    const changedTool = await prepareRegisteredToolAction(
+      input({
+        toolName: "prepare_tool_action",
+        args: { toolName: "delete_widget", arguments: { id: "one" } },
+        registry: target,
+        clients: clients(),
+        currentTimeMillis: 3
+      })
+    )
+    const toolMismatch = await executeRegisteredToolAction(
+      input({
+        toolName: "execute_tool_action",
+        args: { ...executionArgs(changedTool), toolName: "delete_other_widget" },
+        registry: target,
+        clients: clients(),
+        currentTimeMillis: 4
+      })
+    )
+    expect(toolMismatch).toMatchObject({ isError: true, _meta: { errorTag: "ApprovalMismatch" } })
+    expect(calls).toBe(0)
   })
 
   it("rejects missing context, invalid inputs, unknown tools, and unnecessary approvals", async () => {
@@ -246,7 +297,7 @@ describe("registered tool approvals", () => {
         await executeRegisteredToolAction(
           input({
             toolName: "execute_tool_action",
-            args: { approvalToken: "" },
+            args: { approvalId: "", toolName: "delete_widget", arguments: {} },
             registry: target,
             clients: clients(),
             currentTimeMillis: 1
@@ -259,7 +310,7 @@ describe("registered tool approvals", () => {
         await executeRegisteredToolAction(
           input({
             toolName: "execute_tool_action",
-            args: { approvalToken: "missing" },
+            args: { approvalId: "missing", toolName: "delete_widget", arguments: {} },
             registry: target,
             clients: clients(),
             currentTimeMillis: 1
@@ -285,7 +336,7 @@ describe("registered tool approvals", () => {
         await executeRegisteredToolAction(
           input({
             toolName: "execute_tool_action",
-            args: { approvalToken: result(expired).approvalToken },
+            args: executionArgs(expired),
             registry: target,
             clients: clients(),
             currentTimeMillis: 400_000
@@ -307,7 +358,7 @@ describe("registered tool approvals", () => {
         await executeRegisteredToolAction(
           input({
             toolName: "execute_tool_action",
-            args: { approvalToken: result(bound).approvalToken },
+            args: executionArgs(bound),
             registry: target,
             clients: clients("account-b"),
             currentTimeMillis: 2
@@ -333,7 +384,7 @@ describe("registered tool approvals", () => {
         await executeRegisteredToolAction(
           input({
             toolName: "execute_tool_action",
-            args: { approvalToken: result(failed).approvalToken },
+            args: executionArgs(failed),
             registry: errorTarget,
             clients: clients(),
             currentTimeMillis: 2
@@ -356,7 +407,7 @@ describe("registered tool approvals", () => {
         await executeRegisteredToolAction(
           input({
             toolName: "execute_tool_action",
-            args: { approvalToken: result(contentPrepared).approvalToken },
+            args: executionArgs(contentPrepared),
             registry: contentOnly,
             clients: clients(),
             currentTimeMillis: 11
@@ -384,7 +435,7 @@ describe("registered tool approvals", () => {
     const imageResponse = await executeRegisteredToolAction(
       input({
         toolName: "execute_tool_action",
-        args: { approvalToken: result(imagePrepared).approvalToken },
+        args: executionArgs(imagePrepared),
         registry: withImageAndWarnings,
         clients: clients(),
         currentTimeMillis: 21
@@ -406,7 +457,7 @@ describe("registered tool approvals", () => {
         await executeRegisteredToolAction(
           input({
             toolName: "execute_tool_action",
-            args: { approvalToken: result(missing).approvalToken },
+            args: executionArgs(missing),
             registry: missingAtExecution,
             clients: clients(),
             currentTimeMillis: 2
@@ -447,7 +498,7 @@ describe("registered tool approvals", () => {
         await executeRegisteredToolAction(
           input({
             toolName: "execute_tool_action",
-            args: { approvalToken: result(startFailurePrepared).approvalToken },
+            args: executionArgs(startFailurePrepared),
             registry: registry(),
             clients: clients(),
             currentTimeMillis: 2
@@ -471,7 +522,7 @@ describe("registered tool approvals", () => {
     const response = await executeRegisteredToolAction(
       input({
         toolName: "execute_tool_action",
-        args: { approvalToken: result(prepared).approvalToken },
+        args: executionArgs(prepared),
         registry: target,
         clients: clients(),
         currentTimeMillis: 2
@@ -507,7 +558,7 @@ describe("registered tool approvals", () => {
     const executed = await handleProxyToolCall(
       input({
         toolName: "execute_tool_action",
-        args: { approvalToken: result(prepared).approvalToken },
+        args: executionArgs(prepared),
         proxyCandidateRegistry: target,
         clients: clients(),
         currentTimeMillis: 101
@@ -543,7 +594,7 @@ describe("registered tool approvals", () => {
         await handleProxyToolCall(
           input({
             toolName: "execute_tool_action",
-            args: { approvalToken: "missing" },
+            args: { approvalId: "missing", toolName: "delete_widget", arguments: {} },
             proxyCandidateRegistry: target,
             clients: clients()
           })
@@ -555,7 +606,7 @@ describe("registered tool approvals", () => {
         await handleProxyToolCall(
           input({
             toolName: "execute_tool_action",
-            args: { approvalToken: "missing" },
+            args: { approvalId: "missing", toolName: "delete_widget", arguments: {} },
             proxyCandidateRegistry: target,
             currentTimeMillis: 100
           })

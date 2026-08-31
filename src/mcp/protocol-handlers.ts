@@ -129,7 +129,7 @@ export const liveNowClock: NowClock = { currentTimeMillis: () => Effect.runSync(
 const nativeApprovalError = (tool: ToolDefinition, name: string): McpToolResponse | undefined =>
   requiresTwoStepApproval(tool) && name !== "execute_huly_action"
     ? createInvalidParamsError(
-        `Tool '${name}' requires two-step approval. In proxy mode call prepare_tool_action with this exact toolName and arguments, then execute_tool_action with the returned token.`,
+        `Tool '${name}' requires two-step approval. In proxy mode call prepare_tool_action with this exact toolName and arguments, then pass its approvalId, toolName, and arguments to execute_tool_action.`,
         "ApprovalRequired"
       )
     : undefined

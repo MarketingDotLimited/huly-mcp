@@ -1855,7 +1855,10 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
       }
     })
     const execute = await handlers.callTool({
-      params: { name: "execute_tool_action", arguments: { approvalToken: "missing-token" } }
+      params: {
+        name: "execute_tool_action",
+        arguments: { approvalId: "missing-approval", toolName: "delete_issue", arguments: {} }
+      }
     })
 
     expect(prepare.isError).toBe(true)

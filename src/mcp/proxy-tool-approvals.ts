@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import { appendFile, mkdir } from "node:fs/promises"
 import { dirname } from "node:path"
 import type { ToolAnnotations } from "@modelcontextprotocol/server"
@@ -19,18 +19,22 @@ import { ToolDescription, type ToolDefinition, ToolName } from "./tools/registry
 
 const MINUTES_PER_APPROVAL = 5
 const MILLISECONDS_PER_MINUTE = 60_000
-const TOKEN_BYTES = 32
 const TOOL_APPROVAL_TTL_MS = MINUTES_PER_APPROVAL * MILLISECONDS_PER_MINUTE
 
 export const PrepareToolActionParamsSchema = Schema.Struct({
   toolName: ToolName,
   arguments: Schema.optionalKey(Schema.Unknown)
 })
-export const ExecuteToolActionParamsSchema = Schema.Struct({ approvalToken: ToolName })
+export const ExecuteToolActionParamsSchema = Schema.Struct({
+  approvalId: ToolName,
+  toolName: ToolName,
+  arguments: Schema.Unknown
+})
 export const PrepareToolActionResultSchema = Schema.Struct({
-  approvalToken: ToolName,
+  approvalId: ToolName,
   expiresAt: Schema.Number,
   toolName: ToolName,
+  arguments: Schema.Unknown,
   argumentsHash: ToolName,
   warning: ToolDescription
 })
@@ -55,9 +59,18 @@ export const executeToolActionInputSchema = {
   $schema: "http://json-schema.org/draft-07/schema#",
   type: "object",
   properties: {
-    approvalToken: { type: "string", minLength: 1, description: "Single-use token from prepare_tool_action." }
+    approvalId: {
+      type: "string",
+      minLength: 1,
+      description: "Single-use approval record identifier from prepare_tool_action. This is not a credential."
+    },
+    toolName: { type: "string", minLength: 1, description: "Exact target tool name returned by prepare_tool_action." },
+    arguments: {
+      description:
+        "Exact target arguments returned by prepare_tool_action. The server rejects any change from the prepared action."
+    }
   },
-  required: ["approvalToken"],
+  required: ["approvalId", "toolName", "arguments"],
   additionalProperties: false
 } satisfies ToolDefinition["inputSchema"]
 
@@ -93,6 +106,7 @@ const preparedToolActions = new Map<string, PreparedToolAction>()
 const DeferredToolArgumentsJsonSchema = Schema.fromJsonString(Schema.Unknown)
 
 const normalizeArguments = (value: unknown): unknown => {
+  if (value === undefined) return {}
   if (typeof value !== "string") return value
   const decoded = Schema.decodeUnknownResult(DeferredToolArgumentsJsonSchema)(value)
   return Result.isSuccess(decoded) ? decoded.success : value
@@ -112,7 +126,7 @@ const canonicalize = (value: unknown): unknown =>
 const argumentsHash = (args: unknown): ToolName =>
   ToolName.make(
     createHash("sha256")
-      .update(JSON.stringify(canonicalize(args ?? {})))
+      .update(JSON.stringify(canonicalize(normalizeArguments(args))))
       .digest("hex")
   )
 
@@ -182,6 +196,9 @@ const consumeApproval = (input: InitializedApprovalInput, token: string): Consum
   return { _tag: "Success", prepared }
 }
 
+const matchesPreparedAction = (prepared: PreparedToolAction, toolName: ToolName, args: unknown): boolean =>
+  prepared.toolName === toolName && prepared.argumentsHash === argumentsHash(args)
+
 const auditExecution = (
   prepared: PreparedToolAction,
   timestamp: number,
@@ -237,7 +254,7 @@ export const prepareRegisteredToolAction = async (input: ApprovalInput): Promise
       "ApprovalNotRequired"
     )
   }
-  const token = randomBytes(TOKEN_BYTES).toString("base64url")
+  const approvalId = `approval_${randomUUID()}`
   const normalized = normalizeArguments(decoded.success.arguments)
   const hash = argumentsHash(normalized)
   const expiresAt = input.currentTimeMillis + TOOL_APPROVAL_TTL_MS
@@ -253,7 +270,7 @@ export const prepareRegisteredToolAction = async (input: ApprovalInput): Promise
   if (!audited) {
     return createInvalidParamsError("Mutation audit log is unavailable; approval was not created.", "AuditUnavailable")
   }
-  preparedToolActions.set(token, {
+  preparedToolActions.set(approvalId, {
     accountUuid,
     args: normalized,
     argumentsHash: hash,
@@ -261,9 +278,10 @@ export const prepareRegisteredToolAction = async (input: ApprovalInput): Promise
     toolName: decoded.success.toolName
   })
   return createSuccessResponse({
-    approvalToken: ToolName.make(token),
+    approvalId: ToolName.make(approvalId),
     expiresAt,
     toolName: decoded.success.toolName,
+    arguments: normalized,
     argumentsHash: hash,
     warning: ToolDescription.make(
       "Review the target and exact arguments. The next step executes a potentially irreversible action."
@@ -278,8 +296,14 @@ export const executeRegisteredToolAction = async (input: ApprovalInput): Promise
   const decoded = Schema.decodeUnknownResult(ExecuteToolActionParamsSchema)(input.args ?? {})
   if (Result.isFailure(decoded)) return mapParseErrorToMcp(decoded.failure, input.toolName)
   const initialized = { ...input, clients: input.clients, currentTimeMillis: input.currentTimeMillis }
-  const consumed = consumeApproval(initialized, decoded.success.approvalToken)
+  const consumed = consumeApproval(initialized, decoded.success.approvalId)
   if (consumed._tag === "Failure") return consumed.response
+  if (!matchesPreparedAction(consumed.prepared, decoded.success.toolName, decoded.success.arguments)) {
+    return createInvalidParamsError(
+      "The tool name or arguments do not match the prepared action. Prepare the exact action again.",
+      "ApprovalMismatch"
+    )
+  }
   return executePreparedAction(initialized, consumed.prepared)
 }
 

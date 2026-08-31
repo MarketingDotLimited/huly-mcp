@@ -236,7 +236,7 @@ export const proxyToolDefinitions: ReadonlyArray<ToolDefinition> = [
   createToolDefinition({
     name: PREPARE_TOOL_ACTION_TOOL_NAME,
     description:
-      "Preview and bind the exact arguments for a destructive or high-impact registered Huly tool. Performs no mutation and returns a five-minute single-use token.",
+      "Previews and binds the exact arguments for a destructive or high-impact Huly tool. Performs no mutation and returns a five-minute single-use approval ID together with the inspectable tool name and arguments required by execute_tool_action.",
     inputSchema: prepareToolActionInputSchema,
     outputSchema: createToolOutputSchema(PrepareToolActionResultSchema),
     category: PROXY_TOOL_CATEGORY,
@@ -245,7 +245,7 @@ export const proxyToolDefinitions: ReadonlyArray<ToolDefinition> = [
   createToolDefinition({
     name: EXECUTE_TOOL_ACTION_TOOL_NAME,
     description:
-      "Execute exactly one destructive or high-impact registered Huly tool previously previewed with prepare_tool_action. Tokens expire after five minutes and cannot be replayed.",
+      "Executes exactly one destructive or high-impact Huly action previously previewed with prepare_tool_action. Pass the returned approvalId, toolName, and exact arguments so the action and target remain inspectable before confirmation. Approval IDs expire after five minutes and cannot be replayed.",
     inputSchema: executeToolActionInputSchema,
     outputSchema: createToolOutputSchema(InvokeToolResultSchema),
     category: PROXY_TOOL_CATEGORY,
@@ -376,7 +376,7 @@ const invokeTool = async (
   if (policyError !== undefined) return policyError
   if (requiresTwoStepApproval(target)) {
     return createInvalidParamsError(
-      `Tool '${params.toolName}' requires two-step approval. Call prepare_tool_action with this exact toolName and arguments, then execute_tool_action with the returned token.`,
+      `Tool '${params.toolName}' requires two-step approval. Call prepare_tool_action with this exact toolName and arguments, then pass its approvalId, toolName, and arguments to execute_tool_action.`,
       "ApprovalRequired"
     )
   }
