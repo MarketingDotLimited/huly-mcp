@@ -9,7 +9,12 @@ import {
   type Space,
   toFindResult
 } from "@hcengineering/core"
-import type { Document as HulyDocument, Teamspace as HulyTeamspace } from "@hcengineering/document"
+import type {
+  Document as HulyDocument,
+  SavedDocument as HulySavedDocument,
+  Teamspace as HulyTeamspace
+} from "@hcengineering/document"
+import type { Preference as HulyPreference } from "@hcengineering/preference"
 import type { Issue as HulyIssue, Project as HulyProject } from "@hcengineering/tracker"
 import { Effect, Schema } from "effect"
 import { expect } from "vitest"
@@ -37,10 +42,11 @@ import {
   listTeamspaces,
   updateTeamspace
 } from "../../../src/huly/operations/documents.js"
+import { listSavedDocuments, saveDocument, unsaveDocument } from "../../../src/huly/operations/documents-saved.js"
 import { documentIdentifier, teamspaceIdentifier } from "../../helpers/brands.js"
 import { editDocumentParams } from "../../helpers/parsed-params.js"
 
-import { contact, core, documentPlugin, tracker } from "../../../src/huly/huly-plugins.js"
+import { contact, core, documentPlugin, preference, tracker } from "../../../src/huly/huly-plugins.js"
 
 const editDocument = (input: Parameters<typeof editDocumentParams>[0]) =>
   editDocumentOperation(editDocumentParams(input))
@@ -93,6 +99,32 @@ const makeDocument = (overrides?: Partial<HulyDocument>): HulyDocument => {
   return result
 }
 
+const makeSavedDocument = (overrides?: Partial<HulySavedDocument>): HulySavedDocument =>
+  ({
+    _id: "saved-1" as Ref<HulySavedDocument>,
+    _class: documentPlugin.class.SavedDocument,
+    space: "space-1" as Ref<Space>,
+    attachedTo: "doc-1" as Ref<HulyDocument>,
+    modifiedBy: "user-1" as PersonId,
+    modifiedOn: 0,
+    createdBy: "user-1" as PersonId,
+    createdOn: 0,
+    ...overrides
+  }) as HulySavedDocument
+
+const makePreference = (overrides?: Partial<HulyPreference>): HulyPreference =>
+  ({
+    _id: "preference-1" as Ref<HulyPreference>,
+    _class: preference.class.Preference,
+    space: "space-1" as Ref<Space>,
+    attachedTo: "doc-1",
+    modifiedBy: "user-1" as PersonId,
+    modifiedOn: 0,
+    createdBy: "user-1" as PersonId,
+    createdOn: 0,
+    ...overrides
+  }) as HulyPreference
+
 const makeBlob = (overrides?: Partial<Blob>): Blob => ({
   _id: "blob-1" as Ref<Blob>,
   _class: core.class.Blob,
@@ -118,10 +150,14 @@ interface MockConfig {
   projects?: Array<HulyProject>
   issues?: Array<HulyIssue>
   persons?: Array<HulyPerson>
+  savedDocuments?: Array<HulySavedDocument>
+  savedPreferences?: Array<HulyPreference>
+  savedDocumentClassMissing?: boolean
+  savedDocumentError?: HulyConnectionError
   markupContent?: Record<string, string | undefined>
   fetchMarkupError?: HulyConnectionError
   captureDocumentQuery?: { query?: Record<string, unknown>; options?: Record<string, unknown> }
-  captureCreateDoc?: { attributes?: Record<string, unknown>; id?: string }
+  captureCreateDoc?: { class?: unknown; attributes?: Record<string, unknown>; id?: string }
   captureUpdateDoc?: { operations?: Record<string, unknown> }
   captureUploadMarkup?: { markup?: string; format?: string }
   captureUpdateMarkup?: { markup?: string; format?: string }
@@ -135,6 +171,8 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const projects = config.projects ?? []
   const issues = config.issues ?? []
   const persons = config.persons ?? []
+  const savedDocuments = config.savedDocuments ?? []
+  const savedPreferences = config.savedPreferences ?? []
 
   const findAllImpl: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown, options: unknown) => {
     if (_class === documentPlugin.class.Teamspace) {
@@ -151,7 +189,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
         config.captureDocumentQuery.options = options as Record<string, unknown>
       }
       const q = query as Record<string, unknown>
-      let filtered = documents.filter((d) => d.space === q.space)
+      let filtered = q.space === undefined ? [...documents] : documents.filter((d) => d.space === q.space)
       if (typeof q.title === "string") {
         filtered = filtered.filter((d) => d.title === q.title)
       }
@@ -169,6 +207,16 @@ const createTestLayerWithMocks = (config: MockConfig) => {
         filtered = filtered.sort((a, b) => direction * a.rank.localeCompare(b.rank))
       }
       return Effect.succeed(toFindResult(filtered as Array<Doc>))
+    }
+    if (_class === documentPlugin.class.SavedDocument) {
+      if (config.savedDocumentError !== undefined) return Effect.fail(config.savedDocumentError)
+      if (config.savedDocumentClassMissing === true) {
+        return Effect.fail(new HulyConnectionError({ message: "findAll failed: Not Found" }))
+      }
+      return Effect.succeed(toFindResult(savedDocuments as Array<Doc>))
+    }
+    if (_class === preference.class.Preference) {
+      return Effect.succeed(toFindResult(savedPreferences as Array<Doc>))
     }
     if (_class === contact.class.Person) {
       const q = query as Record<string, unknown>
@@ -195,9 +243,22 @@ const createTestLayerWithMocks = (config: MockConfig) => {
         (d) =>
           (q.space && q.title && d.space === q.space && d.title === q.title) ||
           (q.space && q._id && d.space === q.space && d._id === q._id) ||
+          (!q.space && q._id && d._id === q._id) ||
           (q.space && !q.title && !q._id && d.space === q.space)
       )
       return Effect.succeed(found)
+    }
+    if (_class === documentPlugin.class.SavedDocument) {
+      if (config.savedDocumentError !== undefined) return Effect.fail(config.savedDocumentError)
+      if (config.savedDocumentClassMissing === true) {
+        return Effect.fail(new HulyConnectionError({ message: "findOne failed: Not Found" }))
+      }
+      const q = query as Record<string, unknown>
+      return Effect.succeed(savedDocuments.find((saved) => saved.attachedTo === q.attachedTo))
+    }
+    if (_class === preference.class.Preference) {
+      const q = query as Record<string, unknown>
+      return Effect.succeed(savedPreferences.find((saved) => saved.attachedTo === q.attachedTo))
     }
     if (_class === core.class.Blob) {
       const q = query as Record<string, unknown>
@@ -253,6 +314,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     id?: unknown
   ) => {
     if (config.captureCreateDoc) {
+      config.captureCreateDoc.class = _class
       config.captureCreateDoc.attributes = attributes as Record<string, unknown>
       config.captureCreateDoc.id = id as string
     }
@@ -328,6 +390,191 @@ const expectMarkupParagraphText = (markup: string | undefined, text: string): vo
 }
 
 // --- Tests ---
+
+describe("saved documents", () => {
+  const teamspace = makeTeamspace({ _id: "teamspace-1" as Ref<HulyTeamspace>, name: "My Documents" })
+  const document = makeDocument({
+    _id: "doc-1" as Ref<HulyDocument>,
+    title: "Design Notes",
+    space: teamspace._id,
+    modifiedOn: 1_700_000_000_000
+  })
+  const params = { teamspace: teamspaceIdentifier("My Documents"), document: documentIdentifier("Design Notes") }
+
+  it.effect("creates a saved document and returns an existing bookmark idempotently", () =>
+    Effect.gen(function* () {
+      const captureCreateDoc: MockConfig["captureCreateDoc"] = {}
+      const created = yield* saveDocument(params).pipe(
+        Effect.provide(createTestLayerWithMocks({ teamspaces: [teamspace], documents: [document], captureCreateDoc }))
+      )
+      expect(created.created).toBe(true)
+      expect(created.documentId).toBe("doc-1")
+      expect(captureCreateDoc.class).toBe(documentPlugin.class.SavedDocument)
+      expect(captureCreateDoc.attributes).toEqual({ attachedTo: "doc-1" })
+
+      const existing = makeSavedDocument({ _id: "saved-existing" as Ref<HulySavedDocument> })
+      const duplicate = yield* saveDocument(params).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({ teamspaces: [teamspace], documents: [document], savedDocuments: [existing] })
+        )
+      )
+      expect(duplicate).toEqual({ savedId: "saved-existing", documentId: "doc-1", created: false })
+    })
+  )
+
+  it.effect("removes existing bookmarks and treats missing bookmarks idempotently", () =>
+    Effect.gen(function* () {
+      const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
+      const removed = yield* unsaveDocument(params).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({
+            teamspaces: [teamspace],
+            documents: [document],
+            savedDocuments: [makeSavedDocument()],
+            captureRemoveDoc
+          })
+        )
+      )
+      expect(removed).toEqual({ documentId: "doc-1", removed: true })
+      expect(captureRemoveDoc.id).toBe("saved-1")
+
+      const missing = yield* unsaveDocument(params).pipe(
+        Effect.provide(createTestLayerWithMocks({ teamspaces: [teamspace], documents: [document] }))
+      )
+      expect(missing).toEqual({ documentId: "doc-1", removed: false })
+    })
+  )
+
+  it.effect("lists hydrated bookmarks and omits stale references", () =>
+    Effect.gen(function* () {
+      const result = yield* listSavedDocuments({ limit: 10 }).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({
+            teamspaces: [teamspace],
+            documents: [document],
+            savedDocuments: [
+              makeSavedDocument(),
+              makeSavedDocument({
+                _id: "saved-stale" as Ref<HulySavedDocument>,
+                attachedTo: "missing-doc" as Ref<HulyDocument>
+              })
+            ]
+          })
+        )
+      )
+
+      expect(result.total).toBe(1)
+      expect(result.documents).toEqual([
+        expect.objectContaining({
+          savedId: "saved-1",
+          documentId: "doc-1",
+          title: "Design Notes",
+          teamspace: "My Documents",
+          modifiedOn: 1_700_000_000_000
+        })
+      ])
+    })
+  )
+
+  it.effect("uses base preferences when the workspace model lacks SavedDocument", () =>
+    Effect.gen(function* () {
+      const fallback = makePreference()
+      const existing = yield* saveDocument(params).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({
+            teamspaces: [teamspace],
+            documents: [document],
+            savedPreferences: [fallback],
+            savedDocumentClassMissing: true
+          })
+        )
+      )
+      expect(existing).toEqual({ savedId: "preference-1", documentId: "doc-1", created: false })
+
+      const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
+      const removed = yield* unsaveDocument(params).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({
+            teamspaces: [teamspace],
+            documents: [document],
+            savedPreferences: [fallback],
+            savedDocumentClassMissing: true,
+            captureRemoveDoc
+          })
+        )
+      )
+      expect(removed.removed).toBe(true)
+      expect(captureRemoveDoc.id).toBe("preference-1")
+
+      const captureCreateDoc: MockConfig["captureCreateDoc"] = {}
+      const created = yield* saveDocument(params).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({
+            teamspaces: [teamspace],
+            documents: [document],
+            savedDocumentClassMissing: true,
+            captureCreateDoc
+          })
+        )
+      )
+      expect(created.created).toBe(true)
+      expect(captureCreateDoc.class).toBe(preference.class.Preference)
+
+      const listed = yield* listSavedDocuments({}).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({
+            teamspaces: [teamspace],
+            documents: [document],
+            savedPreferences: [fallback],
+            savedDocumentClassMissing: true
+          })
+        )
+      )
+      expect(listed.total).toBe(1)
+    })
+  )
+
+  it.effect("omits unavailable teamspaces and absent modification timestamps", () =>
+    Effect.gen(function* () {
+      const withoutTimestamp = makeDocument({ ...document })
+      // Runtime documents from older workspaces may omit this SDK-required field.
+      Reflect.deleteProperty(withoutTimestamp, "modifiedOn")
+      const visible = yield* listSavedDocuments({ limit: 1 }).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({
+            teamspaces: [teamspace],
+            documents: [withoutTimestamp],
+            savedDocuments: [makeSavedDocument()]
+          })
+        )
+      )
+      expect(visible.documents[0]).not.toHaveProperty("modifiedOn")
+
+      const unavailable = yield* listSavedDocuments({ limit: 1 }).pipe(
+        Effect.provide(createTestLayerWithMocks({ documents: [document], savedDocuments: [makeSavedDocument()] }))
+      )
+      expect(unavailable).toEqual({ documents: [], total: 0 })
+    })
+  )
+
+  it.effect("preserves non-model connection failures", () =>
+    Effect.gen(function* () {
+      const error = new HulyConnectionError({ message: "Network unavailable" })
+      const saveFailure = yield* Effect.flip(
+        saveDocument(params).pipe(
+          Effect.provide(
+            createTestLayerWithMocks({ teamspaces: [teamspace], documents: [document], savedDocumentError: error })
+          )
+        )
+      )
+      const listFailure = yield* Effect.flip(
+        listSavedDocuments({}).pipe(Effect.provide(createTestLayerWithMocks({ savedDocumentError: error })))
+      )
+      expect(saveFailure).toBe(error)
+      expect(listFailure).toBe(error)
+    })
+  )
+})
 
 describe("listTeamspaces", () => {
   describe("basic functionality", () => {
