@@ -96,6 +96,9 @@ export type CardSpaceId = Schema.Schema.Type<typeof CardSpaceId>
 export const DocumentId = HulyRef("DocumentId")
 export type DocumentId = Schema.Schema.Type<typeof DocumentId>
 
+export const SavedDocumentId = HulyRef("SavedDocumentId")
+export type SavedDocumentId = Schema.Schema.Type<typeof SavedDocumentId>
+
 export const MasterTagId = HulyRef("MasterTagId")
 export type MasterTagId = Schema.Schema.Type<typeof MasterTagId>
 

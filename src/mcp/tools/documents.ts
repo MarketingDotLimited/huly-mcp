@@ -8,6 +8,7 @@ import {
   getDocumentParamsJsonSchema,
   getTeamspaceParamsJsonSchema,
   listDocumentsParamsJsonSchema,
+  listSavedDocumentsParamsJsonSchema,
   listInlineCommentsParamsJsonSchema,
   listTeamspacesParamsJsonSchema,
   parseCreateDocumentParams,
@@ -18,8 +19,13 @@ import {
   parseGetDocumentParams,
   parseGetTeamspaceParams,
   parseListDocumentsParams,
+  parseListSavedDocumentsParams,
   parseListInlineCommentsParams,
   parseListTeamspacesParams,
+  parseSaveDocumentParams,
+  parseUnsaveDocumentParams,
+  saveDocumentParamsJsonSchema,
+  unsaveDocumentParamsJsonSchema,
   parseUpdateTeamspaceParams,
   updateTeamspaceParamsJsonSchema
 } from "../../domain/schemas.js"
@@ -37,6 +43,11 @@ import {
   UpdateTeamspaceResultSchema
 } from "../../domain/schemas/documents.js"
 import {
+  ListSavedDocumentsResultSchema,
+  SaveDocumentResultSchema,
+  UnsaveDocumentResultSchema
+} from "../../domain/schemas/documents-saved.js"
+import {
   createDocument,
   createTeamspace,
   deleteDocument,
@@ -49,6 +60,7 @@ import {
   listTeamspaces,
   updateTeamspace
 } from "../../huly/operations/documents.js"
+import { listSavedDocuments, saveDocument, unsaveDocument } from "../../huly/operations/documents-saved.js"
 import { defineTool, type RegisteredTool } from "./registry.js"
 
 const CATEGORY = "documents" as const
@@ -176,6 +188,41 @@ export const documentTools = [
     },
     parseListInlineCommentsParams,
     listInlineComments
+  ),
+  defineTool(
+    {
+      name: "save_document",
+      description: "Save or bookmark a Huly document for the current user. Idempotent when already saved.",
+      category: CATEGORY,
+      inputSchema: saveDocumentParamsJsonSchema,
+      resultSchema: SaveDocumentResultSchema,
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+    },
+    parseSaveDocumentParams,
+    saveDocument
+  ),
+  defineTool(
+    {
+      name: "unsave_document",
+      description: "Remove a Huly document from the current user's saved bookmarks. Idempotent when not saved.",
+      category: CATEGORY,
+      inputSchema: unsaveDocumentParamsJsonSchema,
+      resultSchema: UnsaveDocumentResultSchema,
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false }
+    },
+    parseUnsaveDocumentParams,
+    unsaveDocument
+  ),
+  defineTool(
+    {
+      name: "list_saved_documents",
+      description: "List documents saved or bookmarked by the current user.",
+      category: CATEGORY,
+      inputSchema: listSavedDocumentsParamsJsonSchema,
+      resultSchema: ListSavedDocumentsResultSchema
+    },
+    parseListSavedDocumentsParams,
+    listSavedDocuments
   ),
   defineTool(
     {

@@ -163,6 +163,14 @@ export const cliCommandCatalog = {
     positional: [],
     description: "List document inline comments"
   },
+  save_document: { path: ["documents", "save"], positional: ["teamspace", "document"], description: "Save a document" },
+  unsave_document: {
+    path: ["documents", "unsave"],
+    positional: ["teamspace", "document"],
+    description: "Remove a saved document",
+    behavior: { confirmation: { type: "requires-yes", message: "documents unsave requires --yes." } }
+  },
+  list_saved_documents: { path: ["documents", "saved", "list"], positional: [], description: "List saved documents" },
   list_teamspaces: { path: ["teamspaces", "list"], positional: [], description: "List teamspaces" },
   get_teamspace: { path: ["teamspaces", "get"], positional: ["teamspace"], description: "Get a teamspace" },
   list_labels: { path: ["labels", "list"], positional: [], description: "List labels" },

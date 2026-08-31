@@ -97,6 +97,7 @@ export {
   RoleId,
   RoomName,
   SavedAttachmentId,
+  SavedDocumentId,
   SavedMessageId,
   SessionId,
   SpaceClassFilter,
@@ -1385,6 +1386,29 @@ export {
   UpdateTeamspaceParamsSchema,
   type UpdateTeamspaceResult
 } from "./documents.js"
+
+export {
+  type ListSavedDocumentsParams,
+  listSavedDocumentsParamsJsonSchema,
+  ListSavedDocumentsParamsSchema,
+  type ListSavedDocumentsResult,
+  ListSavedDocumentsResultSchema,
+  parseListSavedDocumentsParams,
+  parseSaveDocumentParams,
+  parseUnsaveDocumentParams,
+  type SavedDocumentSummary,
+  SavedDocumentWireSchema,
+  type SaveDocumentParams,
+  saveDocumentParamsJsonSchema,
+  SaveDocumentParamsSchema,
+  type SaveDocumentResult,
+  SaveDocumentResultSchema,
+  type UnsaveDocumentParams,
+  unsaveDocumentParamsJsonSchema,
+  UnsaveDocumentParamsSchema,
+  type UnsaveDocumentResult,
+  UnsaveDocumentResultSchema
+} from "./documents-saved.js"
 
 export {
   parseUploadFileParams,
