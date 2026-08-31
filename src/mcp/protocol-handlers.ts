@@ -46,10 +46,12 @@ import {
   toListedTool
 } from "./protocol-tool-exposure.js"
 import {
+  EXECUTE_TOOL_ACTION_TOOL_NAME,
   handleProxyToolCall,
   INVOKE_TOOL_TOOL_NAME,
   InvokeToolParamsSchema,
   isProxyToolName,
+  PREPARE_TOOL_ACTION_TOOL_NAME,
   proxyToolDefinitions
 } from "./proxy-tools.js"
 import { requiresTwoStepApproval } from "./proxy-tool-approvals.js"
@@ -186,7 +188,11 @@ const resolveProxyClients = (
   toolName: NonNullable<ReturnType<typeof parseToolName>>,
   resolveClients: ClientResolver
 ): Promise<ClientResolution | undefined> =>
-  toolName === INVOKE_TOOL_TOOL_NAME ? resolveClientBundle(resolveClients) : Promise.resolve(undefined)
+  toolName === INVOKE_TOOL_TOOL_NAME ||
+  toolName === PREPARE_TOOL_ACTION_TOOL_NAME ||
+  toolName === EXECUTE_TOOL_ACTION_TOOL_NAME
+    ? resolveClientBundle(resolveClients)
+    : Promise.resolve(undefined)
 
 const responseStatus = (response: McpToolResponse): "error" | "success" =>
   response.isError === true ? "error" : "success"

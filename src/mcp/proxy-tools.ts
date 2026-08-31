@@ -49,8 +49,8 @@ const LIST_TOOL_CATEGORIES_TOOL_NAME = ToolName.make("list_tool_categories")
 const SEARCH_TOOLS_TOOL_NAME = ToolName.make("search_tools")
 const GET_TOOL_SCHEMA_TOOL_NAME = ToolName.make("get_tool_schema")
 export const INVOKE_TOOL_TOOL_NAME = ToolName.make("invoke_tool")
-const PREPARE_TOOL_ACTION_TOOL_NAME = ToolName.make("prepare_tool_action")
-const EXECUTE_TOOL_ACTION_TOOL_NAME = ToolName.make("execute_tool_action")
+export const PREPARE_TOOL_ACTION_TOOL_NAME = ToolName.make("prepare_tool_action")
+export const EXECUTE_TOOL_ACTION_TOOL_NAME = ToolName.make("execute_tool_action")
 const PROXY_TOOL_CATEGORY = makeToolCategory("proxy")
 
 export const PROXY_TOOL_NAMES: ReadonlyArray<ToolName> = [

@@ -1714,6 +1714,33 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     expect(probe.toolCalled.map((call) => call.status)).toEqual(["error", "error"])
   })
 
+  it("resolves Huly clients for both proxy approval steps", async () => {
+    const handlers = createMcpProtocolHandlers(
+      buildStubClients(),
+      createTelemetryProbe().telemetry,
+      protocolRegistries(diagnosticProbeRegistry),
+      makeValidContext,
+      liveNowClock,
+      () => Promise.resolve("0.0.0"),
+      proxyExposureOptions()
+    )
+
+    const prepare = await handlers.callTool({
+      params: {
+        name: "prepare_tool_action",
+        arguments: { toolName: "diagnostic_probe", arguments: { subject: "approval probe" } }
+      }
+    })
+    const execute = await handlers.callTool({
+      params: { name: "execute_tool_action", arguments: { approvalToken: "missing-token" } }
+    })
+
+    expect(prepare.isError).toBe(true)
+    expect(firstText(prepare.content)).toContain("does not require two-step approval")
+    expect(execute.isError).toBe(true)
+    expect(firstText(execute.content)).not.toContain("requires initialized Huly clients")
+  })
+
   it("maps an Exit-valued proxy client failure without exposing its detail", async () => {
     const handlers = createMcpProtocolHandlers(
       failedClientResolution,
