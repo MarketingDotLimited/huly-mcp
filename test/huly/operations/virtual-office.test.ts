@@ -203,6 +203,23 @@ describe("virtual office operations", () => {
     })
   )
 
+  it.effect("omits the empty floor reference used by Huly's built-in reception room", () =>
+    Effect.gen(function* () {
+      const rooms = yield* listOfficeRooms({}).pipe(
+        Effect.provide(
+          makeLayer({
+            rooms: [
+              makeRoom({ _id: "room-empty-floor" as Ref<Room>, floor: "" as Ref<Floor> }),
+              makeRoom({ _id: "room-missing-floor" as Ref<Room>, floor: undefined })
+            ]
+          })
+        )
+      )
+
+      expect(rooms.map((room) => room.floorId)).toEqual([undefined, undefined])
+    })
+  )
+
   it.effect("gets a floor and maps alternate room enum values", () =>
     Effect.gen(function* () {
       const floor = yield* getOfficeFloor({ floorId: floorId("floor-1") }).pipe(Effect.provide(makeLayer()))

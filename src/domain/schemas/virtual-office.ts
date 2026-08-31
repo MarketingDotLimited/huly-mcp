@@ -137,7 +137,7 @@ export const RoomSummarySchema = Schema.Struct({
   name: Schema.optional(RoomName),
   type: RoomTypeSchema,
   access: RoomAccessSchema,
-  floorId: FloorId,
+  floorId: Schema.optional(FloorId),
   position: Schema.Struct({
     x: VirtualOfficeCoordinate,
     y: VirtualOfficeCoordinate,

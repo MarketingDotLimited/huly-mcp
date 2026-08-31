@@ -3,8 +3,8 @@
   "categories": [
     {
       "category": "draft07-structure",
-      "count": 12754,
-      "deltaSetSha256": "d9debbd147cb85251d7dfb58eec310a71ff5dd330826289eb25f0276084e6408",
+      "count": 12774,
+      "deltaSetSha256": "7d31a90d8d37248d57608a15d394e55ab5d8b12ce30a51b8a276be96ec00aefb",
       "issue": "#225",
       "rationale": "Reviewed Effect 4 Draft-07 structural dialect: refs, definitions, optional/null unions, refinements, and composition wrappers."
     },
@@ -45,5 +45,5 @@
     }
   ],
   "formatVersion": 1,
-  "reviewedCurrentSha256": "7823cc1ead0bac553a448afe240b28dbb2cee5efadb9f9687ccc4f832448f9ad"
+  "reviewedCurrentSha256": "c9fa1afaf4cf1c3a680406dd8dc84230b9abd56797a1ddee06ae24e3559fc514"
 }

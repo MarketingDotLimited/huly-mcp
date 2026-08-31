@@ -1,6 +1,7 @@
-import { Effect } from "effect"
+import { Effect, Result } from "effect"
 
 import { Count } from "../../domain/schemas/shared.js"
+import { StatusMetadataUnresolvedWarningCode } from "../../domain/schemas/tool-warnings.js"
 import type {
   ListStatusCategoriesResult,
   ListWorkflowStatusesResult,
@@ -14,6 +15,7 @@ import type {
   ListWorkflowStatusesParams
 } from "../../domain/schemas/workflow-statuses.js"
 import { HulyClient, type HulyClientError } from "../client.js"
+import { Diagnostics } from "../diagnostics.js"
 import { clampLimit } from "./query-helpers.js"
 import {
   loadWorkflowModel,
@@ -58,15 +60,27 @@ export const getWorkflowStatus = (
 
 export const listStatusCategories = (
   params: ListStatusCategoriesParams
-): Effect.Effect<ListStatusCategoriesResult, WorkflowReadError, HulyClient> =>
+): Effect.Effect<ListStatusCategoriesResult, HulyClientError | WorkflowResolverError, HulyClient | Diagnostics> =>
   Effect.gen(function* () {
     const client = yield* HulyClient
+    const diagnostics = yield* Diagnostics
     const model = yield* loadWorkflowModel(client)
     const attribute = yield* optionallyResolveWorkflowAttribute(model, params.ofAttribute)
     const matching = model.categories
       .filter((category) => attribute === undefined || category.ofAttribute === attribute._id)
       .slice(0, clampLimit(params.limit))
-    const categories = yield* Effect.all(matching.map((category) => statusCategorySummary(model, category)))
+    const categories: Array<GenericStatusCategorySummary> = []
+    for (const category of matching) {
+      const summary = yield* statusCategorySummary(model, category).pipe(Effect.result)
+      if (Result.isSuccess(summary)) {
+        categories.push(summary.success)
+        continue
+      }
+      yield* diagnostics.warnAgent({
+        code: StatusMetadataUnresolvedWarningCode,
+        message: `Skipped status category '${category.label}' (${category._id}) because its ${summary.failure.relationship} '${summary.failure.target}' could not be resolved.`
+      })
+    }
     return { categories, total: Count.make(categories.length) }
   })
 

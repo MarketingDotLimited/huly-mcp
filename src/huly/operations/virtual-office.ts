@@ -127,6 +127,11 @@ const optionalRoomName = (value: string | undefined): RoomName | undefined => {
   return trimmed === "" ? undefined : RoomName.make(trimmed)
 }
 
+const optionalFloorId = (value: string | undefined): FloorId | undefined => {
+  const trimmed = value?.trim() ?? ""
+  return trimmed === "" ? undefined : FloorId.make(trimmed)
+}
+
 const optionalPersonName = (value: string | undefined) => (value === undefined ? undefined : PersonName.make(value))
 
 const UNTITLED_FLOOR = FloorName.make("Untitled Floor")
@@ -148,7 +153,7 @@ const summarizeRoom = (room: Room): RoomSummary => ({
   name: optionalRoomName(room.name),
   type: roomTypeToString(room.type),
   access: roomAccessToString(room.access),
-  floorId: FloorId.make(room.floor),
+  floorId: optionalFloorId(room.floor),
   position: {
     x: VirtualOfficeCoordinate.make(room.x),
     y: VirtualOfficeCoordinate.make(room.y),

@@ -20,6 +20,7 @@ import { Effect, Result, Schema } from "effect"
 import { expect } from "vitest"
 
 import { HulyClient, type HulyClientError, type HulyClientOperations } from "../../../src/huly/client.js"
+import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
 import {
   HulyAttributeIdentifier,
   Integer,
@@ -243,13 +244,42 @@ describe("generic workflow status reads", () => {
 
   it.effect("lists categories with the default status and relationship count", () =>
     Effect.gen(function* () {
+      const diagnostics = yield* makeDiagnosticsScope
       const result = yield* listStatusCategories({
         ofAttribute: HulyAttributeIdentifier.make(issueAttribute._id)
-      }).pipe(Effect.provide(createWorkflowLayer(fixtures)))
+      }).pipe(Effect.provide(createWorkflowLayer(fixtures)), Effect.provideService(Diagnostics, diagnostics.service))
 
       expect(result.total).toBe(1)
       expect(assertAt(result.categories, 0).defaultStatus).toEqual({ statusId: "status-progress", name: "In Progress" })
       expect(assertAt(result.categories, 0).statusCount).toBe(1)
+    })
+  )
+
+  it.effect("skips malformed categories and warns instead of failing the entire list", () =>
+    Effect.gen(function* () {
+      const diagnostics = yield* makeDiagnosticsScope
+      const result = yield* listStatusCategories({}).pipe(
+        Effect.provide(
+          createWorkflowLayer({
+            ...fixtures,
+            categories: [
+              ...fixtures.categories,
+              makeCategory("category-invalid-default", "Invalid", issueAttribute._id, "Missing")
+            ]
+          })
+        ),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+      const warnings = yield* diagnostics.drainWarnings
+
+      expect(result.categories.map((category) => category.categoryId)).not.toContain("category-invalid-default")
+      expect(warnings).toEqual([
+        {
+          code: "status_metadata_unresolved",
+          message:
+            "Skipped status category 'Invalid' (category-invalid-default) because its default status 'Missing' could not be resolved."
+        }
+      ])
     })
   )
 
