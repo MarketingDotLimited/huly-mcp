@@ -22,7 +22,8 @@ import {
   NonEmptyString,
   PersonName,
   ThreadReplyId,
-  withAtLeastOneRequired
+  withAtLeastOneRequired,
+  withMutuallyExclusiveFields
 } from "./shared.js"
 export const ChannelSummarySchema = Schema.Struct({
   id: ChannelId,
@@ -270,7 +271,10 @@ export type DeleteThreadReplyParams = Schema.Schema.Type<typeof DeleteThreadRepl
 
 // --- JSON Schemas for MCP ---
 
-export const listChannelsParamsJsonSchema = toDraft07JsonSchema(ListChannelsParamsSchema)
+export const listChannelsParamsJsonSchema = withMutuallyExclusiveFields(toDraft07JsonSchema(ListChannelsParamsSchema), [
+  "nameSearch",
+  "nameRegex"
+])
 export const getChannelParamsJsonSchema = toDraft07JsonSchema(GetChannelParamsSchema)
 export const createChannelParamsJsonSchema = toDraft07JsonSchema(CreateChannelParamsSchema)
 export const updateChannelParamsJsonSchema = withAtLeastOneRequired(

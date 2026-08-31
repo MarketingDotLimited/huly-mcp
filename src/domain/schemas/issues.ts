@@ -3,6 +3,7 @@ import { Effect, Schema, SchemaGetter, SchemaIssue } from "effect"
 import { normalizeForComparison } from "../../utils/normalize.js"
 import { clearableText } from "./clearable.js"
 import { toDraft07JsonSchema } from "./json-schema.js"
+import { withListIssueCrossFieldConstraints } from "./issue-json-schema.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -430,7 +431,9 @@ export const MoveIssueParamsSchema = Schema.Struct({
 
 export type MoveIssueParams = Schema.Schema.Type<typeof MoveIssueParamsSchema>
 
-export const listIssuesParamsJsonSchema = toDraft07JsonSchema(ListIssuesParamsSchema)
+export const listIssuesParamsJsonSchema = withListIssueCrossFieldConstraints(
+  toDraft07JsonSchema(ListIssuesParamsSchema)
+)
 export const getIssueParamsJsonSchema = toDraft07JsonSchema(GetIssueParamsSchema)
 export const createIssueParamsJsonSchema = toDraft07JsonSchema(CreateIssueParamsSchema)
 export const updateIssueParamsJsonSchema = withAtLeastOneRequired(

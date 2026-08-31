@@ -1,7 +1,7 @@
 import { Schema } from "effect"
 
 import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
-import { BlobId, MimeType, NonEmptyString } from "./shared.js"
+import { BlobId, MimeType, NonEmptyString, withAtLeastOneRequired } from "./shared.js"
 import {
   UPLOAD_BASE64_DATA_DESCRIPTION,
   UPLOAD_FILE_PATH_DESCRIPTION,
@@ -38,9 +38,13 @@ export const UploadFileResultSchema = Schema.Struct({
 })
 export type UploadFileResult = Schema.Schema.Type<typeof UploadFileResultSchema>
 
-export const uploadFileParamsJsonSchema = withJsonSchemaPropertyDescriptions(
-  toDraft07JsonSchema(UploadFileParamsSchema),
-  { filePath: UPLOAD_FILE_PATH_DESCRIPTION, fileUrl: UPLOAD_FILE_URL_DESCRIPTION, data: UPLOAD_BASE64_DATA_DESCRIPTION }
+export const uploadFileParamsJsonSchema = withAtLeastOneRequired(
+  withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(UploadFileParamsSchema), {
+    filePath: UPLOAD_FILE_PATH_DESCRIPTION,
+    fileUrl: UPLOAD_FILE_URL_DESCRIPTION,
+    data: UPLOAD_BASE64_DATA_DESCRIPTION
+  }),
+  ["filePath", "fileUrl", "data"]
 )
 
 export const parseUploadFileParams = Schema.decodeUnknownEffect(UploadFileParamsSchema)

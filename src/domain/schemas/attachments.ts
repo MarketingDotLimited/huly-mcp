@@ -194,10 +194,12 @@ export type AddDocumentAttachmentParams = Schema.Schema.Type<typeof AddDocumentA
 
 export const listAttachmentsParamsJsonSchema = toDraft07JsonSchema(ListAttachmentsParamsSchema)
 export const getAttachmentParamsJsonSchema = toDraft07JsonSchema(GetAttachmentParamsSchema)
-export const addAttachmentParamsJsonSchema = withJsonSchemaPropertyDescriptions(
-  toDraft07JsonSchema(AddAttachmentParamsSchema),
-  ATTACHMENT_UPLOAD_FIELD_DESCRIPTIONS
-)
+const attachmentUploadJsonSchema = (schema: Schema.Constraint): object =>
+  withAtLeastOneRequired(
+    withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(schema), ATTACHMENT_UPLOAD_FIELD_DESCRIPTIONS),
+    ["filePath", "fileUrl", "data"]
+  )
+export const addAttachmentParamsJsonSchema = attachmentUploadJsonSchema(AddAttachmentParamsSchema)
 export const updateAttachmentParamsJsonSchema = withAtLeastOneRequired(
   toDraft07JsonSchema(UpdateAttachmentParamsSchema),
   UPDATE_ATTACHMENT_FIELDS
@@ -205,14 +207,8 @@ export const updateAttachmentParamsJsonSchema = withAtLeastOneRequired(
 export const deleteAttachmentParamsJsonSchema = toDraft07JsonSchema(DeleteAttachmentParamsSchema)
 export const pinAttachmentParamsJsonSchema = toDraft07JsonSchema(PinAttachmentParamsSchema)
 export const downloadAttachmentParamsJsonSchema = toDraft07JsonSchema(DownloadAttachmentParamsSchema)
-export const addIssueAttachmentParamsJsonSchema = withJsonSchemaPropertyDescriptions(
-  toDraft07JsonSchema(AddIssueAttachmentParamsSchema),
-  ATTACHMENT_UPLOAD_FIELD_DESCRIPTIONS
-)
-export const addDocumentAttachmentParamsJsonSchema = withJsonSchemaPropertyDescriptions(
-  toDraft07JsonSchema(AddDocumentAttachmentParamsSchema),
-  ATTACHMENT_UPLOAD_FIELD_DESCRIPTIONS
-)
+export const addIssueAttachmentParamsJsonSchema = attachmentUploadJsonSchema(AddIssueAttachmentParamsSchema)
+export const addDocumentAttachmentParamsJsonSchema = attachmentUploadJsonSchema(AddDocumentAttachmentParamsSchema)
 
 export const parseListAttachmentsParams = Schema.decodeUnknownEffect(ListAttachmentsParamsSchema)
 export const parseGetAttachmentParams = Schema.decodeUnknownEffect(GetAttachmentParamsSchema)

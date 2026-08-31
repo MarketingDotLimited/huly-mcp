@@ -18,7 +18,8 @@ import {
   PersonId,
   PersonName,
   UrlString,
-  withAtLeastOneRequired
+  withAtLeastOneRequired,
+  withMutuallyExclusiveFields
 } from "./shared.js"
 export const PersonSummarySchema = Schema.Struct({
   id: PersonId,
@@ -152,14 +153,14 @@ export const ListEmployeesParamsSchema = Schema.Struct({
 
 export type ListEmployeesParams = Schema.Schema.Type<typeof ListEmployeesParamsSchema>
 
-export const listPersonsParamsJsonSchema = withJsonSchemaPropertyDescriptions(
-  toDraft07JsonSchema(ListPersonsParamsSchema),
-  {
+export const listPersonsParamsJsonSchema = withMutuallyExclusiveFields(
+  withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(ListPersonsParamsSchema), {
     nameSearch: "Search persons by name substring (case-insensitive). Mutually exclusive with nameRegex.",
     nameRegex: "Filter persons by name using Huly $regex. Mutually exclusive with nameSearch.",
     emailSearch: "Search persons by email substring (case-insensitive)",
     limit: `Maximum number of persons to return (default: ${DEFAULT_LIMIT})`
-  }
+  }),
+  ["nameSearch", "nameRegex"]
 )
 export const getPersonParamsJsonSchema = withJsonSchemaUnionPropertyDescriptions(
   toDraft07JsonSchema(GetPersonParamsSchema),

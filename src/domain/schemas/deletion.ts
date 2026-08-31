@@ -53,15 +53,20 @@ export const DeletionImpactSchema = Schema.Struct({
 })
 export type DeletionImpact = Schema.Schema.Type<typeof DeletionImpactSchema>
 
-export const previewDeletionParamsJsonSchema = withJsonSchemaPropertyDescriptions(
-  toDraft07JsonSchema(PreviewDeletionParamsSchema),
-  {
+export const previewDeletionParamsJsonSchema = {
+  ...withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(PreviewDeletionParamsSchema), {
     entityType: `Type of entity: ${enumValuesDescription(EntityTypeValues)}.`,
     project: "Project identifier. For entityType=project, this is the target project.",
     identifier:
       "Entity identifier within the project. Required for issues, components, and milestones; ignored for projects."
-  }
-)
+  }),
+  allOf: [
+    {
+      if: { required: ["entityType"], properties: { entityType: { enum: ["issue", "component", "milestone"] } } },
+      then: { required: ["identifier"] }
+    }
+  ]
+}
 export const parsePreviewDeletionParams = Schema.decodeUnknownEffect(PreviewDeletionParamsSchema)
 
 export const PreviewDeletionResultSchema = DeletionImpactSchema

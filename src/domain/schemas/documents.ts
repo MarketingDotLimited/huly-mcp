@@ -17,7 +17,8 @@ import {
   TeamspaceId,
   TeamspaceIdentifier,
   UrlString,
-  withAtLeastOneRequired
+  withAtLeastOneRequired,
+  withMutuallyExclusiveFields
 } from "./shared.js"
 
 const DEFAULT_REPLACE_ALL = false
@@ -433,7 +434,10 @@ export const updateTeamspaceParamsJsonSchema = withAtLeastOneRequired(
   UPDATE_TEAMSPACE_FIELDS
 )
 export const deleteTeamspaceParamsJsonSchema = toDraft07JsonSchema(DeleteTeamspaceParamsSchema)
-export const listDocumentsParamsJsonSchema = toDraft07JsonSchema(ListDocumentsParamsSchema)
+export const listDocumentsParamsJsonSchema = withMutuallyExclusiveFields(
+  toDraft07JsonSchema(ListDocumentsParamsSchema),
+  ["titleSearch", "titleRegex"]
+)
 export const getDocumentParamsJsonSchema = toDraft07JsonSchema(GetDocumentParamsSchema)
 export const createDocumentParamsJsonSchema = toDraft07JsonSchema(CreateDocumentParamsSchema)
 const editDocumentGeneratedJsonSchema = toDraft07JsonSchema(EditDocumentParamsSchema)
