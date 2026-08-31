@@ -25,9 +25,9 @@
     {
       "category": "tool-inventory",
       "count": 6532,
-      "deltaSetSha256": "8eabbc3fb0426e16f214d59885d15cb33b759e524dab9f98844a1f1ad676edeb",
+      "deltaSetSha256": "8abd5bfd4ba38947a13b1b36e98d3a5990142cf66401cf8b970f5e196b77cee6",
       "issue": "#225",
-      "rationale": "Reviewed additions to the native, proxy, CLI, and bundled-process tool inventories."
+      "rationale": "Reviewed additions to the native, proxy, CLI, and bundled-process tool inventories, including enforced split-executor safety annotations."
     },
     {
       "category": "cli-json-diagnostic",
@@ -45,5 +45,5 @@
     }
   ],
   "formatVersion": 1,
-  "reviewedCurrentSha256": "a943d6ec4e3b03db6b8fb09e8231c049afdb36a2ad357ce675c732cd27c7a262"
+  "reviewedCurrentSha256": "88a4215e205744d26eb970e576007f4761cf44bc9ac55590baf668d554bfcff8"
 }
