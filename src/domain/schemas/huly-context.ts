@@ -119,6 +119,7 @@ const ToolExposureContextSchema = Schema.Struct({
     "cursor",
     "windsurf",
     "github-copilot",
+    "chatgpt",
     "codex",
     "opencode",
     "unknown"

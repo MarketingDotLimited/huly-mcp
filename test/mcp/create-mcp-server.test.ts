@@ -8,6 +8,7 @@ import type { TelemetryOperations } from "../../src/telemetry/telemetry.js"
 
 type HandlerMap = Map<unknown, (...args: Array<unknown>) => unknown>
 const CallToolRequestSchema = "tools/call"
+const ListToolsRequestSchema = "tools/list"
 
 const telemetry: TelemetryOperations = {
   sessionStart: () => {},
@@ -25,6 +26,67 @@ const createCapturingServer = (handlers: HandlerMap) =>
   }) as never
 
 describe("createMcpServer", () => {
+  it("reports list and call diagnostics for simple and protocol registries", async () => {
+    const simpleHandlers: HandlerMap = new Map()
+    const listDiagnostics: Array<unknown> = []
+    const callDiagnostics: Array<unknown> = []
+    createMcpServer(
+      async () => {
+        throw new Error("client resolution should not run")
+      },
+      telemetry,
+      toolRegistry,
+      () => {
+        throw new Error("context should not be built")
+      },
+      () => createCapturingServer(simpleHandlers),
+      {},
+      undefined,
+      undefined,
+      {
+        listToolsCompleted: (input) => listDiagnostics.push(input),
+        toolCallCompleted: (input) => callDiagnostics.push(input)
+      }
+    )
+
+    const listTools = simpleHandlers.get(ListToolsRequestSchema)
+    const callTool = simpleHandlers.get(CallToolRequestSchema)
+    expect(listTools).toBeDefined()
+    expect(callTool).toBeDefined()
+    if (listTools === undefined || callTool === undefined) throw new Error("Expected MCP handlers")
+
+    await listTools({}, { mcpReq: { envelope: undefined } })
+    await callTool({ params: { name: "missing_tool", arguments: {} } }, { mcpReq: { envelope: undefined } })
+
+    expect(listDiagnostics).toHaveLength(1)
+    expect(callDiagnostics).toEqual([
+      expect.objectContaining({ clientInfo: undefined, toolName: "missing_tool", isError: true })
+    ])
+
+    const protocolHandlers: HandlerMap = new Map()
+    const protocolListDiagnostics: Array<unknown> = []
+    createMcpServer(
+      async () => {
+        throw new Error("client resolution should not run")
+      },
+      telemetry,
+      { fullRegistry: toolRegistry, scopedNativeRegistry: toolRegistry },
+      () => {
+        throw new Error("context should not be built")
+      },
+      () => createCapturingServer(protocolHandlers),
+      { exposureConfig: { configuredMode: "proxy", proxyOutputStrict: false }, toolScopeFilteringActive: true },
+      undefined,
+      undefined,
+      { listToolsCompleted: (input) => protocolListDiagnostics.push(input), toolCallCompleted: () => {} }
+    )
+    const protocolListTools = protocolHandlers.get(ListToolsRequestSchema)
+    expect(protocolListTools).toBeDefined()
+    if (protocolListTools === undefined) throw new Error("Expected tools/list handler")
+    await protocolListTools({}, { mcpReq: { envelope: {} } })
+    expect(protocolListDiagnostics).toHaveLength(1)
+  })
+
   it("validates get_huly_context output before returning a success response", async () => {
     const handlers: HandlerMap = new Map()
     createMcpServer(

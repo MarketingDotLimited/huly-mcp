@@ -7,6 +7,7 @@ import {
   DEFAULT_MODE_BY_CLIENT_KIND,
   type McpClientInfoLike,
   parseMcpClientInfo,
+  parseMcpClientInfoFromUserAgent,
   parseMcpClientInfoEnvelope,
   parseToolExposureConfig,
   resolveRequestMcpClientInfo,
@@ -42,6 +43,19 @@ describe("classifyMcpClient", () => {
     expect(resolveRequestMcpClientInfo(undefined, () => connectionClient)).toEqual(Option.some(connectionClient))
   })
 
+  it("allows stateless HTTP callers to opt into request-local User-Agent fallback", () => {
+    const httpClient = clientInfo("openai-mcp")
+
+    expect(resolveRequestMcpClientInfo({}, () => httpClient, true)).toEqual(Option.some(httpClient))
+    expect(
+      resolveRequestMcpClientInfo(
+        { "io.modelcontextprotocol/clientInfo": { name: "codex-cli" } },
+        () => httpClient,
+        true
+      )
+    ).toEqual(Option.some({ name: "codex-cli" }))
+  })
+
   it("classifies known client names after trimming and case normalization", () => {
     const cases: ReadonlyArray<{ readonly clientInfo: McpClientInfoLike; readonly expected: ClientKind }> = [
       { clientInfo: clientInfo(" claude-code "), expected: "claude-code" },
@@ -55,6 +69,8 @@ describe("classifyMcpClient", () => {
       { clientInfo: clientInfo("github-copilot-developer"), expected: "github-copilot" },
       { clientInfo: clientInfo("Visual Studio Code"), expected: "github-copilot" },
       { clientInfo: clientInfo("Visual-Studio-Code"), expected: "github-copilot" },
+      { clientInfo: clientInfo("ChatGPT"), expected: "chatgpt" },
+      { clientInfo: clientInfo("openai-mcp"), expected: "chatgpt" },
       { clientInfo: clientInfo("codex-cli"), expected: "codex" },
       { clientInfo: clientInfo("openai-codex"), expected: "codex" },
       { clientInfo: clientInfo("opencode"), expected: "opencode" }
@@ -63,6 +79,17 @@ describe("classifyMcpClient", () => {
     for (const testCase of cases) {
       expect(classifyMcpClient(testCase.clientInfo)).toBe(testCase.expected)
     }
+  })
+
+  it("derives request-local client identity from stateless HTTP User-Agent products", () => {
+    expect(parseMcpClientInfoFromUserAgent("openai-mcp/1.0.0")).toEqual({ name: "openai-mcp", version: "1.0.0" })
+    expect(parseMcpClientInfoFromUserAgent("codex-mcp-client/0.151.0 extra-product/1")).toEqual({
+      name: "codex-mcp-client",
+      version: "0.151.0"
+    })
+    expect(parseMcpClientInfoFromUserAgent(null)).toBeUndefined()
+    expect(parseMcpClientInfoFromUserAgent(42)).toBeUndefined()
+    expect(parseMcpClientInfoFromUserAgent("   ")).toBeUndefined()
   })
 
   it("classifies remote-wrapper names by their base client", () => {
@@ -99,6 +126,7 @@ describe("resolveToolExposureMode", () => {
     const input: ResolveToolExposureModeInput = { configuredMode: "auto", clientInfo: clientInfo("claude-code") }
 
     expect(defaults["claude-code"]).toBe("native")
+    expect(defaults.chatgpt).toBe("proxy")
     expect(defaults.unknown).toBe("proxy")
     expect(resolveToolExposureMode(input)).toBe("native")
     expect(resolveToolExposureMode({ configuredMode: "auto", clientInfo: clientInfo("claude-ai") })).toBe("proxy")

@@ -31,6 +31,8 @@ files.
         "list_tool_categories",
         "search_tools",
         "get_tool_schema",
+        "invoke_read_tool",
+        "invoke_write_tool",
         "invoke_tool"
       ],
       "env": {
@@ -96,7 +98,8 @@ Pin native Huly operations when a project repeatedly uses the same domains. Chan
 ```
 
 With the default `PROXY_OUTPUT_STRICT=false`, these operations become first-class Pi tools while the
-rest of Huly remains discoverable through `search_tools` and callable through `invoke_tool`. Set
+rest of Huly remains discoverable through `search_tools` and callable through `invoke_read_tool` or
+`invoke_write_tool`; `invoke_tool` remains available for compatibility. Set
 `PROXY_OUTPUT_STRICT=true` only when `TOOLSETS` and `TOOLS` should be a hard allow-list for both
 native exposure and proxy invocation.
 

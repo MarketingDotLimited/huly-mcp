@@ -75,6 +75,7 @@ const ClientKindSchema = Schema.Literals([
   "cursor",
   "windsurf",
   "github-copilot",
+  "chatgpt",
   "codex",
   "opencode",
   "unknown"
@@ -87,6 +88,7 @@ export const DEFAULT_MODE_BY_CLIENT_KIND = {
   cursor: PROXY_TOOL_EXPOSURE_MODE,
   windsurf: PROXY_TOOL_EXPOSURE_MODE,
   "github-copilot": PROXY_TOOL_EXPOSURE_MODE,
+  chatgpt: PROXY_TOOL_EXPOSURE_MODE,
   codex: PROXY_TOOL_EXPOSURE_MODE,
   opencode: PROXY_TOOL_EXPOSURE_MODE,
   unknown: PROXY_TOOL_EXPOSURE_MODE
@@ -102,7 +104,19 @@ const McpClientName = Schema.Trim.pipe(
   })
 )
 
-const McpClientInfoLikeSchema = Schema.Struct({ name: Schema.optionalKey(McpClientName) })
+const McpClientVersion = Schema.Trim.pipe(
+  Schema.check(Schema.isNonEmpty()),
+  Schema.brand("McpClientVersion"),
+  Schema.annotate({
+    identifier: "McpClientVersion",
+    description: "Trimmed MCP client version from initialize metadata or the HTTP User-Agent."
+  })
+)
+
+const McpClientInfoLikeSchema = Schema.Struct({
+  name: Schema.optionalKey(McpClientName),
+  version: Schema.optionalKey(McpClientVersion)
+})
 export type McpClientInfoLike = Schema.Schema.Type<typeof McpClientInfoLikeSchema>
 
 const McpClientInfoEnvelopeSchema = Schema.Struct({
@@ -176,9 +190,13 @@ export const parseMcpClientInfoEnvelope = (input: unknown): McpClientInfoLike | 
 
 export const resolveRequestMcpClientInfo = (
   envelope: unknown,
-  connectionClientInfo: () => McpClientInfoLike | undefined
-): Option.Option<McpClientInfoLike> =>
-  Option.fromNullishOr(envelope === undefined ? connectionClientInfo() : parseMcpClientInfoEnvelope(envelope))
+  connectionClientInfo: () => McpClientInfoLike | undefined,
+  fallbackWhenRequestMetadataMissing: boolean = false
+): Option.Option<McpClientInfoLike> => {
+  const requestClientInfo = envelope === undefined ? undefined : parseMcpClientInfoEnvelope(envelope)
+  const fallbackAllowed = envelope === undefined || fallbackWhenRequestMetadataMissing
+  return Option.fromNullishOr(requestClientInfo ?? (fallbackAllowed ? connectionClientInfo() : undefined))
+}
 
 const rawClientName = (clientInfo: McpClientInfoLike | undefined): string => {
   const name = clientInfo?.name?.toLowerCase()
@@ -203,6 +221,7 @@ const CLIENT_PREFIX_GROUPS: ReadonlyArray<ClientPrefixGroup> = [
     prefixes: ["github-copilot", "copilot", "visual studio code", "visual-studio-code"]
   },
   { kind: makeClientKind("codex"), prefixes: ["codex", "openai-codex"] },
+  { kind: makeClientKind("chatgpt"), prefixes: ["chatgpt", "openai-mcp"] },
   { kind: makeClientKind("opencode"), prefixes: ["opencode"] }
 ]
 
@@ -223,4 +242,21 @@ export const resolveToolExposureMode = (input: ResolveToolExposureModeInput): To
   if (input.configuredMode !== "auto") return input.configuredMode
 
   return DEFAULT_MODE_BY_CLIENT_KIND[classifyMcpClient(input.clientInfo)]
+}
+
+const HttpUserAgentSchema = Schema.NullOr(Schema.String)
+const HttpUserAgentProductSchema = Schema.Struct({ name: McpClientName, version: Schema.optionalKey(McpClientVersion) })
+
+/**
+ * Derive request-local MCP client identity from the first HTTP User-Agent product.
+ * This is the stateless HTTP fallback when initialize clientInfo is unavailable on
+ * a later tools/list or tools/call request.
+ */
+export const parseMcpClientInfoFromUserAgent = (input: unknown): McpClientInfoLike | undefined => {
+  const userAgent = Schema.decodeUnknownResult(HttpUserAgentSchema)(input)
+  if (Result.isFailure(userAgent) || userAgent.success === null) return undefined
+
+  const product = /^(?<name>[^/\s]+)(?:\/(?<version>[^\s]+))?/u.exec(userAgent.success.trim())?.groups
+  const decoded = Schema.decodeUnknownResult(HttpUserAgentProductSchema)(product)
+  return Result.isSuccess(decoded) ? decoded.success : undefined
 }

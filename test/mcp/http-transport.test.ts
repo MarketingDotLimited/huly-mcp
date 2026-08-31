@@ -32,6 +32,14 @@ const JsonRpcResponseSchema = Schema.Struct({
     Schema.Struct({ code: Schema.Number, message: Schema.String, data: Schema.optionalKey(Schema.Unknown) })
   )
 })
+const HttpErrorDiagnosticSchema = Schema.Struct({
+  event: Schema.Literal("mcp_http_handler_error"),
+  request_id: Schema.String,
+  error: Schema.Struct({ name: Schema.String, message: Schema.String, stack: Schema.optionalKey(Schema.String) }),
+  cause: Schema.optionalKey(
+    Schema.Struct({ name: Schema.String, message: Schema.String, stack: Schema.optionalKey(Schema.String) })
+  )
+})
 
 const parseResponse = async (response: Response): Promise<Schema.Schema.Type<typeof JsonRpcResponseSchema>> => {
   const body = await response.text()
@@ -709,7 +717,7 @@ describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
     expect(closed).toBe(true)
   })
 
-  it("reports factory failures without leaking exception details into the response", async () => {
+  it("reports correlated factory diagnostics without leaking exception details into the response", async () => {
     const errors: Array<string> = []
     const endpoint = await listenTestMcpHttpServer(
       () => {
@@ -730,8 +738,43 @@ describe("MCP 2026-07-28 HTTP transport with 2025 compatibility", () => {
     expect(response.status).toBe(500)
     expect(body.error).toMatchObject({ code: -32603, message: "Internal server error" })
     expect(JSON.stringify(body)).not.toContain("factory exploded")
-    expect(errors).toEqual(["MCP HTTP handler error\n"])
-    expect(errors.join("")).not.toContain("factory exploded")
+    expect(errors).toHaveLength(1)
+    const diagnostic = Schema.decodeUnknownSync(HttpErrorDiagnosticSchema)(JSON.parse(errors[0] ?? ""))
+    expect(diagnostic).toMatchObject({
+      event: "mcp_http_handler_error",
+      error: { name: "Error", message: "factory exploded" }
+    })
+    expect(diagnostic.request_id).toMatch(/^\d+-1$/u)
+    await endpoint.close()
+    startedServers.delete(endpoint.server)
+  })
+
+  it("redacts structured non-Error causes and handles errors without stacks", async () => {
+    const errors: Array<string> = []
+    const endpoint = await listenTestMcpHttpServer(
+      () => {
+        const failure = new Error("Bearer primary-secret password=primary-password", {
+          cause: "authorization=child-secret"
+        })
+        delete failure.stack
+        throw failure
+      },
+      undefined,
+      (message) => errors.push(message)
+    )
+    startedServers.add(endpoint.server)
+
+    const response = await fetch(endpoint.baseUrl, {
+      method: "POST",
+      headers: modernHeaders("server/discover"),
+      body: JSON.stringify(modernBody("server/discover", {}))
+    })
+    expect(response.status).toBe(500)
+    expect(errors).toHaveLength(1)
+
+    const diagnostic = Schema.decodeUnknownSync(HttpErrorDiagnosticSchema)(JSON.parse(errors[0] ?? ""))
+    expect(diagnostic.error).toEqual({ name: "Error", message: "Bearer [REDACTED] password=[REDACTED]" })
+    expect(diagnostic.cause).toEqual({ name: "UnknownError", message: "authorization=[REDACTED]" })
     await endpoint.close()
     startedServers.delete(endpoint.server)
   })

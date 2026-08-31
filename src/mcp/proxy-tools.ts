@@ -49,6 +49,8 @@ const LIST_TOOL_CATEGORIES_TOOL_NAME = ToolName.make("list_tool_categories")
 const SEARCH_TOOLS_TOOL_NAME = ToolName.make("search_tools")
 const GET_TOOL_SCHEMA_TOOL_NAME = ToolName.make("get_tool_schema")
 export const INVOKE_TOOL_TOOL_NAME = ToolName.make("invoke_tool")
+export const INVOKE_READ_TOOL_TOOL_NAME = ToolName.make("invoke_read_tool")
+export const INVOKE_WRITE_TOOL_TOOL_NAME = ToolName.make("invoke_write_tool")
 export const PREPARE_TOOL_ACTION_TOOL_NAME = ToolName.make("prepare_tool_action")
 export const EXECUTE_TOOL_ACTION_TOOL_NAME = ToolName.make("execute_tool_action")
 const PROXY_TOOL_CATEGORY = makeToolCategory("proxy")
@@ -57,6 +59,8 @@ export const PROXY_TOOL_NAMES: ReadonlyArray<ToolName> = [
   LIST_TOOL_CATEGORIES_TOOL_NAME,
   SEARCH_TOOLS_TOOL_NAME,
   GET_TOOL_SCHEMA_TOOL_NAME,
+  INVOKE_READ_TOOL_TOOL_NAME,
+  INVOKE_WRITE_TOOL_TOOL_NAME,
   INVOKE_TOOL_TOOL_NAME,
   PREPARE_TOOL_ACTION_TOOL_NAME,
   EXECUTE_TOOL_ACTION_TOOL_NAME
@@ -202,9 +206,33 @@ export const proxyToolDefinitions: ReadonlyArray<ToolDefinition> = [
     annotations: readOnlyProxyAnnotations("Get Tool Schema")
   }),
   createToolDefinition({
+    name: INVOKE_READ_TOOL_TOOL_NAME,
+    description:
+      "Invokes one read-only Huly tool by exact name with its arguments. The server rejects any target whose resolved annotations are not read-only, so this executor cannot perform Huly writes.",
+    inputSchema: invokeToolInputSchema,
+    outputSchema: createToolOutputSchema(ExecutedToolActionResultSchema),
+    category: PROXY_TOOL_CATEGORY,
+    annotations: readOnlyProxyAnnotations("Invoke Read Tool")
+  }),
+  createToolDefinition({
+    name: INVOKE_WRITE_TOOL_TOOL_NAME,
+    description:
+      "Invokes one write-capable Huly tool by exact name with its arguments. Read-only targets are rejected. Destructive or high-impact targets still require prepare_tool_action and execute_tool_action.",
+    inputSchema: invokeToolInputSchema,
+    outputSchema: createToolOutputSchema(ExecutedToolActionResultSchema),
+    category: PROXY_TOOL_CATEGORY,
+    annotations: {
+      title: "Invoke Write Tool",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false
+    }
+  }),
+  createToolDefinition({
     name: INVOKE_TOOL_TOOL_NAME,
     description:
-      "Invokes one proxy-visible Huly tool by exact name with its arguments. This tool can call read or write Huly operations; check get_tool_schema and the target tool annotations when safety matters.",
+      "Legacy compatibility executor for read or write Huly operations. Prefer invoke_read_tool for enforced reads and invoke_write_tool for writes.",
     inputSchema: invokeToolInputSchema,
     outputSchema: createToolOutputSchema(ExecutedToolActionResultSchema),
     category: PROXY_TOOL_CATEGORY,
@@ -238,6 +266,9 @@ export const proxyToolDefinitions: ReadonlyArray<ToolDefinition> = [
 
 export const isProxyToolName = (name: string): name is ToolName =>
   PROXY_TOOL_NAMES.some((toolName) => toolName === name)
+
+const isInvocationProxyToolName = (name: ToolName): boolean =>
+  [INVOKE_READ_TOOL_TOOL_NAME, INVOKE_WRITE_TOOL_TOOL_NAME, INVOKE_TOOL_TOOL_NAME].some((toolName) => toolName === name)
 
 type DecodeOrErrorResult<A> =
   | { readonly _tag: "success"; readonly params: A }
@@ -321,18 +352,38 @@ const successfulInvokeResponse = (toolName: ToolName, response: SuccessfulToolCa
     : createImageSuccessResponse(result, response.imageContent, warnings)
 }
 
+const invocationPolicyError = (target: ToolDefinition, proxyToolName: ToolName): McpToolResponse | undefined => {
+  const annotations = resolveAnnotations(target)
+  if (proxyToolName === INVOKE_READ_TOOL_TOOL_NAME && annotations.readOnlyHint !== true) {
+    return createInvalidParamsError(
+      `Tool '${target.name}' is not read-only and cannot be called with invoke_read_tool. Use invoke_write_tool, or the approval flow when required.`,
+      "ReadOnlyToolRequired"
+    )
+  }
+  if (proxyToolName === INVOKE_WRITE_TOOL_TOOL_NAME && annotations.readOnlyHint === true) {
+    return createInvalidParamsError(
+      `Tool '${target.name}' is read-only. Call it with invoke_read_tool so the MCP client can apply the correct safety policy.`,
+      "WriteToolRequired"
+    )
+  }
+  return undefined
+}
+
 const invokeTool = async (
   registry: ToolRegistry,
   args: unknown,
-  clients: InvokeToolClients
+  clients: InvokeToolClients,
+  proxyToolName: ToolName
 ): Promise<McpToolResponse> => {
-  const decoded = decodeOrError(InvokeToolParamsSchema, args, INVOKE_TOOL_TOOL_NAME)
+  const decoded = decodeOrError(InvokeToolParamsSchema, args, proxyToolName)
   if (decoded._tag === "error") return decoded.response
   const params = decoded.params
 
-  if (!registry.tools.has(params.toolName)) return createUnknownToolError(params.toolName)
   const target = registry.tools.get(params.toolName)
-  if (target !== undefined && requiresTwoStepApproval(target)) {
+  if (target === undefined) return createUnknownToolError(params.toolName)
+  const policyError = invocationPolicyError(target, proxyToolName)
+  if (policyError !== undefined) return policyError
+  if (requiresTwoStepApproval(target)) {
     return createInvalidParamsError(
       `Tool '${params.toolName}' requires two-step approval. Call prepare_tool_action with this exact toolName and arguments, then execute_tool_action with the returned token.`,
       "ApprovalRequired"
@@ -367,10 +418,10 @@ const listProxyCategories = (registry: ToolRegistry, args: unknown): McpToolResp
 const invokeProxyTool = (input: ProxyToolCallInput): Promise<McpToolResponse> => {
   if (input.clients === undefined) {
     return Promise.resolve(
-      createInvalidParamsError("invoke_tool requires initialized Huly clients.", "ProxyClientsMissing")
+      createInvalidParamsError(`${input.toolName} requires initialized Huly clients.`, "ProxyClientsMissing")
     )
   }
-  return invokeTool(input.proxyCandidateRegistry, input.args, input.clients)
+  return invokeTool(input.proxyCandidateRegistry, input.args, input.clients, input.toolName)
 }
 
 const approvalInput = (input: ProxyToolCallInput, toolName: ToolName) => ({
@@ -382,6 +433,7 @@ const approvalInput = (input: ProxyToolCallInput, toolName: ToolName) => ({
 })
 
 export const handleProxyToolCall = async (input: ProxyToolCallInput): Promise<McpToolResponse> => {
+  if (isInvocationProxyToolName(input.toolName)) return invokeProxyTool(input)
   switch (input.toolName) {
     case LIST_TOOL_CATEGORIES_TOOL_NAME:
       return listProxyCategories(input.proxyCandidateRegistry, input.args)
@@ -389,8 +441,6 @@ export const handleProxyToolCall = async (input: ProxyToolCallInput): Promise<Mc
       return searchTools(input.proxyCandidateRegistry, input.args)
     case GET_TOOL_SCHEMA_TOOL_NAME:
       return getToolSchema(input.proxyCandidateRegistry, input.args)
-    case INVOKE_TOOL_TOOL_NAME:
-      return invokeProxyTool(input)
     case PREPARE_TOOL_ACTION_TOOL_NAME:
       return prepareRegisteredToolAction(approvalInput(input, PREPARE_TOOL_ACTION_TOOL_NAME))
     case EXECUTE_TOOL_ACTION_TOOL_NAME:

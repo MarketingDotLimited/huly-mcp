@@ -8,6 +8,8 @@ import { createMcpProtocolHandlers } from "./protocol-handlers.js"
 import { type ProtocolExposureOptions, type ProtocolToolRegistries } from "./protocol-tool-exposure.js"
 import { createDefaultMcpSdkServer } from "./sdk-server.js"
 import { noToolCallNoticeProvider, type ToolCallNoticeProvider } from "./tool-call-notices.js"
+import { Option } from "effect"
+import { resolveProtocolExposure } from "./protocol-tool-exposure.js"
 import { parseMcpClientInfo, resolveRequestMcpClientInfo } from "./tool-mode.js"
 import type { ToolRegistry } from "./tools/index.js"
 
@@ -18,6 +20,23 @@ export interface McpServerLifecycle {
 }
 
 type McpServerHandle = readonly [server: Server, lifecycle: McpServerLifecycle]
+
+interface McpServerExposureOptions extends Partial<ProtocolExposureOptions> {
+  readonly fallbackToCurrentClientInfoWhenRequestMetadataMissing?: boolean
+}
+
+export interface McpProtocolDiagnostics {
+  readonly listToolsCompleted: (input: {
+    readonly clientInfo: ReturnType<typeof parseMcpClientInfo>
+    readonly exposure: ReturnType<typeof resolveProtocolExposure>["context"]
+    readonly returnedToolNames: ReadonlyArray<string>
+  }) => void
+  readonly toolCallCompleted: (input: {
+    readonly clientInfo: ReturnType<typeof parseMcpClientInfo>
+    readonly toolName: string
+    readonly isError: boolean
+  }) => void
+}
 
 const currentClientInfoFromServer = (
   server: Server
@@ -32,15 +51,20 @@ export const createMcpServer = (
   registry: ToolRegistry | ProtocolToolRegistries,
   getHulyContext: (toolExposure: ToolExposureContext) => GetHulyContextResult,
   createServer: (instructions?: HostedHulyMigrationInstructions) => Server = createDefaultMcpSdkServer,
-  exposureOptions: Partial<ProtocolExposureOptions> = {},
+  exposureOptions: McpServerExposureOptions = {},
   toolCallNoticeProvider: ToolCallNoticeProvider = noToolCallNoticeProvider,
-  serverInstructions?: HostedHulyMigrationInstructions
+  serverInstructions?: HostedHulyMigrationInstructions,
+  diagnostics?: McpProtocolDiagnostics
 ): McpServerHandle => {
   const server = createServer(serverInstructions)
   const currentClientInfo = (): ReturnType<NonNullable<ProtocolExposureOptions["currentClientInfo"]>> =>
     exposureOptions.currentClientInfo?.() ?? currentClientInfoFromServer(server)
   const requestClientInfo = (context: ServerContext | undefined) =>
-    resolveRequestMcpClientInfo(context?.mcpReq.envelope, currentClientInfo)
+    resolveRequestMcpClientInfo(
+      context?.mcpReq.envelope,
+      currentClientInfo,
+      exposureOptions.fallbackToCurrentClientInfoWhenRequestMetadataMissing ?? false
+    )
   const handlers = createMcpProtocolHandlers(
     resolveClients,
     telemetry,
@@ -52,8 +76,33 @@ export const createMcpServer = (
     toolCallNoticeProvider
   )
 
-  server.setRequestHandler("tools/list", (_request, context) => handlers.listTools(requestClientInfo(context)))
-  server.setRequestHandler("tools/call", (request, context) => handlers.callTool(request, requestClientInfo(context)))
+  server.setRequestHandler("tools/list", async (_request, context) => {
+    const clientInfo = requestClientInfo(context)
+    const result = await handlers.listTools(clientInfo)
+    diagnostics?.listToolsCompleted({
+      clientInfo: Option.getOrUndefined(clientInfo),
+      exposure: resolveProtocolExposure(
+        "fullRegistry" in registry ? registry : { fullRegistry: registry, scopedNativeRegistry: registry },
+        {
+          exposureConfig: exposureOptions.exposureConfig ?? { configuredMode: "native", proxyOutputStrict: false },
+          toolScopeFilteringActive: exposureOptions.toolScopeFilteringActive ?? false,
+          currentClientInfo: () => Option.getOrUndefined(clientInfo)
+        }
+      ).context,
+      returnedToolNames: result.tools.map((tool) => tool.name)
+    })
+    return result
+  })
+  server.setRequestHandler("tools/call", async (request, context) => {
+    const clientInfo = requestClientInfo(context)
+    const result = await handlers.callTool(request, clientInfo)
+    diagnostics?.toolCallCompleted({
+      clientInfo: Option.getOrUndefined(clientInfo),
+      toolName: request.params.name,
+      isError: result.isError === true
+    })
+    return result
+  })
   server.setRequestHandler("resources/list", handlers.listResources)
   server.setRequestHandler("resources/templates/list", handlers.listResourceTemplates)
   server.setRequestHandler("resources/read", handlers.readResource)

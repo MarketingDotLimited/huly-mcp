@@ -37,7 +37,7 @@ import {
   createHostedHulyMigrationNoticeProvider,
   hostedHulyMigrationInstructionsForOrigin
 } from "./tool-call-notices.js"
-import { parseToolExposureConfig, type ToolExposureConfig } from "./tool-mode.js"
+import { parseMcpClientInfoFromUserAgent, parseToolExposureConfig, type ToolExposureConfig } from "./tool-mode.js"
 import { resolveToolScope } from "./tool-scope.js"
 import { createScopedRegistry, toolRegistry } from "./tools/index.js"
 
@@ -272,6 +272,8 @@ export class McpServerService extends Context.Service<McpServerService, McpServe
                   const port = config.httpPort ?? DEFAULT_HTTP_PORT
                   const host = config.httpHost ?? DEFAULT_HTTP_HOST
                   const createHttpServer = ({ requestInfo }: McpRequestContext): Server => {
+                    const httpClientInfo = parseMcpClientInfoFromUserAgent(requestInfo?.headers.get("user-agent"))
+                    const requestId = requestInfo?.headers.get("x-mcp-request-id") ?? "unavailable"
                     const requestRuntimeConfig =
                       requestInfo === undefined || config.getRuntimeConfigContextForHttpRequest === undefined
                         ? getRuntimeConfigContext()
@@ -288,12 +290,48 @@ export class McpServerService extends Context.Service<McpServerService, McpServe
                       registries,
                       (toolExposure) => getHulyContext(requestRuntimeConfig, toolExposure),
                       config.createServer,
-                      sdkExposureOptions,
+                      {
+                        ...sdkExposureOptions,
+                        currentClientInfo: () => httpClientInfo,
+                        fallbackToCurrentClientInfoWhenRequestMetadataMissing: true
+                      },
                       createHostedHulyMigrationNoticeProvider({
                         delivery: "always",
                         hulyOrigin: requestRuntimeConfig.huly.url.origin
                       }),
-                      hostedHulyMigrationInstructionsForOrigin(requestRuntimeConfig.huly.url.origin)
+                      hostedHulyMigrationInstructionsForOrigin(requestRuntimeConfig.huly.url.origin),
+                      {
+                        listToolsCompleted: ({ clientInfo, exposure, returnedToolNames }) => {
+                          writeError(
+                            `${JSON.stringify({
+                              event: "mcp_tools_list_completed",
+                              request_id: requestId,
+                              client_info_name: clientInfo?.name ?? null,
+                              client_info_version: clientInfo?.version ?? null,
+                              client_info_source: "request_metadata_or_http_user_agent",
+                              configured_mode: exposure.configuredMode,
+                              resolved_mode: exposure.resolvedMode,
+                              client_kind: exposure.clientKind,
+                              native_candidate_count: exposure.nativeVisibleToolCount,
+                              proxy_candidate_count: exposure.proxyCandidateToolCount,
+                              returned_tool_count: returnedToolNames.length,
+                              returned_tool_names: returnedToolNames
+                            })}\n`
+                          )
+                        },
+                        toolCallCompleted: ({ clientInfo, isError, toolName }) => {
+                          writeError(
+                            `${JSON.stringify({
+                              event: "mcp_tool_call_completed",
+                              request_id: requestId,
+                              client_info_name: clientInfo?.name ?? null,
+                              client_info_version: clientInfo?.version ?? null,
+                              tool_name: toolName,
+                              status: isError ? "error" : "success"
+                            })}\n`
+                          )
+                        }
+                      }
                     )
                     attachRequestClientLifecycle(server, lifecycle, () => {
                       writeError("Request-scoped Huly client cleanup failed")

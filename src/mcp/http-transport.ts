@@ -6,6 +6,7 @@
  */
 import { timingSafeEqual } from "node:crypto"
 import { createServer as createNodeServer } from "node:http"
+import { AsyncLocalStorage } from "node:async_hooks"
 
 import { NodeHttpServer } from "@effect/platform-node"
 import {
@@ -26,6 +27,7 @@ const MAX_HTTP_PORT = 65_535
 const HTTP_UNAUTHORIZED_ERROR_CODE = -32_000
 const HTTP_UNAUTHORIZED = 401
 const DEFAULT_HTTP_SHUTDOWN_GRACE_PERIOD = "5 seconds"
+const MAX_DIAGNOSTIC_TEXT_LENGTH = 4_000
 
 export const HttpPort = Schema.Int.check(
   Schema.isBetween(
@@ -188,8 +190,35 @@ export const createMountedMcpHttpHandler = (
   host: HttpHost = DEFAULT_HTTP_HOST,
   shutdownGracePeriod: Duration.Input = DEFAULT_HTTP_SHUTDOWN_GRACE_PERIOD
 ): MountedMcpHttpHandler => {
-  const reportError = (): void => {
-    writeError("MCP HTTP handler error\n")
+  let requestSequence = 0
+  const requestContext = new AsyncLocalStorage<string>()
+  const redactDiagnosticText = (value: string): string =>
+    value
+      .replace(/Bearer\s+[^\s]+/giu, "Bearer [REDACTED]")
+      .replace(/(password|token|secret|authorization)=([^\s&]+)/giu, "$1=[REDACTED]")
+      .slice(0, MAX_DIAGNOSTIC_TEXT_LENGTH)
+  const errorSummary = (
+    error: unknown
+  ): { readonly name: string; readonly message: string; readonly stack?: string } =>
+    error instanceof Error
+      ? {
+          name: error.name,
+          message: redactDiagnosticText(error.message),
+          ...(error.stack === undefined ? {} : { stack: redactDiagnosticText(error.stack) })
+        }
+      : { name: "UnknownError", message: redactDiagnosticText(String(error)) }
+  const reportError = (error: unknown): void => {
+    const summary = errorSummary(error)
+    const cause =
+      error instanceof Error && "cause" in error && error.cause !== undefined ? errorSummary(error.cause) : undefined
+    writeError(
+      `${JSON.stringify({
+        event: "mcp_http_handler_error",
+        request_id: requestContext.getStore() ?? "unavailable",
+        error: summary,
+        ...(cause === undefined ? {} : { cause })
+      })}\n`
+    )
   }
   const closeTracker = createMcpServerCloseTracker(createServer)
   const activeRequests = new Set<Promise<Response>>()
@@ -207,7 +236,12 @@ export const createMountedMcpHttpHandler = (
         return unauthorizedResponse()
       }
 
-      const response = mcpHandler.fetch(request)
+      requestSequence += 1
+      const requestId = `${String(process.pid)}-${String(requestSequence)}`
+      const headers = new Headers(request.headers)
+      headers.set("x-mcp-request-id", requestId)
+      const correlatedRequest = new Request(request, { headers })
+      const response = requestContext.run(requestId, () => mcpHandler.fetch(correlatedRequest))
       activeRequests.add(response)
       try {
         return await response

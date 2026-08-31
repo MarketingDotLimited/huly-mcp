@@ -48,7 +48,9 @@ import {
 import {
   EXECUTE_TOOL_ACTION_TOOL_NAME,
   handleProxyToolCall,
+  INVOKE_READ_TOOL_TOOL_NAME,
   INVOKE_TOOL_TOOL_NAME,
+  INVOKE_WRITE_TOOL_TOOL_NAME,
   InvokeToolParamsSchema,
   isProxyToolName,
   PREPARE_TOOL_ACTION_TOOL_NAME,
@@ -181,14 +183,19 @@ const proxyClients = (clients: ClientBundle) => ({
   ...(clients.workspaceClient === undefined ? {} : { workspaceClient: clients.workspaceClient })
 })
 
+const isInvokeProxyTool = (toolName: NonNullable<ReturnType<typeof parseToolName>>): boolean =>
+  toolName === INVOKE_TOOL_TOOL_NAME ||
+  toolName === INVOKE_READ_TOOL_TOOL_NAME ||
+  toolName === INVOKE_WRITE_TOOL_TOOL_NAME
+
 const proxyEditMode = (toolName: NonNullable<ReturnType<typeof parseToolName>>, args: unknown): string | undefined =>
-  toolName === INVOKE_TOOL_TOOL_NAME ? invokeToolEditMode(args) : undefined
+  isInvokeProxyTool(toolName) ? invokeToolEditMode(args) : undefined
 
 const resolveProxyClients = (
   toolName: NonNullable<ReturnType<typeof parseToolName>>,
   resolveClients: ClientResolver
 ): Promise<ClientResolution | undefined> =>
-  toolName === INVOKE_TOOL_TOOL_NAME ||
+  isInvokeProxyTool(toolName) ||
   toolName === PREPARE_TOOL_ACTION_TOOL_NAME ||
   toolName === EXECUTE_TOOL_ACTION_TOOL_NAME
     ? resolveClientBundle(resolveClients)

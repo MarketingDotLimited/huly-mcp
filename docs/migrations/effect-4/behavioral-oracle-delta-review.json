@@ -3,8 +3,8 @@
   "categories": [
     {
       "category": "draft07-structure",
-      "count": 12790,
-      "deltaSetSha256": "37c680b04a0f1ac4fc48ca4465eb13d27b2057a879d78f15587a9b9af9351f5a",
+      "count": 12802,
+      "deltaSetSha256": "4a950e050aac47d7f66d0f4dd9293db2e08477c51a9007ab718a842f0c5a8b9b",
       "issue": "#225",
       "rationale": "Reviewed Effect 4 Draft-07 structural dialect: refs, definitions, optional/null unions, refinements, and composition wrappers."
     },
@@ -24,8 +24,8 @@
     },
     {
       "category": "tool-inventory",
-      "count": 3273,
-      "deltaSetSha256": "05843c31204417c017914f8735a4e013691668559db17436cf59dc9c162208ef",
+      "count": 3292,
+      "deltaSetSha256": "014fdf2c55d534ae0537bb426ac35ff261bdb7961aff284c51aa425be12e1ed1",
       "issue": "#225",
       "rationale": "Reviewed additions to the native, proxy, CLI, and bundled-process tool inventories."
     },
@@ -45,5 +45,5 @@
     }
   ],
   "formatVersion": 1,
-  "reviewedCurrentSha256": "0667202e3cd5c5e4189c3318133b4602a12bc839fcecb338abeb9a3651535dc4"
+  "reviewedCurrentSha256": "224febed7a0c8d5d65213d441144cb48bae800a43a4039208c18043a1d2e0686"
 }

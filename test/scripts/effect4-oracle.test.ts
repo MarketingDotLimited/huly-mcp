@@ -129,7 +129,7 @@ describe("Effect 4 behavioral oracle", () => {
   })
 
   it("compiles every native and proxy public schema as Draft-07", () => {
-    expect(validateCurrentDraft07Corpora()).toEqual({ native: 548, proxy: 8 })
+    expect(validateCurrentDraft07Corpora()).toEqual({ native: 548, proxy: 10 })
   }, 60_000)
 
   it("captures the complete current oracle through built process and CLI seams", async () => {

@@ -549,7 +549,14 @@ const diagnosticProbeTool = defineTool(
       additionalProperties: false
     },
     resultSchema: DiagnosticProbeResult,
-    category: "test"
+    category: "test",
+    annotations: {
+      title: "Diagnostic Probe",
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false
+    }
   },
   Schema.decodeUnknownEffect(DiagnosticProbeParams),
   (params: DiagnosticProbeParams) =>
@@ -561,6 +568,39 @@ const diagnosticProbeTool = defineTool(
       })
       return { subject: params.subject, degraded: true }
     })
+)
+
+const WriteProbeParams = Schema.Struct({})
+const WriteProbeResult = Schema.Struct({ ok: Schema.Boolean })
+const writeProbeTool = defineTool(
+  {
+    name: "update_probe",
+    description: "Test-only write-capable target.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    resultSchema: WriteProbeResult,
+    category: "test"
+  },
+  Schema.decodeUnknownEffect(WriteProbeParams),
+  () => Effect.succeed({ ok: true })
+)
+
+const destructiveProbeTool = defineTool(
+  {
+    name: "delete_probe",
+    description: "Test-only destructive target.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    resultSchema: WriteProbeResult,
+    category: "test",
+    annotations: {
+      title: "Delete Probe",
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false
+    }
+  },
+  Schema.decodeUnknownEffect(WriteProbeParams),
+  () => Effect.succeed({ ok: true })
 )
 
 const arraySchemaProbeTool = defineTool(
@@ -621,6 +661,14 @@ const diagnosticProbeRegistry: ToolRegistry = {
   handleToolCall: async (toolName, args, hulyClient, storageClient, workspaceClient) => {
     if (toolName !== diagnosticProbeTool.name) return null
     return diagnosticProbeTool.handler(args ?? {}, hulyClient, storageClient, workspaceClient)
+  }
+}
+
+const destructiveProbeRegistry: ToolRegistry = {
+  tools: new Map([[destructiveProbeTool.name, destructiveProbeTool]]),
+  definitions: [destructiveProbeTool],
+  handleToolCall: async () => {
+    throw new Error("destructive target must not dispatch without approval")
   }
 }
 
@@ -1026,6 +1074,8 @@ describe("createMcpProtocolHandlers — get_huly_context tool", () => {
           "list_tool_categories",
           "search_tools",
           "get_tool_schema",
+          "invoke_read_tool",
+          "invoke_write_tool",
           "invoke_tool",
           "prepare_tool_action",
           "execute_tool_action"
@@ -1301,6 +1351,8 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
       "list_tool_categories",
       "search_tools",
       "get_tool_schema",
+      "invoke_read_tool",
+      "invoke_write_tool",
       "invoke_tool",
       "prepare_tool_action",
       "execute_tool_action"
@@ -1544,6 +1596,20 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     expect(firstText(response.content)).toContain("Unknown tool")
   })
 
+  it("requires proxy approval before dispatching a destructive native tool", async () => {
+    const handlers = createMcpProtocolHandlers(
+      unusedResolveClients,
+      createTelemetryProbe().telemetry,
+      protocolRegistries(destructiveProbeRegistry),
+      makeValidContext
+    )
+
+    const response = await handlers.callTool({ params: { name: "delete_probe", arguments: {} } })
+
+    expect(response.isError).toBe(true)
+    expect(firstText(response.content)).toContain("requires two-step approval")
+  })
+
   it("validates proxy meta-tool arguments before returning catalog data", async () => {
     const probe = createTelemetryProbe()
     const handlers = createMcpProtocolHandlers(
@@ -1590,6 +1656,63 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
       result: { subject: "proxy invoke", degraded: true },
       warnings: [{ code: "status_metadata_unresolved", message: "Status metadata was degraded for proxy invoke." }]
     })
+  })
+
+  it("enforces the read-only proxy executor policy on the server", async () => {
+    const handlers = createMcpProtocolHandlers(
+      buildStubClients(),
+      createTelemetryProbe().telemetry,
+      protocolRegistries(diagnosticProbeRegistry),
+      makeValidContext,
+      liveNowClock,
+      () => Promise.resolve("0.0.0"),
+      proxyExposureOptions()
+    )
+
+    const readResponse = await handlers.callTool({
+      params: {
+        name: "invoke_read_tool",
+        arguments: { toolName: "diagnostic_probe", arguments: { subject: "safe read" } }
+      }
+    })
+    const wrongExecutor = await handlers.callTool({
+      params: {
+        name: "invoke_write_tool",
+        arguments: { toolName: "diagnostic_probe", arguments: { subject: "wrong executor" } }
+      }
+    })
+
+    expect(readResponse.isError).not.toBe(true)
+    expect(readResponse.structuredContent?.result).toMatchObject({
+      toolName: "diagnostic_probe",
+      result: { subject: "safe read", degraded: true }
+    })
+    expect(wrongExecutor.isError).toBe(true)
+    expect(firstText(wrongExecutor.content)).toContain("read-only")
+  })
+
+  it("rejects write-capable targets through invoke_read_tool before dispatch", async () => {
+    let dispatchCount = 0
+    const writeRegistry: ToolRegistry = {
+      tools: new Map([[writeProbeTool.name, writeProbeTool]]),
+      definitions: [writeProbeTool],
+      handleToolCall: async () => {
+        dispatchCount += 1
+        return writeProbeTool.handler({}, clients.hulyClient, clients.storageClient, clients.workspaceClient)
+      }
+    }
+    const clients = await resolveStubClients()
+
+    const response = await handleProxyToolCall({
+      toolName: makeToolName("invoke_read_tool"),
+      args: { toolName: "update_probe", arguments: {} },
+      proxyCandidateRegistry: writeRegistry,
+      clients
+    })
+
+    expect(response.isError).toBe(true)
+    expect(response._meta?.errorTag).toBe("ReadOnlyToolRequired")
+    expect(dispatchCount).toBe(0)
   })
 
   it("normalizes JSON-string invoke_tool arguments once at the proxy boundary", async () => {

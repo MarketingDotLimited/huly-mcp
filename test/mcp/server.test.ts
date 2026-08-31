@@ -38,7 +38,7 @@ import type { ToolDefinition } from "../../src/mcp/tools/registry.js"
 import type { SessionStartProps, TelemetryOperations, ToolCalledProps } from "../../src/telemetry/telemetry.js"
 import { TelemetryService } from "../../src/telemetry/telemetry.js"
 import { assertAt, assertExists } from "../../src/utils/assertions.js"
-import { inertHttpServerFactory } from "./http-test-support.js"
+import { inertHttpServerFactory, makeTestHttpServerFactory } from "./http-test-support.js"
 
 import { tracker } from "../../src/huly/huly-plugins.js"
 
@@ -1274,6 +1274,119 @@ describe("McpServerService.layer operations", () => {
         // stop() when not running should be a no-op even for http
         yield* ops.stop()
       })
+    )
+
+    it.effect(
+      "logs ChatGPT HTTP tool discovery and call outcomes with request correlation",
+      () =>
+        Effect.gen(function* () {
+          const writes: Array<string> = []
+          let baseUrl: string | undefined
+          const layers = Layer.mergeAll(
+            HulyClient.testLayer({}),
+            HulyStorageClient.testLayer({}),
+            WorkspaceClient.testLayer({}),
+            TelemetryService.testLayer()
+          )
+          const serverLayer = buildTestServerLayer(
+            {
+              transport: "http",
+              httpPort: 0,
+              httpHost: "127.0.0.1",
+              createServer: createDefaultMcpSdkServer,
+              writeError: (message) => writes.push(message)
+            },
+            layers
+          )
+          const ctx = yield* Layer.build(serverLayer)
+          const ops = yield* McpServerService.pipe(Effect.provide(Layer.succeedContext(ctx)))
+          const httpFactory = makeTestHttpServerFactory((server) => {
+            const address = server.address()
+            if (address !== null && typeof address !== "string") {
+              baseUrl = `http://127.0.0.1:${String(address.port)}/mcp`
+            }
+          })
+          const fiber = yield* ops
+            .run()
+            .pipe(
+              Effect.provideService(HttpServerFactoryService, httpFactory),
+              Effect.forkScoped({ startImmediately: true })
+            )
+          yield* ops.awaitReady()
+          if (baseUrl === undefined) throw new Error("Expected HTTP server address")
+          const endpoint = baseUrl
+
+          const request = (method: string, params: Record<string, unknown>, userAgent = "openai-mcp/1.0.0") =>
+            Effect.promise(() =>
+              fetch(endpoint, {
+                method: "POST",
+                headers: {
+                  accept: "application/json, text/event-stream",
+                  "content-type": "application/json",
+                  "mcp-protocol-version": "2026-07-28",
+                  "mcp-method": method,
+                  ...(typeof params.name === "string" ? { "mcp-name": params.name } : {}),
+                  "user-agent": userAgent
+                },
+                body: JSON.stringify({
+                  jsonrpc: "2.0",
+                  id: method,
+                  method,
+                  params: {
+                    ...params,
+                    _meta: {
+                      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+                      "io.modelcontextprotocol/clientCapabilities": {}
+                    }
+                  }
+                })
+              }).then(async (response) => {
+                await response.text()
+                return response.status
+              })
+            )
+
+          expect(yield* request("tools/list", {})).toBe(200)
+          expect(yield* request("tools/list", {}, "")).toBe(200)
+          expect(yield* request("tools/call", { name: "get_version", arguments: {} })).toBe(200)
+          expect(yield* request("tools/call", { name: "missing_tool", arguments: {} })).toBe(200)
+
+          const events = writes.flatMap((message) => {
+            try {
+              return [JSON.parse(message) as Record<string, unknown>]
+            } catch {
+              return []
+            }
+          })
+          expect(events).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                event: "mcp_tools_list_completed",
+                client_info_name: "openai-mcp",
+                client_info_version: "1.0.0",
+                client_kind: "chatgpt",
+                resolved_mode: "proxy",
+                returned_tool_count: 10
+              }),
+              expect.objectContaining({
+                event: "mcp_tools_list_completed",
+                client_info_name: null,
+                client_info_version: null,
+                client_kind: "unknown"
+              }),
+              expect.objectContaining({
+                event: "mcp_tool_call_completed",
+                tool_name: "get_version",
+                status: "success"
+              }),
+              expect.objectContaining({ event: "mcp_tool_call_completed", tool_name: "missing_tool", status: "error" })
+            ])
+          )
+
+          yield* ops.stop()
+          yield* Fiber.interrupt(fiber)
+        }),
+      { timeout: 10_000 }
     )
   })
 

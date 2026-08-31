@@ -32,7 +32,7 @@ get_hr_summary_report
 
 For unsupported business classes, `find_huly_documents`, `prepare_huly_action`, and `execute_huly_action` provide schema-validated access. Raw actions reject model, transaction, account, integration, and other protected classes/spaces. Every generic mutation requires a five-minute, account-bound, single-use preview token, checks `modifiedOn` for drift, and writes an append-only JSONL audit record. Destructive and high-impact registered tools use the equivalent `prepare_tool_action` / `execute_tool_action` flow. If the audit log cannot be written, execution fails closed.
 
-Production should set `HULY_AUDIT_LOG_PATH` to a persistent volume. The published container is available as `ghcr.io/marketingdotlimited/huly-mcp:0.50.0-mdl.6`; pin a version tag rather than a moving tag.
+Production should set `HULY_AUDIT_LOG_PATH` to a persistent volume. The published container is available as `ghcr.io/marketingdotlimited/huly-mcp:0.50.0-mdl.7`; pin a version tag rather than a moving tag.
 
 > [!IMPORTANT]
 > **Hosted Huly is shutting down.** Huly's upstream README says shutdown is expected July 20. If you use `https://huly.app`, [export and migrate your data](https://github.com/hcengineering/platform/blob/develop/README.md) as soon as possible. See the [backup and restore guide](https://github.com/hcengineering/platform/blob/develop/docs/guides/backup-restore.en.md) and [self-hosting repository](https://github.com/hcengineering/huly-selfhost). Self-hosted deployments are not affected.
@@ -82,7 +82,7 @@ The standard configuration works with most MCP clients:
 
 ## Tool Exposure Defaults
 
-By default (`HULY_TOOL_MODE=auto`), Huly MCP optimizes for current MCP clients by avoiding a 546-tool eager list. Exact `claude-code` sessions receive native Huly tools. Codex, Cursor, Windsurf, Copilot, OpenCode, Claude AI/Desktop-style clients, and unknown clients receive a small proxy surface: `list_tool_categories`, `search_tools`, `get_tool_schema`, `invoke_tool`, `prepare_tool_action`, and `execute_tool_action`.
+By default (`HULY_TOOL_MODE=auto`), Huly MCP optimizes for current MCP clients by avoiding a 546-tool eager list. Exact `claude-code` sessions receive native Huly tools. ChatGPT/OpenAI MCP, Codex, Cursor, Windsurf, Copilot, OpenCode, Claude AI/Desktop-style clients, and unknown clients receive a small proxy surface. `invoke_read_tool` is an enforced read-only executor; `invoke_write_tool` handles write-capable targets; the mixed `invoke_tool` remains available only for compatibility.
 
 Exact native tool names still dispatch when a client calls them directly, but many clients only call tools returned by `tools/list`. Set `HULY_TOOL_MODE=native` to make every Huly tool appear first-class, or use `TOOLSETS` / `TOOLS` to pin frequently used native tools while keeping proxy discovery available.
 
@@ -317,7 +317,7 @@ For a Smithery publish schema example, see [docs/SMITHERY_URL_PUBLISH.md](docs/S
 | `MCP_HTTP_PORT` | No | HTTP server port (falls back to `PORT`, then 3000) |
 | `MCP_HTTP_HOST` | No | HTTP server host. Omit to bind to the package default loopback host. |
 | `MCP_AUTH_TOKEN` | No | Optional bearer token required by HTTP clients for `/mcp`. This protects the MCP endpoint only; it is not a Huly API token. |
-| `HULY_TOOL_MODE` | No | Tool exposure mode: `auto` (default), `native`, or `proxy`. `auto` keeps exact `claude-code` native and resolves Codex, Cursor, Windsurf, Copilot, opencode, Claude AI, and unknown clients to proxy mode. |
+| `HULY_TOOL_MODE` | No | Tool exposure mode: `auto` (default), `native`, or `proxy`. `auto` keeps exact `claude-code` native and resolves ChatGPT/OpenAI MCP, Codex, Cursor, Windsurf, Copilot, opencode, Claude AI, and unknown clients to proxy mode. Stateless HTTP requests use request metadata first and the User-Agent product as a fallback. |
 | `PROXY_OUTPUT_STRICT` | No | Proxy candidate strictness: `false` (default) keeps proxy discovery broad; `true` makes active `TOOLSETS` / `TOOLS` a hard allow-list for proxy search, schema lookup, and invocation. |
 | `TOOLSETS` | No | Comma-separated tool categories to expose. If neither `TOOLSETS` nor `TOOLS` is set, all native Huly tools are exposed. Example: `issues,projects,search` |
 | `TOOLS` | No | Comma-separated exact tool names to expose in addition to selected toolsets. Example: `list_documents,create_issue` |
@@ -362,7 +362,9 @@ When resolved tool exposure is `proxy`, clients see the built-in tools plus thes
 | `list_tool_categories` | Lists Huly tool categories available through this proxy. Use this first when you need a broad map of capabilities before searching for a specific Huly tool. |
 | `search_tools` | Searches the current proxy-visible Huly tool catalog by tool name, category, description, and parameter names. Returns exact tool names plus required and optional parameter names for single-call follow-up with get_tool_schema or invoke_tool. |
 | `get_tool_schema` | Returns the exact input and output schema for one proxy-visible Huly tool. Use this before invoke_tool when you are not certain about required argument names or result shape. |
-| `invoke_tool` | Invokes one proxy-visible Huly tool by exact name with its arguments. This tool can call read or write Huly operations; check get_tool_schema and the target tool annotations when safety matters. |
+| `invoke_read_tool` | Invokes one read-only Huly tool by exact name with its arguments. The server rejects any target whose resolved annotations are not read-only, so this executor cannot perform Huly writes. |
+| `invoke_write_tool` | Invokes one write-capable Huly tool by exact name with its arguments. Read-only targets are rejected. Destructive or high-impact targets still require prepare_tool_action and execute_tool_action. |
+| `invoke_tool` | Legacy compatibility executor for read or write Huly operations. Prefer invoke_read_tool for enforced reads and invoke_write_tool for writes. |
 | `prepare_tool_action` | Preview and bind the exact arguments for a destructive or high-impact registered Huly tool. Performs no mutation and returns a five-minute single-use token. |
 | `execute_tool_action` | Execute exactly one destructive or high-impact registered Huly tool previously previewed with prepare_tool_action. Tokens expire after five minutes and cannot be replayed. |
 

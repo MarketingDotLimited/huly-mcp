@@ -9,6 +9,7 @@ import { beforeAll, describe, expect, it } from "vitest"
 
 const builtServerPath = resolve(process.cwd(), "dist/index.cjs")
 const PROCESS_BOUND_MS = 13_000
+const TEST_BOUND_MS = 20_000
 const SECRET = "subprocess-secret-token"
 const PAYLOAD_MARKER = "lifecycle-secret-payload"
 const JsonRpcEnvelopeSchema = Schema.Struct({ id: Schema.Number, jsonrpc: Schema.Literal("2.0") })
@@ -129,7 +130,7 @@ const ensureStopped = (server: SpawnedServer): void => {
   if (processExists(server.pid)) server.child.kill("SIGKILL")
 }
 
-describe("built stdio process lifecycle", () => {
+describe("built stdio process lifecycle", { timeout: TEST_BOUND_MS }, () => {
   beforeAll(() => {
     const child = spawn("pnpm", ["build:mcp"], { cwd: process.cwd(), stdio: "ignore" })
     return withBound(
