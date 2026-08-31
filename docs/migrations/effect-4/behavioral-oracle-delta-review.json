@@ -3,29 +3,29 @@
   "categories": [
     {
       "category": "draft07-structure",
-      "count": 12802,
-      "deltaSetSha256": "4a950e050aac47d7f66d0f4dd9293db2e08477c51a9007ab718a842f0c5a8b9b",
+      "count": 11382,
+      "deltaSetSha256": "7a83f399830332e534df64257792132a133aaa7f3fcfc970c3b13e30fb1bcd21",
       "issue": "#225",
       "rationale": "Reviewed Effect 4 Draft-07 structural dialect: refs, definitions, optional/null unions, refinements, and composition wrappers."
     },
     {
       "category": "schema-metadata",
-      "count": 4886,
-      "deltaSetSha256": "6afc16fabf320fad5dfd615210a2dfbcd0454e6e46e6f56615c7608b8771741f",
+      "count": 2614,
+      "deltaSetSha256": "2be244e8a1d21f4e01394262b3851549c784b560660c4871b9a1b258d63175a1",
       "issue": "#225",
       "rationale": "Reviewed schema metadata migration: authored descriptions are preserved and legacy generator-default metadata is replaced."
     },
     {
       "category": "authored-constraints",
-      "count": 3452,
-      "deltaSetSha256": "afd1c61d0237bd2d1a060264cb2182d7e11fb7dc7b9bcdb2d943da244ca5d943",
+      "count": 3598,
+      "deltaSetSha256": "652982144b52fc652a919cfe826a9273cfc4277cd89d89b0831fc32824c47836",
       "issue": "#225",
       "rationale": "Reviewed authored-constraint projection for the ordered tool corpus; strict Draft-07/runtime agreement passes."
     },
     {
       "category": "tool-inventory",
-      "count": 3292,
-      "deltaSetSha256": "014fdf2c55d534ae0537bb426ac35ff261bdb7961aff284c51aa425be12e1ed1",
+      "count": 6532,
+      "deltaSetSha256": "8eabbc3fb0426e16f214d59885d15cb33b759e524dab9f98844a1f1ad676edeb",
       "issue": "#225",
       "rationale": "Reviewed additions to the native, proxy, CLI, and bundled-process tool inventories."
     },
@@ -39,11 +39,11 @@
     {
       "category": "cli-help",
       "count": 4,
-      "deltaSetSha256": "bfbdd55f819ed6c98a62f959bf43703eafaff3d796eb99822e0d057451fd3cd3",
+      "deltaSetSha256": "b461cdfa5114342143947bd4f693a2f6f53dd9d8ce868fc72e34ca3bffef37a1",
       "issue": "#228",
       "rationale": "Reviewed concise Effect 4 CLI help rendering; existing route order is preserved and new routes are added."
     }
   ],
   "formatVersion": 1,
-  "reviewedCurrentSha256": "224febed7a0c8d5d65213d441144cb48bae800a43a4039208c18043a1d2e0686"
+  "reviewedCurrentSha256": "a943d6ec4e3b03db6b8fb09e8231c049afdb36a2ad357ce675c732cd27c7a262"
 }

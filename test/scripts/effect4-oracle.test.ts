@@ -129,13 +129,13 @@ describe("Effect 4 behavioral oracle", () => {
   })
 
   it("compiles every native and proxy public schema as Draft-07", () => {
-    expect(validateCurrentDraft07Corpora()).toEqual({ native: 548, proxy: 10 })
+    expect(validateCurrentDraft07Corpora()).toEqual({ native: 552, proxy: 10 })
   }, 60_000)
 
   it("captures the complete current oracle through built process and CLI seams", async () => {
     const oracle = await captureEffect4Oracle()
-    expect(oracle.registry.operationOrder).toHaveLength(546)
-    expect(oracle.registry.authoredConstraints).toHaveLength(546)
+    expect(oracle.registry.operationOrder).toHaveLength(550)
+    expect(oracle.registry.authoredConstraints).toHaveLength(550)
     expect(oracle.bundledProcesses.stdio.native).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))
     expect(oracle.bundledProcesses.stdio.proxy).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))
     expect(oracle.bundledProcesses.stdio.legacy).toEqual(expect.arrayContaining([expect.objectContaining({ id: 2 })]))

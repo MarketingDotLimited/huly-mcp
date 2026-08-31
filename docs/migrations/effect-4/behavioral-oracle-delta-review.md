@@ -10,11 +10,11 @@ the baseline was not regenerated.
 - Effect 3 baseline SHA-256:
   `02bb5e4bf2fdb0e4dd30f980810bd0fe70d5c91482c309b4621264c373d6adac`
 - Reviewed Effect 4 corpus SHA-256:
-  `224febed7a0c8d5d65213d441144cb48bae800a43a4039208c18043a1d2e0686`
-- Exact structural deltas: 24,442
-- Added: 9,373
-- Changed: 4,543
-- Removed: 10,526
+  `a943d6ec4e3b03db6b8fb09e8231c049afdb36a2ad357ce675c732cd27c7a262`
+- Exact structural deltas: 24,136
+- Added: 8,154
+- Changed: 8,593
+- Removed: 7,389
 
 Each category records its exact delta count and the SHA-256 of its sorted exact
 delta identities. The compact `behavioral-oracle-delta-review.json` certificate
@@ -26,10 +26,10 @@ stale categories, duplicate categories, and corpus hash drift.
 
 | Count | Classification | Evidence |
 | ---: | --- | --- |
-| 12,802 | Draft-07 structural dialect | Effect 4 refs, definitions, optional/null unions, refinements, and composition wrappers. All 548 native and 10 proxy schemas compile under strict Ajv Draft-07. |
-| 4,894 | Schema metadata | Authored descriptions restored by the central adapter and obsolete Effect 3 generator-default titles/descriptions removed. |
-| 3,452 | Authored-constraint projection | All 546 ordered native tools remain represented; generated ref/composition paths changed. Manual cross-field constraints remain in the corpus and representative runtime/Ajv agreement passes. |
-| 3,292 | Tool inventory | The HR, guarded-administration, approval, and split read/write proxy tools are reviewed across native/proxy discovery, CLI routing, and bundled-process fixtures. Existing native ordering is preserved and the new proxy tools are inserted before the legacy mixed executor. |
+| 11,382 | Draft-07 structural dialect | Effect 4 refs, definitions, optional/null unions, refinements, and composition wrappers. All 552 native public schemas (550 operations plus two context/version tools) and the 10-tool ChatGPT-visible surface compile under strict Ajv Draft-07. |
+| 2,614 | Schema metadata | Authored descriptions restored by the central adapter and obsolete Effect 3 generator-default titles/descriptions removed. |
+| 3,598 | Authored-constraint projection | All 550 ordered native tools remain represented; generated ref/composition paths changed. Manual cross-field constraints remain in the corpus and representative runtime/Ajv agreement passes. |
+| 6,532 | Tool inventory | The HR, guarded-administration, approval, saved-document, package-viability, and split read/write proxy tools are reviewed across native/proxy discovery, CLI routing, and bundled-process fixtures. Existing native ordering is preserved and the new proxy tools are inserted before the legacy mixed executor. |
 | 6 | CLI JSON parse diagnostics | Effect 4 adds deterministic line/column context; code, hint, retryability, and exit status are unchanged. |
 | 4 | CLI help rendering | The Effect 4 CLI renderer intentionally uses concise help. Route inventory and ordering remain unchanged. |
 
@@ -51,6 +51,6 @@ mise exec node@22.22.2 -- pnpm exec vitest run \
   test/scripts/effect4-oracle-parity.test.ts
 ```
 
-The full verifier re-renders the current bundled corpus and matches all 24,442
+The full verifier re-renders the current bundled corpus and matches all 24,136
 exact entries. Any future semantic or structural drift is unexpected; an
 accepted entry that stops occurring is stale and also fails verification.

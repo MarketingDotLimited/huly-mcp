@@ -32,7 +32,7 @@ get_hr_summary_report
 
 For unsupported business classes, `find_huly_documents`, `prepare_huly_action`, and `execute_huly_action` provide schema-validated access. Raw actions reject model, transaction, account, integration, and other protected classes/spaces. Every generic mutation requires a five-minute, account-bound, single-use preview token, checks `modifiedOn` for drift, and writes an append-only JSONL audit record. Destructive and high-impact registered tools use the equivalent `prepare_tool_action` / `execute_tool_action` flow. If the audit log cannot be written, execution fails closed.
 
-Production should set `HULY_AUDIT_LOG_PATH` to a persistent volume. The published container is available as `ghcr.io/marketingdotlimited/huly-mcp:0.50.0-mdl.7`; pin a version tag rather than a moving tag.
+Production should set `HULY_AUDIT_LOG_PATH` to a persistent volume. The published container is available as `ghcr.io/marketingdotlimited/huly-mcp:0.50.0-mdl.8`; pin a version tag rather than a moving tag.
 
 > [!IMPORTANT]
 > **Hosted Huly is shutting down.** Huly's upstream README says shutdown is expected July 20. If you use `https://huly.app`, [export and migrate your data](https://github.com/hcengineering/platform/blob/develop/README.md) as soon as possible. See the [backup and restore guide](https://github.com/hcengineering/platform/blob/develop/docs/guides/backup-restore.en.md) and [self-hosting repository](https://github.com/hcengineering/huly-selfhost). Self-hosted deployments are not affected.

@@ -283,7 +283,7 @@ const HulyUsablePackageViabilitySchema = Schema.Struct({
   publishStatus: Schema.Literal("published"),
   dependencyStatus: Schema.Literal("declared"),
   mcpStatus: Schema.Literal("usable_for_discovery"),
-  usableClassesOrOperations: Schema.NonEmptyArray(NonEmptyString),
+  usableClassesOrOperations: Schema.Array(NonEmptyString).check(Schema.isNonEmpty()),
   blockedReason: Schema.optionalKey(Schema.Never)
 })
 
