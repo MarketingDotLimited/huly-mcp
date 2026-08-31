@@ -174,6 +174,15 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const savedDocuments = config.savedDocuments ?? []
   const savedPreferences = config.savedPreferences ?? []
 
+  const findAllInModelImpl: HulyClientOperations["findAllInModel"] = ((_class: unknown, query: unknown) => {
+    const q = query as Record<string, unknown>
+    if (_class === core.class.Class && q._id === documentPlugin.class.SavedDocument) {
+      const classes = config.savedDocumentClassMissing === true ? [] : [makeSavedDocument()]
+      return Effect.succeed(toFindResult(classes as Array<Doc>))
+    }
+    return Effect.succeed(toFindResult([]))
+  }) as HulyClientOperations["findAllInModel"]
+
   const findAllImpl: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown, options: unknown) => {
     if (_class === documentPlugin.class.Teamspace) {
       const q = query as Record<string, unknown>
@@ -372,6 +381,7 @@ const createTestLayerWithMocks = (config: MockConfig) => {
 
   return HulyClient.testLayer({
     findAll: findAllImpl,
+    findAllInModel: findAllInModelImpl,
     findOne: findOneImpl,
     fetchMarkup: fetchMarkupImpl,
     createDoc: createDocImpl,

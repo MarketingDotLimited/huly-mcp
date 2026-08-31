@@ -23,7 +23,8 @@ import { core, documentPlugin, preference } from "../huly-plugins.js"
 import { buildDocumentUrlFromConfig } from "../url-builders.js"
 import { findTeamspaceAndDocument } from "./documents.js"
 import { clampLimit, hulyQuery } from "./query-helpers.js"
-import { toRef } from "./sdk-boundary.js"
+import type { MetadataClassDoc } from "./sdk-discovery-mappers.js"
+import { toClassRef, toRef } from "./sdk-boundary.js"
 
 type SaveDocumentError = HulyClientError | TeamspaceNotFoundError | DocumentNotFoundError
 
@@ -43,31 +44,37 @@ type SavedDocumentList =
   | { readonly kind: "saved-document"; readonly docs: ReadonlyArray<HulySavedDocument> }
   | { readonly kind: "preference"; readonly docs: ReadonlyArray<HulyPreference> }
 
-const isMissingSavedDocumentClass = (error: HulyClientError): boolean =>
-  error._tag === "HulyConnectionError" && error.message.includes("Not Found")
+const modelClassRef = toClassRef<MetadataClassDoc>(core.class.Class)
+const savedDocumentModelId = toRef<MetadataClassDoc>(documentPlugin.class.SavedDocument)
+
+const savedDocumentPreferenceKind = (
+  client: HulyClientOperations
+): Effect.Effect<SavedDocumentPreference["kind"], HulyClientError> =>
+  client
+    .findAllInModel<MetadataClassDoc>(modelClassRef, hulyQuery<MetadataClassDoc>({ _id: savedDocumentModelId }), {
+      limit: 1
+    })
+    .pipe(Effect.map((classes) => (classes.length === 0 ? "preference" : "saved-document")))
 
 const findSavedDocumentPreference = (
   client: HulyClientOperations,
   documentId: Ref<HulyDocument>
 ): Effect.Effect<SavedDocumentPreference, HulyClientError> =>
-  client
-    .findOne<HulySavedDocument>(
-      documentPlugin.class.SavedDocument,
-      hulyQuery<HulySavedDocument>({ attachedTo: documentId })
-    )
-    .pipe(
-      Effect.map((doc): SavedDocumentPreference => ({ kind: "saved-document", doc })),
-      Effect.catch((error) =>
-        isMissingSavedDocumentClass(error)
-          ? client
-              .findOne<HulyPreference>(
-                preference.class.Preference,
-                hulyQuery<HulyPreference>({ attachedTo: documentId })
-              )
-              .pipe(Effect.map((doc): SavedDocumentPreference => ({ kind: "preference", doc })))
-          : Effect.fail(error)
+  Effect.gen(function* () {
+    const kind = yield* savedDocumentPreferenceKind(client)
+    if (kind === "saved-document") {
+      const doc = yield* client.findOne<HulySavedDocument>(
+        documentPlugin.class.SavedDocument,
+        hulyQuery<HulySavedDocument>({ attachedTo: documentId })
       )
+      return { kind, doc }
+    }
+    const doc = yield* client.findOne<HulyPreference>(
+      preference.class.Preference,
+      hulyQuery<HulyPreference>({ attachedTo: documentId })
     )
+    return { kind, doc }
+  })
 
 const createSavedDocumentPreference = (
   client: HulyClientOperations,
@@ -96,24 +103,22 @@ const listSavedDocumentPreferences = (
   client: HulyClientOperations,
   limit: number
 ): Effect.Effect<SavedDocumentList, HulyClientError> =>
-  client
-    .findAll<HulySavedDocument>(documentPlugin.class.SavedDocument, hulyQuery<HulySavedDocument>({}), {
+  Effect.gen(function* () {
+    const kind = yield* savedDocumentPreferenceKind(client)
+    if (kind === "saved-document") {
+      const docs = yield* client.findAll<HulySavedDocument>(
+        documentPlugin.class.SavedDocument,
+        hulyQuery<HulySavedDocument>({}),
+        { limit, sort: { modifiedOn: SortingOrder.Descending } }
+      )
+      return { kind, docs }
+    }
+    const docs = yield* client.findAll<HulyPreference>(preference.class.Preference, hulyQuery<HulyPreference>({}), {
       limit,
       sort: { modifiedOn: SortingOrder.Descending }
     })
-    .pipe(
-      Effect.map((docs): SavedDocumentList => ({ kind: "saved-document", docs })),
-      Effect.catch((error) =>
-        isMissingSavedDocumentClass(error)
-          ? client
-              .findAll<HulyPreference>(preference.class.Preference, hulyQuery<HulyPreference>({}), {
-                limit,
-                sort: { modifiedOn: SortingOrder.Descending }
-              })
-              .pipe(Effect.map((docs): SavedDocumentList => ({ kind: "preference", docs })))
-          : Effect.fail(error)
-      )
-    )
+    return { kind, docs }
+  })
 
 /**
  * Save/bookmark a document for the current user.

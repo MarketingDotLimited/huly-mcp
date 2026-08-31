@@ -17,12 +17,12 @@
     "url": "https://github.com/MarketingDotLimited/huly-mcp",
     "source": "github"
   },
-  "version": "0.50.0-mdl.8",
+  "version": "0.50.0-mdl.9",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@firfi/huly-mcp",
-      "version": "0.50.0-mdl.8",
+      "version": "0.50.0-mdl.9",
       "transport": {
         "type": "stdio"
       },
