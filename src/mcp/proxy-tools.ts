@@ -55,17 +55,6 @@ export const PREPARE_TOOL_ACTION_TOOL_NAME = ToolName.make("prepare_tool_action"
 export const EXECUTE_TOOL_ACTION_TOOL_NAME = ToolName.make("execute_tool_action")
 const PROXY_TOOL_CATEGORY = makeToolCategory("proxy")
 
-export const PROXY_TOOL_NAMES: ReadonlyArray<ToolName> = [
-  LIST_TOOL_CATEGORIES_TOOL_NAME,
-  SEARCH_TOOLS_TOOL_NAME,
-  GET_TOOL_SCHEMA_TOOL_NAME,
-  INVOKE_READ_TOOL_TOOL_NAME,
-  INVOKE_WRITE_TOOL_TOOL_NAME,
-  INVOKE_TOOL_TOOL_NAME,
-  PREPARE_TOOL_ACTION_TOOL_NAME,
-  EXECUTE_TOOL_ACTION_TOOL_NAME
-]
-
 const EmptyProxyParamsSchema = Schema.Record(Schema.String, Schema.Never)
 const SearchToolsParamsSchema = Schema.Struct({ query: ToolSearchQuery, limit: Schema.optionalKey(SearchToolLimit) })
 const ToolNameParamsSchema = Schema.Struct({ toolName: ToolName })
@@ -224,7 +213,7 @@ export const proxyToolDefinitions: ReadonlyArray<ToolDefinition> = [
     annotations: {
       title: "Invoke Write Tool",
       readOnlyHint: false,
-      destructiveHint: true,
+      destructiveHint: false,
       idempotentHint: false,
       openWorldHint: false
     }
@@ -263,6 +252,8 @@ export const proxyToolDefinitions: ReadonlyArray<ToolDefinition> = [
     annotations: destructiveProxyAnnotations
   })
 ]
+
+export const PROXY_TOOL_NAMES: ReadonlyArray<ToolName> = proxyToolDefinitions.map((tool) => ToolName.make(tool.name))
 
 export const isProxyToolName = (name: string): name is ToolName =>
   PROXY_TOOL_NAMES.some((toolName) => toolName === name)
