@@ -27,7 +27,7 @@
    - **Replay Rejection**: Attempting to execute the approval ID a second time correctly rejected the operation.
    - **Zero Residue**: 
      - **list_issues**: `titleSearch` for the unique prefix returned exactly 0 matches.
-     - **fulltext_search**: `search_tools` for the unique prefix returned exactly 0 matches.
+     - **fulltext_search**: `invoke_read_tool` (toolName: `fulltext_search`) for the unique prefix returned exactly 0 matches.
 6. **No Modifications to MDL or RAB**: All mutating actions were completely isolated to the `TSK` project workspace.
 7. **Robust Validation**: Acceptance script was upgraded to accurately parse `text/event-stream` payloads directly through `jq` to reliably reject `isError=true` responses, and a safety `trap` was enforced to guarantee cleanup if an intermediate step failed.
 
