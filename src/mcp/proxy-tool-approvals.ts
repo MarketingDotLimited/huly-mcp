@@ -15,7 +15,7 @@ import {
   type McpToolResponse
 } from "./error-mapping.js"
 import type { ToolRegistry } from "./tools/index.js"
-import { ToolDescription, type ToolDefinition, ToolName } from "./tools/registry.js"
+import { resolveAnnotations, ToolDescription, type ToolDefinition, ToolName } from "./tools/registry.js"
 
 const MINUTES_PER_APPROVAL = 5
 const MILLISECONDS_PER_MINUTE = 60_000
@@ -82,11 +82,16 @@ const HIGH_IMPACT_CATEGORIES = new Set([
 ])
 const HIGH_IMPACT_TOOLS = new Set(["create_workspace", "update_member_role", "remove_workspace_member"])
 
-export const requiresTwoStepApproval = (tool: ToolDefinition): boolean =>
-  tool.annotations?.destructiveHint === true ||
-  tool.name.startsWith("delete_") ||
-  HIGH_IMPACT_CATEGORIES.has(tool.category) ||
-  HIGH_IMPACT_TOOLS.has(tool.name)
+export const requiresTwoStepApproval = (tool: ToolDefinition): boolean => {
+  const annotations = resolveAnnotations(tool)
+  if (annotations.readOnlyHint === true) return false
+  return (
+    tool.annotations?.destructiveHint === true ||
+    tool.name.startsWith("delete_") ||
+    HIGH_IMPACT_CATEGORIES.has(tool.category) ||
+    HIGH_IMPACT_TOOLS.has(tool.name)
+  )
+}
 
 export interface ToolApprovalClients {
   readonly hulyClient: Parameters<ToolRegistry["handleToolCall"]>[2]
@@ -199,6 +204,33 @@ const consumeApproval = (input: InitializedApprovalInput, token: string): Consum
 const matchesPreparedAction = (prepared: PreparedToolAction, toolName: ToolName, args: unknown): boolean =>
   prepared.toolName === toolName && prepared.argumentsHash === argumentsHash(args)
 
+type ApprovalTargetValidation =
+  | { readonly _tag: "Success"; readonly args: unknown }
+  | { readonly _tag: "Failure"; readonly response: McpToolResponse }
+
+const validateApprovalTarget = async (
+  registry: ToolRegistry,
+  toolName: ToolName,
+  args: unknown
+): Promise<ApprovalTargetValidation> => {
+  const target = registry.tools.get(toolName)
+  if (target === undefined) return { _tag: "Failure", response: createUnknownToolError(toolName) }
+  if (!requiresTwoStepApproval(target)) {
+    return {
+      _tag: "Failure",
+      response: createInvalidParamsError(
+        `Tool '${toolName}' does not require two-step approval.`,
+        "ApprovalNotRequired"
+      )
+    }
+  }
+  const normalized = normalizeArguments(args)
+  const validationError = await target.validateInput(normalized)
+  return validationError === undefined
+    ? { _tag: "Success", args: normalized }
+    : { _tag: "Failure", response: validationError }
+}
+
 const auditExecution = (
   prepared: PreparedToolAction,
   timestamp: number,
@@ -246,17 +278,10 @@ export const prepareRegisteredToolAction = async (input: ApprovalInput): Promise
   }
   const decoded = Schema.decodeUnknownResult(PrepareToolActionParamsSchema)(input.args ?? {})
   if (Result.isFailure(decoded)) return mapParseErrorToMcp(decoded.failure, input.toolName)
-  const target = input.registry.tools.get(decoded.success.toolName)
-  if (target === undefined) return createUnknownToolError(decoded.success.toolName)
-  if (!requiresTwoStepApproval(target)) {
-    return createInvalidParamsError(
-      `Tool '${decoded.success.toolName}' does not require two-step approval.`,
-      "ApprovalNotRequired"
-    )
-  }
+  const target = await validateApprovalTarget(input.registry, decoded.success.toolName, decoded.success.arguments)
+  if (target._tag === "Failure") return target.response
   const approvalId = `approval_${randomUUID()}`
-  const normalized = normalizeArguments(decoded.success.arguments)
-  const hash = argumentsHash(normalized)
+  const hash = argumentsHash(target.args)
   const expiresAt = input.currentTimeMillis + TOOL_APPROVAL_TTL_MS
   const accountUuid = String(input.clients.hulyClient.getAccountUuid())
   const audited = await appendApprovalAudit({
@@ -272,7 +297,7 @@ export const prepareRegisteredToolAction = async (input: ApprovalInput): Promise
   }
   preparedToolActions.set(approvalId, {
     accountUuid,
-    args: normalized,
+    args: target.args,
     argumentsHash: hash,
     expiresAt,
     toolName: decoded.success.toolName
@@ -281,7 +306,7 @@ export const prepareRegisteredToolAction = async (input: ApprovalInput): Promise
     approvalId: ToolName.make(approvalId),
     expiresAt,
     toolName: decoded.success.toolName,
-    arguments: normalized,
+    arguments: target.args,
     argumentsHash: hash,
     warning: ToolDescription.make(
       "Review the target and exact arguments. The next step executes a potentially irreversible action."

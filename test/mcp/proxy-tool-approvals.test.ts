@@ -28,16 +28,19 @@ const definition = (overrides: Partial<ToolDefinition> = {}): ToolDefinition =>
 const registry = (
   tool = definition(),
   response: unknown = createSuccessResponse({ deleted: true }),
-  onCall?: () => void
-): ToolRegistry =>
-  input({
-    tools: new Map([[tool.name, tool]]),
+  onCall?: () => void,
+  validationError?: ReturnType<typeof createInvalidParamsError>
+): ToolRegistry => {
+  const registeredTool = input({ ...tool, validateInput: async () => validationError })
+  return input({
+    tools: new Map([[tool.name, registeredTool]]),
     definitions: [tool],
     handleToolCall: async () => {
       onCall?.()
       return response
     }
   })
+}
 
 const result = (response: Awaited<ReturnType<typeof prepareRegisteredToolAction>>) =>
   input<Record<string, unknown>>(response.structuredContent?.result)
@@ -63,6 +66,46 @@ describe("registered tool approvals", () => {
     expect(
       requiresTwoStepApproval(definition({ name: "update_widget", annotations: { destructiveHint: false } }))
     ).toBe(false)
+    expect(
+      requiresTwoStepApproval(
+        definition({
+          name: "get_workspace_info",
+          category: input("workspace"),
+          annotations: { readOnlyHint: true, destructiveHint: false }
+        })
+      )
+    ).toBe(false)
+    expect(
+      requiresTwoStepApproval(
+        definition({
+          name: "get_class_collaborator_metadata",
+          category: input("security-administration"),
+          annotations: { readOnlyHint: true, destructiveHint: false }
+        })
+      )
+    ).toBe(false)
+  })
+
+  it("validates target arguments before creating an approval", async () => {
+    const validationError = createInvalidParamsError(
+      "Invalid parameters for delete_widget: identifier: is missing",
+      "InvalidParams"
+    )
+    const prepared = await prepareRegisteredToolAction(
+      input({
+        toolName: "prepare_tool_action",
+        args: { toolName: "delete_widget", arguments: {} },
+        registry: registry(definition(), createSuccessResponse({ deleted: true }), undefined, validationError),
+        clients: clients(),
+        currentTimeMillis: 1_000
+      })
+    )
+
+    expect(prepared).toMatchObject({ isError: true })
+    expect(prepared.content[0]).toMatchObject({
+      type: "text",
+      text: "Invalid parameters for delete_widget: identifier: is missing"
+    })
   })
 
   it("prepares canonical argument hashes and executes a token once", async () => {

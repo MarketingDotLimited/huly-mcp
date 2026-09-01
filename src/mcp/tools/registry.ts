@@ -100,6 +100,7 @@ export const createToolDefinition = (spec: ToolDefinitionSpec): ToolDefinition =
 
 export type RegisteredTool<Name extends string = string> = ToolDefinition<Name> & {
   readonly operation: RegisteredOperation<Name>
+  readonly validateInput: (args: unknown) => Promise<McpToolResponse | undefined>
   readonly handler: (
     args: unknown,
     hulyClient: HulyClient["Service"],
@@ -338,6 +339,16 @@ const createHandler =
     )
   }
 
+const createInputValidator =
+  <P>(
+    toolName: string,
+    parse: (input: unknown) => Effect.Effect<P, Schema.SchemaError>
+  ): RegisteredTool["validateInput"] =>
+  async (args) => {
+    const parseResult = await Effect.runPromise(Effect.exit(parse(args)))
+    return Exit.isFailure(parseResult) ? mapParseCauseToMcp(parseResult.cause, toolName) : undefined
+  }
+
 const defineProvidedTool = <const Name extends string, P, Svc, S extends ResultSchema>(
   spec: ToolSpec<Name, S>,
   provide: ProvideServices<Svc>,
@@ -352,7 +363,12 @@ const defineProvidedTool = <const Name extends string, P, Svc, S extends ResultS
     )
   }
 
-  return { ...definition, operation: registeredOperation, handler: createHandler(registeredOperation) }
+  return {
+    ...definition,
+    operation: registeredOperation,
+    validateInput: createInputValidator(spec.name, parse),
+    handler: createHandler(registeredOperation)
+  }
 }
 
 interface ImageToolPresentation<Output> {
@@ -380,7 +396,12 @@ const defineProvidedImageTool = <const Name extends string, P, Svc, S extends Re
     )
   }
 
-  return { ...definition, operation: registeredOperation, handler: createHandler(registeredOperation) }
+  return {
+    ...definition,
+    operation: registeredOperation,
+    validateInput: createInputValidator(spec.name, parse),
+    handler: createHandler(registeredOperation)
+  }
 }
 
 export const defineTool = <const Name extends string, P, S extends ResultSchema>(

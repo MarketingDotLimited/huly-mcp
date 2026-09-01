@@ -37,6 +37,7 @@ const generatedTool = (name: string): RegisteredTool => {
   return {
     ...definition,
     operation: { ...definition, execute: () => Effect.succeed({ result: { ok: true }, warnings: [] }) },
+    validateInput: async () => undefined,
     handler: async () => createSuccessResponse({ ok: true })
   }
 }

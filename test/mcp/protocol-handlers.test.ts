@@ -525,6 +525,7 @@ const propertylessToolDefinition = createToolDefinition({
 const propertylessTool: RegisteredTool = {
   ...propertylessToolDefinition,
   operation: { ...propertylessToolDefinition, execute: () => Effect.succeed({ result: { ok: "ok" }, warnings: [] }) },
+  validateInput: async () => undefined,
   handler: async () => ({ content: [{ type: "text", text: "ok" }] })
 }
 

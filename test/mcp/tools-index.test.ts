@@ -8,6 +8,7 @@ import type { HulyClientOperations } from "../../src/huly/client.js"
 import { testMarkupUrlConfig } from "../../src/huly/operations/markup.js"
 import type { HulyStorageOperations } from "../../src/huly/storage.js"
 import { testWorkbenchUrlConfig } from "../../src/huly/url-builders.js"
+import { requiresTwoStepApproval } from "../../src/mcp/proxy-tool-approvals.js"
 import {
   CATEGORY_NAMES,
   createFilteredRegistry,
@@ -338,6 +339,24 @@ describe("createFilteredRegistry", () => {
   )
 })
 
+describe("approval classification", () => {
+  it.effect("keeps read-only workspace and security tools outside two-step approval", () =>
+    Effect.sync(function () {
+      for (const name of [
+        "get_workspace_info",
+        "list_workspace_members",
+        "list_workspaces",
+        "get_user_profile",
+        "get_class_collaborator_metadata"
+      ]) {
+        const tool = assertExists(toolRegistry.tools.get(toolName(name)), `${name} tool`)
+        expect(resolveAnnotations(tool).readOnlyHint).toBe(true)
+        expect(requiresTwoStepApproval(tool)).toBe(false)
+      }
+    })
+  )
+})
+
 describe("handleToolCall", () => {
   it.effect("returns null for unknown tool", () =>
     Effect.gen(function* () {
@@ -401,6 +420,21 @@ describe("handleToolCall", () => {
 
       expect(result?.isError).toBe(true)
       expect(result?.content[0]?.text).toContain("does not accept arguments")
+    })
+  )
+
+  it.effect("validates target input without dispatching the operation", () =>
+    Effect.gen(function* () {
+      const deleteIssue = assertExists(toolRegistry.tools.get(toolName("delete_issue")), "delete_issue tool")
+      const result = yield* Effect.promise(() => deleteIssue.validateInput({ project: "TSK" }))
+      const validResult = yield* Effect.promise(() =>
+        deleteIssue.validateInput({ project: "TSK", identifier: "TSK-1" })
+      )
+
+      expect(result?.isError).toBe(true)
+      expect(result?.content[0]?.text).toContain("Invalid parameters for delete_issue")
+      expect(result?.content[0]?.text).toContain("identifier: is missing")
+      expect(validResult).toBeUndefined()
     })
   )
 })
