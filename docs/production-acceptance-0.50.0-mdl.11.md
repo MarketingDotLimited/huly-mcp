@@ -47,6 +47,29 @@ The exposed proxy actions were:
 Together with `get_version` and `get_huly_context`, the live surface contained
 exactly ten actions.
 
+## ChatGPT action-snapshot verification
+
+A fresh ChatGPT production conversation independently reported:
+
+- `clientKind: chatgpt`
+- `configuredMode: auto`
+- `resolvedMode: proxy`
+- `visibleToolCount: 10`
+- `nativeVisibleToolCount: 0`
+- `proxyCandidateToolCount: 550`
+- 48 categories containing 550 tools
+- all ten registered actions present
+
+This disproves the earlier stale-action-snapshot diagnosis for the refreshed
+app connection.
+
+ChatGPT also attempted `execute_tool_action` with a fabricated approval ID and
+OpenAI blocked the call before MCP dispatch. That negative test does not test
+the mdl.11 approval lifecycle: no matching `prepare_tool_action` record existed,
+and no exact approved target was available for the host to inspect. The valid
+acceptance path is the reversible lifecycle documented below, using the
+returned `approvalId`, `toolName`, and exact `arguments` from one real preview.
+
 ## Safety and validation evidence
 
 | Test | Result |
@@ -92,6 +115,6 @@ The acceptance cycle used the prefix
 - Cleanup residue: 0
 
 This certifies the server-side approval contract introduced in
-`0.50.0-mdl.11`. ChatGPT must refresh or recreate its app action snapshot
-before testing the changed `execute_tool_action` input schema in a new
-conversation.
+`0.50.0-mdl.11`. The refreshed ChatGPT app now exposes the correct input schema;
+a ChatGPT-hosted destructive acceptance test still requires a valid preview of
+one disposable target rather than a fabricated approval ID.
