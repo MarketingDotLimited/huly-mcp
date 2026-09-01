@@ -207,7 +207,7 @@ if [[ "$cli_needs_publish" == "true" ]]; then
 fi
 
 if [[ "$mcp_needs_publish" == "true" || "$cli_needs_publish" == "true" ]]; then
-  echo "Skipping publish"
+  npm_config_ignore_scripts=true pnpm dlx "@changesets/cli@$CHANGES_VERSION" publish
 fi
 
 git push origin "$RELEASE_BRANCH"
