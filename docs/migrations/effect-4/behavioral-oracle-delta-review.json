@@ -3,8 +3,8 @@
   "categories": [
     {
       "category": "draft07-structure",
-      "count": 11382,
-      "deltaSetSha256": "7a83f399830332e534df64257792132a133aaa7f3fcfc970c3b13e30fb1bcd21",
+      "count": 11394,
+      "deltaSetSha256": "7876add48d6cd3380bb85279ef210fcb057e46ca1fd7e2f296fb0ac47c6878f2",
       "issue": "#225",
       "rationale": "Reviewed Effect 4 Draft-07 structural dialect: refs, definitions, optional/null unions, refinements, and composition wrappers."
     },
@@ -24,10 +24,10 @@
     },
     {
       "category": "tool-inventory",
-      "count": 6532,
-      "deltaSetSha256": "7ed16838cc29a66ad2424b04daba98635115939223ae8c8f24ebea65e33bda7d",
+      "count": 6534,
+      "deltaSetSha256": "a1d5973751b169529602856e55b62a1bf22ee44b8a2fe1cfb0413472878569f1",
       "issue": "#225",
-      "rationale": "Reviewed additions to the native, proxy, CLI, and bundled-process tool inventories, including enforced split-executor safety annotations, inspectable destructive approvals, and the newly named approval executor used to invalidate stale host schemas."
+      "rationale": "Reviewed additions to the native, proxy, CLI, and bundled-process tool inventories, including enforced split-executor safety annotations, inspectable destructive approvals, deterministic full-catalog enumeration, deletion-target preflight evidence, and the newly named approval executor used to invalidate stale host schemas."
     },
     {
       "category": "cli-json-diagnostic",
@@ -45,5 +45,5 @@
     }
   ],
   "formatVersion": 1,
-  "reviewedCurrentSha256": "60c8a36957202d6aea0defb6e9fc042431bb80721dd8c2994dea0d58eb65f88d"
+  "reviewedCurrentSha256": "bba8bc4b96d27d2c9de1e3d8f0da0c91bbe858088cd5ef867cd6e0e1481dd68c"
 }

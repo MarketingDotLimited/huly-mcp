@@ -188,12 +188,9 @@ export const createOracleDeltaAuditReport = (
     const index = authoredConstraintIndex(delta)
     const baselineName = baseline.registry.authoredConstraints[index]?.toolName
     const currentName = current.registry.authoredConstraints[index]?.toolName
-    if (baselineName !== undefined && currentName !== undefined && baselineName !== currentName) {
-      throw new Error(`Cannot associate authored-constraint delta ${delta.path} with one stable tool.`)
-    }
-    const toolName = currentName ?? baselineName
+    const toolName = delta._tag === "Removed" ? baselineName : (currentName ?? baselineName)
     if (toolName === undefined) {
-      throw new Error(`Cannot associate authored-constraint delta ${delta.path} with a stable tool.`)
+      throw new Error(`Cannot associate authored-constraint delta ${delta.path} with a tool.`)
     }
     const entries = byTool.get(toolName) ?? []
     entries.push(delta)

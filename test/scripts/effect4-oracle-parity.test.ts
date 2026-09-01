@@ -224,7 +224,7 @@ describe("Effect 4 oracle structural parity", () => {
     expect(() => verifyReviewedOracleDeltas(fixture, fixture, [reviewedDelta], review([]))).toThrow("unreviewed")
   })
 
-  it("groups authored-constraint audit details by stable tool and rejects invalid associations", async () => {
+  it("groups authored-constraint audit details by current tool and rejects invalid associations", async () => {
     const baselineJson = await fs.readFile(EFFECT4_ORACLE_PATH, "utf8")
     const baseline = Schema.decodeUnknownSync(Schema.fromJsonString(BehavioralOracleSchema))(baselineJson)
     const firstTool = baseline.registry.authoredConstraints[0]
@@ -251,7 +251,7 @@ describe("Effect 4 oracle structural parity", () => {
       createOracleDeltaAuditReport(baselineJson, baselineJson, baseline, baseline, [
         { _tag: "Added", path: "/registry/authoredConstraints/999999/value", after: true }
       ])
-    ).toThrow("stable tool")
+    ).toThrow("with a tool")
 
     const changedCurrent = Schema.decodeUnknownSync(BehavioralOracleSchema)({
       ...baseline,
@@ -263,9 +263,19 @@ describe("Effect 4 oracle structural parity", () => {
         ]
       }
     })
-    expect(() =>
+    expect(
       createOracleDeltaAuditReport(baselineJson, baselineJson, baseline, changedCurrent, [authoredDelta])
-    ).toThrow("stable tool")
+        .authoredConstraintsByTool
+    ).toEqual([{ toolName: secondTool.toolName, deltas: [authoredDelta] }])
+    const removedDelta = {
+      _tag: "Removed",
+      path: "/registry/authoredConstraints/0/constraints/0/value",
+      before: true
+    } as const
+    expect(
+      createOracleDeltaAuditReport(baselineJson, baselineJson, baseline, changedCurrent, [removedDelta])
+        .authoredConstraintsByTool
+    ).toEqual([{ toolName: firstTool.toolName, deltas: [removedDelta] }])
     expect(() =>
       createOracleDeltaAuditReport(baselineJson, baselineJson, baseline, baseline, [
         { _tag: "Added", path: "/unclassified", after: true }

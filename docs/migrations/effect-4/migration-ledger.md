@@ -573,10 +573,10 @@ migration surfaces.
 
 The immutable Effect 3 behavioral baseline was compared to a separately rendered
 Effect 4 corpus after the #227 HTTP and #228 CLI build edges landed. The baseline
-was not regenerated. The comparison found exactly 21,086 structural deltas:
-12,754 Draft-07 structural dialect changes, 4,894 schema-metadata changes, 3,428
-authored-constraint projection changes, 6 richer CLI JSON parse diagnostics, and
-4 concise CLI help-renderer changes.
+was not regenerated. The comparison found exactly 24,150 structural deltas:
+11,394 Draft-07 structural dialect changes, 2,614 schema-metadata changes, 3,598
+authored-constraint projection changes, 6,534 tool-inventory changes, 6 richer
+CLI JSON parse diagnostics, and 4 concise CLI help-renderer changes.
 
 Each category records an exact count and SHA-256 of its sorted exact delta identities
 in `behavioral-oracle-delta-review.json`, avoiding duplication of baseline/current
@@ -588,8 +588,9 @@ hash, and verification commands are recorded in
 
 `mise exec node@22.22.2 -- pnpm verify:effect4-oracle:built` passes against the
 full bundled MCP and CLI corpus. Strict Ajv Draft-07 compilation remains green
-for all 524 native and 6 proxy tool schemas; the registry remains 522 ordered,
-unique operations and the authored-constraint corpus retains all 522 tools.
+for all 552 native public schemas and the 10-tool ChatGPT-visible surface; the
+registry contains 550 ordered, unique operations and the authored-constraint
+corpus retains all 550 tools.
 
 ## Ticket #229 packed CLI and generated documentation checkpoint
 
@@ -699,7 +700,7 @@ lifecycle harness, and stdio/HTTP shutdown remains owned and bounded by the
 certified lifecycle implementation.
 
 The final parity report is `final-parity-report.md`. It links the unchanged
-Effect 3 baseline to the reviewed 21,086-delta certificate and the #225, #229,
+Effect 3 baseline to the reviewed 24,150-delta certificate and the #225, #229,
 and #231 schema, CLI, artifact, and clean-consumer evidence. The archival
 decision is explicit: `.reference/effect-v3.22.1` remains historical parity
 provenance only; setup does not provision or verify it, it is outside the active

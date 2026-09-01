@@ -49,14 +49,15 @@ Four live-only defects were repaired during certification:
 
 The immutable Effect 3 oracle was not regenerated. The final Effect 4 corpus is
 verified by the compact reviewed certificate described in
-`behavioral-oracle-delta-review.md`: 21,086 exact differences are divided into
-12,754 Draft-07 structural dialect changes, 4,894 schema-metadata changes, 3,428
-authored-constraint projections, 6 richer CLI JSON diagnostics, and 4 concise
-CLI help changes. Counts, current/baseline hashes, and sorted delta-set hashes
+`behavioral-oracle-delta-review.md`: 24,150 exact differences are divided into
+11,394 Draft-07 structural dialect changes, 2,614 schema-metadata changes, 3,598
+authored-constraint projections, 6,534 tool-inventory changes, 6 richer CLI JSON
+diagnostics, and 4 concise CLI help changes. Counts, current/baseline hashes, and sorted delta-set hashes
 reject unreviewed, changed, duplicate, or stale classifications.
 
-The certified registry remains 522 ordered unique operations. Strict Ajv
-Draft-07 compilation passes for all 524 native and 6 proxy schemas. Discovery,
+The certified registry contains 550 ordered unique operations. Strict Ajv
+Draft-07 compilation passes for all 552 native public schemas and the 10-tool
+ChatGPT-visible surface. Discovery,
 resources, CLI routing/help, transport behavior, package closure, executable
 modes, clean-consumer installs, and artifact-size evidence are covered by the
 oracle and #225/#229/#231 certificates referenced from the migration ledger.
