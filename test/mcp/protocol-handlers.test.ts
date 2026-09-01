@@ -1465,6 +1465,16 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
       throw new Error("expected search result")
     }
     expect(searchResult.matches.some((match) => isJsonObject(match) && match.category === "channels")).toBe(true)
+
+    // Regression test for exact-looking query semantic bug
+    const exactSearch = await handlers.callTool({
+      params: { name: "search_tools", arguments: { query: "MCP_QA_NONEXISTENT_TARGET" } }
+    })
+    const exactResult = exactSearch.structuredContent?.result
+    if (!isJsonObject(exactResult) || !Array.isArray(exactResult.matches)) {
+      throw new Error("expected search result")
+    }
+    expect(exactResult.matches).toHaveLength(0)
   })
 
   it("dispatches direct hidden native calls through proxy candidates for compatibility", async () => {
