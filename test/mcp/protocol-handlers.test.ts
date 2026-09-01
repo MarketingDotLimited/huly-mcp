@@ -1468,7 +1468,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
 
     // Regression test for exact-looking query semantic bug
     const exactSearch = await handlers.callTool({
-      params: { name: "search_tools", arguments: { query: "MCP_QA_NONEXISTENT_TARGET" } }
+      params: { name: "search_tools", arguments: { query: "MCP_QA_NONEXISTENT_TARGET_20260901T214501Z" } }
     })
     const exactResult = exactSearch.structuredContent?.result
     if (!isJsonObject(exactResult) || !Array.isArray(exactResult.matches)) {
