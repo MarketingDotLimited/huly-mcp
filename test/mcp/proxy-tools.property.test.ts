@@ -116,4 +116,12 @@ describe("proxy tool search properties", () => {
       propertyTestParameters
     )
   })
+
+  it("returns zero results for a long synthetic nonexistent exact-looking target", () => {
+    // This query has tokens "mcp", "qa", "nonexistent", "target".
+    // Previously, due to OR semantics, any tool with "target" in its text would match.
+    // Now, exact-looking queries require ALL tokens to match, so this should return 0 results.
+    const matches = searchToolDefinitions(toolRegistry, makeToolSearchQuery("MCP_QA_NONEXISTENT_TARGET"), makeSearchToolLimit(50))
+    expect(matches).toEqual([])
+  })
 })

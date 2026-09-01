@@ -315,11 +315,28 @@ const NAME_TOKEN_WEIGHT = 1_000
 const CATEGORY_TOKEN_WEIGHT = 100
 const DESCRIPTION_TOKEN_WEIGHT = 10
 
-const toolScore = (tool: ToolDefinition, tokens: ReadonlyArray<string>, normalizedQuery: string): number => {
+const toolScore = (
+  tool: ToolDefinition,
+  tokens: ReadonlyArray<string>,
+  normalizedQuery: string,
+  isExactLooking: boolean
+): number => {
   const params = toolParamSummary(tool)
   const paramText = [...params.requiredParams, ...params.optionalParams].join(" ")
   const categoryText = `${tool.category} ${categoryDescription(tool.category)}`
   const exactScore = tool.name.toLowerCase() === normalizedQuery ? EXACT_NAME_SCORE : 0
+
+  if (isExactLooking && exactScore === 0) {
+    const hasAllTokens = tokens.every(
+      (token) =>
+        tool.name.toLowerCase().includes(token) ||
+        categoryText.toLowerCase().includes(token) ||
+        tool.description.toLowerCase().includes(token) ||
+        paramText.toLowerCase().includes(token)
+    )
+    if (!hasAllTokens) return 0
+  }
+
   return (
     exactScore +
     tokenHitCount(tokens, tool.name) * NAME_TOKEN_WEIGHT +
@@ -338,8 +355,10 @@ export const searchToolDefinitions = (
   const tokens = queryTokens(normalizedQuery)
   if (tokens.length === 0) return []
 
+  const isExactLooking = /^[a-z0-9_-]+$/i.test(query.trim())
+
   return registry.definitions
-    .map((tool, index) => ({ index, score: toolScore(tool, tokens, normalizedQuery), tool }))
+    .map((tool, index) => ({ index, score: toolScore(tool, tokens, normalizedQuery, isExactLooking), tool }))
     .filter((match) => match.score > 0)
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .slice(0, limit)
