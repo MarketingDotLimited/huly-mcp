@@ -1,6 +1,6 @@
 {
   "name": "@firfi/huly-mcp",
-  "version": "0.50.0-mdl.14",
+  "version": "0.50.0-mdl.15",
   "description": "Huly MCP with complete HR operations and guarded administrative access",
   "mcpName": "io.github.marketingdotlimited/huly-mcp",
   "type": "module",

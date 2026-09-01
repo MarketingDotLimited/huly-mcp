@@ -4,6 +4,7 @@ import { Count } from "../domain/schemas/index.js"
 import { createSuccessResponse, type McpToolResponse } from "./error-mapping.js"
 import { toClientCompatibleInputSchema } from "./input-schema-compat.js"
 import type { ToolRegistry } from "./tools/index.js"
+import { resolveAnnotations } from "./tools/index.js"
 import { makeToolCategory, makeToolDescription, ToolDescription } from "./tools/registry.js"
 import type { ToolCategory, ToolDefinition } from "./tools/registry.js"
 
@@ -272,16 +273,28 @@ const CATEGORY_DESCRIPTIONS: ReadonlyMap<ToolCategory, ToolDescription> = new Ma
 const categoryDescription = (category: ToolCategory): ToolDescription =>
   CATEGORY_DESCRIPTIONS.get(category) ?? ToolDescription.make(`Huly ${category} tools.`)
 
-export const listCategories = (registry: ToolRegistry): McpToolResponse => {
-  const counts = new Map<ToolCategory, number>()
+export const listCategories = (
+  registry: ToolRegistry,
+  requiresApproval: (tool: ToolDefinition) => boolean
+): McpToolResponse => {
+  const toolsByCategory = new Map<ToolCategory, Array<ToolDefinition>>()
   for (const tool of registry.definitions) {
-    counts.set(tool.category, (counts.get(tool.category) ?? 0) + 1)
+    const tools = toolsByCategory.get(tool.category) ?? []
+    tools.push(tool)
+    toolsByCategory.set(tool.category, tools)
   }
   return createSuccessResponse({
-    categories: [...counts.entries()].map(([name, toolCount]) => ({
+    totalToolCount: Count.make(registry.definitions.length),
+    categories: [...toolsByCategory.entries()].map(([name, tools]) => ({
       name,
       description: categoryDescription(name),
-      toolCount: Count.make(toolCount)
+      toolCount: Count.make(tools.length),
+      tools: tools.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        annotations: resolveAnnotations(tool),
+        requiresApproval: requiresApproval(tool)
+      }))
     }))
   })
 }

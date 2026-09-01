@@ -1376,8 +1376,64 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
 
     expect(response.isError).not.toBe(true)
     expect(response.structuredContent?.result).toEqual({
-      categories: [{ name: "test", description: "Huly test tools.", toolCount: 1 }]
+      totalToolCount: 1,
+      categories: [
+        {
+          name: "test",
+          description: "Huly test tools.",
+          toolCount: 1,
+          tools: [
+            {
+              name: "diagnostic_probe",
+              description: "Test-only tool that emits an agent-visible diagnostic warning.",
+              annotations: {
+                title: "Diagnostic Probe",
+                readOnlyHint: true,
+                destructiveHint: false,
+                idempotentHint: true,
+                openWorldHint: false
+              },
+              requiresApproval: false
+            }
+          ]
+        }
+      ]
     })
+  })
+
+  it("enumerates every proxy candidate exactly once with resolved safety policy", async () => {
+    const handlers = createMcpProtocolHandlers(
+      unusedResolveClients,
+      createTelemetryProbe().telemetry,
+      protocolRegistries(toolRegistry),
+      makeValidContext,
+      liveNowClock,
+      () => Promise.resolve("0.0.0"),
+      proxyExposureOptions()
+    )
+
+    const response = await handlers.callTool({ params: { name: "list_tool_categories", arguments: {} } })
+    const result = response.structuredContent?.result
+    if (!isJsonObject(result) || !Array.isArray(result.categories)) throw new Error("expected category catalog")
+    const catalogTools = result.categories.flatMap((category) =>
+      isJsonObject(category) && Array.isArray(category.tools) ? category.tools : []
+    )
+
+    expect(result.totalToolCount).toBe(toolRegistry.definitions.length)
+    expect(catalogTools).toHaveLength(toolRegistry.definitions.length)
+    expect(new Set(catalogTools.map((tool) => (isJsonObject(tool) ? tool.name : undefined))).size).toBe(
+      toolRegistry.definitions.length
+    )
+    expect(
+      catalogTools.every(
+        (tool) =>
+          isJsonObject(tool) &&
+          isJsonObject(tool.annotations) &&
+          typeof tool.annotations.readOnlyHint === "boolean" &&
+          typeof tool.annotations.destructiveHint === "boolean" &&
+          typeof tool.requiresApproval === "boolean"
+      )
+    ).toBe(true)
   })
 
   it("uses descriptive category metadata for category listing and search", async () => {

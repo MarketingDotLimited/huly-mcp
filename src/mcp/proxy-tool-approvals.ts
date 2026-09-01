@@ -37,6 +37,7 @@ export const PrepareToolActionResultSchema = Schema.Struct({
   toolName: ToolName,
   arguments: Schema.Unknown,
   argumentsHash: ToolName,
+  preflight: Schema.optionalKey(Schema.Unknown),
   warning: ToolDescription
 })
 export const ExecutedToolActionResultSchema = Schema.Struct({
@@ -203,13 +204,71 @@ const matchesPreparedAction = (prepared: PreparedToolAction, toolName: ToolName,
   prepared.toolName === toolName && prepared.argumentsHash === argumentsHash(args)
 
 type ApprovalTargetValidation =
-  | { readonly _tag: "Success"; readonly args: unknown }
+  | { readonly _tag: "Success"; readonly args: unknown; readonly preflight?: unknown }
   | { readonly _tag: "Failure"; readonly response: McpToolResponse }
+
+interface DeletionPreviewArguments {
+  readonly entityType: "issue" | "project" | "component" | "milestone"
+  readonly project: unknown
+  readonly identifier?: unknown
+}
+
+const UnknownRecordSchema = Schema.Record(Schema.String, Schema.Unknown)
+
+const deletionPreviewArguments = (toolName: ToolName, args: unknown): DeletionPreviewArguments | undefined => {
+  const decoded = Schema.decodeUnknownResult(UnknownRecordSchema)(args)
+  if (Result.isFailure(decoded)) return undefined
+  const values = decoded.success
+  switch (toolName) {
+    case "delete_issue":
+      return { entityType: "issue", project: values["project"], identifier: values["identifier"] }
+    case "delete_project":
+      return { entityType: "project", project: values["project"] }
+    case "delete_component":
+      return { entityType: "component", project: values["project"], identifier: values["component"] }
+    case "delete_milestone":
+      return { entityType: "milestone", project: values["project"], identifier: values["milestone"] }
+    default:
+      return undefined
+  }
+}
+
+const preflightApprovalTarget = async (
+  registry: ToolRegistry,
+  toolName: ToolName,
+  args: unknown,
+  clients: ToolApprovalClients
+): Promise<
+  | { readonly _tag: "Success"; readonly result?: unknown }
+  | { readonly _tag: "Failure"; readonly response: McpToolResponse }
+> => {
+  const previewArgs = deletionPreviewArguments(toolName, args)
+  if (previewArgs === undefined) return { _tag: "Success" }
+  const response = await registry.handleToolCall(
+    "preview_deletion",
+    previewArgs,
+    clients.hulyClient,
+    clients.storageClient,
+    clients.workspaceClient
+  )
+  if (response === null) {
+    return {
+      _tag: "Failure",
+      response: createInvalidParamsError(
+        `Approval preflight for '${toolName}' is unavailable because preview_deletion is not registered.`,
+        "ApprovalPreflightUnavailable"
+      )
+    }
+  }
+  if (response.isError === true) return { _tag: "Failure", response }
+  return { _tag: "Success", result: response.structuredContent?.result ?? response.content }
+}
 
 const validateApprovalTarget = async (
   registry: ToolRegistry,
   toolName: ToolName,
-  args: unknown
+  args: unknown,
+  clients: ToolApprovalClients
 ): Promise<ApprovalTargetValidation> => {
   const target = registry.tools.get(toolName)
   if (target === undefined) return { _tag: "Failure", response: createUnknownToolError(toolName) }
@@ -224,9 +283,14 @@ const validateApprovalTarget = async (
   }
   const normalized = normalizeArguments(args)
   const validationError = await target.validateInput(normalized)
-  return validationError === undefined
-    ? { _tag: "Success", args: normalized }
-    : { _tag: "Failure", response: validationError }
+  if (validationError !== undefined) return { _tag: "Failure", response: validationError }
+  const preflight = await preflightApprovalTarget(registry, toolName, normalized, clients)
+  if (preflight._tag === "Failure") return preflight
+  return {
+    _tag: "Success",
+    args: normalized,
+    ...(preflight.result === undefined ? {} : { preflight: preflight.result })
+  }
 }
 
 const auditExecution = (
@@ -279,7 +343,12 @@ export const prepareRegisteredToolAction = async (input: ApprovalInput): Promise
     strictApprovalInputParseOptions
   )(input.args ?? {})
   if (Result.isFailure(decoded)) return mapParseErrorToMcp(decoded.failure, input.toolName)
-  const target = await validateApprovalTarget(input.registry, decoded.success.toolName, decoded.success.arguments)
+  const target = await validateApprovalTarget(
+    input.registry,
+    decoded.success.toolName,
+    decoded.success.arguments,
+    input.clients
+  )
   if (target._tag === "Failure") return target.response
   const approvalId = `approval_${randomUUID()}`
   const hash = argumentsHash(target.args)
@@ -309,6 +378,7 @@ export const prepareRegisteredToolAction = async (input: ApprovalInput): Promise
     toolName: decoded.success.toolName,
     arguments: target.args,
     argumentsHash: hash,
+    ...(target.preflight === undefined ? {} : { preflight: target.preflight }),
     warning: ToolDescription.make(
       "Review the target and exact arguments. The next step executes a potentially irreversible action."
     )

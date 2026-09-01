@@ -63,8 +63,29 @@ export const InvokeToolParamsSchema = Schema.Struct({
   arguments: Schema.optionalKey(Schema.Unknown)
 })
 
-const ProxyToolCategorySchema = Schema.Struct({ name: ToolCategory, description: ToolDescription, toolCount: Count })
-const ListToolCategoriesResultSchema = Schema.Struct({ categories: Schema.Array(ProxyToolCategorySchema) })
+const ToolAnnotationsSchema = Schema.Struct({
+  title: Schema.optionalKey(Schema.Trimmed.pipe(Schema.check(Schema.isNonEmpty()))),
+  readOnlyHint: Schema.optionalKey(Schema.Boolean),
+  destructiveHint: Schema.optionalKey(Schema.Boolean),
+  idempotentHint: Schema.optionalKey(Schema.Boolean),
+  openWorldHint: Schema.optionalKey(Schema.Boolean)
+})
+const ProxyCatalogToolSchema = Schema.Struct({
+  name: ToolName,
+  description: ToolDescription,
+  annotations: ToolAnnotationsSchema,
+  requiresApproval: Schema.Boolean
+})
+const ProxyToolCategorySchema = Schema.Struct({
+  name: ToolCategory,
+  description: ToolDescription,
+  toolCount: Count,
+  tools: Schema.Array(ProxyCatalogToolSchema)
+})
+const ListToolCategoriesResultSchema = Schema.Struct({
+  totalToolCount: Count,
+  categories: Schema.Array(ProxyToolCategorySchema)
+})
 const ToolSearchMatchBaseSchema = Schema.Struct({
   name: ToolName,
   category: ToolCategory,
@@ -83,13 +104,6 @@ const ToolSearchMatchSchema = Schema.Union([
   )
 ])
 const SearchToolsResultSchema = Schema.Struct({ matches: Schema.Array(ToolSearchMatchSchema) })
-const ToolAnnotationsSchema = Schema.Struct({
-  title: Schema.optionalKey(Schema.Trimmed.pipe(Schema.check(Schema.isNonEmpty()))),
-  readOnlyHint: Schema.optionalKey(Schema.Boolean),
-  destructiveHint: Schema.optionalKey(Schema.Boolean),
-  idempotentHint: Schema.optionalKey(Schema.Boolean),
-  openWorldHint: Schema.optionalKey(Schema.Boolean)
-})
 const GetToolSchemaResultSchema = Schema.Struct({
   name: ToolName,
   category: ToolCategory,
@@ -170,7 +184,7 @@ export const proxyToolDefinitions: ReadonlyArray<ToolDefinition> = [
   createToolDefinition({
     name: LIST_TOOL_CATEGORIES_TOOL_NAME,
     description:
-      "Lists Huly tool categories available through this proxy. Use this first when you need a broad map of capabilities before searching for a specific Huly tool.",
+      "Lists every proxy-visible Huly tool grouped by category, including exact names, descriptions, resolved safety annotations, and approval requirements. The result is a complete deterministic catalog, not a paginated search sample.",
     inputSchema: emptyInputSchema,
     outputSchema: createToolOutputSchema(ListToolCategoriesResultSchema),
     category: PROXY_TOOL_CATEGORY,
@@ -236,7 +250,7 @@ export const proxyToolDefinitions: ReadonlyArray<ToolDefinition> = [
   createToolDefinition({
     name: PREPARE_TOOL_ACTION_TOOL_NAME,
     description:
-      "Previews and binds the exact arguments for a destructive or high-impact Huly tool. Performs no mutation and returns a five-minute single-use approval ID together with the inspectable tool name and arguments required by execute_approved_tool_action.",
+      "Validates and binds the exact arguments for a destructive or high-impact Huly tool. Supported entity deletions also run a live read-only impact preview and reject missing targets before approval. Performs no mutation and returns a five-minute single-use approval ID together with the inspectable tool name and arguments required by execute_approved_tool_action.",
     inputSchema: prepareToolActionInputSchema,
     outputSchema: createToolOutputSchema(PrepareToolActionResultSchema),
     category: PROXY_TOOL_CATEGORY,
@@ -405,7 +419,7 @@ interface ProxyToolCallInput {
 
 const listProxyCategories = (registry: ToolRegistry, args: unknown): McpToolResponse => {
   const decoded = decodeOrError(EmptyProxyParamsSchema, args, LIST_TOOL_CATEGORIES_TOOL_NAME)
-  return decoded._tag === "error" ? decoded.response : listCategories(registry)
+  return decoded._tag === "error" ? decoded.response : listCategories(registry, requiresTwoStepApproval)
 }
 
 const invokeProxyTool = (input: ProxyToolCallInput): Promise<McpToolResponse> => {

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { Schema } from "effect"
 
-import { createInvalidParamsError, createSuccessResponse } from "../../src/mcp/error-mapping.js"
+import { createInvalidParamsError, createSuccessResponse, type McpToolResponse } from "../../src/mcp/error-mapping.js"
 import {
   executeRegisteredToolAction,
   prepareRegisteredToolAction,
@@ -9,7 +9,7 @@ import {
 } from "../../src/mcp/proxy-tool-approvals.js"
 import { handleProxyToolCall } from "../../src/mcp/proxy-tools.js"
 import type { ToolRegistry } from "../../src/mcp/tools/index.js"
-import { createToolDefinition, type ToolDefinition } from "../../src/mcp/tools/registry.js"
+import { createToolDefinition, type RegisteredTool, type ToolDefinition } from "../../src/mcp/tools/registry.js"
 
 const input = <A>(value: unknown): A => Schema.decodeUnknownSync(Schema.Unknown)(value) as A
 const client = (account = "account-a") => input({ getAccountUuid: () => account })
@@ -38,6 +38,42 @@ const registry = (
     handleToolCall: async () => {
       onCall?.()
       return response
+    }
+  })
+}
+
+const deletionRegistry = (
+  previewResponse: McpToolResponse | null,
+  onDelete?: () => void,
+  targetName = "delete_issue",
+  onPreview?: (args: unknown) => void
+): ToolRegistry => {
+  const deleteTool = input<RegisteredTool>({
+    ...definition({
+      name: targetName,
+      category: input("issues"),
+      inputSchema: {
+        type: "object",
+        properties: { project: { type: "string" }, identifier: { type: "string" } },
+        required: ["project", "identifier"],
+        additionalProperties: false
+      }
+    }),
+    validateInput: async () => undefined
+  })
+  return input({
+    tools: new Map([[deleteTool.name, deleteTool]]),
+    definitions: [deleteTool],
+    handleToolCall: async (toolName: string, args: unknown) => {
+      if (toolName === "preview_deletion") {
+        onPreview?.(args)
+        return previewResponse
+      }
+      if (toolName === targetName) {
+        onDelete?.()
+        return createSuccessResponse({ deleted: true })
+      }
+      return null
     }
   })
 }
@@ -106,6 +142,135 @@ describe("registered tool approvals", () => {
       type: "text",
       text: "Invalid parameters for delete_widget: identifier: is missing"
     })
+  })
+
+  it("rejects approval when deletion preflight proves the target does not exist", async () => {
+    const target = deletionRegistry(createInvalidParamsError("Issue 'TSK-999999999' not found", "NotFound"))
+    const prepared = await prepareRegisteredToolAction(
+      input({
+        toolName: "prepare_tool_action",
+        args: { toolName: "delete_issue", arguments: { project: "TSK", identifier: "TSK-999999999" } },
+        registry: target,
+        clients: clients(),
+        currentTimeMillis: 1_000
+      })
+    )
+
+    expect(prepared).toMatchObject({ isError: true })
+    expect(prepared.content[0]).toMatchObject({ type: "text", text: "Issue 'TSK-999999999' not found" })
+    expect(prepared.structuredContent?.result).toBeUndefined()
+  })
+
+  it("returns a verified deletion preview and executes the exact approved target", async () => {
+    let deletionCalls = 0
+    const preview = {
+      entityType: "issue",
+      identifier: "TSK-7",
+      impact: { comments: 1 },
+      warnings: ["Has 1 comment that will be deleted"],
+      totalAffected: 1
+    }
+    const target = deletionRegistry(createSuccessResponse(preview), () => {
+      deletionCalls += 1
+    })
+    const prepared = await prepareRegisteredToolAction(
+      input({
+        toolName: "prepare_tool_action",
+        args: { toolName: "delete_issue", arguments: { project: "TSK", identifier: "TSK-7" } },
+        registry: target,
+        clients: clients(),
+        currentTimeMillis: 1_000
+      })
+    )
+
+    expect(result(prepared).preflight).toEqual(preview)
+    const executed = await executeRegisteredToolAction(
+      input({
+        toolName: "execute_approved_tool_action",
+        args: executionArgs(prepared),
+        registry: target,
+        clients: clients(),
+        currentTimeMillis: 1_001
+      })
+    )
+    expect(executed.isError).not.toBe(true)
+    expect(deletionCalls).toBe(1)
+  })
+
+  it("maps every preview-supported deletion to the canonical live preflight", async () => {
+    const cases: ReadonlyArray<{
+      readonly toolName: string
+      readonly arguments: Readonly<Record<string, string>>
+      readonly expectedPreview: Readonly<Record<string, string>>
+    }> = [
+      {
+        toolName: "delete_project",
+        arguments: { project: "TSK" },
+        expectedPreview: { entityType: "project", project: "TSK" }
+      },
+      {
+        toolName: "delete_component",
+        arguments: { project: "TSK", component: "Frontend" },
+        expectedPreview: { entityType: "component", project: "TSK", identifier: "Frontend" }
+      },
+      {
+        toolName: "delete_milestone",
+        arguments: { project: "TSK", milestone: "M1" },
+        expectedPreview: { entityType: "milestone", project: "TSK", identifier: "M1" }
+      }
+    ]
+
+    for (const testCase of cases) {
+      let previewArgs: unknown
+      const target = deletionRegistry(createSuccessResponse({ exists: true }), undefined, testCase.toolName, (args) => {
+        previewArgs = args
+      })
+      const prepared = await prepareRegisteredToolAction(
+        input({
+          toolName: "prepare_tool_action",
+          args: { toolName: testCase.toolName, arguments: testCase.arguments },
+          registry: target,
+          clients: clients(),
+          currentTimeMillis: 1_000
+        })
+      )
+
+      expect(prepared.isError).not.toBe(true)
+      expect(previewArgs).toEqual(testCase.expectedPreview)
+    }
+  })
+
+  it("fails closed when a preview-supported deletion cannot run its preflight", async () => {
+    const prepared = await prepareRegisteredToolAction(
+      input({
+        toolName: "prepare_tool_action",
+        args: { toolName: "delete_issue", arguments: { project: "TSK", identifier: "TSK-7" } },
+        registry: deletionRegistry(null),
+        clients: clients(),
+        currentTimeMillis: 1_000
+      })
+    )
+
+    expect(prepared).toMatchObject({ isError: true })
+    expect(prepared.content[0]).toMatchObject({
+      type: "text",
+      text: "Approval preflight for 'delete_issue' is unavailable because preview_deletion is not registered."
+    })
+  })
+
+  it("preserves a successful legacy deletion-preview payload without structured content", async () => {
+    const legacyPreview = input<McpToolResponse>({ content: [{ type: "text", text: "legacy deletion preview" }] })
+    const prepared = await prepareRegisteredToolAction(
+      input({
+        toolName: "prepare_tool_action",
+        args: { toolName: "delete_issue", arguments: { project: "TSK", identifier: "TSK-7" } },
+        registry: deletionRegistry(legacyPreview),
+        clients: clients(),
+        currentTimeMillis: 1_000
+      })
+    )
+
+    expect(result(prepared).preflight).toEqual(legacyPreview.content)
   })
 
   it("prepares canonical argument hashes and executes a token once", async () => {
