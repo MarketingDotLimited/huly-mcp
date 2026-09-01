@@ -17,18 +17,19 @@
 2. **Raw `tools/list` Verification**: Exactly 10 tools returned, including `execute_approved_tool_action`.
 3. **Timestamped Nonexistent Search**: Querying `MCP_QA_NONEXISTENT_TARGET_20260901T214501Z` returned exactly 0 results via strict JSON-RPC payload parsing.
 4. **Safe `list_projects`**: Read access verified.
-5. **Isolated TSK Lifecycle (Unique Prefix: QA-1788302885-15134)**:
-   - **Create**: Successfully created issue (TSK-18).
+5. **Isolated TSK Lifecycle (Unique Prefix: MCP-QA-20260901T225038Z)**:
+   - **Create**: Successfully created issue (TSK-19).
    - **Update**: Successfully updated issue description.
-   - **Add Comment**: Successfully added a comment utilizing `add_comment` (Comment ID: `6a975628f40078be316be145`).
-   - **Read**: Successfully read the issue via `get_issue`.
-   - **Prepare Delete**: Generated approval ID (`approval_0e17daf7-714b-4544-beba-6d2fb4feefa8`) for issue deletion.
+   - **Add Comment**: Successfully added a comment utilizing `add_comment` (Comment ID: `6a9756c0f40078be316be14b`).
+   - **Verify Comment**: Successfully matched the exact comment ID and body using `list_comments`.
+   - **Prepare Delete**: Generated approval ID (`approval_c3a55501-b5e0-488b-925e-552d13111f9f`) for issue deletion.
    - **Execute Delete**: Successfully deleted the issue using the approval ID.
    - **Replay Rejection**: Attempting to execute the approval ID a second time correctly rejected the operation.
-   - **Get Not Found / Zero Residue**: Querying the deleted issue (`get_issue`) returned an error, verifying it was completely removed.
-   - **Search Validation**: Exact prefix search for `QA-1788302885-15134` returned 0 matches, confirming zero residue.
+   - **Zero Residue**: 
+     - **list_issues**: `titleSearch` for the unique prefix returned exactly 0 matches.
+     - **fulltext_search**: `search_tools` for the unique prefix returned exactly 0 matches.
 6. **No Modifications to MDL or RAB**: All mutating actions were completely isolated to the `TSK` project workspace.
-7. **Robust Validation**: Acceptance script was upgraded to accurately parse `text/event-stream` payloads directly through `jq` to reliably reject `isError=true` responses.
+7. **Robust Validation**: Acceptance script was upgraded to accurately parse `text/event-stream` payloads directly through `jq` to reliably reject `isError=true` responses, and a safety `trap` was enforced to guarantee cleanup if an intermediate step failed.
 
 ## Outcome
-All production acceptance gates passed successfully. The `0.50.0-mdl.17` release is deployed to the production connector infrastructure.
+All production acceptance gates passed successfully. The `0.50.0-mdl.17` release is verified and deployed to the production connector infrastructure.
