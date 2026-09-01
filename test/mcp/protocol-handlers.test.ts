@@ -1626,11 +1626,55 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     const search = await handlers.callTool({ params: { name: "search_tools" } })
     const schema = await handlers.callTool({ params: { name: "get_tool_schema", arguments: { toolName: "   " } } })
     const invoked = await handlers.callTool({ params: { name: "invoke_tool", arguments: { toolName: "   " } } })
+    const excess = await handlers.callTool({
+      params: { name: "search_tools", arguments: { query: "issue", unexpected: true } }
+    })
 
     expect(search.isError).toBe(true)
     expect(schema.isError).toBe(true)
     expect(invoked.isError).toBe(true)
-    expect(assertAt(probe.toolCalled, 2).editMode).toBeUndefined()
+    expect(excess.isError).toBe(true)
+    expect(firstText(excess.content)).toContain("unexpected")
+    expect(assertAt(probe.toolCalled, 3).editMode).toBeUndefined()
+  })
+
+  it("rejects excess target properties across proxy invocation and approval paths", async () => {
+    const handlers = createMcpProtocolHandlers(
+      buildStubClients(),
+      createTelemetryProbe().telemetry,
+      protocolRegistries(toolRegistry),
+      makeValidContext,
+      liveNowClock,
+      () => Promise.resolve("0.0.0"),
+      proxyExposureOptions()
+    )
+    const calls = [
+      {
+        name: "invoke_read_tool",
+        arguments: { toolName: "get_issue", arguments: { project: "TSK", identifier: "TSK-9", unexpected: true } }
+      },
+      {
+        name: "invoke_write_tool",
+        arguments: {
+          toolName: "create_issue",
+          arguments: { project: "TSK", title: "strict input probe", unexpected: true }
+        }
+      },
+      {
+        name: "invoke_tool",
+        arguments: { toolName: "get_issue", arguments: { project: "TSK", identifier: "TSK-9", unexpected: true } }
+      },
+      {
+        name: "prepare_tool_action",
+        arguments: { toolName: "delete_issue", arguments: { project: "TSK", identifier: "TSK-9", unexpected: true } }
+      }
+    ] as const
+
+    for (const call of calls) {
+      const response = await handlers.callTool({ params: call })
+      expect(response.isError).toBe(true)
+      expect(firstText(response.content)).toContain("unexpected")
+    }
   })
 
   it("invokes a proxy candidate and wraps the target result with warnings", async () => {

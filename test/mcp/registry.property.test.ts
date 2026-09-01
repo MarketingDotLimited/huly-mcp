@@ -193,6 +193,22 @@ describe("createScopedRegistry properties", () => {
 })
 
 describe("tool argument schema properties", () => {
+  it("rejects excess properties in registered tool input parsers", async () => {
+    const cases = [
+      ["get_issue", { project: "TSK", identifier: "TSK-9", unexpected: true }],
+      ["create_issue", { project: "TSK", title: "strict input probe", unexpected: true }],
+      ["delete_issue", { project: "TSK", identifier: "TSK-9", unexpected: true }]
+    ] as const
+
+    for (const [name, args] of cases) {
+      const tool = toolRegistry.tools.get(makeToolName(name))
+      expect(tool).toBeDefined()
+      const validationError = await tool?.validateInput(args)
+      expect(validationError?.isError).toBe(true)
+      expect(JSON.stringify(validationError)).toContain("unexpected")
+    }
+  })
+
   it("requires an arguments object exactly when direct or union required fields are present", () => {
     fc.assert(
       fc.property(

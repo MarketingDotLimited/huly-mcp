@@ -288,7 +288,19 @@ describe("CLI runner", () => {
     expect(observation.rendered).toEqual([result])
   })
 
-  it("maps operation failures into CLI runtime errors", async () => {
+  it("maps operation client failures into CLI runtime errors", async () => {
+    const observation = { downloads: [], rendered: [], telemetry: [] }
+    const ports: CliRunnerPorts = {
+      ...makePorts({ result: {}, warnings: [] }, observation),
+      getOperation: operationRegistry.getOperation
+    }
+    const error = await rejected(run("list_projects", [], ports, observation))
+
+    expect(errorMessage(error)).toContain("An unexpected error occurred")
+    expect(observation.rendered).toEqual([])
+  })
+
+  it("rejects excess JSON input before running a CLI operation", async () => {
     const observation = { downloads: [], rendered: [], telemetry: [] }
     const ports: CliRunnerPorts = {
       ...makePorts({ result: {}, warnings: [] }, observation),
@@ -296,7 +308,7 @@ describe("CLI runner", () => {
     }
     const error = await rejected(run("list_projects", ["--input-json", '{"unexpected":true}'], ports, observation))
 
-    expect(errorMessage(error)).toContain("An unexpected error occurred")
+    expect(errorMessage(error)).toContain("unexpected: Expected no excess property")
     expect(observation.rendered).toEqual([])
   })
 

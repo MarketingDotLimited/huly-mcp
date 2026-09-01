@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto"
 import { appendFile, mkdir } from "node:fs/promises"
 import { dirname } from "node:path"
 import type { ToolAnnotations } from "@modelcontextprotocol/server"
-import { Result, Schema } from "effect"
+import { Result, Schema, type SchemaAST } from "effect"
 
 import type { HulyStorageClient } from "../huly/storage.js"
 import type { WorkspaceClientOperations } from "../huly/workspace-client.js"
@@ -20,6 +20,7 @@ import { resolveAnnotations, ToolDescription, type ToolDefinition, ToolName } fr
 const MINUTES_PER_APPROVAL = 5
 const MILLISECONDS_PER_MINUTE = 60_000
 const TOOL_APPROVAL_TTL_MS = MINUTES_PER_APPROVAL * MILLISECONDS_PER_MINUTE
+const strictApprovalInputParseOptions = { onExcessProperty: "error" } as const satisfies SchemaAST.ParseOptions
 
 export const PrepareToolActionParamsSchema = Schema.Struct({
   toolName: ToolName,
@@ -273,7 +274,10 @@ export const prepareRegisteredToolAction = async (input: ApprovalInput): Promise
   if (input.clients === undefined || input.currentTimeMillis === undefined) {
     return createInvalidParamsError("prepare_tool_action requires initialized Huly clients.", "ProxyClientsMissing")
   }
-  const decoded = Schema.decodeUnknownResult(PrepareToolActionParamsSchema)(input.args ?? {})
+  const decoded = Schema.decodeUnknownResult(
+    PrepareToolActionParamsSchema,
+    strictApprovalInputParseOptions
+  )(input.args ?? {})
   if (Result.isFailure(decoded)) return mapParseErrorToMcp(decoded.failure, input.toolName)
   const target = await validateApprovalTarget(input.registry, decoded.success.toolName, decoded.success.arguments)
   if (target._tag === "Failure") return target.response
@@ -318,7 +322,10 @@ export const executeRegisteredToolAction = async (input: ApprovalInput): Promise
       "ProxyClientsMissing"
     )
   }
-  const decoded = Schema.decodeUnknownResult(ExecuteToolActionParamsSchema)(input.args ?? {})
+  const decoded = Schema.decodeUnknownResult(
+    ExecuteToolActionParamsSchema,
+    strictApprovalInputParseOptions
+  )(input.args ?? {})
   if (Result.isFailure(decoded)) return mapParseErrorToMcp(decoded.failure, input.toolName)
   const initialized = { ...input, clients: input.clients, currentTimeMillis: input.currentTimeMillis }
   const consumed = consumeApproval(initialized, decoded.success.approvalId)

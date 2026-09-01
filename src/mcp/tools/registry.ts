@@ -1,4 +1,4 @@
-import { Effect, Exit, Result, Schema } from "effect"
+import { Effect, Exit, Result, Schema, type SchemaAST } from "effect"
 import type { ToolAnnotations } from "@modelcontextprotocol/server"
 import type { ToolWarning } from "../../domain/schemas/tool-warnings.js"
 import { HulyClient } from "../../huly/client.js"
@@ -211,6 +211,10 @@ const encodeOutput = (schema: Schema.ConstraintEncoder<unknown>, result: unknown
 
 type ResultSchema = Schema.ConstraintEncoder<unknown>
 
+const strictToolInputParseOptions = { onExcessProperty: "error" } as const satisfies SchemaAST.ParseOptions
+
+type ToolInputParser<P> = (input: unknown, options?: SchemaAST.ParseOptions) => Effect.Effect<P, Schema.SchemaError>
+
 type SchemaResult<S extends ResultSchema> = Schema.Schema.Type<S>
 
 interface ToolSpec<Name extends string, S extends ResultSchema> {
@@ -268,14 +272,14 @@ const createOperationExecutor =
   <P, Svc, R>(
     toolName: string,
     provide: ProvideServices<Svc>,
-    parse: (input: unknown) => Effect.Effect<P, Schema.SchemaError>,
+    parse: ToolInputParser<P>,
     operation: (params: P) => Effect.Effect<R, HulyDomainError, Svc | Diagnostics>,
     encode: (result: unknown) => unknown,
     presentImage?: (result: R) => { readonly result: unknown; readonly image: McpImageContent }
   ): RegisteredOperation["execute"] =>
   (args, hulyClient, storageClient, workspaceClient) =>
     Effect.gen(function* () {
-      const parseResult = yield* Effect.exit(parse(args))
+      const parseResult = yield* Effect.exit(parse(args, strictToolInputParseOptions))
 
       if (Exit.isFailure(parseResult)) {
         return yield* new ToolParseFailure({ cause: parseResult.cause, toolName })
@@ -340,19 +344,16 @@ const createHandler =
   }
 
 const createInputValidator =
-  <P>(
-    toolName: string,
-    parse: (input: unknown) => Effect.Effect<P, Schema.SchemaError>
-  ): RegisteredTool["validateInput"] =>
+  <P>(toolName: string, parse: ToolInputParser<P>): RegisteredTool["validateInput"] =>
   async (args) => {
-    const parseResult = await Effect.runPromise(Effect.exit(parse(args)))
+    const parseResult = await Effect.runPromise(Effect.exit(parse(args, strictToolInputParseOptions)))
     return Exit.isFailure(parseResult) ? mapParseCauseToMcp(parseResult.cause, toolName) : undefined
   }
 
 const defineProvidedTool = <const Name extends string, P, Svc, S extends ResultSchema>(
   spec: ToolSpec<Name, S>,
   provide: ProvideServices<Svc>,
-  parse: (input: unknown) => Effect.Effect<P, Schema.SchemaError>,
+  parse: ToolInputParser<P>,
   operation: (params: P) => Effect.Effect<SchemaResult<S>, HulyDomainError, Svc | Diagnostics>
 ): RegisteredTool<Name> => {
   const definition = stripResultSchema(spec)
@@ -379,7 +380,7 @@ interface ImageToolPresentation<Output> {
 const defineProvidedImageTool = <const Name extends string, P, Svc, S extends ResultSchema, R>(
   spec: ToolSpec<Name, S>,
   provide: ProvideServices<Svc>,
-  parse: (input: unknown) => Effect.Effect<P, Schema.SchemaError>,
+  parse: ToolInputParser<P>,
   operation: (params: P) => Effect.Effect<R, HulyDomainError, Svc | Diagnostics>,
   present: (result: R) => ImageToolPresentation<SchemaResult<S>>
 ): RegisteredTool<Name> => {
@@ -406,13 +407,13 @@ const defineProvidedImageTool = <const Name extends string, P, Svc, S extends Re
 
 export const defineTool = <const Name extends string, P, S extends ResultSchema>(
   spec: ToolSpec<Name, S>,
-  parse: (input: unknown) => Effect.Effect<P, Schema.SchemaError>,
+  parse: ToolInputParser<P>,
   operation: (params: P) => Effect.Effect<SchemaResult<S>, HulyDomainError, HulyClient | Diagnostics>
 ): RegisteredTool<Name> => defineProvidedTool(spec, provideHulyClient, parse, operation)
 
 export const defineStorageTool = <const Name extends string, P, S extends ResultSchema>(
   spec: ToolSpec<Name, S>,
-  parse: (input: unknown) => Effect.Effect<P, Schema.SchemaError>,
+  parse: ToolInputParser<P>,
   operation: (params: P) => Effect.Effect<SchemaResult<S>, HulyDomainError, HulyStorageClient | Diagnostics>
 ): RegisteredTool<Name> => defineProvidedTool(spec, provideStorageClient, parse, operation)
 

@@ -1,5 +1,5 @@
 import type { ToolAnnotations } from "@modelcontextprotocol/server"
-import { Result, Schema } from "effect"
+import { Result, Schema, type SchemaAST } from "effect"
 
 import { Count } from "../domain/schemas/index.js"
 import {
@@ -265,12 +265,14 @@ type DecodeOrErrorResult<A> =
   | { readonly _tag: "success"; readonly params: A }
   | { readonly _tag: "error"; readonly response: McpToolResponse }
 
+const strictProxyInputParseOptions = { onExcessProperty: "error" } as const satisfies SchemaAST.ParseOptions
+
 const decodeOrError = <A, I>(
   schema: Schema.Codec<A, I>,
   input: unknown,
   toolName: ToolName
 ): DecodeOrErrorResult<A> => {
-  const decoded = Schema.decodeUnknownResult(schema)(input ?? {})
+  const decoded = Schema.decodeUnknownResult(schema, strictProxyInputParseOptions)(input ?? {})
   if (Result.isSuccess(decoded)) return { _tag: "success", params: decoded.success }
   return { _tag: "error", response: mapParseErrorToMcp(decoded.failure, toolName) }
 }
