@@ -123,3 +123,27 @@ A ChatGPT app snapshot that still exposes only `approvalToken` is schema-stale
 even when it lists all ten action names. That connection must be refreshed or
 rescanned and tested in a new conversation; matching action counts alone do
 not prove matching schemas.
+
+## ChatGPT-hosted follow-up and residue cleanup
+
+A later ChatGPT-hosted acceptance round confirmed all ten action names, all 48
+categories, and all 550 proxy candidates. Ordinary reads, writes, validation,
+executor isolation, legacy compatibility, and destructive preparation passed.
+ChatGPT nevertheless blocked `execute_tool_action` before MCP dispatch because
+that app snapshot still exposed the obsolete single-field `approvalToken`
+input instead of the live inspectable contract.
+
+That round created the isolated synthetic issue `TSK-7` and one comment. Codex
+subsequently verified the target, prepared `delete_issue` with exact arguments
+`{ "project": "TSK", "identifier": "TSK-7" }`, executed the current
+`approvalId`/`toolName`/`arguments` contract successfully, and confirmed both
+project-title and global full-text searches returned zero matches for
+`MCP-QA-20260901T152100Z`.
+
+Updated final state:
+
+- `TSK-7` remaining: 0
+- Synthetic comments remaining: 0
+- `MDL` mutations: 0
+- `RAB` mutations: 0
+- Cleanup residue: 0
