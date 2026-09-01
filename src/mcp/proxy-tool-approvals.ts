@@ -49,7 +49,7 @@ export const prepareToolActionInputSchema = {
   type: "object",
   properties: {
     toolName: { type: "string", minLength: 1, description: "Exact high-impact Huly tool name to preview." },
-    arguments: { description: "Exact target-tool arguments that will be bound to the approval token." }
+    arguments: { description: "Exact target-tool arguments that will be bound to the approval ID." }
   },
   required: ["toolName"],
   additionalProperties: false
@@ -183,19 +183,16 @@ const consumeApproval = (input: InitializedApprovalInput, token: string): Consum
   if (prepared === undefined) {
     return {
       _tag: "Failure",
-      response: createInvalidParamsError("Approval token is invalid or already used.", "ApprovalInvalid")
+      response: createInvalidParamsError("Approval ID is invalid or already used.", "ApprovalInvalid")
     }
   }
   if (prepared.expiresAt < input.currentTimeMillis) {
-    return { _tag: "Failure", response: createInvalidParamsError("Approval token has expired.", "ApprovalExpired") }
+    return { _tag: "Failure", response: createInvalidParamsError("Approval ID has expired.", "ApprovalExpired") }
   }
   if (prepared.accountUuid !== String(input.clients.hulyClient.getAccountUuid())) {
     return {
       _tag: "Failure",
-      response: createInvalidParamsError(
-        "Approval token belongs to a different Huly account.",
-        "ApprovalAccountMismatch"
-      )
+      response: createInvalidParamsError("Approval ID belongs to a different Huly account.", "ApprovalAccountMismatch")
     }
   }
   return { _tag: "Success", prepared }
@@ -316,7 +313,10 @@ export const prepareRegisteredToolAction = async (input: ApprovalInput): Promise
 
 export const executeRegisteredToolAction = async (input: ApprovalInput): Promise<McpToolResponse> => {
   if (input.clients === undefined || input.currentTimeMillis === undefined) {
-    return createInvalidParamsError("execute_tool_action requires initialized Huly clients.", "ProxyClientsMissing")
+    return createInvalidParamsError(
+      "execute_approved_tool_action requires initialized Huly clients.",
+      "ProxyClientsMissing"
+    )
   }
   const decoded = Schema.decodeUnknownResult(ExecuteToolActionParamsSchema)(input.args ?? {})
   if (Result.isFailure(decoded)) return mapParseErrorToMcp(decoded.failure, input.toolName)
@@ -333,7 +333,7 @@ export const executeRegisteredToolAction = async (input: ApprovalInput): Promise
 }
 
 export const destructiveProxyAnnotations: ToolAnnotations = {
-  title: "Execute Tool Action",
+  title: "Execute Approved Tool Action",
   readOnlyHint: false,
   destructiveHint: true,
   idempotentHint: false,

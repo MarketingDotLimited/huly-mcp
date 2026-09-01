@@ -52,7 +52,7 @@ export const INVOKE_TOOL_TOOL_NAME = ToolName.make("invoke_tool")
 export const INVOKE_READ_TOOL_TOOL_NAME = ToolName.make("invoke_read_tool")
 export const INVOKE_WRITE_TOOL_TOOL_NAME = ToolName.make("invoke_write_tool")
 export const PREPARE_TOOL_ACTION_TOOL_NAME = ToolName.make("prepare_tool_action")
-export const EXECUTE_TOOL_ACTION_TOOL_NAME = ToolName.make("execute_tool_action")
+export const EXECUTE_APPROVED_TOOL_ACTION_TOOL_NAME = ToolName.make("execute_approved_tool_action")
 const PROXY_TOOL_CATEGORY = makeToolCategory("proxy")
 
 const EmptyProxyParamsSchema = Schema.Record(Schema.String, Schema.Never)
@@ -206,7 +206,7 @@ export const proxyToolDefinitions: ReadonlyArray<ToolDefinition> = [
   createToolDefinition({
     name: INVOKE_WRITE_TOOL_TOOL_NAME,
     description:
-      "Invokes one write-capable Huly tool by exact name with its arguments. Read-only targets are rejected. Destructive or high-impact targets still require prepare_tool_action and execute_tool_action.",
+      "Invokes one write-capable Huly tool by exact name with its arguments. Read-only targets are rejected. Destructive or high-impact targets still require prepare_tool_action and execute_approved_tool_action.",
     inputSchema: invokeToolInputSchema,
     outputSchema: createToolOutputSchema(ExecutedToolActionResultSchema),
     category: PROXY_TOOL_CATEGORY,
@@ -236,16 +236,16 @@ export const proxyToolDefinitions: ReadonlyArray<ToolDefinition> = [
   createToolDefinition({
     name: PREPARE_TOOL_ACTION_TOOL_NAME,
     description:
-      "Previews and binds the exact arguments for a destructive or high-impact Huly tool. Performs no mutation and returns a five-minute single-use approval ID together with the inspectable tool name and arguments required by execute_tool_action.",
+      "Previews and binds the exact arguments for a destructive or high-impact Huly tool. Performs no mutation and returns a five-minute single-use approval ID together with the inspectable tool name and arguments required by execute_approved_tool_action.",
     inputSchema: prepareToolActionInputSchema,
     outputSchema: createToolOutputSchema(PrepareToolActionResultSchema),
     category: PROXY_TOOL_CATEGORY,
     annotations: readOnlyProxyAnnotations("Prepare Tool Action")
   }),
   createToolDefinition({
-    name: EXECUTE_TOOL_ACTION_TOOL_NAME,
+    name: EXECUTE_APPROVED_TOOL_ACTION_TOOL_NAME,
     description:
-      "Executes exactly one destructive or high-impact Huly action previously previewed with prepare_tool_action. Pass the returned approvalId, toolName, and exact arguments so the action and target remain inspectable before confirmation. Approval IDs expire after five minutes and cannot be replayed.",
+      "Use this only after prepare_tool_action. Executes exactly one destructive or high-impact Huly action using the returned approvalId, toolName, and unchanged arguments so the action and target remain inspectable before confirmation. Approval IDs expire after five minutes and cannot be replayed.",
     inputSchema: executeToolActionInputSchema,
     outputSchema: createToolOutputSchema(InvokeToolResultSchema),
     category: PROXY_TOOL_CATEGORY,
@@ -376,7 +376,7 @@ const invokeTool = async (
   if (policyError !== undefined) return policyError
   if (requiresTwoStepApproval(target)) {
     return createInvalidParamsError(
-      `Tool '${params.toolName}' requires two-step approval. Call prepare_tool_action with this exact toolName and arguments, then pass its approvalId, toolName, and arguments to execute_tool_action.`,
+      `Tool '${params.toolName}' requires two-step approval. Call prepare_tool_action with this exact toolName and arguments, then pass its approvalId, toolName, and arguments to execute_approved_tool_action.`,
       "ApprovalRequired"
     )
   }
@@ -434,8 +434,8 @@ export const handleProxyToolCall = async (input: ProxyToolCallInput): Promise<Mc
       return getToolSchema(input.proxyCandidateRegistry, input.args)
     case PREPARE_TOOL_ACTION_TOOL_NAME:
       return prepareRegisteredToolAction(approvalInput(input, PREPARE_TOOL_ACTION_TOOL_NAME))
-    case EXECUTE_TOOL_ACTION_TOOL_NAME:
-      return executeRegisteredToolAction(approvalInput(input, EXECUTE_TOOL_ACTION_TOOL_NAME))
+    case EXECUTE_APPROVED_TOOL_ACTION_TOOL_NAME:
+      return executeRegisteredToolAction(approvalInput(input, EXECUTE_APPROVED_TOOL_ACTION_TOOL_NAME))
     default:
       return createUnknownToolError(input.toolName)
   }

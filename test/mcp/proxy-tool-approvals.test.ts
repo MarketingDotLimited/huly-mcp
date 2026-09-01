@@ -131,7 +131,7 @@ describe("registered tool approvals", () => {
     expect(result(first).argumentsHash).toBe(result(second).argumentsHash)
     const executed = await executeRegisteredToolAction(
       input({
-        toolName: "execute_tool_action",
+        toolName: "execute_approved_tool_action",
         args: executionArgs(first),
         registry: target,
         clients: clients(),
@@ -141,7 +141,7 @@ describe("registered tool approvals", () => {
     expect(executed.structuredContent?.result).toMatchObject({ toolName: "delete_widget", result: { deleted: true } })
     const replay = await executeRegisteredToolAction(
       input({
-        toolName: "execute_tool_action",
+        toolName: "execute_approved_tool_action",
         args: executionArgs(first),
         registry: target,
         clients: clients(),
@@ -171,7 +171,7 @@ describe("registered tool approvals", () => {
     )
     await executeRegisteredToolAction(
       input({
-        toolName: "execute_tool_action",
+        toolName: "execute_approved_tool_action",
         args: executionArgs(prepared),
         registry: target,
         clients: clients(),
@@ -190,7 +190,7 @@ describe("registered tool approvals", () => {
     )
     await executeRegisteredToolAction(
       input({
-        toolName: "execute_tool_action",
+        toolName: "execute_approved_tool_action",
         args: executionArgs(invalidJson),
         registry: target,
         clients: clients(),
@@ -226,7 +226,7 @@ describe("registered tool approvals", () => {
     )
     const argumentsMismatch = await executeRegisteredToolAction(
       input({
-        toolName: "execute_tool_action",
+        toolName: "execute_approved_tool_action",
         args: { ...executionArgs(changedArguments), arguments: { id: "two" } },
         registry: target,
         clients: clients(),
@@ -246,7 +246,7 @@ describe("registered tool approvals", () => {
     )
     const toolMismatch = await executeRegisteredToolAction(
       input({
-        toolName: "execute_tool_action",
+        toolName: "execute_approved_tool_action",
         args: { ...executionArgs(changedTool), toolName: "delete_other_widget" },
         registry: target,
         clients: clients(),
@@ -318,20 +318,16 @@ describe("registered tool approvals", () => {
       ).isError
     ).toBe(true)
     expect(
-      (await executeRegisteredToolAction(input({ toolName: "execute_tool_action", args: {}, registry: target })))
-        .isError
-    ).toBe(true)
-    expect(
       (
         await executeRegisteredToolAction(
-          input({ toolName: "execute_tool_action", args: {}, registry: target, clients: clients() })
+          input({ toolName: "execute_approved_tool_action", args: {}, registry: target })
         )
       ).isError
     ).toBe(true)
     expect(
       (
         await executeRegisteredToolAction(
-          input({ toolName: "execute_tool_action", registry: target, clients: clients(), currentTimeMillis: 1 })
+          input({ toolName: "execute_approved_tool_action", args: {}, registry: target, clients: clients() })
         )
       ).isError
     ).toBe(true)
@@ -339,7 +335,19 @@ describe("registered tool approvals", () => {
       (
         await executeRegisteredToolAction(
           input({
-            toolName: "execute_tool_action",
+            toolName: "execute_approved_tool_action",
+            registry: target,
+            clients: clients(),
+            currentTimeMillis: 1
+          })
+        )
+      ).isError
+    ).toBe(true)
+    expect(
+      (
+        await executeRegisteredToolAction(
+          input({
+            toolName: "execute_approved_tool_action",
             args: { approvalId: "", toolName: "delete_widget", arguments: {} },
             registry: target,
             clients: clients(),
@@ -352,7 +360,7 @@ describe("registered tool approvals", () => {
       (
         await executeRegisteredToolAction(
           input({
-            toolName: "execute_tool_action",
+            toolName: "execute_approved_tool_action",
             args: { approvalId: "missing", toolName: "delete_widget", arguments: {} },
             registry: target,
             clients: clients(),
@@ -378,7 +386,7 @@ describe("registered tool approvals", () => {
       (
         await executeRegisteredToolAction(
           input({
-            toolName: "execute_tool_action",
+            toolName: "execute_approved_tool_action",
             args: executionArgs(expired),
             registry: target,
             clients: clients(),
@@ -400,7 +408,7 @@ describe("registered tool approvals", () => {
       (
         await executeRegisteredToolAction(
           input({
-            toolName: "execute_tool_action",
+            toolName: "execute_approved_tool_action",
             args: executionArgs(bound),
             registry: target,
             clients: clients("account-b"),
@@ -426,7 +434,7 @@ describe("registered tool approvals", () => {
       (
         await executeRegisteredToolAction(
           input({
-            toolName: "execute_tool_action",
+            toolName: "execute_approved_tool_action",
             args: executionArgs(failed),
             registry: errorTarget,
             clients: clients(),
@@ -449,7 +457,7 @@ describe("registered tool approvals", () => {
       (
         await executeRegisteredToolAction(
           input({
-            toolName: "execute_tool_action",
+            toolName: "execute_approved_tool_action",
             args: executionArgs(contentPrepared),
             registry: contentOnly,
             clients: clients(),
@@ -477,7 +485,7 @@ describe("registered tool approvals", () => {
     )
     const imageResponse = await executeRegisteredToolAction(
       input({
-        toolName: "execute_tool_action",
+        toolName: "execute_approved_tool_action",
         args: executionArgs(imagePrepared),
         registry: withImageAndWarnings,
         clients: clients(),
@@ -499,7 +507,7 @@ describe("registered tool approvals", () => {
       (
         await executeRegisteredToolAction(
           input({
-            toolName: "execute_tool_action",
+            toolName: "execute_approved_tool_action",
             args: executionArgs(missing),
             registry: missingAtExecution,
             clients: clients(),
@@ -540,7 +548,7 @@ describe("registered tool approvals", () => {
       (
         await executeRegisteredToolAction(
           input({
-            toolName: "execute_tool_action",
+            toolName: "execute_approved_tool_action",
             args: executionArgs(startFailurePrepared),
             registry: registry(),
             clients: clients(),
@@ -564,7 +572,7 @@ describe("registered tool approvals", () => {
     )
     const response = await executeRegisteredToolAction(
       input({
-        toolName: "execute_tool_action",
+        toolName: "execute_approved_tool_action",
         args: executionArgs(prepared),
         registry: target,
         clients: clients(),
@@ -600,7 +608,7 @@ describe("registered tool approvals", () => {
     )
     const executed = await handleProxyToolCall(
       input({
-        toolName: "execute_tool_action",
+        toolName: "execute_approved_tool_action",
         args: executionArgs(prepared),
         proxyCandidateRegistry: target,
         clients: clients(),
@@ -636,7 +644,7 @@ describe("registered tool approvals", () => {
       (
         await handleProxyToolCall(
           input({
-            toolName: "execute_tool_action",
+            toolName: "execute_approved_tool_action",
             args: { approvalId: "missing", toolName: "delete_widget", arguments: {} },
             proxyCandidateRegistry: target,
             clients: clients()
@@ -648,7 +656,7 @@ describe("registered tool approvals", () => {
       (
         await handleProxyToolCall(
           input({
-            toolName: "execute_tool_action",
+            toolName: "execute_approved_tool_action",
             args: { approvalId: "missing", toolName: "delete_widget", arguments: {} },
             proxyCandidateRegistry: target,
             currentTimeMillis: 100

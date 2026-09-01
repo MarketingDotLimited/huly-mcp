@@ -1079,7 +1079,7 @@ describe("createMcpProtocolHandlers — get_huly_context tool", () => {
           "invoke_write_tool",
           "invoke_tool",
           "prepare_tool_action",
-          "execute_tool_action"
+          "execute_approved_tool_action"
         ]
       }
     })
@@ -1356,7 +1356,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
       "invoke_write_tool",
       "invoke_tool",
       "prepare_tool_action",
-      "execute_tool_action"
+      "execute_approved_tool_action"
     ])
     expect(names).not.toContain("list_projects")
   })
@@ -1857,7 +1857,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     })
     const execute = await handlers.callTool({
       params: {
-        name: "execute_tool_action",
+        name: "execute_approved_tool_action",
         arguments: { approvalId: "missing-approval", toolName: "delete_issue", arguments: {} }
       }
     })

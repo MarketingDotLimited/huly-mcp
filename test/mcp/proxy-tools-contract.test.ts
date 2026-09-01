@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
-  EXECUTE_TOOL_ACTION_TOOL_NAME,
+  EXECUTE_APPROVED_TOOL_ACTION_TOOL_NAME,
   INVOKE_READ_TOOL_TOOL_NAME,
   INVOKE_WRITE_TOOL_TOOL_NAME,
   PREPARE_TOOL_ACTION_TOOL_NAME,
@@ -36,7 +36,7 @@ describe("ChatGPT proxy tool contract", () => {
       readOnlyHint: true,
       destructiveHint: false
     })
-    expect(definition(EXECUTE_TOOL_ACTION_TOOL_NAME).annotations).toMatchObject({
+    expect(definition(EXECUTE_APPROVED_TOOL_ACTION_TOOL_NAME).annotations).toMatchObject({
       readOnlyHint: false,
       destructiveHint: true
     })

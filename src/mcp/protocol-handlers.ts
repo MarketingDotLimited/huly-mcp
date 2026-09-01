@@ -46,7 +46,7 @@ import {
   toListedTool
 } from "./protocol-tool-exposure.js"
 import {
-  EXECUTE_TOOL_ACTION_TOOL_NAME,
+  EXECUTE_APPROVED_TOOL_ACTION_TOOL_NAME,
   handleProxyToolCall,
   INVOKE_READ_TOOL_TOOL_NAME,
   INVOKE_TOOL_TOOL_NAME,
@@ -129,7 +129,7 @@ export const liveNowClock: NowClock = { currentTimeMillis: () => Effect.runSync(
 const nativeApprovalError = (tool: ToolDefinition, name: string): McpToolResponse | undefined =>
   requiresTwoStepApproval(tool) && name !== "execute_huly_action"
     ? createInvalidParamsError(
-        `Tool '${name}' requires two-step approval. In proxy mode call prepare_tool_action with this exact toolName and arguments, then pass its approvalId, toolName, and arguments to execute_tool_action.`,
+        `Tool '${name}' requires two-step approval. In proxy mode call prepare_tool_action with this exact toolName and arguments, then pass its approvalId, toolName, and arguments to execute_approved_tool_action.`,
         "ApprovalRequired"
       )
     : undefined
@@ -197,7 +197,7 @@ const resolveProxyClients = (
 ): Promise<ClientResolution | undefined> =>
   isInvokeProxyTool(toolName) ||
   toolName === PREPARE_TOOL_ACTION_TOOL_NAME ||
-  toolName === EXECUTE_TOOL_ACTION_TOOL_NAME
+  toolName === EXECUTE_APPROVED_TOOL_ACTION_TOOL_NAME
     ? resolveClientBundle(resolveClients)
     : Promise.resolve(undefined)
 
