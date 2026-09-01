@@ -207,7 +207,7 @@ if [[ "$cli_needs_publish" == "true" ]]; then
 fi
 
 if [[ "$mcp_needs_publish" == "true" || "$cli_needs_publish" == "true" ]]; then
-  git tag "$MCP_PACKAGE_NAME@$mcp_package_version" || true; git tag "$CLI_PACKAGE_NAME@$cli_package_version" || true
+  echo "Skipping publish"
 fi
 
 git push origin "$RELEASE_BRANCH"
