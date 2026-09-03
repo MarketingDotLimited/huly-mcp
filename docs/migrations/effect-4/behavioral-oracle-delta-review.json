@@ -3,31 +3,31 @@
   "categories": [
     {
       "category": "draft07-structure",
-      "count": 11394,
-      "deltaSetSha256": "7876add48d6cd3380bb85279ef210fcb057e46ca1fd7e2f296fb0ac47c6878f2",
+      "count": 11390,
+      "deltaSetSha256": "2245718185b608bb369e9298e2df412c45aba8f365add32d1be6ac631a09fbb4",
       "issue": "#225",
       "rationale": "Reviewed Effect 4 Draft-07 structural dialect: refs, definitions, optional/null unions, refinements, and composition wrappers."
     },
     {
       "category": "schema-metadata",
-      "count": 2614,
-      "deltaSetSha256": "2be244e8a1d21f4e01394262b3851549c784b560660c4871b9a1b258d63175a1",
+      "count": 2607,
+      "deltaSetSha256": "e61d3561efd46e72ad6c54b0b4247927996b9cae99a2eac7212978f6bada7049",
       "issue": "#225",
       "rationale": "Reviewed schema metadata migration: authored descriptions are preserved and legacy generator-default metadata is replaced."
     },
     {
       "category": "authored-constraints",
-      "count": 3598,
-      "deltaSetSha256": "652982144b52fc652a919cfe826a9273cfc4277cd89d89b0831fc32824c47836",
+      "count": 3619,
+      "deltaSetSha256": "3780bd191bcc22f5017fc43864c76d8f3f2ef2b9a8c367a3ce289b137cf2e459",
       "issue": "#225",
       "rationale": "Reviewed authored-constraint projection for the ordered tool corpus; strict Draft-07/runtime agreement passes."
     },
     {
       "category": "tool-inventory",
-      "count": 6534,
-      "deltaSetSha256": "a1d5973751b169529602856e55b62a1bf22ee44b8a2fe1cfb0413472878569f1",
+      "count": 6532,
+      "deltaSetSha256": "f0b07cef3d870fcd993cebadc8eb0e14186d464028ebd4b19b2ec8907d331066",
       "issue": "#225",
-      "rationale": "Reviewed additions to the native, proxy, CLI, and bundled-process tool inventories, including enforced split-executor safety annotations, inspectable destructive approvals, deterministic full-catalog enumeration, deletion-target preflight evidence, and the newly named approval executor used to invalidate stale host schemas."
+      "rationale": "Reviewed additions to the native, proxy, CLI, and bundled-process tool inventories, now including direct-write vs approval classification rules for legacy proxy compatibility."
     },
     {
       "category": "cli-json-diagnostic",
@@ -45,5 +45,5 @@
     }
   ],
   "formatVersion": 1,
-  "reviewedCurrentSha256": "bba8bc4b96d27d2c9de1e3d8f0da0c91bbe858088cd5ef867cd6e0e1481dd68c"
+  "reviewedCurrentSha256": "4836e6e34b337f616e8261a30647eddfe45e8a22963b903263703079a2baf294"
 }

@@ -156,7 +156,18 @@ export const SetCustomFieldResultWireSchema = Schema.Struct({
   objectId: DocId,
   fieldId: CustomFieldId,
   label: Schema.String,
-  value: Schema.Unknown,
+  value: Schema.Unknown.annotate({
+    jsonSchema: {
+      anyOf: [
+        { type: "null" },
+        { type: "string" },
+        { type: "number" },
+        { type: "boolean" },
+        { type: "array" },
+        { type: "object" }
+      ]
+    }
+  }),
   updated: Schema.Boolean
 })
 

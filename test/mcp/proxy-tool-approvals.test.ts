@@ -5,11 +5,18 @@ import { createInvalidParamsError, createSuccessResponse, type McpToolResponse }
 import {
   executeRegisteredToolAction,
   prepareRegisteredToolAction,
-  requiresTwoStepApproval
+  requiresTwoStepApproval,
+  classifyToolInvocation
 } from "../../src/mcp/proxy-tool-approvals.js"
 import { handleProxyToolCall } from "../../src/mcp/proxy-tools.js"
 import type { ToolRegistry } from "../../src/mcp/tools/index.js"
-import { createToolDefinition, type RegisteredTool, type ToolDefinition } from "../../src/mcp/tools/registry.js"
+import {
+  createToolDefinition,
+  makeToolName,
+  makeToolCategory,
+  type RegisteredTool,
+  type ToolDefinition
+} from "../../src/mcp/tools/registry.js"
 
 const input = <A>(value: unknown): A => Schema.decodeUnknownSync(Schema.Unknown)(value) as A
 const client = (account = "account-a") => input({ getAccountUuid: () => account })
@@ -421,7 +428,6 @@ describe("registered tool approvals", () => {
     expect(toolMismatch).toMatchObject({ isError: true, _meta: { errorTag: "ApprovalMismatch" } })
     expect(calls).toBe(0)
   })
-
   it("rejects missing context, invalid inputs, unknown tools, and unnecessary approvals", async () => {
     const target = registry()
     expect(
@@ -829,5 +835,71 @@ describe("registered tool approvals", () => {
         )
       ).isError
     ).toBe(true)
+  })
+})
+
+describe("classifyToolInvocation", () => {
+  it("classifies tool appropriately based on definition", () => {
+    // Read-only hint takes precedence
+    expect(
+      classifyToolInvocation({
+        name: makeToolName("search"),
+        category: makeToolCategory("default"),
+        annotations: { readOnlyHint: true }
+      })
+    ).toBe("read-only")
+
+    expect(
+      classifyToolInvocation({
+        name: makeToolName("delete_something"),
+        category: makeToolCategory("default"),
+        annotations: { readOnlyHint: true }
+      })
+    ).toBe("read-only")
+
+    // Destructive hint
+    expect(
+      classifyToolInvocation({
+        name: makeToolName("update_thing"),
+        category: makeToolCategory("default"),
+        annotations: { destructiveHint: true }
+      })
+    ).toBe("approval-required")
+
+    // delete_ prefix
+    expect(
+      classifyToolInvocation({
+        name: makeToolName("delete_record"),
+        category: makeToolCategory("default"),
+        annotations: {}
+      })
+    ).toBe("approval-required")
+
+    // High impact category
+    expect(
+      classifyToolInvocation({
+        name: makeToolName("create_space"),
+        category: makeToolCategory("workspace"),
+        annotations: {}
+      })
+    ).toBe("approval-required")
+
+    // High impact tool name
+    expect(
+      classifyToolInvocation({
+        name: makeToolName("create_workspace"),
+        category: makeToolCategory("default"),
+        annotations: {}
+      })
+    ).toBe("approval-required")
+
+    // Direct write (default case)
+    expect(
+      classifyToolInvocation({
+        name: makeToolName("update_description"),
+        category: makeToolCategory("default"),
+        annotations: {}
+      })
+    ).toBe("direct-write")
   })
 })

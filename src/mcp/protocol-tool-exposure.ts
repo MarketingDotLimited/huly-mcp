@@ -24,6 +24,7 @@ export interface ProtocolExposureOptions {
   readonly exposureConfig: ToolExposureConfig
   readonly toolScopeFilteringActive: boolean
   readonly currentClientInfo: () => McpClientInfoLike | undefined
+  readonly currentRequestId?: () => string
 }
 
 interface ResolvedProtocolExposure {

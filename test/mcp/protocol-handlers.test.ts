@@ -2444,3 +2444,45 @@ describe("fetchLatestNpmVersion", () => {
     expect(await fetchLatestNpmVersion(stub)).toBe("unknown")
   })
 })
+
+describe("error envelope correlation", () => {
+  it("injects requestId and accurate timestamp into structuredContent.error with secret redaction", async () => {
+    const { telemetry } = createTelemetryProbe()
+    const currentTime = 1000
+    const clock = { currentTimeMillis: () => currentTime }
+    const exposure = {
+      exposureConfig: { configuredMode: "native", proxyOutputStrict: false } as const,
+      toolScopeFilteringActive: false,
+      currentClientInfo: () => undefined,
+      currentRequestId: () => "req-12345"
+    }
+
+    const handlers = createMcpProtocolHandlers(
+      unusedResolveClients,
+      telemetry,
+      emptyRegistry,
+      unusedGetHulyContext,
+      clock,
+      undefined,
+      exposure
+    )
+
+    // Call an unknown tool with a secret in the name to trigger a routing error and test redaction
+    const result = await handlers.callTool({ params: { name: "tool_password=super-secret-value", arguments: {} } })
+
+    if (result.isError !== true) throw new Error("Expected an error response")
+    const structured = result.structuredContent
+    expect(structured).toBeDefined()
+    expect(structured?.error).toBeDefined()
+    expect(structured?.error?.code).toBe(ProtocolErrorCode.InvalidParams)
+    expect(structured?.error?.name).toBe("UnknownTool")
+    expect(structured?.error?.layer).toBe("proxy")
+    expect(structured?.error?.requestId).toBe("req-12345")
+    expect(structured?.error?.timestamp).toBe(new Date(1000).toISOString())
+
+    // Verify legacy text preservation and redaction
+    expect(result.content[0]?.text).toContain("Unknown tool: tool_password=[REDACTED]")
+    expect(result.content[0]?.text).not.toContain("super-secret-value")
+    expect(JSON.stringify(structured)).not.toContain("super-secret-value")
+  })
+})

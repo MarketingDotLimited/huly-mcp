@@ -13,9 +13,8 @@ import { HulyError } from "../huly/errors-base.js"
 import type { ClientBundle, ClientResolver } from "../runtime/client-resolver.js"
 import type { TelemetryOperations } from "../telemetry/telemetry.js"
 import { VERSION } from "../version.js"
-import type { McpToolResponse } from "./error-mapping.js"
-import type { McpWireResponse } from "./tool-responses.js"
 import {
+  type McpToolResponse,
   appendToolWarnings,
   createInvalidParamsError,
   createServerShuttingDownError,
@@ -26,6 +25,12 @@ import {
   mapDomainErrorToMcp,
   toMcpResponse
 } from "./error-mapping.js"
+import {
+  type McpWireResponse,
+  type McpToolErrorResponse,
+  type McpToolSuccessResponse,
+  applyErrorEnvelope
+} from "./tool-responses.js"
 import {
   GET_HULY_CONTEXT_TOOL_NAME,
   getHulyContextToolDefinition,
@@ -126,7 +131,7 @@ export interface NowClock {
 
 export const liveNowClock: NowClock = { currentTimeMillis: () => Effect.runSync(Clock.currentTimeMillis) }
 
-const nativeApprovalError = (tool: ToolDefinition, name: string): McpToolResponse | undefined =>
+const nativeApprovalError = (tool: ToolDefinition, name: string): McpToolErrorResponse | undefined =>
   requiresTwoStepApproval(tool) && name !== "execute_huly_action"
     ? createInvalidParamsError(
         `Tool '${name}' requires two-step approval. In proxy mode call prepare_tool_action with this exact toolName and arguments, then pass its approvalId, toolName, and arguments to execute_approved_tool_action.`,
@@ -162,7 +167,7 @@ const invokeToolEditMode = (args: unknown): string | undefined => {
 
 type ClientResolution =
   | { readonly _tag: "Success"; readonly clients: ClientBundle }
-  | { readonly _tag: "Failure"; readonly response: McpToolResponse }
+  | { readonly _tag: "Failure"; readonly response: McpToolErrorResponse }
 
 const resolveClientBundle = async (resolveClients: ClientResolver): Promise<ClientResolution> => {
   try {
@@ -216,7 +221,10 @@ const selectNativeCallRegistry = (
       ? exposure.proxyCandidateRegistry
       : exposure.visibleNativeRegistry
 
-const nativeArgumentError = (tool: ToolRegistry["definitions"][number], args: unknown): McpToolResponse | undefined => {
+const nativeArgumentError = (
+  tool: ToolRegistry["definitions"][number],
+  args: unknown
+): McpToolErrorResponse | undefined => {
   if (isNoArgumentTool(tool) && !isEmptyArgumentsObject(args)) {
     return createUnexpectedArgumentsError(tool.name)
   }
@@ -282,16 +290,24 @@ export const createMcpProtocolHandlers = (
       const start = clock.currentTimeMillis()
       const inputBytes = JSON.stringify(args ?? {}).length
 
-      const withClaimedNotice = (response: McpToolResponse): McpToolResponse => {
+      function withClaimedNotice(response: McpToolErrorResponse): McpToolErrorResponse
+      function withClaimedNotice(response: McpToolSuccessResponse): McpToolSuccessResponse
+      function withClaimedNotice(response: McpToolResponse): McpToolResponse
+      function withClaimedNotice(response: McpToolResponse): McpToolResponse {
         if (noticeClaim._tag === "None") return response
         const responseWithNotice = appendToolWarnings(response, [noticeClaim.warning])
         noticeClaim.delivered()
         return responseWithNotice
       }
 
-      const returnError = (errorResponse: McpToolResponse, editMode?: string) => {
+      const returnError = (errorResponse: McpToolErrorResponse, editMode?: string) => {
         const responseWithNotice = withClaimedNotice(errorResponse)
         const durationMs = clock.currentTimeMillis() - start
+        const requestId = exposureOptions.currentRequestId?.() ?? "unavailable"
+        const timestamp = new Date(clock.currentTimeMillis()).toISOString()
+
+        const responseWithEnvelope = applyErrorEnvelope(responseWithNotice, requestId, timestamp)
+
         telemetry.toolCalled({
           toolName: name,
           status: "error",
@@ -300,10 +316,10 @@ export const createMcpProtocolHandlers = (
           errorTag: responseWithNotice._meta?.errorTag,
           durationMs,
           inputBytes,
-          outputBytes: computeOutputBytes(responseWithNotice),
+          outputBytes: computeOutputBytes(responseWithEnvelope),
           editMode
         })
-        return toMcpResponse(responseWithNotice)
+        return toMcpResponse(responseWithEnvelope)
       }
 
       const callVersionTool = async (): Promise<McpWireResponse> => {

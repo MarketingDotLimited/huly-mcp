@@ -43,7 +43,7 @@ const APPROVAL_TOKEN_BYTES = 32
 const APPROVAL_TTL_MS = APPROVAL_MINUTES * MILLISECONDS_PER_MINUTE
 const approvals = new Map<string, PreparedAction>()
 const SYSTEM_FIELDS = new Set(["_id", "_class", "space", "modifiedOn", "modifiedBy", "createdOn", "createdBy"])
-const PROTECTED_CLASS_PREFIXES = ["account:", "migration:", "server:", "tx:"]
+const PROTECTED_CLASS_PREFIXES = ["account:", "migration:", "server:", "tx:", "core:class:"]
 const PROTECTED_CLASSES = new Set([
   "core:class:Class",
   "core:class:Mixin",

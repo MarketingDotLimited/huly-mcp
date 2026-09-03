@@ -99,6 +99,26 @@ export const withMutuallyExclusiveFields = <K extends string>(schema: object, fi
   not: { required: [...fields] }
 })
 
+export const withDependentRequired = <K extends string, D extends string>(
+  schema: object,
+  dependents: ReadonlyArray<D>,
+  required: K
+): object => ({ ...schema, dependencies: Object.fromEntries(dependents.map((dependent) => [dependent, [required]])) })
+
+export const withExactlyOneOfModes = (schema: object, modes: ReadonlyArray<ReadonlyArray<string>>): object => {
+  const allFields = Array.from(new Set(modes.flat()))
+  return {
+    ...schema,
+    oneOf: modes.map((activeMode) => {
+      const inactiveFields = allFields.filter((f) => !activeMode.includes(f))
+      return {
+        required: [...activeMode],
+        ...(inactiveFields.length > 0 ? { not: { anyOf: inactiveFields.map((f) => ({ required: [f] })) } } : {})
+      }
+    })
+  }
+}
+
 type UpdateFieldExactness<Params, NonUpdateFields extends ReadonlyArray<string>, Fields extends ReadonlyArray<string>> =
   Exclude<Extract<keyof Params, string>, NonUpdateFields[number] | Fields[number]> extends never
     ? Extract<NonUpdateFields[number], Fields[number]> extends never

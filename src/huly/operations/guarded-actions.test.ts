@@ -284,6 +284,10 @@ describe("guarded Huly actions", () => {
   it("rejects protected targets, unknown fields, system fields, and missing documents", async () => {
     const state = stateFixture()
     await expect(run(findHulyDocuments(input({ class: "core:class:Class" })), state)).rejects.toThrow("protected")
+    await expect(run(findHulyDocuments(input({ class: "core:class:Space" })), state)).rejects.toThrow("protected")
+    await expect(run(findHulyDocuments(input({ class: "core:class:Mixin" })), state)).rejects.toThrow("protected")
+    // Should still allow non-system custom classes
+    await expect(run(findHulyDocuments(input({ class: widgetClass })), state)).resolves.toMatchObject({ returned: 1 })
     await expect(
       prepare({ kind: "create", class: widgetClass, space: "core:space:Model", data: { title: "No" } }, state)
     ).rejects.toThrow("protected Huly space")

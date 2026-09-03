@@ -18,6 +18,7 @@ import {
   verifyEffect4Oracle,
   writeEffect4Oracle
 } from "../../scripts/effect4-oracle-io.js"
+import { decodeOracleStdioResponses } from "../../scripts/effect4-oracle-process.js"
 import { runOracleProcess } from "../../scripts/effect4-oracle-process-runner.js"
 import { BehavioralOracleSchema, JsonValueSchema } from "../../scripts/effect4-oracle-schema.js"
 
@@ -195,5 +196,15 @@ describe("Effect 4 behavioral oracle", () => {
     } finally {
       await fs.rm(root, { force: true, recursive: true })
     }
+  })
+
+  it("normalizes dynamic error timestamps in bundled stdio responses deterministically", () => {
+    const stdout = `{"jsonrpc":"2.0","id":1,"result":{"isError":true,"structuredContent":{"error":{"code":"INVALID_INPUT","timestamp":"2026-09-03T12:00:00.000Z"}}}}
+{"jsonrpc":"2.0","id":2,"result":{"isError":true,"structuredContent":{"error":{"code":"INTERNAL_ERROR","timestamp":"2027-01-01T12:00:00.000Z"}}}}`
+    const normalized = decodeOracleStdioResponses(stdout)
+    expect(normalized[0]?.result).toMatchObject({ structuredContent: { error: { timestamp: "<timestamp>" } } })
+    expect(normalized[1]?.result).toMatchObject({ structuredContent: { error: { timestamp: "<timestamp>" } } })
+    const redecoded = decodeOracleStdioResponses(stdout.replace("2026", "2028"))
+    expect(normalized[0]).toEqual(redecoded[0])
   })
 })

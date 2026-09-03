@@ -16,6 +16,7 @@ import {
   type McpImageContent,
   type McpToolResponse
 } from "../error-mapping.js"
+import { type McpErrorResponseWithMeta } from "../tool-responses.js"
 import { createToolOutputSchema, type McpOutputSchema } from "../tool-output-schema.js"
 import {
   ToolDomainFailure,
@@ -125,13 +126,13 @@ interface RegisteredOperation<Name extends string = string> extends ToolDefiniti
   ) => Effect.Effect<ToolOperationSuccess, ToolOperationFailure>
 }
 
-export const createMissingArgumentsError = (toolName: string): McpToolResponse =>
+export const createMissingArgumentsError = (toolName: string): McpErrorResponseWithMeta =>
   createInvalidParamsError(
     `Invalid parameters for ${toolName}: missing arguments object. Pass an arguments object; use {} when you want defaults for optional parameters.`,
     "MissingArguments"
   )
 
-export const createUnexpectedArgumentsError = (toolName: string): McpToolResponse =>
+export const createUnexpectedArgumentsError = (toolName: string): McpErrorResponseWithMeta =>
   createInvalidParamsError(
     `Invalid parameters for ${toolName}: this tool does not accept arguments. Pass {} or omit arguments.`,
     "UnexpectedArguments"

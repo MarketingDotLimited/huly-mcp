@@ -73,7 +73,8 @@ export const ExecuteHulyActionResultSchema = Schema.Struct({
 })
 
 const descriptions = {
-  class: "Exact Huly class ID discovered through get_huly_class or list_huly_classes.",
+  class:
+    "Exact non-system Huly class ID discovered through get_huly_class or list_huly_classes. System and private namespaces (e.g. core:class:Space) are rejected.",
   query: "Bounded Huly document query using JSON-compatible values.",
   projection: "Optional field names to return; system identity fields remain included.",
   limit: "Maximum documents to return.",

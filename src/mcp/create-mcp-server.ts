@@ -23,6 +23,7 @@ type McpServerHandle = readonly [server: Server, lifecycle: McpServerLifecycle]
 
 interface McpServerExposureOptions extends Partial<ProtocolExposureOptions> {
   readonly fallbackToCurrentClientInfoWhenRequestMetadataMissing?: boolean
+  readonly currentRequestId?: () => string
 }
 
 export interface McpProtocolDiagnostics {

@@ -14,7 +14,8 @@ import {
   ObjectClassName,
   PersonRefInput,
   ProjectIdentifier,
-  TeamspaceIdentifier
+  TeamspaceIdentifier,
+  withExactlyOneOfModes
 } from "./shared.js"
 
 const ObjectTargetFields = {
@@ -132,21 +133,39 @@ const collaboratorTargetDescriptions = {
   document: "Document title or ID for document target. Use with teamspace."
 }
 
-export const objectCollaboratorTargetJsonSchema = withJsonSchemaPropertyDescriptions(
-  toDraft07JsonSchema(ObjectCollaboratorsBaseSchema),
-  collaboratorTargetDescriptions
+const COLLABORATOR_MODES = [
+  ["objectId", "objectClass"],
+  ["project", "issueIdentifier"],
+  ["teamspace", "document"]
+] as const
+
+export const objectCollaboratorTargetJsonSchema = withExactlyOneOfModes(
+  withJsonSchemaPropertyDescriptions(
+    toDraft07JsonSchema(ObjectCollaboratorsBaseSchema),
+    collaboratorTargetDescriptions
+  ),
+  COLLABORATOR_MODES
 )
-export const listObjectCollaboratorsParamsJsonSchema = withJsonSchemaPropertyDescriptions(
-  toDraft07JsonSchema(ListObjectCollaboratorsParamsSchema),
-  { ...collaboratorTargetDescriptions, limit: `Maximum number of collaborators to return (default: ${DEFAULT_LIMIT})` }
+export const listObjectCollaboratorsParamsJsonSchema = withExactlyOneOfModes(
+  withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(ListObjectCollaboratorsParamsSchema), {
+    ...collaboratorTargetDescriptions,
+    limit: `Maximum number of collaborators to return (default: ${DEFAULT_LIMIT})`
+  }),
+  COLLABORATOR_MODES
 )
-export const addObjectCollaboratorParamsJsonSchema = withJsonSchemaPropertyDescriptions(
-  toDraft07JsonSchema(AddObjectCollaboratorParamsSchema),
-  { ...collaboratorTargetDescriptions, member: "Workspace account UUID, or an exact person display name or email." }
+export const addObjectCollaboratorParamsJsonSchema = withExactlyOneOfModes(
+  withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(AddObjectCollaboratorParamsSchema), {
+    ...collaboratorTargetDescriptions,
+    member: "Workspace account UUID, or an exact person display name or email."
+  }),
+  COLLABORATOR_MODES
 )
-export const removeObjectCollaboratorParamsJsonSchema = withJsonSchemaPropertyDescriptions(
-  toDraft07JsonSchema(RemoveObjectCollaboratorParamsSchema),
-  { ...collaboratorTargetDescriptions, member: "Workspace account UUID, or an exact person display name or email." }
+export const removeObjectCollaboratorParamsJsonSchema = withExactlyOneOfModes(
+  withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(RemoveObjectCollaboratorParamsSchema), {
+    ...collaboratorTargetDescriptions,
+    member: "Workspace account UUID, or an exact person display name or email."
+  }),
+  COLLABORATOR_MODES
 )
 
 export const parseListObjectCollaboratorsParams = Schema.decodeUnknownEffect(ListObjectCollaboratorsParamsSchema)

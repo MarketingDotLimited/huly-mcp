@@ -84,15 +84,30 @@ const HIGH_IMPACT_CATEGORIES = new Set([
 ])
 const HIGH_IMPACT_TOOLS = new Set(["create_workspace", "update_member_role", "remove_workspace_member"])
 
-export const requiresTwoStepApproval = (tool: ToolDefinition): boolean => {
+export type ToolInvocationClass = "read-only" | "direct-write" | "approval-required"
+
+export const classifyToolInvocation = (
+  tool: Pick<ToolDefinition, "name" | "category" | "annotations">
+): ToolInvocationClass => {
   const annotations = resolveAnnotations(tool)
-  if (annotations.readOnlyHint === true) return false
-  return (
-    tool.annotations?.destructiveHint === true ||
+  if (annotations.readOnlyHint === true) return "read-only"
+  if (
+    annotations.destructiveHint === true ||
     tool.name.startsWith("delete_") ||
     HIGH_IMPACT_CATEGORIES.has(tool.category) ||
     HIGH_IMPACT_TOOLS.has(tool.name)
-  )
+  ) {
+    return "approval-required"
+  }
+  return "direct-write"
+}
+
+export const requiresTwoStepApproval = (tool: Pick<ToolDefinition, "name" | "category" | "annotations">): boolean => {
+  return classifyToolInvocation(tool) === "approval-required"
+}
+
+export const isDirectWriteEligible = (tool: Pick<ToolDefinition, "name" | "category" | "annotations">): boolean => {
+  return classifyToolInvocation(tool) === "direct-write"
 }
 
 export interface ToolApprovalClients {

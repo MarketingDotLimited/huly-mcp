@@ -293,7 +293,8 @@ export class McpServerService extends Context.Service<McpServerService, McpServe
                       {
                         ...sdkExposureOptions,
                         currentClientInfo: () => httpClientInfo,
-                        fallbackToCurrentClientInfoWhenRequestMetadataMissing: true
+                        fallbackToCurrentClientInfoWhenRequestMetadataMissing: true,
+                        currentRequestId: () => requestId
                       },
                       createHostedHulyMigrationNoticeProvider({
                         delivery: "always",

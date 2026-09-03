@@ -11,6 +11,15 @@ import {
   withJsonSchemaPropertyDescriptions,
   withJsonSchemaUnionPropertyDescriptions
 } from "./json-schema.js"
+import { withExactlyOneOfModes } from "./shared.js"
+import { objectCollaboratorTargetJsonSchema } from "./collaborators.js"
+import { listSpacePreferencesParamsJsonSchema } from "./preferences.js"
+import { getSupportStatusParamsJsonSchema } from "./support.js"
+import { listContactChannelProvidersParamsJsonSchema } from "./contact-channels.js"
+import { listCalendarsParamsJsonSchema } from "./calendar.js"
+import { listProjectTypesParamsJsonSchema } from "./task-management.js"
+import { InventoryCreatedResultSchema } from "./inventory.js"
+import { SetCustomFieldResultWireSchema } from "./custom-fields.js"
 
 const expectRecord = (value: unknown): { readonly [x: string | symbol]: unknown } => {
   const record = parseJsonSchemaRecord(value)
@@ -223,5 +232,104 @@ describe("toDraft07JsonSchema", () => {
     expect(JSON.stringify(wrappedOutput)).not.toContain("#/definitions/")
     expect(validateOutput({ result: { result: { code: "A" }, values: ["one", "two"] } })).toBe(true)
     expect(validateOutput({ result: { result: { code: 1 }, values: ["one"] } })).toBe(false)
+  })
+})
+
+describe("Collaborators and Preferences schemas", () => {
+  it("enforces exact modes for collaborators", () => {
+    const ajv = new Ajv({ strict: false })
+    const validate = ajv.compile(objectCollaboratorTargetJsonSchema)
+
+    // Valid modes
+    expect(validate({ objectId: "123", objectClass: "Task" })).toBe(true)
+    expect(validate({ project: "proj-1", issueIdentifier: "ISSUE-1" })).toBe(true)
+    expect(validate({ teamspace: "ts-1", document: "doc-1" })).toBe(true)
+
+    // No locator
+    expect(validate({})).toBe(false)
+
+    // Partial pairs
+    expect(validate({ objectId: "123" })).toBe(false)
+    expect(validate({ project: "proj-1" })).toBe(false)
+    expect(validate({ teamspace: "ts-1" })).toBe(false)
+
+    // Two full modes
+    expect(validate({ objectId: "123", objectClass: "Task", project: "proj-1", issueIdentifier: "ISSUE-1" })).toBe(
+      false
+    )
+
+    // Valid mode plus stray inactive field
+    expect(validate({ objectId: "123", objectClass: "Task", document: "doc-1" })).toBe(false)
+    expect(validate({ teamspace: "ts-1", document: "doc-1", project: "proj-1" })).toBe(false)
+  })
+
+  it("enforces dependent requirements for space preferences", () => {
+    const ajv = new Ajv({ strict: false })
+    const validate = ajv.compile(listSpacePreferencesParamsJsonSchema)
+
+    // Valid without space or space-dependent fields
+    expect(validate({})).toBe(true)
+    expect(validate({ limit: 10 })).toBe(true)
+
+    // Valid with space
+    expect(validate({ space: "space-1" })).toBe(true)
+    expect(validate({ space: "space-1", includeArchived: true })).toBe(true)
+    expect(validate({ space: "space-1", class: "Space" })).toBe(true)
+    expect(validate({ space: "space-1", type: "Type" })).toBe(true)
+    expect(validate({ space: "space-1", includeArchived: true, class: "Space", type: "Type" })).toBe(true)
+
+    // Invalid (dependent field without space)
+    expect(validate({ includeArchived: true })).toBe(false)
+    expect(validate({ class: "Space" })).toBe(false)
+    expect(validate({ type: "Type" })).toBe(false)
+    expect(validate({ includeArchived: true, limit: 5 })).toBe(false)
+  })
+
+  it("enforces strict no-arg params schemas", () => {
+    const ajv = new Ajv({ strict: false })
+    const schemas = [
+      getSupportStatusParamsJsonSchema,
+      listContactChannelProvidersParamsJsonSchema,
+      listCalendarsParamsJsonSchema,
+      listProjectTypesParamsJsonSchema
+    ]
+
+    for (const schema of schemas) {
+      const validate = ajv.compile(schema)
+      expect(validate({})).toBe(true)
+      expect(validate({ unexpected: true })).toBe(false)
+      expect(schema).toMatchObject({ type: "object", additionalProperties: false })
+    }
+  })
+
+  it("removes duplicate anyOf refs for InventoryCreatedResult id", () => {
+    const jsonSchema = toDraft07JsonSchema(InventoryCreatedResultSchema)
+    const idProp = getProperty(jsonSchema, "id") as Record<string, unknown>
+    expect(idProp).not.toHaveProperty("anyOf")
+    expect(idProp).toEqual({ allOf: [{ $ref: "#/$defs/NonEmptyString" }], description: "Inventory object ID" })
+  })
+
+  it("provides an honest JSON-compatible schema for SetCustomFieldResultWireSchema value", () => {
+    const jsonSchema = toDraft07JsonSchema(SetCustomFieldResultWireSchema)
+    const valueProp = getProperty(jsonSchema, "value") as Record<string, unknown>
+    expect(valueProp).toHaveProperty("anyOf")
+    expect(valueProp.anyOf).toContainEqual({ type: "null" })
+    expect(valueProp.anyOf).toContainEqual({ type: "string" })
+    expect(valueProp.anyOf).toContainEqual({ type: "number" })
+    expect(valueProp.anyOf).toContainEqual({ type: "boolean" })
+    expect(valueProp.anyOf).toContainEqual({ type: "array" })
+    expect(valueProp.anyOf).toContainEqual({ type: "object" })
+    // Ensure it doesn't resolve to `{}` which allows invalid things (though anyOf above is fairly permissive)
+    expect(valueProp).not.toEqual({})
+  })
+})
+
+describe("withExactlyOneOfModes", () => {
+  it("enforces exact active mode fields and forbids inactive mode fields", () => {
+    const result = withExactlyOneOfModes({ type: "object" }, [["a", "b"], ["a"]])
+    expect(result).toEqual({
+      type: "object",
+      oneOf: [{ required: ["a", "b"] }, { required: ["a"], not: { anyOf: [{ required: ["b"] }] } }]
+    })
   })
 })

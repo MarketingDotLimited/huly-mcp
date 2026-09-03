@@ -1,6 +1,10 @@
 import { Schema } from "effect"
 
-import { toDraft07JsonSchema, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
+import {
+  toDraft07JsonSchema,
+  toDraft07EmptyObjectJsonSchema,
+  withJsonSchemaPropertyDescriptions
+} from "./json-schema.js"
 
 import {
   ChannelId,
@@ -315,7 +319,9 @@ const describeChannelSchema = (schema: object): object =>
   withJsonSchemaPropertyDescriptions(schema, channelDescriptions)
 
 export const addPersonChannelParamsJsonSchema = describeChannelSchema(toDraft07JsonSchema(AddPersonChannelParamsSchema))
-export const listContactChannelProvidersParamsJsonSchema = toDraft07JsonSchema(ListContactChannelProvidersParamsSchema)
+export const listContactChannelProvidersParamsJsonSchema = toDraft07EmptyObjectJsonSchema(
+  ListContactChannelProvidersParamsSchema
+)
 export const listPersonChannelsParamsJsonSchema = describeChannelSchema(
   toDraft07JsonSchema(ListPersonChannelsParamsSchema)
 )

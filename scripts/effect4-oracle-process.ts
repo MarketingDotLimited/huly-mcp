@@ -75,6 +75,19 @@ const normalizeServerVersion = (response: OracleJsonRpcResponse): OracleJsonRpcR
   })
 }
 
+const normalizeErrorTimestamp = (response: OracleJsonRpcResponse): OracleJsonRpcResponse => {
+  if (!isJsonRecord(response.result) || response.result.isError !== true) return response
+  const content = response.result.structuredContent
+  if (!isJsonRecord(content)) return response
+  const error = content.error
+  if (!isJsonRecord(error) || typeof error.timestamp !== "string") return response
+
+  return Schema.decodeUnknownSync(OracleJsonRpcResponseSchema)({
+    ...response,
+    result: { ...response.result, structuredContent: { ...content, error: { ...error, timestamp: "<timestamp>" } } }
+  })
+}
+
 export const decodeOracleStdioResponses = (stdout: string): ReadonlyArray<OracleJsonRpcResponse> =>
   stdout
     .trim()
@@ -82,6 +95,7 @@ export const decodeOracleStdioResponses = (stdout: string): ReadonlyArray<Oracle
     .filter((line) => line !== "")
     .map((line) => Schema.decodeUnknownSync(Schema.fromJsonString(OracleJsonRpcResponseSchema))(line))
     .map(normalizeServerVersion)
+    .map(normalizeErrorTimestamp)
 
 export const requireSuccessfulOracleProcess = (label: string, result: OracleProcessResult): OracleProcessResult => {
   if (result.exitCode !== 0 || result.stderr !== "") {

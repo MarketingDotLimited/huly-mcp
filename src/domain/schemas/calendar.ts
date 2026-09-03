@@ -1,7 +1,7 @@
 import type { Visibility as HulyVisibility } from "@hcengineering/calendar"
 import { Schema } from "effect"
 
-import { toDraft07JsonSchema } from "./json-schema.js"
+import { toDraft07JsonSchema, toDraft07EmptyObjectJsonSchema } from "./json-schema.js"
 
 import { clearableText } from "./clearable.js"
 import { HULY_NATIVE_REFERENCE_MARKDOWN_INPUT } from "./document-native-references.js"
@@ -394,7 +394,7 @@ export type DeleteEventParams = Schema.Schema.Type<typeof DeleteEventParamsSchem
 
 export const listEventsParamsJsonSchema = toDraft07JsonSchema(ListEventsParamsSchema)
 export const getEventParamsJsonSchema = toDraft07JsonSchema(GetEventParamsSchema)
-export const listCalendarsParamsJsonSchema = toDraft07JsonSchema(ListCalendarsParamsSchema)
+export const listCalendarsParamsJsonSchema = toDraft07EmptyObjectJsonSchema(ListCalendarsParamsSchema)
 export const createEventParamsJsonSchema = withMutuallyExclusiveFields(
   toDraft07JsonSchema(CreateEventParamsSchema),
   CALENDAR_TARGET_FIELDS

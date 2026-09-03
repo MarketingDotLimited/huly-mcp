@@ -1,7 +1,7 @@
 import type { Ref, StatusCategory } from "@hcengineering/core"
 import { Effect, Schema, SchemaGetter, SchemaIssue } from "effect"
 
-import { parseJsonSchemaRecord, toDraft07JsonSchema } from "./json-schema.js"
+import { parseJsonSchemaRecord, toDraft07JsonSchema, toDraft07EmptyObjectJsonSchema } from "./json-schema.js"
 import { task } from "../../huly/huly-plugins.js"
 import {
   Count,
@@ -244,7 +244,7 @@ export const CreateIssueStatusResultSchema = Schema.Struct({
 })
 export type CreateIssueStatusResult = Schema.Schema.Type<typeof CreateIssueStatusResultSchema>
 
-export const listProjectTypesParamsJsonSchema = toDraft07JsonSchema(ListProjectTypesParamsSchema)
+export const listProjectTypesParamsJsonSchema = toDraft07EmptyObjectJsonSchema(ListProjectTypesParamsSchema)
 export const getProjectTypeParamsJsonSchema = toDraft07JsonSchema(GetProjectTypeParamsSchema)
 export const listTaskTypesParamsJsonSchema = toDraft07JsonSchema(ListTaskTypesParamsSchema)
 export const createTaskTypeParamsJsonSchema = toDraft07JsonSchema(CreateTaskTypeParamsSchema)

@@ -51,7 +51,7 @@ const deriveAnnotations = (name: string): ToolAnnotations => {
   if (matchesPrefix(name, DELETE_PREFIXES)) {
     return { title, readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false }
   }
-  return { title, readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false }
+  return { title, readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
 }
 
 export const resolveAnnotations = (tool: AnnotatedTool): ToolAnnotations => ({

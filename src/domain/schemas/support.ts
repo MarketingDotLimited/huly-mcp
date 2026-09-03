@@ -1,6 +1,6 @@
 import { Schema } from "effect"
+import { toDraft07EmptyObjectJsonSchema } from "./json-schema.js"
 
-import { toDraft07JsonSchema } from "./json-schema.js"
 import { DocId, EmptyParamsSchema, NonEmptyString, Timestamp } from "./shared.js"
 
 const MINIMUM_AMBIGUOUS_SUPPORT_SYSTEMS = 2
@@ -82,5 +82,5 @@ export const GetSupportStatusResultSchema = Schema.Union([
 })
 export type GetSupportStatusResult = Schema.Schema.Type<typeof GetSupportStatusResultSchema>
 
-export const getSupportStatusParamsJsonSchema = toDraft07JsonSchema(GetSupportStatusParamsSchema)
+export const getSupportStatusParamsJsonSchema = toDraft07EmptyObjectJsonSchema(GetSupportStatusParamsSchema)
 export const parseGetSupportStatusParams = Schema.decodeUnknownEffect(GetSupportStatusParamsSchema)

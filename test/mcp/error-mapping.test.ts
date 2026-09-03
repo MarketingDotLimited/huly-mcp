@@ -555,6 +555,16 @@ describe("Error Mapping to MCP", () => {
         })
       )
 
+      it.effect("includes operation but no HTTP status when httpStatus is absent", () =>
+        Effect.sync(function () {
+          const error = new HulyConnectionError({ message: "failed", diagnostic: { operation: "updateMarkup" } })
+          const response = mapDomainErrorToMcp(error)
+          expect(assertAt(response.content, 0).text).toContain(
+            "Connection error while communicating with Huly: updateMarkup failed. Verify HULY_URL"
+          )
+        })
+      )
+
       it.effect("preserves known resolver failures and hides arbitrary resolver rejections", () =>
         Effect.sync(function () {
           const unavailable = mapClientResolutionErrorToMcp(
@@ -979,13 +989,13 @@ describe("Error Mapping to MCP", () => {
   })
 
   describe("error responses with warnings", () => {
-    it.effect("keeps warnings in text content without structuredContent", () =>
+    it.effect("keeps warnings in text content and populates structuredContent", () =>
       Effect.sync(function () {
         const warning = { code: "status_metadata_unresolved" as const, message: "Status metadata was degraded." }
         const response = mapDomainErrorToMcp(new HulyError({ message: "failed after warning" }), [warning])
 
         expect(response.isError).toBe(true)
-        expect(response.structuredContent).toBeUndefined()
+        expect(response.structuredContent).toEqual({ warnings: [warning] })
         expect(assertAt(response.content, 0).text).toBe("failed after warning")
         expect(JSON.parse(assertAt(response.content, 1).text)).toEqual({ warnings: [warning] })
       })

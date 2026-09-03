@@ -1,5 +1,5 @@
 import type { ToolAnnotations } from "@modelcontextprotocol/server"
-import { Result, Schema, type SchemaAST } from "effect"
+import { Result, Schema } from "effect"
 
 import { Count } from "../domain/schemas/index.js"
 import {
@@ -7,9 +7,9 @@ import {
   createInvalidParamsError,
   createSuccessResponse,
   createUnknownToolError,
-  mapParseErrorToMcp,
   type McpToolResponse
 } from "./error-mapping.js"
+import { decodeOrError } from "./proxy-tools-decode.js"
 import {
   listCategories,
   SEARCH_DEFAULT_LIMIT_VALUE,
@@ -30,6 +30,7 @@ import {
   PrepareToolActionResultSchema,
   prepareToolActionInputSchema,
   requiresTwoStepApproval,
+  classifyToolInvocation,
   type ToolApprovalClients
 } from "./proxy-tool-approvals.js"
 import type { ToolRegistry } from "./tools/index.js"
@@ -275,22 +276,6 @@ export const isProxyToolName = (name: string): name is ToolName =>
 const isInvocationProxyToolName = (name: ToolName): boolean =>
   [INVOKE_READ_TOOL_TOOL_NAME, INVOKE_WRITE_TOOL_TOOL_NAME, INVOKE_TOOL_TOOL_NAME].some((toolName) => toolName === name)
 
-type DecodeOrErrorResult<A> =
-  | { readonly _tag: "success"; readonly params: A }
-  | { readonly _tag: "error"; readonly response: McpToolResponse }
-
-const strictProxyInputParseOptions = { onExcessProperty: "error" } as const satisfies SchemaAST.ParseOptions
-
-const decodeOrError = <A, I>(
-  schema: Schema.Codec<A, I>,
-  input: unknown,
-  toolName: ToolName
-): DecodeOrErrorResult<A> => {
-  const decoded = Schema.decodeUnknownResult(schema, strictProxyInputParseOptions)(input ?? {})
-  if (Result.isSuccess(decoded)) return { _tag: "success", params: decoded.success }
-  return { _tag: "error", response: mapParseErrorToMcp(decoded.failure, toolName) }
-}
-
 const searchTools = (registry: ToolRegistry, args: unknown): McpToolResponse => {
   const decoded = decodeOrError(SearchToolsParamsSchema, args, SEARCH_TOOLS_TOOL_NAME)
   if (decoded._tag === "error") return decoded.response
@@ -360,17 +345,27 @@ const successfulInvokeResponse = (toolName: ToolName, response: SuccessfulToolCa
 }
 
 const invocationPolicyError = (target: ToolDefinition, proxyToolName: ToolName): McpToolResponse | undefined => {
-  const annotations = resolveAnnotations(target)
-  if (proxyToolName === INVOKE_READ_TOOL_TOOL_NAME && annotations.readOnlyHint !== true) {
+  const toolClass = classifyToolInvocation(target)
+
+  if (proxyToolName === INVOKE_READ_TOOL_TOOL_NAME && toolClass !== "read-only") {
     return createInvalidParamsError(
       `Tool '${target.name}' is not read-only and cannot be called with invoke_read_tool. Use invoke_write_tool, or the approval flow when required.`,
-      "ReadOnlyToolRequired"
+      "ReadOnlyToolRequired",
+      "proxy"
     )
   }
-  if (proxyToolName === INVOKE_WRITE_TOOL_TOOL_NAME && annotations.readOnlyHint === true) {
+  if (proxyToolName === INVOKE_WRITE_TOOL_TOOL_NAME && toolClass === "read-only") {
     return createInvalidParamsError(
       `Tool '${target.name}' is read-only. Call it with invoke_read_tool so the MCP client can apply the correct safety policy.`,
-      "WriteToolRequired"
+      "WriteToolRequired",
+      "proxy"
+    )
+  }
+  if (toolClass === "approval-required") {
+    return createInvalidParamsError(
+      `Tool '${target.name}' requires two-step approval. Call prepare_tool_action with this exact toolName and arguments, then pass its approvalId, toolName, and arguments to execute_approved_tool_action.`,
+      "ApprovalRequired",
+      "proxy"
     )
   }
   return undefined
@@ -390,12 +385,6 @@ const invokeTool = async (
   if (target === undefined) return createUnknownToolError(params.toolName)
   const policyError = invocationPolicyError(target, proxyToolName)
   if (policyError !== undefined) return policyError
-  if (requiresTwoStepApproval(target)) {
-    return createInvalidParamsError(
-      `Tool '${params.toolName}' requires two-step approval. Call prepare_tool_action with this exact toolName and arguments, then pass its approvalId, toolName, and arguments to execute_approved_tool_action.`,
-      "ApprovalRequired"
-    )
-  }
 
   const response = await registry.handleToolCall(
     params.toolName,
@@ -425,7 +414,7 @@ const listProxyCategories = (registry: ToolRegistry, args: unknown): McpToolResp
 const invokeProxyTool = (input: ProxyToolCallInput): Promise<McpToolResponse> => {
   if (input.clients === undefined) {
     return Promise.resolve(
-      createInvalidParamsError(`${input.toolName} requires initialized Huly clients.`, "ProxyClientsMissing")
+      createInvalidParamsError(`${input.toolName} requires initialized Huly clients.`, "ProxyClientsMissing", "proxy")
     )
   }
   return invokeTool(input.proxyCandidateRegistry, input.args, input.clients, input.toolName)

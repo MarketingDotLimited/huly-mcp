@@ -424,11 +424,12 @@ describe("defineTool", () => {
       )
 
       expect(result.isError).toBe(true)
-      expect(result.structuredContent).toBeUndefined()
+      const expectedWarnings = [
+        { code: "status_metadata_unresolved", message: "Status metadata was degraded for world." }
+      ]
+      expect(result.structuredContent).toEqual({ warnings: expectedWarnings })
       expect(assertAt(result.content, 0).text).toContain("failed after warning")
-      expect(JSON.parse(assertAt(result.content, 1).text)).toEqual({
-        warnings: [{ code: "status_metadata_unresolved", message: "Status metadata was degraded for world." }]
-      })
+      expect(JSON.parse(assertAt(result.content, 1).text)).toEqual({ warnings: expectedWarnings })
     })
   )
 })

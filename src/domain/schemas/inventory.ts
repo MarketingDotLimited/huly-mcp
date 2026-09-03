@@ -6,6 +6,7 @@ import {
   atLeastOneUpdateFieldMessage,
   Count,
   DEFAULT_LIMIT,
+  DocId,
   hasAtLeastOneDefined,
   InventoryCategoryId,
   InventoryCategoryIdentifier,
@@ -19,8 +20,6 @@ import {
   Timestamp,
   withAtLeastOneRequired
 } from "./shared.js"
-
-const InventoryObjectIdSchema = Schema.Union([InventoryCategoryId, InventoryProductId, InventoryVariantId])
 
 const InventoryCategorySummarySchema = Schema.Struct({
   id: InventoryCategoryId,
@@ -89,19 +88,19 @@ export const ListInventoryVariantsResultSchema = Schema.Struct({
 export type ListInventoryVariantsResult = Schema.Schema.Type<typeof ListInventoryVariantsResultSchema>
 
 export const InventoryCreatedResultSchema = Schema.Struct({
-  id: InventoryObjectIdSchema,
+  id: DocId.annotate({ description: "Inventory object ID" }),
   created: Schema.Literal(true)
 })
 export type InventoryCreatedResult = Schema.Schema.Type<typeof InventoryCreatedResultSchema>
 
 export const InventoryUpdatedResultSchema = Schema.Struct({
-  id: InventoryObjectIdSchema,
+  id: DocId.annotate({ description: "Inventory object ID" }),
   updated: Schema.Literal(true)
 })
 export type InventoryUpdatedResult = Schema.Schema.Type<typeof InventoryUpdatedResultSchema>
 
 export const InventoryDeletedResultSchema = Schema.Struct({
-  id: InventoryObjectIdSchema,
+  id: DocId.annotate({ description: "Inventory object ID" }),
   deleted: Schema.Literal(true)
 })
 export type InventoryDeletedResult = Schema.Schema.Type<typeof InventoryDeletedResultSchema>

@@ -86,7 +86,7 @@ const prefixDefaults = [
   },
   {
     prefixes: ["custom_"],
-    defaults: { destructiveHint: true, idempotentHint: false, openWorldHint: false, readOnlyHint: false }
+    defaults: { destructiveHint: false, idempotentHint: false, openWorldHint: false, readOnlyHint: false }
   }
 ] satisfies ReadonlyArray<{
   readonly defaults: Omit<ToolAnnotations, "title">

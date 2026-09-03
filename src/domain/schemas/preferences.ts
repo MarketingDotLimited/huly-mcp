@@ -12,7 +12,8 @@ import {
   SpaceClassFilter,
   SpaceId,
   SpaceIdentifier,
-  SpaceTypeId
+  SpaceTypeId,
+  withDependentRequired
 } from "./shared.js"
 import { SpaceSummarySchema } from "./spaces.js"
 
@@ -119,12 +120,13 @@ const spacePreferenceResolverDescriptions = {
   type: "Raw Huly SpaceType ID used to disambiguate exact-name lookup."
 } as const
 
-export const listSpacePreferencesParamsJsonSchema = withJsonSchemaPropertyDescriptions(
-  toDraft07JsonSchema(ListSpacePreferencesParamsSchema),
-  {
+export const listSpacePreferencesParamsJsonSchema = withDependentRequired(
+  withJsonSchemaPropertyDescriptions(toDraft07JsonSchema(ListSpacePreferencesParamsSchema), {
     ...spacePreferenceResolverDescriptions,
     limit: `Maximum number of preferences to return (default: ${DEFAULT_LIMIT}).`
-  }
+  }),
+  ["includeArchived", "class", "type"],
+  "space"
 )
 export const getSpacePreferenceParamsJsonSchema = withJsonSchemaPropertyDescriptions(
   toDraft07JsonSchema(GetSpacePreferenceParamsSchema),
