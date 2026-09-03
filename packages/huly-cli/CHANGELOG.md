@@ -1,5 +1,11 @@
 # @firfi/huly-cli
 
+## 0.49.0
+
+### Minor Changes
+
+- e1bfe94: Add complete Huly HR department, staff, request, holiday, schedule, and reporting operations. Add guarded generic document actions and mandatory two-step approval for destructive or high-impact tools, with account binding, drift detection, and persistent audit records.
+
 ## 0.48.2
 
 ### Patch Changes
