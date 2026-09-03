@@ -153,6 +153,13 @@ if [[ "$node_version" != "22.22.2" && "$node_version" != "24.15.0" ]]; then
   exit 1
 fi
 
+initial_mcp_package_version="$(node -p "require('./package.json').version")"
+if [[ "$initial_mcp_package_version" == *"-mdl."* ]]; then
+  echo "Error: Refusing to run standard release for an mdl prerelease." >&2
+  echo "Please use scripts/local_mdl_release.sh instead." >&2
+  exit 1
+fi
+
 # Release builds bundle dependencies from the project checkout. A clean clone may
 # not have node_modules yet, so make the one-command release path self-contained.
 CI=true pnpm install --frozen-lockfile --prod=false

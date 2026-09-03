@@ -1,22 +1,10 @@
 # @firfi/huly-mcp
 
-## 0.50.0
-
-### Minor Changes
-
-- e1bfe94: Add complete Huly HR department, staff, request, holiday, schedule, and reporting operations. Add guarded generic document actions and mandatory two-step approval for destructive or high-impact tools, with account binding, drift detection, and persistent audit records.
+## 0.50.0-mdl.18
 
 ### Patch Changes
 
-- abcce54: Rename destructive proxy execution to `execute_approved_tool_action` so ChatGPT discovers the current inspectable approval schema instead of retaining a stale opaque-token action definition.
-- 601d97d: Classify ChatGPT/OpenAI MCP clients across stateless HTTP requests, expose enforced read-only and write proxy executors, and add correlated structured MCP diagnostics.
 - b0e940c: Block system classes in find_huly_documents, align dependent/exclusive/no-arg schemas and output schemas, add structured/redacted error metadata with request IDs, and add exhaustive 550-tool/10-action contract auditing.
-- c09796a: Make destructive proxy execution inspectable to MCP hosts by binding an approval ID to the exact tool name and arguments, while rejecting any execution-time mismatch.
-- 99135a8: Report incompatible issue #101 Huly packages with concrete typed SDK viability reasons.
-- c8b48d8: Reject undeclared input properties consistently across native tools, proxy read/write/legacy executors, and destructive approval preparation before dispatch or approval hashing.
-- 3adda4b: Fix search_tools to return zero irrelevant results for exact-looking synthetic queries like MCP_QA_NONEXISTENT_TARGET, by enforcing strictly matching tokens when the query contains no whitespace.
-- 30cacb9: Keep read-only workspace and security tools on the read executor, and validate destructive target arguments before issuing a proxy approval.
-- 40e58aa: Expose every proxy candidate with resolved safety and approval metadata in the category catalog, and require a successful live deletion preview before approving issue, project, component, or milestone deletion.
 
 ## 0.49.7
 
